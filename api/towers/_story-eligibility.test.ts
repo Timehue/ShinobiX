@@ -26,6 +26,22 @@ describe('Story Tower entry progression authority', () => {
         });
     });
 
+    it('continues the same sequential authority across the Chapter 1 → Chapter 2 boundary', () => {
+        assert.deepEqual(storyTowerEligibility({ level: 70, battleTowerBestFloor: 10 }, 11), {
+            eligible: true,
+            replay: false,
+        });
+        assert.deepEqual(storyTowerEligibility({ level: 80, battleTowerBestFloor: 14 }, 15), {
+            eligible: true,
+            replay: false,
+        });
+        assert.deepEqual(storyTowerEligibility({ level: 70, battleTowerBestFloor: 10 }, 12), {
+            eligible: false,
+            replay: false,
+            requiredFloor: 12,
+        });
+    });
+
     it('allows an authoritative cleared-floor replay even above a stale best-floor field', () => {
         assert.deepEqual(storyTowerEligibility({
             level: 42,

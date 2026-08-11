@@ -192,7 +192,7 @@ const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => 
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, shouldRedirectToHospital, setTowerFightRunId, TOWER_FIGHT_STATE_EVENT } from "./lib/screen-guards";
+import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, shouldRedirectToHospital, setTowerFightRunId, setTowerPvpMatchId, TOWER_FIGHT_STATE_EVENT } from "./lib/screen-guards";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { mergePlayerRoster } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
@@ -3367,7 +3367,10 @@ export default function App() {
                         // Tower locks are server-owned leases. Never resolve one as a local
                         // loss or hospitalize: route to authoritative run recovery instead.
                         const runId = typeof bootLock.meta?.runId === "string" ? bootLock.meta.runId.trim() : "";
-                        if (runId && runId.length <= 128) setTowerFightRunId(runId);
+                        if (runId && runId.length <= 128) {
+                            if (bootLock.meta?.mode === "mpvp") setTowerPvpMatchId(runId);
+                            else setTowerFightRunId(runId);
+                        }
                         setScreen("battleTowers");
                         return;
                     }

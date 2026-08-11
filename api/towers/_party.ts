@@ -13,11 +13,18 @@ import {
 import type { TowerSession } from './_tower-session.js';
 import { releaseTowerBattleLeases } from './_battle-lease.js';
 import { compensateConfirmedMissingTowerEntry } from './_entry-recovery.js';
+import {
+    GENERIC_TOWER_AI_ID,
+    GENERIC_TOWER_AI_PROFILE,
+    genericTowerAiDisplayName,
+    genericTowerAiMemberId,
+} from './_generic-party-ai.js';
 
 export const TOWER_PARTY_TTL = 2 * 60 * 60;
 const TOWER_PARTY_TTL_MS = TOWER_PARTY_TTL * 1_000;
 export const TOWER_PARTY_MIN = 2;
 export const TOWER_PARTY_MAX = 4;
+export const TOWER_PARTY_AI_MAX = 1;
 export const TOWER_PARTY_RECEIPT_CAP = 64;
 export const TOWER_PARTY_LAUNCH_GRACE_MS = 5 * 60 * 1_000;
 
@@ -37,6 +44,9 @@ export type TowerPartyMember = {
     displayName: string;
     joinedAt: number;
     ready: boolean;
+    /** True only for a server-authored, ownerless Story recruit. */
+    ai?: boolean;
+    aiProfile?: typeof GENERIC_TOWER_AI_PROFILE;
 };
 
 export type TowerPartyLaunch = {
@@ -81,6 +91,14 @@ export type TowerPartyView = Omit<StoredTowerParty, 'receipts'> & {
     };
     allReady: boolean;
     canLaunch: boolean;
+    liveMemberCount: number;
+    aiMemberCount: number;
+    aiPolicy: {
+        allowed: boolean;
+        max: number;
+        profile: typeof GENERIC_TOWER_AI_PROFILE;
+        progressionEligible: false;
+    };
 };
 
 export type TowerPartyInvitationView = {
@@ -127,6 +145,24 @@ function bindingEqual(a: TowerPartyBinding, b: TowerPartyBinding): boolean {
 
 function isLiveParty(party: StoredTowerParty): boolean {
     return party.status === 'forming' || party.status === 'launching' || party.status === 'active';
+}
+
+export function isGenericTowerAiMember(member: TowerPartyMember): boolean {
+    return member.ai === true
+        && member.aiProfile === GENERIC_TOWER_AI_PROFILE
+        && GENERIC_TOWER_AI_ID.test(member.slug);
+}
+
+export function towerPartyHumanMembers(party: Pick<StoredTowerParty, 'members'>): TowerPartyMember[] {
+    return party.members.filter(member => !isGenericTowerAiMember(member));
+}
+
+export function towerPartyAiMembers(party: Pick<StoredTowerParty, 'members'>): TowerPartyMember[] {
+    return party.members.filter(isGenericTowerAiMember);
+}
+
+function resetMemberReadiness(member: TowerPartyMember): TowerPartyMember {
+    return { ...member, ready: isGenericTowerAiMember(member) };
 }
 
 function depsOf(deps: TowerPartyDeps) {
@@ -204,16 +240,26 @@ async function reconcileInvitationIndex(
 
 export function towerPartyView(party: StoredTowerParty): TowerPartyView {
     const { receipts: _receipts, ...publicParty } = party;
+    const liveMemberCount = towerPartyHumanMembers(party).length;
+    const aiMemberCount = towerPartyAiMembers(party).length;
     const required = party.binding.mode === 'spire' ? TOWER_PARTY_MAX : null;
     const validSize = required === null
         ? party.members.length >= TOWER_PARTY_MIN && party.members.length <= TOWER_PARTY_MAX
-        : party.members.length === required;
+        : liveMemberCount === required && aiMemberCount === 0;
     const allReady = party.members.length > 0 && party.members.every(member => member.ready);
     return {
         ...publicParty,
         sizeRequirements: { min: required ?? TOWER_PARTY_MIN, max: TOWER_PARTY_MAX, required },
         allReady,
         canLaunch: party.status === 'forming' && allReady && validSize,
+        liveMemberCount,
+        aiMemberCount,
+        aiPolicy: {
+            allowed: party.binding.mode === 'story',
+            max: party.binding.mode === 'story' ? TOWER_PARTY_AI_MAX : 0,
+            profile: GENERIC_TOWER_AI_PROFILE,
+            progressionEligible: false,
+        },
     };
 }
 
@@ -243,7 +289,7 @@ export async function repairStaleTowerPartyLifecycle(
                 : party;
             release = {
                 party: sanitized,
-                members: sanitized.members.map(member => member.slug),
+                members: towerPartyHumanMembers(sanitized).map(member => member.slug),
                 invitees,
                 ...(sanitized.launch ? { runId: sanitized.launch.runId } : {}),
             };
@@ -301,7 +347,7 @@ export async function repairStaleTowerPartyLifecycle(
         }, now);
         release = {
             party: closed,
-            members: closed.members.map(member => member.slug),
+            members: towerPartyHumanMembers(closed).map(member => member.slug),
             invitees,
             ...(closed.launch ? { runId: closed.launch.runId } : {}),
         };
@@ -343,7 +389,7 @@ export async function activeTowerPartyForPlayer(slug: string, deps: TowerPartyDe
     const partyId = await kv.get<string>(towerPartyPlayerKey(safeName(slug)));
     if (!partyId) return null;
     const party = await repairStaleTowerPartyLifecycle(partyId, { ...deps, kv });
-    if (!party || !isLiveParty(party) || !party.members.some(member => member.slug === safeName(slug))) {
+    if (!party || !isLiveParty(party) || !towerPartyHumanMembers(party).some(member => member.slug === safeName(slug))) {
         // A stale projection expires with the room. Avoid deleting it here: an
         // unlocked read/delete repair could erase a newer party index written in
         // between those two operations.
@@ -365,7 +411,7 @@ export async function createTowerParty(input: {
     return lock(towerPartyPlayerKey(hostSlug), async () => {
         const existingId = await kv.get<string>(towerPartyPlayerKey(hostSlug));
         const existing = existingId ? await loadPartyWith(kv, existingId) : null;
-        if (existing && isLiveParty(existing) && existing.members.some(member => member.slug === hostSlug)) {
+        if (existing && isLiveParty(existing) && towerPartyHumanMembers(existing).some(member => member.slug === hostSlug)) {
             if (existing.hostSlug === hostSlug && existing.status === 'forming' && bindingEqual(existing.binding, input.binding)) {
                 return { ok: true, party: existing, replayed: true };
             }
@@ -393,7 +439,7 @@ export async function createTowerParty(input: {
             hostSlug,
             binding: input.binding,
             status: 'forming',
-            members: [{ slug: hostSlug, displayName: String(input.displayName || hostSlug).slice(0, 40), joinedAt: now, ready: false }],
+            members: [{ slug: hostSlug, displayName: String(input.displayName || hostSlug).slice(0, 40), joinedAt: now, ready: false, ai: false }],
             invitedSlugs: [],
             version: 1,
             createdAt: now,
@@ -484,14 +530,14 @@ export async function joinTowerParty(input: {
                 fingerprint: input.fingerprint,
                 mutate: (party, now) => {
                     if (party.status !== 'forming') return { ok: false, status: 409, code: 'party-locked', error: 'That Tower party has already launched.', party };
-                    if (party.members.some(member => member.slug === actor)) return { ok: true, party, replayed: true };
+                    if (towerPartyHumanMembers(party).some(member => member.slug === actor)) return { ok: true, party, replayed: true };
                     if (input.requireTargetedInvite && !party.invitedSlugs.includes(actor)) {
                         return { ok: false, status: 403, code: 'invite-required', error: 'That invitation is no longer available.', party };
                     }
                     if (party.members.length >= TOWER_PARTY_MAX) return { ok: false, status: 409, code: 'party-full', error: 'The Tower party is full.', party };
                     const members = [
-                        ...party.members.map(member => ({ ...member, ready: false })),
-                        { slug: actor, displayName: String(input.displayName || actor).slice(0, 40), joinedAt: now, ready: false },
+                        ...party.members.map(resetMemberReadiness),
+                        { slug: actor, displayName: String(input.displayName || actor).slice(0, 40), joinedAt: now, ready: false, ai: false },
                     ];
                     return { ok: true, replayed: false, party: { ...party, members, invitedSlugs: party.invitedSlugs.filter(slug => slug !== actor) } };
                 },
@@ -500,7 +546,7 @@ export async function joinTowerParty(input: {
                 // A stale reconnect from an existing member must not erase its
                 // valid index. Reconcile while the actor-index lock is held.
                 const latest = await loadPartyWith(kv, resolved.id);
-                if (latest?.members.some(member => member.slug === actor)) {
+                if (latest && towerPartyHumanMembers(latest).some(member => member.slug === actor)) {
                     await requiredSet(kv, towerPartyPlayerKey(actor), resolved.id, { ex: TOWER_PARTY_TTL });
                 } else {
                     await clearPlayerIndexWith(kv, actor, resolved.id);
@@ -513,7 +559,7 @@ export async function joinTowerParty(input: {
             // A write can be forwarded before its adapter throws. The freshest
             // roster decides whether the player index is preserved or removed.
             const latest = await loadPartyWith(kv, resolved.id).catch(() => null);
-            if (latest?.members.some(member => member.slug === actor)) {
+            if (latest && towerPartyHumanMembers(latest).some(member => member.slug === actor)) {
                 await requiredSet(kv, towerPartyPlayerKey(actor), resolved.id, { ex: TOWER_PARTY_TTL }).catch(() => undefined);
             } else {
                 await clearPlayerIndexWith(kv, actor, resolved.id).catch(() => undefined);
@@ -535,12 +581,13 @@ export async function leaveTowerParty(input: {
     return lock(towerPartyPlayerKey(actor), async () => {
         const result = await mutateTowerParty({ ...input, actor, mutate: (party) => {
             if (party.status !== 'forming') return { ok: false, status: 409, code: 'party-locked', error: 'A launching or active party cannot be left.', party };
-            if (!party.members.some(member => member.slug === actor)) return { ok: false, status: 403, code: 'not-a-member', error: 'You are not in that Tower party.', party };
-            const members = party.members.filter(member => member.slug !== actor).map(member => ({ ...member, ready: false }));
+            if (!towerPartyHumanMembers(party).some(member => member.slug === actor)) return { ok: false, status: 403, code: 'not-a-member', error: 'You are not in that Tower party.', party };
+            const members = party.members.filter(member => !(member.slug === actor && !isGenericTowerAiMember(member))).map(resetMemberReadiness);
+            const liveMembers = members.filter(member => !isGenericTowerAiMember(member));
             const hostSlug = party.hostSlug === actor
-                ? [...members].sort((a, b) => a.joinedAt - b.joinedAt || a.slug.localeCompare(b.slug))[0]?.slug ?? party.hostSlug
+                ? [...liveMembers].sort((a, b) => a.joinedAt - b.joinedAt || a.slug.localeCompare(b.slug))[0]?.slug ?? party.hostSlug
                 : party.hostSlug;
-            return { ok: true, replayed: false, party: { ...party, members, hostSlug, status: members.length ? 'forming' : 'closed' } };
+            return { ok: true, replayed: false, party: { ...party, members, hostSlug, status: liveMembers.length ? 'forming' : 'closed' } };
         } }, deps);
         if (result.ok) await clearPlayerIndexWith(kv, actor, input.partyId);
         return result;
@@ -575,7 +622,7 @@ export async function kickTowerPartyMember(input: {
                 if (party.status !== 'forming') {
                     return { ok: false, status: 409, code: 'party-locked', error: 'A launching or active party cannot remove members.', party };
                 }
-                if (!party.members.some(member => member.slug === target)) {
+                if (!towerPartyHumanMembers(party).some(member => member.slug === target)) {
                     return { ok: false, status: 409, code: 'not-a-member', error: 'That player is no longer in the Tower party.', party };
                 }
                 return {
@@ -584,8 +631,8 @@ export async function kickTowerPartyMember(input: {
                     party: {
                         ...party,
                         members: party.members
-                            .filter(member => member.slug !== target)
-                            .map(member => ({ ...member, ready: false })),
+                            .filter(member => !(member.slug === target && !isGenericTowerAiMember(member)))
+                            .map(resetMemberReadiness),
                         invitedSlugs: party.invitedSlugs.filter(slug => slug !== target),
                     },
                 };
@@ -597,6 +644,94 @@ export async function kickTowerPartyMember(input: {
         }
         return result;
     }, { failClosed: true });
+}
+
+export async function addGenericTowerAi(input: {
+    partyId: string;
+    actor: string;
+    requestId: string;
+    expectedVersion: number;
+    fingerprint: string;
+}, deps: TowerPartyDeps = {}): Promise<TowerPartyMutationResult> {
+    const actor = safeName(input.actor);
+    return mutateTowerParty({
+        ...input,
+        actor,
+        mutate: (party, now) => {
+            if (party.hostSlug !== actor) {
+                return { ok: false, status: 403, code: 'host-required', error: 'Only the party host can add an AI recruit.', party };
+            }
+            if (party.status !== 'forming') {
+                return { ok: false, status: 409, code: 'party-locked', error: 'A launching or active party cannot add recruits.', party };
+            }
+            if (party.binding.mode !== 'story') {
+                return { ok: false, status: 409, code: 'ai-not-allowed', error: 'Endless Spire progression requires exactly four live players.', party };
+            }
+            if (party.members.length >= TOWER_PARTY_MAX) {
+                return { ok: false, status: 409, code: 'party-full', error: 'The Tower party is full.', party };
+            }
+            if (towerPartyAiMembers(party).length >= TOWER_PARTY_AI_MAX) {
+                return { ok: false, status: 409, code: 'ai-cap', error: 'A Story squad can bring one novice AI recruit.', party };
+            }
+            const used = new Set(towerPartyAiMembers(party).map(member => member.slug));
+            const slot = [1, 2, 3].find(candidate => !used.has(genericTowerAiMemberId(candidate)));
+            if (!slot) return { ok: false, status: 409, code: 'ai-cap', error: 'This Story party already has its novice AI recruit.', party };
+            const slug = genericTowerAiMemberId(slot);
+            const members = [
+                ...party.members.map(resetMemberReadiness),
+                {
+                    slug,
+                    displayName: genericTowerAiDisplayName(slug),
+                    joinedAt: now,
+                    ready: true,
+                    ai: true,
+                    aiProfile: GENERIC_TOWER_AI_PROFILE,
+                },
+            ];
+            return { ok: true, replayed: false, party: { ...party, members } };
+        },
+    }, deps);
+}
+
+export async function removeGenericTowerAi(input: {
+    partyId: string;
+    actor: string;
+    target: string;
+    requestId: string;
+    expectedVersion: number;
+    fingerprint: string;
+}, deps: TowerPartyDeps = {}): Promise<TowerPartyMutationResult> {
+    const actor = safeName(input.actor);
+    const target = String(input.target ?? '');
+    if (!GENERIC_TOWER_AI_ID.test(target)) {
+        return { ok: false, status: 400, code: 'invalid-target', error: 'Choose a current AI recruit.' };
+    }
+    return mutateTowerParty({
+        partyId: input.partyId,
+        actor,
+        requestId: input.requestId,
+        expectedVersion: input.expectedVersion,
+        fingerprint: input.fingerprint,
+        mutate: (party) => {
+            if (party.hostSlug !== actor) {
+                return { ok: false, status: 403, code: 'host-required', error: 'Only the party host can remove an AI recruit.', party };
+            }
+            if (party.status !== 'forming') {
+                return { ok: false, status: 409, code: 'party-locked', error: 'A launching or active party cannot remove recruits.', party };
+            }
+            if (!towerPartyAiMembers(party).some(member => member.slug === target)) {
+                return { ok: false, status: 409, code: 'not-a-member', error: 'That AI recruit is no longer in the Tower party.', party };
+            }
+            return {
+                ok: true,
+                replayed: false,
+                party: {
+                    ...party,
+                    members: party.members.filter(member => member.slug !== target).map(resetMemberReadiness),
+                },
+            };
+        },
+    }, deps);
 }
 
 export async function setTowerPartyReady(input: {
@@ -616,11 +751,11 @@ export async function setTowerPartyReady(input: {
         fingerprint: input.fingerprint,
         mutate: (party) => {
         if (party.status !== 'forming') return { ok: false, status: 409, code: 'party-locked', error: 'Readiness is locked while launching or active.', party };
-        if (!party.members.some(member => member.slug === actor)) return { ok: false, status: 403, code: 'not-a-member', error: 'You are not in that Tower party.', party };
+        if (!towerPartyHumanMembers(party).some(member => member.slug === actor)) return { ok: false, status: 403, code: 'not-a-member', error: 'You are not in that Tower party.', party };
         return {
             ok: true,
             replayed: false,
-            party: { ...party, members: party.members.map(member => member.slug === actor ? { ...member, ready: input.ready } : member) },
+            party: { ...party, members: party.members.map(member => member.slug === actor && !isGenericTowerAiMember(member) ? { ...member, ready: input.ready } : member) },
         };
     } }, deps);
 }
@@ -646,7 +781,7 @@ export async function inviteTowerPartyMember(input: {
         if (party.hostSlug !== actor) return { ok: false, status: 403, code: 'host-required', error: 'Only the party host can invite players.', party };
         if (party.status !== 'forming') return { ok: false, status: 409, code: 'party-locked', error: 'That Tower party has already launched.', party };
         if (party.members.length >= TOWER_PARTY_MAX) return { ok: false, status: 409, code: 'party-full', error: 'The Tower party is full.', party };
-        if (party.members.some(member => member.slug === target) || party.invitedSlugs.includes(target)) return { ok: true, party, replayed: true };
+        if (towerPartyHumanMembers(party).some(member => member.slug === target) || party.invitedSlugs.includes(target)) return { ok: true, party, replayed: true };
         return { ok: true, replayed: false, party: { ...party, invitedSlugs: [...party.invitedSlugs, target].slice(-INVITE_CAP) } };
     } }, deps);
     if (result.ok) await reconcileInvitationIndex(input.partyId, target, deps);
@@ -759,16 +894,21 @@ export async function prepareTowerPartyLaunch(input: {
         if (!sameRequest && party.version !== input.expectedVersion) {
             return { ok: false, status: 409, code: 'version-conflict', error: 'The party changed. Review the latest status and retry.', party };
         }
+        const liveMemberCount = towerPartyHumanMembers(party).length;
+        const aiMemberCount = towerPartyAiMembers(party).length;
         const spireNeedsFour = party.binding.mode === 'spire' && !input.allowShortSpireParty;
-        const validSize = spireNeedsFour
-            ? party.members.length === TOWER_PARTY_MAX
+        const validSize = party.binding.mode === 'spire'
+            ? aiMemberCount === 0
+                && (spireNeedsFour
+                    ? liveMemberCount === TOWER_PARTY_MAX
+                    : liveMemberCount >= 1 && liveMemberCount <= TOWER_PARTY_MAX)
             : party.members.length >= TOWER_PARTY_MIN && party.members.length <= TOWER_PARTY_MAX;
         if (!validSize) {
             return {
                 ok: false,
                 status: 409,
                 code: 'invalid-size',
-                error: spireNeedsFour ? 'The Endless Spire requires exactly four ready members.' : 'A Tower party requires two to four members.',
+                error: spireNeedsFour ? 'The Endless Spire requires exactly four ready live members.' : 'A Tower party requires two to four members.',
                 party,
             };
         }
@@ -886,6 +1026,6 @@ export async function closeTowerPartyRun(
         }, now);
     }, { failClosed: true });
     if (!closed) return null;
-    await Promise.all(closed.members.map(member => clearPlayerIndexWith(kv, member.slug, partyId).catch(() => undefined)));
+    await Promise.all(towerPartyHumanMembers(closed).map(member => clearPlayerIndexWith(kv, member.slug, partyId).catch(() => undefined)));
     return closed;
 }

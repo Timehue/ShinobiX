@@ -6,7 +6,9 @@
 // a round-trip. Keep BOSS_BY_FLOOR + the keystone tiers in sync with the server catalog/modifiers.
 import { SPIRE_MAX_TIER, SPIRE_MILESTONE_FLOORS } from "./towers-api";
 
-export type SpireBossKey = "warden" | "revenant" | "ravager" | "sovereign";
+export type SpireBossKey =
+    | "warden" | "revenant" | "ravager" | "sovereign"
+    | "stormcaller" | "mirror-shogun" | "void-emperor";
 export type SpireMechanic = "bulwark" | "regen" | "summon" | "enrage";
 
 export interface SpireBossMeta {
@@ -28,9 +30,8 @@ export interface SpireBossMeta {
     strike: { kind: "nova" | "volley" | "slam"; pct: number; radius: number; everyRounds: number; firstRound: number };
 }
 
-// The four endgame bosses. Names + mechanics mirror SPIRE_BOSSES in the server catalog;
-// accents are derived from each boss's theme (warden = molten steel, revenant = spectral,
-// ravager = ember, sovereign = royal apex).
+// The recurring endgame roster plus three authored milestone encounters. Names and
+// mechanics mirror SPIRE_BOSSES in the server catalog; accents drive the lobby art.
 export const SPIRE_BOSS_META: Record<SpireBossKey, SpireBossMeta> = {
     warden: {
         key: "warden", name: "Spire Warden", mechanic: "bulwark", mechanicLabel: "Bulwark",
@@ -56,15 +57,33 @@ export const SPIRE_BOSS_META: Record<SpireBossKey, SpireBossMeta> = {
         accent: "#fbbf24", glow: "rgba(251,191,36,0.5)", emoji: "👑",
         targetMode: "lowest-hp", strike: { kind: "nova", pct: 8, radius: 1, everyRounds: 3, firstRound: 3 },
     },
+    stormcaller: {
+        key: "stormcaller", name: "Stormglass Matriarch", mechanic: "summon", mechanicLabel: "Tempest Conclave",
+        blurb: "Calls ranged storm shades and blankets clustered supports with a wide lightning volley.",
+        accent: "#67e8f9", glow: "rgba(34,211,238,0.48)", emoji: "⚡",
+        targetMode: "support", strike: { kind: "volley", pct: 6, radius: 2, everyRounds: 4, firstRound: 4 },
+    },
+    "mirror-shogun": {
+        key: "mirror-shogun", name: "Mirror Shogun", mechanic: "bulwark", mechanicLabel: "Hall of Reflections",
+        blurb: "Mirror guards sustain its bulwark while phase aegis and glass pillars reshape the arena.",
+        accent: "#e5e7eb", glow: "rgba(248,113,113,0.38)", emoji: "🪞",
+        targetMode: "squishiest", strike: { kind: "slam", pct: 7, radius: 2, everyRounds: 4, firstRound: 4 },
+    },
+    "void-emperor": {
+        key: "void-emperor", name: "Emperor of the Last Eclipse", mechanic: "enrage", mechanicLabel: "Final Eclipse",
+        blurb: "Controller heralds, phase shields, a wide recurring nova, and a late closing ring define the apex fight.",
+        accent: "#c084fc", glow: "rgba(192,132,252,0.5)", emoji: "🌑",
+        targetMode: "support", strike: { kind: "nova", pct: 8, radius: 2, everyRounds: 3, firstRound: 3 },
+    },
 };
 
 // Boss per floor (index 0 = floor 1) — MUST match BOSS_BY_FLOOR in api/towers/_spire-catalog.ts.
-// Sovereign anchors every milestone (5/10/15/20); the trio cycles the rest.
+// Floors 12, 16, and 20 deliberately break the base rotation with bespoke encounters.
 export const SPIRE_BOSS_BY_FLOOR: readonly SpireBossKey[] = [
     "warden", "revenant", "ravager", "warden", "sovereign",   // 1-5
     "revenant", "ravager", "warden", "revenant", "sovereign", // 6-10
-    "warden", "revenant", "ravager", "warden", "sovereign",   // 11-15
-    "warden", "revenant", "ravager", "revenant", "sovereign", // 16-20
+    "warden", "stormcaller", "ravager", "warden", "sovereign", // 11-15
+    "mirror-shogun", "revenant", "ravager", "revenant", "void-emperor", // 16-20
 ];
 
 export function spireBossForFloor(tier: number): SpireBossMeta {

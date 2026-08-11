@@ -44,6 +44,30 @@ export function validateFloor(floor: TowerFloor): string[] {
     if (floor.balanceFor != null && (!Number.isInteger(floor.balanceFor) || floor.balanceFor < 2 || floor.balanceFor > 4)) {
         errs.push(`${where}: balanceFor must be an integer in [2,4]`);
     }
+    if (floor.chapter != null && (!Number.isInteger(floor.chapter) || floor.chapter < 1 || floor.chapter > 99)) {
+        errs.push(`${where}: chapter must be an integer in [1,99]`);
+    }
+    if (floor.chapter != null && (typeof floor.chapterTitle !== 'string' || floor.chapterTitle.trim() === '')) {
+        errs.push(`${where}: chapterTitle required when chapter is authored`);
+    }
+    for (const key of ['chapterTitle', 'chapterSubtitle', 'chapterSummary'] as const) {
+        const value = floor[key];
+        if (value != null && (typeof value !== 'string' || value.trim() === '')) errs.push(`${where}: ${key} must be a non-empty string`);
+    }
+    if (floor.artKey != null && (typeof floor.artKey !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(floor.artKey))) {
+        errs.push(`${where}: artKey must be a lowercase kebab-case key`);
+    }
+    if (floor.briefing != null) {
+        const briefing = floor.briefing;
+        if (typeof briefing.situation !== 'string' || briefing.situation.trim() === '') errs.push(`${where}: briefing.situation required`);
+        for (const key of ['tactics', 'warnings'] as const) {
+            const lines = briefing[key];
+            if (!Array.isArray(lines) || lines.length < 1 || lines.length > 5
+                || lines.some(line => typeof line !== 'string' || line.trim() === '')) {
+                errs.push(`${where}: briefing.${key} must contain 1-5 non-empty strings`);
+            }
+        }
+    }
 
     // Map dims
     const w = floor.map?.width;
@@ -86,13 +110,21 @@ export function validateFloor(floor: TowerFloor): string[] {
     if (floor.boss?.phases) {
         if (!Array.isArray(floor.boss.phases) || floor.boss.phases.some(p => typeof p !== 'number' || p <= 0 || p >= 100)) {
             errs.push(`${where}: boss.phases must be percentages in (0,100)`);
+        } else if (floor.boss.phases.some((phase, index) => index > 0 && phase >= floor.boss!.phases![index - 1]!)) {
+            errs.push(`${where}: boss.phases must be unique and strictly descending`);
         }
+    }
+    if (floor.objective === 'break-objective' && (!floor.boss?.phases || floor.boss.phases.length === 0)) {
+        errs.push(`${where}: objective "break-objective" requires at least one boss phase`);
     }
     if (floor.boss?.mechanic && !BOSS_MECHANIC_SET.has(floor.boss.mechanic)) {
         errs.push(`${where}: boss.mechanic "${floor.boss.mechanic}" is not a known mechanic`);
     }
     if (floor.boss?.summonAiId != null && typeof floor.boss.summonAiId !== 'string') {
         errs.push(`${where}: boss.summonAiId must be a string`);
+    }
+    if (floor.boss?.summonCount != null && (!Number.isInteger(floor.boss.summonCount) || floor.boss.summonCount < 1 || floor.boss.summonCount > 4)) {
+        errs.push(`${where}: boss.summonCount must be an integer in [1,4]`);
     }
     if (floor.boss?.targetMode != null && !TARGET_MODE_SET.has(floor.boss.targetMode)) {
         errs.push(`${where}: boss.targetMode "${floor.boss.targetMode}" is not a known target mode`);
@@ -104,6 +136,7 @@ export function validateFloor(floor: TowerFloor): string[] {
         if (st.radius != null && (!Number.isInteger(st.radius) || st.radius < 0 || st.radius > 2)) errs.push(`${where}: boss.strike.radius out of [0,2]`);
         if (st.everyRounds != null && (!Number.isInteger(st.everyRounds) || st.everyRounds < 2)) errs.push(`${where}: boss.strike.everyRounds must be an integer ≥2`);
         if (st.firstRound != null && (!Number.isInteger(st.firstRound) || st.firstRound < 1)) errs.push(`${where}: boss.strike.firstRound must be a positive integer`);
+        if (st.firstRound != null && st.firstRound > floor.roundBudget) errs.push(`${where}: boss.strike.firstRound exceeds roundBudget`);
     }
     if (floor.boss?.phasePillars != null && (!Number.isInteger(floor.boss.phasePillars) || floor.boss.phasePillars < 1 || floor.boss.phasePillars > 3)) {
         errs.push(`${where}: boss.phasePillars must be an integer in [1,3]`);
@@ -159,6 +192,7 @@ export function validateFloor(floor: TowerFloor): string[] {
         const cr = floor.closingRing;
         if (cr.pct != null && (typeof cr.pct !== 'number' || cr.pct <= 0 || cr.pct > 100)) errs.push(`${where}: closingRing.pct out of (0,100]`);
         if (cr.fromRound != null && (!Number.isInteger(cr.fromRound) || cr.fromRound < 1)) errs.push(`${where}: closingRing.fromRound must be a positive integer`);
+        if (cr.fromRound != null && cr.fromRound > floor.roundBudget) errs.push(`${where}: closingRing.fromRound exceeds roundBudget`);
         if (cr.minRadius != null && (!Number.isInteger(cr.minRadius) || cr.minRadius < 1)) errs.push(`${where}: closingRing.minRadius must be a positive integer`);
     }
     if (OBJECTIVES_NEEDING_NPC.has(floor.objective)) {

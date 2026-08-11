@@ -6,7 +6,7 @@ import {
     SPIRE_MAX_TIER, HP_MULT_CAP, DMG_MULT_CAP, SPIRE_ENRAGE_CAP, SPIRE_WEEKLY_ROUND_BUFFER, type TowerModifier,
 } from './_modifiers.js';
 import {
-    getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS,
+    getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS, SPIRE_BOSS_VISUALS,
 } from './_spire-catalog.js';
 import {
     settleSpireForMember, isSpireRun, floorPaidKey, spireRewardKey, spireLbKey, SPIRE_SHARDS_PER_TIER,
@@ -17,6 +17,7 @@ import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { runTowerFloor, startRound, endTurn, applyAction, type TowerAction } from './_engine.js';
 import { makeRng } from './_sim.js';
 import { getFloor } from './_floor-catalog.js';
+import { validateFloor } from './_floor-validate.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
 
 // ─── resolveAscensionModifiers (pure single source of truth) ─────────────────
@@ -102,13 +103,51 @@ describe('Endless Spire — floor catalog', () => {
             assert.ok(f.boss, `floor ${t} has a boss`);
             assert.ok((f.boss!.hp ?? 0) > 0, `floor ${t} has authored HP`);
             assert.ok(f.boss!.aiId.startsWith('spire-'), 'uses an endgame spire boss template');
+            assert.deepEqual(validateFloor(f), [], `floor ${t} satisfies the shared Tower content schema`);
         }
     });
-    it('Sovereign anchors every milestone floor; the trio cycles the rest', () => {
-        for (const m of SPIRE_MILESTONE_FLOORS) assert.equal(spireBossForFloor(m), 'sovereign');
+    it('the Sovereign anchors the first three title floors and the authored apex owns tier 20', () => {
+        for (const m of [5, 10, 15]) assert.equal(spireBossForFloor(m), 'sovereign');
+        assert.equal(spireBossForFloor(20), 'void-emperor');
+        assert.deepEqual([...SPIRE_MILESTONE_FLOORS], [5, 10, 15, 20]);
         assert.equal(spireBossForFloor(1), 'warden');
         assert.equal(spireBossForFloor(2), 'revenant');
         assert.equal(spireBossForFloor(3), 'ravager');
+    });
+    it('tiers 12, 16, and 20 have distinct identities, mechanics, tactics, and board pressure', () => {
+        const t12 = getSpireFloor(12)!;
+        const t16 = getSpireFloor(16)!;
+        const t20 = getSpireFloor(20)!;
+
+        assert.equal(spireBossForFloor(12), 'stormcaller');
+        assert.equal(t12.boss!.aiId, 'spire-stormcaller');
+        assert.equal(t12.boss!.mechanic, 'summon');
+        assert.equal(t12.boss!.targetMode, 'support');
+        assert.deepEqual(t12.boss!.strike, { kind: 'volley', pct: 6, radius: 2, everyRounds: 4, firstRound: 4 });
+        assert.ok(t12.enemies.some(p => p.aiId === 'spire-tempest-shade'));
+        assert.ok((t12.dynamicHazards?.length ?? 0) > 0 && (t12.boardObjects?.length ?? 0) > 0);
+
+        assert.equal(spireBossForFloor(16), 'mirror-shogun');
+        assert.equal(t16.boss!.aiId, 'spire-mirror-shogun');
+        assert.equal(t16.boss!.mechanic, 'bulwark');
+        assert.equal(t16.boss!.targetMode, 'squishiest');
+        assert.deepEqual(t16.boss!.strike, { kind: 'slam', pct: 7, radius: 2, everyRounds: 4, firstRound: 4 });
+        assert.equal(t16.boss!.phasePillars, 2);
+        assert.deepEqual(t16.boss!.aegis, { shieldPct: 10 });
+        assert.ok(t16.enemies.some(p => p.aiId === 'spire-mirror-guard'));
+
+        assert.equal(spireBossForFloor(20), 'void-emperor');
+        assert.equal(t20.boss!.aiId, 'spire-void-emperor');
+        assert.equal(t20.boss!.mechanic, 'enrage');
+        assert.equal(t20.boss!.targetMode, 'support');
+        assert.deepEqual(t20.boss!.strike, { kind: 'nova', pct: 8, radius: 2, everyRounds: 3, firstRound: 3 });
+        assert.deepEqual(t20.closingRing, { pct: 5, fromRound: 14, minRadius: 3 });
+        assert.ok(t20.enemies.some(p => p.aiId === 'spire-eclipse-herald'));
+
+        assert.equal(new Set([t12.boss!.aiId, t16.boss!.aiId, t20.boss!.aiId]).size, 3);
+        for (const key of ['stormcaller', 'mirror-shogun', 'void-emperor'] as const) {
+            assert.equal(SPIRE_BOSS_VISUALS[key], key, `${key} owns a dedicated art-manifest key`);
+        }
     });
     it('warden floors ship a guard pod (bulwark needs live guards); revenant floors cap regen', () => {
         const warden = getSpireFloor(1)!;
@@ -124,6 +163,9 @@ describe('Endless Spire — floor catalog', () => {
             revenant: ['support', 'volley'],
             ravager: ['lowest-hp', 'nova'],
             sovereign: ['lowest-hp', 'nova'],
+            stormcaller: ['support', 'volley'],
+            'mirror-shogun': ['squishiest', 'slam'],
+            'void-emperor': ['support', 'nova'],
         } as const;
         for (let tier = 1; tier <= SPIRE_MAX_TIER; tier++) {
             const key = spireBossForFloor(tier)!;

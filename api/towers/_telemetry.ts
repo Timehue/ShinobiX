@@ -1,6 +1,7 @@
 import { kv as realKv } from '../_storage.js';
 import { recordBetaMetric, type BetaMetricInput } from '../_beta-metrics.js';
 import type { TowerSession } from './_tower-session.js';
+import { TOWER_FLOOR_COUNT } from './_floor-catalog.js';
 
 export const TOWER_TELEMETRY_TTL = 30 * 24 * 60 * 60;
 
@@ -21,11 +22,11 @@ function mode(session: TowerSession): 'story' | 'spire' {
 
 function contentBucket(session: TowerSession): string {
     const value = Math.max(1, Math.floor(Number(session.ascensionTier ?? session.floor) || 1));
-    // Thirty total canonical values is still low-cardinality and lets live
+    // The bounded Story + Spire catalogs stay low-cardinality and let live
     // balance audits identify one broken AI/mechanic floor instead of hiding it
     // inside a broad band.
     return mode(session) === 'story'
-        ? `floor-${Math.min(10, value)}`
+        ? `floor-${Math.min(TOWER_FLOOR_COUNT, value)}`
         : `tier-${Math.min(20, value)}`;
 }
 

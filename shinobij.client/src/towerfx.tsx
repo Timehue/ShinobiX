@@ -8,9 +8,11 @@
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
+import { GameConfirmHost } from "./components/GameAlert";
 import type { TowerSession, TowerActor } from "./lib/towers-api";
 
 const W = 20, H = 14;
+const teamPvpPreview = new URLSearchParams(window.location.search).get("variant") === "team-pvp";
 function neighbors(pos: number): number[] {
     const x = pos % W, y = Math.floor(pos / W);
     const even = x % 2 === 0;
@@ -127,8 +129,15 @@ const session: TowerSession = {
     ],
 };
 
-createRoot(document.getElementById("root")!).render(
-    <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}}
-        stateFn={async () => session}
-        actionFn={async () => ({ applied: false, reason: "dev-preview", session, currentVersion: session.actionVersion ?? 0 })} />,
+const root = createRoot(document.getElementById("root")!);
+root.render(
+    <>
+        <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}}
+            variant={teamPvpPreview ? "team-pvp" : "tower"}
+            stateFn={async () => session}
+            actionFn={async () => ({ applied: false, reason: "dev-preview", session, currentVersion: session.actionVersion ?? 0 })} />
+        <GameConfirmHost />
+    </>,
 );
+
+if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());

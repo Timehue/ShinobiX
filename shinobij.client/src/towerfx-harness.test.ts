@@ -12,4 +12,8 @@ test("Tower fight state transport is injectable without changing the production 
         "initial recovery and active polling must share the injected state transport");
     assert.match(harness, /stateFn=\{async \(\) => session\}/);
     assert.match(harness, /actionFn=\{async \(\) => \(\{ applied: false, reason: "dev-preview"/);
+    assert.match(harness, /variant=\{teamPvpPreview \? "team-pvp" : "tower"\}/);
+    assert.match(harness, /import \{ GameConfirmHost \} from "\.\/components\/GameAlert"/);
+    assert.match(harness, /<GameConfirmHost \/>/);
+    assert.match(harness, /import\.meta\.hot\.dispose\(\(\) => root\.unmount\(\)\)/);
 });

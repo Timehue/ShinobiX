@@ -1,7 +1,7 @@
 /*
  * Story Tower certification sim.
  *
- * Models a party that grows alongside the sequential F1-F10 unlock path instead of
+ * Models a party that grows alongside the sequential F1-F15 unlock path instead of
  * testing only L75/endgame loadouts. It drives the real encounter, canonical resolver,
  * authored enemy AI, waves, objectives, hazards, and phase mechanics through the same
  * coordinated squad policy used by the Spire release simulation.
@@ -27,11 +27,11 @@ export type StoryCertificationResult = {
     wipeLosses: number;
 };
 
-/** A plausible sequential climber: L32 on F1, reaching L68 / near-cap gear on F10. */
+/** A plausible sequential climber: L32 on F1, reaching the L80 stat band in Chapter 2. */
 export function advancingStorySquad(partySize: number, floorId: number): SquadMemberInput[] {
-    const step = Math.max(1, Math.min(10, Math.floor(floorId)));
-    const level = 28 + step * 4;
-    const stat = 900 + step * 140;
+    const step = Math.max(1, Math.min(15, Math.floor(floorId)));
+    const level = Math.min(80, 28 + step * 4);
+    const stat = Math.min(2_500, 900 + step * 140);
     const maxHp = 3_500 + step * 550;
     const maxResource = 550 + step * 115;
     const stats: Record<string, number> = {
@@ -54,8 +54,8 @@ export function advancingStorySquad(partySize: number, floorId: number): SquadMe
         character: {
             level, maxHp, maxChakra: maxResource, maxStamina: maxResource,
             stats, jutsu,
-            bloodlineMult: 1.05 + step * 0.025,
-            armorRawDR: 0.15 + step * 0.05,
+            bloodlineMult: Math.min(1.4, 1.05 + step * 0.025),
+            armorRawDR: Math.min(0.75, 0.15 + step * 0.05),
             itemDamagePct: 4 + step * 1.5,
             itemAbsorbPct: 2 + step * 0.5,
             itemReflectPct: 1 + step * 0.3,

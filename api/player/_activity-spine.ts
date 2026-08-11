@@ -5,6 +5,7 @@ import {
     type ActivitySpineItem,
     type MasteryFocus,
 } from '../../shared/activity-spine.js';
+import { TOWER_FLOOR_COUNT } from '../towers/_floor-catalog.js';
 
 type Focus = Exclude<MasteryFocus, 'auto'>;
 type FocusFacts = {
@@ -81,7 +82,7 @@ function focusFacts(input: ActivitySpineInput): FocusFacts {
 function autoFocus(input: ActivitySpineInput, facts: FocusFacts): Focus {
     if (input.clanName && input.clanBoss?.active && !input.clanBoss.killed && input.clanBoss.attemptsLeft > 0) return 'clan-war';
     if (facts.story.completed < facts.story.total) return 'village-chronicle';
-    if (input.level >= 30 && (facts.towers.bestFloor < 25 || facts.towers.spireTier < 5)) return 'towers-spire';
+    if (input.level >= 30 && (facts.towers.bestFloor < TOWER_FLOOR_COUNT || facts.towers.spireTier < 5)) return 'towers-spire';
     if (facts.companions.count > 0 && facts.companions.activeLevel < 100) return 'companions';
     if (facts.chronicle.deckCards >= 40 && facts.chronicle.wins < 25) return 'chronicle-showdown';
     if (input.level >= 50 && (!facts.legacy.accepted || facts.legacy.stage < 5)) return 'legacy';
@@ -169,12 +170,19 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
     if (focus === 'towers-spire') {
         const blocked = input.level < 30;
         const blocker = blocked ? 'Reach level 30 and keep developing your loadout.' : undefined;
+        const storyComplete = facts.towers.bestFloor >= TOWER_FLOOR_COUNT;
+        const nextStoryFloor = Math.min(TOWER_FLOOR_COUNT, Math.max(1, Math.floor(facts.towers.bestFloor) + 1));
+        const towerTitle = facts.towers.activeRun
+            ? 'Resume your Tower run'
+            : storyComplete
+                ? 'Story Tower conquered'
+                : `Challenge Battle Tower floor ${nextStoryFloor}`;
         return [
             item('this-week', {
-                id: 'focus-towers-week', title: facts.towers.activeRun ? 'Resume your Tower run' : `Challenge Battle Tower floor ${facts.towers.bestFloor + 1}`,
+                id: 'focus-towers-week', title: towerTitle,
                 why: 'Tower floors test squad construction and tactical consistency on your own schedule.',
                 commitment: '15–30 min', progress: `Best floor ${facts.towers.bestFloor} • Endless wave ${facts.towers.bestWave}`,
-                screen: 'battleTowers', cta: facts.towers.activeRun ? 'Resume Run' : 'Review Towers', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'towers',
+                screen: 'battleTowers', cta: facts.towers.activeRun ? 'Resume Run' : 'Review Towers', eligibility: blocked ? 'blocked' : storyComplete ? 'complete' : 'eligible', blocker, context: 'towers',
             }),
             item('long-term', {
                 id: 'focus-towers-long', title: `Climb toward Spire tier ${facts.towers.spireTier + 1}`,

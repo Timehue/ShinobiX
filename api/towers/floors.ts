@@ -14,6 +14,18 @@ export function publicTowerFloorMeta(f: TowerFloor) {
     return {
         id: f.id,
         name: f.name,
+        chapter: f.chapter ?? 1,
+        chapterTitle: f.chapterTitle ?? 'The Celestial Ascent',
+        ...(f.chapterSubtitle ? { chapterSubtitle: f.chapterSubtitle } : {}),
+        ...(f.chapterSummary ? { chapterSummary: f.chapterSummary } : {}),
+        ...(f.artKey ? { artKey: f.artKey } : {}),
+        ...(f.briefing ? {
+            briefing: {
+                situation: f.briefing.situation,
+                tactics: [...f.briefing.tactics],
+                warnings: [...f.briefing.warnings],
+            },
+        } : {}),
         biome: f.biome,
         objective: f.objective,
         roundBudget: f.roundBudget,
@@ -40,6 +52,9 @@ export function publicTowerFloorMeta(f: TowerFloor) {
         milestone: reward.milestone ?? null,
         fieldRule: f.fieldRule.kind === 'none' ? null : { ...f.fieldRule },
         enemyCount: f.enemies.reduce((sum, pod) => sum + pod.count, 0) + (f.boss ? 1 : 0),
+        phaseReinforcementCount: f.boss?.mechanic === 'summon'
+            ? Math.max(0, Math.floor(Number(f.boss.summonCount ?? 2))) * (f.boss.phases?.length ?? 0)
+            : 0,
         reinforcementWaves: [...new Set(f.enemies
             .map(pod => Math.max(1, Math.floor(Number(pod.spawnRound ?? 1))))
             .filter(round => round > 1))].sort((a, b) => a - b),

@@ -93,6 +93,8 @@ export async function claimTowerBattleLeases(input: {
     runId: string;
     members: readonly string[];
     partyId?: string;
+    /** Additive Tower sub-mode routing hint. Omitted for Story/Spire. */
+    mode?: 'mpvp';
     /** @deprecated Same-run leases are always preserved on a conflicting claim. */
     preserveExistingOnConflict?: boolean;
     /** False fills only missing leases and does not extend existing TTLs. */
@@ -146,6 +148,9 @@ export async function claimTowerBattleLeases(input: {
                     meta: {
                         runId: input.runId,
                         ...(input.partyId ? { partyId: input.partyId } : {}),
+                        ...((input.mode ?? prior?.meta.mode)
+                            ? { mode: (input.mode ?? prior?.meta.mode)! }
+                            : {}),
                     },
                 };
                 // Mark a missing row before the write: a remote adapter may

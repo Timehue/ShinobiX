@@ -94,6 +94,25 @@ describe('server activity spine', () => {
         assert.equal(unknown.selectedFocus, 'auto');
     });
 
+    it('caps Story Tower guidance at the authored finale instead of inventing floor 16', () => {
+        const completed = buildActivitySpine({
+            ...input,
+            focus: 'towers-spire',
+            facts: { ...input.facts, towers: { bestFloor: 15, bestWave: 20, spireTier: 2, activeRun: false } },
+        });
+        const card = completed.horizons['this-week'][0]!;
+        assert.equal(card.title, 'Story Tower conquered');
+        assert.equal(card.eligibility, 'complete');
+        assert.doesNotMatch(JSON.stringify(card), /floor 16/i);
+
+        const next = buildActivitySpine({
+            ...input,
+            focus: 'towers-spire',
+            facts: { ...input.facts, towers: { bestFloor: 14, bestWave: 20, spireTier: 2, activeRun: false } },
+        });
+        assert.equal(next.horizons['this-week'][0]?.title, 'Challenge Battle Tower floor 15');
+    });
+
     it('shows optional Special Jonin prestige only for relevant endgame focus', () => {
         const endgameFacts = { ...input.facts, prestige: { level: 85, specialJoninPassed: false, pvpKills: 42 } };
         const ranked = buildActivitySpine({ ...input, level: 85, focus: 'ranked-pvp', facts: endgameFacts });
