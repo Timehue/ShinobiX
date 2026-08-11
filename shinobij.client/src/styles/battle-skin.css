@@ -5402,12 +5402,15 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
 
 @container shinobi-combat (max-width: 979px) and (min-height: 501px) and (max-height: 740px) {
     #combat .combat-layout {
-        grid-template-rows: minmax(100px, auto) auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
+        /* The 44px+ effects targets make a fully populated dossier 149px tall.
+           Reserve the whole 150px explicitly: Linux Firefox can otherwise
+           shrink this auto track by two pixels and clip its last row. */
+        grid-template-rows: minmax(150px, auto) auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
         gap: 4px !important;
     }
 
     #combat .combat-layout.has-rookie-tip {
-        grid-template-rows: minmax(100px, auto) auto auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
+        grid-template-rows: minmax(150px, auto) auto auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
     }
 
     #combat .combat-layout > .combat-side-hud,
