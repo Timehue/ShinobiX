@@ -242,7 +242,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // variance, consistent with prior entries. Startup gates unchanged (initial
 // graph 1.31 MB raw / 351 KB gzip). The scheduled drain remains the legacy
 // coliseum-stack deletion described in the previous entry.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_332_000;
+// 2026-08-10: 7.332 -> 7.357 MB. Pet Showdown round 10 — the JRPG command HUD:
+// ornate status plates (portrait + HP/EN read out as cur/max), the vertical
+// Attack/Skill/Guard/Rest/Switch menu with its technique sub-list, the move
+// inspector, and click-the-creature targeting (a hit volume, a reticle and the
+// hover plumbing on each fighter). It replaced the old move-card deck, so the
+// net add is ~5 KB of the ~13 KB written. The exact CI-equivalent product graph
+// is 7,337,376 B, leaving ~19 KB of measured variance, consistent with prior
+// entries. Startup gates unchanged (initial graph 1.31 MB raw / 351 KB gzip).
+// The scheduled drain remains the legacy coliseum-stack deletion above.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_357_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
