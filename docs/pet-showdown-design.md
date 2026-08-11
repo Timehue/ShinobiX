@@ -627,6 +627,60 @@ Balance untouched. Verified at 1440×860 and 390×844; reduced motion covers the
 cursor bob and both panel entrances while keeping every information-bearing
 transition.
 
+## Round 15 — the stamina ladder (2026-08-11)
+
+The stamina system existed but never bit. Measured across all 160 catalog
+species, **83% of every kit move cost 14 or 18 EN**; the heavy band (52) was
+used by **zero** moves and the medium band (32) by 5 of 717, because the bands
+were cut at power ≤120 / ≤220 / >220 while authored kit power tops out at 172
+(median 71). Two consequences, both fatal to the decision:
+
+- **The biggest hit was also the cheapest tier**, so it was the most
+  stamina-efficient move a pet owned — the strongest option was also the
+  correct default, every round.
+- Nothing ever reached the heavy band, so **no kit move ever got a hold or
+  "swings last"** either. Pace and hold were as inert as price.
+
+**What Temtem actually does.** Its technique costs track damage at a near-flat
+rate — Scratch 20/4, Jaw Strike 60/9, Base Jump 100/22, Frond Whip 153/33, all
+≈4.2–5.2 damage per point — across an ~8× cost range, against a pool where the
+haymaker is roughly two thirds of everything you have, refilling at 5%+1 per
+turn. An expensive technique is never *more efficient*, only more *immediate*.
+What you buy is tempo; what you pay is the next few rounds.
+
+**The ladder now.** Cost is linear in power (`SHOWDOWN_COST_PER_POWER`), and
+every kit's biggest damage move is promoted to that pet's haymaker:
+
+| tier | power | cost | % of a 105 pool | power per EN |
+|---|---|---|---|---|
+| jab (Swift Strike) | 34 | 12 | 11% | 2.83 |
+| technique (median) | 71 | 26 | 25% | 2.73 |
+| haymaker (median) | 105 | 49 | 47% | **2.14** |
+
+The jab and the mid tier trade at the same rate — neither is a trap. The
+haymaker is deliberately the *least* efficient move in the kit (a 1.3× premium
+on top of the linear price), which is exactly what stops it becoming the
+default: you are paying for the hit to land in one round instead of two. It
+also swings last and cannot open the fight. All 160 species have one.
+
+**Two things the simulator caught.** The haymaker was first scaled to a floor
+off the rarity power ceiling, which gave every standard pet an identical
+147-power finisher — that erased the kit-power spread the per-element damage
+multipliers are balanced against, and **Fire ran to a 79.5% element win rate**.
+Scaling each pet off its own top move instead keeps species identity and puts
+elements back at 41–57%. Separately, a stronger move shortens fights: pace fell
+to 4.7 rounds until the cost premium priced the haymaker as a real commitment,
+which brought it back to 5.8 (band is 5.5–11.5).
+
+`burn`/`dot` are excluded from promotion: their value is spread over later
+rounds, so the haymaker framing does not fit and a round-one hold would be
+strictly bad — you want the burn ticking early.
+
+The AI was taught the same economy. It used to score raw power, which under
+proportional costs would mean firing the haymaker at a full-health target and
+then rest-looping; it now weighs what a cast *leaves* it with, and spends the
+pool freely only when the hit closes the fight.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

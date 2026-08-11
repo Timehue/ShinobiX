@@ -269,6 +269,20 @@ function choosePetCommand(
                 if (session.round <= 1) score += 25;
             }
             if (m.kind === 'lifesteal' && pet.hp / pet.maxHp < 0.5) score += 50;
+
+            // ── Stamina pressure ────────────────────────────────────────────
+            // Costs are proportional to power now, so raw power alone would
+            // make the haymaker the answer to every question — the AI would
+            // fire it, run dry, and rest-loop. Weigh what the cast LEAVES the
+            // pet with: spending most of the pool is only correct when the
+            // hit closes the fight or the pet can absorb the downtime.
+            const leftPct = (pet.stamina - m.cost) / Math.max(1, pet.maxStamina);
+            if (leftPct < 0.25) score -= (0.25 - leftPct) * 320;
+            // A haymaker that kills is always worth the pool — that IS the
+            // moment the tempo was being saved for.
+            const lethal = m.power > 0 && target.hp / target.maxHp < 0.3 && m.cost > pet.maxStamina * 0.3;
+            if (lethal) score += tier === 'champion' ? 140 : tier === 'warrior' ? 90 : 40;
+
             score += rand() * (tier === 'scrapper' ? 90 : tier === 'warrior' ? 35 : 15);
             return { i, score };
         })
