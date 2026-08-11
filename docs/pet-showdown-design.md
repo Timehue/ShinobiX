@@ -566,6 +566,67 @@ the view mirrors with the signature appended last — so both the old filtered
 index and the new real index resolve identically; and the overdraft HP literal
 predates this round.
 
+## Round 14 — the art pass (2026-08-11)
+
+Research-led: Pokémon Colosseum / XD for the material logic, Pokémon Champions
+for the geometry, Temtem for the two-bar readout, then one spec applied across
+the mode.
+
+**The direction.** The HUD is lacquered shrine hardware bolted over a live
+arena. A dark translucent body so the arena reads straight through it, an
+**opaque** brass rim doing all of the contrast work, and state expressed by
+recolouring the chrome rather than by adding badges. Every framed surface —
+plate, menu, inspector — carries the *same* eight-hairline corner bracket, and
+state changes only its ink and opacity, never its geometry. **Every
+`backdrop-filter` was deleted**: in-battle overlays must not blur the arena,
+and a blur pass per panel over a live r3f canvas was the most expensive line in
+the stylesheet on a phone.
+
+**The icon set.** 42 authored glyphs in `components/icons/ShowdownIcon.tsx`
+replace every OS emoji in the mode — element crests, move kinds, statuses, menu
+actions, HUD chrome. Emoji were never ours to control: the same codepoint ships
+as saturated bitmap art on one platform and flat outlined vector on another, so
+the mode's entire symbol language changed shape, palette and light direction
+per operating system. These share one shape language: 24×24 with a 20×20 live
+area, filled silhouettes in `currentColor`, detail cut with evenodd rather than
+drawn in a second colour, light from the top-left, and a 14px legibility floor
+that several first drafts failed and were redrawn to meet. It is deliberately
+**not** an extension of `GameIcon`: that module rides the entry chunk, and
+Showdown is lazy, so a separate module costs the startup graph nothing.
+
+Two densities, two media: the vector crest below 28px, the existing painted
+WebP only at 92px in the inspector watermark — painted art turns to mud at plate
+scale, and only the vector tints. Per-move painted art was considered and
+rejected: 140+ moves × 5 KB for a surface 24px tall is the entire build budget.
+
+**Hardware, not boxes.** Bars became channels cut into the lacquer — a slate
+slab, radius on the leading corner only, a 26° cut on the trailing end, and a
+*vertical* gloss ramp so a bar never changes character as it drains (only the
+hue moves at 50% and 20%). The two-letter `HP`/`EN` text keys became 13px marks
+tinted to their own bar, which bought the name the horizontal room it had been
+truncating for on a phone. The command menu became a capsule head overlapping a
+lacquer box, and each row's kind mark sits in a recessed socket that takes the
+**element** tint on techniques — the type colour is what a player scans for.
+
+**One cursor, sliding.** The per-row `▶` became a single kunai that translates
+between rows in 90 ms. N arrows fading in and out read as N widgets; one node
+travelling reads as designed.
+
+**Numerals.** One `<Num>` treatment everywhere: italic, tabular, stroked so it
+survives a white-blown VFX frame. Numerals **never tween** — the value snaps to
+what the server sent and only the bar animates, because a counting tween puts
+numbers on screen that no event ever carried. Enemy plates read **percentages**
+rather than absolutes: honest about what the client legitimately knows, and it
+separates the two plate stacks without spending a second colour.
+
+**Banners** became plates with four materials (round / beat / alarm / verdict)
+instead of one rgba rectangle serving eleven different moments, and the
+overshoot came down from 1.6 to 1.35 — at 1.5rem, 1.6 reads as a bug.
+
+Balance untouched. Verified at 1440×860 and 390×844; reduced motion covers the
+cursor bob and both panel entrances while keeping every information-bearing
+transition.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

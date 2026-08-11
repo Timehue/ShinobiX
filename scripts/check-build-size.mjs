@@ -251,7 +251,18 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // is 7,337,376 B, leaving ~19 KB of measured variance, consistent with prior
 // entries. Startup gates unchanged (initial graph 1.31 MB raw / 351 KB gzip).
 // The scheduled drain remains the legacy coliseum-stack deletion above.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_357_000;
+// 2026-08-11: 7.357 -> 7.378 MB. Pet Showdown round 14 — the AAA art pass. A
+// 42-glyph authored icon set (components/icons/ShowdownIcon.tsx) replaces every
+// OS emoji in the mode, plus the lacquer/brass panel material, the sliding
+// cursor, banner plates and the shared numeral treatment. Deliberately its OWN
+// module rather than an extension of GameIcon: GameIcon is imported by MobileNav
+// and MobileStatusHUD, so it sits inside ENTRY_JS_FAIL_BYTES, whereas Showdown
+// is lazy and its glyphs cost the startup graph NOTHING. Inline SVG is also why
+// this is only ~21 KB of the budget — painted per-move art would have been the
+// whole remaining headroom for a surface 24px tall. The exact CI-equivalent
+// product graph is 7,358,463 B, leaving ~19 KB of measured variance, consistent
+// with prior entries. Startup gates unchanged (1.31 MB raw / 351 KB gzip).
+const TOTAL_JS_CSS_FAIL_BYTES = 7_378_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
