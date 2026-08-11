@@ -13,6 +13,7 @@ describe('Battle Towers data-model leak guard', () => {
         'battleTowerClearedFloors',
         'battleTowerClaimedRewards',
         'battleTowerAssistRewardsClaimed',
+        'battleTowerMilestones',
     ];
 
     function charWithTowerFields(): Record<string, unknown> {
@@ -26,6 +27,7 @@ describe('Battle Towers data-model leak guard', () => {
             battleTowerClearedFloors: [1, 2, 3, 5, 10],
             battleTowerClaimedRewards: ['floor-5', 'floor-10'],
             battleTowerAssistRewardsClaimed: ['run-abc'],
+            battleTowerMilestones: ['tower-floor-5', 'tower-floor-10'],
         };
     }
 

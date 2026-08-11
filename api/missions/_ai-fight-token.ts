@@ -20,6 +20,10 @@ export type AiFightToken = {
      * a solo session id from ever being interpreted as a Tower run id. */
     sessionRuntime?: 'solo-pve';
     sessionId?: string;
+    /** Exact start-response metadata retained for lost-response replay. */
+    rewardTrait?: string;
+    /** New mints may use the non-evicting in-save redemption authority. */
+    redemptionAuthorityVersion?: 1;
 };
 
 export type AiFightRewardClaim =
@@ -35,31 +39,41 @@ export function aiFightTokenKey(playerName: string, token: string): string {
     return `ai-fight-token:${playerName}:${token}`;
 }
 
+export function normalizeAiFightBattleKind(raw: unknown): AiFightBattleKind {
+    return raw === 'mission'
+        || raw === 'raidAi'
+        || raw === 'defense'
+        || raw === 'explore'
+        || raw === 'endless'
+        ? raw
+        : 'practice';
+}
+
+export function cleanAiFightOpponentId(raw: unknown): string | undefined {
+    const id = typeof raw === 'string' ? raw.trim().slice(0, 96) : '';
+    return /^[A-Za-z0-9:_-]+$/.test(id) ? id : undefined;
+}
+
 export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown; rewardTrait?: unknown } = {},
 ): AiFightToken {
     const sessionIdRaw = typeof context.sessionId === 'string' ? context.sessionId.trim().slice(0, 96) : '';
     const sessionId = /^[A-Za-z0-9:_-]+$/.test(sessionIdRaw) ? sessionIdRaw : undefined;
     const sessionRuntime = context.sessionRuntime === 'solo-pve' && sessionId ? 'solo-pve' as const : undefined;
-    const opponentIdRaw = typeof context.opponentId === 'string' ? context.opponentId.trim().slice(0, 96) : '';
-    const opponentId = /^[A-Za-z0-9:_-]+$/.test(opponentIdRaw) ? opponentIdRaw : undefined;
+    const opponentId = cleanAiFightOpponentId(context.opponentId);
     const opponentLevelNum = Math.floor(Number(context.opponentLevel ?? 0));
     const opponentLevel = Number.isFinite(opponentLevelNum) && opponentLevelNum > 0
         ? Math.min(250, opponentLevelNum)
         : undefined;
     const baseXp = Math.max(0, Math.min(MAX_AI_FIGHT_XP, Math.floor(Number(context.baseXp ?? NaN))));
     const baseRyo = Math.max(0, Math.min(MAX_AI_FIGHT_RYO, Math.floor(Number(context.baseRyo ?? NaN))));
-    const battleKindRaw = typeof context.battleKind === 'string' ? context.battleKind : '';
-    const battleKind: AiFightBattleKind = battleKindRaw === 'mission'
-        || battleKindRaw === 'raidAi'
-        || battleKindRaw === 'defense'
-        || battleKindRaw === 'explore'
-        || battleKindRaw === 'endless'
-        ? battleKindRaw
-        : 'practice';
+    const battleKind = normalizeAiFightBattleKind(context.battleKind);
+    const rewardTrait = typeof context.rewardTrait === 'string' && context.rewardTrait.trim()
+        ? context.rewardTrait.trim().slice(0, 64)
+        : undefined;
     return {
         playerName,
         tokenId,
@@ -67,12 +81,14 @@ export function createAiFightTokenRecord(
         maxXp: MAX_AI_FIGHT_XP,
         maxRyo: MAX_AI_FIGHT_RYO,
         battleKind,
+        redemptionAuthorityVersion: 1,
         ...(Number.isFinite(baseXp) ? { baseXp } : {}),
         ...(Number.isFinite(baseRyo) ? { baseRyo } : {}),
         ...(Number.isFinite(baseXp) && Number.isFinite(baseRyo) ? { rewardSource: 'server-save' as const } : {}),
         ...(opponentId ? { opponentId } : {}),
         ...(opponentLevel ? { opponentLevel } : {}),
         ...(sessionRuntime && sessionId ? { sessionRuntime, sessionId } : {}),
+        ...(rewardTrait ? { rewardTrait } : {}),
     };
 }
 

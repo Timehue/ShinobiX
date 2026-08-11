@@ -19,6 +19,7 @@ import {
 } from './_combat-session.js';
 import { buildHollowGateSoloPveEncounter } from './_encounter.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 
 type StartOutcome =
@@ -47,6 +48,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
+        if (!identity.admin && combatMode === 'solo-pve' && await findTowerBattleStartConflict([playerName])) {
+            return res.status(409).json(towerBattleActiveErrorBody());
+        }
 
         const runKey = hollowGateRunKey(playerName, token);
         const outcome = await withKvLock<StartOutcome>(runKey, async () => {

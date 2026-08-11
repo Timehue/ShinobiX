@@ -9,16 +9,31 @@ import { combatMissionByKey } from './_mission-catalog.js';
 import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
+import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import {
     missionCombatBindingKey,
-    MISSION_COMBAT_SESSION_TTL_SECONDS,
+    missionCombatRewardFingerprint,
     settleMissionCombatBinding,
     validateCompletedMissionCombatSession,
     validateSettledMissionCombatSession,
     type MissionCombatBinding,
 } from './_authoritative-combat-session.js';
+import {
+    COMBAT_MISSION_CLAIM_TOKEN_TTL_MS,
+    combatMissionClaimTokenKey,
+    combatMissionClaimTokenMatches,
+    compareSetExactKvRow,
+    createCombatMissionClaimToken,
+    inspectCombatMissionClaimSettlement,
+    combatMissionClaimPaymentMatches,
+    parseCombatMissionClaimPaymentReservation,
+    parseCombatMissionClaimToken,
+    parseSpentCombatMissionClaimToken,
+    publishCombatMissionClaimRows,
+    retireCombatMissionClaimToken,
+} from './_combat-claim-authority.js';
 
 /*
  * Queue a won built-in combat mission for the separate reward-claim step.
@@ -26,9 +41,6 @@ import {
  * identity and intent only; the terminal session proves the win and item use.
  * Body: { playerName, missionId, runId }
  */
-
-const COMBAT_CLAIM_TOKEN_TTL_SECONDS = 6 * 60 * 60;
-const COMBAT_USAGE_RECEIPT_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 type SaveChar = Record<string, unknown>;
 type QueueOutcome =
@@ -65,38 +77,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, queued: false, reason: 'server_authoritative_combat_required' });
         }
 
-        const initialBinding = await kv.get<MissionCombatBinding>(missionCombatBindingKey(runId));
+        const bindingKey = missionCombatBindingKey(runId);
+        const rewardFingerprint = missionCombatRewardFingerprint(mission);
+        const initialBinding = await kv.get<MissionCombatBinding>(bindingKey);
         const initialSession = await readSoloPveSession(runId);
-        const readQueuedReplay = async (
-            binding: MissionCombatBinding | null | undefined,
-            session: SoloPveSession | null | undefined,
-        ): Promise<QueueOutcome> => {
-            const validation = validateSettledMissionCombatSession({ binding, session, playerName, mission });
-            if (!validation.ok) return { queued: false, reason: validation.reason };
-            const physicalOutcome = await settlePveFightOutcome(session!, playerName);
-            if (!physicalOutcome.ok) return { queued: false, reason: 'physical-outcome-failed' };
-            const [record, claimToken] = await Promise.all([
-                kv.get<Record<string, unknown>>(`save:${playerName}`),
-                kv.get<{ authority?: string; runId?: string; missionId?: string }>(`missions:combat-claim:${playerName}:${mission.key}`),
-            ]);
-            const char = record?.character as SaveChar | undefined;
-            const pending = Array.isArray(char?.pendingCombatMissionClaims)
-                ? char.pendingCombatMissionClaims.map(String)
-                : [];
-            if (!record || !char
-                || !pending.includes(mission.key)
-                || claimToken?.authority !== 'server-combat'
-                || claimToken.runId !== runId
-                || claimToken.missionId !== mission.key) {
-                return { queued: false, reason: 'settlement-incomplete' };
-            }
-            return {
-                queued: true,
-                replayed: true,
-                saveVersion: Number(record._saveVersion ?? 0),
-                character: char,
-            };
-        };
         const initialValidation = validateCompletedMissionCombatSession({
             binding: initialBinding,
             session: initialSession,
@@ -104,22 +88,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             mission,
         });
         if (!initialValidation.ok) {
-            if (initialValidation.reason === 'already-settled') {
-                const replay = await readQueuedReplay(initialBinding, initialSession);
-                if (replay.queued) {
-                    return res.status(200).json({
-                        ok: true,
-                        queued: true,
-                        replayed: true,
-                        character: replay.character,
-                        _saveVersion: replay.saveVersion,
-                    });
-                }
+            if (initialValidation.reason !== 'already-settled') {
+                return res.status(200).json({ ok: true, queued: false, reason: initialValidation.reason });
             }
-            return res.status(200).json({ ok: true, queued: false, reason: initialValidation.reason });
+            const settledValidation = validateSettledMissionCombatSession({
+                binding: initialBinding,
+                session: initialSession,
+                playerName,
+                mission,
+            });
+            if (!settledValidation.ok) {
+                return res.status(200).json({ ok: true, queued: false, reason: settledValidation.reason });
+            }
         }
 
-        const physicalOutcome = await settlePveFightOutcome(initialSession!, playerName);
+        const usage = await settleSoloPveTerminalUsage(initialSession!, playerName);
+        if (!usage.ok) {
+            return res.status(409).json({ ok: true, queued: false, reason: usage.error });
+        }
+        const physicalOutcome = await settlePveFightOutcome(usage.session, playerName);
         if (!physicalOutcome.ok) {
             return res.status(200).json({ ok: true, queued: false, reason: 'physical-outcome-failed' });
         }
@@ -129,6 +116,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as SaveChar | undefined;
             if (!record || !char) return { queued: false, reason: 'no-save' };
+
+            // A payout receipt means the client lost a response after claim.
+            // Never recreate spendable authority for that already-paid run.
+            const paid = inspectCombatMissionClaimSettlement(char, runId, mission.key, rewardFingerprint);
+            if (paid.status === 'conflict') return { queued: false, reason: 'claim-settlement-conflict' };
+            if (paid.status === 'replay') {
+                return {
+                    queued: true,
+                    replayed: true,
+                    saveVersion: Number(record._saveVersion ?? 0),
+                    character: char,
+                };
+            }
             const eligibility = canPlayerReceiveMission(char, mission);
             if (!eligibility.ok) {
                 return { queued: false, reason: String(missionEligibilityFailureBody(eligibility).reason) };
@@ -138,48 +138,168 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? char.pendingCombatMissionClaims.map(String)
                 : [];
             const nextPending = pending.includes(mission.key) ? pending : [...pending, mission.key];
-            // A private NX receipt makes the cost idempotent across an interrupted
-            // metadata write. It is reserved while holding the save lock; on an
-            // ordinary write failure we release it so a safe retry can finish.
-            const usageReceiptKey = `solo-pve-usage:mission:${runId}`;
-            const firstUsageSettlement = await kv.set(usageReceiptKey, {
-                runId,
-                playerName,
-                missionId: mission.key,
-                at: Date.now(),
-            }, { nx: true, ex: COMBAT_USAGE_RECEIPT_TTL_SECONDS });
-            const chargedChar = firstUsageSettlement === 'OK'
-                ? applySoloPveUsageCosts(char, terminalSession)
-                : char;
+            // The common terminal helper above writes its receipt in the same
+            // versioned save as the decrement. This compatibility application
+            // is therefore a no-op for the exact receipt and still supports
+            // legacy sessions without the common authority fields.
+            const chargedChar = applySoloPveUsageCosts(char, terminalSession);
             const nextChar = { ...chargedChar, pendingCombatMissionClaims: nextPending };
             const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: nextChar });
-
-            try {
-                await kv.set(`missions:combat-claim:${playerName}:${mission.key}`, {
-                    authority: 'server-combat',
-                    runId,
-                    missionId: mission.key,
-                    wonAt: terminalSession.terminalEvidence?.finishedAt ?? Date.now(),
-                }, { ex: COMBAT_CLAIM_TOKEN_TTL_SECONDS });
-                await kv.set(saveKey, mergePreservingImages(updated, record));
-            } catch (error) {
-                if (firstUsageSettlement === 'OK') await kv.del(usageReceiptKey).catch(() => undefined);
-                throw error;
+            const persisted = mergePreservingImages(updated, record) as Record<string, unknown>;
+            const claimTokenKey = combatMissionClaimTokenKey(playerName, mission.key);
+            let expectedToken = await kv.get<unknown>(claimTokenKey);
+            const activeToken = parseCombatMissionClaimToken(expectedToken);
+            const paymentReservation = parseCombatMissionClaimPaymentReservation(expectedToken);
+            let spentToken = parseSpentCombatMissionClaimToken(expectedToken);
+            if (expectedToken !== null && !activeToken && !paymentReservation && !spentToken) {
+                return { queued: false, reason: 'combat-claim-authority-invalid' };
             }
+            if (paymentReservation) {
+                if (!combatMissionClaimPaymentMatches({
+                    reservation: paymentReservation,
+                    playerName,
+                    missionId: mission.key,
+                })) {
+                    return { queued: false, reason: 'combat-claim-authority-conflict' };
+                }
+                const reservedReceipt = inspectCombatMissionClaimSettlement(
+                    char,
+                    paymentReservation.runId,
+                    mission.key,
+                    paymentReservation.rewardFingerprint,
+                );
+                if (reservedReceipt.status === 'conflict') {
+                    return { queued: false, reason: 'claim-settlement-conflict' };
+                }
+                if (paymentReservation.runId !== runId) {
+                    if (reservedReceipt.status !== 'replay'
+                        || !reservedReceipt.receipt.effects?.completedAt) {
+                        return { queued: false, reason: 'combat-claim-payment-in-progress' };
+                    }
+                    // The prior payout and every post-effect are durable; help a
+                    // lost retirement acknowledgement forward so the successor
+                    // does not depend on the old mission card still being visible.
+                    await retireCombatMissionClaimToken({
+                        store: kv,
+                        key: claimTokenKey,
+                        expected: expectedToken,
+                        token: paymentReservation,
+                        settlement: reservedReceipt.receipt,
+                    });
+                    expectedToken = await kv.get<unknown>(claimTokenKey);
+                    spentToken = parseSpentCombatMissionClaimToken(expectedToken);
+                    if (!spentToken) {
+                        return { queued: false, reason: 'combat-claim-authority-conflict' };
+                    }
+                } else {
+                    if (reservedReceipt.status === 'replay'
+                        && reservedReceipt.receipt.effects?.completedAt) {
+                        return {
+                            queued: true,
+                            replayed: true,
+                            saveVersion: Number(record._saveVersion ?? 0),
+                            character: char,
+                        };
+                    }
+                    // An old rolling worker can see the deliberately incompatible
+                    // `paying` authority and self-heal the mission-scoped pending
+                    // flag. Restore that UI affordance without rolling the durable
+                    // reservation back to old-compatible active authority.
+                    await compareSetExactKvRow(kv, saveKey, record, persisted);
+                    return {
+                        queued: true,
+                        saveVersion: Number(updated._saveVersion ?? 0),
+                        character: persisted.character as SaveChar,
+                    };
+                }
+            }
+            if (spentToken) {
+                const prior = inspectCombatMissionClaimSettlement(
+                    char,
+                    spentToken.runId,
+                    spentToken.missionId,
+                    spentToken.rewardFingerprint,
+                );
+                if ((spentToken.playerName && spentToken.playerName !== playerName)
+                    || spentToken.missionId !== mission.key
+                    || prior.status !== 'replay'
+                    || !prior.receipt.effects?.completedAt) {
+                    return { queued: false, reason: 'combat-claim-authority-conflict' };
+                }
+                if (spentToken.runId === runId) {
+                    return {
+                        queued: true,
+                        replayed: true,
+                        saveVersion: Number(record._saveVersion ?? 0),
+                        character: char,
+                    };
+                }
+            }
+            if (activeToken) {
+                if (!combatMissionClaimTokenMatches({
+                    token: activeToken,
+                    playerName,
+                    missionId: mission.key,
+                    enemyProfileId: mission.aiProfileId,
+                    rewardFingerprint,
+                })) {
+                    return { queued: false, reason: 'combat-claim-authority-conflict' };
+                }
+                if (activeToken.runId !== runId) {
+                    // A second completed run must not replace the sole authority
+                    // for an earlier unpaid win. Once the earlier receipt is in
+                    // this same character row it is safe for a newer run to take
+                    // the mission-scoped token key, even if cleanup lost its ACK.
+                    const prior = inspectCombatMissionClaimSettlement(
+                        char,
+                        activeToken.runId,
+                        mission.key,
+                        rewardFingerprint,
+                    );
+                    if (prior.status !== 'replay' || !prior.receipt.effects?.completedAt) {
+                        return { queued: false, reason: 'combat-claim-already-pending' };
+                    }
+                }
+            }
+            const token = createCombatMissionClaimToken({
+                playerName,
+                runId,
+                missionId: mission.key,
+                enemyProfileId: mission.aiProfileId,
+                rewardFingerprint,
+                wonAt: terminalSession.terminalEvidence?.finishedAt ?? Date.now(),
+            });
+            await publishCombatMissionClaimRows({
+                store: kv,
+                tokenKey: claimTokenKey,
+                expectedToken,
+                token,
+                saveKey,
+                expectedSave: record,
+                saveRecord: persisted,
+            });
+            const persistedChar = persisted.character as SaveChar;
             return {
                 queued: true,
                 saveVersion: Number(updated._saveVersion ?? 0),
-                character: nextChar,
+                character: persistedChar,
             };
-        });
+        }, { failClosed: true, ttlSec: 15 });
 
-        const outcome = await withKvLock<QueueOutcome>(missionCombatBindingKey(runId), async () => {
-            const binding = await kv.get<MissionCombatBinding>(missionCombatBindingKey(runId));
+        const outcome = await withKvLock<QueueOutcome>(bindingKey, async () => {
+            const binding = await kv.get<MissionCombatBinding>(bindingKey);
             const session = await readSoloPveSession(runId);
             const validation = validateCompletedMissionCombatSession({ binding, session, playerName, mission });
+            let bindingAuthority: MissionCombatBinding;
+            let metadataAlreadySettled = false;
             if (!validation.ok) {
-                if (validation.reason === 'already-settled') return readQueuedReplay(binding, session);
-                return { queued: false, reason: validation.reason };
+                if (validation.reason !== 'already-settled') return { queued: false, reason: validation.reason };
+                const settled = validateSettledMissionCombatSession({ binding, session, playerName, mission });
+                if (!settled.ok) return { queued: false, reason: settled.reason };
+                bindingAuthority = settled.binding;
+                metadataAlreadySettled = true;
+            } else {
+                bindingAuthority = validation.binding;
             }
 
             const queued = await queueUnderSaveLock(session!);
@@ -193,13 +313,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     rewards: { missionId: mission.key, queued: true },
                 }));
             }
-            await kv.set(
-                missionCombatBindingKey(runId),
-                settleMissionCombatBinding(validation.binding),
-                { ex: MISSION_COMBAT_SESSION_TTL_SECONDS },
-            );
+            const now = Date.now();
+            const settledBinding = metadataAlreadySettled
+                ? bindingAuthority
+                : settleMissionCombatBinding(bindingAuthority, now);
+            // Every successful replay refreshes the token TTL, so keep the
+            // completed binding repairable for that same fresh horizon.
+            const claimHorizon = now + COMBAT_MISSION_CLAIM_TOKEN_TTL_MS;
+            const durableBinding = {
+                ...settledBinding,
+                expiresAt: Math.max(settledBinding.expiresAt, claimHorizon),
+            };
+            await compareSetExactKvRow(kv, bindingKey, binding ?? null, durableBinding, {
+                ex: Math.max(1, Math.ceil((durableBinding.expiresAt - now) / 1000)),
+            });
             return queued;
-        }, { failClosed: true });
+        }, { failClosed: true, ttlSec: 15 });
 
         if (!outcome.queued) return res.status(200).json({ ok: true, queued: false, reason: outcome.reason });
         return res.status(200).json({

@@ -17,9 +17,10 @@ import {
     type AiFightToken,
 } from './_ai-fight-token.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
-import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { compareWriteSoloPveSession, readSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSession } from '../solo-pve/_session.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
+import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import {
     aiFightPaysReward,
@@ -45,6 +46,16 @@ import {
     isoWeekKey,
 } from './_apex-contract.js';
 import { creditFieldRaidProgress } from './_field-raid-progress.js';
+import {
+    aiFightDailyCounterKey,
+    aiFightRedemptionFingerprint,
+    aiFightSavedDailyCounts,
+    commitAiFightRedemptionAuthority,
+    inspectAiFightRedemptionAuthority,
+    mirrorAiFightDailyCountMonotonic,
+    reserveAiFightDailyOrdinal,
+    type AiFightRedemption,
+} from './_ai-fight-redemption-authority.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -133,15 +144,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (outcome === 'unknown') {
             return res.status(409).json({ error: 'The sealed fight could not be verified.', outcome });
         }
+        if (!isSoloPveSession(sealedSession)) {
+            return res.status(409).json({ error: 'The sealed fight has no solo-PvE usage authority.', outcome });
+        }
+        const usage = await settleSoloPveTerminalUsage(sealedSession, playerName);
+        if (!usage.ok) return res.status(usage.status).json({ error: usage.error, outcome });
+        const settledUsageSession = usage.session;
         const paysReward = aiFightPaysReward(outcome, sealedBattleKind);
+        const requestedDailyDate = utcDateKey();
+        let dailyCounterKey = aiFightDailyCounterKey(playerName, requestedDailyDate);
         const result = await mutatePlayerSave(playerName, async ({ character }) => {
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
                 ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number } =>
                     !!entry && typeof entry === 'object' && typeof (entry as { token?: unknown }).token === 'string')
                 : [];
-            const prior = redeemed.find((entry) => entry.token === aiFightToken);
-            if (prior) return { ok: true as const, character, value: { ...prior, replayed: true } };
-
             const tokenData = await kv.get<AiFightToken>(tokenKey);
             if (!tokenData) return { ok: false as const, status: 409, error: 'AI fight token is invalid or already spent.' };
             if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
@@ -149,11 +165,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const claim = validateAiFightRewardClaim(tokenData, body.xp, body.ryo);
             if (!claim.ok) return { ok: false as const, status: 409, error: claim.reason };
+            const now = Date.now();
+            const fingerprint = aiFightRedemptionFingerprint({
+                playerName,
+                token: aiFightToken,
+                tokenData,
+                sessionId: settledUsageSession.sessionId,
+                outcome,
+                battleKind: sealedBattleKind,
+                claim,
+            });
+            const prior = redeemed.find((entry) => entry.token === aiFightToken);
+            // Do not allocate a daily ordinal for an unsafe pre-cutover token
+            // that has no exact legacy save proof. Existing legacy receipts are
+            // migrated below and new v1 tokens reserve against the old scalar.
+            if (tokenData.redemptionAuthorityVersion !== 1 && !prior) {
+                return { ok: false as const, status: 409, error: 'This pre-upgrade AI-fight token cannot be redeemed safely.' };
+            }
+            const dailyReservation = paysReward
+                ? await reserveAiFightDailyOrdinal(kv, {
+                    playerName,
+                    token: aiFightToken,
+                    mintedAt: tokenData.mintedAt,
+                    requestedDate: requestedDailyDate,
+                    minimumDailyCounts: aiFightSavedDailyCounts(character),
+                    ttlSeconds: AI_FIGHT_DAILY_COUNT_TTL_SECONDS,
+                })
+                : null;
+            const dailyDate = dailyReservation?.date ?? requestedDailyDate;
+            dailyCounterKey = dailyReservation?.counterKey ?? aiFightDailyCounterKey(playerName, dailyDate);
+            const authority = inspectAiFightRedemptionAuthority({
+                character,
+                token: aiFightToken,
+                fingerprint,
+                mintedAt: tokenData.mintedAt,
+                now,
+                date: dailyDate,
+                paysReward,
+                reservedDailyCount: dailyReservation?.dailyCount,
+            });
+            if (!authority.ok) return authority;
+            if (authority.replayed) {
+                return { ok: true as const, character, value: { ...authority.redemption, replayed: true }, write: false as const };
+            }
+            if (prior) {
+                const migrated: AiFightRedemption = {
+                    token: aiFightToken,
+                    xp: Math.max(0, Math.floor(Number(prior.xp) || 0)),
+                    ryo: Math.max(0, Math.floor(Number(prior.ryo) || 0)),
+                    capped: prior.capped === true,
+                    dailyCount: Math.max(0, Math.floor(Number(prior.dailyCount) || 0)),
+                };
+                return {
+                    ok: true as const,
+                    character: commitAiFightRedemptionAuthority(character, authority, migrated, { counterAlreadyCommitted: true }),
+                    value: { ...migrated, replayed: true },
+                };
+            }
             // The per-token redemption below is the exactly-once receipt. Item
             // deduction rides in this SAME save mutation as HP and payout, so a
             // retry cannot keep a spent consumable or deduct it twice.
-            const companionCharacter = isSoloPveSession(sealedSession)
-                ? applySoloPveUsageCosts(character, sealedSession)
+            const companionCharacter = isSoloPveSession(settledUsageSession)
+                ? applySoloPveUsageCosts(character, settledUsageSession)
                 : Object.keys(playerItemsUsed).length > 0
                     ? deductUsedItems(character, playerItemsUsed)
                     : character;
@@ -163,15 +236,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // the counter is a REWARD counter, and a defeat earned no reward.
             if (!paysReward) {
                 const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now());
-                const redemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
+                const redemption: AiFightRedemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
+                const withLegacyReceipt = { ...settled, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
                 return {
                     ok: true as const,
-                    character: { ...settled, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] },
+                    character: commitAiFightRedemptionAuthority(withLegacyReceipt, authority, redemption),
                     value: { ...redemption, replayed: false },
                 };
             }
 
-            const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
+            const dailyCount = authority.dailyCount;
             const reward = aiFightReward(claim.xp, claim.ryo, dailyCount);
             const leveled = gainXp(companionCharacter, reward.xp) as Record<string, unknown>;
             const paid = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
@@ -186,26 +260,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // other way round). No-op on the local-fallback track, which has no
             // session to read an HP from.
             const nextCharacter = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now());
-            const redemption = { token: aiFightToken, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount };
+            const redemption: AiFightRedemption = { token: aiFightToken, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount };
+            const withLegacyReceipt = { ...nextCharacter, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
             return {
                 ok: true as const,
-                character: { ...nextCharacter, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] },
+                character: commitAiFightRedemptionAuthority(withLegacyReceipt, authority, redemption),
                 value: { ...redemption, replayed: false },
             };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         const reward = result.value;
         const dailyCount = reward.dailyCount;
-        if (isSoloPveSession(sealedSession) && sealedSession.terminalEvidence) {
-            const settledAt = Date.now();
-            await writeSoloPveSession(withSoloPveSettlementReceipt(sealedSession, {
-                kind: 'ai-fight',
-                id: aiFightToken,
-                settledAt,
-                rewards: { outcome, xp: reward.xp, ryo: reward.ryo, replayed: reward.replayed },
-            }));
+        if (paysReward && dailyCount > 0) {
+            await mirrorAiFightDailyCountMonotonic(
+                kv,
+                dailyCounterKey,
+                dailyCount,
+                AI_FIGHT_DAILY_COUNT_TTL_SECONDS,
+            );
         }
-        await kv.del(tokenKey).catch(() => undefined);
+        if (isSoloPveSession(settledUsageSession) && settledUsageSession.terminalEvidence) {
+            try {
+                const priorReceipt = settledUsageSession.terminalEvidence.receipt;
+                if (settledUsageSession.settlementState === 'settled') {
+                    if (priorReceipt?.kind !== 'ai-fight' || priorReceipt.id !== aiFightToken) {
+                        throw new Error('ai-fight-session-settlement-conflict');
+                    }
+                } else {
+                    const settled = withSoloPveSettlementReceipt(settledUsageSession, {
+                        kind: 'ai-fight',
+                        id: aiFightToken,
+                        settledAt: Date.now(),
+                        rewards: { outcome, xp: reward.xp, ryo: reward.ryo, replayed: reward.replayed },
+                    });
+                    if (!(await compareWriteSoloPveSession(settledUsageSession, settled))) {
+                        const readback = await readSoloPveSession(settledUsageSession.sessionId);
+                        if (!readback
+                            || readback.settlementState !== 'settled'
+                            || readback.terminalEvidence?.receipt?.kind !== 'ai-fight'
+                            || readback.terminalEvidence.receipt.id !== aiFightToken) {
+                            throw new Error('ai-fight-session-settlement-conflict');
+                        }
+                    }
+                }
+            } catch (sessionError) {
+                // The save receipt above is the payout authority. Once it is
+                // committed, a secondary session-projection conflict must not
+                // turn a truthful paid response into a 500; a replay remains
+                // exact from the non-evicting save manifest.
+                console.error('[report-ai-fight] terminal session projection remains pending:', safeLogValue(sessionError));
+            }
+        }
+        // Keep the spent token until its short TTL so a lost settle response can
+        // replay the exact in-save receipt. The reward/usage mutation above is
+        // already exactly-once; deleting this lookup made that durable replay
+        // unreachable.
 
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy

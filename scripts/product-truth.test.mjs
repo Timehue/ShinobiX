@@ -12,6 +12,8 @@ test('README and canonical status agree that ShinobiX is a live public beta', ()
     assert.match(readme, /Live Product Status/);
     assert.match(status, /canonical repository authority/);
     assert.match(status, /live public-beta browser MMORPG/i);
+    assert.match(status, /Current authority as of August 10, 2026/);
+    assert.match(status, /Repository verification base: `d76a1e7e5d07aab1ac2dce3156e469c9984685c3`/);
     assert.doesNotMatch(readme, /public beta candidate|moves toward public beta|Gate or soft-launch/i);
     assert.doesNotMatch(roadmap, /before invites|public beta candidate|moves toward public beta|Gate or soft-launch/i);
 });
@@ -50,6 +52,16 @@ test('rollout-era wording survives only with a prominent historical marker', () 
         assert.match(read(path).slice(0, 900), /HISTORICAL ROLLOUT EVIDENCE — SUPERSEDED FOR CURRENT AVAILABILITY/, path);
     }
     assert.match(read('docs/MMO_ROUNDNESS_IMPLEMENTATION_REPORT.md').slice(0, 900), /HISTORICAL IMPLEMENTATION EVIDENCE/);
+});
+
+test('progression guidance is current while superseded design proposals remain clearly historical', () => {
+    const progression = read('docs/PROGRESSION_SPINE_LEVEL_10_100.md');
+    assert.match(progression.slice(0, 1_200), /CURRENT PLAYER GUIDANCE — RUNTIME-RECONCILED/);
+    assert.doesNotMatch(progression, /XP is held|desktop-first|after certification|gated\/staffed/i);
+
+    for (const path of ['docs/early-progression.md', 'docs/onboarding-tutorial.md']) {
+        assert.match(read(path).slice(0, 1_200), /HISTORICAL DESIGN PROPOSAL — SUPERSEDED FOR CURRENT RUNTIME/, path);
+    }
 });
 
 test('the public capability route is wired and its contract excludes raw environment payloads', () => {

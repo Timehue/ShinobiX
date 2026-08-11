@@ -35,7 +35,11 @@ test('all built-in mission ranks and both story lanes use the solo-PvE arena ada
     assert.match(storyHost, /soloPveArenaTransport/);
     assert.doesNotMatch(missions, /mission\.min\s*>\s*5|setPendingAiProfileId\(ai\.id\)/, 'E/D missions can still resolve locally');
     assert.doesNotMatch(storyHost, /playLocally/);
-    assert.match(source('../missions/queue-combat-claim.ts'), /solo-pve-usage:mission:[^`]+`[\s\S]{0,400}nx: true/);
+    const missionClaim = source('../missions/queue-combat-claim.ts');
+    assert.match(missionClaim, /settleSoloPveTerminalUsage\(initialSession!, playerName\)[\s\S]{0,240}settlePveFightOutcome\(usage\.session, playerName\)/);
+    assert.doesNotMatch(missionClaim, /solo-pve-usage:mission:/, 'legacy eviction-prone NX usage receipt remains');
+    assert.match(source('_pet-battle-authority.ts'), /SOLO_PVE_COMPANION_SETTLEMENTS_FIELD/);
+    assert.match(source('_item-usage-authority.ts'), /SOLO_PVE_ITEM_SETTLEMENTS_FIELD/);
 });
 
 test('shared PvE outcome reporting can read solo sessions before legacy Tower sessions', () => {

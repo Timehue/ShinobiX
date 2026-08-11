@@ -16,6 +16,7 @@ import type {
     ServerArenaStatus,
     ServerArenaTransport,
 } from "../lib/server-arena-runtime";
+import { presentSoloActionRejection } from "../lib/solo-action-rejection";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
@@ -106,9 +107,10 @@ function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
 const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j) && j!.target === "SELF";
 
 // Runtime status → CombatSideHud status shape (it requires an explicit kind).
-function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
+function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; source?: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
     return (statuses ?? []).map((s) => ({
         name: s.name,
+        source: s.source,
         rounds: s.rounds,
         amount: s.amount,
         percent: s.percent,
@@ -499,18 +501,20 @@ export function MissionArenaFight({
 
     async function send(action: ServerArenaAction) {
         if (busy) return;
-        // Display-only tutorial progress (drives the SparCoach banner). Recorded
-        // on SUBMIT rather than from the log so the hint advances the moment the
-        // player does the thing they were told to do; it never touches combat.
-        if (action.type === "attack") setSparAttacked(true);
-        if (action.type === "jutsu") setSparCasted(true);
         setBusy(true); setReject(null);
         try {
             const res = await transport.submitAction(runId, me, session, action);
             setSession(res.session);
-            if (!res.applied) setReject(res.reason ?? "That move wasn't allowed.");
+            if (res.applied) {
+                // Display-only tutorial progress follows authoritative success;
+                // an out-of-range or otherwise rejected attempt keeps its lesson.
+                if (action.type === "attack") setSparAttacked(true);
+                if (action.type === "jutsu") setSparCasted(true);
+            } else {
+                setReject(presentSoloActionRejection(res.reason));
+            }
         } catch (e) {
-            setReject(String((e as Error)?.message ?? e));
+            setReject(presentSoloActionRejection(String((e as Error)?.message ?? e)));
         } finally {
             setBusy(false);
             setMode("idle"); setSelJutsu(null); setSelWeaponId("");

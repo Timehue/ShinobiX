@@ -14,6 +14,7 @@ import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { activeCarriedPets } from "../lib/entitlements";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 
 // The sealed co-op match now plays as the Hollow Warfront (the lane-war mode
@@ -48,12 +49,14 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     character: Character; sharedImages: Record<string, string>; onExit: () => void;
 }) {
     const myName = character.name;
-    const availablePets = character.pets.filter((p) => !isPetOnExpedition(p));
+    const availablePets = activeCarriedPets(character).filter((p) => !isPetOnExpedition(p));
     const [lobby, setLobby] = useState<PublicLobby | null>(null);
     const [joinCode, setJoinCode] = useState("");
     const [picks, setPicks] = useState<string[]>([]);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
+    const availablePetIds = new Set(availablePets.map((pet) => pet.id));
+    const validPicks = picks.filter((id) => availablePetIds.has(id));
 
     // Poll the lobby every 2s while waiting (stops once the match seals/running).
     useEffect(() => {
@@ -80,8 +83,8 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
         const d = await lobbyApi(myName, "join", { code }); if (d.lobby) setLobby(d.lobby);
     });
     const lockIn = run(async () => {
-        if (picks.length !== 2) { setError("Pick exactly 2 pets."); return; }
-        const d = await lobbyApi(myName, "pets", { code: lobby!.code, petIds: picks }); if (d.lobby) setLobby(d.lobby);
+        if (validPicks.length !== 2) { setError("Pick exactly 2 carried pets."); return; }
+        const d = await lobbyApi(myName, "pets", { code: lobby!.code, petIds: validPicks }); if (d.lobby) setLobby(d.lobby);
     });
     const startMatch = run(async () => { const d = await lobbyApi(myName, "start", { code: lobby!.code }); if (d.lobby) setLobby(d.lobby); });
     const leave = run(async () => { try { await lobbyApi(myName, "leave", { code: lobby!.code }); } catch { /* best-effort */ } onExit(); });
@@ -167,8 +170,8 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                         {/* My pet picker */}
                         <div style={PANEL}>
                             <div style={{ display: "flex", alignItems: "center", marginBottom: "0.35rem" }}>
-                                <strong style={{ fontSize: "0.85rem" }}>Your pets {mySeat?.ready ? "✓ locked in" : `(${picks.length}/2)`}</strong>
-                                <button onClick={lockIn} disabled={busy || picks.length !== 2 || availablePets.length < 2}
+                                <strong style={{ fontSize: "0.85rem" }}>Your pets {mySeat?.ready ? "✓ locked in" : `(${validPicks.length}/2)`}</strong>
+                                <button onClick={lockIn} disabled={busy || validPicks.length !== 2 || availablePets.length < 2}
                                     style={{ marginLeft: "auto", background: mySeat?.ready ? "var(--slate-700)" : "#16a34a" }}>
                                     {mySeat?.ready ? "Change picks" : "Lock in 2 pets"}
                                 </button>
@@ -178,7 +181,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                             ) : (
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: "0.35rem" }}>
                                     {availablePets.map((pet) => {
-                                        const sel = picks.includes(pet.id);
+                                        const sel = validPicks.includes(pet.id);
                                         const img = petCardImage(pet, sharedImages);
                                         return (
                                             <button key={pet.id} className={petVisualVariantClass(pet)} onClick={() => togglePick(pet.id)}

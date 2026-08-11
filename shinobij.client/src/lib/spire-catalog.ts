@@ -23,6 +23,9 @@ export interface SpireBossMeta {
     glow: string;
     /** emoji fallback if the portrait art is missing */
     emoji: string;
+    /** Server-mirrored targeting and recurring telegraph profile for pre-run briefing. */
+    targetMode: "lowest-hp" | "squishiest" | "support";
+    strike: { kind: "nova" | "volley" | "slam"; pct: number; radius: number; everyRounds: number; firstRound: number };
 }
 
 // The four endgame bosses. Names + mechanics mirror SPIRE_BOSSES in the server catalog;
@@ -33,21 +36,25 @@ export const SPIRE_BOSS_META: Record<SpireBossKey, SpireBossMeta> = {
         key: "warden", name: "Spire Warden", mechanic: "bulwark", mechanicLabel: "Bulwark",
         blurb: "Halves damage while its guards stand — shatter the pod, then the wall.",
         accent: "#e8a54b", glow: "rgba(232,165,75,0.45)", emoji: "🐲",
+        targetMode: "squishiest", strike: { kind: "slam", pct: 6, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     revenant: {
         key: "revenant", name: "Hollow Revenant", mechanic: "regen", mechanicLabel: "Regeneration",
         blurb: "Knits itself whole each round — out-bleed the drain or stall forever.",
         accent: "#a78bfa", glow: "rgba(167,139,250,0.45)", emoji: "💀",
+        targetMode: "support", strike: { kind: "volley", pct: 6, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     ravager: {
         key: "ravager", name: "Pit Ravager", mechanic: "summon", mechanicLabel: "Summoner",
         blurb: "Calls the pit at every phase — control the adds or drown in them.",
         accent: "#fb7185", glow: "rgba(251,113,133,0.45)", emoji: "😈",
+        targetMode: "lowest-hp", strike: { kind: "nova", pct: 7, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     sovereign: {
         key: "sovereign", name: "Spire Sovereign", mechanic: "enrage", mechanicLabel: "Enrage",
         blurb: "Grows deadlier as it falls — race the clock before it peaks.",
         accent: "#fbbf24", glow: "rgba(251,191,36,0.5)", emoji: "👑",
+        targetMode: "lowest-hp", strike: { kind: "nova", pct: 8, radius: 1, everyRounds: 3, firstRound: 3 },
     },
 };
 

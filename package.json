@@ -36,8 +36,10 @@
         "certify:clan-boss-operation": "node --import tsx scripts/clan-boss-operation-certification.ts",
         "audit:clan-boss-balance": "node --import tsx scripts/clan-boss-balance-sim.ts",
         "scan:data": "node --import tsx scripts/data-integrity-scan.mjs",
+        "maintenance:fingerprint": "node scripts/maintenance-target-fingerprint.mjs",
+        "certify:patreon:staging": "node --import tsx scripts/patreon-staging-smoke.mjs --target=staging",
         "ledger:audit": "node --import tsx scripts/currency-ledger-audit.mjs",
-        "ledger:backfill": "node --import tsx scripts/currency-ledger-audit.mjs --backfill",
+        "ledger:backfill": "node --import tsx scripts/data-integrity-scan.mjs --repair",
         "export:tooling-handoffs": "node --import tsx scripts/export-tooling-handoffs.mjs",
         "check:tooling-handoffs": "node --import tsx scripts/export-tooling-handoffs.mjs --check"
     },

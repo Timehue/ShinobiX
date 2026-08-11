@@ -1,10 +1,12 @@
 # Early-Progression Redesign
 
+> **HISTORICAL DESIGN PROPOSAL — SUPERSEDED FOR CURRENT RUNTIME.** Preserve this document as the pre-implementation rationale; do not use its old XP model, code references, availability statements, or proposed thresholds as current product truth. Character XP is retired, levels now derive from earned stat points, and the Academy onboarding path is shipped. Use [`LIVE_PRODUCT_STATUS.md`](./LIVE_PRODUCT_STATUS.md), [`leveling-without-xp-map.md`](./leveling-without-xp-map.md), and executable runtime/tests for current behavior.
+
 Design doc for improving the new-player experience in Shinobi Journey, from
 account creation through the Genin gate (the first session and the path to
 "hooked"). Companion to `docs/professions.md`.
 
-> **Status:** proposal / not yet implemented.
+> **Original status at time of writing:** proposal / not yet implemented.
 > **Scope:** levels 1–20, first ~3 sessions.
 > **Key assumption (per direction):** design as if the `×45` XP "testing"
 > multiplier is gone — i.e. balance the *real* base curve

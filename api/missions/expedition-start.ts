@@ -8,6 +8,8 @@ import { withKvLock } from '../_lock.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { activeBreedingParentIds } from '../pet/_pet-busy.js';
+import { activeCarriedPetIds } from '../_entitlements.js';
+import { claimPetLifecycleLease } from '../pet/_active-battle-lease.js';
 
 /*
  * /api/missions/expedition-start  — POST only
@@ -30,7 +32,8 @@ import { activeBreedingParentIds } from '../pet/_pet-busy.js';
  * durationMinutes, petLevel, mintedAt, endsAt }, TTL = 5h (covers the 4h max
  * expedition + collect slack). Single-use: report-pet-event deletes it on redeem.
  *
- * Body: { playerName, petId?, expType, petLevel? }
+ * Body: { playerName, petId?, expType }. Legacy `petLevel` input is ignored;
+ * reward level always comes from the saved pet selected by `petId`.
  *
  * Rate limited 5 per 30s (a Tamer can launch up to PET_CAP=5 pets back-to-back)
  * + a hard 12/day mint cap (matches report-pet-event's MAX_EXPEDITIONS_PER_DAY).
@@ -72,7 +75,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null) as ExpType | null;
         const petIdRaw = typeof body.petId === 'string' ? body.petId.trim().slice(0, 64) : '';
         const petId = /^[A-Za-z0-9:_-]+$/.test(petIdRaw) ? petIdRaw : '';
-        const petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!expType) return res.status(400).json({ error: 'Invalid expedition type.' });
@@ -82,6 +84,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own expeditions.' });
         }
+        const lifecycleLease = await claimPetLifecycleLease(kv, playerName, 'expedition');
+        if (!lifecycleLease) {
+            return res.status(409).json({ error: 'pet-is-in-active-battle', message: 'Finish or settle your active pet battle before starting an expedition.' });
+        }
+        try {
 
         // Pet Tamers earn FULL expedition currency/Tamer rewards. Non-Tamers earn
         // nothing from expeditions normally — EXCEPT once a pet is fully maxed
@@ -91,22 +98,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
         const isTamer = char?.profession === 'petTamer';
-        // Verify the pet's REAL level from the save — never trust body.petLevel —
-        // so a non-Tamer can't fake a maxed pet to farm the half-rate currency.
+        // Verify the pet's REAL level from the save for every profession. Reward
+        // inputs must never let even a Pet Tamer forge a stronger expedition pet.
         const pets = Array.isArray(char?.pets) ? (char.pets as Array<Record<string, unknown>>) : [];
         const thePet = petId ? pets.find((p) => p && p.id === petId) : undefined;
         const realLevel = Number(thePet?.level ?? 0);
         const realMaxLevel = Number(thePet?.maxLevel ?? 100);
         const petMaxed = !!thePet && realLevel >= realMaxLevel;
         if (!thePet) return res.status(404).json({ error: 'Pet not found.' });
+        if (!activeCarriedPetIds(char, pets).includes(petId)) {
+            return res.status(409).json({
+                error: 'pet-preserved-overflow',
+                message: 'Move this companion into the carried roster through the Sanctuary before starting an expedition.',
+            });
+        }
         if (activeBreedingParentIds(char ?? {}, Date.now()).has(petId)) return res.status(409).json({ error: 'This pet is in the breeding barn.' });
         if (realLevel < 20) return res.status(409).json({ error: 'Pet must reach level 20.' });
         if (thePet.training || thePet.expedition) return res.status(409).json({ error: 'Pet is already busy.' });
         // Half rate for the non-Tamer maxed-pet path; full rate for Pet Tamers.
         const rewardScale = isTamer ? 1 : petMaxed ? 0.5 : 0;
-        // Seal the level used by the ryo formula: the verified maxed level for the
-        // non-Tamer path, the (clamped) body value for Tamers (unchanged behavior).
-        const sealedPetLevel = isTamer ? petLevel : Math.max(1, Math.min(100, realLevel));
+        // Seal only the authoritative saved level used by the Ryo formula.
+        const sealedPetLevel = Math.max(1, Math.min(100, Math.floor(realLevel)));
 
         // Daily mint cap (separate counter from report-pet-event's claim cap;
         // a mint without a redeem still counts so the two can't be played off
@@ -165,6 +177,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const storedPets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const currentIndex = storedPets.findIndex((pet) => String(pet?.id ?? '') === petId);
             if (currentIndex < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
+            if (!activeCarriedPetIds(character, storedPets).includes(petId)) {
+                return { ok: false as const, status: 409, error: 'pet-preserved-overflow' };
+            }
             const currentPet = storedPets[currentIndex];
             if (activeBreedingParentIds(character, mintedAt).has(petId)) return { ok: false as const, status: 409, error: 'This pet is in the breeding barn.' };
             if (currentPet.training || currentPet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
@@ -182,6 +197,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!mutation.ok) { await kv.del(tokenKey).catch(() => undefined); return res.status(mutation.status).json({ error: mutation.error }); }
 
         return res.status(200).json({ ok: true, petTamer: isTamer, token: tokenId, durationMinutes, endsAt, character: mutation.character, _saveVersion: mutation._saveVersion });
+        } finally {
+            await lifecycleLease.release();
+        }
     } catch (err) {
         console.error('[missions/expedition-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });

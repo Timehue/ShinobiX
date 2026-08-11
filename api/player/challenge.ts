@@ -7,9 +7,19 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
-import { PET_RANKED_DISABLED_REASON, petRankedStartsEnabled } from '../pet/_ranked-settlement.js';
+import { PET_RANKED_DISABLED_REASON, petRankedPublicChallengesEnabled } from '../pet/_ranked-settlement.js';
+import { activeCarriedPets } from '../_entitlements.js';
+import { petCombatBusyReason, type PetCombatBusyCode } from '../pet/_pet-busy.js';
 import { blockRelationship } from './_blocks.js';
 import type { PvpSession } from '../pvp/session.js';
+import {
+    getPlayerRankedAdmission,
+    isPlayerRankedMatchId,
+    PLAYER_RANKED_ADMISSION_TTL_MS,
+    releaseQueuedPlayerRankedAdmission,
+    type PlayerRankedAdmission,
+} from '../pet/_ranked-preparation.js';
+import { PLAYER_RANKED_V2_DISABLED_MESSAGE, playerRankedV2AdmissionsEnabled } from '../pvp/_player-ranked-rollout.js';
 import {
     cancelChallengeRecord,
     isChallengeId,
@@ -30,6 +40,7 @@ const CHALLENGE_INPUT_FIELDS = new Set([
     'challengerPetIds', 'responderPetIds', 'responderParty', 'arenaMatch', 'arenaSize',
     'challengerTeamIds', 'responderTeam', 'createdAt', 'mode', 'clanWarPoints',
     'challengerPetRating', 'responderPetRating', 'petRankedToken', 'sectorAttack',
+    'rankedMatchId', 'rankedSeasonId', 'rankedSeasonEpoch',
     'kageChallengeId', 'kageVillage', 'battleId', 'accepted', 'declined',
 ]);
 
@@ -56,10 +67,44 @@ function boundedIdList(value: unknown, maxItems: number): string[] {
         .slice(0, maxItems);
 }
 
-function petById(character: Record<string, unknown> | null, id: string): Record<string, unknown> | null {
-    if (!character || !id || !Array.isArray(character.pets)) return null;
-    const found = (character.pets as unknown[]).find((pet) => isPlainRecord(pet) && String(pet.id ?? '') === id);
+export function petById(character: Record<string, unknown> | null, id: string): Record<string, unknown> | null {
+    if (!character || !id) return null;
+    const found = activeCarriedPets<Record<string, unknown>>(character)
+        .find((pet) => isPlainRecord(pet) && String(pet.id ?? '') === id);
     return isPlainRecord(found) ? found : null;
+}
+
+export function selectedCombatPetBusyReason(
+    character: Record<string, unknown> | null,
+    ids: Iterable<string>,
+): PetCombatBusyCode | null {
+    if (!character) return null;
+    for (const id of ids) {
+        const pet = petById(character, id);
+        if (!pet) continue;
+        const busy = petCombatBusyReason(character, pet);
+        if (busy) return busy;
+    }
+    return null;
+}
+
+function challengerSelectionIds(raw: Record<string, unknown>): string[] {
+    return [...new Set([
+        boundedString(raw.challengerPetId, 80),
+        ...boundedIdList(raw.challengerPetIds, 2),
+        ...boundedIdList(raw.challengerTeamIds, 4),
+    ].filter(Boolean))];
+}
+
+function responderSelectionIds(raw: Record<string, unknown>): string[] {
+    const teamIds = Array.isArray(raw.responderTeam)
+        ? boundedIdList(raw.responderTeam.map((pet) => isPlainRecord(pet) ? pet.id : ''), 4)
+        : [];
+    return [...new Set([
+        boundedString(raw.responderPetId, 80),
+        ...boundedIdList(raw.responderPetIds, 2),
+        ...teamIds,
+    ].filter(Boolean))];
 }
 
 async function loadCharacter(name: string): Promise<Record<string, unknown> | null> {
@@ -108,13 +153,13 @@ function stripPetInlineImages(pets: unknown): unknown {
         return out;
     });
 }
-function projectChallengerCharacter(c: unknown): unknown {
+export function projectChallengerCharacter(c: unknown): unknown {
     if (!c || typeof c !== 'object') return c;
     const src = c as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const k of CHALLENGER_PUBLIC_FIELDS) if (k in src) out[k] = src[k];
     if (isInlineImage(out.avatarImage)) delete out.avatarImage;
-    if ('pets' in out) out.pets = stripPetInlineImages(out.pets);
+    if ('pets' in out) out.pets = stripPetInlineImages(activeCarriedPets<Record<string, unknown>>(src));
     return out;
 }
 function projectChallenge(c: unknown): unknown {
@@ -215,6 +260,13 @@ function clampClanWarPoints(challenge: unknown): unknown {
     return rec;
 }
 
+async function releaseRankedChallengeAdmission(record: AuthoritativeChallengeRecord): Promise<void> {
+    if (record.mode !== 'ranked') return;
+    const matchId = boundedString(record.challenge.rankedMatchId, 100);
+    if (!isPlayerRankedMatchId(matchId)) return;
+    await releaseQueuedPlayerRankedAdmission(kv, matchId, record.from);
+}
+
 function validateChallengeShape(value: unknown): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
     if (!isPlainRecord(value)) return { ok: false, error: 'Challenge must be an object.' };
     const unknown = Object.keys(value).filter((key) => !CHALLENGE_INPUT_FIELDS.has(key));
@@ -250,6 +302,35 @@ async function buildNewChallenge(
     }
     const mode = raw.mode ?? 'standard';
     if (!isPlayerChallengeMode(mode)) return { ok: false, status: 400, error: 'Unsupported challenge mode.' };
+    let rankedAdmission: PlayerRankedAdmission | null = null;
+    if (mode === 'ranked') {
+        if (!playerRankedV2AdmissionsEnabled()) {
+            return { ok: false, status: 503, error: PLAYER_RANKED_V2_DISABLED_MESSAGE };
+        }
+        const rankedMatchId = boundedString(raw.rankedMatchId, 100);
+        const rankedSeasonId = raw.rankedSeasonId;
+        const rankedSeasonEpoch = raw.rankedSeasonEpoch;
+        if (!isPlayerRankedMatchId(rankedMatchId)
+            || typeof rankedSeasonId !== 'number'
+            || !Number.isSafeInteger(rankedSeasonId)
+            || rankedSeasonId <= 0
+            || typeof rankedSeasonEpoch !== 'number'
+            || !Number.isSafeInteger(rankedSeasonEpoch)
+            || rankedSeasonEpoch <= 0) {
+            return { ok: false, status: 409, error: 'A complete server-ranked match proof is required.' };
+        }
+        rankedAdmission = await getPlayerRankedAdmission(kv, rankedMatchId);
+        const pair = [from, to].sort();
+        if (!rankedAdmission
+            || rankedAdmission.phase !== 'queued'
+            || rankedAdmission.a !== pair[0]
+            || rankedAdmission.b !== pair[1]
+            || Date.now() - rankedAdmission.createdAt > PLAYER_RANKED_ADMISSION_TTL_MS
+            || rankedAdmission.seasonId !== rankedSeasonId
+            || rankedAdmission.seasonEpoch !== rankedSeasonEpoch) {
+            return { ok: false, status: 409, error: 'That ranked match proof is stale or belongs to another pairing.' };
+        }
+    }
     if (raw.battleId !== undefined && !isBattleId(raw.battleId)) {
         return { ok: false, status: 400, error: 'Malformed battleId.' };
     }
@@ -263,6 +344,9 @@ async function buildNewChallenge(
     ]);
     if (!senderCharacter) return { ok: false, status: 404, error: 'Your character save was not found.' };
     if (!targetCharacter) return { ok: false, status: 404, error: `No player named "${targetName}" was found.` };
+    if (selectedCombatPetBusyReason(senderCharacter, challengerSelectionIds(raw))) {
+        return { ok: false, status: 409, error: 'A selected pet is busy with breeding, training, or an expedition.' };
+    }
 
     if (raw.battleId) {
         const battle = await kv.get<PvpSession>(`pvp:${raw.battleId}`);
@@ -286,6 +370,11 @@ async function buildNewChallenge(
     if (clanWarPoints > 0) safe.clanWarPoints = clanWarPoints;
     if (raw.sectorAttack === true) safe.sectorAttack = true;
     if (raw.battleId) safe.battleId = raw.battleId;
+    if (rankedAdmission) {
+        safe.rankedMatchId = rankedAdmission.matchId;
+        safe.rankedSeasonId = rankedAdmission.seasonId;
+        safe.rankedSeasonEpoch = rankedAdmission.seasonEpoch;
+    }
     if (raw.petParty === true) safe.petParty = true;
     if (raw.arenaMatch === true) safe.arenaMatch = true;
     if (raw.arenaSize === 2 || raw.arenaSize === 4) safe.arenaSize = raw.arenaSize;
@@ -394,7 +483,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
 
             await removeFromInbox(expectedTarget, id);
             if (record.status === 'pending' && (identity.admin || identity.name === record.from)) {
-                await cancelChallengeRecord(id, record.from);
+                const cancelled = await cancelChallengeRecord(id, record.from);
+                if (cancelled) await releaseRankedChallengeAdmission(cancelled);
                 await clearExactOutgoing(record.from, id);
             } else if (resolved) {
                 await clearExactOutgoing(record.from, id);
@@ -427,6 +517,10 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 if (blocked.aBlockedB || blocked.bBlockedA) {
                     return res.status(403).json({ error: 'A player block prevents accepting this challenge.' });
                 }
+                const responder = await loadCharacter(record.to);
+                if (selectedCombatPetBusyReason(responder, responderSelectionIds(rawChallenge))) {
+                    return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+                }
             }
 
             const resolution: 'accepted' | 'declined' = accepted ? 'accepted' : 'declined';
@@ -454,6 +548,9 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             if (!resolutionResult) {
                 return res.status(409).json({ error: 'Challenge was already resolved differently or no longer matches.' });
             }
+            if (resolution === 'declined') {
+                await releaseRankedChallengeAdmission(resolutionResult.record);
+            }
 
             const notice = await buildResolutionNotice(resolutionResult.record, rawChallenge, resolution);
             await Promise.all([
@@ -475,7 +572,10 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         const built = await buildNewChallenge(rawChallenge, creator, targetName);
         if (!built.ok) return res.status(built.status).json({ error: built.error });
 
-        if (built.record.mode === 'rankedPet' && !petRankedStartsEnabled()) {
+        // The private queue/engine can be certified without reopening this
+        // legacy live-challenge surface. Public promotion requires its own
+        // explicit flag in addition to the server-engine flag.
+        if (built.record.mode === 'rankedPet' && !petRankedPublicChallengesEnabled()) {
             return res.status(503).json({ error: PET_RANKED_DISABLED_REASON });
         }
         if (!built.challenge.battleId) {
@@ -488,7 +588,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             const prior = await kv.get<{ targetName?: string; challengeId?: string }>(senderKey);
             if (prior?.challengeId && prior.targetName) {
                 await removeFromInbox(String(prior.targetName), String(prior.challengeId));
-                await cancelChallengeRecord(String(prior.challengeId), built.record.from);
+                const cancelled = await cancelChallengeRecord(String(prior.challengeId), built.record.from);
+                if (cancelled) await releaseRankedChallengeAdmission(cancelled);
             }
         }
 

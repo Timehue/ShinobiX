@@ -7,6 +7,7 @@
  * Wire format (POST JSON):
  *   /api/kv/get    { key }                       → { value }
  *   /api/kv/set    { key, value, options? }      → { result }
+ *   /api/kv/compare-set { key, expected, value, options? } → { swapped }
  *   /api/kv/del    { keys: string[] }            → { count }
  *   /api/kv/keys   { pattern }                   → { keys }
  *   /api/kv/mget   { keys: string[] }            → { values }
@@ -94,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // :op route param shows up as req.query.op. Fall back to URL parsing
     // for the bare Vercel function case (where the file path provides op).
     const opFromQuery = (req.query?.op as string | undefined) ?? '';
-    const m = (req.url ?? '').match(/\/kv\/([a-z]+)(?:\?|$|\/)/);
+    const m = (req.url ?? '').match(/\/kv\/([a-z-]+)(?:\?|$|\/)/);
     const op = opFromQuery || m?.[1] || '';
     const body = (req.body ?? {}) as Record<string, unknown>;
 
@@ -112,6 +113,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     body.options as { ex?: number; nx?: boolean } | undefined,
                 );
                 res.status(200).json({ result });
+                return;
+            }
+            case 'compare-set': {
+                const swapped = await _diskKvForProxy.compareSet(
+                    String(body.key),
+                    body.expected ?? null,
+                    body.value,
+                    body.options as { ex?: number } | undefined,
+                );
+                res.status(200).json({ swapped });
                 return;
             }
             case 'del': {

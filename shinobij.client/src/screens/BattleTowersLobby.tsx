@@ -1,24 +1,24 @@
 import { useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, startSpireRun, fetchMyRun, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
 import {
     allSpireFloors, spireFloorMeta, keystonesUpTo, SPIRE_KEYSTONE_COLOR,
-    SPIRE_SHARDS_PER_TIER, type SpireBossKey,
+    SPIRE_SHARDS_PER_TIER,
 } from "../lib/spire-catalog";
 import { battleEntryCost, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
+import { TowerReadyRoomPanel } from "../components/TowerReadyRoomPanel";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
-import spireBanner from "../assets/towers/spire.webp";
 import spireKeyArt from "../assets/towers/spire-banner.webp";
-import wardenPortrait from "../assets/towers/enemies/warden.webp";
-import revenantPortrait from "../assets/towers/enemies/revenant.webp";
-import ravagerPortrait from "../assets/towers/enemies/ravager.webp";
-import sovereignPortrait from "../assets/towers/enemies/sovereign.webp";
+import { TOWER_KEY_ART, TOWER_SPIRE_PORTRAITS } from "../lib/tower-art-manifest";
+import "../styles/tower-lobby.css";
 
-const MAX_ALLIES = 3; // you + up to 3 = a 4-player squad
-const FLOOR_CACHE_KEY = "tower-floors";
+const MAX_ALLIES = 3; // legacy practice only: host + up to 3 server-sealed AI assists
+const TOWER_MIN_LEVEL = 30;
+const STORY_MAX_FLOOR = 10;
+const FLOOR_CACHE_KEY = "tower-floors:v3";
 const FLOOR_CACHE_TTL_MS = 5 * 60_000;
 
 function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
@@ -26,9 +26,6 @@ function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
         !!floor && typeof floor === "object" && Number.isFinite((floor as TowerFloorMeta).id),
     );
 }
-const SPIRE_PORTRAIT: Record<SpireBossKey, string> = {
-    warden: wardenPortrait, revenant: revenantPortrait, ravager: ravagerPortrait, sovereign: sovereignPortrait,
-};
 
 // ─── Battle Towers Lobby ──────────────────────────────────────────────────────
 // Curated squad tower (lives beside the Endless climb in the Celestial Tower).
@@ -38,7 +35,7 @@ const OBJECTIVE_LABEL: Record<string, string> = {
     "defeat-all": "Defeat all",
     "defeat-boss": "Defeat the boss",
     "defeat-all-then-boss": "Clear, then the boss",
-    "protect-npc": "Protect the ally",
+    "protect-npc": "Timed ally hold",
     "kill-escort": "Escort",
     "reach-tile": "Reach the goal",
     "break-objective": "Break the objective",
@@ -52,6 +49,46 @@ const BIOME: Record<string, { color: string; icon: string }> = {
     central: { color: "var(--slate-300)", icon: "🏛️" },
     shadow: { color: "#a78bfa", icon: "🌑" },
 };
+
+function readableTowerSlug(value: string): string {
+    return value.replace(/-/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function towerFieldRuleLabel(rule: TowerFloorMeta["fieldRule"]): string {
+    if (!rule) return "No floor-wide modifier";
+    const kind = rule.kind === "buff" ? "Field boon" : rule.kind === "debuff" ? "Field pressure" : "Field hazard";
+    return `${kind}: ${readableTowerSlug(rule.tag)}${rule.percent ? ` ${rule.percent}%` : ""}`;
+}
+
+function towerRewardParts(reward: TowerFloorMeta["firstClearReward"]): string[] {
+    return [
+        reward.ryo > 0 ? `${reward.ryo.toLocaleString()} ryo` : null,
+        reward.statPoints > 0 ? `${reward.statPoints} stat point${reward.statPoints === 1 ? "" : "s"}` : null,
+        reward.fateShards > 0 ? `${reward.fateShards} Fate Shards` : null,
+        reward.boneCharms > 0 ? `${reward.boneCharms} Bone Charms` : null,
+        reward.milestone ? `Milestone: ${readableTowerSlug(reward.milestone)}` : null,
+    ].filter((part): part is string => Boolean(part));
+}
+
+function towerTargetModeLabel(mode: TowerFloorMeta["bossTargetMode"]): string | null {
+    if (mode === "lowest-hp") return "Finishes wounded squad members";
+    if (mode === "squishiest") return "Hunts the lowest-defense squad member";
+    if (mode === "support") return "Prioritizes sustain and support users";
+    return null;
+}
+
+function towerStrikeLabel(strike: TowerFloorMeta["bossStrike"]): string | null {
+    if (!strike) return null;
+    const attack = strike.kind === "volley" ? "Volley around a squad target"
+        : strike.kind === "slam" ? "Boss-centered slam and knockback"
+        : "Boss-centered nova";
+    return `${attack} · starts round ${strike.firstRound}, every ${strike.everyRounds} rounds · radius ${strike.radius}`;
+}
+
+function towerDynamicHazardLabel(hazard: TowerFloorMeta["dynamicHazards"][number]): string {
+    const hazardName = readableTowerSlug(hazard.kind);
+    return `${hazard.count} ${hazardName}${hazard.count === 1 ? "" : "s"} · starts round ${hazard.firstRound}, every ${hazard.everyRounds} rounds`;
+}
 
 export function BattleTowersLobby({
     character,
@@ -71,10 +108,14 @@ export function BattleTowersLobby({
     const [loading, setLoading] = useState(() => !readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList));
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [floorError, setFloorError] = useState<string | null>(null);
+    const [floorReloadKey, setFloorReloadKey] = useState(0);
     const [allies, setAllies] = useState<string[]>([]);
     const [following, setFollowing] = useState<string[]>([]);
     const [inviteName, setInviteName] = useState("");
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
+    const [runRecoveryPending, setRunRecoveryPending] = useState(false);
+    const [activeReadyRoom, setActiveReadyRoom] = useState<TowerPartyView | null>(null);
     // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
     // your highest cleared; the default selection is the next unlocked floor.
     const spireUnlocked = character.battleTowerAscension ?? 0;
@@ -87,8 +128,8 @@ export function BattleTowersLobby({
     const [spireBoard, setSpireBoard] = useState<SpireLeaderboardRow[]>([]);
     const [spireAffix, setSpireAffix] = useState<SpireWeeklyAffix | null>(null);
 
-    // Invite any player by name (the server validates the save exists; unknown names are
-    // skipped). Deduped case-insensitively against yourself + the existing squad.
+    // Legacy practice assists are borrowed, server-sealed AI actors. They are
+    // deliberately separate from the authenticated live ready room below.
     function addAlly(name: string) {
         const n = name.trim();
         const key = n.toLowerCase();
@@ -102,30 +143,36 @@ export function BattleTowersLobby({
     const cleared = new Set(character.battleTowerClearedFloors ?? []);
     const me = character.name;
     const entryFee = battleEntryCost(character);
+    const towerLevelEligible = isAdmin || (character.level ?? 0) >= TOWER_MIN_LEVEL;
+    const storyFrontier = Math.min(STORY_MAX_FLOOR, Math.max(1, bestFloor + 1));
+    const isStoryFloorActionable = (floor: number) => isAdmin
+        || (towerLevelEligible && (cleared.has(floor) || floor === storyFrontier));
+    const practiceBlocked = activeReadyRoom != null && activeReadyRoom.status !== "closed";
     const availableAllies = following.filter(f =>
         f.toLowerCase() !== me.toLowerCase() && !allies.some(a => a.toLowerCase() === f.toLowerCase()));
 
     useEffect(() => {
         let alive = true;
         const cached = readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList);
+        const recommendedFloor = (list: TowerFloorMeta[]) => list.find(floor => floor.id === storyFrontier)?.id ?? list[0]?.id ?? null;
         // Promote the tab-local cache in a microtask instead of issuing
         // synchronous state updates from this effect body.
         queueMicrotask(() => {
             if (!alive) return;
             if (cached) {
                 setFloors(cached);
-                setSelected(cached[0]?.id ?? null);
+                setSelected(current => current ?? recommendedFloor(cached));
                 setLoading(false);
             } else {
                 setLoading(true);
             }
         });
         fetchTowerFloors()
-            .then(f => { if (alive) { setFloors(f); setSelected(f[0]?.id ?? null); writeScreenCache(FLOOR_CACHE_KEY, f, FLOOR_CACHE_TTL_MS); } })
-            .catch(e => { if (alive) setError(String(e?.message ?? e)); })
+            .then(f => { if (alive) { setFloors(f); setSelected(current => current ?? recommendedFloor(f)); setFloorError(null); writeScreenCache(FLOOR_CACHE_KEY, f, FLOOR_CACHE_TTL_MS); } })
+            .catch(e => { if (alive) setFloorError(String(e?.message ?? e)); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
-    }, []);
+    }, [storyFrontier, floorReloadKey]);
 
     // Recruitable allies = the players you follow.
     useEffect(() => subscribeFollowing(me, setFollowing), [me]);
@@ -137,25 +184,43 @@ export function BattleTowersLobby({
         return () => { alive = false; };
     }, []);
 
-    // Co-op: poll for an active run a host invited us into, so we can JOIN it. Re-checks
-    // every few seconds so the banner appears shortly after a friend starts the run.
+    // Backward-compatible active-run fallback. Ready-room members normally enter from
+    // the room's own fast poll, but the durable run invite can still recover that handoff.
     useEffect(() => {
         let alive = true;
         // Ignore clan-boss assault runs (`cboss-` prefix) — those settle via the Clan
         // Boss flow, not the tower settle, so they must only be joined from the Clan
         // Boss tab. Joining one here would pay the wrong (tower) settle.
-        const check = () => fetchMyRun(me).then(r => { if (alive) setPendingRun(r && !r.runId.startsWith("cboss-") ? r : null); }).catch(() => {});
+        const check = () => fetchMyRunStatus(me).then(status => {
+            if (!alive) return;
+            const isTowerRun = Boolean(status?.runId && !status.runId.startsWith("cboss-"));
+            setPendingRun(isTowerRun && status?.runId && status.session ? { runId: status.runId, session: status.session } : null);
+            setRunRecoveryPending(Boolean(isTowerRun && !status?.session && status?.recoveryPending));
+        }).catch(() => {});
         check();
         const stop = visiblePoll(check, 4000);
         return () => { alive = false; stop(); };
     }, [me]);
 
-    async function enterFloor() {
+    async function enterPracticeFloor() {
         if (selected == null || starting) return;
+        if (practiceBlocked) {
+            setError("Leave your Ready Room before starting AI practice.");
+            return;
+        }
+        if (!towerLevelEligible) {
+            setError(`Battle Towers unlock at level ${TOWER_MIN_LEVEL}.`);
+            return;
+        }
+        if (!isStoryFloorActionable(selected)) {
+            setError(`Clear Story Floor ${storyFrontier} before entering Floor ${selected}.`);
+            return;
+        }
         // Ryo entry fee (first BATTLE_FREE_FLOORS floors/day free). Charged only on a
         // SUCCESSFUL start, so a failed entry never costs ryo.
-        if (entryFee > 0 && (character.ryo ?? 0) < entryFee) {
-            setError(`Entry costs ${entryFee.toLocaleString()} ryo after your ${BATTLE_FREE_FLOORS} free floors today — not enough ryo.`);
+        const requiredEntryFee = cleared.has(selected) ? 0 : entryFee;
+        if (requiredEntryFee > 0 && (character.ryo ?? 0) < requiredEntryFee) {
+            setError(`Entry costs ${requiredEntryFee.toLocaleString()} ryo after your ${BATTLE_FREE_FLOORS} free floors today — not enough ryo.`);
             return;
         }
         setStarting(true);
@@ -170,42 +235,39 @@ export function BattleTowersLobby({
         }
     }
 
-    // Endless Spire is fee-exempt; the tier is the escalation and retries are free.
-    async function enterSpire() {
-        if (starting) return;
-        const tier = Math.max(1, Math.min(spireMaxSelectable, spireTier));
-        setStarting(true);
-        setError(null);
-        try {
-            const { runId, session } = await startSpireRun(me, tier, allies, hostLoadout);
-            onEnter(runId, session);
-        } catch (e) {
-            setError(String((e as Error)?.message ?? e));
-            setStarting(false);
-        }
-    }
-
     const selFloor = floors.find(f => f.id === selected);
+    const selectedFloorCleared = selFloor ? cleared.has(selFloor.id) : false;
+    const selectedFloorActionable = selFloor ? isStoryFloorActionable(selFloor.id) : false;
+    const selectedEntryFee = selectedFloorCleared ? 0 : entryFee;
+    const selectedRewardParts = selFloor ? towerRewardParts(selFloor.firstClearReward) : [];
+    const selectedTargetMode = selFloor ? towerTargetModeLabel(selFloor.bossTargetMode) : null;
+    const selectedStrike = selFloor ? towerStrikeLabel(selFloor.bossStrike) : null;
+
+    function focusReadyRoom() {
+        const openSpire = document.getElementById("tower-ready-room-open-spire") as HTMLButtonElement | null;
+        const room = document.getElementById("tower-ready-room");
+        const target = openSpire && !openSpire.disabled ? openSpire : room;
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
+    }
 
     return (
         <div style={{ maxWidth: 880, margin: "1rem auto", padding: "0 0.8rem 1.5rem", color: "var(--slate-200)" }}>
             {/* Hero banner */}
-            <div style={{
-                position: "relative", borderRadius: 14, overflow: "hidden", marginBottom: 14,
-                border: "1px solid var(--slate-700)", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
-                background: `linear-gradient(180deg, rgba(8,12,24,0.25) 0%, rgba(8,12,24,0.92) 100%), url(${spireBanner}) center 30%/cover no-repeat`,
-                minHeight: 168, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "1.1rem 1.3rem",
-            }}>
-                <h1 style={{ margin: 0, fontSize: "2.1rem", letterSpacing: 0.5, textShadow: "0 3px 12px rgba(0,0,0,0.9)" }}>⚔️ Battle Towers</h1>
-                <p style={{ margin: "4px 0 0", color: "var(--slate-300)", maxWidth: 620, fontSize: "0.9rem", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>
-                    Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
-                    First few floors free daily, then a small ryo toll; unlimited retries — the gate is tactics, not stamina.
-                </p>
-            </div>
+            <section className="tower-lobby-hero" style={{ ["--tower-lobby-key-art" as string]: `url(${TOWER_KEY_ART})` }} aria-labelledby="tower-lobby-title">
+                <div className="tower-lobby-hero-copy">
+                    <span className="tower-lobby-hero-kicker">Squad tactical ascent</span>
+                    <h1 id="tower-lobby-title">⚔️ Battle Towers</h1>
+                    <p>
+                        Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
+                        First few floors free daily, then a small ryo toll; unlimited retries — the gate is tactics, not stamina.
+                    </p>
+                </div>
+            </section>
 
-            {/* Co-op join banner — appears when a host has invited you into their run */}
+            {/* Durable active-run fallback if the ready-room launch response was missed. */}
             {pendingRun && (
-                <button onClick={() => onEnter(pendingRun.runId, pendingRun.session)}
+                <button type="button" onClick={() => onEnter(pendingRun.runId, pendingRun.session)}
                     style={{
                         display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
                         padding: "0.85rem", marginBottom: 14, borderRadius: 12, fontWeight: 800, fontSize: "0.98rem",
@@ -215,6 +277,12 @@ export function BattleTowersLobby({
                     ⚔️ You've been called to a squad run — Floor {pendingRun.session.floor} · Join now ▶
                 </button>
             )}
+            {runRecoveryPending && !pendingRun && (
+                <div className="tower-run-publication" role="status" aria-live="polite">
+                    <strong>Your squad run is being recovered</strong>
+                    <span>The server is republishing the battlefield. This page will reconnect automatically.</span>
+                </div>
+            )}
 
             {/* Stat chips */}
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
@@ -222,6 +290,21 @@ export function BattleTowersLobby({
                 <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
                 <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="var(--green-400)" />
             </div>
+
+            {!towerLevelEligible && <div className="tower-level-gate" role="status">Battle Towers unlock at level {TOWER_MIN_LEVEL}. Floors remain visible so you can plan the climb.</div>}
+
+            <TowerReadyRoomPanel
+                character={character}
+                following={following}
+                storyFloor={selected}
+                storyFloorActionable={selectedFloorActionable}
+                spireTier={spireTier}
+                towersUnlocked={towerLevelEligible}
+                hostLoadout={hostLoadout}
+                updateCharacter={updateCharacter}
+                onPartyChange={setActiveReadyRoom}
+                onEnter={onEnter}
+            />
 
             {/* ── Endless Spire — dedicated ascension boss gauntlet ── */}
             <SpireLadder
@@ -234,33 +317,34 @@ export function BattleTowersLobby({
                 board={spireBoard}
                 affix={spireAffix}
                 isAdmin={isAdmin}
-                starting={starting}
-                onAscend={enterSpire}
+                towerUnlocked={towerLevelEligible}
+                roomActive={practiceBlocked}
+                onPrepareRoom={focusReadyRoom}
             />
 
-            {/* Squad assembly */}
+            {/* Legacy, explicitly non-live AI-assist practice assembly. */}
             <div style={{ padding: "0.8rem 0.9rem", borderRadius: 12, border: "1px solid #293548", background: "linear-gradient(180deg,#0e1626,#0a111f)", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    <strong style={{ fontSize: "0.98rem" }}>🛡 Your Squad <span style={{ color: "var(--text-dim)", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} allies</span></strong>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.76rem" }}>Invited players get a “join” prompt and fight live alongside you</span>
+                    <strong style={{ fontSize: "0.98rem" }}>🤖 Practice with AI Assists <span style={{ color: "var(--text-dim)", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} borrowed shinobi</span></strong>
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.76rem" }}>AI assists receive only a capped assist reward; they do not receive first-clear or Spire progression</span>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                     <SquadChip name={me} you />
                     {allies.map(a => <SquadChip key={a} name={a} onRemove={() => setAllies(allies.filter(x => x !== a))} />)}
                     {allies.length < MAX_ALLIES && (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            {/* Invite ANY player by name */}
-                            <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+                            {/* Borrow any existing save as a sealed AI practice actor. */}
+                            <input value={inviteName} onChange={e => setInviteName(e.target.value)} aria-label="Borrow an AI assist by player name"
                                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addAlly(inviteName); } }}
-                                placeholder="Invite player by name…" maxLength={24}
+                                placeholder="Borrow AI by player name…" maxLength={24}
                                 style={{ padding: "0.4rem 0.7rem", borderRadius: 20, background: "#0b1220", color: "var(--slate-200)", border: "1px solid var(--slate-600)", fontSize: "0.82rem", width: 170 }} />
                             <button onClick={() => addAlly(inviteName)} disabled={!inviteName.trim()}
                                 style={{ padding: "0.4rem 0.8rem", borderRadius: 20, fontWeight: 700, fontSize: "0.8rem", cursor: inviteName.trim() ? "pointer" : "default", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)", border: "1px solid #3b5278", opacity: inviteName.trim() ? 1 : 0.5 }}>
-                                + Invite
+                                + Add AI assist
                             </button>
                             {/* Quick-add from players you follow */}
                             {availableAllies.length > 0 && (
-                                <select value="" onChange={e => { if (e.target.value) addAlly(e.target.value); }}
+                                <select value="" aria-label="Borrow an AI assist from followed players" onChange={e => { if (e.target.value) addAlly(e.target.value); }}
                                     style={{ padding: "0.4rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "var(--slate-300)", border: "1px dashed var(--slate-600)", cursor: "pointer", fontSize: "0.82rem" }}>
                                     <option value="">+ From follows…</option>
                                     {availableAllies.map(f => <option key={f} value={f}>{f}</option>)}
@@ -272,25 +356,42 @@ export function BattleTowersLobby({
             </div>
 
             {loading && <LoadingState>Loading floors…</LoadingState>}
-            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
+            {floorError && (
+                <div className="tower-floor-load-error" role="alert">
+                    <span>{floors.length > 0 ? "Showing the saved floor list; the live briefing refresh failed." : "The Story Tower floor list could not be loaded."} {floorError}</span>
+                    <button type="button" onClick={() => setFloorReloadKey(key => key + 1)}>Retry floor list</button>
+                </div>
+            )}
+            {error && <p role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
+            {!loading && floors.length === 0 && !floorError && (
+                <div className="tower-floor-empty" role="status">
+                    <strong>No Story Tower floors are available right now.</strong>
+                    <button type="button" onClick={() => setFloorReloadKey(key => key + 1)}>Check again</button>
+                </div>
+            )}
+
+            {!loading && floors.length > 0 && <h2 id="tower-story-floors-title" className="tower-story-floors-title">Story Tower Floors</h2>}
 
             {!loading && floors.length > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 16 }}>
+                <div role="group" aria-labelledby="tower-story-floors-title" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 16 }}>
                     {floors.map(f => {
                         const isCleared = cleared.has(f.id);
                         const isSel = selected === f.id;
+                        const locked = !isStoryFloorActionable(f.id);
                         const b = BIOME[f.biome] ?? { color: "var(--text-dim)", icon: "🗺️" };
                         return (
                             <button
                                 key={f.id}
                                 onClick={() => setSelected(f.id)}
+                                aria-pressed={isSel}
+                                title={locked ? (!towerLevelEligible ? `Preview only · unlocks at level ${TOWER_MIN_LEVEL}` : `Preview only · clear Floor ${storyFrontier} first`) : undefined}
                                 style={{
                                     position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
                                     padding: "0.7rem 0.8rem 0.7rem 0.9rem", borderRadius: 10, overflow: "hidden",
                                     border: `1px solid ${isSel ? "var(--blue-400)" : "#293548"}`,
                                     background: isSel ? "linear-gradient(180deg,#16263f,#0d1830)" : "linear-gradient(180deg,#0e1626,#0a111f)",
                                     boxShadow: isSel ? "0 0 0 1px var(--blue-400), 0 6px 18px rgba(37,99,235,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
-                                    cursor: "pointer", color: "var(--slate-200)",
+                                    cursor: "pointer", color: "var(--slate-200)", opacity: locked ? 0.62 : 1,
                                 }}
                             >
                                 {/* biome color stripe */}
@@ -307,10 +408,47 @@ export function BattleTowersLobby({
                                     </span>
                                 </span>
                                 {isCleared && <span title="First-cleared" style={{ color: "var(--green-400)", fontWeight: 800, flexShrink: 0 }}>✓</span>}
+                                {locked && <span aria-label="Locked" style={{ color: "var(--slate-400)", flexShrink: 0 }}>🔒</span>}
                             </button>
                         );
                     })}
                 </div>
+            )}
+
+            {selFloor && (
+                <section className="tower-floor-briefing" aria-labelledby="tower-floor-briefing-title">
+                    <div className="tower-floor-briefing-copy">
+                        <span className="tower-floor-briefing-kicker">Selected floor briefing</span>
+                        <h2 id="tower-floor-briefing-title">Floor {selFloor.id} · {selFloor.name}</h2>
+                        <div className="tower-floor-briefing-tags">
+                            <span>🎯 {selFloor.objective === "protect-npc"
+                                ? `Hold and protect the ally for ${selFloor.roundBudget} rounds`
+                                : OBJECTIVE_LABEL[selFloor.objective] ?? readableTowerSlug(selFloor.objective)}</span>
+                            <span>⏱ {selFloor.roundBudget} round budget</span>
+                            <span>👹 {selFloor.enemyCount} combatant{selFloor.enemyCount === 1 ? "" : "s"}</span>
+                        </div>
+                        {selFloor.bossMechanic && <p><strong>Boss mechanic:</strong> {readableTowerSlug(selFloor.bossMechanic)}</p>}
+                        {selectedTargetMode && <p><strong>🎯 Boss focus:</strong> {selectedTargetMode}</p>}
+                        {selectedStrike && <p><strong>⚠️ Telegraph:</strong> {selectedStrike}</p>}
+                        {selFloor.closingRing && <p><strong>🔥 Closing ring:</strong> Starts round {selFloor.closingRing.fromRound};
+                            {` ${selFloor.closingRing.percent}% max HP outside the safe radius, shrinking to ${selFloor.closingRing.minRadius} hexes`}</p>}
+                        <p><strong>Field rule:</strong> {towerFieldRuleLabel(selFloor.fieldRule)}</p>
+                        <p><strong>Reinforcements:</strong> {selFloor.reinforcementWaves.length > 0
+                            ? `Rounds ${selFloor.reinforcementWaves.join(", ")}`
+                            : "None scheduled"}</p>
+                        {selFloor.dynamicHazards.map((hazard, index) => (
+                            <p key={`${hazard.kind}-${index}`}><strong>♨️ Field hazard:</strong> {towerDynamicHazardLabel(hazard)}</p>
+                        ))}
+                    </div>
+                    <div className={`tower-floor-reward${selectedFloorCleared ? " is-claimed" : ""}`}>
+                        <span>{selectedFloorCleared ? "First clear already claimed" : "First-clear reward"}</span>
+                        <strong>{selectedRewardParts.length > 0 ? selectedRewardParts.join(" · ") : "No first-clear package"}</strong>
+                        {selectedFloorCleared
+                            ? <small>Cleared replay · no entry fee · rewards already claimed.</small>
+                            : <small>{selectedEntryFee > 0 ? `Entry preview: ${selectedEntryFee.toLocaleString()} ryo` : "Entry preview: daily free entry available"}</small>}
+                        {!selectedFloorActionable && <small>Locked · clear floors sequentially to reach this encounter.</small>}
+                    </div>
+                </section>
             )}
 
             {/* Enter / back */}
@@ -322,12 +460,15 @@ export function BattleTowersLobby({
                         background: "linear-gradient(180deg,#16803a,#0c5226)", border: "1px solid var(--green-400)",
                         boxShadow: "0 4px 16px rgba(34,197,94,0.3)", opacity: selected == null || loading ? 0.5 : 1,
                     }}
-                    onClick={enterFloor}
-                    disabled={selected == null || starting || loading}
+                    onClick={enterPracticeFloor}
+                    disabled={selected == null || starting || loading || !selectedFloorActionable || practiceBlocked}
                 >
-                    {starting ? "Entering…" : selFloor ? `▶ Enter Floor ${selFloor.id} — ${selFloor.name}${allies.length ? ` · ${allies.length + 1}-player squad` : ""}${entryFee > 0 ? ` · ${entryFee.toLocaleString()} ryo` : ""}` : "Select a floor"}
+                    {starting ? "Entering practice…" : practiceBlocked ? "Leave Ready Room to start AI practice" : selFloor ? !selectedFloorActionable ? `🔒 Floor ${selFloor.id} locked` : `▶ Practice Floor ${selFloor.id} with AI assists${allies.length ? ` · ${allies.length} assist${allies.length === 1 ? "" : "s"}` : ""}${selectedEntryFee > 0 ? ` · ${selectedEntryFee.toLocaleString()} ryo` : selectedFloorCleared ? " · free cleared replay" : ""}` : "Select a floor"}
                 </button>
-                <button className="back-btn" onClick={onBack}>× Back to Central</button>
+                <button className="back-btn" onClick={onBack} disabled={starting}
+                    title={activeReadyRoom ? "Your Ready Room remains open until you leave it or it expires." : undefined}>
+                    × Back to Central{activeReadyRoom ? " · room stays open" : ""}
+                </button>
             </div>
         </div>
     );
@@ -338,7 +479,7 @@ export function BattleTowersLobby({
 // reward) atop a 20-rung ladder that makes the whole climb legible at a glance, plus a
 // weekly leaderboard. All display data comes from lib/spire-catalog (server mirror).
 function SpireLadder({
-    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, isAdmin, starting, onAscend,
+    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, isAdmin, towerUnlocked, roomActive, onPrepareRoom,
 }: {
     me: string;
     spireUnlocked: number;
@@ -349,14 +490,14 @@ function SpireLadder({
     board: SpireLeaderboardRow[];
     affix: SpireWeeklyAffix | null;
     isAdmin: boolean;
-    starting: boolean;
-    onAscend: () => void;
+    towerUnlocked: boolean;
+    roomActive: boolean;
+    onPrepareRoom: () => void;
 }) {
     const floors = allSpireFloors();
     const sel = spireFloorMeta(spireTier);
     const nextFloor = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1); // real progression frontier
     const locked = spireTier > spireMaxSelectable;
-    const isNext = spireTier === nextFloor && spireUnlocked < SPIRE_MAX_TIER;
     const activeKeystones = keystonesUpTo(spireTier);
     const myRank = board.find(r => r.name.toLowerCase() === me.toLowerCase());
     const progressPct = Math.round((spireUnlocked / SPIRE_MAX_TIER) * 100);
@@ -401,7 +542,7 @@ function SpireLadder({
             {/* Hero — the selected floor's boss */}
             <div className="spire-hero" style={{ ["--boss-accent" as string]: accent, ["--boss-glow" as string]: sel.boss.glow }}>
                 <div className="spire-hero-portrait">
-                    <img src={SPIRE_PORTRAIT[sel.boss.key]} alt={sel.boss.name} loading="lazy" />
+                    <img src={TOWER_SPIRE_PORTRAITS[sel.boss.key]} alt={sel.boss.name} loading="lazy" />
                     <span className="spire-hero-floornum">{sel.tier}</span>
                     {sel.isMilestone && <span className="spire-hero-milestone" title={`Clears grant the “${sel.milestoneTitle}” title`}>★</span>}
                 </div>
@@ -410,8 +551,10 @@ function SpireLadder({
                     <div className="spire-hero-name" style={{ color: accent }}>{sel.boss.name}</div>
                     <div className="spire-hero-tags">
                         <span className="spire-tag" style={{ borderColor: accent, color: accent }}>{sel.boss.mechanicLabel}</span>
+                        <span className="spire-tag">🎯 {towerTargetModeLabel(sel.boss.targetMode)}</span>
+                        <span className="spire-tag">⚠ {towerStrikeLabel(sel.boss.strike)}</span>
                         {sel.isMilestone && <span className="spire-tag milestone">★ Milestone — {sel.milestoneTitle}</span>}
-                        <span className="spire-tag reward">💠 +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
+                        <span className="spire-tag reward">💠 Weekly best · +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
                     </div>
                     <p className="spire-hero-blurb">{sel.boss.blurb}</p>
 
@@ -435,19 +578,20 @@ function SpireLadder({
                             <span>Floor {spireTier}</span>
                             <button onClick={() => setSpireTier(Math.min(spireMaxSelectable, spireTier + 1))} disabled={spireTier >= spireMaxSelectable} aria-label="Higher floor">+</button>
                         </div>
-                        {locked ? (
+                        {!towerUnlocked ? (
+                            <button className="spire-ascend locked" disabled>🔒 Unlocks at level {TOWER_MIN_LEVEL}</button>
+                        ) : locked ? (
                             <button className="spire-ascend locked" disabled title={`Clear floor ${spireMaxSelectable} to unlock this`}>
                                 🔒 Clear Floor {spireMaxSelectable} first
                             </button>
                         ) : (
-                            <button className="spire-ascend" onClick={onAscend} disabled={starting}
+                            <button className="spire-ascend" type="button" onClick={onPrepareRoom}
+                                title="Progression Spire runs require exactly four live Ready Room members."
                                 style={{ ["--boss-accent" as string]: accent }}>
-                                {starting ? "Entering…"
-                                    : isNext ? `▲ Ascend — Floor ${spireTier}`
-                                    : spireTier <= spireUnlocked ? `⟳ Re-climb Floor ${spireTier}`
-                                    : `▶ Enter Floor ${spireTier}`}
+                                {roomActive ? "Review current Ready Room" : "Prepare Spire Ready Room"}
                             </button>
                         )}
+                        <small className="spire-practice-note">Select this floor, then open a Spire Ready Room above. Direct AI entry is unavailable for progression integrity.</small>
                     </div>
                 </div>
             </div>
@@ -468,7 +612,7 @@ function SpireLadder({
                             <span className="spire-rung-portrait">
                                 {rungLocked
                                     ? <span className="spire-rung-lock">🔒</span>
-                                    : <img src={SPIRE_PORTRAIT[f.boss.key]} alt={f.boss.name} loading="lazy" />}
+                                    : <img src={TOWER_SPIRE_PORTRAITS[f.boss.key]} alt={f.boss.name} loading="lazy" />}
                             </span>
                             <span className="spire-rung-info">
                                 <span className="spire-rung-boss">{f.boss.name}</span>

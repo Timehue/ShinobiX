@@ -19,6 +19,7 @@ export type TavernMessage = { author: string; text: string; ts: number; rank?: s
 
 type PvpStatusState = {
     name: string;
+    source?: string;
     rounds: number;
     percent?: number;
     amount?: number;
@@ -68,6 +69,7 @@ export type PvpSessionState = {
     joined?: { p1: boolean; p2: boolean };
     baseRewards?: boolean;
     ranked?: boolean;
+    playerRankedAuthorityVersion?: 2;
     fleedBy?: "p1" | "p2";
     createdAt?: number;
     lastMoveAt?: number;

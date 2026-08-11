@@ -13,11 +13,14 @@
  * from the client.
  */
 
+/** Increment only when shipped Story-Tower rules/rewards change. Active runs seal this value. */
+export const TOWER_CATALOG_VERSION = 'story-tower-v1' as const;
+
 export const TOWER_OBJECTIVES = [
     'defeat-all',           // clear every enemy
     'defeat-boss',          // kill the boss; trash optional
     'defeat-all-then-boss', // clear trash, then the boss
-    'protect-npc',          // an allied NPC must survive
+    'protect-npc',          // keep an allied NPC alive through `roundBudget` rounds
     'kill-escort',          // clear all enemies AND keep the NPC alive
     'reach-tile',           // reach the goal tile within the round budget
     'break-objective',      // destroy a staged objective across phase gates
@@ -175,8 +178,7 @@ export type TowerReward = {
     xp?: number;
     fateShards?: number;
     boneCharms?: number;
-    itemId?: string;
-    /** one-time milestone unlock key (title / cosmetic / signature), credited once */
+    /** One-time progression badge key. This is not a wearable/title entitlement. */
     milestone?: string;
 };
 
@@ -293,7 +295,14 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
         id: 4, name: 'Hold the Line', biome: 'central', objective: 'protect-npc',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
-        enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
+        // Timed defense, deliberately distinct from F8's kill-all escort: pressure arrives in
+        // escalating lanes through round 6 and the squad wins by keeping the Genin alive for 8.
+        enemies: [
+            { aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-brute', count: 1 },
+            { aiId: 'grunt-archer', count: 2, spawnRound: 2 },
+            { aiId: 'grunt-bandit', count: 2, spawnRound: 4 },
+            { aiId: 'grunt-brute', count: 1, spawnRound: 6 },
+        ],
         npc: { aiId: 'npc-genin' },
         features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
@@ -307,7 +316,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // the player's first boss teaches "break the guards, burn the shield, protect your
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
-        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 }, strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 3 } },
+        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
     },
@@ -323,7 +332,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
     },
     {
-        id: 7, name: 'The Hollow Revenant', biome: 'shadow', objective: 'defeat-boss',
+        id: 7, name: 'The Hollow Revenant', biome: 'shadow', objective: 'defeat-all-then-boss',
         roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         terrainPillars: 10,
         // REGEN: the Revenant heals every round — burst it down through the heal. It hunts the
@@ -333,7 +342,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
         // VOLLEY — telegraphed strikes DEBUT here: a barrage at the nearest shinobi every 3
         // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 8%.
-        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
+        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', regenFlatCap: 650, targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
     },
@@ -347,7 +356,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         firstClearReward: { ryo: 1800, xp: 700, fateShards: 8 },
     },
     {
-        id: 9, name: 'Pit of Embers', biome: 'volcano', objective: 'defeat-boss',
+        id: 9, name: 'Pit of Embers', biome: 'volcano', objective: 'kill-adds-first',
         roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
         terrainPillars: 11,
         // SUMMON: the Ravager calls reinforcements at each phase — don't get swarmed. It presses
@@ -357,7 +366,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 5, everyRounds: 3, firstRound: 2 }], // the pit erupts
         enemies: [{ aiId: 'grunt-brute', count: 2 }],
         // NOVA debut: the Ravager erupts a boss-centred slam — melee learns to back off mid-swarm.
-        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'volley', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
+        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16), hazard(22, 16)],
         firstClearReward: { ryo: 3000, xp: 1200, fateShards: 15 },
     },

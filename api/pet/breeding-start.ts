@@ -12,6 +12,8 @@ import { settlePetBreedingSession, type PetBreedingSession } from './_breeding-r
 import { migrateCharacterOwnedPets, PET_BREEDING_RULES_VERSION } from './_owned-pet.js';
 import { petBreedingEligibility } from './_pet-busy.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
+import { activeCarriedPetIds } from '../_entitlements.js';
+import { claimPetLifecycleLease } from './_active-battle-lease.js';
 
 const REQUEST_ID_RE = /^[A-Za-z0-9_-]{16,96}$/;
 
@@ -40,6 +42,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only use your own breeding barn.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-breeding-start', 8, 60_000, identity.name))) return;
+        const lifecycleLease = await claimPetLifecycleLease(kv, playerName, 'breeding');
+        if (!lifecycleLease) {
+            return res.status(409).json({ error: 'pet-is-in-active-battle', message: 'Finish or settle your active pet battle before committing companions to breeding.' });
+        }
+        try {
         const now = Date.now();
         const result = await withKvLock<StartResult>(`save:${playerName}`, async () => {
             const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -65,6 +72,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const parent1 = pets.find((pet) => String(pet.id ?? '') === parent1Id);
             const parent2 = pets.find((pet) => String(pet.id ?? '') === parent2Id);
             if (!parent1 || !parent2) return { ok: false, status: 404, error: 'parent-not-owned' };
+            const carriedIds = new Set(activeCarriedPetIds(character, pets));
+            if (!carriedIds.has(parent1Id) || !carriedIds.has(parent2Id)) {
+                return {
+                    ok: false,
+                    status: 409,
+                    error: 'pet-preserved-overflow',
+                    message: 'Move preserved companions into the carried roster through the Sanctuary before breeding.',
+                };
+            }
             const [activeBattle, coliseumDefense, tacticalDefense] = await Promise.all([
                 kv.get(`battle-lock:${playerName}`),
                 kv.get(`petladder:coliseum:def:${playerName}`),
@@ -124,6 +140,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: result.version,
             serverTime: now,
         });
+        } finally {
+            await lifecycleLease.release();
+        }
     } catch (error) {
         console.error('[pet/breeding/start]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });
