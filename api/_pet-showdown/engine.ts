@@ -45,6 +45,7 @@ import {
     SHOWDOWN_REST_HEAL_PCT,
     SHOWDOWN_REST_FLAT,
     SHOWDOWN_REST_PCT,
+    SHOWDOWN_STAMINA_POOL_SCALE,
     SHOWDOWN_STAMINA_REGEN_FLAT,
     SHOWDOWN_STAMINA_REGEN_PCT,
     SHOWDOWN_SUPER_POWER_MULT,
@@ -624,8 +625,20 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
 
     const defense = clampInt(scaled(raw.defense, 28), 1, petStatCeil(rarity, 'defense'), 28);
     // The stamina pool is a STAT (the Temtem model): bulk buys endurance.
-    // ~85 for a glass cannon, ~100 mid, ~120 for a war tortoise.
-    const maxStamina = Math.max(80, Math.min(125, Math.round(55 + maxHp / 16 + defense / 6)));
+    // ~65 for a glass cannon, ~78 mid, ~90 for a war tortoise.
+    //
+    // Resized from an 80-125 band. At the old size a mid-tier technique (26 EN)
+    // bought FIVE consecutive casts against a 6.5-round fight — you could throw
+    // your best affordable move every single round and only run dry on the last
+    // one, which is the definition of a resource that does not bind. At this
+    // size the same move buys three, the haymaker buys one at ~63% of the pool
+    // (Temtem's own haymaker is 33 STA against a ~50 pool), and the jab stays
+    // effectively unlimited because being always-affordable is its entire job.
+    // Scaling the ORIGINAL curve (rather than inventing new divisors) keeps the
+    // relative spread between a glass cannon and a war tortoise exactly as tuned.
+    const maxStamina = Math.round(
+        Math.max(80, Math.min(125, 55 + maxHp / 16 + defense / 6)) * SHOWDOWN_STAMINA_POOL_SCALE,
+    );
 
     return {
         id: String(raw.id),
