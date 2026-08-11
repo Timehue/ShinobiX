@@ -39,7 +39,7 @@ beforeEach(async () => {
     }
     await kv.set(`save:${PLAYER}`, {
         _saveVersion: 1,
-        character: { name: PLAYER, pets: roster },
+        character: { name: PLAYER, patreon: { active: true }, pets: roster },
     });
 });
 
@@ -139,7 +139,7 @@ describe('Warfront Auto start single-flight and recovery', { concurrency: false 
             : pet);
         await kv.set(`save:${PLAYER}`, {
             _saveVersion: 2,
-            character: { name: PLAYER, pets: busyRoster },
+            character: { name: PLAYER, patreon: { active: true }, pets: busyRoster },
         });
 
         const rejected = await post(autoStartBody(prepareToken));
@@ -153,7 +153,7 @@ describe('Warfront Auto start single-flight and recovery', { concurrency: false 
 
         await kv.set(`save:${PLAYER}`, {
             _saveVersion: 3,
-            character: { name: PLAYER, pets: roster },
+            character: { name: PLAYER, patreon: { active: true }, pets: roster },
         });
         const idle = await post(autoStartBody(prepareToken));
         assert.equal(idle.statusCode, 200);

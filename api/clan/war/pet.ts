@@ -6,7 +6,8 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { safeLogValue } from '../../_safe-log.js';
 import { petStatCeil, type PetCeilStat } from '../../_pet-stat-ceil.js';
-import { activeBreedingParentIds } from '../../pet/_pet-busy.js';
+import { petCombatBusyReason } from '../../pet/_pet-busy.js';
+import { activeCarriedPets } from '../../_entitlements.js';
 import type { Pet } from '../../_pet-sim/pet-types.js';
 import { awardWarEndClanXp } from './_war-xp.js';
 import { awardFinalizedWarPoints } from './_war-points.js';
@@ -47,23 +48,25 @@ import {
  *
  * The client replays the identical (pets, seed, pinned params) through the same
  * engine, so the fight it animates cannot disagree with the recorded outcome.
+ * Items are pinned OFF: this asynchronous mode has no item-settlement lease, so
+ * an equipped consumable remains equipped and is never represented as charged.
  */
 
 const CEIL_STATS: readonly PetCeilStat[] = ['hp', 'attack', 'defense', 'speed'];
 
 // Seal a player's chosen pet from their save (by id, else active, else first), then
 // clamp the four battle stats to the per-rarity anti-tamper ceiling. Mirrors
-// api/village/sector-pet.ts sealPlayerPet — a pet busy breeding cannot be fielded.
+// api/village/sector-pet.ts sealPlayerPet — combat-busy pets cannot be fielded.
 async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | null> {
     const save = await kv.get<{ character?: { pets?: unknown[]; activePetId?: string } }>(`save:${playerName.toLowerCase()}`);
-    const pets = Array.isArray(save?.character?.pets) ? (save!.character!.pets as Record<string, unknown>[]) : [];
+    const pets = activeCarriedPets<Record<string, unknown>>(save?.character ?? {});
     if (!pets.length) return null;
     const activeId = String(save?.character?.activePetId ?? '');
     const raw = pets.find((p) => String(p.id) === petId)
         ?? pets.find((p) => String(p.id) === activeId)
         ?? pets[0];
     if (!raw) return null;
-    if (activeBreedingParentIds((save?.character ?? {}) as Record<string, unknown>).has(String(raw.id ?? ''))) return null;
+    if (petCombatBusyReason((save?.character ?? {}) as Record<string, unknown>, raw)) return null;
     const pet = { ...raw } as unknown as Pet;
     for (const stat of CEIL_STATS) {
         const v = Number(raw[stat]) || 0;
@@ -140,7 +143,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The seed is minted server-side when the challenge is created, so
                 // neither player can shop for a favourable duel.
                 seed: Math.floor(Number(ch.petBattleSeed) || 0) || (now ^ 0x9e3779b9) >>> 0,
-                from: [], to: [], status: 'awaiting-pets', createdAt: now, updatedAt: now,
+                from: [], to: [], status: 'awaiting-pets', consumablesCharged: false,
+                createdAt: now, updatedAt: now,
             };
             if (session.status === 'done') {
                 return { status: 409 as const, body: { error: clanWarPetDeclineMessage('duel-already-resolved'), session: projectForViewer(session, side) } };

@@ -8,6 +8,7 @@ export type ServerArenaSide = "squad" | "enemy" | "npc";
 
 export type ServerArenaStatus = {
     name: string;
+    source?: string;
     rounds: number;
     kind?: "positive" | "negative";
     percent?: number;

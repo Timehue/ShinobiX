@@ -1,5 +1,5 @@
 /*
- * Battle Towers — Endless Spire floor catalog (Wave 1).
+ * Battle Towers — Endless Spire floor catalog.
  *
  * A DEDICATED 20-floor ascension boss gauntlet, separate from the 10 story floors
  * (FLOOR_CATALOG). Floor N === ascension tier N. Clearing floor N unlocks N+1
@@ -13,12 +13,17 @@
  * ceiling. Boss HP is authored PER-FLOOR here (a boss appears at many floors; an HP-scaled
  * mechanic × a single base × mult would wall/immortal — the clamped-DPS sim proved this).
  *
- * HP + round-budget numbers are TARGETS from the endgame re-stat pass; the final tune is a
- * re-sim against the built engine (per the design). Never reuses getFloor / FLOOR_CATALOG.
+ * HP + round-budget numbers are locked by deterministic real-engine release simulations
+ * across every tier and weekly blessing. Never reuses getFloor / FLOOR_CATALOG.
  */
-import type { TowerFloor, TowerBiome, TowerBoss, TowerFeature } from './_floor-catalog.js';
+import type {
+    TowerFloor, TowerBiome, TowerBoss, TowerFeature, TowerBoardObject, TowerDynamicHazard,
+} from './_floor-catalog.js';
 import { hexZone } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
+
+/** Increment only when generated Spire floor rules change. Active runs seal this value. */
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v2' as const;
 
 export type SpireBossKey = 'warden' | 'revenant' | 'ravager' | 'sovereign';
 
@@ -31,9 +36,18 @@ type SpireBossDef = {
     biome: TowerBiome;
     /** number of static guard-pod adds spawned in the base encounter (bulwark needs live guards) */
     guardPod: number;
+    guardAiId?: string;
     summonAiId?: string;
     summonCount?: number;
     regenFlatCap?: number;
+    phasePillars?: number;
+    aegis?: NonNullable<TowerBoss['aegis']>;
+    terrainPillars?: number;
+    boardObjects?: TowerBoardObject[];
+    dynamicHazards?: TowerDynamicHazard[];
+    closingRing?: NonNullable<TowerFloor['closingRing']>;
+    targetMode: NonNullable<TowerBoss['targetMode']>;
+    strike: NonNullable<TowerBoss['strike']>;
     name: string;
 };
 
@@ -43,19 +57,27 @@ const SPIRE_BOSSES: Record<SpireBossKey, SpireBossDef> = {
     warden: {
         aiId: 'spire-warden', mechanic: 'bulwark', phases: [60, 30], roundBudget: 16,
         map: { width: 22, height: 16 }, biome: 'volcano', guardPod: 3, name: 'Spire Warden',
+        targetMode: 'squishiest',
+        strike: { kind: 'slam', pct: 6, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     revenant: {
         aiId: 'spire-revenant', mechanic: 'regen', phases: [66, 33], roundBudget: 18,
         map: { width: 22, height: 16 }, biome: 'shadow', guardPod: 0, regenFlatCap: 2800, name: 'Hollow Revenant',
+        targetMode: 'support',
+        strike: { kind: 'volley', pct: 6, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     ravager: {
         aiId: 'spire-ravager', mechanic: 'summon', phases: [66, 33], roundBudget: 18,
         map: { width: 22, height: 16 }, biome: 'volcano', guardPod: 2,
         summonAiId: 'spire-guard', summonCount: 3, name: 'Pit Ravager',
+        targetMode: 'lowest-hp',
+        strike: { kind: 'nova', pct: 7, radius: 1, everyRounds: 4, firstRound: 4 },
     },
     sovereign: {
         aiId: 'spire-sovereign', mechanic: 'enrage', phases: [75, 50, 25], roundBudget: 20,
         map: { width: 24, height: 16 }, biome: 'shadow', guardPod: 2, name: 'Spire Sovereign',
+        targetMode: 'lowest-hp',
+        strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 3, firstRound: 3 },
     },
 };
 
@@ -74,13 +96,18 @@ const BOSS_BY_FLOOR: SpireBossKey[] = [
 // would also perturb the already-shipped story tower.
 const HP_BY_FLOOR: number[] = [
     17600, 13800, 25000, 21000, 36300,   // 1-5
-    19300, 33300, 49000, 31000, 54000,   // 6-10
-    51000, 31800, 46500, 52000, 51000,   // 11-15
-    52600, 32400, 40000, 28000, 44000,   // 16-20
+    19300, 33300, 50000, 31000, 53010,   // 6-10
+    50400, 31800, 42000, 51000, 48000,   // 11-15
+    50000, 31200, 40000, 28000, 37500,   // 16-20
 ];
 
 /** The four milestone floors (title/border unlocks; keys namespaced spire-tier-N in settle). */
 export const SPIRE_MILESTONE_FLOORS: ReadonlySet<number> = new Set([5, 10, 15, 20]);
+
+/** Server-owned visual contract mirrored by the Tower art manifest. */
+export const SPIRE_BOSS_VISUALS: Readonly<Record<SpireBossKey, string>> = {
+    warden: 'warden', revenant: 'revenant', ravager: 'ravager', sovereign: 'sovereign',
+};
 
 export function isValidSpireTier(tier: number): boolean {
     return Number.isInteger(tier) && tier >= 1 && tier <= SPIRE_MAX_TIER;
@@ -120,9 +147,13 @@ export function getSpireFloor(tier: number): TowerFloor | undefined {
         aiId: def.aiId,
         phases: def.phases,
         mechanic: def.mechanic,
+        targetMode: def.targetMode,
+        strike: { ...def.strike },
         hp,
         ...(def.summonAiId ? { summonAiId: def.summonAiId, summonCount: def.summonCount } : {}),
         ...(def.regenFlatCap != null ? { regenFlatCap: def.regenFlatCap } : {}),
+        ...(def.phasePillars != null ? { phasePillars: def.phasePillars } : {}),
+        ...(def.aegis ? { aegis: { ...def.aegis } } : {}),
     };
 
     return {
@@ -133,10 +164,14 @@ export function getSpireFloor(tier: number): TowerFloor | undefined {
         roundBudget: def.roundBudget,
         map: { ...def.map },
         fieldRule: { kind: 'none' },
-        // Guard pod (bulwark needs live guards; ravager also opens with a couple of adds).
-        enemies: def.guardPod > 0 ? [{ aiId: 'spire-guard', count: def.guardPod }] : [],
+        // Guard pod (bulwark needs live guards; authored milestones may carry tactical adds).
+        enemies: def.guardPod > 0 ? [{ aiId: def.guardAiId ?? 'spire-guard', count: def.guardPod }] : [],
         boss,
         features: spireFeatures(def.map.width, def.map.height),
+        ...(def.terrainPillars != null ? { terrainPillars: def.terrainPillars } : {}),
+        ...(def.boardObjects ? { boardObjects: structuredClone(def.boardObjects) } : {}),
+        ...(def.dynamicHazards ? { dynamicHazards: structuredClone(def.dynamicHazards) } : {}),
+        ...(def.closingRing ? { closingRing: { ...def.closingRing } } : {}),
         // Spire rewards are best-tier-per-week (settleSpireForMember), NOT one-time first-clear;
         // this stays empty so the story reward path is never triggered for a spire floor.
         firstClearReward: {},
@@ -144,8 +179,8 @@ export function getSpireFloor(tier: number): TowerFloor | undefined {
 }
 
 // ── Access model ──────────────────────────────────────────────────────────────
-// The Endless Spire is group content. During testing solo entry is OPEN (a solo run simply
-// walls early — expected). Flip the env flag to require a full squad (the humans-only future).
+// Production ready rooms require exactly four human members. Legacy/local AI practice may
+// exercise 1–4 actors unless this compatibility switch explicitly requires a full squad.
 export function spireRequiresFullSquad(): boolean {
     return process.env.TOWER_REQUIRE_FULL_SQUAD === '1';
 }

@@ -7,6 +7,15 @@
 
 export type BountyEntry = { target: string; amount: number; contributors: string[]; updatedAt: number };
 
+function newPlacementRequestId(): string {
+    const uuid = globalThis.crypto?.randomUUID?.();
+    if (uuid) return `bounty-${uuid}`;
+    // Legacy WebViews without randomUUID still get a per-call identity. This is
+    // generated ONCE outside the retry loop, so an ambiguous response can never
+    // turn one click into a second escrow debit.
+    return `bounty-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+}
+
 export async function fetchBountyBoard(): Promise<BountyEntry[]> {
     try {
         const res = await fetch("/api/pvp/bounty");
@@ -20,18 +29,23 @@ export async function fetchBountyBoard(): Promise<BountyEntry[]> {
 // Escrow `amount` ryo onto `target`'s head. Returns the updated board on success
 // (and the caller debits `amount` from its own ryo to converge), or an error.
 export async function placeBounty(playerName: string, target: string, amount: number): Promise<{ ok: boolean; error?: string; bounties?: BountyEntry[]; balances?: { ryo: number } }> {
-    try {
-        const res = await fetch("/api/pvp/bounty", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "place", playerName, target, amount }),
-        });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; bounties?: BountyEntry[]; balances?: { ryo: number } };
-        if (!res.ok || !data.ok) return { ok: false, error: data.error || "Could not place the bounty." };
-        return { ok: true, bounties: data.bounties, balances: data.balances };
-    } catch {
-        return { ok: false, error: "Could not place the bounty." };
+    const requestId = newPlacementRequestId();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            const res = await fetch("/api/pvp/bounty", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "place", playerName, target, amount, requestId }),
+            });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; bounties?: BountyEntry[]; balances?: { ryo: number } };
+            if (res.ok && data.ok) return { ok: true, bounties: data.bounties, balances: data.balances };
+            if (attempt === 0 && res.status >= 500) continue;
+            return { ok: false, error: data.error || "Could not place the bounty." };
+        } catch {
+            if (attempt === 0) continue;
+        }
     }
+    return { ok: false, error: "Could not place the bounty." };
 }
 
 // Claim any bounty on the player you just beat. Returns the payout, or null if

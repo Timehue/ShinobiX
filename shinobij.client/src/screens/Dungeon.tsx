@@ -14,6 +14,7 @@ import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
+import { activeCarriedPets } from "../lib/entitlements";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
@@ -136,9 +137,10 @@ export function DungeonEncounter({
 }
 
 export function DungeonPetBattle({ character, updateCharacter: _updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void | Promise<void>; onLeave: () => void | Promise<void>; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
-    const defaultPetId = character.activePetId ?? character.pets[0]?.id ?? "";
+    const eligiblePets = activeCarriedPets<Pet>(character);
+    const defaultPetId = eligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? eligiblePets[0]?.id ?? "";
     const [chosenPetId, setChosenPetId] = useState(defaultPetId);
-    const selectedPet = character.pets.find((pet) => pet.id === chosenPetId) ?? character.pets[0];
+    const selectedPet = eligiblePets.find((pet) => pet.id === chosenPetId) ?? eligiblePets[0];
     const rarePool = editablePets.filter((pet) => pet.rarity === "rare" || pet.rarity === "legendary" || pet.rarity === "mythic");
     const basePet = rarePool[Math.floor(Math.random() * Math.max(1, rarePool.length))] ?? genericPetArenaOpponents[2].pet;
     const [enemyPet] = useState<Pet>(() => enemyOverride ?? ({
@@ -204,11 +206,11 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
         return (
             <div className="card cinematic-card">
                 <h2>Rare Beast Seal</h2>
-                {character.pets.length > 1 && (
+                {eligiblePets.length > 1 && (
                     <div className="menu" style={{ marginBottom: "0.75rem" }}>
                         <label style={{ fontWeight: 600, marginRight: "0.5rem" }}>Choose your pet:</label>
-                        <select value={chosenPetId} onChange={e => setChosenPetId(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6 }}>
-                            {character.pets.map(p => (
+                        <select value={selectedPet.id} onChange={e => setChosenPetId(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6 }}>
+                            {eligiblePets.map(p => (
                                 <option key={p.id} value={p.id}>{p.nickname ?? p.name} (Lv {p.level} · {p.rarity})</option>
                             ))}
                         </select>

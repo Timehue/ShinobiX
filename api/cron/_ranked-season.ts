@@ -16,13 +16,51 @@
  * resets, so lifetime stats + the clan-power board are unaffected.
  *
  * Pure helpers (rating math, podium selection, clock advance) are split out and
- * unit-tested; the runner does the kv read-modify-write under per-save locks.
+ * unit-tested; the runner fences admission with a persistent epoch and commits
+ * each save through exact full-record CAS.
  */
-import { kv } from '../_storage.js';
+import { isDeepStrictEqual } from 'node:util';
+import { kv, type KvLike } from '../_storage.js';
 import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { commitPetRankedStartingPair } from '../pet/_ranked-engine.js';
+import {
+    getPetRankedJournal,
+    listPendingPetRankedJournals,
+} from '../pet/_ranked-journal.js';
+import {
+    cancelNonterminalPlayerRankedAdmissions,
+    closePetRankedSeasonGate,
+    completePlayerRankedAdmission,
+    completePetRankedPreparation,
+    ensurePetRankedSeasonGate,
+    loadPetRankedPreparation,
+    readPetRankedSeasonGateFresh,
+    reopenPetRankedSeasonGate,
+    type PetRankedPreparation,
+    type PetRankedSeasonGate,
+} from '../pet/_ranked-preparation.js';
+import {
+    settlePetRankedMatchDurably,
+    type PetRankedLockRunner,
+} from '../pet/_ranked-settlement.js';
+import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
+import type { PvpSession } from '../pvp/session.js';
+import { SESSION_TTL } from '../combat-core/constants.js';
+import {
+    getPlayerRankedJournal,
+    listPendingPlayerRankedJournals,
+    recordCancelledPlayerRankedAdmission,
+    settlePlayerRankedJournal,
+} from '../pvp/_player-ranked-journal.js';
+import { confirmPlayerRankedTerminalEffects } from '../pvp/_ranked-terminal-effects.js';
+import { hasDurableVanguardTerminalOutcome } from '../pvp/_vanguard-rewards.js';
+import {
+    boundExactPvpSession,
+    fencePlayerRankedSessionForClose,
+} from '../pvp/_session-mutation.js';
 
 const SAVE_PREFIX = 'save:';
 export const SEASON_CURRENT_KEY = 'ranked:season:current';
@@ -33,8 +71,6 @@ export const SEASON_PLAN_PREFIX = 'ranked:season:plan:';
 export const SEASON_REWARDED_PREFIX = 'ranked:season:rewarded:';
 export const SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000;
 const ARCHIVE_TTL_SECONDS = 400 * 24 * 60 * 60;
-const SEASON_LOCK_KEY = 'ranked:season:rollover-lock';
-const SEASON_LOCK_TTL_SECONDS = 2 * 60 * 60;
 export const SEASON_SETTLEMENT_RECEIPTS_FIELD = 'rankedSeasonSettlementReceipts';
 const MAX_SEASON_SETTLEMENT_RECEIPTS = 16;
 const MAX_PARALLEL = 8;
@@ -63,11 +99,53 @@ type RankedSeasonPlan = {
 
 function rankedSeasonPlan(value: unknown, seasonId: number): RankedSeasonPlan | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const plan = value as Partial<RankedSeasonPlan>;
-    if (plan.seasonId !== seasonId) return null;
-    if (!Array.isArray(plan.playerSlugs) || !Array.isArray(plan.playerTop) || !Array.isArray(plan.petTop)) return null;
-    if (!Array.isArray(plan.playerPodium) || !Array.isArray(plan.petPodium)) return null;
-    if (!Number.isSafeInteger(plan.expectedResetCount) || !Number.isSafeInteger(plan.expectedRewardedCount)) return null;
+    const plan = value as Partial<RankedSeasonPlan> & Record<string, unknown>;
+    const exactKeys = Object.keys(plan).sort().join('|') === [
+        'seasonId', 'createdAt', 'playerSlugs', 'playerTop', 'petTop',
+        'playerPodium', 'petPodium', 'expectedResetCount', 'expectedRewardedCount',
+    ].sort().join('|');
+    if (!exactKeys
+        || plan.seasonId !== seasonId
+        || !Number.isSafeInteger(plan.createdAt)
+        || Number(plan.createdAt) <= 0
+        || !Array.isArray(plan.playerSlugs)
+        || plan.playerSlugs.length > 1_000_000
+        || !plan.playerSlugs.every((slug) => typeof slug === 'string' && slug.length > 0 && slug.length <= 80)
+        || new Set(plan.playerSlugs).size !== plan.playerSlugs.length
+        || !Array.isArray(plan.playerTop)
+        || !Array.isArray(plan.petTop)
+        || !Array.isArray(plan.playerPodium)
+        || !Array.isArray(plan.petPodium)
+        || !Number.isSafeInteger(plan.expectedResetCount)
+        || Number(plan.expectedResetCount) < 0
+        || Number(plan.expectedResetCount) > plan.playerSlugs.length
+        || !Number.isSafeInteger(plan.expectedRewardedCount)
+        || Number(plan.expectedRewardedCount) < 0
+        || Number(plan.expectedRewardedCount) > Math.min(6, plan.playerSlugs.length)) return null;
+
+    const slugSet = new Set(plan.playerSlugs);
+    const validEntries = (entries: unknown[], max: number) => entries.length <= max
+        && entries.every((entry, index) => {
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+            const record = entry as Record<string, unknown>;
+            const keys = Object.keys(record).sort().join('|');
+            if (keys !== 'name|rank|rating|slug' && keys !== 'name|rank|rating|slug|village') return false;
+            return typeof record.slug === 'string'
+                && slugSet.has(record.slug)
+                && typeof record.name === 'string'
+                && record.name.length > 0
+                && record.name.length <= 80
+                && (record.village === undefined
+                    || (typeof record.village === 'string' && record.village.length <= 80))
+                && typeof record.rating === 'number'
+                && Number.isFinite(record.rating)
+                && Number(record.rating) >= 0
+                && record.rank === index + 1;
+        });
+    if (!validEntries(plan.playerTop, 10)
+        || !validEntries(plan.petTop, 10)
+        || !validEntries(plan.playerPodium, 3)
+        || !validEntries(plan.petPodium, 3)) return null;
     return plan as RankedSeasonPlan;
 }
 
@@ -81,7 +159,7 @@ export function softResetRating(rating: unknown, def: number = DEFAULT_RANKED_RA
 /** Sorted top-N standings (for the archive / display). Highest rating first. */
 export function leaderboard(entries: LadderEntry[], n: number): (LadderEntry & { rank: number })[] {
     return [...entries]
-        .sort((a, b) => b.rating - a.rating)
+        .sort((a, b) => b.rating - a.rating || a.slug.localeCompare(b.slug))
         .slice(0, n)
         .map((e, i) => ({ ...e, rank: i + 1 }));
 }
@@ -93,7 +171,7 @@ export function leaderboard(entries: LadderEntry[], n: number): (LadderEntry & {
 export function rewardPodium(entries: LadderEntry[], def: number = DEFAULT_RANKED_RATING): (LadderEntry & { rank: number })[] {
     return [...entries]
         .filter((e) => e.rating > def)
-        .sort((a, b) => b.rating - a.rating)
+        .sort((a, b) => b.rating - a.rating || a.slug.localeCompare(b.slug))
         .slice(0, 3)
         .map((e, i) => ({ ...e, rank: i + 1 }));
 }
@@ -198,29 +276,118 @@ export type SeasonRolloverResult = {
  * yet; a no-op if one is already active. Ranked seasons do NOT auto-start — an
  * admin kicks them off from the Admin Panel.
  */
-export async function startRankedSeason(now: number = Date.now()): Promise<SeasonRolloverResult> {
-    const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
-    if (current) return { ok: true, action: 'skipped', seasonId: current.id };
-    const season: RankedSeason = { id: 1, startedAt: now, endsAt: now + SEASON_LENGTH_MS };
-    await kv.set(SEASON_CURRENT_KEY, season);
+export type RankedSeasonStore = Pick<
+    KvLike,
+    'get' | 'set' | 'compareSet' | 'del' | 'delIfEqual' | 'keys'
+>;
+
+const unlockedRankedLock: PetRankedLockRunner = async <T>(
+    _key: string,
+    action: () => Promise<T>,
+): Promise<T> => action();
+
+const productionRankedLock: PetRankedLockRunner = <T>(
+    key: string,
+    action: () => Promise<T>,
+): Promise<T> => withKvLock(key, action, { failClosed: true });
+
+function validSeason(value: unknown): value is RankedSeason {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const record = value as Record<string, unknown>;
+    if (Object.keys(record).sort().join('|') !== 'endsAt|id|startedAt') return false;
+    return Number.isSafeInteger(record.id)
+        && Number(record.id) > 0
+        && Number.isSafeInteger(record.startedAt)
+        && Number(record.startedAt) > 0
+        && Number.isSafeInteger(record.endsAt)
+        && Number(record.endsAt) > Number(record.startedAt);
+}
+
+async function readCurrentSeason(store: Pick<KvLike, 'get'>): Promise<RankedSeason | null> {
+    const raw = await store.get<unknown>(SEASON_CURRENT_KEY);
+    if (raw === null) return null;
+    if (!validSeason(raw)) throw new Error('ranked-season-current-invalid');
+    return raw;
+}
+
+async function compareSetWithReadback(
+    store: Pick<KvLike, 'get' | 'compareSet'>,
+    key: string,
+    expected: unknown | null,
+    value: unknown,
+): Promise<boolean> {
+    try {
+        return await store.compareSet(key, expected, value);
+    } catch (error) {
+        const recovered = await store.get<unknown>(key).catch(() => null);
+        if (isDeepStrictEqual(recovered, value)) return true;
+        throw error;
+    }
+}
+
+async function putImmutable(
+    store: Pick<KvLike, 'get' | 'set'>,
+    key: string,
+    value: unknown,
+    ttlSeconds: number,
+): Promise<void> {
+    try {
+        if (await store.set(key, value, { nx: true, ex: ttlSeconds }) === 'OK') return;
+    } catch (error) {
+        const recovered = await store.get<unknown>(key).catch(() => null);
+        if (isDeepStrictEqual(recovered, value)) return;
+        throw error;
+    }
+    if (isDeepStrictEqual(await store.get<unknown>(key), value)) return;
+    throw new Error(`ranked-season-immutable-conflict:${key}`);
+}
+
+export async function startRankedSeasonWithStore(
+    store: RankedSeasonStore,
+    now: number = Date.now(),
+): Promise<SeasonRolloverResult> {
+    const current = await readCurrentSeason(store);
+    if (current) {
+        const gate = await readPetRankedSeasonGateFresh(store);
+        if (!gate) await ensurePetRankedSeasonGate(store, current.id, now);
+        else if (gate.state === 'open' && gate.seasonId !== current.id) {
+            throw new Error('ranked-season-gate-current-conflict');
+        }
+        return { ok: true, action: 'skipped', seasonId: current.id };
+    }
+    const timestamp = Math.max(1, Math.floor(Number(now) || Date.now()));
+    const season: RankedSeason = {
+        id: 1,
+        startedAt: timestamp,
+        endsAt: timestamp + SEASON_LENGTH_MS,
+    };
+    const gate = await ensurePetRankedSeasonGate(store, season.id, timestamp);
+    if (gate.state !== 'open'
+        || gate.seasonId !== season.id
+        || gate.admissions.length !== 0
+        || gate.playerAdmissions.length !== 0) {
+        throw new Error('ranked-season-initialization-blocked');
+    }
+    if (!await compareSetWithReadback(store, SEASON_CURRENT_KEY, null, season)) {
+        const winner = await readCurrentSeason(store);
+        if (!winner || !isDeepStrictEqual(winner, season)) throw new Error('ranked-season-start-conflict');
+    }
     return { ok: true, action: 'initialized', seasonId: season.id };
+}
+
+export async function startRankedSeason(now: number = Date.now()): Promise<SeasonRolloverResult> {
+    return startRankedSeasonWithStore(kv, now);
 }
 
 /**
  * Run a season rollover IF the current window has ended. Safe to call on every
  * daily cron tick — it no-ops (`inactive` until an admin starts seasons,
- * `pending` until the clock expires), and the rollover lock + clock advance make
- * a double-run a no-op too. Does NOT auto-start a season.
+ * `pending` until the clock expires). The persistent transition gate and exact
+ * CAS writes make overlapping/restarted runners idempotent; no long lease is
+ * trusted for correctness. Does NOT auto-start a season.
  */
 export async function runRankedSeasonRollover(now: number = Date.now()): Promise<SeasonRolloverResult> {
-    const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
-    if (!current) return { ok: true, action: 'inactive' };
-    if (now < current.endsAt) return { ok: true, action: 'pending', seasonId: current.id };
-    return withKvLock<SeasonRolloverResult>(SEASON_LOCK_KEY, async () => {
-        const fresh = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
-        if (!fresh || now < fresh.endsAt) return { ok: true, action: 'skipped', seasonId: fresh?.id };
-        return performRollover(fresh, now);
-    }, { failClosed: true, ttlSec: SEASON_LOCK_TTL_SECONDS }).catch((err): SeasonRolloverResult => ({ ok: false, action: 'skipped', error: err instanceof Error ? err.message : String(err) }));
+    return runRankedSeasonRolloverWithStore(kv, now, { lock: productionRankedLock });
 }
 
 /**
@@ -229,139 +396,377 @@ export async function runRankedSeasonRollover(now: number = Date.now()): Promise
  * `inactive` if seasons haven't been started.
  */
 export async function forceRankedSeasonRollover(now: number = Date.now()): Promise<SeasonRolloverResult> {
-    const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
-    if (!current) return { ok: true, action: 'inactive' };
-    return withKvLock<SeasonRolloverResult>(SEASON_LOCK_KEY, async () => {
-        const fresh = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
-        if (!fresh) return { ok: true, action: 'inactive' };
-        return performRollover(fresh, now);
-    }, { failClosed: true, ttlSec: SEASON_LOCK_TTL_SECONDS }).catch((err): SeasonRolloverResult => ({ ok: false, action: 'skipped', error: err instanceof Error ? err.message : String(err) }));
+    return runRankedSeasonRolloverWithStore(kv, now, { force: true, lock: productionRankedLock });
 }
 
-/** The actual rollover: archive standings, reward podiums, soft-reset, advance.
- *  Caller must hold SEASON_LOCK_KEY. */
-async function performRollover(fresh: RankedSeason, now: number): Promise<SeasonRolloverResult> {
-    {
-        const saveKeys = await kv.keys(`${SAVE_PREFIX}*`);
-        const playerKeys = saveKeys.filter((k) => {
-            const name = k.slice(SAVE_PREFIX.length);
-            return !name.startsWith('Admin ') && name !== 'Rill';
+/** Settle one durable admission before it can leave the closing gate. */
+async function settlePreparedAdmission(
+    store: RankedSeasonStore,
+    preparation: PetRankedPreparation,
+    lock: PetRankedLockRunner,
+    now: number,
+): Promise<void> {
+    await lock(`pet-ranked-start:${preparation.matchId}`, async () => {
+        const journal = await getPetRankedJournal(store, preparation.matchId);
+        if (journal?.state !== 'completed') {
+            const claimed = await commitPetRankedStartingPair(
+                store,
+                [preparation.a, preparation.b],
+                preparation.matchId,
+            );
+            if (!claimed.ok) throw new Error(`pet-ranked-rollover-active-conflict:${claimed.conflictPlayer}`);
+        }
+        await settlePetRankedMatchDurably(store, {
+            matchToken: preparation.matchId,
+            token: preparation.token,
+            lock,
+            now,
         });
+        await completePetRankedPreparation(store, preparation);
+    });
+}
 
-        // Read every save once to build both ladders.
-        const playerLadder: LadderEntry[] = [];
-        const petLadder: LadderEntry[] = [];
-        for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {
-            const slice = playerKeys.slice(i, i + MAX_PARALLEL);
-            const recs = await Promise.all(slice.map((k) => kv.get<Record<string, unknown>>(k).catch(() => null)));
-            recs.forEach((rec, j) => {
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!char) return;
-                const slug = playerKeys[i + j].slice(SAVE_PREFIX.length);
-                const name = (char.name as string) ?? slug;
-                const village = char.village as string | undefined;
-                playerLadder.push({ slug, name, village, rating: num(char.rankedRating ?? DEFAULT_RANKED_RATING) });
-                petLadder.push({ slug, name, village, rating: num(char.petRankedRating ?? DEFAULT_RANKED_RATING) });
+/**
+ * Admission is closed before this runs. Every gate preparation and every exact
+ * pending journal is helped forward. The final empty reads are race-free
+ * because close and reserve serialize on one exact-CAS season authority.
+ */
+async function drainRankedWork(
+    store: RankedSeasonStore,
+    closing: PetRankedSeasonGate,
+    lock: PetRankedLockRunner,
+    now: number,
+): Promise<void> {
+    for (let pass = 0; pass < 16; pass += 1) {
+        const gate = await readPetRankedSeasonGateFresh(store);
+        if (!gate
+            || gate.state !== 'closing'
+            || gate.seasonId !== closing.seasonId
+            || gate.epoch !== closing.epoch
+            || gate.transitionId !== closing.transitionId) {
+            throw new Error('ranked-season-transition-authority-changed');
+        }
+
+        // A terminal session may have committed immediately before close while
+        // its journal response/ack was lost. Help it publish before the
+        // terminal-vs-no-contest gate CAS is decided.
+        for (const admitted of gate.playerAdmissions) {
+            if (admitted.phase !== 'active' || !admitted.battleId) continue;
+            const sessionKey = `pvp:${admitted.battleId}`;
+            const boundary = await fencePlayerRankedSessionForClose(
+                store,
+                admitted,
+                String(closing.transitionId ?? ''),
+                now,
+            );
+            if (boundary.status === 'terminal') {
+                await confirmPlayerRankedTerminalEffects(store, boundary.session, {
+                    now,
+                    eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, store)),
+                    lock,
+                });
+            }
+        }
+
+        // Anything that did not win terminalization is an explicit no-contest.
+        const cancelled = await cancelNonterminalPlayerRankedAdmissions(store, closing, now);
+        for (const admission of cancelled) {
+            await recordCancelledPlayerRankedAdmission(store, admission);
+        }
+
+        const afterCancellation = await readPetRankedSeasonGateFresh(store);
+        for (const admission of afterCancellation?.playerAdmissions ?? []) {
+            if (admission.phase !== 'terminal') continue;
+            if (!admission.battleId) throw new Error('player-ranked-terminal-battle-missing');
+            const sessionKey = `pvp:${admission.battleId}`;
+            const session = await store.get<PvpSession>(sessionKey);
+            if (!session || session.status !== 'done') {
+                const completed = await getPlayerRankedJournal(store, admission.matchId);
+                if (!session
+                    && completed?.state === 'completed'
+                    && completed.confirmations.a
+                    && completed.confirmations.b
+                    && completed.items.a.confirmed
+                    && completed.items.b.confirmed
+                    && completed.terminal.battleId === admission.battleId
+                    && completed.terminal.fingerprint === admission.terminalFingerprint
+                    && await hasDurableVanguardTerminalOutcome(store, completed.terminal)) {
+                    // Crash after exact TTL compaction but before gate removal:
+                    // once that bounded row expires, absence is itself proof
+                    // that no non-expiring session leaked. Finish the still-
+                    // discoverable exact terminal admission.
+                    await completePlayerRankedAdmission(store, admission);
+                    continue;
+                }
+                throw new Error('player-ranked-terminal-session-unreadable');
+            }
+            // Publication may have committed before consumable settlement. Run
+            // the full hook for already-terminal admissions on every restart;
+            // Elo and compaction are forbidden until exact item receipts land.
+            const journal = await confirmPlayerRankedTerminalEffects(store, session, {
+                now,
+                eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, store)),
+                lock,
             });
-            // Yield between batches so this all-saves scan doesn't monopolize the
-            // shared event loop (it runs at the same 03:00 slot as the snapshot job).
-            if (i + MAX_PARALLEL < playerKeys.length) await new Promise<void>((resolve) => setImmediate(resolve));
+            await settlePlayerRankedJournal(store, journal, now);
+            await boundExactPvpSession(store, sessionKey, session, SESSION_TTL);
         }
 
-        const planKey = `${SEASON_PLAN_PREFIX}${fresh.id}`;
-        const storedPlan = rankedSeasonPlan(await kv.get(planKey), fresh.id);
-        const computedPlayerPodium = rewardPodium(playerLadder);
-        const computedPetPodium = rewardPodium(petLadder);
-        const computedRewards = computeRewards(computedPlayerPodium, computedPetPodium);
-        const petRatingBySlug = new Map(petLadder.map((entry) => [entry.slug, entry.rating]));
-        const plan: RankedSeasonPlan = storedPlan ?? {
-            seasonId: fresh.id,
-            createdAt: now,
-            playerSlugs: playerLadder.map((entry) => entry.slug),
-            playerTop: leaderboard(playerLadder, 10),
-            petTop: leaderboard(petLadder, 10),
-            playerPodium: computedPlayerPodium,
-            petPodium: computedPetPodium,
-            expectedResetCount: playerLadder.filter((entry) => (
-                softResetRating(entry.rating) !== entry.rating
-                || softResetRating(petRatingBySlug.get(entry.slug)) !== petRatingBySlug.get(entry.slug)
-            )).length,
-            expectedRewardedCount: computedRewards.size,
-        };
-        if (!storedPlan) {
-            // Persist the immutable standings/reward plan before moving any
-            // player value. A partial retry must not recompute podiums from
-            // ratings that successful players have already reset.
-            await kv.set(planKey, plan, { ex: ARCHIVE_TTL_SECONDS });
+        for (const journal of await listPendingPlayerRankedJournals(store)) {
+            await settlePlayerRankedJournal(store, journal, now);
         }
-        const rewards = computeRewards(plan.playerPodium, plan.petPodium);
-        const settlementPlayerKeys = plan.playerSlugs.map((slug) => `${SAVE_PREFIX}${slug}`);
 
-        // Archive the final standings for the "last season" UI.
-        await kv.set(`${SEASON_ARCHIVE_PREFIX}${fresh.id}`, {
-            id: fresh.id,
-            endedAt: now,
-            player: plan.playerTop.map((e) => ({ name: e.name, village: e.village, rating: e.rating, rank: e.rank })),
-            pet: plan.petTop.map((e) => ({ name: e.name, village: e.village, rating: e.rating, rank: e.rank })),
-        }, { ex: ARCHIVE_TTL_SECONDS } as never);
+        for (const admitted of gate.admissions) {
+            const preparation = await loadPetRankedPreparation(store, admitted.matchId);
+            if (!preparation || !isDeepStrictEqual(preparation, admitted)) {
+                throw new Error('ranked-season-preparation-unreadable');
+            }
+            await settlePreparedAdmission(store, preparation, lock, now);
+        }
 
-        // Apply soft reset (everyone who played) + rewards (podium) per save,
-        // under that save's lock so we don't clobber a concurrent autosave.
-        let resetCount = 0;
-        let rewardedCount = 0;
-        const failedSlugs: string[] = [];
-        const apply = async (slug: string) => {
-            const reward = rewards.get(slug);
-            await withKvLock(`${SAVE_PREFIX}${slug}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`${SAVE_PREFIX}${slug}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return;
-                const settlement = settleRankedSeasonCharacter(char, fresh.id, reward);
-                if (!settlement.changed) return;
-                const updated = bumpSaveVersion({ ...rec, character: settlement.character });
-                await kv.set(`${SAVE_PREFIX}${slug}`, mergePreservingImages(updated, rec));
-                if (settlement.resetApplied) resetCount += 1;
-                if (settlement.rewardApplied) rewardedCount += 1;
-            }, { failClosed: true }).catch((err) => {
+        // Older pending journals can outlive their mirrored preparation. They
+        // still embed the immutable token and must resolve before the snapshot.
+        const pending = await listPendingPetRankedJournals(store);
+        for (const journal of pending) {
+            await settlePetRankedMatchDurably(store, {
+                matchToken: journal.matchId,
+                token: journal.token,
+                lock,
+                now,
+            });
+            const preparation = await loadPetRankedPreparation(store, journal.matchId);
+            if (preparation) await completePetRankedPreparation(store, preparation);
+        }
+
+        const verifiedGate = await readPetRankedSeasonGateFresh(store);
+        const verifiedPending = await listPendingPetRankedJournals(store);
+        if (verifiedGate?.state === 'closing'
+            && verifiedGate.seasonId === closing.seasonId
+            && verifiedGate.epoch === closing.epoch
+            && verifiedGate.admissions.length === 0
+            && verifiedGate.playerAdmissions.length === 0
+            && verifiedPending.length === 0
+            && (await listPendingPlayerRankedJournals(store)).length === 0) {
+            return;
+        }
+    }
+    throw new Error('ranked-season-drain-busy');
+}
+
+async function applySeasonSettlement(
+    store: RankedSeasonStore,
+    slug: string,
+    seasonId: number,
+    reward: SeasonReward | undefined,
+): Promise<void> {
+    const key = `${SAVE_PREFIX}${slug}`;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+        const record = await store.get<Record<string, unknown>>(key);
+        const character = (record?.character ?? null) as Record<string, unknown> | null;
+        if (!record || !character) throw new Error(`ranked-season-plan-save-unreadable:${slug}`);
+        const settlement = settleRankedSeasonCharacter(character, seasonId, reward);
+        if (!settlement.changed) return;
+        const updated = mergePreservingImages(
+            bumpSaveVersion({ ...record, character: settlement.character }),
+            record,
+        ) as Record<string, unknown>;
+        try {
+            if (await store.compareSet(key, record, updated)) return;
+        } catch (error) {
+            // The exact intended bytes may already have been followed by an
+            // unrelated save mutation. The embedded receipt is the authority
+            // for a commit whose acknowledgement was lost.
+            const recovered = await store.get<Record<string, unknown>>(key).catch(() => null);
+            const recoveredCharacter = (recovered?.character ?? null) as Record<string, unknown> | null;
+            if (recoveredCharacter && seasonSettlementReceipts(recoveredCharacter).includes(seasonId)) return;
+            throw error;
+        }
+    }
+    throw new Error(`ranked-season-save-cas-busy:${slug}`);
+}
+
+async function performDurableRollover(
+    store: RankedSeasonStore,
+    fresh: RankedSeason,
+    now: number,
+    lock: PetRankedLockRunner,
+): Promise<SeasonRolloverResult> {
+    const closing = await closePetRankedSeasonGate(store, fresh.id, now);
+    await drainRankedWork(store, closing, lock, now);
+
+    const saveKeys = await store.keys(`${SAVE_PREFIX}*`);
+    const playerKeys = saveKeys.filter((key) => {
+        const name = key.slice(SAVE_PREFIX.length);
+        return !name.startsWith('Admin ') && name !== 'Rill';
+    });
+    const playerLadder: LadderEntry[] = [];
+    const petLadder: LadderEntry[] = [];
+    for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {
+        const slice = playerKeys.slice(i, i + MAX_PARALLEL);
+        const records = await Promise.all(
+            slice.map((key) => store.get<Record<string, unknown>>(key)),
+        );
+        records.forEach((record, index) => {
+            const character = (record?.character ?? null) as Record<string, unknown> | null;
+            if (!record || !character) {
+                throw new Error(`ranked-season-snapshot-save-unreadable:${playerKeys[i + index]}`);
+            }
+            const slug = playerKeys[i + index].slice(SAVE_PREFIX.length);
+            const name = typeof character.name === 'string' ? character.name : slug;
+            const village = typeof character.village === 'string' ? character.village : undefined;
+            playerLadder.push({ slug, name, village, rating: num(character.rankedRating ?? DEFAULT_RANKED_RATING) });
+            petLadder.push({ slug, name, village, rating: num(character.petRankedRating ?? DEFAULT_RANKED_RATING) });
+        });
+        if (i + MAX_PARALLEL < playerKeys.length) await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+
+    const planKey = `${SEASON_PLAN_PREFIX}${fresh.id}`;
+    const rawStoredPlan = await store.get<unknown>(planKey);
+    const storedPlan = rawStoredPlan === null ? null : rankedSeasonPlan(rawStoredPlan, fresh.id);
+    if (rawStoredPlan !== null && !storedPlan) throw new Error('ranked-season-plan-invalid');
+    const computedPlayerPodium = rewardPodium(playerLadder);
+    const computedPetPodium = rewardPodium(petLadder);
+    const computedRewards = computeRewards(computedPlayerPodium, computedPetPodium);
+    const petRatingBySlug = new Map(petLadder.map((entry) => [entry.slug, entry.rating]));
+    const plan: RankedSeasonPlan = storedPlan ?? {
+        seasonId: fresh.id,
+        // Persisted close time makes forced rollover deterministic on restart.
+        createdAt: closing.changedAt,
+        playerSlugs: playerLadder.map((entry) => entry.slug).sort(),
+        playerTop: leaderboard(playerLadder, 10),
+        petTop: leaderboard(petLadder, 10),
+        playerPodium: computedPlayerPodium,
+        petPodium: computedPetPodium,
+        expectedResetCount: playerLadder.filter((entry) => (
+            softResetRating(entry.rating) !== entry.rating
+            || softResetRating(petRatingBySlug.get(entry.slug)) !== petRatingBySlug.get(entry.slug)
+        )).length,
+        expectedRewardedCount: computedRewards.size,
+    };
+    if (!storedPlan) await putImmutable(store, planKey, plan, ARCHIVE_TTL_SECONDS);
+
+    const archive = {
+        id: fresh.id,
+        endedAt: plan.createdAt,
+        player: plan.playerTop.map((entry) => ({
+            name: entry.name,
+            village: entry.village,
+            rating: entry.rating,
+            rank: entry.rank,
+        })),
+        pet: plan.petTop.map((entry) => ({
+            name: entry.name,
+            village: entry.village,
+            rating: entry.rating,
+            rank: entry.rank,
+        })),
+    };
+    await putImmutable(store, `${SEASON_ARCHIVE_PREFIX}${fresh.id}`, archive, ARCHIVE_TTL_SECONDS);
+
+    const rewards = computeRewards(plan.playerPodium, plan.petPodium);
+    const failedSlugs: string[] = [];
+    for (let i = 0; i < plan.playerSlugs.length; i += MAX_PARALLEL) {
+        const slice = plan.playerSlugs.slice(i, i + MAX_PARALLEL);
+        await Promise.all(slice.map(async (slug) => {
+            try {
+                await applySeasonSettlement(store, slug, fresh.id, rewards.get(slug));
+            } catch (error) {
                 failedSlugs.push(slug);
-                console.error('[ranked-season] rollover apply failed', slug, err);
-            });
-        };
-        for (let i = 0; i < settlementPlayerKeys.length; i += MAX_PARALLEL) {
-            const slice = settlementPlayerKeys.slice(i, i + MAX_PARALLEL).map((k) => k.slice(SAVE_PREFIX.length));
-            await Promise.all(slice.map(apply));
-            // Yield between batches — see the read loop above. Keeps the locked
-            // per-save rewrite pass from stalling concurrent player requests.
-            if (i + MAX_PARALLEL < settlementPlayerKeys.length) await new Promise<void>((resolve) => setImmediate(resolve));
-        }
-
-        // Do not advance the season clock over a partial settlement. Successful
-        // players already carry the in-save receipt and become no-ops on retry;
-        // only failed players are attempted again.
-        if (failedSlugs.length > 0) {
-            return {
-                ok: false,
-                action: 'skipped',
-                seasonId: fresh.id,
-                resetCount,
-                rewardedCount,
-                error: `${failedSlugs.length} player settlement(s) failed; season remains open for retry.`,
-            };
-        }
-
-        const next = nextSeason(fresh, now);
-        await kv.set(SEASON_CURRENT_KEY, next);
-        await kv.set(`audit:ranked-season:${fresh.id}`, {
-            ts: now, endedSeason: fresh.id, nextSeason: next.id,
-            playerChampion: plan.playerPodium[0]?.name, petChampion: plan.petPodium[0]?.name,
-            resetCount: plan.expectedResetCount, rewardedCount: plan.expectedRewardedCount,
-        }, { ex: ARCHIVE_TTL_SECONDS } as never).catch(() => undefined);
-        await kv.del(planKey).catch(() => undefined);
-
+                console.error('[ranked-season] rollover apply failed', slug, error);
+            }
+        }));
+        if (i + MAX_PARALLEL < plan.playerSlugs.length) await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    if (failedSlugs.length > 0) {
         return {
-            ok: true, action: 'rolled-over', seasonId: fresh.id, nextSeasonId: next.id,
-            playerChampion: plan.playerPodium[0]?.name, petChampion: plan.petPodium[0]?.name,
-            resetCount: plan.expectedResetCount, rewardedCount: plan.expectedRewardedCount,
+            ok: false,
+            action: 'skipped',
+            seasonId: fresh.id,
+            error: `${failedSlugs.length} player settlement(s) failed; transition remains closed for retry.`,
+        };
+    }
+
+    const next = nextSeason(fresh, closing.changedAt);
+    if (!await compareSetWithReadback(store, SEASON_CURRENT_KEY, fresh, next)) {
+        const winner = await readCurrentSeason(store);
+        if (!winner || !isDeepStrictEqual(winner, next)) throw new Error('ranked-season-advance-conflict');
+    }
+    await reopenPetRankedSeasonGate(store, fresh.id, next.id, now);
+
+    await store.set(`audit:ranked-season:${fresh.id}`, {
+        ts: plan.createdAt,
+        endedSeason: fresh.id,
+        nextSeason: next.id,
+        playerChampion: plan.playerPodium[0]?.name,
+        petChampion: plan.petPodium[0]?.name,
+        resetCount: plan.expectedResetCount,
+        rewardedCount: plan.expectedRewardedCount,
+    }, { ex: ARCHIVE_TTL_SECONDS }).catch(() => null);
+    await store.del(planKey).catch(() => 0);
+
+    return {
+        ok: true,
+        action: 'rolled-over',
+        seasonId: fresh.id,
+        nextSeasonId: next.id,
+        playerChampion: plan.playerPodium[0]?.name,
+        petChampion: plan.petPodium[0]?.name,
+        resetCount: plan.expectedResetCount,
+        rewardedCount: plan.expectedRewardedCount,
+    };
+}
+
+async function runRolloverCore(
+    store: RankedSeasonStore,
+    now: number,
+    force: boolean,
+    lock: PetRankedLockRunner,
+): Promise<SeasonRolloverResult> {
+    const current = await readCurrentSeason(store);
+    if (!current) return { ok: true, action: 'inactive' };
+    let gate = await readPetRankedSeasonGateFresh(store);
+    if (!gate) gate = await ensurePetRankedSeasonGate(store, current.id, now);
+
+    // Recover a crash after advancing current but before reopening admission.
+    if (gate.state === 'closing' && gate.nextSeasonId === current.id) {
+        if (gate.admissions.length !== 0 || gate.playerAdmissions.length !== 0) {
+            throw new Error('ranked-season-advanced-with-pending-admissions');
+        }
+        if ((await listPendingPetRankedJournals(store)).length !== 0) {
+            throw new Error('ranked-season-advanced-with-pending-journals');
+        }
+        if ((await listPendingPlayerRankedJournals(store)).length !== 0) {
+            throw new Error('ranked-season-advanced-with-pending-player-journals');
+        }
+        await reopenPetRankedSeasonGate(store, gate.seasonId, current.id, now);
+        return { ok: true, action: 'skipped', seasonId: current.id };
+    }
+    if (gate.seasonId !== current.id) throw new Error('ranked-season-gate-current-conflict');
+    if (gate.state === 'open' && !force && now < current.endsAt) {
+        return { ok: true, action: 'pending', seasonId: current.id };
+    }
+    // Persisted close is itself authority to resume, regardless of the latest
+    // invocation's force flag or wall-clock relationship to endsAt.
+    return performDurableRollover(store, current, now, lock);
+}
+
+export async function runRankedSeasonRolloverWithStore(
+    store: RankedSeasonStore,
+    now: number = Date.now(),
+    options: { force?: boolean; lock?: PetRankedLockRunner } = {},
+): Promise<SeasonRolloverResult> {
+    try {
+        return await runRolloverCore(
+            store,
+            now,
+            options.force === true,
+            options.lock ?? unlockedRankedLock,
+        );
+    } catch (error) {
+        return {
+            ok: false,
+            action: 'skipped',
+            error: error instanceof Error ? error.message : String(error),
         };
     }
 }

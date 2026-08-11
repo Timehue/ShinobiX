@@ -120,6 +120,143 @@
           "r-1"
         ]
       },
+      "petRankedSettlementStamp": {
+        "settlementId": "pet-ranked-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fingerprint": "pet-rating-winner",
+        "rating": {
+          "field": "petRankedRating",
+          "value": 1012,
+          "delta": 12
+        },
+        "settledAt": 1750000000000
+      },
+      "playerRankedSettlementStamp": {
+        "player-ranked-12345678-1234-4123-8123-1234567890ab": {
+          "fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "seasonId": 1,
+          "role": "winner",
+          "settledAt": 1750000000000,
+          "ratingAfter": 1062
+        }
+      },
+      "vanguardRewardSettlementStamp": {
+        "version": "vanguard-reward-settlement-v1",
+        "state": "settled",
+        "ownerId": "12345678-1234-4123-8123-1234567890ab",
+        "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+        "authorityFingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+        "battleId": "pvp-golden",
+        "winner": "goldenmaster",
+        "loser": "rival",
+        "expectedSaveVersion": 7,
+        "createdAt": 1750000000000,
+        "settledAt": 1750000000100,
+        "recoverUntil": 1750604800100,
+        "outcome": {
+          "granted": true,
+          "seals": 2,
+          "xp": 100
+        }
+      },
+      "settledHollowGateCombatIds": [
+        "hollow-run-1"
+      ],
+      "hollowGateCombatSettlements": [
+        {
+          "runId": "hollow-run-1",
+          "fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+          "committedAt": 1
+        }
+      ],
+      "soloPveCompanionSettlements": [
+        {
+          "sessionId": "run-1",
+          "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "chargedAt": 1
+        }
+      ],
+      "soloPveItemSettlements": [
+        {
+          "markerId": "run-1:move-1",
+          "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "chargedAt": 2
+        }
+      ],
+      "aiFightRewardSettlements": {
+        "version": 1,
+        "receipts": [
+          {
+            "token": "ServerToken1",
+            "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "mintedAt": 1,
+            "expiresAt": 2,
+            "settledAt": 1,
+            "xp": 100,
+            "ryo": 75,
+            "capped": false,
+            "dailyCount": 1
+          }
+        ],
+        "dailyCounts": [
+          {
+            "date": "2026-08-10",
+            "count": 1,
+            "updatedAt": 1
+          }
+        ]
+      },
+      "weeklyBossStartSettlements": [
+        {
+          "runId": "weekly-run-1",
+          "fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "chargedAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "weeklyBossUsageSettlements": [
+        {
+          "version": 1,
+          "runId": "weekly-run-1",
+          "playerName": "GoldenMaster",
+          "weekKey": "2026-W32",
+          "aiId": "boss-ai",
+          "bossStartedAt": 1,
+          "damage": 250,
+          "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "settledAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "weeklyBossPayoutSettlements": [
+        {
+          "version": 1,
+          "weekKey": "2026-W32",
+          "aiId": "boss-ai",
+          "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ryo": 500,
+          "gotCore": true,
+          "gotKey": true,
+          "creditedAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "combatMissionClaimSettlements": [
+        {
+          "version": 1,
+          "runId": "mission-run-1",
+          "missionId": "mission-1",
+          "rewardFingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+          "settledAt": 1,
+          "result": {
+            "completion": "daily"
+          }
+        }
+      ],
+      "bountySagaStamp": {
+        "sagaId": "bounty-saga-1",
+        "operation": "PLACE",
+        "settledAt": 3
+      },
       "weaponElements": {
         "rustfang-kunai": "fire"
       },
@@ -328,6 +465,143 @@
           "r-1"
         ]
       },
+      "petRankedSettlementStamp": {
+        "settlementId": "pet-ranked-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fingerprint": "pet-rating-winner",
+        "rating": {
+          "field": "petRankedRating",
+          "value": 1012,
+          "delta": 12
+        },
+        "settledAt": 1750000000000
+      },
+      "playerRankedSettlementStamp": {
+        "player-ranked-12345678-1234-4123-8123-1234567890ab": {
+          "fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "seasonId": 1,
+          "role": "winner",
+          "settledAt": 1750000000000,
+          "ratingAfter": 1062
+        }
+      },
+      "vanguardRewardSettlementStamp": {
+        "version": "vanguard-reward-settlement-v1",
+        "state": "settled",
+        "ownerId": "12345678-1234-4123-8123-1234567890ab",
+        "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+        "authorityFingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+        "battleId": "pvp-golden",
+        "winner": "goldenmaster",
+        "loser": "rival",
+        "expectedSaveVersion": 7,
+        "createdAt": 1750000000000,
+        "settledAt": 1750000000100,
+        "recoverUntil": 1750604800100,
+        "outcome": {
+          "granted": true,
+          "seals": 2,
+          "xp": 100
+        }
+      },
+      "settledHollowGateCombatIds": [
+        "hollow-run-1"
+      ],
+      "hollowGateCombatSettlements": [
+        {
+          "runId": "hollow-run-1",
+          "fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+          "committedAt": 1
+        }
+      ],
+      "soloPveCompanionSettlements": [
+        {
+          "sessionId": "run-1",
+          "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "chargedAt": 1
+        }
+      ],
+      "soloPveItemSettlements": [
+        {
+          "markerId": "run-1:move-1",
+          "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "chargedAt": 2
+        }
+      ],
+      "aiFightRewardSettlements": {
+        "version": 1,
+        "receipts": [
+          {
+            "token": "ServerToken1",
+            "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "mintedAt": 1,
+            "expiresAt": 2,
+            "settledAt": 1,
+            "xp": 100,
+            "ryo": 75,
+            "capped": false,
+            "dailyCount": 1
+          }
+        ],
+        "dailyCounts": [
+          {
+            "date": "2026-08-10",
+            "count": 1,
+            "updatedAt": 1
+          }
+        ]
+      },
+      "weeklyBossStartSettlements": [
+        {
+          "runId": "weekly-run-1",
+          "fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "chargedAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "weeklyBossUsageSettlements": [
+        {
+          "version": 1,
+          "runId": "weekly-run-1",
+          "playerName": "GoldenMaster",
+          "weekKey": "2026-W32",
+          "aiId": "boss-ai",
+          "bossStartedAt": 1,
+          "damage": 250,
+          "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "settledAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "weeklyBossPayoutSettlements": [
+        {
+          "version": 1,
+          "weekKey": "2026-W32",
+          "aiId": "boss-ai",
+          "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ryo": 500,
+          "gotCore": true,
+          "gotKey": true,
+          "creditedAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "combatMissionClaimSettlements": [
+        {
+          "version": 1,
+          "runId": "mission-run-1",
+          "missionId": "mission-1",
+          "rewardFingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+          "settledAt": 1,
+          "result": {
+            "completion": "daily"
+          }
+        }
+      ],
+      "bountySagaStamp": {
+        "sagaId": "bounty-saga-1",
+        "operation": "PLACE",
+        "settledAt": 3
+      },
       "weaponElements": {
         "rustfang-kunai": "fire"
       },
@@ -508,6 +782,7 @@
       "weeklyBossKills": {},
       "redeemedAuraFeeds": [],
       "redeemedHunterRanks": [],
+      "battleTowerMilestones": [],
       "elements": [],
       "claimedAwakenings": [],
       "redeemedAwakeningActions": [],
@@ -532,6 +807,7 @@
       "dailyMissionsCompleted": 0,
       "rankedSeasonsWon": 0,
       "battleTowerAscension": 0,
+      "battleTowerSpireWeeklyBest": 0,
       "hunterRank": 0
     },
     "creatorItems": [],
@@ -632,6 +908,7 @@
       "weeklyBossKills": {},
       "redeemedAuraFeeds": [],
       "redeemedHunterRanks": [],
+      "battleTowerMilestones": [],
       "elements": [],
       "claimedAwakenings": [],
       "redeemedAwakeningActions": [],
@@ -656,6 +933,7 @@
       "dailyMissionsCompleted": 0,
       "rankedSeasonsWon": 0,
       "battleTowerAscension": 0,
+      "battleTowerSpireWeeklyBest": 0,
       "hunterRank": 0
     },
     "creatorItems": [],
@@ -783,6 +1061,143 @@
         "pvp": [
           "r-1"
         ]
+      },
+      "petRankedSettlementStamp": {
+        "settlementId": "pet-ranked-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fingerprint": "pet-rating-winner",
+        "rating": {
+          "field": "petRankedRating",
+          "value": 1012,
+          "delta": 12
+        },
+        "settledAt": 1750000000000
+      },
+      "playerRankedSettlementStamp": {
+        "player-ranked-12345678-1234-4123-8123-1234567890ab": {
+          "fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "seasonId": 1,
+          "role": "winner",
+          "settledAt": 1750000000000,
+          "ratingAfter": 1062
+        }
+      },
+      "vanguardRewardSettlementStamp": {
+        "version": "vanguard-reward-settlement-v1",
+        "state": "settled",
+        "ownerId": "12345678-1234-4123-8123-1234567890ab",
+        "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+        "authorityFingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+        "battleId": "pvp-golden",
+        "winner": "goldenmaster",
+        "loser": "rival",
+        "expectedSaveVersion": 7,
+        "createdAt": 1750000000000,
+        "settledAt": 1750000000100,
+        "recoverUntil": 1750604800100,
+        "outcome": {
+          "granted": true,
+          "seals": 2,
+          "xp": 100
+        }
+      },
+      "settledHollowGateCombatIds": [
+        "hollow-run-1"
+      ],
+      "hollowGateCombatSettlements": [
+        {
+          "runId": "hollow-run-1",
+          "fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+          "committedAt": 1
+        }
+      ],
+      "soloPveCompanionSettlements": [
+        {
+          "sessionId": "run-1",
+          "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "chargedAt": 1
+        }
+      ],
+      "soloPveItemSettlements": [
+        {
+          "markerId": "run-1:move-1",
+          "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "chargedAt": 2
+        }
+      ],
+      "aiFightRewardSettlements": {
+        "version": 1,
+        "receipts": [
+          {
+            "token": "ServerToken1",
+            "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "mintedAt": 1,
+            "expiresAt": 2,
+            "settledAt": 1,
+            "xp": 100,
+            "ryo": 75,
+            "capped": false,
+            "dailyCount": 1
+          }
+        ],
+        "dailyCounts": [
+          {
+            "date": "2026-08-10",
+            "count": 1,
+            "updatedAt": 1
+          }
+        ]
+      },
+      "weeklyBossStartSettlements": [
+        {
+          "runId": "weekly-run-1",
+          "fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "chargedAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "weeklyBossUsageSettlements": [
+        {
+          "version": 1,
+          "runId": "weekly-run-1",
+          "playerName": "GoldenMaster",
+          "weekKey": "2026-W32",
+          "aiId": "boss-ai",
+          "bossStartedAt": 1,
+          "damage": 250,
+          "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "settledAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "weeklyBossPayoutSettlements": [
+        {
+          "version": 1,
+          "weekKey": "2026-W32",
+          "aiId": "boss-ai",
+          "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ryo": 500,
+          "gotCore": true,
+          "gotKey": true,
+          "creditedAt": 1,
+          "recoverUntil": 2
+        }
+      ],
+      "combatMissionClaimSettlements": [
+        {
+          "version": 1,
+          "runId": "mission-run-1",
+          "missionId": "mission-1",
+          "rewardFingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+          "settledAt": 1,
+          "result": {
+            "completion": "daily"
+          }
+        }
+      ],
+      "bountySagaStamp": {
+        "sagaId": "bounty-saga-1",
+        "operation": "PLACE",
+        "settledAt": 3
       },
       "weaponElements": {
         "rustfang-kunai": "fire"

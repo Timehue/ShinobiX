@@ -18,6 +18,13 @@ import {
     type AiFightSession,
 } from '../missions/_ai-fight-outcome.js';
 import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
+import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
+import { applySoloPveUsageCosts } from '../solo-pve/_settlement.js';
+import {
+    soloPveOutcomeReceiptRequestId,
+    soloPveUsesCommonUsageAuthority,
+    usesSoloPveUsageAuthorityV1,
+} from '../solo-pve/_usage-receipts.js';
 
 const OUTCOME_RECEIPT_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -26,6 +33,7 @@ type OutcomeMutationValue = {
     applied: boolean;
     replayed: boolean;
     migratedLegacyReceipt?: boolean;
+    migratedLegacyUsage?: boolean;
 };
 
 export type PveFightOutcomeSettlement = OutcomeMutationValue & {
@@ -50,6 +58,7 @@ export type PveFightOutcomeSettlementDeps = {
     readLegacyReceipt?: (key: string) => Promise<unknown>;
     writeLegacyReceipt?: (key: string, value: Record<string, unknown>, ttlSeconds: number) => Promise<void>;
     mutateSave?: MutateSave;
+    settleTerminalUsage?: typeof settleSoloPveTerminalUsage;
 };
 
 function sessionId(session: AiFightSession): string {
@@ -75,7 +84,9 @@ export function pveOutcomeReceiptIdentity(
         ? { kind: session.encounter.kind, id: session.encounter.id, bindingId: session.encounter.bindingId ?? '' }
         : { kind: 'tower', id: session.towerId, bindingId: session.runId };
     return {
-        requestId: `pveoutcome_${sha256(runId).slice(0, 32)}`,
+        requestId: isSoloPveSession(session)
+            ? soloPveOutcomeReceiptRequestId(session.sessionId)
+            : `pveoutcome_${sha256(runId).slice(0, 32)}`,
         fingerprint: sha256(JSON.stringify({
             runId,
             playerName: playerName.toLowerCase(),
@@ -101,12 +112,38 @@ export function applyPveOutcomeWithReceipt(params: {
     now: number;
     legacyReceiptExists?: boolean;
 }): { ok: true; character: Record<string, unknown>; value: OutcomeMutationValue } | PveFightOutcomeSettlementFailure {
+    const soloSession = isSoloPveSession(params.session) ? params.session : null;
+    const legacyModeReceiptAlreadyCharged = !!soloSession
+        && soloSession.encounter.kind === 'mission'
+        && Array.isArray(params.character.pendingCombatMissionClaims)
+        && params.character.pendingCombatMissionClaims.includes(soloSession.encounter.id);
     const identity = pveOutcomeReceiptIdentity(params.session, params.playerName, params.outcome);
     const inspected = inspectSettlementReceipt(params.character, identity.requestId, identity.fingerprint);
     if (inspected.status === 'conflict' || inspected.status === 'invalid') {
         return { ok: false, status: 409, error: 'The fight outcome receipt is invalid or conflicts with this run.' };
     }
     if (inspected.status === 'replay') {
+        const needsLegacyUsageMigration = !!soloSession
+            && !usesSoloPveUsageAuthorityV1(soloSession)
+            && soloSession.settlementState !== 'settled'
+            && !legacyModeReceiptAlreadyCharged
+            && inspected.receipt.value.legacyUsageCharged !== true;
+        if (needsLegacyUsageMigration) {
+            const charged = applySoloPveUsageCosts(params.character, soloSession);
+            return {
+                ok: true,
+                character: appendSettlementReceipt(charged, inspected.receipts, {
+                    ...inspected.receipt,
+                    value: { ...inspected.receipt.value, legacyUsageCharged: true },
+                }),
+                value: {
+                    outcome: params.outcome,
+                    applied: false,
+                    replayed: true,
+                    migratedLegacyUsage: true,
+                },
+            };
+        }
         return {
             ok: true,
             character: params.character,
@@ -123,6 +160,13 @@ export function applyPveOutcomeWithReceipt(params: {
             aiFightPlayerActor(params.session),
             params.now,
         );
+    const chargesLegacyUsage = !!soloSession
+        && !usesSoloPveUsageAuthorityV1(soloSession)
+        && soloSession.settlementState !== 'settled'
+        && !legacyModeReceiptAlreadyCharged;
+    const fullySettledCharacter = chargesLegacyUsage
+        ? applySoloPveUsageCosts(settledCharacter, soloSession!)
+        : settledCharacter;
     const value: OutcomeMutationValue = {
         outcome: params.outcome,
         applied: !legacyReplay,
@@ -131,10 +175,15 @@ export function applyPveOutcomeWithReceipt(params: {
     };
     return {
         ok: true,
-        character: appendSettlementReceipt(settledCharacter, inspected.receipts, {
+        character: appendSettlementReceipt(fullySettledCharacter, inspected.receipts, {
             requestId: identity.requestId,
             fingerprint: identity.fingerprint,
-            value: { kind: 'pve-outcome', runId: sessionId(params.session), ...value },
+            value: {
+                kind: 'pve-outcome',
+                runId: sessionId(params.session),
+                ...value,
+                ...(chargesLegacyUsage ? { legacyUsageCharged: true } : {}),
+            },
             settledAt: params.now,
         }),
         value,
@@ -181,7 +230,9 @@ export async function settlePveFightOutcome(
             value: applied.value,
             // A normal replay is already durable in this exact save. Legacy
             // replay migration still writes the new in-save receipt once.
-            write: !(applied.value.replayed && !applied.value.migratedLegacyReceipt),
+            write: !(applied.value.replayed
+                && !applied.value.migratedLegacyReceipt
+                && !applied.value.migratedLegacyUsage),
         };
     });
     if (!mutation.ok) return mutation;
@@ -219,6 +270,10 @@ export async function reconcileTerminalSoloPveOutcome(
     playerName: string,
     deps: PveFightOutcomeSettlementDeps = {},
 ): Promise<PveFightOutcomeSettlementResult | null> {
+    if (session.status === 'done' && soloPveUsesCommonUsageAuthority(session)) {
+        const usage = await (deps.settleTerminalUsage ?? settleSoloPveTerminalUsage)(session, playerName);
+        if (!usage.ok) return usage;
+    }
     return soloPveNeedsAutomaticOutcome(session)
         ? settlePveFightOutcome(session, playerName, deps)
         : null;

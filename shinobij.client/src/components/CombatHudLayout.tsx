@@ -1,4 +1,5 @@
 import { forwardRef, memo, type HTMLAttributes, type ReactNode } from "react";
+import { BattleLogLine } from "./BattleLogLine";
 
 type DivProps = HTMLAttributes<HTMLDivElement>;
 type MainProps = HTMLAttributes<HTMLElement>;
@@ -121,12 +122,11 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
             {entries.length === 0 ? (
                 <p className="plain-combat-log-empty">{emptyMessage}</p>
             ) : entries.map(({ line, originalIndex }) => (
-                <p
+                <BattleLogLine
                     key={originalIndex}
+                    line={line}
                     className={`combat-log-line plain-combat-log-line${ROUND_LOG_LINE.test(line.trim()) ? " plain-combat-log-round" : ""}`}
-                >
-                    {line}
-                </p>
+                />
             ))}
         </CombatBattleLogPanel>
     );

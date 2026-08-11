@@ -13,7 +13,7 @@ import crestEarth from "../assets/pet-home/crest-earth.webp";
 import rareOverlay from "../assets/pet-home/hatch-rare-overlay.webp";
 import chromaticOverlay from "../assets/pet-home/hatch-chromatic-overlay.webp";
 import hatchSanctum from "../assets/pet-home/hatch-sanctum.webp";
-import { maxPets } from "../lib/entitlements";
+import { activeCarriedPetIds, maxPets } from "../lib/entitlements";
 import { petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { breedingOddsForPets, clientPetBreedingBlocker } from "../lib/pet-breeding";
@@ -36,11 +36,14 @@ function makeRequestId(): string {
 function ParentPicker({ label, value, character, other, onChange, sharedImages }: {
     label: string; value: string; character: Character; other: Pet | null; onChange: (id: string) => void; sharedImages: Record<string, string>;
 }) {
+    const carriedIds = new Set(activeCarriedPetIds(character));
     return <label className="breeding-parent-picker"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">Choose a companion</option>{character.pets.map((pet) => {
         const blocker = clientPetBreedingBlocker(character, pet);
         const mismatch = other && other.id !== pet.id && other.element !== pet.element;
         const duplicate = other?.id === pet.id;
-        const reason = blocker || (duplicate ? "Already selected" : mismatch ? `Needs ${other.element}` : "");
+        const reason = !carriedIds.has(pet.id)
+            ? "Preserved overflow — swap in Sanctuary"
+            : blocker || (duplicate ? "Already selected" : mismatch ? `Needs ${other.element}` : "");
         return <option key={pet.id} value={pet.id} disabled={Boolean(reason)}>{petDisplayName(pet)} · {pet.element ?? "None"} · {pet.breedingUsesRemaining ?? 0} uses{reason ? ` — ${reason}` : ""}</option>;
     })}</select>{value && (() => { const pet = character.pets.find((entry) => entry.id === value); const art = pet ? petCardImage(pet, sharedImages) : ""; return pet ? <span className={`breeding-parent-preview ${petVisualVariantClass(pet)}`}>{art ? <img src={art} alt="" /> : null}<strong>{petDisplayName(pet)}</strong><small>{pet.rarity} · {pet.element} · {pet.breedingUsesRemaining}/{pet.breedingUsesMax} uses</small></span> : null; })()}</label>;
 }
@@ -136,6 +139,7 @@ export function PetBreedingBarn({ character, updateCharacter, onServerVersion, s
 
     const parent1 = character.pets.find((pet) => pet.id === parent1Id) ?? null;
     const parent2 = character.pets.find((pet) => pet.id === parent2Id) ?? null;
+    const carriedParentIds = new Set(activeCarriedPetIds(character));
     const session = sessionOverride === undefined
         ? character.petBreeding ?? null
         : character.petBreeding?.sessionId === sessionOverride?.sessionId
@@ -154,7 +158,13 @@ export function PetBreedingBarn({ character, updateCharacter, onServerVersion, s
         feedbackRef.current = { sessionId: session.sessionId, state: session.state, progress, complete: Boolean(complete) };
     }, [session]);
     const odds = useMemo(() => parent1 && parent2 ? breedingOddsForPets(parent1, parent2) : null, [parent1, parent2]);
-    const canStart = Boolean(parent1 && parent2 && parent1.id !== parent2.id && parent1.element === parent2.element && !clientPetBreedingBlocker(character, parent1) && !clientPetBreedingBlocker(character, parent2));
+    const canStart = Boolean(parent1 && parent2
+        && carriedParentIds.has(parent1.id)
+        && carriedParentIds.has(parent2.id)
+        && parent1.id !== parent2.id
+        && parent1.element === parent2.element
+        && !clientPetBreedingBlocker(character, parent1)
+        && !clientPetBreedingBlocker(character, parent2));
 
     async function confirmStart() {
         if (!parent1 || !parent2 || !canStart || busy) return;
@@ -201,6 +211,7 @@ export function PetBreedingBarn({ character, updateCharacter, onServerVersion, s
             <div className="breeding-parent-grid"><ParentPicker label="First parent" value={parent1Id} character={character} other={parent2} onChange={(id) => { primePetSfx(); playPetSfx("command"); setParent1Id(id); }} sharedImages={sharedImages} /><span className="breeding-link">×</span><ParentPicker label="Second parent" value={parent2Id} character={character} other={parent1} onChange={(id) => { primePetSfx(); playPetSfx("command"); setParent2Id(id); }} sharedImages={sharedImages} /></div>
             {odds && <div className="breeding-odds"><span><b>{odds.parent1}%</b> First species</span><span><b>{odds.parent2}%</b> Second species</span><span><b>{odds.alternate}%</b> Same element/tier</span><span><b>{odds.randomNonStandard}%</b> Rare+ surprise</span><span className="chromatic"><b>{odds.chromatic}%</b> Chromatic (independent)</span><span className="apex"><b>{odds.apexTrait}%</b> Apex Shrine trait (independent)</span></div>}
             <p className="breeding-contract">Each parent spends one breeding use when the sealed result is created. The species and Chromatic rolls remain private until hatch.</p>
+            {character.pets.length > carriedParentIds.size && <p className="hatch-overflow-note">Preserved overflow stays owned but cannot start breeding. Swap a companion into the carried roster through the Sanctuary first.</p>}
             <button type="button" className="pet-home-primary" disabled={!canStart || busy} onClick={() => { primePetSfx(); playPetSfx("command"); setConfirmOpen(true); }}>Begin 24-hour breeding</button>
         </div> : session.state === "breeding" ? <div className="breeding-in-progress"><div className="breeding-parent-names"><span>{session.parentNames[0]}</span><i><img src={CREST_ART[session.parentElement]} alt="" />{session.parentElement}</i><span>{session.parentNames[1]}</span></div><BreedingCountdown readyAt={session.readyAt} onElapsed={() => void refresh()} /><p>The result is sealed. Parents remain committed until the timer reaches zero.</p></div> : <div className="egg-nursery"><div className="egg-stage"><img src={EGG_ART[session.parentElement] ?? eggEarth} alt={`${session.parentElement} companion egg`} /><span><img className="element-crest" src={CREST_ART[session.parentElement]} alt="" />{session.parentElement} egg</span></div><div className="hatch-requirements"><h3>Hatch bonds</h3>{session.requirements?.map((requirement) => <div key={requirement.id} className={`hatch-requirement requirement-${requirement.category}`}><span>{requirement.label}</span><progress aria-label={`${requirement.label}: ${requirement.progress} of ${requirement.target}`} value={requirement.progress} max={requirement.target} /><b>{requirement.progress}/{requirement.target}</b></div>)}</div><button type="button" className="pet-home-primary" disabled={!complete || busy} onClick={() => void hatch()}>{complete ? yardFull ? "Hatch to Sanctuary" : "Hatch companion" : "Complete all three bonds"}</button>{yardFull && <p className="hatch-overflow-note">Your carried roster is full ({character.pets.length}/{maxPets(character)}). This companion will hatch safely into the Sanctuary.</p>}</div>}
         {confirmOpen && parent1 && parent2 && <div className="pet-home-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmOpen(false); }}><div ref={modalRef} className="pet-home-modal" role="dialog" aria-modal="true" aria-labelledby="breed-confirm-title" aria-describedby="breed-confirm-copy" tabIndex={-1}><span className="pet-home-kicker">Final confirmation</span><h3 id="breed-confirm-title">Commit {petDisplayName(parent1)} and {petDisplayName(parent2)}?</h3><p id="breed-confirm-copy">One breeding use will be permanently consumed from each parent. Breeding takes 24 real hours and cannot be canceled or rerolled. The sealed result cannot be previewed.</p><div className="pet-home-modal-actions"><button type="button" onClick={() => setConfirmOpen(false)}>Cancel</button><button type="button" className="pet-home-primary" disabled={busy} onClick={() => void confirmStart()}>{busy ? "Sealing…" : "Commit parents"}</button></div></div></div>}

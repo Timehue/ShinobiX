@@ -194,7 +194,11 @@ export async function fetchIdentityMembership(accessToken: string): Promise<{ us
             if (row?.type !== 'member') continue;
             const rel = (row.relationships ?? {}) as Record<string, { data?: { id?: string } }>;
             const campaignId = rel.campaign?.data?.id ? String(rel.campaign.data.id) : '';
-            if (wantCampaign && campaignId && campaignId !== wantCampaign) continue;
+            // When a campaign filter is configured, a missing relationship is
+            // not evidence of membership in that campaign. Fail closed just as
+            // we do for an explicit mismatch; accepting an unscoped row could
+            // grant Supporter from a different/unknown campaign.
+            if (wantCampaign && campaignId !== wantCampaign) continue;
             const info = parseMemberAttributes(row.attributes);
             if (!best || info.entitledCents > best.entitledCents) best = info;
         }
@@ -241,13 +245,64 @@ export function computeEntitlement(membership: MembershipInfo | null): Entitleme
 // ─── Link store + member ledger ───────────────────────────────────────────────
 //
 // Namespaced OUTSIDE `save:*` so the mapping survives the pending pre-launch
-// wipe and can re-apply the flag after reset. `patreon:link:<userId>` and its
-// reverse `patreon:player:<nameLower>` bind a Patreon account to a game account;
+// wipe and can re-apply the flag after reset. The v2 hash stores both directions
+// in one atomic HSET; legacy per-direction keys remain read-only migration input.
 // `patreon:member:<userId>` is the reconcilable membership ledger.
 
+const LINK_LEDGER_KEY = 'patreon:links:v2';
 const linkKey = (userId: string) => `patreon:link:${userId}`;
 const playerKey = (playerName: string) => `patreon:player:${playerName.toLowerCase()}`;
 const memberKey = (userId: string) => `patreon:member:${userId}`;
+const userField = (userId: string) => `user:${userId}`;
+const playerField = (playerName: string) => `player:${playerName}`;
+
+type LinkLedger = Record<string, unknown>;
+
+function ledgerBinding(ledger: LinkLedger, field: string): string | null | undefined {
+    if (!Object.prototype.hasOwnProperty.call(ledger, field)) return undefined;
+    const value = ledger[field];
+    return typeof value === 'string' && value ? value : null;
+}
+
+async function readLinkLedger(): Promise<LinkLedger> {
+    return (await kv.hgetall<LinkLedger>(LINK_LEDGER_KEY)) ?? {};
+}
+
+async function readLegacyBinding(key: string): Promise<string | null> {
+    const value = await kv.get<unknown>(key);
+    return typeof value === 'string' && value ? value : null;
+}
+
+async function linkedPlayerFromLedger(ledger: LinkLedger, userId: string): Promise<string | null> {
+    const current = ledgerBinding(ledger, userField(userId));
+    return current !== undefined ? current : readLegacyBinding(linkKey(userId));
+}
+
+async function linkedUserFromLedger(ledger: LinkLedger, playerName: string): Promise<string | null> {
+    const current = ledgerBinding(ledger, playerField(playerName));
+    return current !== undefined ? current : readLegacyBinding(playerKey(playerName));
+}
+
+async function revokeEntitlementIfOwned(playerName: string, userId: string): Promise<void> {
+    const key = `save:${safeName(playerName)}`;
+    await withKvLock(key, async () => {
+        const rec = await kv.get<Record<string, unknown>>(key);
+        const char = (rec?.character ?? null) as Record<string, unknown> | null;
+        const prev = (char?.patreon ?? null) as Record<string, unknown> | null;
+        if (!rec || !char || prev?.userId !== userId) return;
+
+        const since = Number(prev.since) > 0 ? Number(prev.since) : undefined;
+        char.patreon = {
+            userId,
+            tier: 'none',
+            active: false,
+            entitledCents: Number(prev.entitledCents) || 0,
+            since,
+            updatedAt: Date.now(),
+        };
+        await kv.set(key, mergePreservingImages(bumpSaveVersion({ ...rec, character: char }), rec));
+    }, { failClosed: true });
+}
 
 export interface MemberRecord {
     userId: string;
@@ -259,19 +314,64 @@ export interface MemberRecord {
 }
 
 export async function getLinkedPlayer(userId: string): Promise<string | null> {
-    const v = await kv.get<string>(linkKey(userId));
-    return typeof v === 'string' && v ? v : null;
+    userId = String(userId).trim();
+    if (!userId) return null;
+    const ledger = await readLinkLedger();
+    const player = await linkedPlayerFromLedger(ledger, userId);
+    if (!player) return null;
+    return await linkedUserFromLedger(ledger, player) === userId ? player : null;
 }
 
 export async function getLinkedPatreonUserId(playerName: string): Promise<string | null> {
-    const v = await kv.get<string>(playerKey(safeName(playerName)));
-    return typeof v === 'string' && v ? v : null;
+    const name = safeName(playerName);
+    if (!name) return null;
+    const ledger = await readLinkLedger();
+    const userId = await linkedUserFromLedger(ledger, name);
+    if (!userId) return null;
+    return await linkedPlayerFromLedger(ledger, userId) === name ? userId : null;
 }
 
 export async function linkPlayer(userId: string, playerName: string): Promise<void> {
+    userId = String(userId).trim();
     const name = safeName(playerName);
-    await kv.set(linkKey(userId), name);
-    await kv.set(playerKey(name), userId);
+    if (!userId || !name) throw new Error('A Patreon user and player are required.');
+
+    await withKvLock(LINK_LEDGER_KEY, async () => {
+        const ledger = await readLinkLedger();
+        const oldPlayer = await linkedPlayerFromLedger(ledger, userId);
+        const oldUser = await linkedUserFromLedger(ledger, name);
+        const oldPlayerLegacyUser = oldPlayer ? await readLegacyBinding(playerKey(oldPlayer)) : null;
+        const oldUserLegacyPlayer = oldUser ? await readLegacyBinding(linkKey(oldUser)) : null;
+        const oldPlayerUser = oldPlayer ? await linkedUserFromLedger(ledger, oldPlayer) : null;
+        const oldUserPlayer = oldUser ? await linkedPlayerFromLedger(ledger, oldUser) : null;
+
+        // Revoke displaced saves before publishing the new pair. If a save write
+        // fails, the mapping stays unchanged and a later webhook can safely retry.
+        if (oldPlayer && oldPlayer !== name) await revokeEntitlementIfOwned(oldPlayer, userId);
+        if (oldUser && oldUser !== userId) await revokeEntitlementIfOwned(name, oldUser);
+
+        const fields: Record<string, unknown> = {
+            [userField(userId)]: name,
+            [playerField(name)]: userId,
+        };
+        // Only clear the opposite endpoint when it still points back to the
+        // displaced side. A one-sided legacy remnant must never tear down an
+        // unrelated, newer v2 pair during a later relink.
+        if (oldPlayer && oldPlayer !== name && oldPlayerUser === userId) {
+            fields[playerField(oldPlayer)] = '';
+        }
+        if (oldUser && oldUser !== userId && oldUserPlayer === name) {
+            fields[userField(oldUser)] = '';
+        }
+        await kv.hset(LINK_LEDGER_KEY, fields);
+
+        // Tombstones in the atomic ledger are authoritative; deleting migrated
+        // keys is only storage hygiene and may safely retry later.
+        const legacyKeys = new Set([linkKey(userId), playerKey(name)]);
+        if (oldPlayer && oldPlayerLegacyUser === userId) legacyKeys.add(playerKey(oldPlayer));
+        if (oldUser && oldUserLegacyPlayer === name) legacyKeys.add(linkKey(oldUser));
+        await kv.del(...legacyKeys).catch(() => 0);
+    }, { failClosed: true, ttlSec: 15 });
 }
 
 export async function getMemberRecord(userId: string): Promise<MemberRecord | null> {
@@ -304,39 +404,59 @@ export async function applyEntitlementToSave(
     userId: string,
     ent: Entitlement,
 ): Promise<boolean> {
-    const key = `save:${safeName(playerName)}`;
-    return await withKvLock<boolean>(key, async () => {
-        const rec = await kv.get<Record<string, unknown>>(key);
-        const char = (rec?.character ?? null) as Record<string, unknown> | null;
-        if (!rec || !char) return false;
-
-        const now = Date.now();
-        const prev = (char.patreon ?? null) as Record<string, unknown> | null;
-        // Skip the write when nothing meaningful changed — makes webhook
-        // re-delivery a free no-op instead of a redundant version bump.
-        if (prev
-            && prev.userId === userId
-            && prev.active === ent.active
-            && prev.tier === ent.tier
-            && Number(prev.entitledCents) === ent.entitledCents) {
-            return true;
+    const name = safeName(playerName);
+    const key = `save:${name}`;
+    return await withKvLock<boolean>(LINK_LEDGER_KEY, async () => {
+        const ledger = await readLinkLedger();
+        let forward = ledgerBinding(ledger, userField(userId));
+        let reverse = ledgerBinding(ledger, playerField(name));
+        const legacyForward = forward === undefined;
+        const legacyReverse = reverse === undefined;
+        if (legacyForward) forward = (await kv.get<string>(linkKey(userId))) || null;
+        if (legacyReverse) reverse = (await kv.get<string>(playerKey(name))) || null;
+        if (forward !== name || reverse !== userId) return false;
+        if (legacyForward || legacyReverse) {
+            await kv.hset(LINK_LEDGER_KEY, {
+                [userField(userId)]: name,
+                [playerField(name)]: userId,
+            });
         }
-        // Preserve the original "since" while active; clear tracking on lapse.
-        const prevSince = prev && Number(prev.since) > 0 ? Number(prev.since) : 0;
-        const since = ent.active ? (prevSince || now) : (prevSince || undefined);
 
-        char.patreon = {
-            userId,
-            tier: ent.tier,
-            active: ent.active,
-            entitledCents: ent.entitledCents,
-            since,
-            updatedAt: now,
-        };
-        const record = bumpSaveVersion({ ...rec, character: char });
-        await kv.set(key, mergePreservingImages(record, rec));
-        return true;
-    }, { failClosed: true });
+        return await withKvLock<boolean>(key, async () => {
+            const rec = await kv.get<Record<string, unknown>>(key);
+            const char = (rec?.character ?? null) as Record<string, unknown> | null;
+            if (!rec || !char) return false;
+
+            const now = Date.now();
+            const prev = (char.patreon ?? null) as Record<string, unknown> | null;
+            // Skip the write when nothing meaningful changed — makes webhook
+            // re-delivery a free no-op instead of a redundant version bump.
+            if (prev
+                && prev.userId === userId
+                && prev.active === ent.active
+                && prev.tier === ent.tier
+                && Number(prev.entitledCents) === ent.entitledCents
+                && !Object.prototype.hasOwnProperty.call(prev, 'expiresAt')
+                && !Object.prototype.hasOwnProperty.call(prev, 'source')) {
+                return true;
+            }
+            // Preserve the original "since" while active; clear tracking on lapse.
+            const prevSince = prev && Number(prev.since) > 0 ? Number(prev.since) : 0;
+            const since = ent.active ? (prevSince || now) : (prevSince || undefined);
+
+            char.patreon = {
+                userId,
+                tier: ent.tier,
+                active: ent.active,
+                entitledCents: ent.entitledCents,
+                since,
+                updatedAt: now,
+            };
+            const record = bumpSaveVersion({ ...rec, character: char });
+            await kv.set(key, mergePreservingImages(record, rec));
+            return true;
+        }, { failClosed: true });
+    }, { failClosed: true, ttlSec: 15 });
 }
 
 // ─── Admin comp grant (manual subscription, no payment) ───────────────────────

@@ -63,9 +63,9 @@ beforeEach(async () => {
         for (const key of await kv.keys(pattern)) await kv.del(key);
     }
     await Promise.all([
-        kv.set(`save:${CHALLENGER}`, { character: { name: CHALLENGER, pets: pets('blue') } }),
-        kv.set(`save:${RESPONDER}`, { character: { name: RESPONDER, pets: pets('red') } }),
-        kv.set(`save:${OUTSIDER}`, { character: { name: OUTSIDER, pets: pets('gray') } }),
+        kv.set(`save:${CHALLENGER}`, { character: { name: CHALLENGER, patreon: { active: true }, pets: pets('blue') } }),
+        kv.set(`save:${RESPONDER}`, { character: { name: RESPONDER, patreon: { active: true }, pets: pets('red') } }),
+        kv.set(`save:${OUTSIDER}`, { character: { name: OUTSIDER, patreon: { active: true }, pets: pets('gray') } }),
     ]);
 });
 

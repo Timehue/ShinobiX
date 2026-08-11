@@ -16,7 +16,7 @@ describe('Battle Towers floor catalog', () => {
         assert.deepEqual(FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         assert.deepEqual(
             FLOOR_CATALOG.map(f => f.objective),
-            ['defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss', 'defeat-all', 'defeat-boss', 'kill-escort', 'defeat-boss', 'defeat-boss'],
+            ['defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss', 'defeat-all', 'defeat-all-then-boss', 'kill-escort', 'kill-adds-first', 'defeat-boss'],
         );
         assert.equal(getFloor(5)?.firstClearReward.milestone, 'tower-floor-5');
         assert.equal(getFloor(10)?.firstClearReward.milestone, 'tower-floor-10');

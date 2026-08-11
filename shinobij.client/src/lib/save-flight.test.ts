@@ -63,7 +63,7 @@ describe("autosave wiring in App.tsx", () => {
     it("adopts every mutation-response save version monotonically", () => {
         // A version that can go BACKWARDS guarantees a spurious 409 on the next
         // autosave, and the 409 path applies the server snapshot wholesale.
-        for (const source of ["data._saveVersion", "saveData?._saveVersion", "result.saveVersion"]) {
+        for (const source of ["data._saveVersion", "saveData?._saveVersion", "snapshot.saveVersion"]) {
             // Plain substring, not a built regex: every character here is literal, so
             // escaping one would only reintroduce a partial escaper to get wrong.
             const call = `latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, ${source})`;
@@ -75,7 +75,7 @@ describe("autosave wiring in App.tsx", () => {
         // same time, so version and state stay consistent.
         assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = data\._saveVersion/);
         assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = saveData\._saveVersion/);
-        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = result\.saveVersion/);
+        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = snapshot\.saveVersion/);
     });
 });
 

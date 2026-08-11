@@ -705,6 +705,7 @@ export type Character = {
     battleTowerClearedFloors?: number[];        // floor ids first-cleared (permanent; one-time-reward gate)
     battleTowerClaimedRewards?: string[];       // per-floor reward claim-gate keys
     battleTowerAssistRewardsClaimed?: string[]; // borrowed-ally assist claim gates
+    battleTowerMilestones?: string[];           // server-recorded story milestone keys (not wearable titles)
     // ── Endless Spire (dedicated ascension boss-gauntlet) ─────────────────────
     battleTowerAscension?: number;              // highest spire tier cleared (unlock gate: entry <= this + 1)
     battleTowerSpireWeeklyBest?: number;        // best spire tier cleared this reset-week (weekly leaderboard)
@@ -719,6 +720,9 @@ export type PlayerRecord = {
     village: string;
     specialty: JutsuType;
     character: Character;
+    /** Server-projected pets currently eligible for public combat. This keeps
+     * supporter capacity accurate without exposing the Patreon ledger. */
+    eligiblePets?: Pet[];
     currentSector?: number;
     lastSeenAt?: number;
     travelingUntil?: number;
@@ -735,6 +739,8 @@ export type ServerPlayerSummary = {
     specialty?: string;
     online: boolean;
     character?: Character;
+    /** Authoritative public combat roster (Base 3 / active Supporter 5). */
+    eligiblePets?: Pet[];
     currentSector?: number;
     lastSeenAt?: number;
     travelingUntil?: number;

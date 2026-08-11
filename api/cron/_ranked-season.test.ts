@@ -34,6 +34,12 @@ test('leaderboard sorts by rating desc, ranks, caps at n', () => {
     assert.deepEqual(lb.map((e) => e.rank), [1, 2, 3]);
 });
 
+test('leaderboard and podium break equal ratings deterministically by slug', () => {
+    const tied = [E('zeta', 1_200), E('alpha', 1_200), E('middle', 1_200)];
+    assert.deepEqual(leaderboard(tied, 3).map((entry) => entry.slug), ['alpha', 'middle', 'zeta']);
+    assert.deepEqual(rewardPodium(tied).map((entry) => entry.slug), ['alpha', 'middle', 'zeta']);
+});
+
 test('rewardPodium only includes players above the default', () => {
     const pod = rewardPodium([E('won', 1400), E('even', 1000), E('lost', 800), E('mid', 1100)]);
     assert.deepEqual(pod.map((e) => e.slug), ['won', 'mid']); // 1000 and 800 excluded

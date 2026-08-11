@@ -33,7 +33,15 @@ function sideHud(name: string, side: "player" | "enemy") {
             <div class="resource-line resource-line--chakra"><span class="resource-label">Chakra <small>80 / 100</small></span><div class="hud-bar chakra-bar"><span style="width:80%"></span></div></div>
             <div class="resource-line resource-line--stamina"><span class="resource-label">Stamina <small>70 / 100</small></span><div class="hud-bar stamina-bar"><span style="width:70%"></span></div></div>
             <div class="resource-line resource-line--shield"><span class="resource-label">Shield <small>1500</small></span><div class="hud-bar shield-bar"><span style="width:100%"></span></div></div>
-            <div class="combat-mobile-effects"><span class="cme-chip cme-pos">Guard <small>2r</small></span></div>
+            <div class="combat-mobile-effects">
+                <div class="cme-entry">
+                    <button type="button" class="cme-chip cme-pos" popovertarget="${side}-guard-details" aria-haspopup="dialog" aria-controls="${side}-guard-details" aria-label="Inspect Guard: 20%, 1&ndash;2 rounds; Buff. Reduces incoming damage. Source: Iron Guard. Clear removes this effect.">Guard <small>20% 1&ndash;2r</small></button>
+                    <div id="${side}-guard-details" popover="auto" class="cme-status-popover" role="dialog" aria-labelledby="${side}-guard-title">
+                        <header><strong id="${side}-guard-title">Guard</strong><button type="button" popovertarget="${side}-guard-details" popovertargetaction="hide" aria-label="Close Guard details">&times;</button></header>
+                        <dl><div><dt>Category</dt><dd>Buff</dd></div><div><dt>Effect</dt><dd>Reduces incoming damage.</dd></div><div><dt>Value</dt><dd>20%</dd></div><div><dt>Stacks</dt><dd>2 stacks</dd></div><div><dt>Duration</dt><dd>1&ndash;2 rounds</dd></div><div><dt>Source</dt><dd>Iron Guard</dd></div><div><dt>Removal</dt><dd>Clear removes this effect.</dd></div></dl>
+                    </div>
+                </div>
+            </div>
             <div class="combat-hud-meta"><span>Round 2</span></div>
             <div class="combat-effect-panel effects-buff"><h4>Buffs</h4><div class="effect-pill"><span>Damage dealt ↑</span><small>20% · 1r</small></div><div class="effect-pill"><span>Damage taken ↓</span><small>20% · 2r</small></div><div class="effect-pill"><span>Reflect</span><small>20% · 2r</small></div></div>
             <div class="combat-effect-panel effects-debuff"><h4>Debuffs</h4><div class="effect-pill"><span>Damage taken ↑</span><small>23% · 1r</small></div><div class="effect-pill"><span>Poison</span><small>23% · 1r</small></div></div>
@@ -175,6 +183,22 @@ for (const mode of ["solo", "pvp"] as const) {
             await expect(dossier.locator(".combat-effect-panel").first()).toBeHidden();
             await expect(statusStrip).toBeVisible();
             await expect(statusStrip.locator(".cme-chip").first()).toContainText("Guard");
+            const effectButton = statusStrip.locator(".cme-chip").first();
+            const effectTarget = await effectButton.boundingBox();
+            expect(effectTarget?.width).toBeGreaterThanOrEqual(44);
+            expect(effectTarget?.height).toBeGreaterThanOrEqual(44);
+            await effectButton.click();
+            const effectDialog = page.locator("#player-guard-details");
+            await expect(effectDialog).toBeVisible();
+            await expect(effectDialog).toContainText("Iron Guard");
+            await expect(effectDialog).toContainText("Clear removes this effect.");
+            await expect(effectDialog).toContainText("1\u20132 rounds");
+            if (viewport.width === 1280) {
+                const effectAudit = await new AxeBuilder({ page }).include("#player-guard-details").analyze();
+                expect(effectAudit.violations).toEqual([]);
+            }
+            await page.keyboard.press("Escape");
+            await expect(effectDialog).toBeHidden();
             const statusWidths = await statusStrip.evaluate((strip) => ({
                 content: strip.scrollWidth,
                 viewport: strip.clientWidth,

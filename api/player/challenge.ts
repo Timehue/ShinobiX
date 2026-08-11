@@ -8,8 +8,18 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
-import { PET_RANKED_DISABLED_REASON, petRankedStartsEnabled } from '../pet/_ranked-settlement.js';
+import { PET_RANKED_DISABLED_REASON, petRankedPublicChallengesEnabled } from '../pet/_ranked-settlement.js';
+import { activeCarriedPets } from '../_entitlements.js';
+import { petCombatBusyReason, type PetCombatBusyCode } from '../pet/_pet-busy.js';
 import { blockRelationship } from './_blocks.js';
+import {
+    getPlayerRankedAdmission,
+    isPlayerRankedMatchId,
+    PLAYER_RANKED_ADMISSION_TTL_MS,
+    releaseQueuedPlayerRankedAdmission,
+    type PlayerRankedAdmission,
+} from '../pet/_ranked-preparation.js';
+import { PLAYER_RANKED_V2_DISABLED_MESSAGE, playerRankedV2AdmissionsEnabled } from '../pvp/_player-ranked-rollout.js';
 import {
     cancelChallengeRecord,
     isChallengeId,
@@ -36,8 +46,9 @@ const CHALLENGE_FIELDS = new Set([
     'challengerPetIds', 'responderPetIds', 'responderParty', 'arenaMatch', 'arenaSize',
     'challengerTeamIds', 'responderTeam', 'challengerWarfrontSetup', 'responderWarfrontSetup',
     'challengerSetupSealed', 'createdAt', 'mode', 'clanWarPoints', 'challengerPetRating',
-    'responderPetRating', 'petRankedToken', 'sectorAttack', 'kageChallengeId', 'kageVillage',
-    'battleId', 'accepted', 'declined',
+    'responderPetRating', 'petRankedToken', 'sectorAttack', 'rankedMatchId',
+    'rankedSeasonId', 'rankedSeasonEpoch', 'kageChallengeId', 'kageVillage', 'battleId',
+    'accepted', 'declined',
 ]);
 const SHARED_SETUP_FIELDS = new Set([
     'stance', 'doctrine', 'buyPolicy', 'deployment', 'buildPackage',
@@ -137,6 +148,27 @@ function acceptedArenaInboxNotice(challenge: Record<string, unknown>): Record<st
     };
 }
 
+export function petById(character: Record<string, unknown> | null, id: string): Record<string, unknown> | null {
+    if (!character || !id) return null;
+    const found = activeCarriedPets<Record<string, unknown>>(character)
+        .find((pet) => pet && typeof pet === 'object' && !Array.isArray(pet) && String(pet.id ?? '') === id);
+    return found && typeof found === 'object' && !Array.isArray(found) ? found : null;
+}
+
+export function selectedCombatPetBusyReason(
+    character: Record<string, unknown> | null,
+    ids: Iterable<string>,
+): PetCombatBusyCode | null {
+    if (!character) return null;
+    for (const id of ids) {
+        const pet = petById(character, id);
+        if (!pet) continue;
+        const busy = petCombatBusyReason(character, pet);
+        if (busy) return busy;
+    }
+    return null;
+}
+
 function bodyByteLength(body: unknown): number {
     if (typeof body === 'string') return Buffer.byteLength(body, 'utf8');
     try { return Buffer.byteLength(JSON.stringify(body ?? {}), 'utf8'); } catch { return MAX_CHALLENGE_BODY_BYTES + 1; }
@@ -174,7 +206,7 @@ export function validateChallengeShape(value: unknown): string | null {
         const item = record[field];
         if (item !== undefined && (typeof item !== 'string' || item.length < 1 || item.length > 128)) return `Challenge ${field} is invalid.`;
     }
-    for (const field of ['battleId', 'petRankedToken', 'kageChallengeId', 'kageVillage'] as const) {
+    for (const field of ['battleId', 'petRankedToken', 'rankedMatchId', 'kageChallengeId', 'kageVillage'] as const) {
         const item = record[field];
         if (item !== undefined && (typeof item !== 'string' || item.length > 256)) return `Challenge ${field} is invalid.`;
     }
@@ -184,7 +216,7 @@ export function validateChallengeShape(value: unknown): string | null {
     }
     if (record.accepted === true && record.declined === true) return 'Challenge cannot be both accepted and declined.';
     if (record.arenaSize !== undefined && record.arenaSize !== 2 && record.arenaSize !== 4) return 'Challenge arenaSize is invalid.';
-    for (const field of ['petBattleSeed', 'createdAt', 'clanWarPoints', 'challengerPetRating', 'responderPetRating', 'challengerBloodlineMult'] as const) {
+    for (const field of ['petBattleSeed', 'createdAt', 'clanWarPoints', 'challengerPetRating', 'responderPetRating', 'challengerBloodlineMult', 'rankedSeasonId', 'rankedSeasonEpoch'] as const) {
         const item = record[field];
         if (item !== undefined && (typeof item !== 'number' || !Number.isFinite(item))) return `Challenge ${field} is invalid.`;
     }
@@ -317,7 +349,7 @@ function stripPetInlineImages(pets: unknown): unknown {
     if (!Array.isArray(pets)) return pets;
     return pets.slice(0, 4).map(projectChallengePet).filter(Boolean);
 }
-function projectChallengerCharacter(c: unknown): unknown {
+function projectChallengerCharacterValue(c: unknown, entitlementFiltered: boolean): unknown {
     if (!c || typeof c !== 'object') return c;
     const src = c as Record<string, unknown>;
     const out: Record<string, unknown> = {};
@@ -327,14 +359,24 @@ function projectChallengerCharacter(c: unknown): unknown {
         out[k] = typeof item === 'string' ? item.slice(0, 256) : item;
     }
     if (isInlineImage(out.avatarImage)) delete out.avatarImage;
-    if ('pets' in out) out.pets = stripPetInlineImages(out.pets);
+    if ('pets' in out) {
+        const pets = entitlementFiltered
+            ? out.pets
+            : activeCarriedPets<Record<string, unknown>>(src);
+        out.pets = stripPetInlineImages(pets);
+    }
     return out;
 }
+
+export function projectChallengerCharacter(c: unknown): unknown {
+    return projectChallengerCharacterValue(c, false);
+}
+
 function projectChallenge(c: unknown): unknown {
     if (!c || typeof c !== 'object') return c;
     const rec = c as Record<string, unknown>;
     const out: Record<string, unknown> = { ...rec };
-    if ('challenger' in rec) out.challenger = projectChallengerCharacter(rec.challenger);
+    if ('challenger' in rec) out.challenger = projectChallengerCharacterValue(rec.challenger, true);
     if ('challengerJutsus' in rec) out.challengerJutsus = projectChallengeJutsus(rec.challengerJutsus);
     if ('responderPet' in rec) out.responderPet = projectChallengePet(rec.responderPet);
     if ('responderParty' in rec) out.responderParty = stripPetInlineImages(rec.responderParty);
@@ -447,6 +489,14 @@ function clampClanWarPoints(challenge: unknown): unknown {
         return { ...rec, clanWarPoints: cap };
     }
     return rec;
+}
+
+async function releaseRankedChallengeAdmission(record: AuthoritativeChallengeRecord): Promise<void> {
+    if (record.mode !== 'ranked') return;
+    const rawMatchId = record.challenge.rankedMatchId;
+    const matchId = typeof rawMatchId === 'string' ? rawMatchId.trim().slice(0, 100) : '';
+    if (!isPlayerRankedMatchId(matchId)) return;
+    await releaseQueuedPlayerRankedAdmission(kv, matchId, record.from);
 }
 
 async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
@@ -615,9 +665,11 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 }, { failClosed: true });
             }
             if (authoritative.status === 'pending' && (identity.admin || identity.name === authoritative.from)) {
-                await cancelChallengeRecord(normalizedId, authoritative.from);
+                const cancelled = await cancelChallengeRecord(normalizedId, authoritative.from);
+                if (cancelled) await releaseRankedChallengeAdmission(cancelled);
             }
             if (resolved) {
+                if (authoritative.status === 'declined') await releaseRankedChallengeAdmission(authoritative);
                 const authoritativeOutgoingKey = outgoingKey(authoritative.from);
                 await withKvLock(authoritativeOutgoingKey, async () => {
                     const current = await kv.get<OutgoingChallenge>(authoritativeOutgoingKey);
@@ -645,6 +697,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         const targetPlayer = safeName(targetName);
         if (!targetPlayer) return res.status(400).json({ error: 'Target player is invalid.' });
         let authoritativeRecord: AuthoritativeChallengeRecord | null = null;
+        let rankedAdmission: PlayerRankedAdmission | null = null;
         let challengeRecord: Record<string, unknown> = { ...requestChallenge };
         if (requestedTerminal) {
             authoritativeRecord = await loadChallengeRecord(requestId);
@@ -709,6 +762,46 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             if (blocked.aBlockedB || blocked.bBlockedA) {
                 return res.status(403).json({ error: 'A player block prevents this challenge.' });
             }
+            if (requestedMode === 'ranked') {
+                if (!playerRankedV2AdmissionsEnabled()) {
+                    return res.status(503).json({ error: PLAYER_RANKED_V2_DISABLED_MESSAGE });
+                }
+                const rankedMatchId = typeof requestChallenge.rankedMatchId === 'string'
+                    ? requestChallenge.rankedMatchId.trim().slice(0, 100)
+                    : '';
+                const rankedSeasonId = requestChallenge.rankedSeasonId;
+                const rankedSeasonEpoch = requestChallenge.rankedSeasonEpoch;
+                if (!isPlayerRankedMatchId(rankedMatchId)
+                    || typeof rankedSeasonId !== 'number'
+                    || !Number.isSafeInteger(rankedSeasonId)
+                    || rankedSeasonId <= 0
+                    || typeof rankedSeasonEpoch !== 'number'
+                    || !Number.isSafeInteger(rankedSeasonEpoch)
+                    || rankedSeasonEpoch <= 0) {
+                    return res.status(409).json({ error: 'A complete server-ranked match proof is required.' });
+                }
+                rankedAdmission = await getPlayerRankedAdmission(kv, rankedMatchId);
+                const rankedPair = [actorName, targetPlayer].sort();
+                const rankedAgeMs = rankedAdmission ? Date.now() - rankedAdmission.createdAt : Number.POSITIVE_INFINITY;
+                if (!rankedAdmission
+                    || rankedAdmission.phase !== 'queued'
+                    || rankedAdmission.a !== rankedPair[0]
+                    || rankedAdmission.b !== rankedPair[1]
+                    || !Number.isFinite(rankedAgeMs)
+                    || rankedAgeMs < 0
+                    || rankedAgeMs > PLAYER_RANKED_ADMISSION_TTL_MS
+                    || rankedAdmission.seasonId !== rankedSeasonId
+                    || rankedAdmission.seasonEpoch !== rankedSeasonEpoch) {
+                    return res.status(409).json({ error: 'That ranked match proof is stale or belongs to another pairing.' });
+                }
+                challengeRecord.rankedMatchId = rankedAdmission.matchId;
+                challengeRecord.rankedSeasonId = rankedAdmission.seasonId;
+                challengeRecord.rankedSeasonEpoch = rankedAdmission.seasonEpoch;
+            } else {
+                delete challengeRecord.rankedMatchId;
+                delete challengeRecord.rankedSeasonId;
+                delete challengeRecord.rankedSeasonEpoch;
+            }
             challengeRecord.mode = requestedMode;
             const legalClanWarPoints = CLAN_WAR_POINTS_BY_MODE[requestedMode] ?? 0;
             if (legalClanWarPoints > 0) challengeRecord.clanWarPoints = legalClanWarPoints;
@@ -727,21 +820,19 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
             const actorCharacter = actorSave?.character as Record<string, unknown> | undefined;
             if (!actorCharacter) return res.status(404).json({ error: 'Challenge sender save was not found.' });
-            const allPets = Array.isArray(actorCharacter.pets)
-                ? actorCharacter.pets as Array<Record<string, unknown>>
-                : [];
+            const allPets = activeCarriedPets<Record<string, unknown>>(actorCharacter);
             let referencedPetIds = referencedChallengerPetIds(challengeRecord);
             if (referencedPetIds.length === 0 && (record.mode === 'clanWarPet' || record.mode === 'rankedPet')) {
-                const fallback = allPets.find((pet) => !pet.expedition && String(pet.id ?? ''));
-                if (fallback) {
-                    challengeRecord.challengerPetId = String(fallback.id);
-                    referencedPetIds = [String(fallback.id)];
-                }
+                const fallback = allPets.find((pet) => String(pet.id ?? '') && !petCombatBusyReason(actorCharacter, pet));
+                if (!fallback) return res.status(409).json({ error: 'No eligible challenger pet is available.' });
+                challengeRecord.challengerPetId = String(fallback.id);
+                referencedPetIds = [String(fallback.id)];
             }
             const selectedPets = referencedPetIds
                 .map((id) => allPets.find((pet) => String(pet.id ?? '') === id))
                 .filter(Boolean);
-            if (selectedPets.length !== referencedPetIds.length || selectedPets.some((pet) => pet?.expedition)) {
+            if (selectedPets.length !== referencedPetIds.length
+                || selectedPets.some((pet) => pet ? petCombatBusyReason(actorCharacter, pet) : true)) {
                 return res.status(409).json({ error: 'Every selected challenger pet must be available in the stored roster.' });
             }
             const authoritativeChallenger = { ...actorCharacter, pets: selectedPets };
@@ -760,9 +851,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             const originalSave = await kv.get<Record<string, unknown>>(`save:${targetPlayer}`);
             const originalCharacter = originalSave?.character as Record<string, unknown> | undefined;
             if (!originalCharacter) return res.status(404).json({ error: 'Original challenger save was not found.' });
-            const originalPets = Array.isArray(originalCharacter.pets)
-                ? originalCharacter.pets as Array<Record<string, unknown>>
-                : [];
+            const originalPets = activeCarriedPets<Record<string, unknown>>(originalCharacter);
             const referencedPetIds = referencedChallengerPetIds(challengeRecord);
             challengeRecord.fromName = actorName;
             challengeRecord.toName = targetPlayer;
@@ -782,9 +871,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 || challengeRecord.responderParty !== undefined)) {
                 const responderSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
                 const responderCharacter = responderSave?.character as Record<string, unknown> | undefined;
-                const responderPets = Array.isArray(responderCharacter?.pets)
-                    ? responderCharacter.pets as Array<Record<string, unknown>>
-                    : [];
+                if (!responderCharacter) return res.status(404).json({ error: 'Challenge responder save was not found.' });
+                const responderPets = activeCarriedPets<Record<string, unknown>>(responderCharacter);
                 const requestedSingleId = String(challengeRecord.responderPetId
                     ?? ((challengeRecord.responderPet && typeof challengeRecord.responderPet === 'object')
                         ? (challengeRecord.responderPet as Record<string, unknown>).id
@@ -792,7 +880,9 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                     ?? '').slice(0, 128);
                 if (requestedSingleId) {
                     const pet = responderPets.find((candidate) => String(candidate.id ?? '') === requestedSingleId);
-                    if (!pet || pet.expedition) return res.status(409).json({ error: 'The selected responder pet is unavailable.' });
+                    if (!pet || petCombatBusyReason(responderCharacter, pet)) {
+                        return res.status(409).json({ error: 'The selected responder pet is unavailable.' });
+                    }
                     challengeRecord.responderPetId = requestedSingleId;
                     challengeRecord.responderPet = projectChallengePet(pet);
                 }
@@ -805,7 +895,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                                 : '').slice(0, 2)
                             : [];
                     const party = ids.map((id) => responderPets.find((pet) => String(pet.id ?? '') === id));
-                    if (ids.length !== 2 || new Set(ids).size !== 2 || party.some((pet) => !pet || pet.expedition)) {
+                    if (ids.length !== 2 || new Set(ids).size !== 2
+                        || party.some((pet) => !pet || petCombatBusyReason(responderCharacter, pet))) {
                         return res.status(409).json({ error: 'The selected responder party is unavailable.' });
                     }
                     challengeRecord.responderPetIds = ids;
@@ -819,7 +910,10 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && fromName && safeName(fromName) !== identity.name) {
             return res.status(403).json({ error: 'Cannot send a challenge as another player.' });
         }
-        if (record.mode === 'rankedPet' && !petRankedStartsEnabled()) {
+        // The private queue/engine can be certified without reopening this
+        // legacy live-challenge surface. Public promotion requires its own
+        // explicit flag in addition to the server-engine flag.
+        if (!requestedTerminal && record.mode === 'rankedPet' && !petRankedPublicChallengesEnabled()) {
             return res.status(503).json({ error: PET_RANKED_DISABLED_REASON });
         }
 
@@ -949,9 +1043,10 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 }
                 const challengerSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
                 const challengerCharacter = challengerSave?.character as Record<string, unknown> | undefined;
-                const challengerPets = Array.isArray(challengerCharacter?.pets) ? challengerCharacter.pets as Array<Record<string, unknown>> : [];
+                if (!challengerCharacter) return res.status(404).json({ error: 'Arena challenger save was not found.' });
+                const challengerPets = activeCarriedPets<Record<string, unknown>>(challengerCharacter);
                 const sealedChallengerPets = challengerTeamIds.map((id) => challengerPets.find((pet) => String(pet.id ?? '') === id));
-                if (sealedChallengerPets.some((pet) => !pet || pet.expedition)) {
+                if (sealedChallengerPets.some((pet) => !pet || petCombatBusyReason(challengerCharacter, pet))) {
                     return res.status(409).json({ error: 'Every sealed challenger pet must be available in the stored roster.' });
                 }
                 const authoritativeChallenger = { ...challengerCharacter, pets: sealedChallengerPets };
@@ -994,7 +1089,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 void _hiddenSetup;
                 void _hiddenTeamIds;
                 void _hiddenSeed;
-                const projectedChallenger = projectChallengerCharacter(challengeRecord.challenger);
+                const projectedChallenger = projectChallengerCharacterValue(challengeRecord.challenger, true);
                 const publicChallenger = projectedChallenger && typeof projectedChallenger === 'object' && !Array.isArray(projectedChallenger)
                     ? Object.fromEntries(Object.entries(projectedChallenger).filter(([key]) => key !== 'pets'))
                     : projectedChallenger;
@@ -1033,9 +1128,10 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                     }
                     const responderSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
                     const responderCharacter = responderSave?.character as Record<string, unknown> | undefined;
-                    const responderPets = Array.isArray(responderCharacter?.pets) ? responderCharacter.pets as Array<Record<string, unknown>> : [];
+                    if (!responderCharacter) return { error: 'Arena responder save was not found.', status: 404 } as const;
+                    const responderPets = activeCarriedPets<Record<string, unknown>>(responderCharacter);
                     const authoritativeResponderTeam = requestedResponderPets.map((id) => responderPets.find((pet) => String(pet.id ?? '') === id));
-                    if (authoritativeResponderTeam.some((pet) => !pet || pet.expedition)) {
+                    if (authoritativeResponderTeam.some((pet) => !pet || petCombatBusyReason(responderCharacter, pet))) {
                         return { error: 'Every sealed responder pet must be available in the stored roster.', status: 409 } as const;
                     }
                     const accepted = {
@@ -1113,6 +1209,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             if (!resolvedRecord) {
                 return res.status(409).json({ error: 'Challenge was already resolved differently or no longer matches.' });
             }
+            if (resolution === 'declined') await releaseRankedChallengeAdmission(resolvedRecord.record);
             authoritativeRecord = resolvedRecord.record;
             resolutionReplay = resolvedRecord.replay;
         } else {
@@ -1224,7 +1321,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                             await kv.set(previousSetupKey, cancelledArenaSetup(previous), { ex: CHALLENGE_TTL });
                         }
                     }, { failClosed: true });
-                    await cancelChallengeRecord(prevId, safeName(fromName));
+                    const cancelled = await cancelChallengeRecord(prevId, safeName(fromName));
+                    if (cancelled) await releaseRankedChallengeAdmission(cancelled);
                 }
             }
             await kv.set(senderKey, {
@@ -1236,7 +1334,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             return { stale: false } as const;
             }, { failClosed: true });
             if (outgoingUpdate.stale) {
-                await cancelChallengeRecord(candidateArenaId, safeName(fromName));
+                const cancelled = await cancelChallengeRecord(candidateArenaId, safeName(fromName));
+                if (cancelled) await releaseRankedChallengeAdmission(cancelled);
                 return res.status(409).json({ error: 'This Arena challenge was superseded by a newer generation.' });
             }
         }

@@ -87,10 +87,10 @@ export function Logbook({
         complete: todayWarCompleted > index,
     }));
     const missingMissionIds = acceptedMissionIds.filter((id) => !availableLogbookMissions.some((mission) => mission.id === id));
-    // Structured progression objectives (Academy checklist + rank exams) are
-    // built by the shared lib so the Daily Briefing surfaces the same data and
-    // the requirement definitions live in one place. Only the env facts the pure
-    // builder can't derive from the save are supplied here.
+    // Structured permanent progression objectives (Academy checklist + rank
+    // exams) are built by the shared lib. Live recommendations remain owned by
+    // Activity Spine; only the environment facts this pure Logbook builder cannot
+    // derive from the save are supplied here.
     const objectiveContext = {
         examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
         rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),

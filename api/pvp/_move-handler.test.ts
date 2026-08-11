@@ -1,5 +1,6 @@
 import { before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
@@ -23,6 +24,12 @@ before(async () => {
         if (options?.nx && store.has(key)) return null;
         store.set(key, clone(value));
         return 'OK' as const;
+    };
+    kv.compareSet = async (key: string, expected: unknown | null, value: unknown) => {
+        const current = store.has(key) ? store.get(key) : null;
+        if (!isDeepStrictEqual(current, expected)) return false;
+        store.set(key, clone(value));
+        return true;
     };
     kv.del = async (...keys: string[]) => keys.reduce((n, key) => n + (store.delete(key) ? 1 : 0), 0);
     kv.delIfEqual = async (key: string, expected: string) => {
@@ -689,6 +696,145 @@ test('both-target consumables emit matching self and opponent VFX', async () => 
     const after = storedSession('smoke-vfx');
     assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p2' && vfx.anchor === 'target'));
     assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p1' && vfx.anchor === 'caster' && vfx.intensity === 'minor'));
+});
+
+function seedActivePlayerRankedV2(
+    battleId: string,
+    matchId: string,
+    item: Record<string, unknown>,
+    slotKey: string,
+): PvpSession {
+    const now = Date.now();
+    const ranked = session(battleId, {
+        p1: withEquippedItem(fighter('alice', 0), item, slotKey),
+        ranked: false,
+        rankedKind: 'player',
+        playerRankedAuthorityVersion: 2,
+        rankedMatchId: matchId,
+        rankedSeasonId: 1,
+        rankedSeasonEpoch: 1,
+        p1Rating: 1000,
+        p2Rating: 1000,
+        rewardAuthority: 'ranked',
+        baseRewards: false,
+        realFighters: { p1: true, p2: true },
+        itemCharges: { p1: { [String(item.id)]: 0 }, p2: {} },
+        itemsUsed: { p1: {}, p2: {} },
+    });
+    seed(ranked);
+    store.set('ranked:season:authority', {
+        version: 'pet-ranked-season-gate-v1',
+        state: 'open',
+        seasonId: 1,
+        epoch: 1,
+        transitionId: null,
+        nextSeasonId: null,
+        changedAt: now,
+        admissions: [],
+        playerAdmissions: [{
+            version: 'player-ranked-admission-v1',
+            matchId,
+            a: 'alice',
+            b: 'bob',
+            aLevel: 100,
+            bLevel: 100,
+            aRating: 1000,
+            bRating: 1000,
+            createdAt: now,
+            seasonId: 1,
+            seasonEpoch: 1,
+            phase: 'active',
+            battleId,
+            activatedAt: now,
+            sessionPublishedAt: now,
+            terminalAt: null,
+            cancelledAt: null,
+            winner: null,
+            rankedEligible: null,
+            terminalFingerprint: null,
+        }],
+    });
+    return ranked;
+}
+
+test('player-ranked V2 rejects a forged thrown action without mutating the exact session', async () => {
+    const battleId = 'pvp-c2345678-1234-4123-8123-1234567890ab';
+    const matchId = 'player-ranked-c2345678-1234-4123-8123-1234567890ab';
+    const thrown = {
+        id: 'ranked-forged-throw', name: 'Ranked Throw', slot: 'thrown',
+        weaponRange: 4, weaponCooldown: 0, weaponEp: 99, apCost: 20,
+    };
+    const before = seedActivePlayerRankedV2(battleId, matchId, thrown, 'hand');
+    const out = await postMove('alice', {
+        battleId,
+        role: 'p1',
+        action: 'weapon',
+        itemId: thrown.id,
+        moveToken: 'ranked-forged-throw-token',
+    });
+    assert.equal(out.statusCode, 200);
+    assert.match(String((out.body as PvpSession).rejected?.reason), /disabled in Player Ranked/i);
+    assert.deepEqual(storedSession(battleId), before);
+});
+
+test('player-ranked V2 rejects a forged consumable action without mutating the exact session', async () => {
+    const battleId = 'pvp-d2345678-1234-4123-8123-1234567890ab';
+    const matchId = 'player-ranked-d2345678-1234-4123-8123-1234567890ab';
+    const item = {
+        id: 'ranked-forged-pill', name: 'Ranked Pill', slot: 'item',
+        weaponCooldown: 0, weaponEffect: 'Increase Damage Given', weaponEffectValue: 100, apCost: 20,
+    };
+    const before = seedActivePlayerRankedV2(battleId, matchId, item, 'item1');
+    const out = await postMove('alice', {
+        battleId,
+        role: 'p1',
+        action: 'item',
+        itemId: item.id,
+        moveToken: 'ranked-forged-pill-token',
+    });
+    assert.equal(out.statusCode, 200);
+    assert.match(String((out.body as PvpSession).rejected?.reason), /disabled in Player Ranked/i);
+    assert.deepEqual(storedSession(battleId), before);
+});
+
+test('player-ranked V2 blocks an active-player KO action until both identities join', async () => {
+    const battleId = 'pvp-e2345678-1234-4123-8123-1234567890ab';
+    const matchId = 'player-ranked-e2345678-1234-4123-8123-1234567890ab';
+    const seeded = seedActivePlayerRankedV2(battleId, matchId, { id: 'ranked-hand', name: 'Hand', slot: 'hand' }, 'hand');
+    const before: PvpSession = {
+        ...seeded,
+        joined: { p1: true, p2: false },
+        p2: { ...seeded.p2, hp: 1 },
+    };
+    seed(before);
+
+    const out = await postMove('alice', {
+        battleId,
+        role: 'p1',
+        action: 'basicAttack',
+        moveToken: 'ranked-unjoined-ko-token',
+    });
+    assert.equal(out.statusCode, 200);
+    assert.match(String((out.body as PvpSession).rejected?.reason), /until both fighters have joined/i);
+    assert.deepEqual(storedSession(battleId), before);
+});
+
+test('player-ranked V2 blocks flee until both identities join', async () => {
+    const battleId = 'pvp-f2345678-1234-4123-8123-1234567890ab';
+    const matchId = 'player-ranked-f2345678-1234-4123-8123-1234567890ab';
+    const seeded = seedActivePlayerRankedV2(battleId, matchId, { id: 'ranked-hand', name: 'Hand', slot: 'hand' }, 'hand');
+    const before: PvpSession = { ...seeded, joined: { p1: true, p2: false } };
+    seed(before);
+
+    const out = await postMove('alice', {
+        battleId,
+        role: 'p1',
+        action: 'flee',
+        moveToken: 'ranked-unjoined-flee-token',
+    });
+    assert.equal(out.statusCode, 200);
+    assert.match(String((out.body as PvpSession).rejected?.reason), /until both fighters have joined/i);
+    assert.deepEqual(storedSession(battleId), before);
 });
 
 test('cooldown is applied on cast and ticks when that fighter ends turn', async () => {
