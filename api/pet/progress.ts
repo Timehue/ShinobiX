@@ -11,6 +11,8 @@ import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_bre
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
 import { kv } from '../_storage.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
+import { activeCarriedPetIds } from '../_entitlements.js';
+import { claimPetLifecycleLease } from './_active-battle-lease.js';
 
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
@@ -29,6 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only update your own pet.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-progress', 30, 60_000, identity.name))) return;
+        const lifecycleLease = await claimPetLifecycleLease(kv, playerName, 'progress');
+        if (!lifecycleLease) {
+            return res.status(409).json({ error: 'pet-is-in-active-battle', message: 'Finish or settle your active pet battle before changing a companion.' });
+        }
+        try {
         const now = Date.now();
         const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, async ({ character }) => {
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
@@ -42,6 +49,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Pet Tamer "trained a pet" mission credit + the client notice.
             let settledTraining: string | null = null;
             if (action === 'start-training') {
+                if (!activeCarriedPetIds(character, pets).includes(petId)) {
+                    return { ok: false as const, status: 409, error: 'Move this preserved companion into the carried roster through the Sanctuary before starting new training.' };
+                }
                 const durationMs = Math.floor(Number(body.durationMs)); const focus = String(body.focus ?? '');
                 if (!PET_TRAINING_DURATIONS.has(durationMs) || !PET_TRAINING_FOCI.has(focus)) return { ok: false as const, status: 400, error: 'Invalid training plan.' };
                 // An unclaimed expedition keeps its own collect flow (report-pet-event)
@@ -183,5 +193,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             missionsCompleted = missionResult.missionsCompleted;
         }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, missionsCompleted, _saveVersion: result._saveVersion });
+        } finally {
+            await lifecycleLease.release();
+        }
     } catch (error) { console.error('[pet/progress]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

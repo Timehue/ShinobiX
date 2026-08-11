@@ -30,3 +30,48 @@ export function debitTowerEntry(character: TowerEntryCharacter, day: string):
         character: { ...character, ryo: balance - charged, dailyBattleFloors: used + 1, dailyBattleDate: day },
     };
 }
+
+export type TowerStoryEntryDebit =
+    | { ok: true; character: TowerEntryCharacter; charged: number; counted: boolean; replayFree: boolean }
+    | { ok: false; required: number };
+
+export function hasClearedTowerFloor(character: TowerEntryCharacter, floorId: number): boolean {
+    const floor = Math.floor(Number(floorId));
+    return floor > 0 && Array.isArray(character.battleTowerClearedFloors)
+        && (character.battleTowerClearedFloors as unknown[]).some(value => Math.floor(Number(value)) === floor);
+}
+
+/** Story replays are free and consume no daily entry slot; uncleared floors keep the normal toll. */
+export function debitTowerStoryEntry(
+    character: TowerEntryCharacter,
+    day: string,
+    floorId: number,
+): TowerStoryEntryDebit {
+    if (hasClearedTowerFloor(character, floorId)) {
+        return { ok: true, character, charged: 0, counted: false, replayFree: true };
+    }
+    const result = debitTowerEntry(character, day);
+    return result.ok
+        ? { ...result, counted: true, replayFree: false }
+        : result;
+}
+
+/**
+ * Compensate a successfully reserved entry when the corresponding session was
+ * conclusively not published. Ryo is always restored; the daily counter is
+ * rolled back only while it still belongs to the same UTC day, so a concurrent
+ * day rollover is never overwritten with stale state.
+ */
+export function refundTowerEntry(
+    character: TowerEntryCharacter,
+    day: string,
+    charged: number,
+    counted = true,
+): TowerEntryCharacter {
+    const refund = Math.max(0, Math.floor(Number(charged) || 0));
+    const next: TowerEntryCharacter = { ...character, ryo: whole(character.ryo) + refund };
+    if (counted && character.dailyBattleDate === day) {
+        next.dailyBattleFloors = Math.max(0, whole(character.dailyBattleFloors) - 1);
+    }
+    return next;
+}

@@ -33,6 +33,7 @@ describe("Pet Home cross-layer integrity wiring", () => {
             assert.ok(route.includes("battle-lock:${playerName}"));
             assert.ok(route.includes("petladder:coliseum:def:${playerName}"));
             assert.ok(route.includes("petladder:tactical:def:${playerName}"));
+            assert.ok(route.includes("claimPetLifecycleLease"));
         }
         assert.ok(progress.includes("battle-lock:${playerName}"));
         assert.ok(progress.includes("petBusyReason(character, pet"));

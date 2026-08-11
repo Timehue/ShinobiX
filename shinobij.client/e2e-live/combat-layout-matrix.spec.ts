@@ -1,12 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
+import { accountKey } from '../src/lib/player-accounts';
 
 const PHASE = process.env.COMBAT_LAYOUT_CAPTURE_PHASE === 'before' ? 'before' : 'after';
 const STRICT = PHASE === 'after' && process.env.COMBAT_LAYOUT_STRICT !== '0';
 const SCREENSHOT_ROOT = process.env.COMBAT_LAYOUT_ARTIFACT_ROOT
     ? resolve(process.env.COMBAT_LAYOUT_ARTIFACT_ROOT, PHASE)
-    : resolve(process.cwd(), '..', 'docs', 'screenshots', 'combat-layout', PHASE);
+    : resolve(process.cwd(), 'test-results', 'combat-layout', 'captures', PHASE);
 
 const VIEWPORTS = [
     [320, 568], [360, 800], [375, 667], [390, 844], [412, 915], [430, 932],
@@ -331,7 +332,10 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
 
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
     let current = await measure(page, rootSelector);
-    for (let attempt = 0; attempt < 4 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
+    for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
+        await page.evaluate(() => new Promise<void>((resolveFrame) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame()));
+        }));
         await page.waitForTimeout(180);
         current = await measure(page, rootSelector);
     }
@@ -434,7 +438,10 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.documentOverflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
         expect(current.visibleTileCount, `${label} tile count`).toBe(120);
         expect(current.allTilesNamed, `${label} tile accessible names`).toBe(true);
-        expect(current.tileCentersInsideBoard, `${label} tile centers`).toBe(true);
+        expect(
+            current.tileCentersInsideBoard,
+            `${label} tile centers outside board; centers=${JSON.stringify(current.tileCenterBounds)} board=${JSON.stringify(current.board)}`,
+        ).toBe(true);
         expect(
             current.tileCenterHitCount,
             `${label} tile center hit-testing misses: ${current.tileCenterMisses.join(', ')}; main=${JSON.stringify(current.main)} stage=${JSON.stringify(current.boardStage)} board=${JSON.stringify(current.board)}`,
@@ -553,11 +560,12 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     expect(created.status).toBe(200);
     const battleId = String((created.body as { battleId?: string }).battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
-    await page.evaluate(({ id }) => {
-        localStorage.setItem('pvpSession.v1', JSON.stringify({ pvpBattleId: id, pvpRole: 'p1', pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
+    const owner = accountKey(name);
+    await page.evaluate(({ id, authenticatedOwner }) => {
+        localStorage.setItem('pvpSession.v1', JSON.stringify({ owner: authenticatedOwner, pvpBattleId: id, pvpRole: 'p1', pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
         localStorage.setItem('lastScreen.v1', 'pvpBattle');
         history.replaceState(null, '', '#/pvpBattle');
-    }, { id: battleId });
+    }, { id: battleId, authenticatedOwner: owner });
     // A hash-only page.goto is a same-document navigation, so startup restore
     // never runs. Reload the document after installing the breadcrumb to model
     // the real crash/refresh path.
@@ -580,5 +588,10 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         throw new Error(`PvP restore diagnostic: ${JSON.stringify(debug)}`);
     }
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
+    const restoredBreadcrumb = await page.evaluate(() => {
+        const raw = localStorage.getItem('pvpSession.v1');
+        return raw ? JSON.parse(raw) : null;
+    });
+    expect(restoredBreadcrumb).toMatchObject({ owner, pvpBattleId: battleId, pvpRole: 'p1' });
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 });

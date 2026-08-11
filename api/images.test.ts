@@ -202,6 +202,7 @@ describe('categoryFromId — leader category (#16)', () => {
     });
     it('routes avatar:* and unknown prefixes correctly', () => {
         assert.equal(categoryFromId('avatar:rill'), 'avatar');
+        assert.equal(categoryFromId('Avatar:rill'), 'avatar');
         assert.equal(categoryFromId('whatever:foo'), 'misc');
     });
 });

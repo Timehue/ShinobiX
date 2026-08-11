@@ -1,17 +1,30 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, cors } from '../_utils.js';
+import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
 import { combinedStatBoost } from '../_stat-growth.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { utcDateKey, reportNewbieEvent } from './_progress.js';
+import {
+    acknowledgeNewbieCombatRun,
+    reportNewbieCombatRunOnce,
+    reportNewbieEvent,
+    utcDateKey,
+} from './_progress.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { recordBetaMetric, type BetaMetricEvent } from '../_beta-metrics.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContribution } from '../_era.js';
+import {
+    acknowledgeLegacyCombatRun,
+    bumpLegacyStats,
+    bumpLegacyStatsForCombatRunOnce,
+} from '../_legacy-track.js';
+import {
+    acknowledgeEraContribution,
+    bumpEraContribution,
+    bumpEraContributionOnce,
+} from '../_era.js';
 import {
     cleanMissionProgressReceipt,
     missionProgressReceiptKey,
@@ -20,6 +33,7 @@ import {
 import { COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
+import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
     APEX_REWARD,
@@ -51,6 +65,39 @@ import {
     HUNT_MISSION_SCROLLS,
     type CurrencyKey,
 } from './_mission-catalog.js';
+import {
+    MISSION_COMBAT_SESSION_TTL_MS,
+    missionCombatActiveKey,
+    missionCombatBindingKey,
+    missionCombatRewardFingerprint,
+    validateSettledMissionCombatSession,
+    type MissionCombatActivePointer,
+    type MissionCombatBinding,
+} from './_authoritative-combat-session.js';
+import { readSoloPveSession } from '../solo-pve/_store.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
+import {
+    appendCombatMissionClaimSettlement,
+    combatMissionClaimPaymentMatches,
+    combatMissionClaimTokenKey,
+    combatMissionClaimTokenMatches,
+    compareSetExactKvRow,
+    confirmCombatMissionClaimSave,
+    createCombatMissionClaimToken,
+    createCombatMissionClaimPaymentReservation,
+    inspectCombatMissionClaimSettlement,
+    latestCombatMissionClaimSettlement,
+    parseCombatMissionClaimPaymentReservation,
+    parseCombatMissionClaimToken,
+    parseSpentCombatMissionClaimToken,
+    replaceCombatMissionClaimSettlement,
+    reserveCombatMissionClaimPayment,
+    retireCombatMissionClaimToken,
+    type CombatMissionClaimPaymentReservation,
+    type CombatMissionClaimResult,
+    type CombatMissionClaimSettlement,
+    type CombatMissionClaimToken,
+} from './_combat-claim-authority.js';
 
 // Server-authoritative mission claim. Replaces the old client-side reward math
 // for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
@@ -111,6 +158,7 @@ type ClaimOutcome =
         saveVersion: number;
         reward: {
             xpBoosted: number;        // base after town-hall boost; client passes to gainXp
+            statPoints: number;
             ryo: number;
             stamina: number;
             territoryScrolls: number;
@@ -119,6 +167,10 @@ type ClaimOutcome =
         };
         combat?: { aiProfileId: string; missionKey: string };
         completion: 'daily' | 'total' | 'none' | 'hunt';
+        replayed?: boolean;
+        combatRunId?: string;
+        /** Internal recovery binding; stripped from the HTTP response. */
+        combatSettlementFingerprint?: string;
         academyTrialClaimed?: boolean;
         academyChecklistClaimed?: boolean;
     };
@@ -182,6 +234,445 @@ function eligibilityFailure(check: MissionEligibilityResult): Extract<ClaimOutco
     };
 }
 
+async function readCombatClaimSettlement(
+    saveKey: string,
+    runId: string,
+    missionId: string,
+    rewardFingerprint: string,
+): Promise<{ record: Record<string, unknown>; character: SaveChar; settlement: CombatMissionClaimSettlement }> {
+    const record = await kv.get<Record<string, unknown>>(saveKey);
+    const character = record?.character as SaveChar | undefined;
+    if (!record || !character) throw new Error('combat-mission-post-effect-save-missing');
+    const inspected = inspectCombatMissionClaimSettlement(character, runId, missionId, rewardFingerprint);
+    if (inspected.status !== 'replay') throw new Error(`combat-mission-post-effect-receipt-${inspected.status}`);
+    return { record, character, settlement: inspected.receipt };
+}
+
+async function mutateCombatClaimSettlement(params: {
+    saveKey: string;
+    playerName: string;
+    runId: string;
+    missionId: string;
+    rewardFingerprint: string;
+    mutate: (
+        character: SaveChar,
+        settlement: CombatMissionClaimSettlement,
+    ) => { character: SaveChar; settlement: CombatMissionClaimSettlement } | null;
+}): Promise<CombatMissionClaimSettlement> {
+    return withKvLock(params.saveKey, async () => {
+        const current = await readCombatClaimSettlement(
+            params.saveKey,
+            params.runId,
+            params.missionId,
+            params.rewardFingerprint,
+        );
+        const mutation = params.mutate(current.character, current.settlement);
+        if (!mutation) return current.settlement;
+        const nextCharacter = replaceCombatMissionClaimSettlement(
+            mutation.character,
+            mutation.settlement,
+        ) as SaveChar;
+        const nextRecord = mergePreservingImages(bumpSaveVersion<Record<string, unknown>>({
+            ...current.record,
+            character: nextCharacter,
+        }), current.record) as Record<string, unknown>;
+        const mergedCharacter = nextRecord.character as SaveChar;
+        nextRecord.character = {
+            ...mergedCharacter,
+            // Receipt arrays are run-keyed, not positional. The generic image
+            // merge pairs id-less arrays by index and could otherwise copy a
+            // prior run's effect stamps onto a newly prepended settlement.
+            combatMissionClaimSettlements: nextCharacter.combatMissionClaimSettlements,
+        };
+        await compareSetExactKvRow(kv, params.saveKey, current.record, nextRecord);
+        await syncCurrencyLedger(params.playerName, nextRecord, {
+            previousCharacter: current.character,
+        });
+        const confirmed = await readCombatClaimSettlement(
+            params.saveKey,
+            params.runId,
+            params.missionId,
+            params.rewardFingerprint,
+        );
+        return confirmed.settlement;
+    }, { failClosed: true, ttlSec: 15 });
+}
+
+async function completeCombatMissionPostEffects(params: {
+    saveKey: string;
+    playerName: string;
+    runId: string;
+    missionId: string;
+    rewardFingerprint: string;
+}): Promise<CombatMissionClaimSettlement> {
+    let current = await readCombatClaimSettlement(
+        params.saveKey,
+        params.runId,
+        params.missionId,
+        params.rewardFingerprint,
+    );
+
+    if (!current.settlement.effects?.newbieAppliedAt) {
+        const newbie = await reportNewbieCombatRunOnce({
+            playerName: params.playerName,
+            runId: params.runId,
+            settledAt: current.settlement.settledAt,
+        });
+        const appliedAt = Date.now();
+        const receipt = await mutateCombatClaimSettlement({
+            ...params,
+            mutate: (character, settlement) => {
+                if (settlement.effects?.newbieAppliedAt) return null;
+                // `reportNewbieCombatRunOnce` returns the amount pinned in its
+                // durable run marker before consulting the current profession.
+                // A profession chosen after that marker committed must not erase
+                // already-earned Ryo while this save receipt is being recovered.
+                const ryoAwarded = newbie.ryoAwarded;
+                return {
+                    character: {
+                        ...character,
+                        ...(ryoAwarded > 0 ? { ryo: Number(character.ryo ?? 0) + ryoAwarded } : {}),
+                    },
+                    settlement: {
+                        ...settlement,
+                        effects: {
+                            version: 1,
+                            ...(settlement.effects ?? {}),
+                            newbieAppliedAt: appliedAt,
+                            newbieRyoAwarded: ryoAwarded,
+                        },
+                    },
+                };
+            },
+        });
+        current = { ...current, settlement: receipt };
+    }
+    await acknowledgeNewbieCombatRun(params.playerName, params.runId);
+
+    if (!current.settlement.effects?.legacyAppliedAt) {
+        const legacyBootstrapCharacter = {
+            ...current.character,
+            // The payout save already contains this run's lifetime mirrors.
+            // Seed a not-yet-created Legacy row from the pre-run baseline, then
+            // apply the run-bound delta once, instead of counting the run twice.
+            totalAiKills: Math.max(0, Number(current.character.totalAiKills ?? 0) - 1),
+            totalMissionsCompleted: Math.max(0, Number(current.character.totalMissionsCompleted ?? 0) - 1),
+        };
+        await bumpLegacyStatsForCombatRunOnce(
+            params.playerName,
+            params.runId,
+            { missionCompletions: 1, pveKills: 1 },
+            legacyBootstrapCharacter,
+        );
+        const receipt = await mutateCombatClaimSettlement({
+            ...params,
+            mutate: (character, settlement) => settlement.effects?.legacyAppliedAt
+                ? null
+                : {
+                    character,
+                    settlement: {
+                        ...settlement,
+                        effects: { version: 1, ...(settlement.effects ?? {}), legacyAppliedAt: Date.now() },
+                    },
+                },
+        });
+        current = { ...current, settlement: receipt };
+    }
+    await acknowledgeLegacyCombatRun(params.playerName, params.runId);
+
+    const eraReceiptId = `combat-mission:${params.playerName}:${params.runId}`;
+    if (!current.settlement.effects?.eraAppliedAt) {
+        await bumpEraContributionOnce('missions', eraReceiptId);
+        const receipt = await mutateCombatClaimSettlement({
+            ...params,
+            mutate: (character, settlement) => settlement.effects?.eraAppliedAt
+                ? null
+                : {
+                    character,
+                    settlement: {
+                        ...settlement,
+                        effects: { version: 1, ...(settlement.effects ?? {}), eraAppliedAt: Date.now() },
+                    },
+                },
+        });
+        current = { ...current, settlement: receipt };
+    }
+    await acknowledgeEraContribution('missions', eraReceiptId);
+
+    if (!current.settlement.effects?.completedAt) {
+        const receipt = await mutateCombatClaimSettlement({
+            ...params,
+            mutate: (character, settlement) => {
+                if (settlement.effects?.completedAt) return null;
+                const pending = Array.isArray(character.pendingCombatMissionClaims)
+                    ? character.pendingCombatMissionClaims.map(String)
+                    : [];
+                return {
+                    character: {
+                        ...character,
+                        pendingCombatMissionClaims: pending.filter((key) => key !== params.missionId),
+                    },
+                    settlement: {
+                        ...settlement,
+                        effects: { version: 1, ...(settlement.effects ?? {}), completedAt: Date.now() },
+                    },
+                };
+            },
+        });
+        current = { ...current, settlement: receipt };
+    }
+    return current.settlement;
+}
+
+/**
+ * Recover the narrow rolling-deploy window where the previous claim worker
+ * deleted its active token and then died before its payout save committed.
+ *
+ * The active pointer is deliberately the shortest-lived member of the combat
+ * triplet, so requiring its original, unextended horizon keeps this recovery
+ * bounded. Every identity and terminal-result field must agree before a new
+ * worker is allowed to synthesize in-memory authority and CAS null -> paying.
+ */
+function recoverLegacyDeletedCombatClaim(params: {
+    activeRaw: unknown;
+    bindingRaw: unknown;
+    session: SoloPveSession | null;
+    playerName: string;
+    mission: NonNullable<ReturnType<typeof combatMissionByKey>>;
+    rewardFingerprint: string;
+    now?: number;
+}): CombatMissionClaimToken | null {
+    const now = params.now ?? Date.now();
+    if (!params.activeRaw || typeof params.activeRaw !== 'object' || Array.isArray(params.activeRaw)
+        || !params.bindingRaw || typeof params.bindingRaw !== 'object' || Array.isArray(params.bindingRaw)) {
+        return null;
+    }
+    const active = params.activeRaw as MissionCombatActivePointer;
+    const binding = params.bindingRaw as MissionCombatBinding;
+    const session = params.session;
+    const mission = params.mission;
+    const validActiveTimes = Number.isSafeInteger(active.createdAt) && active.createdAt > 0
+        && Number.isSafeInteger(active.expiresAt)
+        && active.expiresAt === active.createdAt + MISSION_COMBAT_SESSION_TTL_MS
+        && active.expiresAt > now;
+    if (active.version !== 1
+        || !active.runId
+        || active.runId !== active.sessionId
+        || active.playerName !== params.playerName
+        || active.missionId !== mission.key
+        || !validActiveTimes) {
+        return null;
+    }
+    const validBindingTimes = Number.isSafeInteger(binding.createdAt) && binding.createdAt === active.createdAt
+        && Number.isSafeInteger(binding.expiresAt) && binding.expiresAt >= active.expiresAt
+        && Number.isSafeInteger(binding.settledAt) && Number(binding.settledAt) > 0;
+    if (binding.version !== 1
+        || binding.runId !== active.runId
+        || binding.sessionId !== active.sessionId
+        || binding.playerName !== params.playerName
+        || binding.missionId !== mission.key
+        || binding.enemyProfileId !== mission.aiProfileId
+        || binding.rewardFingerprint !== params.rewardFingerprint
+        || binding.status !== 'won'
+        || !validBindingTimes) {
+        return null;
+    }
+    const validation = validateSettledMissionCombatSession({
+        binding,
+        session,
+        playerName: params.playerName,
+        mission,
+        now,
+    });
+    if (!validation.ok || !session || session.createdAt !== active.createdAt
+        || session.sessionId !== active.sessionId
+        || session.status !== 'done'
+        || session.winner !== 'player'
+        || session.outcome !== 'win'
+        || session.settlementState !== 'settled') {
+        return null;
+    }
+    const evidence = session.terminalEvidence;
+    const receipt = evidence?.receipt;
+    const receiptRewards = receipt?.rewards;
+    if (!evidence
+        || !Number.isSafeInteger(evidence.finishedAt) || evidence.finishedAt <= 0
+        || !evidence.finalMoveToken
+        || !Number.isSafeInteger(evidence.finalVersion) || evidence.finalVersion <= 0
+        || !Number.isSafeInteger(evidence.finalEventSeq) || evidence.finalEventSeq < 0
+        || evidence.winner !== 'player'
+        || evidence.outcome !== 'win'
+        || evidence.settlementState !== 'settled'
+        || receipt?.kind !== 'mission-queue'
+        || receipt.id !== `${mission.key}:${active.runId}`
+        || !Number.isSafeInteger(receipt.settledAt) || receipt.settledAt <= 0
+        || !receiptRewards || typeof receiptRewards !== 'object'
+        || receiptRewards.missionId !== mission.key
+        || receiptRewards.queued !== true) {
+        return null;
+    }
+    return createCombatMissionClaimToken({
+        playerName: params.playerName,
+        runId: active.runId,
+        missionId: mission.key,
+        enemyProfileId: mission.aiProfileId,
+        rewardFingerprint: params.rewardFingerprint,
+        wonAt: evidence.finishedAt,
+    });
+}
+
+/**
+ * Finish a payout whose active token was already fenced into durable `paying`
+ * authority. The reservation pins every economic amount before the first save
+ * attempt, so a pre-commit crash, catalog rollout, or unrelated intervening save
+ * can apply the exact entitlement once without reopening old-worker authority.
+ */
+async function applyReservedCombatMissionPayout(params: {
+    saveKey: string;
+    playerName: string;
+    record: Record<string, unknown>;
+    character: SaveChar;
+    reservation: CombatMissionClaimPaymentReservation;
+}): Promise<Extract<ClaimOutcome, { applied: true }>> {
+    const settlement = params.reservation.settlement;
+    const inspected = inspectCombatMissionClaimSettlement(
+        params.character,
+        settlement.runId,
+        settlement.missionId,
+        settlement.rewardFingerprint,
+    );
+    if (inspected.status === 'conflict') {
+        throw new Error('combat-mission-reserved-payout-conflict');
+    }
+    if (inspected.status === 'replay') {
+        return {
+            applied: true,
+            replayed: true,
+            combatRunId: inspected.receipt.runId,
+            combatSettlementFingerprint: inspected.receipt.rewardFingerprint,
+            saveVersion: Number(params.record._saveVersion ?? 0),
+            reward: {
+                ...inspected.receipt.result.reward,
+                currency: inspected.receipt.result.reward.currency as Partial<Record<CurrencyKey, number>>,
+            },
+            combat: inspected.receipt.result.combat,
+            completion: inspected.receipt.result.completion,
+        };
+    }
+
+    const reward = settlement.result.reward;
+    let next: SaveChar = { ...params.character };
+    if (reward.statPoints > 0) {
+        next = {
+            ...next,
+            unspentStats: Math.max(0, Math.floor(Number(next.unspentStats) || 0)) + reward.statPoints,
+        };
+    }
+    next = applyDerivedLevel(next) as SaveChar;
+    next = { ...next, ryo: Number(next.ryo ?? 0) + reward.ryo };
+    if (reward.stamina > 0) {
+        next = {
+            ...next,
+            stamina: Math.min(Number(next.maxStamina ?? 0), Number(next.stamina ?? 0) + reward.stamina),
+        };
+    }
+    if (reward.territoryScrolls > 0) {
+        next = { ...next, inventory: grantTerritoryScrollsToInventory(next, reward.territoryScrolls) };
+    }
+    if (reward.items.length > 0) {
+        next = { ...next, inventory: grantItemsToInventory(next, reward.items) };
+    }
+    next = {
+        ...next,
+        ...applyCurrencyRewardFields(next, reward.currency as Partial<Record<CurrencyKey, number>>),
+    };
+
+    const aiId = settlement.result.combat.aiProfileId;
+    const defeated = Array.isArray(next.defeatedAiIds) ? next.defeatedAiIds as string[] : [];
+    const aiKills = next.aiKills && typeof next.aiKills === 'object'
+        ? next.aiKills as Record<string, number>
+        : {};
+    const pending = Array.isArray(next.pendingCombatMissionClaims)
+        ? next.pendingCombatMissionClaims as string[]
+        : [];
+    next = {
+        ...next,
+        totalAiKills: Number(next.totalAiKills ?? 0) + 1,
+        dailyAiKills: Number(next.dailyAiKills ?? 0) + 1,
+        defeatedAiIds: defeated.includes(aiId) ? defeated : [...defeated, aiId],
+        aiKills: { ...aiKills, [aiId]: Number(aiKills[aiId] ?? 0) + 1 },
+        // The mission-scoped pending flag stays live until every run-bound post
+        // effect is durable. It may have been cleared by an old rolling worker;
+        // restore it from the stronger payment reservation when necessary.
+        pendingCombatMissionClaims: pending.includes(settlement.missionId)
+            ? pending
+            : [...pending, settlement.missionId],
+    };
+    const settlementDate = new Date(settlement.settledAt);
+    const settlementDay = utcDateKey(settlementDate);
+    const settlementMonth = settlementDate.toISOString().slice(0, 7);
+    const currentDailyDay = typeof next.lastDailyReset === 'string' ? next.lastDailyReset : '';
+    const currentClanMonth = typeof next.clanContribMonth === 'string' ? next.clanContribMonth : '';
+    next = {
+        ...next,
+        totalMissionsCompleted: Number(next.totalMissionsCompleted ?? 0) + 1,
+        ...(currentDailyDay > settlementDay
+            ? {}
+            : {
+                dailyMissionsCompleted: currentDailyDay === settlementDay
+                    ? Number(next.dailyMissionsCompleted ?? 0) + 1
+                    : 1,
+                lastDailyReset: settlementDay,
+            }),
+        ...(currentClanMonth > settlementMonth
+            ? {}
+            : {
+                clanMissionContrib: currentClanMonth === settlementMonth
+                    ? Number(next.clanMissionContrib ?? 0) + 1
+                    : 1,
+                clanContribMonth: settlementMonth,
+            }),
+    };
+    next = recordPetBreedingProgress(next, {
+        kind: 'mission-complete',
+        receipt: `mission:${settlementDay}:combat:${settlement.missionId}`,
+    }).character as SaveChar;
+    next = appendCombatMissionClaimSettlement(next, settlement);
+
+    const updated = bumpSaveVersion<Record<string, unknown>>({
+        ...params.record,
+        character: next,
+    });
+    const intended = mergePreservingImages(updated, params.record) as Record<string, unknown>;
+    const intendedCharacter = intended.character as SaveChar;
+    intended.character = {
+        ...intendedCharacter,
+        combatMissionClaimSettlements: next.combatMissionClaimSettlements,
+    };
+    const persisted = await confirmCombatMissionClaimSave({
+        write: async () => {
+            await compareSetExactKvRow(kv, params.saveKey, params.record, intended);
+            await syncCurrencyLedger(params.playerName, intended, {
+                previousCharacter: params.character,
+            });
+        },
+        read: () => kv.get<Record<string, unknown>>(params.saveKey),
+        settlement,
+    });
+    return {
+        applied: true,
+        saveVersion: Number(persisted._saveVersion ?? updated._saveVersion ?? 0),
+        reward: {
+            ...reward,
+            currency: reward.currency as Partial<Record<CurrencyKey, number>>,
+        },
+        combat: settlement.result.combat,
+        combatRunId: settlement.runId,
+        combatSettlementFingerprint: settlement.rewardFingerprint,
+        completion: settlement.result.completion,
+    };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -218,6 +709,173 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as SaveChar | undefined;
             if (!record || !char) return { applied: false, reason: 'no-save' };
+            const combatDef = missionType === 'combat' ? combatMissionByKey(missionId) : null;
+            if (missionType === 'combat' && !combatDef) return { applied: false, reason: 'unknown-mission' };
+            const combatRewardFingerprint = combatDef ? missionCombatRewardFingerprint(combatDef) : '';
+            const combatTokenKey = combatDef ? combatMissionClaimTokenKey(playerName, combatDef.key) : '';
+            let combatToken: CombatMissionClaimToken | null = null;
+            let combatPaymentReservation: CombatMissionClaimPaymentReservation | null = null;
+            let combatTokenRaw: unknown = null;
+            if (combatDef) {
+                // A failed authority read is not evidence that the token is
+                // absent. Let it fail the request closed so the durable pending
+                // flag remains untouched and a later retry can recover.
+                combatTokenRaw = await kv.get<unknown>(combatTokenKey);
+                combatToken = parseCombatMissionClaimToken(combatTokenRaw);
+                combatPaymentReservation = parseCombatMissionClaimPaymentReservation(combatTokenRaw);
+                const spentCombatToken = parseSpentCombatMissionClaimToken(combatTokenRaw);
+                // Only an authoritative null means "there is no token". A
+                // malformed non-null row is unknown authority and must never
+                // trigger the stale-pending self-heal.
+                if (combatTokenRaw !== null && !combatToken && !combatPaymentReservation && !spentCombatToken) {
+                    return { applied: false, reason: 'combat-claim-authority-invalid' };
+                }
+                if (combatToken && !combatMissionClaimTokenMatches({
+                    token: combatToken,
+                    playerName,
+                    missionId: combatDef.key,
+                    enemyProfileId: combatDef.aiProfileId,
+                    rewardFingerprint: combatRewardFingerprint,
+                })) {
+                    return { applied: false, reason: 'combat-claim-authority-mismatch' };
+                }
+                if (combatPaymentReservation && !combatMissionClaimPaymentMatches({
+                    reservation: combatPaymentReservation,
+                    playerName,
+                    missionId: combatDef.key,
+                })) {
+                    return { applied: false, reason: 'combat-claim-authority-mismatch' };
+                }
+                if (spentCombatToken && (spentCombatToken.missionId !== combatDef.key
+                    || (spentCombatToken.playerName && spentCombatToken.playerName !== playerName))) {
+                    return { applied: false, reason: 'combat-claim-authority-mismatch' };
+                }
+                const receipt = combatToken
+                    ? inspectCombatMissionClaimSettlement(
+                        char,
+                        combatToken.runId,
+                        combatDef.key,
+                        combatRewardFingerprint,
+                    )
+                    : combatPaymentReservation
+                        ? inspectCombatMissionClaimSettlement(
+                            char,
+                            combatPaymentReservation.runId,
+                            combatDef.key,
+                            combatPaymentReservation.rewardFingerprint,
+                        )
+                        : spentCombatToken
+                            ? inspectCombatMissionClaimSettlement(
+                                char,
+                                spentCombatToken.runId,
+                                combatDef.key,
+                                spentCombatToken.rewardFingerprint,
+                            )
+                    : { status: 'missing' as const };
+                if (receipt.status === 'conflict') {
+                    return { applied: false, reason: 'combat-claim-settlement-conflict' };
+                }
+                if (spentCombatToken && receipt.status === 'missing') {
+                    return { applied: false, reason: 'combat-claim-settlement-missing' };
+                }
+                const hasPendingCombatClaim = Array.isArray(char.pendingCombatMissionClaims)
+                    && char.pendingCombatMissionClaims.map(String).includes(combatDef.key);
+                const latestSettlement = !combatToken && !combatPaymentReservation && !spentCombatToken
+                    ? latestCombatMissionClaimSettlement(char, combatDef.key)
+                    : null;
+                const replay = receipt.status === 'replay'
+                    ? receipt.receipt
+                    : (!combatToken && latestSettlement
+                        && (!hasPendingCombatClaim || !latestSettlement.effects?.completedAt)
+                        ? latestSettlement
+                        : null);
+                if (replay) {
+                    if (combatToken) {
+                        // A receipt written by an earlier new worker (or a lost
+                        // acknowledgement during rollout) must stop presenting
+                        // old-compatible active authority before post-effects run.
+                        const reservation = createCombatMissionClaimPaymentReservation({
+                            token: combatToken,
+                            playerName,
+                            enemyProfileId: replay.result.combat.aiProfileId,
+                            rewardFingerprint: replay.rewardFingerprint,
+                            settlement: { ...replay, effects: { version: 1 } },
+                        });
+                        await reserveCombatMissionClaimPayment({
+                            store: kv,
+                            key: combatTokenKey,
+                            expected: combatTokenRaw,
+                            reservation,
+                        });
+                        combatPaymentReservation = reservation;
+                        combatToken = null;
+                        combatTokenRaw = reservation;
+                    }
+                    // Payout is durable, but the token/pending UI authority stays
+                    // live until every run-bound post effect is acknowledged.
+                    // The help-forward pass below owns final cleanup.
+                    return {
+                        applied: true,
+                        replayed: true,
+                        combatRunId: replay.runId,
+                        combatSettlementFingerprint: replay.rewardFingerprint,
+                        saveVersion: Number(record._saveVersion ?? 0),
+                        reward: {
+                            ...replay.result.reward,
+                            currency: replay.result.reward.currency as Partial<Record<CurrencyKey, number>>,
+                        },
+                        combat: replay.result.combat,
+                        completion: replay.result.completion,
+                    };
+                }
+                if (combatTokenRaw === null && hasPendingCombatClaim && !latestSettlement) {
+                    // The previous rolling worker deleted an active token before
+                    // its payout save. Recover only while the original active
+                    // pointer still exists and its complete settled triplet is an
+                    // exact match. An authoritative null pointer means there is
+                    // no bounded recovery evidence and falls through to stale
+                    // healing; every non-null mismatch leaves pending untouched.
+                    const activeRaw = await kv.get<unknown>(missionCombatActiveKey(playerName, combatDef.key));
+                    if (activeRaw !== null) {
+                        if (!activeRaw || typeof activeRaw !== 'object' || Array.isArray(activeRaw)) {
+                            return { applied: false, reason: 'combat-claim-recovery-evidence-invalid' };
+                        }
+                        const activeCandidate = activeRaw as Partial<MissionCombatActivePointer>;
+                        if (typeof activeCandidate.runId !== 'string'
+                            || activeCandidate.runId.length === 0 || activeCandidate.runId.length > 96
+                            || typeof activeCandidate.sessionId !== 'string'
+                            || activeCandidate.sessionId.length === 0 || activeCandidate.sessionId.length > 96) {
+                            return { applied: false, reason: 'combat-claim-recovery-evidence-invalid' };
+                        }
+                        // A malformed marker for this exact run may represent a
+                        // payout whose receipt was partially/corruptly observed;
+                        // absence, not merely "no parseable latest", is required.
+                        if (inspectCombatMissionClaimSettlement(
+                            char,
+                            activeCandidate.runId,
+                            combatDef.key,
+                            combatRewardFingerprint,
+                        ).status !== 'missing') {
+                            return { applied: false, reason: 'combat-claim-recovery-evidence-invalid' };
+                        }
+                        const [bindingRaw, session] = await Promise.all([
+                            kv.get<unknown>(missionCombatBindingKey(activeCandidate.runId)),
+                            readSoloPveSession(activeCandidate.sessionId),
+                        ]);
+                        combatToken = recoverLegacyDeletedCombatClaim({
+                            activeRaw,
+                            bindingRaw,
+                            session,
+                            playerName,
+                            mission: combatDef,
+                            rewardFingerprint: combatRewardFingerprint,
+                        });
+                        if (!combatToken) {
+                            return { applied: false, reason: 'combat-claim-recovery-evidence-invalid' };
+                        }
+                    }
+                }
+            }
             const missionReceipt = `${todayKey}:${missionType}:${missionId}`;
             const claimedServerMissions = Array.isArray(char.claimedServerMissions)
                 ? (char.claimedServerMissions as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-99)
@@ -254,51 +912,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let huntRankBonusPct = 0;
 
             if (missionType === 'combat') {
-                const def = combatMissionByKey(missionId);
-                if (!def) return { applied: false, reason: 'unknown-mission' };
-                const eligibility = canPlayerClaimMission(char, def);
+                if (!combatDef) return { applied: false, reason: 'unknown-mission' };
+                if (combatPaymentReservation) {
+                    return applyReservedCombatMissionPayout({
+                        saveKey,
+                        playerName,
+                        record,
+                        character: char,
+                        reservation: combatPaymentReservation,
+                    });
+                }
+                const eligibility = canPlayerClaimMission(char, combatDef);
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
-                // Server-authoritative claim gate: the single-use token minted by
-                // /api/missions/queue-combat-claim when the fight was won. Preferred
-                // over the pendingCombatMissionClaims flag because the client can't
-                // forge a KV token via the save endpoint, and it's single-use.
-                // Legacy fallback: a client on the prior build (or a token that
-                // aged past its TTL) still carries the durable flag on the save —
-                // accept that too so no in-flight claim is ever stranded. We're
-                // inside the save lock, so this get→del is race-free per player.
-                const tokenKey = `missions:combat-claim:${playerName}:${def.key}`;
-                const tokenRecord = await kv.get<unknown>(tokenKey).catch(() => null);
-                const hasToken = !!tokenRecord
-                    && typeof tokenRecord === 'object'
-                    && (tokenRecord as Record<string, unknown>).authority === 'server-combat';
-                if (!hasToken) {
+                // Server-authoritative claim gate: the token minted from the win
+                // remains present until its run-bound payout receipt is durable.
+                // A pending flag alone is never payout authority: older builds
+                // could leave one behind after the bounded token expired.
+                if (!combatToken) {
                     // No valid authority token for a mission that requires one — it
                     // expired (6h TTL) or predates the token gate (e.g. a win queued
                     // before the cPanel→Postgres cutover). Self-heal the permanent
                     // trap: drop the stale durable flag under the save lock so the card
                     // flips back to "Begin Mission" and a re-fight can re-mint the
                     // token. The client mirrors this + shows a re-fight message.
-                    const heal = clearStalePendingCombatClaim(char, def.key);
+                    const heal = clearStalePendingCombatClaim(char, combatDef.key);
                     if (heal.cleared) {
                         const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char });
-                        await writeSaveProjected(saveKey, healed, record);
+                        const intended = mergePreservingImages(healed, record) as Record<string, unknown>;
+                        await compareSetExactKvRow(kv, saveKey, record, intended);
                     }
                     return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
                 }
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
-                if (!pending.includes(def.key)) return { applied: false, reason: 'not-queued' };
+                if (!pending.includes(combatDef.key)) return { applied: false, reason: 'not-queued' };
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
-                // Consume the token once eligibility passes (before payout), so a
-                // retry / racing duplicate can't double-claim. A cap-blocked claim
-                // returned above WITHOUT consuming it, so the player can still claim
-                // after the daily reset via the durable flag.
-                const consumed = await kv.del(tokenKey);
-                if (consumed <= 0) return { applied: false, reason: 'not-queued' };
+                // A cap-blocked claim leaves that authority untouched so it can be
+                // used after the daily reset.
                 // Repeatable combat-mission slots are the unlimited-repeat channel:
                 // ryo/scrolls only, no stat points (the once-per-day checklist and
                 // training are where growth lives).
-                baseRyo = def.ryo; scrolls = def.territoryScrolls;
-                combat = { aiProfileId: def.aiProfileId, missionKey: def.key };
+                baseRyo = combatDef.ryo; scrolls = combatDef.territoryScrolls;
+                combat = { aiProfileId: combatDef.aiProfileId, missionKey: combatDef.key };
                 completion = 'daily';
             } else if (missionType === 'field') {
                 const def = fieldMissionById(missionId);
@@ -431,7 +1085,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (combat) {
                 const aiId = combat.aiProfileId;
-                const missionKey = combat.missionKey;
                 const defeated = Array.isArray(next.defeatedAiIds) ? next.defeatedAiIds as string[] : [];
                 const aiKills = (next.aiKills && typeof next.aiKills === 'object') ? next.aiKills as Record<string, number> : {};
                 const pending = Array.isArray(next.pendingCombatMissionClaims) ? next.pendingCombatMissionClaims as string[] : [];
@@ -441,7 +1094,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyAiKills: Number(next.dailyAiKills ?? 0) + 1,
                     defeatedAiIds: defeated.includes(aiId) ? defeated : [...defeated, aiId],
                     aiKills: { ...aiKills, [aiId]: Number(aiKills[aiId] ?? 0) + 1 },
-                    pendingCombatMissionClaims: pending.filter((k) => k !== missionKey),
+                    pendingCombatMissionClaims: pending,
                 };
             }
 
@@ -466,16 +1119,84 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (missionType === 'field' || missionType === 'hunt') {
                 next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
             }
+            const rewardCurrency: Record<string, number> = {};
+            for (const [currency, amount] of Object.entries(currencyBase ?? {})) {
+                const cleanAmount = Number(amount);
+                if (Number.isSafeInteger(cleanAmount) && cleanAmount >= 0) rewardCurrency[currency] = cleanAmount;
+            }
+            const reward = {
+                xpBoosted: 0,
+                statPoints: statPointsGranted,
+                ryo: ryoBoosted,
+                stamina: staminaBoosted,
+                territoryScrolls: scrolls,
+                currency: rewardCurrency,
+                items: [...items],
+            };
             next = recordPetBreedingProgress(next, {
                 kind: 'mission-complete',
                 receipt: `mission:${missionReceipt}`,
             }).character as SaveChar;
 
+            let combatSettlement: CombatMissionClaimSettlement | null = null;
+            if (combat && combatToken) {
+                const result: CombatMissionClaimResult = { reward, combat, completion: 'daily' };
+                combatSettlement = {
+                    version: 1,
+                    runId: combatToken.runId,
+                    missionId: combat.missionKey,
+                    rewardFingerprint: combatRewardFingerprint,
+                    settledAt: Date.now(),
+                    result,
+                    effects: { version: 1 },
+                };
+                next = appendCombatMissionClaimSettlement(next, combatSettlement);
+                const reservation = createCombatMissionClaimPaymentReservation({
+                    token: combatToken,
+                    playerName,
+                    enemyProfileId: combat.aiProfileId,
+                    rewardFingerprint: combatRewardFingerprint,
+                    settlement: combatSettlement,
+                });
+                // Fence the old claim worker before the first payout write. If
+                // this succeeds and the save fails, the reservation itself is
+                // the durable help-forward authority for the exact pinned result.
+                await reserveCombatMissionClaimPayment({
+                    store: kv,
+                    key: combatTokenKey,
+                    expected: combatTokenRaw,
+                    reservation,
+                });
+                combatPaymentReservation = reservation;
+                combatToken = null;
+                combatTokenRaw = reservation;
+            }
+
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,
             });
-            await writeSaveProjected(saveKey, updated, record);
+            let persisted = updated;
+            if (combatSettlement) {
+                const intended = mergePreservingImages(updated, record) as Record<string, unknown>;
+                const intendedCharacter = intended.character as SaveChar;
+                intended.character = {
+                    ...intendedCharacter,
+                    combatMissionClaimSettlements: next.combatMissionClaimSettlements,
+                };
+                persisted = await confirmCombatMissionClaimSave({
+                    write: async () => {
+                        await compareSetExactKvRow(kv, saveKey, record, intended);
+                        await syncCurrencyLedger(playerName, intended, {
+                            previousCharacter: char,
+                        });
+                    },
+                    read: () => kv.get<Record<string, unknown>>(saveKey),
+                    settlement: combatSettlement,
+                });
+            } else {
+                await writeSaveProjected(saveKey, updated, record);
+            }
             if (progressReceiptKeyToClear) {
                 await kv.del(progressReceiptKeyToClear).catch(() => 0);
             }
@@ -488,17 +1209,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return {
                 applied: true,
-                saveVersion: Number(updated._saveVersion ?? 0),
+                saveVersion: Number(persisted._saveVersion ?? updated._saveVersion ?? 0),
                 reward: {
                     xpBoosted: 0, // retired — kept in the shape for old clients
                     statPoints: statPointsGranted,
                     ryo: ryoBoosted,
                     stamina: staminaBoosted,
                     territoryScrolls: scrolls,
-                    currency: currencyBase ? { ...currencyBase } : {},
-                    items: [...items],
+                    currency: reward.currency,
+                    items: reward.items,
                 },
                 combat,
+                ...(combatSettlement ? { combatRunId: combatSettlement.runId } : {}),
+                ...(combatSettlement ? { combatSettlementFingerprint: combatSettlement.rewardFingerprint } : {}),
                 completion,
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
                 ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
@@ -512,22 +1235,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // failure here must never fail the (already-applied) claim.
         let finalSaveVersion = outcome.applied ? outcome.saveVersion : 0;
         let finalCharacter: Record<string, unknown> | null = null;
-        if (outcome.applied) {
-            try {
-                await reportNewbieEvent({ playerName, kind: 'newbie-missions' });
-                if (missionType === 'combat') {
-                    await reportNewbieEvent({ playerName, kind: 'newbie-battle-wins' });
+        if (outcome.applied && outcome.combatRunId && outcome.combat) {
+            const rewardFingerprint = outcome.combatSettlementFingerprint;
+            if (!rewardFingerprint) throw new Error('combat-mission-post-effect-fingerprint-missing');
+            const settlement = await completeCombatMissionPostEffects({
+                saveKey,
+                playerName,
+                runId: outcome.combatRunId,
+                missionId: outcome.combat.missionKey,
+                rewardFingerprint,
+            });
+            const tokenKey = combatMissionClaimTokenKey(playerName, outcome.combat.missionKey);
+            const tokenRaw = await kv.get<unknown>(tokenKey);
+            const token = parseCombatMissionClaimPaymentReservation(tokenRaw)
+                ?? parseCombatMissionClaimToken(tokenRaw);
+            if (token?.runId === settlement.runId) {
+                await retireCombatMissionClaimToken({
+                    store: kv,
+                    key: tokenKey,
+                    expected: tokenRaw,
+                    token,
+                    settlement,
+                });
+            }
+        }
+        if (outcome.applied && !outcome.replayed) {
+            if (missionType !== 'combat') {
+                try {
+                    await reportNewbieEvent({ playerName, kind: 'newbie-missions' });
+                } catch (e) {
+                    console.error('[claim-mission newbie]', e);
                 }
-            } catch (e) {
-                console.error('[claim-mission newbie]', e);
             }
             // Legacy tracking (ENABLE_LEGACY): mission/hunt completions are the
             // PvE spine of Legacy eligibility. Best-effort, after the save lock.
-            {
+            if (missionType !== 'combat') {
                 const legacyDeltas: Record<string, number> = {};
                 if (outcome.completion === 'hunt') legacyDeltas.huntCompletions = 1;
                 else if (outcome.completion === 'daily' || outcome.completion === 'total') legacyDeltas.missionCompletions = 1;
-                if (missionType === 'combat') legacyDeltas.pveKills = 1;
                 if (Object.keys(legacyDeltas).length > 0) {
                     await bumpLegacyStats(playerName, legacyDeltas);
                     await bumpEraContribution('missions');
@@ -540,9 +1285,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const [cur, amt] of Object.entries(r.currency ?? {})) {
                 if (amt) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
-            const finalRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
-            const finalChar = (finalRecord?.character ?? null) as Record<string, unknown> | null;
-            finalCharacter = finalChar;
+            const metricRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
+            const finalChar = (metricRecord?.character ?? null) as Record<string, unknown> | null;
             await recordBetaMetric({
                 event: betaEventForMissionType(missionType),
                 playerName,
@@ -555,11 +1299,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 itemCount: r.items.length,
                 currencies: r.currency,
             });
+        }
+        if (outcome.applied) {
+            const finalRecord = await kv.get<Record<string, unknown>>(saveKey);
+            finalCharacter = (finalRecord?.character ?? null) as Record<string, unknown> | null;
             finalSaveVersion = Number(finalRecord?._saveVersion ?? finalSaveVersion);
         }
 
         if (outcome.applied) {
-            const { saveVersion, ...body } = outcome;
+            const {
+                saveVersion,
+                replayed: _replayed,
+                combatSettlementFingerprint: _combatSettlementFingerprint,
+                ...body
+            } = outcome;
             return res.status(200).json({ ok: true, ...body, character: finalCharacter, _saveVersion: finalSaveVersion });
         }
         // Aggregate-only beta signal for hostile/replayed and failed reward

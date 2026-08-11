@@ -1,5 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -9,7 +9,9 @@ import { runWarfrontMatch } from '../_pet-sim/pet-warfront-sim.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import { buildWarfrontAiTeam } from './_warfront-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
-import { activeBreedingParentIds } from './_pet-busy.js';
+import { petCombatBusyReason } from './_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
+import { petArenaRyoRewardForTeam } from './_arena-reward.js';
 
 /*
  * /api/pet/warfront-start — POST only.
@@ -35,10 +37,30 @@ type WfStance = 'balanced' | 'siege' | 'jungle' | 'headhunt' | 'turtle';
 type WfDoctrine = 'none' | 'vanguard' | 'bulwark' | 'zealot' | 'warden-pact';
 type ArenaRole = 'defender' | 'tracker' | 'assassin' | 'sage';
 interface ArenaSlot { pet: Pet; role: ArenaRole }
+type WarfrontReceipt = {
+    playerName?: string;
+    reportKey?: string;
+    seed?: number;
+    mode?: string;
+    playerPetIds?: string[];
+    buyPolicy?: string;
+    stance?: string;
+    doctrine?: string;
+};
 
 const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
 // Roles the client's way: the pet's own role, else derive it (id/name/element/rarity).
 const autoRole = (pets: Pet[]): ArenaSlot[] => pets.map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
+
+export function chooseEligibleWarfrontPets(character: Record<string, unknown>, requestedIds: readonly string[]): Pet[] | null {
+    const ids = [...new Set(requestedIds.filter(Boolean))];
+    if (ids.length !== 4) return null;
+    const eligible = activeCarriedPets<Pet>(character);
+    const chosen = ids
+        .map((id) => eligible.find((pet) => String(pet.id) === id))
+        .filter((pet): pet is Pet => Boolean(pet));
+    return chosen.length === 4 ? chosen : null;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -48,10 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
-        const reportKeyRaw = typeof body.reportKey === 'string' ? body.reportKey.slice(0, 64) : '';
-        const reportKey = /^[A-Za-z0-9:_-]+$/.test(reportKeyRaw) ? reportKeyRaw : '';
         const playerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((v: unknown) => String(v)).slice(0, 4) : [];
-        const seed = Number.isSafeInteger(Number(body.seed)) ? Number(body.seed) : 0;
         const stanceRaw = String(body.stance ?? 'balanced');
         const stance: WfStance = (['balanced', 'siege', 'jungle', 'headhunt', 'turtle'].includes(stanceRaw) ? stanceRaw : 'balanced') as WfStance;
         const doctrineRaw = String(body.doctrine ?? 'none');
@@ -62,7 +81,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const buyPolicy: WfBuyPolicy = (policyRaw === 'offense' || policyRaw === 'defense') ? policyRaw : 'balanced';
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!reportKey) return res.status(400).json({ error: 'Missing or invalid reportKey.' });
         if (!playerPetIds.length) return res.status(400).json({ error: 'No player pets supplied.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
@@ -70,42 +88,118 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own matches.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'warfront-start', 30, 60_000, identity.name))) return;
 
-        // BLUE = the player's REAL pets (authoritative stats loaded from the save —
-        // never client-supplied), in the picked order.
-        const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const myChar = mySave?.character as Record<string, unknown> | undefined;
-        const myPets = Array.isArray(myChar?.pets) ? myChar.pets as unknown as Pet[] : [];
-        const bluePets = playerPetIds
-            .map((id) => myPets.find((p) => String((p as { id?: unknown }).id ?? '') === id))
-            .filter(Boolean) as Pet[];
-        if (!bluePets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
-        const breedingParents = activeBreedingParentIds(myChar ?? {});
-        if (bluePets.some((pet) => breedingParents.has(String(pet.id)))) {
-            return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+        const activeKey = `pet:battle-active:${playerName}`;
+        const sameIds = (a: string[] | undefined, b: string[]) => JSON.stringify(a ?? []) === JSON.stringify(b);
+        const matchesRequest = (active: WarfrontReceipt | null): boolean => Boolean(active
+            && active.playerName === playerName
+            && active.mode === 'warfront'
+            && sameIds(active.playerPetIds, playerPetIds)
+            && active.buyPolicy === buyPolicy
+            && active.stance === stance
+            && active.doctrine === doctrine);
+        const readActive = async () => {
+            const activeToken = await kv.get<string>(activeKey);
+            const active = activeToken
+                ? await kv.get<WarfrontReceipt>(`pet:battle-token:${playerName}:${activeToken}`)
+                : null;
+            return { activeToken, active };
+        };
+
+        // A lost start response replays the exact receipt instead of minting a
+        // second random seed. battle-result releases this shared active key on
+        // win, loss, or draw; both keys also expire after fifteen minutes.
+        const outstanding = await readActive();
+        if (outstanding.activeToken) {
+            if (matchesRequest(outstanding.active) && outstanding.active?.reportKey && Number.isSafeInteger(outstanding.active.seed)) {
+                return res.status(200).json({
+                    ok: true,
+                    token: outstanding.activeToken,
+                    reportKey: outstanding.active.reportKey,
+                    seed: outstanding.active.seed,
+                    resumed: true,
+                });
+            }
+            return res.status(409).json({ error: 'Finish or settle your active pet battle first.' });
         }
 
-        // RED = the canonical Warfront vs-AI pool cycled to the player's count.
-        const redPets = buildWarfrontAiTeam(bluePets.length);
-
-        // Re-run the exact rendered match and read the authoritative winner.
-        const result = runWarfrontMatch(autoRole(bluePets), autoRole(redPets), seed, buyPolicy, 'balanced', undefined, { blue: stance }, { blue: doctrine });
-        const authoritativeOutcome: 'win' | 'loss' | 'draw' = result.winner === 'blue' ? 'win' : result.winner === 'red' ? 'loss' : 'draw';
-
-        // Reward magnitude sealed from the AI actually fought (avg level).
-        const sealedOpponentLevel = clampLevel(redPets.reduce((s, p) => s + Number((p as { level?: unknown }).level ?? 1), 0) / Math.max(1, redPets.length));
-
+        // Server-owned identifiers are created before the lease claim; legacy
+        // body.seed/reportKey values are deliberately ignored.
+        const seed = randomInt(1, 0x7fffffff);
         const token = randomUUID().replace(/-/g, '');
-        await kv.set(`pet:battle-token:${playerName}:${token}`, {
-            playerName,
-            opponentLevel: sealedOpponentLevel,
-            reportKey,
-            mode: 'warfront',
-            createdAt: Date.now(),
-            playerPetIds,
-            authoritativeOutcome,
-        }, { ex: TOKEN_TTL_SECONDS });
+        const reportKey = `pet:${token}`;
 
-        return res.status(200).json({ ok: true, token, reportKey, outcome: authoritativeOutcome });
+        let ownsActiveLease = false;
+        try {
+            try {
+                ownsActiveLease = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS }) === 'OK';
+            } catch (claimError) {
+                // A lost claim acknowledgement is success only when readback
+                // proves this exact token owns the lifecycle boundary.
+                if (await kv.get<string>(activeKey).catch(() => null) !== token) throw claimError;
+                ownsActiveLease = true;
+            }
+            if (!ownsActiveLease) {
+                const raced = await readActive();
+                if (raced.activeToken && matchesRequest(raced.active) && raced.active?.reportKey && Number.isSafeInteger(raced.active.seed)) {
+                    return res.status(200).json({
+                        ok: true,
+                        token: raced.activeToken,
+                        reportKey: raced.active.reportKey,
+                        seed: raced.active.seed,
+                        resumed: true,
+                    });
+                }
+                return res.status(409).json({ error: 'Finish or settle your active pet battle first.' });
+            }
+
+            // Read and freeze the real roster only after winning the same lease
+            // used by lifecycle mutations. No training/equip/release write can
+            // slip between this snapshot and its reward receipt.
+            const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const myChar = mySave?.character as Record<string, unknown> | undefined;
+            const bluePets = myChar ? chooseEligibleWarfrontPets(myChar, playerPetIds) : null;
+            if (!bluePets) {
+                return res.status(409).json({ error: 'Warfront needs 4 eligible pets. Base account: 3 carried. Shinobi Supporter: 5 carried.' });
+            }
+            if (bluePets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
+                return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+            }
+
+            const redPets = buildWarfrontAiTeam(bluePets.length);
+            const result = runWarfrontMatch(autoRole(bluePets), autoRole(redPets), seed, buyPolicy, 'balanced', undefined, { blue: stance }, { blue: doctrine });
+            const authoritativeOutcome: 'win' | 'loss' | 'draw' = result.winner === 'blue' ? 'win' : result.winner === 'red' ? 'loss' : 'draw';
+            const sealedOpponentLevel = clampLevel(redPets.reduce((s, p) => s + Number((p as { level?: unknown }).level ?? 1), 0) / Math.max(1, redPets.length));
+            const sealedRewardRyo = petArenaRyoRewardForTeam(redPets);
+            const receipt = {
+                playerName,
+                opponentLevel: sealedOpponentLevel,
+                rewardRyo: sealedRewardRyo,
+                reportKey,
+                seed,
+                mode: 'warfront',
+                createdAt: Date.now(),
+                playerPetIds: bluePets.map((pet) => String(pet.id)),
+                buyPolicy,
+                stance,
+                doctrine,
+                authoritativeOutcome,
+            };
+            const tokenKey = `pet:battle-token:${playerName}:${token}`;
+            try {
+                const written = await kv.set(tokenKey, receipt, { ex: TOKEN_TTL_SECONDS, nx: true });
+                if (written !== 'OK') throw new Error('pet-warfront-receipt-write-rejected');
+            } catch (writeError) {
+                const stored = await kv.get<WarfrontReceipt>(tokenKey).catch(() => null);
+                if (!stored || stored.reportKey !== reportKey || stored.seed !== seed || !matchesRequest(stored)) {
+                    throw writeError;
+                }
+            }
+
+            ownsActiveLease = false;
+            return res.status(200).json({ ok: true, token, reportKey, seed });
+        } finally {
+            if (ownsActiveLease) await kv.delIfEqual(activeKey, token).catch(() => false);
+        }
     } catch (err) {
         console.error('[pet/warfront-start]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

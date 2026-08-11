@@ -12,7 +12,8 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 import { SERVER_ARENA_PETS } from './_arena-ai.js';
 import { petArenaRyoRewardForTeam } from './_arena-reward.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
-import { activeBreedingParentIds } from './_pet-busy.js';
+import { petCombatBusyReason } from './_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 import {
     hollowGateCombatBindingKey,
@@ -36,7 +37,19 @@ import {
 
 const TOKEN_TTL_SECONDS = 15 * 60;
 
+type CasualBattleReceipt = {
+    playerName?: string;
+    opponentName?: string;
+    reportKey?: string;
+    seed?: number;
+    mode?: string;
+    playerPetIds?: string[];
+    opponentPetIds?: string[];
+    hollowGate?: { runId?: string };
+};
+
 const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
+const hasDuplicateIds = (ids: string[]): boolean => new Set(ids).size !== ids.length;
 
 function buildServerHollowHound(activePet: Pet, floorRaw: unknown, requestedId: string, kind: HollowGateHoundKind): Pet {
     const floor = Math.max(1, Math.min(5, Math.floor(Number(floorRaw) || 1)));
@@ -76,11 +89,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mode = body.mode === '2v2' ? '2v2' : '1v1';
         const playerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         const opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
-        // The battle receipt owns both identifiers. A caller cannot search for a
-        // favourable deterministic seed and then ask the server to certify it.
-        const token = randomUUID().replace(/-/g, '');
-        const reportKey = `pet:${token}`;
-
+        if (hasDuplicateIds(playerPetIds) || hasDuplicateIds(opponentPetIds)) {
+            return res.status(400).json({ error: 'A pet can only occupy one battle slot.' });
+        }
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -88,93 +99,157 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only start your own pet battles.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-battle-start', 30, 60_000, identity.name))) return;
+
+        const hollowGateBody = body.hollowGate && typeof body.hollowGate === 'object'
+            ? body.hollowGate as Record<string, unknown>
+            : null;
+        const requestedHollowRunId = hollowGateBody ? String(hollowGateBody.runId ?? '').slice(0, 96) : '';
+        const activeKey = `pet:battle-active:${playerName}`;
+        const sameIds = (a: string[] | undefined, b: string[]) => JSON.stringify(a ?? []) === JSON.stringify(b);
+        const matchesRequest = (active: CasualBattleReceipt | null): boolean => Boolean(active
+            && active.playerName === playerName
+            && active.mode === mode
+            && sameIds(active.playerPetIds, playerPetIds)
+            && sameIds(active.opponentPetIds, opponentPetIds)
+            && safeName(active.opponentName ?? '') === opponentName
+            && String(active.hollowGate?.runId ?? '') === requestedHollowRunId);
+        const readActive = async () => {
+            const activeToken = await kv.get<string>(activeKey);
+            const active = activeToken
+                ? await kv.get<CasualBattleReceipt>(`pet:battle-token:${playerName}:${activeToken}`)
+                : null;
+            return { activeToken, active };
+        };
+        const sendResume = (activeToken: string, active: CasualBattleReceipt) => res.status(200).json({
+            ok: true,
+            token: activeToken,
+            reportKey: active.reportKey,
+            seed: active.seed,
+            resumed: true,
+        });
+
+        // Check before doing any save read or simulation. A lifecycle operation
+        // and a rewardful battle compete on this exact key, so whichever wins the
+        // lease owns the authoritative pet snapshot window.
+        const outstanding = await readActive();
+        if (outstanding.activeToken) {
+            if (outstanding.active && matchesRequest(outstanding.active)
+                && outstanding.active.reportKey && Number.isSafeInteger(outstanding.active.seed)) {
+                return sendResume(outstanding.activeToken, outstanding.active);
+            }
+            return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
+        }
+
+        // The battle receipt owns both identifiers. A caller cannot search for a
+        // favourable deterministic seed and then ask the server to certify it.
+        const token = randomUUID().replace(/-/g, '');
+        const reportKey = `pet:${token}`;
         const seed = identity.admin && Number.isSafeInteger(Number(body.seed))
             ? Number(body.seed)
             : randomInt(1, 0x7fffffff);
 
-        const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const myChar = mySave?.character as Record<string, unknown> | undefined;
-        const myPets = Array.isArray(myChar?.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
-        const playerPets = playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
-        if (!playerPets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
-        const breedingParents = activeBreedingParentIds(myChar ?? {});
-        if (playerPets.some((pet) => breedingParents.has(String(pet.id)))) {
-            return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
-        }
-        let opponentPets: Pet[] = [];
-        let isAiOpponent = false;
-        let hollowGate: { runId: string } | null = null;
-        let realOpponentLevel: number | null = null;
-        const hollowGateBody = body.hollowGate && typeof body.hollowGate === 'object'
-            ? body.hollowGate as Record<string, unknown>
-            : null;
-        if (hollowGateBody) {
-            const runId = String(hollowGateBody.runId ?? '').slice(0, 96);
-            const runToken = String(hollowGateBody.token ?? '').slice(0, 64);
-            const requestedHoundId = opponentPetIds[0] ?? '';
-            if (!runId || !runToken || mode !== '1v1' || playerPets.length !== 1 || !isHollowHoundEncounterId(requestedHoundId)) {
-                return res.status(400).json({ error: 'Invalid Hollow Gate pet encounter.' });
+        let ownsActiveLease = false;
+        try {
+            try {
+                ownsActiveLease = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS }) === 'OK';
+            } catch (claimError) {
+                // A transport failure after commit is still a successful claim
+                // when the exact token is visible on readback.
+                if (await kv.get<string>(activeKey).catch(() => null) !== token) throw claimError;
+                ownsActiveLease = true;
             }
-            const [binding, run] = await Promise.all([
-                kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(runId)),
-                kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, runToken)),
-            ]);
-            const validation = validateHollowGatePetClaim({
-                binding,
-                activeEncounter: run?.activeEncounter,
-                playerName,
-                token: runToken,
-            });
-            if (!validation.ok) {
-                return res.status(409).json({ error: `Hollow Gate pet encounter rejected: ${validation.reason}.` });
+            if (!ownsActiveLease) {
+                const raced = await readActive();
+                if (raced.activeToken && raced.active && matchesRequest(raced.active)
+                    && raced.active.reportKey && Number.isSafeInteger(raced.active.seed)) {
+                    return sendResume(raced.activeToken, raced.active);
+                }
+                return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
             }
-            if (binding?.runId !== runId) return res.status(409).json({ error: 'Hollow Gate pet encounter binding drifted.' });
-            opponentPets = [buildServerHollowHound(playerPets[0], binding.floor, requestedHoundId, binding.kind)];
-            isAiOpponent = true;
-            hollowGate = { runId };
-        } else if (opponentName) {
-            const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
-            const oppChar = oppSave?.character as Record<string, unknown> | undefined;
-            const stored = Array.isArray(oppChar?.pets) ? oppChar.pets as Array<Record<string, unknown>> : [];
-            opponentPets = opponentPetIds.map((id) => stored.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
-            if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
-        }
-        if (!opponentPets.length) { opponentPets = opponentPetIds.map((id) => SERVER_ARENA_PETS[id]).filter(Boolean); isAiOpponent = opponentPets.length > 0; }
-        if (!opponentPets.length) return res.status(409).json({ error: 'A server-known opponent pet is required.' });
+
+            const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const myChar = mySave?.character as Record<string, unknown> | undefined;
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {});
+            const playerPets = playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
+            if (!playerPets.length || playerPets.length !== playerPetIds.length) return res.status(409).json({ error: 'A stored player pet is required.' });
+            if (playerPets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
+                return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+            }
+            let opponentPets: Pet[] = [];
+            let isAiOpponent = false;
+            let hollowGate: { runId: string } | null = null;
+            let realOpponentLevel: number | null = null;
+            if (hollowGateBody) {
+                const runId = String(hollowGateBody.runId ?? '').slice(0, 96);
+                const runToken = String(hollowGateBody.token ?? '').slice(0, 64);
+                const requestedHoundId = opponentPetIds[0] ?? '';
+                if (!runId || !runToken || mode !== '1v1' || playerPets.length !== 1 || !isHollowHoundEncounterId(requestedHoundId)) {
+                    return res.status(400).json({ error: 'Invalid Hollow Gate pet encounter.' });
+                }
+                const [binding, run] = await Promise.all([
+                    kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(runId)),
+                    kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, runToken)),
+                ]);
+                const validation = validateHollowGatePetClaim({
+                    binding,
+                    activeEncounter: run?.activeEncounter,
+                    playerName,
+                    token: runToken,
+                });
+                if (!validation.ok) {
+                    return res.status(409).json({ error: `Hollow Gate pet encounter rejected: ${validation.reason}.` });
+                }
+                if (binding?.runId !== runId) return res.status(409).json({ error: 'Hollow Gate pet encounter binding drifted.' });
+                opponentPets = [buildServerHollowHound(playerPets[0], binding.floor, requestedHoundId, binding.kind)];
+                isAiOpponent = true;
+                hollowGate = { runId };
+            } else if (opponentName) {
+                const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
+                const oppChar = oppSave?.character as Record<string, unknown> | undefined;
+                const stored = activeCarriedPets<Record<string, unknown>>(oppChar ?? {});
+                opponentPets = opponentPetIds.map((id) => stored.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
+                if (oppChar && opponentPets.length !== opponentPetIds.length) {
+                    return res.status(409).json({ error: 'A stored opponent pet is required.' });
+                }
+                if (opponentPets.length && opponentPets.some((pet) => petCombatBusyReason(oppChar ?? {}, pet as unknown as Record<string, unknown>))) {
+                    return res.status(409).json({ error: 'The selected opponent pet is currently unavailable.' });
+                }
+                if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
+            }
+            if (!opponentPets.length) { opponentPets = opponentPetIds.map((id) => SERVER_ARENA_PETS[id]).filter(Boolean); isAiOpponent = opponentPets.length > 0; }
+            if (!opponentPets.length) return res.status(409).json({ error: 'A server-known opponent pet is required.' });
 
         // Reward magnitude is SEALED here from the opponent actually fought — a
         // real opponent's live save level, or the AI pet's own level — never
         // body.opponentLevel. battle-result pays `level*2` ryo from this sealed
         // value, so a client can't beat a trivial level-8 AI and then report a
         // real level-100 name to be paid as though it beat the level-100 player.
-        const sealedOpponentLevel = realOpponentLevel != null
-            ? realOpponentLevel
-            : clampLevel(Math.max(1, ...opponentPets.map((p) => Number((p as { level?: unknown }).level ?? 1))));
-        const sealedRewardRyo = petArenaRyoRewardForTeam(opponentPets);
-        const rank = Math.max(0, Math.min(10, Number(myChar?.professionRank) || 0));
-        const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
-        const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
-        const revive = isAiOpponent && masteryHasCapstone(myChar?.profession, myChar?.masterySpec, 'alpha-bond');
+            const sealedOpponentLevel = realOpponentLevel != null
+                ? realOpponentLevel
+                : clampLevel(Math.max(1, ...opponentPets.map((p) => Number((p as { level?: unknown }).level ?? 1))));
+            const sealedRewardRyo = petArenaRyoRewardForTeam(opponentPets);
+            const rank = Math.max(0, Math.min(10, Number(myChar?.professionRank) || 0));
+            const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
+            const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
+            const revive = isAiOpponent && masteryHasCapstone(myChar?.profession, myChar?.masterySpec, 'alpha-bond');
         // A PvE fight is the only one the player can COMMAND — PetArena gates
         // player control on a built-in AI opponent, because a casual-vs-player or
         // clan-war duel must stay precomputed so both clients derive the same
         // fight. So it is also the only one whose reward can come from replaying
         // the player's inputs. Seal everything that replay needs; the client
         // restates none of it when it reports the result.
-        const sealedParams: SealedDuelParams | null = isAiOpponent ? {
-            mode,
-            seed,
-            damageMult,
-            hpMult,
-            revive,
-            // Must match the client's controlled-duel construction exactly: items
-            // ON, and accuracy PINNED rather than read from the per-device
-            // petAccuracy.v1 flag (CONTROLLED_DUEL_ACCURACY in pet-duel-live.ts).
-            // Either one disagreeing resolves a different fight.
-            applyItems: true,
-            accuracy: true,
-            terrain: null,
-        } : null;
+            const sealedParams: SealedDuelParams | null = isAiOpponent ? {
+                mode,
+                seed,
+                damageMult,
+                hpMult,
+                revive,
+                // Must match the client's controlled-duel construction exactly:
+                // items ON and accuracy pinned, never read from a device flag.
+                applyItems: true,
+                accuracy: true,
+                terrain: null,
+            } : null;
 
         // Baseline outcome, used when the report carries no input log — the flag
         // is off, an older client, or the player just watched. For a PvE fight
@@ -182,36 +257,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // empty log reproduces the uncommanded AI fight exactly), so the sealed
         // value finally agrees with the fight on screen instead of coming from
         // the retired pet-duel-sim engine. Non-PvE casual duels are untouched.
-        const result = sealedParams
-            ? replayCasualPetDuel(playerPets, opponentPets, sealedParams, []).outcome
-            : mode === '2v2'
-                ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
-                : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
+            const result = sealedParams
+                ? replayCasualPetDuel(playerPets, opponentPets, sealedParams, []).outcome
+                : mode === '2v2'
+                    ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
+                    : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
 
-        // One outstanding receipt per player closes seed-shopping: a client must
-        // settle (including a loss/draw) before it can mint another random seed.
-        const activeKey = `pet:battle-active:${playerName}`;
-        const claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
-        if (!claimed) {
-            // A refresh may lose the in-memory receipt. Return the SAME seal only
-            // when it describes the exact requested matchup; never mint a new
-            // seed and never attach the old token to different pets.
-            const activeToken = await kv.get<string>(activeKey);
-            const active = activeToken ? await kv.get<{
-                reportKey?: string; seed?: number; mode?: string;
-                playerPetIds?: string[]; opponentPetIds?: string[];
-            }>(`pet:battle-token:${playerName}:${activeToken}`) : null;
-            const sameIds = (a: string[] | undefined, b: string[]) => JSON.stringify(a ?? []) === JSON.stringify(b);
-            if (activeToken && active?.reportKey && Number.isSafeInteger(active.seed)
-                && active.mode === mode
-                && sameIds(active.playerPetIds, playerPetIds)
-                && sameIds(active.opponentPetIds, opponentPetIds)) {
-                return res.status(200).json({ ok: true, token: activeToken, reportKey: active.reportKey, seed: active.seed, resumed: true });
-            }
-            return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
-        }
-        try {
-            await kv.set(`pet:battle-token:${playerName}:${token}`, {
+            const receipt = {
                 playerName,
                 opponentName: opponentName || undefined,
                 opponentLevel: sealedOpponentLevel,
@@ -221,20 +273,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 mode,
                 createdAt: Date.now(),
                 playerPetIds,
-            // Needed to rebuild the same opponent at report time. AI pets come
-            // from the server's own roster, so these ids are not player input in
-            // any meaningful sense — but they are re-resolved, never trusted.
+                // Needed to rebuild the same opponent at report time. AI pets
+                // are re-resolved from the server roster, never trusted raw.
                 opponentPetIds,
                 ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
                 sealedParams,
                 authoritativeOutcome: result,
-            }, { ex: TOKEN_TTL_SECONDS });
-        } catch (writeErr) {
-            await kv.delIfEqual(activeKey, token).catch(() => undefined);
-            throw writeErr;
-        }
+            };
+            const tokenKey = `pet:battle-token:${playerName}:${token}`;
+            try {
+                const written = await kv.set(tokenKey, receipt, { ex: TOKEN_TTL_SECONDS, nx: true });
+                if (written !== 'OK') throw new Error('pet-battle-receipt-write-rejected');
+            } catch (writeError) {
+                // Do not discard a valid receipt when storage committed it but
+                // the response was lost. Readback must match this exact request.
+                const stored = await kv.get<CasualBattleReceipt>(tokenKey).catch(() => null);
+                if (!stored || stored.reportKey !== reportKey || stored.seed !== seed || !matchesRequest(stored)) {
+                    throw writeError;
+                }
+            }
 
-        return res.status(200).json({ ok: true, token, reportKey, seed });
+            // From this point the receipt owns the active lease until settlement.
+            ownsActiveLease = false;
+            return res.status(200).json({ ok: true, token, reportKey, seed });
+        } finally {
+            if (ownsActiveLease) await kv.delIfEqual(activeKey, token).catch(() => false);
+        }
     } catch (err) {
         console.error('[pet/battle-start]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -64,7 +64,15 @@ test("terminal action/state responses reconcile physical outcomes server-side", 
         state.indexOf("reconcileTerminalSoloPveOutcome(session, playerName)") < state.indexOf("session.expiresAt <= Date.now()"),
         "a still-readable expired terminal session must repair its outcome before returning 410",
     );
-    assert.match(missionQueue, /settlePveFightOutcome\(initialSession!, playerName\)/, "a mission reward must not queue before its physical cost");
+    const usageSettlement = "const usage = await settleSoloPveTerminalUsage(initialSession!, playerName)";
+    const physicalSettlement = "const physicalOutcome = await settlePveFightOutcome(usage.session, playerName)";
+    assert.ok(missionQueue.includes(usageSettlement), "mission item/resource usage must settle through the common authority");
+    assert.ok(missionQueue.includes(physicalSettlement), "the verified usage session must drive the physical outcome");
+    assert.ok(
+        missionQueue.indexOf(usageSettlement) < missionQueue.indexOf(physicalSettlement)
+        && missionQueue.indexOf(physicalSettlement) < missionQueue.indexOf("const saveKey ="),
+        "a mission reward must not queue before its usage and physical costs",
+    );
 });
 
 test("the mission screen adopts authoritative character and save versions", () => {
