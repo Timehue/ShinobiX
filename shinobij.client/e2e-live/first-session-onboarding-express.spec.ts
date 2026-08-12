@@ -229,13 +229,13 @@ test('a new player completes the full persisted Academy first session against bu
     await expect(page.getByRole('button', { name: 'Go to Jutsu Training' })).toBeVisible();
     await page.getByRole('button', { name: 'Go to Jutsu Training' }).click();
     await expect(page.getByRole('heading', { name: 'Jutsu Training Hall' })).toBeVisible();
-    const jutsuList = page.getByRole('listbox', { name: 'Choose Jutsu' });
+    const jutsuList = page.getByRole('listbox', { name: 'Jutsu library' });
     await jutsuList.getByText('Flicker', { exact: true }).click();
     const jutsuResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/training/jutsu-ryo');
-    await page.getByRole('button', { name: 'Unlock Level 1 (Free)' }).click();
+    await page.getByRole('button', { name: 'Unlock level 1 · free' }).click();
     expect((await jutsuResponse).status()).toBe(200);
-    await dismissNotice(page, 'Flicker unlocked at level 1 for free!');
+    await expect(page.locator('.jutsu-notice')).toContainText('Flicker unlocked at level 1.');
     await expect(page.getByRole('button', { name: 'Open Profile' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'jutsuLoadout'
