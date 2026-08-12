@@ -752,7 +752,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const myPets = Array.isArray(myChar?.pets) ? myChar.pets : [];
         const bluePets = myChar ? chooseEligibleWarfrontPets(myChar, playerPetIds, myPets) : null;
         if (!bluePets) {
-            return res.status(409).json({ error: 'Warfront needs 4 eligible pets. Base account: 3 carried. Shinobi Supporter: 5 carried.' });
+            return res.status(409).json({ error: 'Warfront needs 4 eligible pets. Base account: 4 carried. Shinobi Supporter: 6 carried.' });
         }
         if (bluePets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
             return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });

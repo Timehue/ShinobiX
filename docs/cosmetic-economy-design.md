@@ -227,7 +227,7 @@ defense — see §9.
   ```
 
 - **`owned` is the durable wallet of cosmetics; `equipped` is the active set.** Equipping is free
-  and reversible (own-once). Pet skins/collars key by petId since a player has up to 5 pets.
+  and reversible (own-once). Pet skins/collars key by petId across the 4/6 carried roster and unlimited Sanctuary ownership.
 
 ### 3.4 Storage keys (in the one-table KV)
 

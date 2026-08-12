@@ -9,7 +9,7 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 type Out = { statusCode: number; body?: Record<string, unknown> };
 
 const PLAYER = 'lapsedlifecycleprobe';
-const PET_IDS = ['life-pet-1', 'life-pet-2', 'life-pet-3', 'life-pet-4', 'life-pet-5'];
+const PET_IDS = ['life-pet-1', 'life-pet-2', 'life-pet-3', 'life-pet-4', 'life-pet-5', 'life-pet-6'];
 
 let breedingStart: Handler;
 let expeditionStart: Handler;
@@ -92,8 +92,8 @@ test('lapsed preserved overflow cannot start breeding, training, or reward exped
     const breed = response();
     await breedingStart(request({
         playerName: PLAYER,
-        parent1Id: PET_IDS[3],
-        parent2Id: PET_IDS[4],
+        parent1Id: PET_IDS[4],
+        parent2Id: PET_IDS[5],
         requestId: 'lapsed-overflow-breed-request-001',
     }), breed.res);
     assert.equal(breed.out.statusCode, 409);
@@ -102,7 +102,7 @@ test('lapsed preserved overflow cannot start breeding, training, or reward exped
     const train = response();
     await progress(request({
         playerName: PLAYER,
-        petId: PET_IDS[3],
+        petId: PET_IDS[4],
         action: 'start-training',
         focus: 'strength',
         durationMs: 60 * 60 * 1000,
@@ -113,7 +113,7 @@ test('lapsed preserved overflow cannot start breeding, training, or reward exped
     const expedition = response();
     await expeditionStart(request({
         playerName: PLAYER,
-        petId: PET_IDS[3],
+        petId: PET_IDS[4],
         expType: 'scout',
         petLevel: 50,
     }), expedition.res);
@@ -123,13 +123,13 @@ test('lapsed preserved overflow cannot start breeding, training, or reward exped
 
     const stored = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
     const storedPets = (stored?.character as { pets?: Array<Record<string, unknown>> })?.pets ?? [];
-    assert.equal(storedPets.length, 5, 'overflow ownership remains non-destructive');
-    assert.equal(storedPets[3].training, undefined);
-    assert.equal(storedPets[3].expedition, undefined);
+    assert.equal(storedPets.length, 6, 'overflow ownership remains non-destructive');
+    assert.equal(storedPets[4].training, undefined);
+    assert.equal(storedPets[4].expedition, undefined);
 });
 
 test('lapse does not trap collection of a training session started while entitled', async () => {
-    const pets = PET_IDS.map((id, index) => pet(id, index === 3 ? {
+    const pets = PET_IDS.map((id, index) => pet(id, index === 4 ? {
         training: { type: 'strength', startedAt: 1, endsAt: 2, durationMs: 1, sealedXp: 25 },
     } : {}));
     await kv.set(`save:${PLAYER}`, { _saveVersion: 10, character: character(pets) });
@@ -137,13 +137,13 @@ test('lapse does not trap collection of a training session started while entitle
     const collect = response();
     await progress(request({
         playerName: PLAYER,
-        petId: PET_IDS[3],
+        petId: PET_IDS[4],
         action: 'complete-training',
     }), collect.res);
     assert.equal(collect.out.statusCode, 200);
     assert.equal(collect.out.body?.ok, true);
     assert.equal((collect.out.body?.pet as Record<string, unknown>)?.training, undefined);
-    assert.equal((collect.out.body?.character as { pets?: unknown[] })?.pets?.length, 5);
+    assert.equal((collect.out.body?.character as { pets?: unknown[] })?.pets?.length, 6);
 });
 
 test('an outstanding pet battle blocks lifecycle writes and preserves its sealed consumable', async () => {

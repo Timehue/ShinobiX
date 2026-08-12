@@ -28,8 +28,8 @@ export function subscriberTier(character: WithPatreon): string | null {
 // Perk caps: base = non-subscriber, sub = $15 "Shinobi Supporter".
 export const LOADOUT_CAP_BASE = 12;
 export const LOADOUT_CAP_SUB = 15;
-export const PET_CAP_BASE = 3;
-export const PET_CAP_SUB = 5;
+export const PET_CAP_BASE = 4;
+export const PET_CAP_SUB = 6;
 export const STORED_BLOODLINES_BASE = 1;
 export const STORED_BLOODLINES_SUB = 2;
 export const PRESET_AVATARS = ['/starter-avatar-one.webp', '/starter-avatar-two.webp'] as const;
@@ -58,7 +58,7 @@ export function maxStoredBloodlines(character: WithPatreon): number {
     return isPatreonSubscriber(character) ? STORED_BLOODLINES_SUB : STORED_BLOODLINES_BASE;
 }
 
-/** Client mirror of the server's non-destructive 3/5 current-use projection. */
+/** Client mirror of the server's non-destructive 4/6 current-use projection. */
 export function activeCarriedPetIds<T extends { id?: string }>(
     character: WithPatreon & { activePetId?: string; activePetId2v2?: string; pets?: readonly T[] },
     petsOverride?: readonly T[],

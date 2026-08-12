@@ -138,7 +138,7 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
         </div>
 
         <div className="pet-sanctuary-manager">
-            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Base carries 3; Supporter carries 5. Overflow stays owned but cannot fight, breed, or start new training or expeditions. Store a carried pet to promote the next one. Sanctuary pets rest outside all activities.</p></div>
+            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Base carries 4; Supporter carries 6. Overflow stays owned but cannot fight, breed, or start new training or expeditions. Store a carried pet to promote the next one. Sanctuary pets rest outside all activities.</p></div>
             <label><span>Owned roster companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No roster companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)}{eligibleCarriedIds.has(pet.id) ? " · Carried" : " · Preserved overflow"}</option>)}</select></label>
             <button type="button" className="pet-home-primary" disabled={!selectedDepositPetId || Boolean(busyPetId)} onClick={() => void moveToSanctuary()}>{busyPetId === selectedDepositPetId ? "Preparing habitat…" : "Move to Sanctuary"}</button>
         </div>
