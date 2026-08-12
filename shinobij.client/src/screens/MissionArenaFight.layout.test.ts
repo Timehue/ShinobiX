@@ -86,11 +86,66 @@ test("mission fight reserves a row for its action notice instead of displacing t
         `the notice pin is gated at max-width ${noticeBound}px but the sibling band pins it lines up with are gated at ${siblingPinBound}px — they must match`,
     );
 
+    const missionTabRule = missionCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout\.mission-arena-fight \.battle-tab\s*\{([^}]*)\}/,
+    );
+    assert.ok(missionTabRule, "mobile tab sizing must remain scoped to mission combat");
+    assert.match(
+        missionTabRule![1],
+        /min-height:\s*44px\s*!important/,
+        "mission mobile tabs must preserve the minimum accessible touch target",
+    );
+    const missionTabAnchor = missionCss.indexOf(
+        ".arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab",
+    );
+    const missionTabBounds = [
+        ...missionCss.slice(0, missionTabAnchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g),
+    ];
+    assert.equal(
+        missionTabBounds.at(-1)?.[1],
+        siblingPinBound,
+        "the mission touch-target correction must use the shared mobile boundary",
+    );
+
     // The fix is load-bearing on that class still reserving a track.
     assert.ok(
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
         "battle-skin must still reserve the extra tip row on desktop, mobile, and short-mobile",
     );
+});
+
+test("mission desktop restores the dossier-board-dossier composition and full-width battlefield", () => {
+    assert.match(
+        missionSource,
+        /<CombatInstance(?:\s|>)/,
+        "mission combat must use the viewport boundary without opting into the aspect-locked shared shell",
+    );
+    assert.doesNotMatch(missionSource, /<ShinobiCombatShell(?:\s|>)/);
+    assert.doesNotMatch(missionSource, /<CombatBoardStage(?:\s|>)/);
+
+    assert.match(
+        missionCss,
+        /html\[data-vp="xl"\][\s\S]*?html\[data-vp="lg"\][\s\S]*?\.combat-side-hud:first-child\s*\{[^}]*display:\s*flex\s*!important;/,
+        "the in-grid player dossier must remain visible on wide mission combat",
+    );
+    assert.match(
+        missionCss,
+        /grid-template-columns:\s*minmax\(140px, 210px\) minmax\(0, 1fr\) minmax\(140px, 210px\)\s*!important;/,
+        "wide mission combat must keep player, battlefield, and enemy columns",
+    );
+
+    const desktopBoardRule = battleSkinCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout \.hex-battlefield,[\s\S]*?\{([^}]*)\}/,
+    );
+    assert.ok(desktopBoardRule, "desktop combat must retain its battlefield sizing rule");
+    assert.match(desktopBoardRule![1], /height:\s*100%\s*!important/);
+    assert.match(desktopBoardRule![1], /width:\s*100%\s*!important/);
+
+    const desktopTabsRule = battleSkinCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout \.battle-tabbar\s*\{([^}]*)\}/,
+    );
+    assert.ok(desktopTabsRule, "desktop combat must retain its tab-bar rule");
+    assert.match(desktopTabsRule![1], /display:\s*none\s*!important/);
 });
 
 test("every shinobi fight uses the shared viewport-level combat instance", () => {
@@ -112,9 +167,8 @@ test("every shinobi fight uses the shared viewport-level combat instance", () =>
         /<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/,
         "legacy Arena PvE must retain a viewport-level combat boundary",
     );
-    for (const [name, source] of [["mission PvE", missionSource], ["session PvP", pvpSource]] as const) {
-        assert.match(source, /<ShinobiCombatShell(?:\s|>)/, `${name} must render through ShinobiCombatShell`);
-    }
+    assert.match(missionSource, /<CombatInstance(?:\s|>)/, "mission PvE must render through CombatInstance");
+    assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 
     assert.ok(
         (pvpSource.match(/<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/g) ?? []).length >= 2,

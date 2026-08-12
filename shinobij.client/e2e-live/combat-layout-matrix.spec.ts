@@ -217,6 +217,7 @@ type LayoutMeasurement = {
     dossierFlow: Array<{ dossier: number; display: string; columns: string; children: Array<{ className: string; gridColumn: string; gridRow: string; rect: Rect | null }> }>;
     gridTemplateColumns: string;
     gridTemplateRows: string;
+    layoutGridRowCount: number;
     mainGridRowCount: number;
     mainGridTemplateColumns: string;
     mainGridTemplateRows: string;
@@ -364,6 +365,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             dossierFlow,
             gridTemplateColumns: style?.gridTemplateColumns ?? '',
             gridTemplateRows: style?.gridTemplateRows ?? '',
+            layoutGridRowCount: countGridTracks(style?.gridTemplateRows ?? ''),
             mainGridRowCount: countGridTracks(mainStyle?.gridTemplateRows ?? ''),
             mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
             mainGridTemplateRows: mainStyle?.gridTemplateRows ?? '',
@@ -526,8 +528,26 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
         ).toBeGreaterThanOrEqual(90);
         const shortLandscape = current.viewport.width >= 480 && current.viewport.height <= 500;
-        expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(shortLandscape ? 4 : 7);
-        expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
+        if (mode === 'solo' && current.main === null) {
+            expect(current.layoutGridRowCount, `${label} unexpected implicit outer-grid row`).toBe(7);
+        } else {
+            expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(shortLandscape ? 4 : 7);
+        }
+        if (mode === 'pvp') {
+            expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
+        }
+        const desktopMission = mode === 'solo' && current.viewport.width >= 1280 && current.viewport.height > 500;
+        if (desktopMission) {
+            expect(current.boardStage, `${label} must not inherit the shared-shell board stage`).toBeNull();
+            expect(current.dossiers, `${label} desktop dossiers`).toHaveLength(2);
+            expect(current.tabs, `${label} desktop tab bar`).toBeNull();
+            expect(
+                (current.board?.width ?? 0) / Math.max(1, current.main?.width ?? 0),
+                `${label} board must use the central combat column`,
+            ).toBeGreaterThanOrEqual(0.9);
+            expect(current.dossiers[0]?.right ?? Infinity, `${label} player dossier must flank the board`).toBeLessThanOrEqual(current.main?.x ?? -Infinity);
+            expect(current.dossiers[1]?.x ?? -Infinity, `${label} enemy dossier must flank the board`).toBeGreaterThanOrEqual(current.main?.right ?? Infinity);
+        }
     };
     for (const [width, height] of ACTIVE_VIEWPORTS) {
         await page.setViewportSize({ width, height });
@@ -570,7 +590,8 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         }
     }
     await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
-    for (const zoom of BROWSER_ZOOM_EQUIVALENTS) {
+    // A targeted viewport run should not silently expand into the separate zoom matrix.
+    for (const zoom of VIEWPORT_FILTER ? [] : BROWSER_ZOOM_EQUIVALENTS) {
         await page.setViewportSize({ width: zoom.width, height: zoom.height });
         await page.waitForTimeout(180);
         const current = await measureStable(page, rootSelector);

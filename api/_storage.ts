@@ -324,16 +324,45 @@ const pgKv = {
     async compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean> {
         _cacheInvalidate(key);
         const exp = options?.ex ? expiresAt(options.ex) : null;
-        const { rows } = await getPool().query<{ kv_compare_set: boolean }>(
-            `SELECT public.kv_compare_set($1, $2::jsonb, $3::jsonb, $4::timestamptz) AS kv_compare_set`,
-            [
-                key,
-                expected === null ? null : JSON.stringify(expected),
-                JSON.stringify(value),
-                exp,
-            ],
-        );
-        const swapped = rows[0]?.kv_compare_set === true;
+        const db = getPool();
+        let swapped: boolean;
+        if (expected === null) {
+            // One statement handles both allowed absence cases. A conflicting
+            // LIVE row makes the ON CONFLICT WHERE false and changes nothing;
+            // an expired row is atomically replaced while PostgreSQL holds the
+            // conflicting row lock. This avoids requiring a separately-applied
+            // schema RPC on Railway without weakening CAS into get-then-set.
+            const { rows } = await db.query<{ swapped: boolean }>(
+                `INSERT INTO public.kv_store AS current (key, value, expires_at, updated_at)
+                 VALUES ($1, $2::jsonb, $3::timestamptz, now())
+                 ON CONFLICT (key) DO UPDATE
+                     SET value = EXCLUDED.value,
+                         expires_at = EXCLUDED.expires_at,
+                         updated_at = now()
+                     WHERE current.expires_at IS NOT NULL
+                       AND current.expires_at <= now()
+                 RETURNING true AS swapped`,
+                [key, JSON.stringify(value), exp],
+            );
+            swapped = rows[0]?.swapped === true;
+        } else {
+            // Exact full-JSON predecessor match and liveness check happen in the
+            // UPDATE itself. A mismatch/expired row returns no row and preserves
+            // both its value and TTL. On success, even a null expiry is written,
+            // so the replacement TTL is authoritative just like set().
+            const { rows } = await db.query<{ swapped: boolean }>(
+                `UPDATE public.kv_store
+                 SET value = $3::jsonb,
+                     expires_at = $4::timestamptz,
+                     updated_at = now()
+                 WHERE key = $1
+                   AND value = $2::jsonb
+                   AND (expires_at IS NULL OR expires_at > now())
+                 RETURNING true AS swapped`,
+                [key, JSON.stringify(expected), JSON.stringify(value), exp],
+            );
+            swapped = rows[0]?.swapped === true;
+        }
         if (swapped) _cacheWrite(key, value);
         return swapped;
     },
