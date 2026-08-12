@@ -255,12 +255,15 @@ export function advanceWarfrontMotionFilter(
     }
     const previousX = state.x;
     const previousZ = state.z;
-    const positionAlpha = 1 - Math.pow(0.82, Math.min(3, dt * 60));
+    // The replay stream advances at 30 Hz while the renderer can run far
+    // faster. A slightly longer visual half-life absorbs alternating separation
+    // corrections at choke points without touching authoritative movement.
+    const positionAlpha = 1 - Math.pow(0.88, Math.min(3, dt * 60));
     state.x += (targetX - state.x) * positionAlpha;
     state.z += (targetZ - state.z) * positionAlpha;
     const rawVx = (state.x - previousX) / dt;
     const rawVz = (state.z - previousZ) / dt;
-    const velocityAlpha = 1 - Math.pow(0.88, Math.min(3, dt * 60));
+    const velocityAlpha = 1 - Math.pow(0.92, Math.min(3, dt * 60));
     state.vx += (rawVx - state.vx) * velocityAlpha;
     state.vz += (rawVz - state.vz) * velocityAlpha;
     if (Math.abs(state.vx) < 0.015) state.vx = 0;
