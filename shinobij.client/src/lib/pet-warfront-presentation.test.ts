@@ -119,8 +119,8 @@ test("motion filter rejects tick-level reversals but follows sustained travel", 
             jitterMax = Math.max(jitterMax, jitter.x);
         }
     }
-    assert.ok(jitterMax - jitterMin < 0.05, `tick reversal leaked ${jitterMax - jitterMin}u`);
-    assert.ok(warfrontMotionFilterSpeed(jitter) < 0.35);
+    assert.ok(jitterMax - jitterMin < 0.035, `tick reversal leaked ${jitterMax - jitterMin}u`);
+    assert.ok(warfrontMotionFilterSpeed(jitter) < 0.2);
 
     const travel = createWarfrontMotionFilter();
     for (let frame = 0; frame < 120; frame++) {
