@@ -258,11 +258,81 @@ body.pet-combat-active {
   contain: layout paint;
 }
 
+/* Warfront HUD zones must never compete for the same pixels. The minimap sits
+   below the objective ribbon, while controls and metadata are capped to the
+   space on either side of the centered score strip. */
+.pet-warfront-takeover .wf-top-controls,
+.pet-warfront-takeover .wf-score-strip,
+.pet-warfront-takeover .wf-objective-strip,
+.pet-warfront-takeover .wf-top-meta,
+.pet-warfront-takeover .wf-camera-modes,
+.pet-warfront-takeover .wf-right-stack {
+  z-index: 57;
+}
+
+.pet-warfront-takeover .wf-top-controls {
+  max-inline-size: calc(50% - 238px);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.pet-warfront-takeover .wf-top-controls::-webkit-scrollbar,
+.pet-warfront-takeover .wf-camera-modes::-webkit-scrollbar {
+  display: none;
+}
+
+.pet-warfront-takeover .wf-top-meta {
+  max-inline-size: calc(50% - 238px);
+}
+
+.pet-warfront-takeover .wf-camera-modes {
+  top: max(52px, calc(env(safe-area-inset-top, 0px) + 48px)) !important;
+  max-inline-size: calc(50% - 18px);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.pet-warfront-takeover .wf-camera-modes > button {
+  flex: 0 0 auto;
+}
+
+.pet-warfront-takeover .wf-right-stack {
+  top: max(124px, calc(env(safe-area-inset-top, 0px) + 120px)) !important;
+  max-inline-size: min(224px, calc(100% - 24px));
+}
+
+.pet-warfront-takeover .wf-minimap {
+  display: block;
+  max-inline-size: min(224px, calc(100vw - 24px));
+  block-size: auto !important;
+  aspect-ratio: 224 / 105;
+}
+
+@media (max-width: 1399px) {
+  .pet-warfront-takeover .wf-top-meta > div {
+    display: none;
+  }
+
+  .pet-warfront-takeover .wf-score-strip {
+    top: max(56px, calc(env(safe-area-inset-top, 0px) + 52px)) !important;
+  }
+
+  .pet-warfront-takeover .wf-objective-strip {
+    top: max(116px, calc(env(safe-area-inset-top, 0px) + 112px)) !important;
+  }
+
+  .pet-warfront-takeover .wf-right-stack {
+    top: max(158px, calc(env(safe-area-inset-top, 0px) + 154px)) !important;
+  }
+}
+
 @media (max-width: 979px) {
   .pet-warfront-takeover .wf-top-controls {
-    inset-inline: max(6px, env(safe-area-inset-left, 0px)) auto !important;
+    inset-inline: 6px auto;
     top: max(6px, env(safe-area-inset-top, 0px)) !important;
-    max-inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
+    max-inline-size: calc(100% - 12px);
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scrollbar-width: none;
@@ -275,20 +345,21 @@ body.pet-combat-active {
   .pet-warfront-takeover .wf-top-controls > button,
   .pet-warfront-takeover .wf-camera-modes > button,
   .pet-warfront-takeover .wf-free-camera,
-  .pet-warfront-takeover .wf-top-meta select,
-  .pet-warfront-takeover .wf-multicam-wall [role="button"] {
+  .pet-warfront-takeover .wf-top-meta select {
     min-inline-size: var(--touch-target-min);
     min-block-size: var(--touch-target-min);
   }
 
   .pet-warfront-takeover .wf-camera-modes {
     top: calc(max(6px, env(safe-area-inset-top, 0px)) + 48px) !important;
-    left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    left: 6px !important;
+    max-inline-size: calc(100% - 146px);
   }
 
   .pet-warfront-takeover .wf-top-meta {
     top: calc(max(6px, env(safe-area-inset-top, 0px)) + 48px) !important;
-    right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    right: 6px !important;
+    max-inline-size: calc(100% - 146px);
   }
 
   .pet-warfront-takeover .wf-top-meta > div {
@@ -296,17 +367,17 @@ body.pet-combat-active {
   }
 
   .pet-warfront-takeover .wf-score-strip {
-    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 96px) !important;
-    inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
-    max-inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 124px) !important;
+    inline-size: calc(100% - 12px);
+    max-inline-size: calc(100% - 12px);
     padding-inline: 8px !important;
     overflow-x: auto;
     justify-items: start !important;
   }
 
   .pet-warfront-takeover .wf-objective-strip {
-    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 156px) !important;
-    inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px))) !important;
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 184px) !important;
+    inline-size: calc(100% - 12px) !important;
     min-inline-size: 0;
     overflow: hidden;
   }
@@ -339,23 +410,14 @@ body.pet-combat-active {
   }
 
   .pet-warfront-takeover .wf-right-stack {
-    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 194px) !important;
-    right: max(6px, env(safe-area-inset-right, 0px)) !important;
-    max-inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
+    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 284px) !important;
+    right: 6px !important;
+    max-inline-size: calc(100% - 12px);
   }
+}
 
-  .pet-warfront-takeover .wf-free-camera {
-    top: calc(max(6px, env(safe-area-inset-top, 0px)) + 96px) !important;
-    left: max(6px, env(safe-area-inset-left, 0px)) !important;
-    z-index: 57;
-  }
-
-  .pet-warfront-takeover .wf-multicam-wall {
-    left: max(6px, env(safe-area-inset-left, 0px)) !important;
-    right: max(6px, env(safe-area-inset-right, 0px)) !important;
-    bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
-    max-inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
+@media (max-width: 559px) {
+  .pet-warfront-takeover .wf-minimap {
+    inline-size: 180px !important;
   }
 }

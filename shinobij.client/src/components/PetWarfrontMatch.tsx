@@ -42,7 +42,7 @@ import {
 } from "../lib/pet-warfront-sim";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_BUSHES, WF_CELL_X, WF_CELL_Y, WF_LAIR, WF_LANES, WF_MINI_NAMES, WF_PADS, WF_SPAWNS, WF_THEMES,
-    wfCellWalkable, wfInsideField,
+    wfCellWalkable, wfInsideField, wfWalkable,
     type WfTheme,
 } from "../lib/pet-warfront-map";
 import { councilCartCost, councilPackageChoices, visiblePackageActivationLabel, type WfCouncilBuyState } from "../lib/pet-warfront-council";
@@ -947,10 +947,21 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         const tdx = a1.x - a0.x, tdz = a1.y - a0.y;
         const teleport = tdx * tdx + tdz * tdz > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
-        const px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
+        let px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
+        // Sparse keyframes can sit on opposite sides of a tight corner. A raw
+        // straight interpolation then draws the rig through stone even though
+        // both authoritative positions are legal. Hold the nearest legal frame
+        // for that brief corner crossing; the motion filter blends the handoff.
+        if (!wfWalkable(px, pz)) {
+            const legal = ff < 0.5 ? a0 : a1;
+            px = legal.x; pz = legal.y;
+        }
         const rewound = tf < lastTick.current;
         lastTick.current = tf;
         const motion = advanceWarfrontMotionFilter(renderMotion.current, px, pz, delta, teleport || rewound);
+        if (!wfWalkable(motion.x, motion.z)) {
+            motion.x = px; motion.z = pz; motion.vx = 0; motion.vz = 0;
+        }
         const filteredSpeed = warfrontMotionFilterSpeed(motion);
         smSpd.current = approach(smSpd.current, down ? 0 : filteredSpeed, 0.22, delta);
         const moving = !down && (wasMoving.current ? smSpd.current > 0.28 : smSpd.current > 0.72);
@@ -1115,6 +1126,9 @@ const WF_HOUND_LOD = {
     boxGeometry: new THREE.BoxGeometry(1, 1, 1),
     headGeometry: new THREE.DodecahedronGeometry(0.23, 0),
     earGeometry: new THREE.TetrahedronGeometry(0.17, 0),
+    eyeGeometry: new THREE.SphereGeometry(0.032, 6, 5),
+    fangGeometry: new THREE.ConeGeometry(0.026, 0.13, 5),
+    crestGeometry: new THREE.OctahedronGeometry(0.13, 0),
     tailGeometry: new THREE.ConeGeometry(0.085, 0.5, 5),
     materials: Object.freeze({
         blue: wfHoundMaterials("#082f49", "#0c4a6e", "#075985", "#0284c7", "#e0f2fe", "#0369a1", "#38bdf8"),
@@ -1137,14 +1151,25 @@ function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableR
             {([-0.11, 0.11] as const).map((x) => (
                 <mesh key={x} geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[x, 0.61, 0.37]} rotation={[0.18, x < 0 ? -0.3 : 0.3, x < 0 ? 0.18 : -0.18]} scale={[0.66, 0.96, 0.58]} />
             ))}
+            {([-0.075, 0.075] as const).map((x) => (
+                <mesh key={`eye:${x}`} geometry={WF_HOUND_LOD.eyeGeometry} material={material.muzzle} position={[x, 0.46, 0.61]} />
+            ))}
             <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
+            {([-0.055, 0.055] as const).map((x) => (
+                <mesh key={`fang:${x}`} geometry={WF_HOUND_LOD.fangGeometry} material={material.muzzle} position={[x, 0.34, 0.74]} rotation={[Math.PI, 0, 0]} />
+            ))}
+            <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.ear} position={[0, 0.5, 0.02]} scale={[0.48, 0.12, 0.34]} rotation={[0, 0, Math.PI / 4]} />
             {side === "hollow" ? (
                 <>
-                    <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[-0.15, 0.53, -0.1]} rotation={[0, 0, 0.5]} scale={[0.48, 1.05, 0.48]} />
-                    <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[0.15, 0.53, -0.1]} rotation={[0, 0, -0.5]} scale={[0.48, 1.05, 0.48]} />
+                    {([-0.2, 0, 0.2] as const).map((z, index) => (
+                        <mesh key={z} geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[0, 0.61 + (index === 1 ? 0.08 : 0), z]} rotation={[0.35, 0, Math.PI]} scale={[0.52, 1.15, 0.52]} />
+                    ))}
                 </>
             ) : (
-                <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.51, -0.04]} scale={[0.31, 0.055, 0.3]} />
+                <>
+                    <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.51, -0.04]} scale={[0.31, 0.055, 0.3]} />
+                    <mesh geometry={WF_HOUND_LOD.crestGeometry} material={material.muzzle} position={[0, 0.7, -0.03]} scale={[0.62, 0.92, 0.62]} />
+                </>
             )}
             <mesh geometry={WF_HOUND_LOD.tailGeometry} material={material.tail} position={[0, 0.39, -0.5]} rotation={[-Math.PI / 2.6, 0, 0]} />
         </group>
@@ -1166,6 +1191,11 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
     const isLane = kind === "lane";
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
+    const moveTrail = useRef<THREE.Group>(null);
+    const moveTrailMat = useRef<THREE.MeshBasicMaterial>(null);
+    const strikeRing = useRef<THREE.Mesh>(null);
+    const strikeRingMat = useRef<THREE.MeshBasicMaterial>(null);
+    const eliteCrown = useRef<THREE.Group>(null);
     const hpBar = useRef<THREE.Group>(null);
     const hpFill = useRef<THREE.Mesh>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
@@ -1241,6 +1271,24 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
         f.timeline = seconds;
         const lunge = strikePulse * (isLane ? 0.12 : 0.13);
         g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
+        const targetYaw = Math.atan2(f.faceX, f.faceZ);
+        if (moveTrail.current) {
+            moveTrail.current.rotation.y = approachAngle(moveTrail.current.rotation.y, targetYaw, 0.24, delta);
+            moveTrail.current.visible = moving && smSpd.current > 0.35;
+            moveTrail.current.scale.z = approach(moveTrail.current.scale.z, 0.7 + Math.min(1.5, smSpd.current * 0.22), 0.18, delta);
+        }
+        if (moveTrailMat.current) moveTrailMat.current.opacity = moving ? Math.min(0.38, 0.1 + smSpd.current * 0.06) : 0;
+        if (strikeRing.current) {
+            strikeRing.current.visible = striking;
+            strikeRing.current.scale.setScalar(0.65 + strikePulse * 1.25);
+            strikeRing.current.rotation.z = seconds * (isLane ? 2.2 : -2.8);
+        }
+        if (strikeRingMat.current) strikeRingMat.current.opacity = striking ? strikePulse * 0.72 : 0;
+        if (eliteCrown.current) {
+            eliteCrown.current.visible = isLane && m1.elite;
+            eliteCrown.current.rotation.y = seconds * 1.8 + index;
+            eliteCrown.current.position.y = 0.9 + Math.sin(seconds * 3 + index) * 0.045;
+        }
         const health = Math.max(0, Math.min(1, m1.hp / Math.max(1, m1.maxHp)));
         f.desperate = health < 0.35;
         if (hpBar.current) {
@@ -1252,15 +1300,21 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
             hpFill.current.position.x = -0.3 * (1 - health);
         }
         if (impostor.current) {
-            const targetYaw = Math.atan2(f.faceX, f.faceZ);
             impostor.current.rotation.y = approachAngle(impostor.current.rotation.y, targetYaw, 0.28, delta);
             const gait = seconds * (isLane ? 9 : 9.5) + index;
             impostor.current.position.y = moving ? Math.abs(Math.sin(gait)) * (isLane ? 0.035 : 0.04) : 0;
+            impostor.current.rotation.x = approach(impostor.current.rotation.x, striking ? -strikePulse * 0.12 : 0, 0.22, delta);
             impostor.current.rotation.z = moving ? Math.sin(gait) * (isLane ? 0.025 : 0.028) : 0;
         }
     });
     return (
         <group ref={group} visible={false}>
+            <group ref={moveTrail} visible={false} position={[0, 0.065, -0.42]}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[0.7, 1.8, 1]} renderOrder={1}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial ref={moveTrailMat} map={radialTexture3d()} color={isLane ? (side === "blue" ? "#38bdf8" : "#fb7185") : "#a855f7"} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
             {/* Ground-glow keeps lane and Hollow hounds readable in deep jungle. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
                 <planeGeometry args={isLane ? [1.05, 1.05] : [1.15, 1.15]} />
@@ -1273,6 +1327,20 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
+            <mesh ref={strikeRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.075, 0]} renderOrder={3}>
+                <ringGeometry args={[0.34, 0.48, 28]} />
+                <meshBasicMaterial ref={strikeRingMat} color={isLane ? (side === "blue" ? "#7dd3fc" : "#fda4af") : "#e879f9"} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <group ref={eliteCrown} visible={false}>
+                <mesh>
+                    <octahedronGeometry args={[0.16, 0]} />
+                    <meshBasicMaterial color="#fde047" toneMapped={false} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[0.24, 0.3, 20]} />
+                    <meshBasicMaterial color="#f59e0b" transparent opacity={0.72} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
             <group ref={hpBar} position={[0, 0.86, 0]} visible={false} renderOrder={8}>
                 <mesh position={[0, 0, -0.01]}>
                     <planeGeometry args={[0.68, 0.1]} />
@@ -1675,6 +1743,11 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
     const aura = useRef<THREE.MeshBasicMaterial>(null);
     const slamTelegraph = useRef<THREE.Mesh>(null);
     const slamTelegraphMat = useRef<THREE.MeshBasicMaterial>(null);
+    const riftHalo = useRef<THREE.Group>(null);
+    const riftHaloMat = useRef<THREE.MeshBasicMaterial>(null);
+    const phaseCrown = useRef<THREE.Group>(null);
+    const phaseCrownMat = useRef<THREE.MeshBasicMaterial>(null);
+    const bossLight = useRef<THREE.PointLight>(null);
     const smX = useRef(0), smZ = useRef(0);
     const heading = useRef(0);
     const gait = useRef(0);
@@ -1759,6 +1832,29 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
                 slamTelegraphMat.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#e879f9" : "#c084fc");
                 slamTelegraphMat.current.opacity = w.winding ? 0.22 + Math.abs(Math.sin(now * 9)) * 0.22 : 0;
             }
+            if (riftHalo.current) {
+                riftHalo.current.rotation.y = now * (w.phase === 3 ? -1.7 : 1.15);
+                riftHalo.current.rotation.z = Math.sin(now * 0.8) * 0.18;
+                riftHalo.current.scale.setScalar(1 + Math.sin(now * 2.6) * 0.045 + (w.winding ? 0.14 : 0));
+            }
+            if (riftHaloMat.current) {
+                riftHaloMat.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#e879f9" : "#a78bfa");
+                riftHaloMat.current.opacity = w.alive ? 0.42 + w.phase * 0.08 + (w.winding ? 0.18 : 0) : 0;
+            }
+            if (phaseCrown.current) {
+                phaseCrown.current.visible = w.alive && w.phase >= 2;
+                phaseCrown.current.rotation.y = -now * (w.phase === 3 ? 2.5 : 1.55);
+                phaseCrown.current.position.y = H * 0.72 + Math.sin(now * 3.2) * 0.07;
+                phaseCrown.current.scale.setScalar(w.phase === 3 ? 1.2 : 1);
+            }
+            if (phaseCrownMat.current) {
+                phaseCrownMat.current.color.set(w.phase === 3 ? "#fecdd3" : "#f5d0fe");
+                phaseCrownMat.current.opacity = 0.68 + Math.sin(now * 5) * 0.18;
+            }
+            if (bossLight.current) {
+                bossLight.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#d946ef" : "#8b5cf6");
+                bossLight.current.intensity = w.alive ? 1.7 + w.phase * 0.55 + (w.winding ? 2.2 : 0) : 0;
+            }
         }
         if (hpWrap.current) hpWrap.current.style.opacity = w.alive ? (w.active ? "1" : "0.7") : "0";
         if (hpFill.current) {
@@ -1794,6 +1890,28 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
+            <group ref={riftHalo} position={[0, H * 0.55, 0]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[1.18, 0.035, 7, 48]} />
+                    <meshBasicMaterial ref={riftHaloMat} color="#a78bfa" transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh rotation={[0.45, 0, 0.72]}>
+                    <torusGeometry args={[0.92, 0.022, 6, 40]} />
+                    <meshBasicMaterial color="#e879f9" transparent opacity={0.36} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
+            <group ref={phaseCrown} visible={false}>
+                {Array.from({ length: 6 }, (_, index) => {
+                    const angle = (index / 6) * Math.PI * 2;
+                    return (
+                        <mesh key={index} position={[Math.cos(angle) * 1.05, (index % 2) * 0.14, Math.sin(angle) * 1.05]} rotation={[angle, -angle, angle * 0.5]}>
+                            <octahedronGeometry args={[0.13, 0]} />
+                            <meshBasicMaterial ref={index === 0 ? phaseCrownMat : undefined} color="#f5d0fe" transparent opacity={0.76} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    );
+                })}
+            </group>
+            <pointLight ref={bossLight} position={[0, 1.45, 0]} color="#8b5cf6" intensity={2.2} distance={7.5} decay={2} />
             <group ref={body}>
                 <WfWardenModelOrFallback motionRef={rigMotion} targetH={H} />
             </group>
@@ -1813,11 +1931,15 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
 
 function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; clock: WfClockRef; idx: number; name: string; glow: string }) {
     const root = useRef<THREE.Group>(null);
+    const body = useRef<THREE.Group>(null);
     const hpWrap = useRef<HTMLDivElement>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const allyRing = useRef<THREE.Mesh>(null);
     const allyMat = useRef<THREE.MeshBasicMaterial>(null);
     const awakeRing = useRef<THREE.Mesh>(null);
+    const campSigil = useRef<THREE.Group>(null);
+    const sigilMat = useRef<THREE.MeshBasicMaterial>(null);
+    const crown = useRef<THREE.Group>(null);
     // Each camp keeps a distinct LEGENDARY body with an element recolor:
     // Ancient Golem/Earth, Crystal Behemoth/Water, Void Stalker/Shadow, Rift Devourer/Fire.
     const CAMP_BOSS: ReadonlyArray<{ id: string; el: string }> = [
@@ -1834,6 +1956,8 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const wasAlive = useRef(false);
+    const prevHp = useRef(Number.POSITIVE_INFINITY);
+    const hitAt = useRef(-10);
     const [aliveUi, setAliveUi] = useState(false);
     useFrame((_state, delta) => {
         const { s0, s1, f: bf } = lerpFrameAt(result, clock);
@@ -1874,9 +1998,32 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         else { f.faceX = m.faceX; f.faceZ = 0.001; f.moveX = m.faceX; f.moveZ = 0.001; }
         f.timeline = seconds;
         const lunge = strikePulse * 0.14;
+        if (m.hp < prevHp.current - 0.5) hitAt.current = seconds;
+        prevHp.current = m.hp;
+        const hitAge = Math.max(0, seconds - hitAt.current);
+        const hitPulse = hitAge < 0.3 ? Math.sin((hitAge / 0.3) * Math.PI) : 0;
         if (root.current) {
             root.current.visible = m.alive;
             root.current.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
+        }
+        if (body.current) {
+            const breathe = Math.sin(seconds * 2.1 + idx) * 0.012;
+            body.current.scale.x = approach(body.current.scale.x, scale * (1 + strikePulse * 0.055 - hitPulse * 0.035 - breathe), 0.19, delta);
+            body.current.scale.y = approach(body.current.scale.y, scale * (1 - strikePulse * 0.08 + hitPulse * 0.045 + breathe), 0.19, delta);
+            body.current.scale.z = approach(body.current.scale.z, scale * (1 + strikePulse * 0.055 - hitPulse * 0.035 - breathe), 0.19, delta);
+        }
+        if (campSigil.current) {
+            campSigil.current.rotation.z = seconds * (m.ally ? -0.85 : 0.55) + idx;
+            campSigil.current.scale.setScalar(1 + Math.sin(seconds * 2.7 + idx) * 0.06 + strikePulse * 0.12);
+        }
+        if (sigilMat.current) {
+            sigilMat.current.color.set(m.ally ? TEAM_COLOR[m.ally] : glow);
+            sigilMat.current.opacity = m.alive ? 0.32 + strikePulse * 0.28 : 0;
+        }
+        if (crown.current) {
+            crown.current.visible = m.alive;
+            crown.current.rotation.y = seconds * (m.ally ? 2.1 : -1.35) + idx;
+            crown.current.position.y = H + 0.13 + Math.sin(seconds * 3 + idx) * 0.06;
         }
         f.desperate = m.alive && m.hp / Math.max(1, m.maxHp) < 0.4;
         if (hpWrap.current) hpWrap.current.style.opacity = m.alive ? "1" : "0";
@@ -1893,13 +2040,34 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     if (!config) return null;
     return (
         <group ref={root} visible={false}>
+            <group ref={campSigil} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
+                <mesh>
+                    <ringGeometry args={[0.88, 1.18, 6]} />
+                    <meshBasicMaterial ref={sigilMat} color={glow} transparent opacity={0.34} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh rotation={[0, 0, Math.PI / 6]}>
+                    <ringGeometry args={[0.58, 0.63, 6]} />
+                    <meshBasicMaterial color={glow} transparent opacity={0.28} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
+            <group ref={crown} visible={false}>
+                {Array.from({ length: 4 }, (_, index) => {
+                    const angle = (index / 4) * Math.PI * 2;
+                    return (
+                        <mesh key={index} position={[Math.cos(angle) * 0.52, 0, Math.sin(angle) * 0.52]} rotation={[angle, angle, 0]}>
+                            <octahedronGeometry args={[0.085, 0]} />
+                            <meshBasicMaterial color={glow} toneMapped={false} />
+                        </mesh>
+                    );
+                })}
+            </group>
             {aliveUi && <Suspense fallback={(
                 <mesh position={[0, 0.9, 0]}>
                     <sphereGeometry args={[0.8, 12, 10]} />
                     <meshStandardMaterial color="#171126" emissive={glow} emissiveIntensity={0.5} roughness={0.6} />
                 </mesh>
             )}>
-                <group scale={scale}>
+                <group ref={body} scale={scale}>
                     <PetModel3D config={config} frame={frameRef} element={camp.el} />
                 </group>
             </Suspense>}
@@ -2374,6 +2542,9 @@ function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRat
 // One story-aware chase feed replaces the old four-target camera wall. It uses
 // one quarter of the render-target memory and updates a single coherent shot at
 // broadcast cadence instead of four hard-to-read feeds at roughly 5 FPS each.
+// Retained as an optional broadcast experiment, but deliberately not mounted:
+// its second WebGL render target was the dominant Tactical Arena frame spike.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function WfStoryPip({ result, clock, petIds, selectedRef, storyRef, subjectRef, width, height, renderEvery, nameOf, labelRef, statusRef, hpRef }: {
     result: WarfrontResult; clock: WfClockRef; petIds: string[];
     selectedRef: MutableRefObject<string | null>; storyRef: MutableRefObject<WfStoryCam | null>; subjectRef: MutableRefObject<string | null>;
@@ -2419,6 +2590,190 @@ function WfStoryPip({ result, clock, petIds, selectedRef, storyRef, subjectRef, 
         }
     }, 1);
     return null;
+}
+
+type WfVec3 = [number, number, number];
+type WfImpactKind = "hit" | "heal" | "shadow" | "power" | "element";
+type WfWakeVisual = ReturnType<typeof projectileVisual>;
+type WfImpactItem = {
+    id: number;
+    pos: WfVec3;
+    scale: number;
+    durationMs: number;
+    kind: WfImpactKind;
+    color: string;
+    accent: string;
+};
+type WfWakeItem = { id: number; from: WfVec3; to: WfVec3; visual: WfWakeVisual; durationMs: number; arc: number };
+type WfImpactLayerApi = {
+    spawnImpact: (item: { pos: WfVec3; scale: number; durationMs: number; key: string | null; element: string | null | undefined }) => void;
+    spawnWake: (item: Omit<WfWakeItem, "id">) => void;
+    clear: () => void;
+};
+
+const WF_IMPACT_RING_GEOMETRY = new THREE.RingGeometry(0.22, 0.34, 36);
+const WF_IMPACT_CORE_GEOMETRY = new THREE.IcosahedronGeometry(0.18, 1);
+const WF_IMPACT_SHARD_GEOMETRY = new THREE.TetrahedronGeometry(0.075, 0);
+const WF_IMPACT_COLORS: Record<string, readonly [string, string]> = {
+    Fire: ["#fb7185", "#fde68a"],
+    Water: ["#38bdf8", "#dbeafe"],
+    Earth: ["#d6a85f", "#fef3c7"],
+    Wind: ["#6ee7b7", "#ecfdf5"],
+    Lightning: ["#fde047", "#ffffff"],
+    Shadow: ["#c084fc", "#f5d0fe"],
+};
+
+function warfrontImpactStyle(key: string | null, element: string | null | undefined): Pick<WfImpactItem, "kind" | "color" | "accent"> {
+    if (key === "heal") return { kind: "heal", color: "#4ade80", accent: "#dcfce7" };
+    if (key === "shadow") return { kind: "shadow", color: "#a855f7", accent: "#f5d0fe" };
+    if (key === "power") return { kind: "power", color: "#f59e0b", accent: "#fff7cc" };
+    const palette = element ? WF_IMPACT_COLORS[element] : undefined;
+    if (palette) return { kind: "element", color: palette[0], accent: palette[1] };
+    return { kind: "hit", color: "#f8fafc", accent: "#fbbf24" };
+}
+
+/** Two shockwaves, a light core, and eight instanced shards give sprite hits
+ * real ground contact and direction without another texture fetch. */
+function WfImpact3D({ item, onDone }: { item: WfImpactItem; onDone: () => void }) {
+    const outer = useRef<THREE.Mesh>(null);
+    const inner = useRef<THREE.Mesh>(null);
+    const core = useRef<THREE.Mesh>(null);
+    const shards = useRef<THREE.InstancedMesh>(null);
+    const outerMat = useRef<THREE.MeshBasicMaterial>(null);
+    const innerMat = useRef<THREE.MeshBasicMaterial>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const shardMat = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    const finished = useRef(false);
+    useEffect(() => {
+        if (!shards.current) return;
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+        const rotation = new THREE.Euler();
+        const quaternion = new THREE.Quaternion();
+        const unit = new THREE.Vector3(1, 1, 1);
+        for (let index = 0; index < 8; index++) {
+            const angle = (index / 8) * Math.PI * 2;
+            position.set(Math.cos(angle) * 0.34, 0.1 + (index % 2) * 0.08, Math.sin(angle) * 0.34);
+            rotation.set(angle * 0.35, angle, angle * 0.6);
+            quaternion.setFromEuler(rotation);
+            matrix.compose(position, quaternion, unit);
+            shards.current.setMatrixAt(index, matrix);
+        }
+        shards.current.instanceMatrix.needsUpdate = true;
+    }, []);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, ((state.clock.elapsedTime - start.current) * 1000) / Math.max(1, item.durationMs));
+        if (p >= 1 && !finished.current) { finished.current = true; onDone(); return; }
+        const burst = 1 - (1 - p) ** 3;
+        const fade = (1 - p) ** 2;
+        const lift = item.kind === "heal" ? p * 1.05 : p * 0.42;
+        if (outer.current) outer.current.scale.setScalar(item.scale * (0.45 + burst * (item.kind === "power" ? 3.2 : 2.5)));
+        if (inner.current) {
+            inner.current.scale.setScalar(item.scale * (0.3 + burst * 1.75));
+            inner.current.rotation.z = item.id * 0.37 - p * (item.kind === "shadow" ? 3.4 : 1.7);
+        }
+        if (core.current) {
+            core.current.position.y = 0.16 + lift;
+            core.current.scale.setScalar(item.scale * Math.sin(Math.PI * p) * (item.kind === "power" ? 1.25 : 0.82));
+            core.current.rotation.y = item.id + p * 4;
+        }
+        if (shards.current) {
+            shards.current.position.y = lift;
+            shards.current.rotation.y = item.id * 0.61 + p * (item.kind === "shadow" ? -3.8 : 2.4);
+            shards.current.scale.setScalar(item.scale * (0.4 + burst * (item.kind === "power" ? 3.4 : 2.45)));
+        }
+        if (outerMat.current) outerMat.current.opacity = fade * (item.kind === "heal" ? 0.58 : 0.82);
+        if (innerMat.current) innerMat.current.opacity = fade * 0.72;
+        if (coreMat.current) coreMat.current.opacity = fade * 0.9;
+        if (shardMat.current) shardMat.current.opacity = fade * (item.kind === "hit" ? 0.9 : 0.68);
+    });
+    return (
+        <group position={[item.pos[0], 0.055, item.pos[2]]}>
+            <mesh ref={outer} geometry={WF_IMPACT_RING_GEOMETRY} rotation={[-Math.PI / 2, 0, 0]} renderOrder={5}>
+                <meshBasicMaterial ref={outerMat} color={item.color} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={inner} geometry={WF_IMPACT_RING_GEOMETRY} rotation={[-Math.PI / 2, 0, 0]} renderOrder={5}>
+                <meshBasicMaterial ref={innerMat} color={item.accent} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={core} geometry={WF_IMPACT_CORE_GEOMETRY} renderOrder={6}>
+                <meshBasicMaterial ref={coreMat} color={item.accent} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <instancedMesh ref={shards} args={[WF_IMPACT_SHARD_GEOMETRY, undefined, 8]}>
+                <meshBasicMaterial ref={shardMat} color={item.color} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </instancedMesh>
+        </group>
+    );
+}
+
+function WfShotWake3D({ item, onDone }: { item: WfWakeItem; onDone: () => void }) {
+    const wake = useRef<THREE.Mesh>(null);
+    const material = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    const finished = useRef(false);
+    const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+    const head = useMemo(() => new THREE.Vector3(), []);
+    const tail = useMemo(() => new THREE.Vector3(), []);
+    const direction = useMemo(() => new THREE.Vector3(), []);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, ((state.clock.elapsedTime - start.current) * 1000) / Math.max(1, item.durationMs));
+        if (p >= 1 && !finished.current) { finished.current = true; onDone(); return; }
+        const point = (q: number, out: THREE.Vector3) => {
+            const t = Math.max(0, Math.min(1, q));
+            return out.set(
+                lerp(item.from[0], item.to[0], t),
+                lerp(item.from[1], item.to[1], t) + item.arc * Math.sin(Math.PI * t),
+                lerp(item.from[2], item.to[2], t),
+            );
+        };
+        point(p, head); point(p - 0.16, tail);
+        direction.copy(head).sub(tail);
+        const length = direction.length();
+        if (wake.current && length > 1e-5) {
+            wake.current.visible = p > 0.02 && p < 1;
+            wake.current.position.copy(head).add(tail).multiplyScalar(0.5);
+            wake.current.quaternion.setFromUnitVectors(up, direction.normalize());
+            const width = item.visual.size * 0.16;
+            wake.current.scale.set(width, length, width);
+        }
+        if (material.current) material.current.opacity = Math.sin(Math.PI * p) * 0.72;
+    });
+    return (
+        <mesh ref={wake} visible={false}>
+            <cylinderGeometry args={[1, 1, 1, 8, 1, true]} />
+            <meshBasicMaterial ref={material} color={item.visual.glow} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+        </mesh>
+    );
+}
+
+/** Isolates procedural VFX state below the Canvas root so combat bursts never
+ * rerender fighters, cameras, the HUD, or the deterministic simulation shell. */
+function WfImpactLayer({ apiRef }: { apiRef: MutableRefObject<WfImpactLayerApi | null> }) {
+    const [impacts, setImpacts] = useState<WfImpactItem[]>([]);
+    const [wakes, setWakes] = useState<WfWakeItem[]>([]);
+    const clear = useCallback(() => { setImpacts([]); setWakes([]); }, []);
+    const api = useMemo<WfImpactLayerApi>(() => ({
+        spawnImpact: (item) => {
+            const style = warfrontImpactStyle(item.key, item.element);
+            setImpacts((current) => [...current, { ...item, ...style, id: wfSeq++ }].slice(-18));
+        },
+        spawnWake: (item) => {
+            setWakes((current) => [...current, { ...item, id: wfSeq++ }].slice(-12));
+        },
+        clear,
+    }), [clear]);
+    useLayoutEffect(() => {
+        apiRef.current = api;
+        return () => { if (apiRef.current === api) apiRef.current = null; };
+    }, [api, apiRef]);
+    return (
+        <>
+            {impacts.map((item) => <WfImpact3D key={item.id} item={item} onDone={() => setImpacts((current) => current.filter((entry) => entry.id !== item.id))} />)}
+            {wakes.map((item) => <WfShotWake3D key={item.id} item={item} onDone={() => setWakes((current) => current.filter((entry) => entry.id !== item.id))} />)}
+        </>
+    );
 }
 
 // Broadcast colors for the elemental signature moves.
@@ -3453,6 +3808,7 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
     const replayFocusRestore = useRef<{ petId: string | null; mini: number | null } | null>(null);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
     const transientFxRef = useRef<TransientFx3DLayerApi | null>(null);
+    const impactFxRef = useRef<WfImpactLayerApi | null>(null);
     const [council, setCouncil] = useState<{ round: number } | null>(null);
     const stageRef = useRef<HTMLDivElement>(null);
     const endDialogRef = useRef<HTMLDivElement>(null);
@@ -3514,16 +3870,6 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
         else if (event.shiftKey && (active === first || active === root)) { event.preventDefault(); lastFocusable.focus(); }
         else if (!event.shiftKey && active === lastFocusable) { event.preventDefault(); first.focus(); }
     };
-    const [stageWidth, setStageWidth] = useState(1200);
-    useLayoutEffect(() => {
-        const el = stageRef.current;
-        if (!el) return;
-        const resize = () => setStageWidth(el.clientWidth);
-        resize();
-        const observer = new ResizeObserver(resize);
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, []);
     const timerRef = useRef<HTMLSpanElement>(null);
     const coinBlueRef = useRef<HTMLSpanElement>(null);
     const coinRedRef = useRef<HTMLSpanElement>(null);
@@ -3576,15 +3922,6 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
     }, [assetsReady, council, ended, intro, reducedMotion, replayClip, userPaused]);
     const focusPetRef = useRef<string | null>(null);
     useEffect(() => { focusPetRef.current = focusPetId; }, [focusPetId]);
-    const pipSubjectRef = useRef<string | null>(null);
-    const pipLabelRef = useRef<HTMLSpanElement>(null);
-    const pipStatusRef = useRef<HTMLSpanElement>(null);
-    const pipHpRef = useRef<HTMLElement>(null);
-    const myPets = useMemo(() => result.snapshots.at(0)!.actors.filter((a) => a.team === localTeam).map((a) => ({ id: a.id, name: roster.find((r) => r.id === a.id)?.pet.name ?? a.id })), [localTeam, result, roster]);
-    const myPetIds = useMemo(() => myPets.map((pet) => pet.id), [myPets]);
-    const multiCamOn = presentationBudget.squadCameras && myPetIds.length > 0;
-    const pipWidth = Math.round(Math.min(210, Math.max(128, stageWidth * .38)));
-    const pipHeight = Math.round(pipWidth * .6);
 
     const nameOf = useMemo(() => {
         const names = new Map(roster.map((r) => [r.id, r.pet.name]));
@@ -3653,6 +3990,7 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
         setBanner(null);
         setFlash(null);
         transientFxRef.current?.clear();
+        impactFxRef.current?.clear();
     }, [clearTransientTimers]);
     const triggerFlash = (color: string) => {
         if (reducedMotion) return;
@@ -3662,6 +4000,7 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
     };
     const spawnFx = (x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number) => {
         if (reducedMotion) return;
+        impactFxRef.current?.spawnImpact({ pos: [x, 0.8, z], scale, durationMs: dur, key, element });
         const frames = (key ? bundledJutsuFxFrames(key) : null) ?? bundledJutsuFxFrames(elementVfxKey(element)) ?? bundledJutsuFxFrames("none");
         if (!frames) return;
         transientFxRef.current?.spawnFx({ frames, pos: [x, 0.8, z], scale, durationMs: dur });
@@ -3671,6 +4010,7 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
         const visual = projectileVisual({ element, charged });
         const dist = Math.hypot(toX - fromX, toY - fromY);
         const dur = Math.min(820, Math.max(420, 260 + dist * 24));
+        impactFxRef.current?.spawnWake({ from: [fromX, 0.9, fromY], to: [toX, 0.9, toY], visual, durationMs: dur, arc: 0.28 });
         transientFxRef.current?.spawnShot({ from: [fromX, 0.9, fromY], to: [toX, 0.9, toY], visual, durationMs: dur, arc: 0.28 });
     };
     const spawnFloater = (x: number, z: number, text: string, color: string, big: boolean) => {
@@ -4055,7 +4395,7 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
                     .pet-warfront-takeover .wf-score-strip>div:last-child,.pet-warfront-takeover .wf-score-strip>div:last-child>span{white-space:nowrap;line-height:1}
                     .pet-warfront-takeover .wf-score-doctrine,.pet-warfront-takeover .wf-score-stance{display:none}
                     .pet-warfront-takeover .wf-score-divider{width:54px!important}
-                    .pet-warfront-takeover .wf-objective-strip{top:calc(max(8px,env(safe-area-inset-top,0px)) + 108px)!important;left:max(8px,env(safe-area-inset-left,0px))!important;right:max(8px,env(safe-area-inset-right,0px))!important;width:auto!important;transform:none!important;padding:7px 9px!important;background:rgba(8,12,24,.92)!important;border-radius:10px;z-index:50}
+                    .pet-warfront-takeover .wf-objective-strip{top:calc(max(8px,env(safe-area-inset-top,0px)) + 124px)!important;left:max(8px,env(safe-area-inset-left,0px))!important;right:max(8px,env(safe-area-inset-right,0px))!important;width:auto!important;transform:none!important;padding:7px 9px!important;background:rgba(8,12,24,.92)!important;border-radius:10px;z-index:50}
                     .pet-warfront-takeover .wf-objective-main{gap:6px!important;flex-wrap:wrap;line-height:1.2}
                     .pet-warfront-takeover .wf-objective-main>span{font-size:12px!important}
                     .pet-warfront-takeover .wf-objective-separator{display:none}
@@ -4075,7 +4415,6 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
                     .pet-warfront-takeover .wf-motion-toggle{width:100%;min-width:44px;min-height:44px!important;font-size:18px!important}
                     .pet-warfront-takeover .wf-free-camera{top:calc(max(8px,env(safe-area-inset-top,0px)) + 278px)!important;left:max(8px,env(safe-area-inset-left,0px))!important}
                     .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-free-camera{min-height:44px;font-size:15px!important}
-                    .pet-warfront-takeover .wf-multicam-wall{left:max(8px,env(safe-area-inset-left,0px))!important;right:auto!important;bottom:max(8px,env(safe-area-inset-bottom,0px))!important;max-width:42vw}
                     .pet-warfront-takeover .wf-replay-chip{top:calc(max(8px,env(safe-area-inset-top,0px)) + 146px)!important;max-width:calc(100vw - max(8px,env(safe-area-inset-left,0px)) - max(8px,env(safe-area-inset-right,0px)))}
                     .pet-warfront-takeover .wf-intro-card{max-width:calc(100vw - 24px);padding:12px}
                     .pet-warfront-takeover .wf-intro-versus{gap:10px!important}
@@ -4189,6 +4528,7 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
                         <WfMini key={i} result={result} clock={clock} idx={i} name={WF_MINI_NAMES[i]} glow={spec.breachGlow} />
                     ))}
                     <TransientFx3DLayer apiRef={transientFxRef} />
+                    {!geometryQa && !reducedMotion && quality.id !== "low" && adaptivePressure < 2 ? <WfImpactLayer apiRef={impactFxRef} /> : null}
                     {!geometryQa && !reducedMotion && <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />}
                     <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} focusPetRef={focusPetRef} focusMiniRef={focusMiniRef} localTeam={localTeam} reducedMotion={reducedMotion} />
                     {!replayClip && <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />}
@@ -4196,7 +4536,6 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
                     {!fixedQaDpr && <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />}
                     <WfDirector result={result} clockRef={clock} seekRef={directorSeek} reducedMotion={reducedMotion} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} onEnd={() => { setEnded(true); setUserPaused(false); }} />
                     <WfHudWriter result={result} clock={clock} localTeam={localTeam} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} stakesRef={stakesRef} blueIntentRef={blueIntentRef} redIntentRef={redIntentRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} sigilRef={sigilRef} sigilPipsBlueRef={sigilPipsBlueRef} sigilPipsRedRef={sigilPipsRedRef} judgmentRef={judgmentRef} phaseOverlayRef={phaseOverlayRef} />
-                    {!geometryQa && multiCamOn && <WfStoryPip result={result} clock={clock} petIds={myPetIds} selectedRef={focusPetRef} storyRef={storyCam} subjectRef={pipSubjectRef} width={pipWidth} height={pipHeight} renderEvery={presentationBudget.squadCameraRenderEvery} nameOf={nameOf} labelRef={pipLabelRef} statusRef={pipStatusRef} hpRef={pipHpRef} />}
                         </>
                     )}
                 </Canvas>
@@ -4423,13 +4762,6 @@ export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = 
                 {quality.id === "medium" && <WfConvoyFollow result={result} clock={clock} onFollow={handleConvoyFollow} disabled={!!replayClip} />}
                 {feed.map((f) => { const councilOrder = /^COUNCIL \d/.test(f.text); return <div className={`wf-feed-item${councilOrder ? " wf-council-recap" : ""}`} role={councilOrder ? "status" : undefined} key={f.id} title={f.text} style={{ padding: "4px 9px", background: "rgba(8,12,24,0.88)", border: `1px solid ${f.color}66`, borderRadius: 6, color: f.color, font: "700 13px Inter, system-ui, sans-serif", animation: "wfFeedIn 0.2s ease-out", maxWidth: "44vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.text}</div>; })}
             </div>
-
-            {multiCamOn && <div className="wf-multicam-wall" data-wf-pip-count="1" style={{ position: "absolute", left: 10, bottom: 10, display: "flex", zIndex: 55 }}>
-                <button className="wf-story-pip" type="button" disabled={!!replayClip} data-wf-pip="story" data-wf-pip-team={localTeam} aria-pressed={!!focusPetId} aria-label={`Feature the story camera subject from your ${localTeam} squad`} onClick={() => { const id = pipSubjectRef.current; if (!id) return; focusMiniRef.current = null; setFocusPetId((focused) => focused === id ? null : id); }} style={{ position: "relative", width: pipWidth, height: pipHeight, padding: 0, border: `2px solid ${focusPetId ? "#fbbf24" : `${TEAM_SOFT[localTeam]}80`}`, borderRadius: 10, background: "transparent", cursor: replayClip ? "default" : "pointer", overflow: "hidden" }}>
-                    <span style={{ position: "absolute", inset: "2px 6px auto", display: "flex", justifyContent: "space-between", gap: 8, color: "#e2e8f0", font: "700 10px Inter" }}><span ref={pipLabelRef}>{myPets[0]?.name}</span><span ref={pipStatusRef} /></span>
-                    <span style={{ position: "absolute", inset: "auto 0 0", height: 4, background: "#111827" }}><span ref={pipHpRef} style={{ display: "block", height: "100%", background: TEAM_SOFT[localTeam] }} /></span>
-                </button>
-            </div>}
 
             {exitPrompt && (
                 <div style={{ position: "absolute", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 14, background: "rgba(3,7,18,.82)" }}>
