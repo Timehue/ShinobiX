@@ -15,9 +15,27 @@ describe('SQL key-pattern escaping', () => {
 describe('compareSet backend wiring contract', () => {
     const storageSource = readFileSync(join(process.cwd(), 'api', '_storage.ts'), 'utf8');
     const proxySource = readFileSync(join(process.cwd(), 'api', 'kv-proxy.ts'), 'utf8');
+    const pgSource = storageSource.slice(
+        storageSource.indexOf('const pgKv = {'),
+        storageSource.indexOf('// ─── Supabase REST backend'),
+    );
+    const pgCompareSet = pgSource.slice(
+        pgSource.indexOf('async compareSet('),
+        pgSource.indexOf('async del(', pgSource.indexOf('async compareSet(')),
+    );
 
-    it('direct Postgres and Supabase REST call the same atomic schema RPC', () => {
-        assert.match(storageSource, /SELECT public\.kv_compare_set\(/);
+    it('direct Postgres uses atomic SQL without depending on the optional schema RPC', () => {
+        assert.doesNotMatch(pgCompareSet, /kv_compare_set|get\([^)]*key|set\([^)]*key/,
+            'Railway CAS must neither require a manual RPC migration nor degrade to get-then-set');
+        assert.match(pgCompareSet,
+            /expected === null[\s\S]*INSERT INTO public\.kv_store AS current[\s\S]*ON CONFLICT \(key\) DO UPDATE[\s\S]*WHERE current\.expires_at IS NOT NULL[\s\S]*AND current\.expires_at <= now\(\)[\s\S]*RETURNING true AS swapped/,
+            'null predecessor inserts only when absent or atomically replaces an expired row');
+        assert.match(pgCompareSet,
+            /UPDATE public\.kv_store[\s\S]*SET value = \$3::jsonb,[\s\S]*expires_at = \$4::timestamptz[\s\S]*WHERE key = \$1[\s\S]*AND value = \$2::jsonb[\s\S]*AND \(expires_at IS NULL OR expires_at > now\(\)\)[\s\S]*RETURNING true AS swapped/,
+            'non-null predecessor updates only the exact live JSONB row and replaces its TTL');
+    });
+
+    it('the retired Supabase REST adapter retains its atomic schema RPC', () => {
         assert.match(storageSource, /db\.rpc\('kv_compare_set'/);
     });
 
