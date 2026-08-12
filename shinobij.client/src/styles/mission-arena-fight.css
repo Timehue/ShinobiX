@@ -61,6 +61,12 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
         grid-row: 2 !important;
         margin: 0 !important;
     }
+
+    /* The shared compact PvP skin reduces tabs to 40px. Mission combat keeps
+       the same mobile tab row, but its touch targets must remain at least 44px. */
+    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab {
+        min-height: 44px !important;
+    }
 }
 
 /* Armed-action hint line, sits between the board tabs and the action bar. */
