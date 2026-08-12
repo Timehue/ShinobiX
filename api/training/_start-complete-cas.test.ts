@@ -77,6 +77,10 @@ async function seedSave(name: string, record: Json): Promise<void> {
     await kv.set(`save:${name}`, record);
 }
 
+function dailyStartKey(name: string): string {
+    return `training-start-count:${name}:${new Date().toISOString().slice(0, 10)}`;
+}
+
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     startHandler = (await import('./start.js')).default as unknown as Handler;
@@ -108,6 +112,169 @@ describe('training start/complete exact-CAS authority', { concurrency: false }, 
         assert.equal((await kv.get<Json>(`training-active:${name}`))?.token, token);
         assert.equal((await kv.get<Json>(`training-token:${name}:${token}`))?.playerName, name);
         assert.deepEqual(await kv.keys(`training-token:${name}:*`), [`training-token:${name}:${token}`]);
+        assert.equal(await kv.get<number>(dailyStartKey(name)), 1, 'a committed start consumes exactly one daily slot');
+    });
+
+    it('releases the daily reservation when stamina or active-training validation rejects the start', async () => {
+        const noStaminaName = `${TEST_PREFIX}nostamina`;
+        await seedSave(noStaminaName, { _saveVersion: 1, character: character(noStaminaName, 0) });
+
+        const noStamina = await post(startHandler, { playerName: noStaminaName, stat: 'strength', tierId: '15m' });
+        assert.equal(noStamina.statusCode, 409, JSON.stringify(noStamina.body));
+        assert.equal(await kv.get(dailyStartKey(noStaminaName)), null);
+
+        const activeName = `${TEST_PREFIX}alreadyactive`;
+        await seedSave(activeName, {
+            _saveVersion: 1,
+            character: character(activeName),
+            activeTraining: activeLease('alreadyactive0123456789abcdef'),
+        });
+
+        const alreadyActive = await post(startHandler, { playerName: activeName, stat: 'strength', tierId: '15m' });
+        assert.equal(alreadyActive.statusCode, 409, JSON.stringify(alreadyActive.body));
+        assert.equal(await kv.get(dailyStartKey(activeName)), null);
+    });
+
+    it('releases the daily reservation when the save CAS throws before committing', async () => {
+        const name = `${TEST_PREFIX}startcasthrow`;
+        const saveKey = `save:${name}`;
+        await seedSave(name, { _saveVersion: 1, character: character(name) });
+        const compareSet = kv.compareSet.bind(kv);
+        const consoleError = console.error;
+        kv.compareSet = (async (key, expected, value, options) => {
+            if (key === saveKey) throw new Error('injected definitive save CAS failure');
+            return compareSet(key, expected, value, options);
+        }) as typeof kv.compareSet;
+        console.error = () => undefined;
+
+        let out: Awaited<ReturnType<typeof post>>;
+        try {
+            out = await post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' });
+        } finally {
+            kv.compareSet = compareSet as typeof kv.compareSet;
+            console.error = consoleError;
+        }
+
+        assert.equal(out.statusCode, 500, JSON.stringify(out.body));
+        assert.equal(await kv.get(dailyStartKey(name)), null);
+        assert.equal((await kv.get<Json>(saveKey))?._saveVersion, 1);
+        assert.deepEqual(await kv.keys(`training-token:${name}:*`), []);
+    });
+
+    it('preserves the daily reservation when a committed CAS and both exact readbacks are unavailable', async () => {
+        const name = `${TEST_PREFIX}startdoubleunreadable`;
+        const saveKey = `save:${name}`;
+        await seedSave(name, { _saveVersion: 1, character: character(name) });
+        const compareSet = kv.compareSet.bind(kv);
+        const get = kv.get.bind(kv);
+        const consoleError = console.error;
+        let acknowledgementLost = false;
+        let failedReadbacks = 0;
+        kv.compareSet = (async (key, expected, value, options) => {
+            if (key === saveKey && !acknowledgementLost) {
+                acknowledgementLost = true;
+                assert.equal(await compareSet(key, expected, value, options), true, 'the training save commits');
+                throw new Error('injected committed CAS acknowledgement loss');
+            }
+            return compareSet(key, expected, value, options);
+        }) as typeof kv.compareSet;
+        kv.get = (async (key) => {
+            if (key === saveKey && acknowledgementLost && failedReadbacks < 2) {
+                failedReadbacks += 1;
+                throw new Error('injected exact readback outage');
+            }
+            return get(key);
+        }) as typeof kv.get;
+        console.error = () => undefined;
+
+        let out: Awaited<ReturnType<typeof post>>;
+        try {
+            out = await post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' });
+        } finally {
+            kv.compareSet = compareSet as typeof kv.compareSet;
+            kv.get = get as typeof kv.get;
+            console.error = consoleError;
+        }
+
+        assert.equal(out.statusCode, 500, JSON.stringify(out.body));
+        assert.equal(failedReadbacks, 2, 'the helper and handler each attempted exact recovery');
+        assert.equal(await kv.get<number>(dailyStartKey(name)), 1, 'an ambiguous committed start keeps its reservation');
+        const saved = await kv.get<Json>(saveKey);
+        assert.equal(saved?._saveVersion, 2);
+        assert.equal((saved?.character as Json).stamina, 35);
+        assert.match(String((saved?.activeTraining as Json).token ?? ''), /^[a-f0-9]{32}$/);
+    });
+
+    it('does not treat a failed cleanup read as proof that a failed delete committed', async () => {
+        const name = `${TEST_PREFIX}cleanupunreadable`;
+        const dailyKey = dailyStartKey(name);
+        await seedSave(name, { _saveVersion: 1, character: character(name, 0) });
+        const del = kv.del.bind(kv);
+        const get = kv.get.bind(kv);
+        const consoleError = console.error;
+        let deleteAttempted = false;
+        kv.del = (async (...keys) => {
+            if (keys.includes(dailyKey)) {
+                deleteAttempted = true;
+                throw new Error('injected precommit daily delete failure');
+            }
+            return del(...keys);
+        }) as typeof kv.del;
+        kv.get = (async (key) => {
+            if (key === dailyKey && deleteAttempted) throw new Error('injected cleanup readback outage');
+            return get(key);
+        }) as typeof kv.get;
+        console.error = () => undefined;
+
+        let out: Awaited<ReturnType<typeof post>>;
+        try {
+            out = await post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' });
+        } finally {
+            kv.del = del as typeof kv.del;
+            kv.get = get as typeof kv.get;
+            console.error = consoleError;
+        }
+
+        assert.equal(out.statusCode, 500, JSON.stringify(out.body));
+        assert.equal(deleteAttempted, true);
+        assert.equal(await kv.get<number>(dailyKey), 1, 'an unconfirmed failed delete is not reported as released');
+    });
+
+    it('fails closed when the daily reservation lock is already held', async () => {
+        const name = `${TEST_PREFIX}dailylockheld`;
+        const dailyKey = dailyStartKey(name);
+        const lockKey = `lock:${dailyKey}`;
+        await seedSave(name, { _saveVersion: 1, character: character(name) });
+        await kv.set(lockKey, 'another-request', { ex: 10 });
+        const consoleError = console.error;
+        console.error = () => undefined;
+
+        let out: Awaited<ReturnType<typeof post>>;
+        try {
+            out = await post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' });
+        } finally {
+            console.error = consoleError;
+            await kv.del(lockKey);
+        }
+
+        assert.equal(out.statusCode, 500, JSON.stringify(out.body));
+        assert.equal(await kv.get(dailyKey), null);
+        assert.equal((await kv.get<Json>(`save:${name}`))?._saveVersion, 1);
+    });
+
+    it('keeps exactly the winning slot when concurrent starts reserve before save validation', async () => {
+        const name = `${TEST_PREFIX}concurrentcount`;
+        await seedSave(name, { _saveVersion: 1, character: character(name) });
+
+        const results = await Promise.all([
+            post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' }),
+            post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' }),
+        ]);
+
+        assert.deepEqual(results.map((out) => out.statusCode).sort(), [200, 409]);
+        assert.equal(await kv.get<number>(dailyStartKey(name)), 1, 'the rejected concurrent reservation releases only its own slot');
+        assert.equal((await kv.get<Json>(`save:${name}`))?._saveVersion, 2);
+        assert.equal((await kv.keys(`training-token:${name}:*`)).length, 1);
     });
 
     it('keeps a committed start usable when both post-CAS cache publications fail', async () => {
