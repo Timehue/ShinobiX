@@ -10,6 +10,7 @@ import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { loadAdminJutsuObjects, type AdminJutsu } from '../_admin-jutsu-catalog.js';
 import { characterMayUseJutsu } from '../pvp/_bloodline-gate.js';
 import { moraleForCharacter } from '../_war-morale.js';
+import { LockContendedError } from '../_lock.js';
 
 const JUTSU_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9-]{12,80}$/;
@@ -114,5 +115,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
-    } catch (error) { console.error('[training/jutsu-ryo]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) {
+        if (error instanceof LockContendedError) {
+            res.setHeader('Retry-After', '1');
+            return res.status(503).json({ error: 'Your save is being updated. Retrying is safe.' });
+        }
+        console.error('[training/jutsu-ryo]', safeLogValue(error));
+        return res.status(500).json({ error: 'Jutsu training could not be saved. Please retry.' });
+    }
 }
