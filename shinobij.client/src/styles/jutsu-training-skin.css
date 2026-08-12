@@ -1,0 +1,470 @@
+/* Jutsu Training Hall — scoped production skin.
+   The shared hub skin intentionally styles primary buttons broadly; this layer
+   restores technique cards as selectable content and gives the hall its own
+   active/selected/queue hierarchy. */
+
+.jutsu-training-screen {
+    width: 100%;
+    max-width: 1540px;
+    min-width: 0;
+    margin-inline: auto;
+    overflow: clip;
+}
+
+.jutsu-hall-hero {
+    position: relative;
+    isolation: isolate;
+    margin: 8px 0 16px;
+    padding: clamp(22px, 3vw, 38px);
+    overflow: hidden;
+    border: 1px solid rgba(232, 212, 150, 0.38);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 16% 10%, rgba(78, 168, 255, 0.20), transparent 34%),
+        radial-gradient(circle at 84% 0%, rgba(232, 212, 150, 0.16), transparent 30%),
+        linear-gradient(135deg, rgba(18, 31, 57, 0.98), rgba(5, 10, 24, 0.98));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 16px 36px rgba(0, 0, 0, 0.32);
+}
+
+.jutsu-hall-hero::after {
+    content: "術";
+    position: absolute;
+    z-index: -1;
+    right: clamp(18px, 5vw, 68px);
+    top: 50%;
+    translate: 0 -54%;
+    color: rgba(232, 212, 150, 0.055);
+    font: 900 clamp(110px, 15vw, 220px)/1 var(--font-display);
+    pointer-events: none;
+}
+
+.jutsu-training-screen .jutsu-hall-hero > h2 {
+    margin: 4px 0 8px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    color: #f3e3aa !important;
+    text-align: left !important;
+    font-size: clamp(24px, 3vw, 38px) !important;
+    letter-spacing: 0.14em !important;
+}
+
+.jutsu-training-screen .jutsu-hall-hero > p {
+    max-width: 730px;
+    margin: 0 !important;
+    color: #c8d5e8 !important;
+    text-align: left !important;
+    font-size: clamp(13px, 1.3vw, 15px) !important;
+}
+
+.jutsu-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #77bfff;
+    font: 800 10px/1.2 var(--font-display);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.jutsu-hall-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    margin-top: clamp(20px, 3vw, 30px);
+    overflow: hidden;
+    border: 1px solid rgba(148, 180, 218, 0.18);
+    border-radius: 10px;
+    background: rgba(148, 180, 218, 0.16);
+}
+
+.jutsu-hall-stats > span {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 13px 15px;
+    background: rgba(4, 11, 27, 0.76);
+}
+
+.jutsu-hall-stats small,
+.jutsu-session-metrics small,
+.jutsu-plan-metrics small,
+.jutsu-detail-metrics small {
+    color: #8292aa;
+    font: 700 9px/1.2 var(--font-display);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.jutsu-hall-stats strong {
+    overflow: hidden;
+    color: #f4e4ad;
+    font: 700 13px/1.25 Inter, sans-serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jutsu-hall-alerts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 12px;
+}
+
+.jutsu-hall-alerts p {
+    margin: 0 !important;
+    padding: 8px 11px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #b8c4d6 !important;
+    font: 600 11px/1.3 Inter, sans-serif !important;
+    text-align: left !important;
+}
+
+.jutsu-hall-alerts p.positive { border-color: rgba(74, 222, 128, 0.35); color: #86efac !important; }
+.jutsu-hall-alerts p.negative { border-color: rgba(248, 113, 113, 0.35); color: #fca5a5 !important; }
+
+.jutsu-notice {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    margin: 0 0 12px;
+    padding: 11px 12px 11px 14px;
+    border: 1px solid rgba(96, 165, 250, 0.42);
+    border-left: 4px solid #60a5fa;
+    border-radius: 9px;
+    background: rgba(12, 25, 49, 0.94);
+    color: #dbeafe;
+}
+
+.jutsu-notice.success { border-color: rgba(74, 222, 128, 0.42); border-left-color: #4ade80; background: rgba(6, 35, 27, 0.94); }
+.jutsu-notice.error { border-color: rgba(248, 113, 113, 0.46); border-left-color: #f87171; background: rgba(45, 12, 20, 0.95); }
+.jutsu-notice strong { color: #f8fafc; font: 800 10px var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; }
+.jutsu-notice span { font: 600 12px/1.4 Inter, sans-serif; }
+.jutsu-training-screen .jutsu-notice button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0 !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #cbd5e1 !important;
+    font-size: 20px !important;
+}
+
+.jutsu-training-dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin: 0 0 14px;
+}
+
+.jutsu-training-dashboard.has-session {
+    grid-template-columns: minmax(0, 1.2fr) minmax(330px, 0.8fr);
+}
+
+.jutsu-session-card,
+.jutsu-plan-card {
+    min-width: 0;
+    padding: clamp(16px, 2vw, 22px);
+    border: 1px solid rgba(102, 163, 232, 0.34);
+    border-radius: 12px;
+    background:
+        linear-gradient(145deg, rgba(19, 31, 53, 0.96), rgba(8, 15, 31, 0.98));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.045), 0 10px 26px rgba(0, 0, 0, 0.22);
+}
+
+.jutsu-session-card.is-ready {
+    border-color: rgba(74, 222, 128, 0.58);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.05), 0 0 28px rgba(34, 197, 94, 0.10);
+}
+
+.jutsu-plan-card {
+    border-color: rgba(232, 212, 150, 0.32);
+    background: linear-gradient(145deg, rgba(34, 29, 30, 0.94), rgba(10, 15, 28, 0.98));
+}
+
+.jutsu-panel-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.jutsu-training-screen .jutsu-panel-title-row h3,
+.jutsu-training-screen .jutsu-library-heading h3 {
+    margin: 5px 0 0 !important;
+    color: #f3e3aa !important;
+    text-align: left !important;
+    font-size: clamp(15px, 1.6vw, 20px) !important;
+    letter-spacing: 0.10em !important;
+}
+
+.jutsu-training-screen .jutsu-panel-title-row h3::before,
+.jutsu-training-screen .jutsu-panel-title-row h3::after,
+.jutsu-training-screen .jutsu-library-heading h3::before,
+.jutsu-training-screen .jutsu-library-heading h3::after { display: none !important; }
+
+.jutsu-status-chip {
+    flex: none;
+    padding: 6px 9px;
+    border: 1px solid rgba(96, 165, 250, 0.42);
+    border-radius: 999px;
+    background: rgba(30, 64, 175, 0.18);
+    color: #93c5fd;
+    font: 800 9px var(--font-display);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.jutsu-status-chip.ready {
+    border-color: rgba(74, 222, 128, 0.52);
+    background: rgba(22, 101, 52, 0.20);
+    color: #86efac;
+}
+
+.jutsu-level-route {
+    display: grid;
+    grid-template-columns: auto minmax(80px, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0 14px;
+}
+
+.jutsu-level-route > strong { color: #f3e3aa; font: 800 12px var(--font-display); letter-spacing: 0.08em; }
+.jutsu-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(2, 6, 23, 0.86); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8); }
+.jutsu-progress-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #67b7ff 70%, #f3e3aa); box-shadow: 0 0 12px rgba(96, 165, 250, 0.55); transition: width 600ms linear; }
+
+.jutsu-session-metrics,
+.jutsu-plan-metrics,
+.jutsu-detail-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.jutsu-session-metrics > span,
+.jutsu-plan-metrics > span,
+.jutsu-detail-metrics > span {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 7px;
+    background: rgba(2, 6, 23, 0.40);
+}
+
+.jutsu-session-metrics strong,
+.jutsu-plan-metrics strong,
+.jutsu-detail-metrics strong { color: #e7edf7; font: 700 12px/1.3 Inter, sans-serif; }
+
+.jutsu-training-screen .jutsu-session-message,
+.jutsu-training-screen .jutsu-plan-footnote,
+.jutsu-training-screen .jutsu-plan-empty {
+    margin: 11px 0 !important;
+    color: #9dacbf !important;
+    font: 500 11px/1.45 Inter, sans-serif !important;
+    text-align: left !important;
+}
+
+.jutsu-action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.jutsu-training-screen .jutsu-primary-action { border-color: rgba(96, 165, 250, 0.78) !important; background: linear-gradient(180deg, #2764c6, #173f8e) !important; box-shadow: 0 8px 18px rgba(25, 79, 170, 0.26) !important; }
+.jutsu-training-screen .jutsu-secondary-action { border-color: rgba(148, 163, 184, 0.36) !important; background: linear-gradient(180deg, #253149, #121b2d) !important; color: #cbd5e1 !important; box-shadow: none !important; }
+.jutsu-training-screen .jutsu-finish-action { border-color: rgba(74, 222, 128, 0.52) !important; background: linear-gradient(180deg, #17613a, #0b3825) !important; box-shadow: 0 8px 18px rgba(22, 101, 52, 0.22) !important; }
+
+.jutsu-queue-card,
+.jutsu-queue-empty {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) auto auto auto;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 11px;
+    border: 1px solid rgba(96, 165, 250, 0.26);
+    border-radius: 8px;
+    background: rgba(10, 28, 54, 0.58);
+    color: #aebcd0;
+    font: 600 11px/1.35 Inter, sans-serif;
+}
+
+.jutsu-queue-card > div,
+.jutsu-queue-empty > div { display: grid; gap: 4px; min-width: 0; }
+.jutsu-queue-card > div > strong { overflow: hidden; color: #e7edf7; text-overflow: ellipsis; white-space: nowrap; }
+.jutsu-queue-empty { grid-template-columns: minmax(0, 1fr) auto; }
+.jutsu-training-screen .jutsu-queue-empty p { margin: 0 !important; color: #9dacbf !important; font: 500 11px/1.35 Inter, sans-serif !important; text-align: left !important; }
+
+.jutsu-plan-preview {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: center;
+    gap: 13px;
+    margin: 16px 0 12px;
+}
+
+.jutsu-plan-art {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border: 1px solid rgba(232, 212, 150, 0.38);
+    border-radius: 10px;
+    background: radial-gradient(circle at 50% 20%, rgba(96, 165, 250, 0.28), transparent 45%), #080f20;
+    color: #dbeafe;
+    font: 800 16px var(--font-display);
+}
+
+.jutsu-plan-art img { width: 100%; height: 100%; object-fit: cover; }
+.jutsu-plan-preview > div { display: grid; gap: 5px; min-width: 0; }
+.jutsu-plan-preview > div > span { color: #91a3ba; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; }
+.jutsu-plan-preview > div > strong { color: #f3e3aa; font: 800 15px var(--font-display); letter-spacing: 0.06em; }
+.jutsu-plan-preview > div > small { color: #a9b7ca; font: 500 11px Inter, sans-serif; }
+.jutsu-plan-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.jutsu-training-screen .jutsu-start-action { width: 100%; min-height: 44px; margin-top: 12px; }
+
+.jutsu-seal-wrap { margin-bottom: 18px; }
+.jutsu-training-screen .jutsu-seal-wrap > .summary-box { margin: 0 !important; padding: 14px 16px !important; border-left-color: #e8d496 !important; border-radius: 10px !important; }
+
+.jutsu-library {
+    min-width: 0;
+    padding: clamp(14px, 2vw, 20px);
+    border: 1px solid rgba(148, 163, 184, 0.20);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(8, 15, 31, 0.88), rgba(4, 9, 21, 0.96));
+}
+
+.jutsu-library-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 14px;
+}
+
+.jutsu-training-screen .jutsu-library-heading p {
+    max-width: 460px;
+    margin: 0 !important;
+    color: #8f9eb3 !important;
+    font: 500 11px/1.4 Inter, sans-serif !important;
+    text-align: right !important;
+}
+
+.jutsu-training-screen .technique-header { align-items: center; margin-bottom: 2px; }
+.jutsu-training-screen .technique-header label { color: #aebbd0; font: 800 10px var(--font-display); letter-spacing: 0.16em; text-transform: uppercase; }
+.jutsu-training-screen .technique-header > span { padding: 4px 8px; border-radius: 999px; background: rgba(96, 165, 250, 0.12); color: #93c5fd; font-size: 10px; }
+.jutsu-training-screen .technique-shell { grid-template-columns: minmax(0, 1fr) clamp(285px, 24vw, 350px); gap: 14px; min-width: 0; }
+.jutsu-training-screen .technique-grid { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 9px; min-width: 0; max-height: 620px; padding: 10px; border-color: rgba(96, 165, 250, 0.20); background: rgba(2, 6, 18, 0.72); scrollbar-color: #315b91 #070d1b; }
+
+/* Undo the shared `.jutsu-training-screen button` primary-action skin. */
+.jutsu-training-screen .technique-card {
+    grid-template-rows: 88px minmax(34px, auto) !important;
+    gap: 6px !important;
+    min-width: 0;
+    min-height: 136px !important;
+    padding: 6px !important;
+    border: 1px solid rgba(105, 130, 165, 0.34) !important;
+    border-radius: 9px !important;
+    background: linear-gradient(180deg, #111b30, #081022) !important;
+    color: #dbe4f1 !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 3px 8px rgba(0, 0, 0, 0.28) !important;
+    text-align: left !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    transform: none;
+}
+
+.jutsu-training-screen .technique-card:hover:not(:disabled) {
+    translate: 0 -2px;
+    border-color: rgba(96, 165, 250, 0.72) !important;
+    background: linear-gradient(180deg, #172640, #0b1730) !important;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34), 0 0 16px rgba(59, 130, 246, 0.12) !important;
+}
+
+.jutsu-training-screen .technique-card.selected {
+    border-color: #e8d496 !important;
+    background: linear-gradient(180deg, #20263a, #11162a) !important;
+    box-shadow: 0 0 0 1px rgba(232, 212, 150, 0.18), 0 0 22px rgba(232, 212, 150, 0.13) !important;
+}
+
+.jutsu-training-screen .technique-thumb { border-radius: 6px; background: radial-gradient(circle at 50% 25%, rgba(59, 130, 246, 0.28), transparent 42%), #060c19; }
+.jutsu-training-screen .technique-card.selected .technique-thumb { box-shadow: inset 0 0 0 1px rgba(232, 212, 150, 0.26); }
+.jutsu-training-screen .technique-name { color: #dbe4f1; font: 800 10px/1.18 var(--font-display); letter-spacing: 0.06em; text-align: center; text-transform: uppercase; }
+.jutsu-training-screen .technique-cost { right: 5px; top: 5px; min-width: 25px; height: 25px; border: 1px solid rgba(232, 212, 150, 0.58); background: rgba(5, 10, 24, 0.88); color: #f3e3aa; font-size: 10px; }
+
+.jutsu-training-screen .technique-filter-panel {
+    gap: 6px;
+    min-width: 0;
+    max-height: 620px;
+    overflow: auto;
+    padding: 12px;
+    border-color: rgba(232, 212, 150, 0.24);
+    background: rgba(12, 20, 37, 0.96);
+    scrollbar-color: #315b91 #070d1b;
+}
+
+.jutsu-training-screen .technique-filter-panel > label { color: #8fa0b8; font: 800 9px var(--font-display); letter-spacing: 0.11em; text-transform: uppercase; }
+.jutsu-training-screen .technique-filter-panel > input,
+.jutsu-training-screen .technique-filter-panel > select { min-width: 0; min-height: 36px; border-color: rgba(148, 163, 184, 0.24); background: #081126; color: #e2e8f0; }
+.jutsu-training-screen .technique-selected-panel { margin-top: 8px; padding-top: 12px; border-top-color: rgba(232, 212, 150, 0.22); }
+.jutsu-training-screen .technique-selected-panel > h4 { margin: 0 0 9px; color: #f3e3aa; font: 800 15px var(--font-display); letter-spacing: 0.08em; }
+
+.jutsu-detail-stack { display: grid; gap: 9px; }
+.jutsu-detail-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.jutsu-detail-badges span { padding: 4px 7px; border: 1px solid rgba(96, 165, 250, 0.28); border-radius: 999px; background: rgba(30, 64, 175, 0.14); color: #bfdbfe; font: 700 9px Inter, sans-serif; }
+.jutsu-detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.jutsu-training-screen .jutsu-detail-stack > p { margin: 0 !important; color: #9faec1 !important; font: 500 11px/1.45 Inter, sans-serif !important; text-align: left !important; }
+.jutsu-training-screen .jutsu-detail-stack > p strong { color: #d9e4f2 !important; font-weight: 750; }
+
+.jutsu-training-screen button:focus-visible,
+.jutsu-training-screen input:focus-visible,
+.jutsu-training-screen select:focus-visible {
+    outline: 3px solid rgba(125, 211, 252, 0.88) !important;
+    outline-offset: 2px;
+}
+
+.jutsu-training-screen button:disabled { cursor: not-allowed !important; opacity: 0.48 !important; filter: saturate(0.6); }
+
+@media (max-width: 1080px) {
+    .jutsu-training-dashboard.has-session { grid-template-columns: 1fr; }
+    .jutsu-training-screen .technique-shell { grid-template-columns: minmax(0, 1fr) 300px; }
+    .jutsu-queue-card { grid-template-columns: minmax(0, 1fr) auto; }
+    .jutsu-queue-card > span { grid-column: 1; }
+    .jutsu-queue-card > button { grid-column: 2; grid-row: 1 / span 3; }
+}
+
+@media (max-width: 800px) {
+    .jutsu-training-screen { padding: 12px !important; overflow: visible; }
+    .jutsu-hall-hero { padding: 20px 16px; }
+    .jutsu-hall-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .jutsu-library-heading { display: grid; }
+    .jutsu-training-screen .jutsu-library-heading p { text-align: left !important; }
+    .jutsu-training-screen .technique-shell { display: flex !important; flex-direction: column !important; }
+    .jutsu-training-screen .technique-filter-panel { position: static !important; max-height: none !important; overflow: visible !important; }
+    .jutsu-training-screen .technique-grid { max-height: 520px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+    .jutsu-training-screen .technique-card { grid-template-rows: 78px minmax(34px, auto) !important; min-height: 126px !important; }
+}
+
+@media (max-width: 560px) {
+    .jutsu-hall-hero::after { display: none; }
+    .jutsu-hall-stats { grid-template-columns: 1fr 1fr; }
+    .jutsu-hall-stats > span { padding: 10px; }
+    .jutsu-action-row > button { width: 100%; min-height: 44px; }
+    .jutsu-plan-metrics { grid-template-columns: 1fr; }
+    .jutsu-plan-preview { grid-template-columns: 60px minmax(0, 1fr); }
+    .jutsu-plan-art { width: 60px; }
+    .jutsu-queue-card,
+    .jutsu-queue-empty { grid-template-columns: 1fr; }
+    .jutsu-queue-card > button { grid-column: 1; grid-row: auto; width: 100%; }
+    .jutsu-notice { grid-template-columns: 1fr auto; }
+    .jutsu-notice > span { grid-column: 1 / -1; grid-row: 2; }
+    .jutsu-training-screen .technique-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 480px; padding: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .jutsu-training-screen *,
+    .jutsu-training-screen *::before,
+    .jutsu-training-screen *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

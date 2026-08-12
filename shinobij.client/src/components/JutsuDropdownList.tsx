@@ -109,6 +109,8 @@ export function JutsuDropdownList({
                             <button
                                 key={jutsu.id}
                                 className={`technique-card ${selected ? "selected" : ""}`}
+                                role="option"
+                                aria-selected={selected}
                                 onClick={() => {
                                     setLocalSelectedId(jutsu.id);
                                     onSelectJutsu?.(jutsu);
@@ -116,10 +118,10 @@ export function JutsuDropdownList({
                                 type="button"
                             >
                                 <span className="technique-thumb">
-                                    {image ? <img src={image} alt={jutsu.name} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
+                                    {image ? <img src={image} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
                                 </span>
                                 <span className="technique-name">{jutsu.name}</span>
-                                <span className="technique-cost">{jutsu.ap}</span>
+                                <span className="technique-cost" aria-label={`${jutsu.ap} action points`} title={`${jutsu.ap} action points`}>{jutsu.ap}</span>
                             </button>
                         );
                     })}
