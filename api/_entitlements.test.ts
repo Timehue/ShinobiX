@@ -17,8 +17,8 @@ describe('supporter entitlement caps', () => {
     });
 
     it('keeps two additional carried pets as a supporter perk', () => {
-        assert.equal(maxPets({}), 3);
-        assert.equal(maxPets({ patreon: { active: true } }), 5);
+        assert.equal(maxPets({}), 4);
+        assert.equal(maxPets({ patreon: { active: true } }), 6);
     });
 
     it('keeps custom avatars and a second stored bloodline as supporter perks', () => {
@@ -38,20 +38,20 @@ describe('supporter entitlement caps', () => {
         assert.equal(stored.length, 3, 'classification never truncates stored ownership');
     });
 
-    it('keeps five owned pets after lapse but exposes only the authoritative three for combat', () => {
-        const pets = Array.from({ length: 5 }, (_, index) => ({ id: `pet-${index + 1}` }));
+    it('keeps six owned pets after lapse but exposes only the authoritative four for combat', () => {
+        const pets = Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index + 1}` }));
         const character = {
             patreon: { active: false },
-            activePetId: 'pet-5',
-            activePetId2v2: 'pet-4',
+            activePetId: 'pet-6',
+            activePetId2v2: 'pet-5',
             pets,
         };
-        assert.deepEqual(activeCarriedPetIds(character), ['pet-5', 'pet-4', 'pet-1']);
-        assert.deepEqual(activeCarriedPets<{ id: string }>(character).map(({ id }) => id), ['pet-5', 'pet-4', 'pet-1']);
-        assert.equal(pets.length, 5, 'eligibility projection never deletes owned pet data');
+        assert.deepEqual(activeCarriedPetIds(character), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
+        assert.deepEqual(activeCarriedPets<{ id: string }>(character).map(({ id }) => id), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
+        assert.equal(pets.length, 6, 'eligibility projection never deletes owned pet data');
         assert.deepEqual(
             activeCarriedPetIds({ ...character, patreon: { active: true } }),
-            ['pet-5', 'pet-4', 'pet-1', 'pet-2', 'pet-3'],
+            ['pet-6', 'pet-5', 'pet-1', 'pet-2', 'pet-3', 'pet-4'],
         );
     });
 });

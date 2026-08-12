@@ -673,7 +673,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
 
                 {preservedOverflowCount > 0 && (
                     <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
-                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Base: 3 carried · Supporter: 5. Swap safely in Sanctuary.
+                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Base: 4 carried · Supporter: 6. Swap safely in Sanctuary.
                     </p>
                 )}
 

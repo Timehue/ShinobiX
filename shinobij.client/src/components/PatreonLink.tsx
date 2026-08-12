@@ -65,7 +65,7 @@ const DropletIcon = (
 
 const PERKS: Perk[] = [
     { label: 'Jutsu loadout', detail: 'Base account: 12 equipped · Supporter: 15 equipped (three additional combat options)', icon: ScrollIcon },
-    { label: 'Carried pet roster', detail: 'Base roster: 3 carried pets · Supporter roster: 5 carried pets', icon: PawIcon },
+    { label: 'Carried pet roster', detail: 'Base roster: 4 carried pets · Supporter roster: 6 carried pets', icon: PawIcon },
     { label: 'Custom avatar', detail: 'Supporter: upload your own avatar', icon: MaskIcon },
     { label: 'Stored custom bloodlines', detail: 'Base account: 1 · Supporter: 2', icon: DropletIcon },
 ];

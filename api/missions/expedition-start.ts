@@ -8,7 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { activeBreedingParentIds } from '../pet/_pet-busy.js';
-import { activeCarriedPetIds } from '../_entitlements.js';
+import { activeCarriedPetIds, PET_CAP_SUB } from '../_entitlements.js';
 import { claimPetLifecycleLease } from '../pet/_active-battle-lease.js';
 
 /*
@@ -35,7 +35,8 @@ import { claimPetLifecycleLease } from '../pet/_active-battle-lease.js';
  * Body: { playerName, petId?, expType }. Legacy `petLevel` input is ignored;
  * reward level always comes from the saved pet selected by `petId`.
  *
- * Rate limited 5 per 30s (a Tamer can launch up to PET_CAP=5 pets back-to-back)
+ * The burst limit follows the supporter carried-pet cap so every eligible pet
+ * can be launched back-to-back without weakening the separate 12/day ceiling.
  * + a hard 12/day mint cap (matches report-pet-event's MAX_EXPEDITIONS_PER_DAY).
  */
 
@@ -67,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Pre-auth rate limit so spam at unknown names also throttles.
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'expedition-start', 5, 30_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'expedition-start', PET_CAP_SUB, 30_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

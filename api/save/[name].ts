@@ -1250,14 +1250,14 @@ export function sanitizeCharacterSave(
     // Pet roster cap: a tampered client could POST a save with more pets than
     // allowed. Server truncates so we don't silently lose extras on next reload.
     // Preserve the active pet if it's in the cut. Subscriber-aware (Patreon
-    // perk): 3 for a Base account, 5 for a Shinobi Supporter. The authoritative
+    // perk): 4 for a Base account, 6 for a Shinobi Supporter. The authoritative
     // entitlement comes from `exChar`: `char.patreon` is still client-supplied
     // at this stage and is not pinned to the server ledger until later.
     //
     // NON-DESTRUCTIVE downgrade: never truncate BELOW the already-stored roster,
     // so a lapsed subscriber (or a legacy larger roster) keeps every pet — the
-    // cap only prevents GROWING past it. A legit base-tier roster is <=3, so a
-    // tampered save still can't grow the roster past 3.
+    // cap only prevents GROWING past it. A legit base-tier roster is <=4, so a
+    // tampered save still can't grow the roster past 4.
     const existingPets = Array.isArray(exChar.pets) ? exChar.pets as Array<Record<string, unknown>> : [];
     const PET_CAP = Math.max(maxPets(exChar), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
@@ -1332,7 +1332,7 @@ export function sanitizeCharacterSave(
     }
     // Existing lapse/legacy overflow stays owned above, but it cannot be rotated
     // into combat by merely changing activePetId in a generic save. The current
-    // active/reserve choices are grandfathered into the stable 3/5 projection;
+    // active/reserve choices are grandfathered into the stable 4/6 projection;
     // dedicated Sanctuary transfers can then change roster membership safely.
     const eligibleStoredPetIds = new Set(activeCarriedPetIds(exChar, existingPets));
     const retainedPetIds = new Set(
@@ -2181,7 +2181,8 @@ export function sanitizeCharacterSave(
     //     read as a new custom upload and was deleted on EVERY save, so no
     //     non-subscriber's save ever carried an avatar and their own UI fell
     //     back to initials until the shared-image manifest happened to land.
-    // (Pet roster is capped above via PET_CAP = maxPets(char).)
+    // (Pet roster growth is capped above via maxPets(exChar), while an already-
+    // stored larger roster is preserved non-destructively.)
     {
         const fc = finalChar as Record<string, unknown>;
         const storedLoadout = [...new Set(

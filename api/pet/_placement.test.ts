@@ -3,15 +3,15 @@ import { strict as assert } from 'node:assert';
 import { petAcquisitionDestination } from './_placement.js';
 
 describe('pet acquisition placement', () => {
-    it('uses three carried slots for a base player and routes all overflow to Sanctuary', () => {
-        assert.equal(petAcquisitionDestination({ pets: [{}, {}] }), 'roster');
-        assert.equal(petAcquisitionDestination({ pets: [{}, {}, {}] }), 'sanctuary');
+    it('uses four carried slots for a base player and routes the fifth pet to Sanctuary', () => {
+        assert.equal(petAcquisitionDestination({ pets: [{}, {}, {}] }), 'roster');
+        assert.equal(petAcquisitionDestination({ pets: [{}, {}, {}, {}] }), 'sanctuary');
         assert.equal(petAcquisitionDestination({ pets: Array.from({ length: 100 }) }), 'sanctuary');
     });
 
-    it('preserves five carried slots for a Shinobi Supporter', () => {
+    it('preserves six carried slots for a Shinobi Supporter and routes the seventh to Sanctuary', () => {
         const supporter = { patreon: { active: true, tier: 'Shinobi Supporter' } };
-        assert.equal(petAcquisitionDestination({ ...supporter, pets: [{}, {}, {}, {}] }), 'roster');
-        assert.equal(petAcquisitionDestination({ ...supporter, pets: [{}, {}, {}, {}, {}] }), 'sanctuary');
+        assert.equal(petAcquisitionDestination({ ...supporter, pets: [{}, {}, {}, {}, {}] }), 'roster');
+        assert.equal(petAcquisitionDestination({ ...supporter, pets: [{}, {}, {}, {}, {}, {}] }), 'sanctuary');
     });
 });

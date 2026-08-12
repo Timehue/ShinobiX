@@ -326,7 +326,7 @@ export function Arena({
     // "None" means it always passes the element gate.
     const playerLegacySignature = legacySignatureFor(character);
     // Do not memoize this time-sensitive projection: admin-comps can expire while
-    // Arena stays mounted, and the roster is tiny (3/5), so recomputing is cheap.
+    // Arena stays mounted, and the roster is tiny (4/6), so recomputing is cheap.
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const equippedJutsus = [
         ...activeJutsuLoadoutIds(character)

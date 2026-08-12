@@ -290,10 +290,10 @@ describe('common solo-PvE pet boundary', () => {
     });
 
     it('uses the entitlement-projected active roster when sealing a companion', () => {
-        const pets = Array.from({ length: 5 }, (_, index) => ({ ...petRecord(), id: `pet-${index + 1}` }));
-        const character = { patreon: { active: false }, activePetId: 'pet-5', activePetId2v2: 'pet-4', pets };
-        assert.deepEqual(activeCarriedPets<{ id: string }>(character).map(({ id }) => id), ['pet-5', 'pet-4', 'pet-1']);
-        assert.equal(sealCompanionFromSave(character, NOW)?.petId, 'pet-5');
+        const pets = Array.from({ length: 6 }, (_, index) => ({ ...petRecord(), id: `pet-${index + 1}` }));
+        const character = { patreon: { active: false }, activePetId: 'pet-6', activePetId2v2: 'pet-5', pets };
+        assert.deepEqual(activeCarriedPets<{ id: string }>(character).map(({ id }) => id), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
+        assert.equal(sealCompanionFromSave(character, NOW)?.petId, 'pet-6');
     });
 
     it('covers every rewardful builder encounter at summon time and never double-decrements terminal gear', async () => {

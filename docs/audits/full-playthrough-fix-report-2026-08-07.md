@@ -42,8 +42,8 @@ The browser reported no application errors. It only logged an upstream Three.js 
 
 - Clarified automatic ranks versus later advancement holds.
 - Corrected the Guide: Ninjutsu/Genjutsu spend Chakra; Taijutsu/Bukijutsu spend Stamina under the live resource system.
-- Preserved the supporter entitlement model: base accounts equip 12 jutsu and carry 3 pets; supporters equip 15 jutsu and carry 5 pets.
-- Kept Tactical eligibility based on having four available pets. Normal base-account acquisition routes overflow past three carried pets into the Sanctuary, while supporters may carry enough pets to enter directly.
+- Preserved the supporter entitlement model: base accounts equip 12 jutsu and carry 4 pets; supporters equip 15 jutsu and carry 6 pets.
+- Kept Tactical eligibility based on having four available pets, so a full Base roster can now enter directly. New acquisitions overflow safely into the Sanctuary after four carried pets for Base accounts or six for Supporters.
 - Prevented bloodline data from being silently erased during saves.
 - Fixed training selection synchronization, stat-control accessibility, Town Hall Kage wording, Clan Hall XP wording, morale messaging, and profession-respec state.
 - Corrected Sennin-set combat values and generated catalogs, and added authored battle text for built-in bloodlines.

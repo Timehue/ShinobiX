@@ -107,7 +107,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     // Supporter admin-comps can expire while this screen remains mounted. The
-    // roster is only 3/5 entries, so keep the projection live instead of caching
+    // roster is only 4/6 entries, so keep the projection live instead of caching
     // a time-sensitive entitlement behind the Character object identity.
     const carried = activeCarriedPets(character);
     const available = carried.filter((p) => !isPetOnExpedition(p));

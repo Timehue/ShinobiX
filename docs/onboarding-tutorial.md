@@ -82,7 +82,8 @@ return {
 ### 1.4 Persistence — verified client-only (no API/cPanel change)
 
 `sanitizeCharacterSave` (`api/save/[name].ts:220`) clamps level, ryo, currencies,
-profession, per-stat + total stat gain, lifetime counters, pet cap (5),
+profession, per-stat + total stat gain, lifetime counters, entitlement-aware
+carried-pet cap (Base 4 / Supporter 6),
 inventory cap (500, absolute), and `examsPassed`. It **does not touch
 `jutsuMastery` or `equippedJutsuIds`** — they pass through and are stored. The
 `FIRST_SAVE_BASELINE_CHARACTER.jutsuMastery: []` baseline (line 216) is only used

@@ -43,7 +43,8 @@ describe('private ranked pet engine', () => {
                 pet('p1', { training: { endsAt: 1 } }),
                 pet('p2'),
                 pet('p3'),
-                pet('overflow-p4', { level: 100 }),
+                pet('p4'),
+                pet('overflow-p5', { level: 100 }),
             ],
         };
         const choice = chooseAuthoritativeRankedPet(character, 100);
@@ -56,7 +57,8 @@ describe('private ranked pet engine', () => {
                 pet('p1', { training: { endsAt: 1 } }),
                 pet('p2', { expedition: { endsAt: 1 } }),
                 pet('p3', { training: { endsAt: 1 } }),
-                pet('overflow-p4'),
+                pet('p4', { training: { endsAt: 1 } }),
+                pet('overflow-p5'),
             ],
         }, 100);
         assert.deepEqual(busy, { ok: false, reason: 'all-entitled-pets-busy' });
