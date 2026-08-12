@@ -11,6 +11,7 @@ import { serverNow } from "../lib/server-clock";
 import { useState, useEffect, useRef } from "react";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
+import "../styles/jutsu-training-skin.css";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
@@ -444,6 +445,9 @@ export function JutsuTrainingHall({
     const lockedElementCount = allJutsus.length - availableJutsus.length;
     const [selectedJutsuId, setSelectedJutsuId] = useState(availableJutsus[0]?.id ?? "");
     const [now, setNow] = useState(Date.now());
+    const [jutsuAction, setJutsuAction] = useState<string | null>(null);
+    const [jutsuNotice, setJutsuNotice] = useState<JutsuHallNotice | null>(null);
+    const jutsuActionRef = useRef(false);
     // Village war morale, for DISPLAY only. The server applies it itself as a
     // separate duration multiplier (api/_war-morale.ts → api/training/jutsu-ryo.ts),
     // so it must NOT be folded into the bonus we send or it would count twice.
@@ -484,6 +488,23 @@ export function JutsuTrainingHall({
         return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
     }
 
+    function beginJutsuAction(action: string): boolean {
+        if (jutsuActionRef.current) return false;
+        jutsuActionRef.current = true;
+        setJutsuAction(action);
+        setJutsuNotice(null);
+        return true;
+    }
+
+    function endJutsuAction(): void {
+        jutsuActionRef.current = false;
+        setJutsuAction(null);
+    }
+
+    function rejectJutsuAction(error: string | undefined): void {
+        setJutsuNotice({ tone: "error", message: friendlyJutsuTrainingError(error) });
+    }
+
     async function startPaidJutsuTraining() {
         if (!requireServerSettlement("timedJutsuTraining")) return;
         if (activeJutsuTraining) return alert("You are already training a jutsu.");
@@ -503,11 +524,21 @@ export function JutsuTrainingHall({
 
         const cost = jutsuTrainingCost(mastery.level);
         if (mastery.level > 0 && character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
-        const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: jutsuTrainingBonus });
-        if (!result.character) return alert(result.error || 'Jutsu training could not be started.');
-        updateCharacter(result.character);
-        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
-        if (mastery.level === 0) alert(`${selectedJutsu.name} unlocked at level 1 for free!`);
+        if (!beginJutsuAction("start")) return;
+        try {
+            const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: jutsuTrainingBonus });
+            if (!result.character) return rejectJutsuAction(result.error);
+            updateCharacter(result.character);
+            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            setJutsuNotice({
+                tone: "success",
+                message: mastery.level === 0
+                    ? `${selectedJutsu.name} unlocked at level 1.`
+                    : `${selectedJutsu.name} training started. Your ryo payment is saved.`,
+            });
+        } finally {
+            endJutsuAction();
+        }
     }
 
     async function completePaidJutsuTraining() {
@@ -518,12 +549,17 @@ export function JutsuTrainingHall({
             return;
         }
 
-        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot be claimed safely.');
-        const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken });
-        if (!result.character) return alert(result.error || 'Jutsu training could not be claimed.');
-        updateCharacter(result.character);
-        alert(`${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.`);
-        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
+        if (!beginJutsuAction("claim")) return;
+        try {
+            const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken });
+            if (!result.character) return rejectJutsuAction(result.error);
+            updateCharacter(result.character);
+            setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
+            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        } finally {
+            endJutsuAction();
+        }
     }
 
     // Cancellation/refund is derived from the server-sealed active session.
@@ -532,12 +568,17 @@ export function JutsuTrainingHall({
         if (!activeJutsuTraining) return;
         const refund = Math.floor(activeJutsuTraining.ryoCost * 0.5);
         if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`))) return;
-        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot be refunded safely.');
-        const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken });
-        if (!result.character) return alert(result.error || 'Jutsu training could not be cancelled.');
-        updateCharacter(result.character);
-        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
-        alert(`Training cancelled. Refunded ${result.refund ?? refund} ryo.`);
+        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
+        if (!beginJutsuAction("cancel")) return;
+        try {
+            const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken });
+            if (!result.character) return rejectJutsuAction(result.error);
+            updateCharacter(result.character);
+            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            setJutsuNotice({ tone: "success", message: `Training cancelled. ${result.refund ?? refund} ryo returned.` });
+        } finally {
+            endJutsuAction();
+        }
     }
 
     // The server derives remaining time, debits ryo, and grants the level atomically.
@@ -549,12 +590,17 @@ export function JutsuTrainingHall({
         const cost = jutsuRyoFinishCost(remainingMs);
         if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost.toLocaleString()} ryo to finish instantly.`);
         if (!(await gameConfirm(`Finish ${activeJutsuTraining.label} training now for ${cost.toLocaleString()} ryo?`))) return;
-        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot be finished safely.');
-        const result = await mutateJutsuRyoTraining(character.name, 'finish', { serverToken: activeJutsuTraining.serverToken });
-        if (!result.character) return alert(result.error || 'Jutsu training could not be finished.');
-        updateCharacter(result.character);
-        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
-        alert(`${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.`);
+        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
+        if (!beginJutsuAction("finish")) return;
+        try {
+            const result = await mutateJutsuRyoTraining(character.name, 'finish', { serverToken: activeJutsuTraining.serverToken });
+            if (!result.character) return rejectJutsuAction(result.error);
+            updateCharacter(result.character);
+            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
+        } finally {
+            endJutsuAction();
+        }
     }
 
     // Queue a 2nd jutsu training behind the active one. Ryo is paid + the duration
@@ -573,16 +619,22 @@ export function JutsuTrainingHall({
         if (fromLevel === 0) return alert("Train a level 0 jutsu directly to unlock it for free.");
         const cost = jutsuTrainingCost(fromLevel);
         if (character.ryo < cost) return alert(`Not enough ryo to queue. You need ${cost}.`);
-        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot accept a secure queue.');
-        const result = await mutateJutsuRyoTraining(character.name, 'queue', {
-            serverToken: activeJutsuTraining.serverToken,
-            jutsuId: selectedJutsu.id,
-            label: selectedJutsu.name,
-            trainingBonusPct: jutsuTrainingBonus,
-        });
-        if (!result.character) return alert(result.error || 'The jutsu queue could not be saved.');
-        updateCharacter(result.character);
-        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
+        if (!beginJutsuAction("queue")) return;
+        try {
+            const result = await mutateJutsuRyoTraining(character.name, 'queue', {
+                serverToken: activeJutsuTraining.serverToken,
+                jutsuId: selectedJutsu.id,
+                label: selectedJutsu.name,
+                trainingBonusPct: jutsuTrainingBonus,
+            });
+            if (!result.character) return rejectJutsuAction(result.error);
+            updateCharacter(result.character);
+            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            setJutsuNotice({ tone: "success", message: `${selectedJutsu.name} is queued and already paid for.` });
+        } finally {
+            endJutsuAction();
+        }
     }
 
     // Remove the queued 2nd training before it starts — full ryo refund (it never ran).
@@ -591,12 +643,17 @@ export function JutsuTrainingHall({
         if (!activeJutsuTraining?.next) return;
         const queued = activeJutsuTraining.next;
         if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`))) return;
-        if (!activeJutsuTraining.serverToken) return alert('This legacy queue cannot be refunded safely.');
-        const result = await mutateJutsuRyoTraining(character.name, 'cancel-queue', { serverToken: activeJutsuTraining.serverToken });
-        if (!result.character) return alert(result.error || 'The queued training could not be removed.');
-        updateCharacter(result.character);
-        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
-        alert(`Queued training removed. Refunded ${result.refund ?? queued.ryoCost} ryo.`);
+        if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
+        if (!beginJutsuAction("cancel-queue")) return;
+        try {
+            const result = await mutateJutsuRyoTraining(character.name, 'cancel-queue', { serverToken: activeJutsuTraining.serverToken });
+            if (!result.character) return rejectJutsuAction(result.error);
+            updateCharacter(result.character);
+            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            setJutsuNotice({ tone: "success", message: `Queued lesson removed. ${result.refund ?? queued.ryoCost} ryo returned.` });
+        } finally {
+            endJutsuAction();
+        }
     }
 
     const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
@@ -604,6 +661,10 @@ export function JutsuTrainingHall({
     const selectedCost = selectedMastery ? jutsuTrainingCost(selectedMastery.level) : 0;
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
+    const activeDuration = activeJutsuTraining ? Math.max(1, activeJutsuTraining.endsAt - activeJutsuTraining.startedAt) : 1;
+    const activeProgress = activeJutsuTraining
+        ? Math.max(0, Math.min(100, ((now - activeJutsuTraining.startedAt) / activeDuration) * 100))
+        : 0;
     const tagLensDiscipline = playerLensDiscipline(character);
     const showAcademyJutsuHint = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
     const queued = activeJutsuTraining?.next ?? null;
@@ -611,37 +672,217 @@ export function JutsuTrainingHall({
     const moralePercent = Math.max(0, Math.round(Math.abs(1 - warMorale.jutsuTimeMult) * 100));
     const moraleIsPositive = warMorale.jutsuTimeMult <= 1;
     const moraleMessage = moraleName === "rallying"
-        ? `🏯 Rallying comeback — your village trains jutsu ${moralePercent}% faster until ${new Date(warMorale.until).toLocaleDateString()}.`
+        ? `Rallying comeback: your village trains jutsu ${moralePercent}% faster until ${new Date(warMorale.until).toLocaleDateString()}.`
         : moraleName === "triumphant"
-            ? `🏯 Victorious — your village carries the pride of its last war until ${new Date(warMorale.until).toLocaleDateString()}.`
-            : `🏯 Village morale changes jutsu training speed by ${moralePercent}% until ${new Date(warMorale.until).toLocaleDateString()}.`;
+            ? `Victorious: your village carries the pride of its last war until ${new Date(warMorale.until).toLocaleDateString()}.`
+            : `Village morale changes jutsu training speed by ${moralePercent}% until ${new Date(warMorale.until).toLocaleDateString()}.`;
     const activeTrainingPanel = activeJutsuTraining ? (
-        <div className="summary-box">
-            <h3>Active Jutsu Training</h3>
-            <p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} → {activeJutsuTraining.toLevel}</p>
-            <p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p>
-            <p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : (queued ? "Complete — starting the queued jutsu…" : activeJutsuTraining.autoClaim ? "Complete — claiming your level…" : "Training complete. Claim your level.")}</p>
-            {!queued && !activeJutsuTraining.autoClaim && <button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button>}
-            {activeRemaining > 0 && !queued && <button onClick={cancelPaidJutsuTraining} style={{ marginLeft: 8 }}>Cancel (50% ryo back)</button>}
-            {activeRemaining > 0 && <button onClick={finishWithRyo} disabled={character.ryo < jutsuRyoFinishCost(activeRemaining)} style={{ marginLeft: 8, background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>💰 Finish now ({jutsuRyoFinishCost(activeRemaining).toLocaleString()} ryo)</button>}
+        <section className={`jutsu-session-card${activeRemaining <= 0 ? " is-ready" : ""}`} aria-labelledby="active-jutsu-title">
+            <div className="jutsu-panel-title-row">
+                <div>
+                    <span className="jutsu-eyebrow">Active lesson</span>
+                    <h3 id="active-jutsu-title">{activeJutsuTraining.label}</h3>
+                </div>
+                <span className={`jutsu-status-chip${activeRemaining <= 0 ? " ready" : ""}`}>
+                    {activeRemaining <= 0 ? "Ready" : "In progress"}
+                </span>
+            </div>
+            <div className="jutsu-level-route" aria-label={`Level ${activeJutsuTraining.fromLevel} to level ${activeJutsuTraining.toLevel}`}>
+                <strong>Lv {activeJutsuTraining.fromLevel}</strong>
+                <div className="jutsu-progress-track" aria-hidden="true"><span style={{ width: `${activeProgress}%` }} /></div>
+                <strong>Lv {activeJutsuTraining.toLevel}</strong>
+            </div>
+            <div className="jutsu-session-metrics">
+                <span><small>Time remaining</small><strong>{activeRemaining > 0 ? formatTrainingTime(activeRemaining) : "Complete"}</strong></span>
+                <span><small>Ryo paid</small><strong>{activeJutsuTraining.ryoCost.toLocaleString()}</strong></span>
+            </div>
+            <p className="jutsu-session-message">
+                {activeRemaining > 0
+                    ? "Your lesson is sealed on the server. You can leave this page safely."
+                    : queued
+                        ? "Complete — the queued lesson is being promoted."
+                        : activeJutsuTraining.autoClaim
+                            ? "Complete — claiming your new level."
+                            : "Lesson complete. Claim the level when ready."}
+            </p>
+            <div className="jutsu-action-row">
+                {!queued && !activeJutsuTraining.autoClaim && (
+                    <button className="jutsu-primary-action" type="button" onClick={completePaidJutsuTraining} disabled={activeRemaining > 0 || !!jutsuAction}>
+                        {jutsuAction === "claim" ? "Claiming…" : activeRemaining > 0 ? "Claim when ready" : "Claim jutsu level"}
+                    </button>
+                )}
+                {activeRemaining > 0 && !queued && (
+                    <button className="jutsu-secondary-action" type="button" onClick={cancelPaidJutsuTraining} disabled={!!jutsuAction}>Cancel · 50% refund</button>
+                )}
+                {activeRemaining > 0 && (
+                    <button className="jutsu-finish-action" type="button" onClick={finishWithRyo} disabled={!!jutsuAction || character.ryo < jutsuRyoFinishCost(activeRemaining)}>
+                        {jutsuAction === "finish" ? "Finishing…" : `Finish now · ${jutsuRyoFinishCost(activeRemaining).toLocaleString()} ryo`}
+                    </button>
+                )}
+            </div>
             {queued ? (
-                <div className="summary-box" style={{ marginTop: 8, borderColor: "rgba(96,165,250,0.5)" }}>
-                    <strong style={{ color: "#60a5fa" }}><GiFastForwardButton style={{ verticalAlign: "-0.12em", marginRight: "0.3rem" }} />Up next:</strong> {queued.label} — Level {queued.fromLevel} → {queued.toLevel} <span className="hint">({queued.ryoCost} ryo paid · ~{Math.round(queued.durationMs / 60000)} min)</span>
-                    <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.78rem" }}>Auto-starts the moment the current training finishes.</p>
-                    <button onClick={cancelQueuedJutsuTraining}>Remove from queue (full refund)</button>
+                <div className="jutsu-queue-card">
+                    <div><span className="jutsu-eyebrow"><GiFastForwardButton /> Up next</span><strong>{queued.label}</strong></div>
+                    <span>Lv {queued.fromLevel} → {queued.toLevel}</span>
+                    <span>{queued.ryoCost.toLocaleString()} ryo paid · ~{Math.round(queued.durationMs / 60000)} min</span>
+                    <button type="button" onClick={cancelQueuedJutsuTraining} disabled={!!jutsuAction}>{jutsuAction === "cancel-queue" ? "Removing…" : "Remove · full refund"}</button>
                 </div>
             ) : (
-                <div style={{ marginTop: 8 }}>
-                    <button onClick={queueNextJutsuTraining} disabled={!selectedJutsu}>＋ Queue {selectedJutsu ? selectedJutsu.name : "a jutsu"} next</button>
-                    <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.78rem" }}>Line up a 2nd training (ryo paid now) — it auto-starts when this one ends.</p>
+                <div className="jutsu-queue-empty">
+                    <div><span className="jutsu-eyebrow">Queue slot</span><p>Select a technique below, then reserve its next lesson now.</p></div>
+                    <button type="button" onClick={queueNextJutsuTraining} disabled={!selectedJutsu || !!jutsuAction}>
+                        {jutsuAction === "queue" ? "Saving queue…" : `Queue ${selectedJutsu ? selectedJutsu.name : "selected jutsu"}`}
+                    </button>
                 </div>
             )}
-        </div>
+        </section>
     ) : showAcademyJutsuHint ? (
         <div className="academy-inline-callout academy-jutsu-callout">
             <strong>Academy Training:</strong> your bloodline gave you starter jutsu. Unlock one more here, then equip it from Profile so it appears in your battle loadout.
         </div>
     ) : null;
 
-    return <div className="card jutsu-training-screen"><BackToVillageButton onClick={onBack} label="← Back" /><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{warMorale.morale !== "none" && <p className="hint" style={{ color: moraleIsPositive ? "#4ade80" : "#f87171" }}>{moraleMessage}</p>}{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeTrainingPanel}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(ryoTrainCap, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= ryoTrainCap || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= ryoTrainCap ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} selectedJutsuId={selectedJutsuId} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p>{(() => { const t = jutsuTargetingLabel(jutsu); return <p><strong style={{ color: "#c084fc" }}>🎯 Targeting: {t.short}</strong> — {t.detail}</p>; })()}<p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {jutsuResourceDisplay(jutsu, "chakra", character.level, character.specialty, mastery.level)} | Stamina Cost: {jutsuResourceDisplay(jutsu, "stamina", character.level, character.specialty, mastery.level)}</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < ryoTrainCap ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
+    const selectedAtCap = !!selectedMastery && selectedMastery.level >= ryoTrainCap;
+    const selectedInsufficientRyo = !!selectedMastery && selectedMastery.level > 0 && character.ryo < selectedCost;
+
+    return (
+        <div className="card jutsu-training-screen">
+            <BackToVillageButton onClick={onBack} label="← Back" />
+
+            <header className="jutsu-hall-hero">
+                <span className="jutsu-eyebrow">Technique development</span>
+                <h2>Jutsu Training Hall</h2>
+                <p>Study techniques with ryo through level 30. Advanced mastery from levels 31–50 is earned in battle.</p>
+                <div className="jutsu-hall-stats" aria-label="Training hall status">
+                    <span><small>Hall cap</small><strong>Lv {ryoTrainCap}</strong></span>
+                    <span><small>Available ryo</small><strong>{character.ryo.toLocaleString()}</strong></span>
+                    <span><small>Elements</small><strong>{ownedElements.length ? ownedElements.join(" · ") : "None awakened"}</strong></span>
+                    <span><small>Speed bonus</small><strong>+{jutsuTrainingBonus.toFixed(2)}%</strong></span>
+                </div>
+            </header>
+
+            {jutsuNotice && (
+                <div className={`jutsu-notice ${jutsuNotice.tone}`} role={jutsuNotice.tone === "error" ? "alert" : "status"} aria-live="polite">
+                    <strong>{jutsuNotice.tone === "error" ? "Training not saved" : jutsuNotice.tone === "success" ? "Hall updated" : "Training note"}</strong>
+                    <span>{jutsuNotice.message}</span>
+                    <button type="button" aria-label="Dismiss training notice" onClick={() => setJutsuNotice(null)}>×</button>
+                </div>
+            )}
+
+            {(warMorale.morale !== "none" || lockedElementCount > 0) && (
+                <div className="jutsu-hall-alerts">
+                    {warMorale.morale !== "none" && <p className={moraleIsPositive ? "positive" : "negative"}>{moraleMessage}</p>}
+                    {lockedElementCount > 0 && <p>{lockedElementCount} techniques remain hidden until their element is awakened.</p>}
+                </div>
+            )}
+
+            <div className={`jutsu-training-dashboard${activeJutsuTraining ? " has-session" : ""}`}>
+                {activeTrainingPanel}
+                <section className="jutsu-plan-card" aria-labelledby="jutsu-plan-title">
+                    <div className="jutsu-panel-title-row">
+                        <div>
+                            <span className="jutsu-eyebrow">Selected curriculum</span>
+                            <h3 id="jutsu-plan-title">{selectedJutsu?.name ?? "Choose a technique"}</h3>
+                        </div>
+                        {selectedMastery && <span className="jutsu-status-chip">Lv {selectedMastery.level}</span>}
+                    </div>
+                    {selectedJutsu && selectedMastery ? (
+                        <>
+                            <div className="jutsu-plan-preview">
+                                <span className="jutsu-plan-art">{selectedJutsu.image ? <img src={selectedJutsu.image} alt="" /> : selectedJutsu.type.slice(0, 3).toUpperCase()}</span>
+                                <div>
+                                    <span>{selectedJutsu.type} · {selectedJutsu.element}</span>
+                                    <strong>Level {selectedMastery.level} → {Math.min(ryoTrainCap, selectedMastery.level + 1)}</strong>
+                                    <small>{selectedAtCap ? "Battle-earned mastery from here" : "One complete mastery level"}</small>
+                                </div>
+                            </div>
+                            <div className="jutsu-plan-metrics">
+                                <span><small>Tuition</small><strong>{selectedMastery.level === 0 ? "Free" : `${selectedCost.toLocaleString()} ryo`}</strong></span>
+                                <span><small>Duration</small><strong>{selectedMastery.level === 0 ? "Instant" : `${selectedDuration / 60000} min`}</strong></span>
+                                <span><small>Reward</small><strong>+1 level</strong></span>
+                            </div>
+                            <button
+                                className="jutsu-primary-action jutsu-start-action"
+                                type="button"
+                                onClick={startPaidJutsuTraining}
+                                disabled={!!jutsuAction || !!activeJutsuTraining || selectedAtCap || selectedInsufficientRyo}
+                            >
+                                {jutsuAction === "start"
+                                    ? "Saving lesson…"
+                                    : activeJutsuTraining
+                                        ? "Another lesson is active"
+                                        : selectedAtCap
+                                            ? "Battle training required"
+                                            : selectedInsufficientRyo
+                                                ? `Need ${(selectedCost - character.ryo).toLocaleString()} more ryo`
+                                                : selectedMastery.level === 0
+                                                    ? "Unlock level 1 · free"
+                                                    : `Pay ${selectedCost.toLocaleString()} ryo & train`}
+                            </button>
+                            <p className="jutsu-plan-footnote">Payments and mastery claims are settled against your server save.</p>
+                        </>
+                    ) : <p className="jutsu-plan-empty">Choose a technique from the library below to preview its next lesson.</p>}
+                </section>
+            </div>
+
+            <div className="jutsu-seal-wrap">
+                <JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />
+            </div>
+
+            <section className="jutsu-library" aria-labelledby="jutsu-library-title">
+                <div className="jutsu-library-heading">
+                    <div><span className="jutsu-eyebrow">Technique archive</span><h3 id="jutsu-library-title">Choose your next jutsu</h3></div>
+                    <p>Select a card to update the curriculum panel. Use the filters to narrow a large collection.</p>
+                </div>
+                <JutsuDropdownList
+                    jutsus={availableJutsus}
+                    label="Jutsu library"
+                    emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."}
+                    selectedJutsuId={selectedJutsuId}
+                    renderDetails={(jutsu) => {
+                        const mastery = getJutsuMastery(character, jutsu.id);
+                        const scaled = scaleJutsuByLevel(jutsu, mastery.level);
+                        const cost = jutsuTrainingCost(mastery.level);
+                        const duration = jutsuTrainingDuration(mastery.level);
+                        const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
+                        const targeting = jutsuTargetingLabel(jutsu);
+                        return (
+                            <div className="jutsu-detail-stack">
+                                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span></div>
+                                <div className="jutsu-detail-metrics">
+                                    <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
+                                    <span><small>Action points</small><strong>{jutsu.ap}</strong></span>
+                                    <span><small>Range</small><strong>{jutsu.range}</strong></span>
+                                    <span><small>Effect power</small><strong>{scaled.scaledEffectPower}</strong></span>
+                                </div>
+                                <p><strong>Targeting · {targeting.short}</strong><br />{targeting.detail}</p>
+                                <p><strong>Resource cost</strong><br />{jutsuResourceDisplay(jutsu, "chakra", character.level, character.specialty, mastery.level)} chakra · {jutsuResourceDisplay(jutsu, "stamina", character.level, character.specialty, mastery.level)} stamina</p>
+                                <p><strong>Tags</strong><br />{displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
+                                <p><strong>Training route</strong><br />{mastery.level === 0 ? "Free, instant level 1 unlock" : mastery.level < ryoTrainCap ? `${cost.toLocaleString()} ryo · ${duration / 60000} min · +1 level` : "Battle-earned mastery"}</p>
+                                <p><strong>Effects</strong><br />{describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
+                                <JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
+                            </div>
+                        );
+                    }}
+                    onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)}
+                />
+            </section>
+        </div>
+    );
+}
+
+type JutsuHallNotice = { tone: "success" | "error" | "info"; message: string };
+
+function friendlyJutsuTrainingError(error: string | undefined): string {
+    const messages: Record<string, string> = {
+        "jutsu-training-already-active": "A jutsu session is already active. Refresh the hall if it is not shown here.",
+        "invalid-or-legacy-jutsu-training": "This training session is out of date. Refresh the game before trying again.",
+        "training-not-finished": "That lesson is still in progress.",
+        "not-enough-ryo": "You do not have enough ryo for that lesson.",
+        "jutsu-at-training-cap": "That jutsu has reached its current Training Hall cap.",
+        "jutsu-training-queue-full": "The training queue already has a second lesson.",
+        "unknown-or-unowned-jutsu": "That jutsu is no longer available to this character.",
+        "bloodline-required": "Equip the bloodline that grants this jutsu before training it.",
+    };
+    return messages[String(error ?? "")] ?? error ?? "Jutsu training could not be saved. Please retry.";
 }
