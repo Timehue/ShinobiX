@@ -86,6 +86,27 @@ test("mission fight reserves a row for its action notice instead of displacing t
         `the notice pin is gated at max-width ${noticeBound}px but the sibling band pins it lines up with are gated at ${siblingPinBound}px — they must match`,
     );
 
+    const missionTabRule = missionCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout\.mission-arena-fight \.battle-tab\s*\{([^}]*)\}/,
+    );
+    assert.ok(missionTabRule, "mobile tab sizing must remain scoped to mission combat");
+    assert.match(
+        missionTabRule![1],
+        /min-height:\s*44px\s*!important/,
+        "mission mobile tabs must preserve the minimum accessible touch target",
+    );
+    const missionTabAnchor = missionCss.indexOf(
+        ".arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab",
+    );
+    const missionTabBounds = [
+        ...missionCss.slice(0, missionTabAnchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g),
+    ];
+    assert.equal(
+        missionTabBounds.at(-1)?.[1],
+        siblingPinBound,
+        "the mission touch-target correction must use the shared mobile boundary",
+    );
+
     // The fix is load-bearing on that class still reserving a track.
     assert.ok(
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,

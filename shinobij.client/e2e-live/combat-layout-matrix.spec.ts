@@ -217,6 +217,7 @@ type LayoutMeasurement = {
     dossierFlow: Array<{ dossier: number; display: string; columns: string; children: Array<{ className: string; gridColumn: string; gridRow: string; rect: Rect | null }> }>;
     gridTemplateColumns: string;
     gridTemplateRows: string;
+    layoutGridRowCount: number;
     mainGridRowCount: number;
     mainGridTemplateColumns: string;
     mainGridTemplateRows: string;
@@ -364,6 +365,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             dossierFlow,
             gridTemplateColumns: style?.gridTemplateColumns ?? '',
             gridTemplateRows: style?.gridTemplateRows ?? '',
+            layoutGridRowCount: countGridTracks(style?.gridTemplateRows ?? ''),
             mainGridRowCount: countGridTracks(mainStyle?.gridTemplateRows ?? ''),
             mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
             mainGridTemplateRows: mainStyle?.gridTemplateRows ?? '',
@@ -526,7 +528,11 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
         ).toBeGreaterThanOrEqual(90);
         const shortLandscape = current.viewport.width >= 480 && current.viewport.height <= 500;
-        expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(shortLandscape ? 4 : 7);
+        if (mode === 'solo' && current.main === null) {
+            expect(current.layoutGridRowCount, `${label} unexpected implicit outer-grid row`).toBe(7);
+        } else {
+            expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(shortLandscape ? 4 : 7);
+        }
         if (mode === 'pvp') {
             expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
         }
