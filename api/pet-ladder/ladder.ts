@@ -42,7 +42,7 @@ const dayStamp = () => new Date().toISOString().slice(0, 10);   // UTC yyyy-mm-d
 const MAX_LIST = 200;
 const NOTIFY_TTL = 7 * 24 * 3600;
 const LAST_TTL = 48 * 3600;
-const TACTICAL_ROSTER_COPY = 'Tactical combat needs 4 eligible pets. Base account: 3 carried. Shinobi Supporter: 5 carried.';
+const TACTICAL_ROSTER_COPY = 'Tactical combat needs 4 eligible pets. Base account: 4 carried. Shinobi Supporter: 6 carried.';
 
 type LadderNotify = { from: string; mode: Mode; won: boolean; at: number };
 

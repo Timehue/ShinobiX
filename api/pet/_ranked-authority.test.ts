@@ -52,7 +52,7 @@ const character = (name: string, patch: Record<string, unknown> = {}) => ({
     petRankedRating: 1000,
     petRankedWins: 0,
     petRankedLosses: 0,
-    pets: [1, 2, 3, 4].map((index) => pet(`${name}-p${index}`)),
+    pets: [1, 2, 3, 4, 5].map((index) => pet(`${name}-p${index}`)),
     ...patch,
 });
 
@@ -202,8 +202,8 @@ test('ranked start ignores forged inputs, settles the queue-owned match, and res
 });
 
 test('ranked start rejects busy entitlement slots even when a ready overflow pet is forged in the body', async () => {
-    const busyPets = [1, 2, 3].map((index) => pet(`${C}-p${index}`, { training: { endsAt: 1 } }));
-    busyPets.push(pet(`${C}-p4`));
+    const busyPets = [1, 2, 3, 4].map((index) => pet(`${C}-p${index}`, { training: { endsAt: 1 } }));
+    busyPets.push(pet(`${C}-p5`));
     await Promise.all([
         save(C, character(C, { pets: busyPets })),
         save(D),
@@ -211,7 +211,7 @@ test('ranked start rejects busy entitlement slots even when a ready overflow pet
     await pair(C, D, BUSY_MATCH);
 
     const out = response();
-    await startHandler(request(cToken, { opponentName: D, petId: `${C}-p4`, seed: 1 }), out.res);
+    await startHandler(request(cToken, { opponentName: D, petId: `${C}-p5`, seed: 1 }), out.res);
     assert.equal(out.out.statusCode, 409);
     assert.match(String(out.out.body?.error), /entitlement-eligible pet.*breeding, training, or on an expedition/i);
     assert.equal(await kv.get(`pet:ranked-token:${BUSY_MATCH}`), null);

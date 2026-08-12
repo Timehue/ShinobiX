@@ -15,7 +15,7 @@ describe("bounded supporter analytics wiring", () => {
     it("uses exact, honest Base and Supporter benefit distinctions", () => {
         const patreon = source("../../components/PatreonLink.tsx");
         assert.match(patreon, /Base account: 12 equipped · Supporter: 15 equipped \(three additional combat options\)/);
-        assert.match(patreon, /Base roster: 3 carried pets · Supporter roster: 5 carried pets/);
+        assert.match(patreon, /Base roster: 4 carried pets · Supporter roster: 6 carried pets/);
         assert.match(patreon, /Base account: 1 · Supporter: 2/);
         assert.match(patreon, /Supporter: upload your own avatar/);
         assert.doesNotMatch(patreon, /equal (?:footing|loadouts?)/i);

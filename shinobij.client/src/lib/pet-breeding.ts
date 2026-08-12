@@ -4,6 +4,7 @@ import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { BRED_APEX_TRAIT_CHANCE_PERCENT } from "../../../shared/shrines";
 import { clientPetCombatBusyReason } from "./pet-combat-busy";
+import { activeCarriedPets } from "./entitlements";
 
 export { activeClientBreedingParentIds } from "./pet-combat-busy";
 
@@ -59,7 +60,7 @@ export function breedingOddsForPets(parent1: Pet, parent2: Pet): PetBreedingOdds
 }
 
 export function compatibleBreedingPets(character: Character, first: Pet | null, now = Date.now()): Pet[] {
-    return character.pets.filter((pet) => !clientPetBreedingBlocker(character, pet, now) && (!first || pet.id === first.id || pet.element === first.element));
+    return activeCarriedPets<Pet>(character).filter((pet) => !clientPetBreedingBlocker(character, pet, now) && (!first || pet.id === first.id || pet.element === first.element));
 }
 
 export function formatBreedingDuration(milliseconds: number): string {

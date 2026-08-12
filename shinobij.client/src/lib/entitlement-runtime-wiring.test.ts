@@ -16,6 +16,7 @@ const loadout = source("../components/JutsuLoadoutPanel.tsx");
 const profile = source("../screens/Profile.tsx");
 const profileCss = source("../styles/profile-skin.css");
 const petYardCss = source("../styles/index/05-pet-yard.css");
+const petRules = source("./pet.ts");
 
 test("local Arena combat consumes only active jutsu and carried pets", () => {
     const actionList = arena.slice(arena.indexOf("const equippedJutsus"), arena.indexOf("const combatItemSlots"));
@@ -39,6 +40,12 @@ test("local and shared pet pickers consume the active carried projection", () =>
     const accept = app.slice(app.indexOf("async function acceptPetChallengeGlobal"), app.indexOf("async function acceptChallengeGlobal"));
     assert.match(accept, /const myEligiblePets = activeCarriedPets<Pet>\(character\)/);
     assert.doesNotMatch(accept, /character\.pets\.find|character\.pets\.filter/);
+});
+
+test("visible roster copy stays Base four, Supporter six, and Tactical four", () => {
+    assert.match(petYard, /Base: 4 carried · Supporter: 6/);
+    assert.match(petArena, /Base: 4 carried · Supporter: 6/);
+    assert.match(petRules, /export const TACTICAL_ARENA_PET_REQUIREMENT = 4/);
 });
 
 test("rewarded Warfront launches from a prepared server contract and parks settlement before the request", () => {

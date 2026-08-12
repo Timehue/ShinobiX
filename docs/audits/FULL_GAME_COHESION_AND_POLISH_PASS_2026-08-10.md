@@ -24,7 +24,7 @@
 
 This pass audited the current product before changing it, reproduced the highest-impact authority, preservation, recovery, combat-clarity, accessibility, onboarding, and release-evidence defects, and repaired them with focused regressions at the same boundaries. It did not add a currency, remove a mode, weaken a release gate, or represent local evidence as staging or production health.
 
-The initial highest-impact finding was that advertised Supporter benefits were not uniformly authoritative. A normal save or combat path could make lapsed overflow usable, a Base account could upload a custom avatar, custom bloodline storage did not safely enforce the 1/2 active limit, some pet paths trusted incomplete or redacted data, and Patreon relinking was not a sound one-to-one operation. The finished implementation derives benefits from authoritative stored state, preserves paid data non-destructively after lapse, and clamps current use to the exact Base/Supporter values: 12/15 equipped jutsu, 3/5 active carried pets, 1/2 active custom bloodlines, and Supporter-only new custom avatar uploads.
+The initial highest-impact finding was that advertised Supporter benefits were not uniformly authoritative. A normal save or combat path could make lapsed overflow usable, a Base account could upload a custom avatar, custom bloodline storage did not safely enforce the 1/2 active limit, some pet paths trusted incomplete or redacted data, and Patreon relinking was not a sound one-to-one operation. The finished implementation derives benefits from authoritative stored state, preserves paid data non-destructively after lapse, and clamps current use to the exact Base/Supporter values: 12/15 equipped jutsu, 4/6 active carried pets, 1/2 active custom bloodlines, and Supporter-only new custom avatar uploads.
 
 The deeper follow-up found cross-row, lost-acknowledgement, lock-expiry, and mixed-worker gaps in mission combat claims, common Solo PvE item and companion usage, Hollow Gate, Weekly Boss, mission AI fights, bounties, ranked play, Vanguard payouts, and stat training. Those paths now use exact compare-and-set boundaries, durable journals or save-atomic markers, explicit recovery horizons, and fail-closed old/new-worker compatibility where required. Battle Towers received a corresponding server-authority, party, action-idempotency, story-eligibility, tactical-UI, and art pass.
 
@@ -90,7 +90,7 @@ The repository was already dirty at task start. Modified combat-layout PNG/measu
 - Ordinary PvP and Solo PvE share the action-plan/rules boundary. Towers use the common combat rules in an N-actor shell; pet and Chronicle combat intentionally remain separate engines.
 - Battle Towers support server-owned 2–4-player ready rooms for live squads, with legacy AI assists represented separately rather than impersonating full members.
 - Village/Sector War and Clan Boss are enabled by default unless emergency-disabled. Legacy remains explicitly gated by ENABLE_LEGACY=1.
-- Base/Supporter limits are exactly 12/15 equipped jutsu, 3/5 active carried pets, and 1/2 active custom bloodlines. New custom avatar upload is a Supporter benefit.
+- Base/Supporter limits are exactly 12/15 equipped jutsu, 4/6 active carried pets, and 1/2 active custom bloodlines. New custom avatar upload is a Supporter benefit.
 - Story choice persistence already works in all four village arcs: choices persist, derive traits, reload, and activate meaningful later requireTrait callbacks.
 - Pet-ranked private authority, pet-ranked public presentation, pet-ranked public challenges, Player Ranked V2 admissions, and generic Vanguard V2 payouts are distinct rollout decisions. All are default-off unless their exact positive flag is set.
 - The production build keeps Three.js, Sentry, and optional-mode code lazy; neither Three.js nor the Sentry SDK is on the healthy startup path.
@@ -105,7 +105,7 @@ Canonical product-truth sources include docs/LIVE_PRODUCT_STATUS.md, shared/prog
 - Mixed-case and punctuation aliases could evade a naive avatar category check or create multiple logical records.
 - Generic saves could erase omitted owned pets or reactivate lapsed overflow.
 - Realtime exhibition duels trusted client-supplied pet objects, stats, doctrine, and loadouts.
-- The public roster removed Patreon before the client derived pet capacity, reducing every remote Supporter projection to three pets.
+- The public roster removed Patreon before the client derived pet capacity, reducing every remote Supporter projection to four pets.
 - PvP could seal 15 stored jutsu for a lapsed account entitled to 12.
 - Custom bloodline storage did not faithfully enforce 1/2 active slots and could either reactivate overflow or drop records.
 - Patreon relinking was neither atomic nor one-to-one; paid/admin-comp transitions could retain stale source or expiry state.
@@ -173,7 +173,7 @@ The task-scoped delta expanded substantially beyond the first Supporter snapshot
 
 ### Supporter authority and preservation
 
-- Added shared server/client entitlement helpers for exact 12/15, 3/5, and 1/2 policies.
+- Added shared server/client entitlement helpers for exact 12/15, 4/6, and 1/2 policies.
 - Enforced entitlements after authoritative stored-state sanitization rather than trusting incoming Patreon flags.
 - Preserved dormant jutsu preferences, overflow pets, and overflow bloodlines without allowing current use above entitlement.
 - Canonicalized avatar IDs and gated non-grandfathered custom writes to active Supporters.
@@ -226,7 +226,7 @@ The task-scoped delta expanded substantially beyond the first Supporter snapshot
 | A rejected Academy action could teach the next step. | Coaching advances only when the server reports applied. |
 | Shared combat showed plain log text and opaque statuses. | Semantic logs and accessible status popovers expose category, source, magnitude, duration, and removal behavior. |
 | Lapsed paid capacity could remain active or omitted data could disappear. | Ownership/preferences remain stored; current use is clamped to Base capacity. |
-| Some pet surfaces disagreed about 3/5 capacity and remote Supporter 4v4. | Audited combat boundaries consume authoritative active eligibility and safe roster projections. |
+| Some pet surfaces disagreed about 4/6 capacity and remote roster eligibility. | Audited combat boundaries consume authoritative active eligibility and safe roster projections. |
 | A forged realtime pet could replace stored combat data. | The network carries IDs; the server seals current stored pets at challenge and accept. |
 | Mission payout retries crossed token, save, and post-effect gaps. | The exact run-bound saga replays the same payout and completes effects before a successor. |
 | Common PvE reward and item/companion charges could recover separately. | Save-atomic usage receipts are repaired before terminal reward. |
@@ -265,7 +265,7 @@ Historical entitlement-focused subruns remain useful evidence, but the authorita
 - Ordinary PvP and Solo PvE continue through their shared action-plan boundary.
 - Academy coaching is source-guarded on an applied server result.
 - PvP seals only the currently entitled 12/15 jutsu.
-- Reward-bearing Solo/PvE companion sealing projects active 3/5 entitlement and rejects breeding, training, expedition, duplicate, unknown, or otherwise busy pets.
+- Reward-bearing Solo/PvE companion sealing projects active 4/6 entitlement and rejects breeding, training, expedition, duplicate, unknown, or otherwise busy pets.
 - Common item and companion usage must become durable before terminal reward.
 - Player Ranked V2 deliberately disables consumables and thrown weapons; this does not change legacy ordinary-PvP item behavior.
 - Pet-ranked private resolution uses the server roster, seed, simulation, outcome, and rating deltas. Public gameplay remains disabled.
@@ -288,7 +288,7 @@ Historical entitlement-focused subruns remain useful evidence, but the authorita
 | Weekly Boss | Spawn-bound start, usage, and payout journals | Cost precedes damage; save credit precedes boss acknowledgement. |
 | Hollow Gate | V4 exact preparation plus save/run CAS | Lost acknowledgement, orphan takeover, and rolling workers fail safely. |
 | Bounties | Immutable cross-row journal plus wallet-atomic stamp | PLACE/CLAIM repair either partial ordering exactly once. |
-| Pets | Server-owned progression; active use projected 3/5 | Omitted/stale saves preserve ownership. |
+| Pets | Server-owned progression; active use projected 4/6 | Omitted/stale saves preserve ownership. |
 | Sanctuary | Versioned mutation under shared pet-battle lease | Lost writes replay without ownership loss. |
 | Pet Warfront | Server-owned match seal and settlement | Seed, hidden outcome, and reward are not client-authored. |
 | Pet ranked | Private server engine, immutable journal, two save stamps | Client result is ignored; public surfaces remain off. |

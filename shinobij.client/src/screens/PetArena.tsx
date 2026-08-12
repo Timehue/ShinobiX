@@ -2367,7 +2367,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     )}
                     {preservedPetOverflow > 0 && (
                         <p className="hint" style={{ color: "var(--gold-2)" }}>
-                            {preservedPetOverflow} overflow · cannot fight. Base: 3 carried · Supporter: 5. See Sanctuary.
+                            {preservedPetOverflow} preserved overflow · cannot fight. Base: 4 carried · Supporter: 6. See Sanctuary.
                         </p>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}

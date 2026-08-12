@@ -16,8 +16,8 @@ describe("client supporter entitlement mirror", () => {
     it("matches the canonical jutsu and carried-pet caps", () => {
         assert.equal(maxLoadout({}), 12);
         assert.equal(maxLoadout(supporter), 15);
-        assert.equal(maxPets({}), 3);
-        assert.equal(maxPets(supporter), 5);
+        assert.equal(maxPets({}), 4);
+        assert.equal(maxPets(supporter), 6);
     });
 
     it("keeps lapsed jutsu preferences dormant without deleting them", () => {
@@ -59,12 +59,12 @@ describe("client supporter entitlement mirror", () => {
         );
     });
 
-    it("mirrors the stable 3/5 carried-pet projection without dropping overflow", () => {
-        const pets = Array.from({ length: 5 }, (_, index) => ({ id: `pet-${index + 1}` }));
-        const lapsed = { activePetId: "pet-5", activePetId2v2: "pet-4", pets };
-        assert.deepEqual(activeCarriedPetIds(lapsed), ["pet-5", "pet-4", "pet-1"]);
-        assert.deepEqual(activeCarriedPets(lapsed).map(({ id }) => id), ["pet-5", "pet-4", "pet-1"]);
-        assert.equal(pets.length, 5);
-        assert.equal(activeCarriedPets({ ...lapsed, ...supporter }).length, 5);
+    it("mirrors the stable 4/6 carried-pet projection without dropping overflow", () => {
+        const pets = Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index + 1}` }));
+        const lapsed = { activePetId: "pet-6", activePetId2v2: "pet-5", pets };
+        assert.deepEqual(activeCarriedPetIds(lapsed), ["pet-6", "pet-5", "pet-1", "pet-2"]);
+        assert.deepEqual(activeCarriedPets(lapsed).map(({ id }) => id), ["pet-6", "pet-5", "pet-1", "pet-2"]);
+        assert.equal(pets.length, 6);
+        assert.equal(activeCarriedPets({ ...lapsed, ...supporter }).length, 6);
     });
 });

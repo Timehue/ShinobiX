@@ -93,7 +93,7 @@ beforeEach(async () => {
             activePetId: 'p1',
             activePetId2v2: 'p2',
             patreon: { active: false },
-            pets: [pet('p1', 10, 1), pet('p2', 20, 2), pet('p3', 30, 3), pet('p4', 40, 4), pet('p5', 50, 5)],
+            pets: [pet('p1', 10, 1), pet('p2', 20, 2), pet('p3', 30, 3), pet('p4', 40, 4), pet('p5', 50, 5), pet('p6', 60, 6)],
         },
     });
     await kv.set(`save:${DEFENDER}`, {
@@ -101,7 +101,7 @@ beforeEach(async () => {
             activePetId: 'q1',
             activePetId2v2: 'q2',
             patreon: { active: true },
-            pets: [pet('q1', 10, 1), pet('q2', 20, 2), pet('q3', 30, 3), pet('q4', 40, 4), pet('q5', 50, 5)],
+            pets: [pet('q1', 10, 1), pet('q2', 20, 2), pet('q3', 30, 3), pet('q4', 40, 4), pet('q5', 50, 5), pet('q6', 60, 6)],
         },
     });
 });
@@ -118,13 +118,13 @@ test('authoritative roster projection keeps requested order and rejects duplicat
         activePetId: 'p1',
         activePetId2v2: 'p2',
         patreon: { active: false },
-        pets: [pet('p1', 10, 1), pet('p2', 20, 2), pet('p3', 30, 3), pet('p4', 40, 4)],
+        pets: [pet('p1', 10, 1), pet('p2', 20, 2), pet('p3', 30, 3), pet('p4', 40, 4), pet('p5', 50, 5), pet('p6', 60, 6)],
     };
     assert.deepEqual(
-        sealAuthoritativePetRoster(character, [{ id: 'p3' }, { id: 'p1' }], '2v2')?.map(({ id }) => id),
-        ['p3', 'p1'],
+        sealAuthoritativePetRoster(character, [{ id: 'p4' }, { id: 'p1' }], '2v2')?.map(({ id }) => id),
+        ['p4', 'p1'],
     );
-    assert.equal(sealAuthoritativePetRoster(character, [{ id: 'p4' }], '1v1'), null);
+    assert.equal(sealAuthoritativePetRoster(character, [{ id: 'p5' }], '1v1'), null);
     assert.equal(sealAuthoritativePetRoster(character, [{ id: 'p1' }, { id: 'p1' }], '2v2'), null);
     assert.equal(
         sealAuthoritativePetRoster(
@@ -168,7 +168,7 @@ test('live challenge and accept seal save-backed pet data for both players', asy
     await challenger.trigger('petduel:challenge', {
         to: DEFENDER,
         mode: '2v2',
-        pets: [{ id: 'p4', attack: 99_999 }, { id: 'p1' }],
+        pets: [{ id: 'p5', attack: 99_999 }, { id: 'p1' }],
     });
     assert.equal(challenger.emitted.at(-1)?.payload.error, 'Choose an eligible carried pet.');
     assert.equal(io.events.some(({ event }) => event === 'petduel:invite'), false);
@@ -177,7 +177,7 @@ test('live challenge and accept seal save-backed pet data for both players', asy
         to: DEFENDER,
         mode: '2v2',
         pets: [
-            { id: 'p3', attack: 99_999, doctrine: { stance: 999 } },
+            { id: 'p4', attack: 99_999, doctrine: { stance: 999 } },
             { id: 'p1', attack: 99_999 },
         ],
     });
@@ -189,8 +189,8 @@ test('live challenge and accept seal save-backed pet data for both players', asy
     await defender.trigger('petduel:accept', {
         id: invite.payload.id,
         pets: [
-            { id: 'q5', attack: 99_999, doctrine: { stance: 999 } },
-            { id: 'q4', attack: 99_999 },
+            { id: 'q6', attack: 99_999, doctrine: { stance: 999 } },
+            { id: 'q5', attack: 99_999 },
         ],
     });
 
@@ -199,12 +199,12 @@ test('live challenge and accept seal save-backed pet data for both players', asy
     const start = starts[0].payload;
     const player = start.player as Array<Record<string, unknown>>;
     const enemy = start.enemy as Array<Record<string, unknown>>;
-    assert.deepEqual(player.map(({ id }) => id), ['p3', 'p1']);
-    assert.deepEqual(player.map(({ attack }) => attack), [30, 10]);
-    assert.deepEqual(enemy.map(({ id }) => id), ['q5', 'q4']);
-    assert.deepEqual(enemy.map(({ attack }) => attack), [50, 40]);
-    assert.equal((player[0].doctrine as { stance: number }).stance, 3);
-    assert.equal((enemy[0].doctrine as { stance: number }).stance, 5);
+    assert.deepEqual(player.map(({ id }) => id), ['p4', 'p1']);
+    assert.deepEqual(player.map(({ attack }) => attack), [40, 10]);
+    assert.deepEqual(enemy.map(({ id }) => id), ['q6', 'q5']);
+    assert.deepEqual(enemy.map(({ attack }) => attack), [60, 50]);
+    assert.equal((player[0].doctrine as { stance: number }).stance, 4);
+    assert.equal((enemy[0].doctrine as { stance: number }).stance, 6);
 
     await defender.trigger('petduel:resign', { id: invite.payload.id });
 });

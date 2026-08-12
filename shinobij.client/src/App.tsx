@@ -1054,7 +1054,9 @@ export function normalizeCharacter(parsed: Character): Character {
         unspentStats: Math.max(0, Math.floor(parsed.unspentStats ?? STARTING_STAT_POINTS)), // two-axis: stored pool, not budget-derived
         equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
         jutsuMastery: parsed.jutsuMastery ?? [],
-        pets: (parsed.pets ?? []).slice(0, 5).map(normalizePet),
+        // Keep every owned pet locally. The server owns the carried-pet cap;
+        // entries beyond it remain preserved overflow for Sanctuary management.
+        pets: (parsed.pets ?? []).map(normalizePet),
         activePetId: parsed.activePetId,
         activePetId2v2: parsed.activePetId2v2,
         boneCharms: parsed.boneCharms ?? 0,

@@ -230,45 +230,51 @@ describe('supporter pet-roster authority', () => {
         speed: 20,
     });
 
-    it('does not let an incoming forged Patreon flag raise a Base account from 3 to 5 pets', () => {
+    it('does not let an incoming forged Patreon flag raise a Base account from 4 to 6 pets', () => {
         const incoming = wrap({
             name: 'PetCap',
             patreon: { active: true },
-            pets: Array.from({ length: 5 }, (_, index) => pet(index + 1)),
+            pets: Array.from({ length: 6 }, (_, index) => pet(index + 1)),
         });
         const stored = wrap({ name: 'PetCap', patreon: { active: false }, pets: [] });
         const out = sanitizeCompatible(incoming, stored).character as Record<string, unknown>;
 
         assert.deepEqual(out.patreon, { active: false });
-        assert.equal((out.pets as unknown[]).length, 3);
+        assert.equal((out.pets as unknown[]).length, 4);
     });
 
-    it('keeps an already-stored five-pet roster non-destructively after a supporter lapse', () => {
-        const existingPets = Array.from({ length: 5 }, (_, index) => pet(index + 1));
+    it('keeps an already-stored six-pet roster non-destructively after a supporter lapse', () => {
+        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
         const stored = wrap({ name: 'PetLapse', patreon: { active: false }, pets: existingPets });
         const out = sanitizeCompatible(stored, stored).character as Record<string, unknown>;
 
         assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
     });
 
-    it('preserves all five authoritative pets when a stale generic save omits the pets field', () => {
-        const existingPets = Array.from({ length: 5 }, (_, index) => pet(index + 1));
+    it('preserves all six authoritative pets when a generic save omits the pets field', () => {
+        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
         const storedCharacter = {
             name: 'PetOmitted',
             patreon: { active: false },
             activePetId: 'pet-1',
+            activePetId2v2: 'pet-2',
             pets: existingPets,
         };
-        const out = sanitizeCompatible(
-            wrap({ name: 'PetOmitted', activePetId: 'pet-1' }),
-            wrap(storedCharacter),
-        ).character as Record<string, unknown>;
 
-        assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(
+                wrap({ name: 'PetOmitted' }),
+                wrap(storedCharacter),
+            ).character as Record<string, unknown>;
+
+            assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
+            assert.equal(out.activePetId, 'pet-1');
+            assert.equal(out.activePetId2v2, 'pet-2');
+        }
     });
 
-    it('preserves lapsed overflow when a stale generic save submits only the active three pets', () => {
-        const existingPets = Array.from({ length: 5 }, (_, index) => pet(index + 1));
+    it('preserves lapsed overflow when a stale generic save submits only the active four pets', () => {
+        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
         const storedCharacter = {
             name: 'PetSubset',
             patreon: { active: false },
@@ -277,20 +283,20 @@ describe('supporter pet-roster authority', () => {
             pets: existingPets,
         };
         const out = sanitizeCompatible(
-            wrap({ ...storedCharacter, pets: existingPets.slice(0, 3) }),
+            wrap({ ...storedCharacter, pets: existingPets.slice(0, 4) }),
             wrap(storedCharacter),
         ).character as Record<string, unknown>;
 
         assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
     });
 
-    it('does not let a generic save reorder lapsed overflow into the three carried slots', () => {
-        const existingPets = Array.from({ length: 5 }, (_, index) => pet(index + 1));
+    it('does not let a generic save reorder lapsed overflow into the four carried slots', () => {
+        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
         const storedCharacter = {
             name: 'PetReorder',
             patreon: { active: false },
-            activePetId: 'pet-5',
-            activePetId2v2: 'pet-4',
+            activePetId: 'pet-6',
+            activePetId2v2: 'pet-5',
             pets: existingPets,
         };
         const incomingCharacter = {
@@ -304,7 +310,7 @@ describe('supporter pet-roster authority', () => {
             existingPets.map(({ id }) => id),
             'generic saves must retain authoritative roster order',
         );
-        assert.deepEqual(activeCarriedPetIds(out), ['pet-5', 'pet-4', 'pet-1']);
+        assert.deepEqual(activeCarriedPetIds(out), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
     });
 });
 

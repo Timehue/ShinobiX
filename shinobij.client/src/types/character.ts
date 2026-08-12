@@ -739,7 +739,7 @@ export type ServerPlayerSummary = {
     specialty?: string;
     online: boolean;
     character?: Character;
-    /** Authoritative public combat roster (Base 3 / active Supporter 5). */
+    /** Authoritative public combat roster (Base 4 / active Supporter 6). */
     eligiblePets?: Pet[];
     currentSector?: number;
     lastSeenAt?: number;

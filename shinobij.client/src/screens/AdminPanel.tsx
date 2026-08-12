@@ -74,6 +74,7 @@ import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
+import { maxPets } from "../lib/entitlements";
 
 type EditableVnPage = {
     title: string;
@@ -980,11 +981,12 @@ export function AdminPanel({
         if (pmGivePetId) {
             const pet = editablePets.find(p => p.id === pmGivePetId);
             const existing = (char.pets as unknown[] | undefined) ?? [];
-            if (pet && existing.length < 5) {
+            const petCapacity = maxPets(char as Character);
+            if (pet && existing.length < petCapacity) {
                 const cloned = { ...pet, id: `${pet.id}-${Date.now()}` };
                 char.pets = [...existing, cloned];
             } else if (pet) {
-                alert(`${pmTargetName} already has 5 pets. Cannot give another.`);
+                alert(`${pmTargetName} already has ${petCapacity} carried pets. Cannot give another.`);
             }
         }
         // Give currencies
@@ -4903,7 +4905,7 @@ export function AdminPanel({
                         <section className="summary-box">
                             <h4>⭐ Grant Subscription</h4>
                             <p className="hint" style={{ margin: "0 0 8px" }}>
-                                Comp the Shinobi Supporter perks (15 jutsu, 5 pets, custom avatar, 2 bloodlines) for the player named below — activates whether or not they paid, and auto-expires after the set days. No lookup needed.
+                                Comp the Shinobi Supporter perks (15 jutsu, 6 carried pets, custom avatar, 2 bloodlines) for the player named below — activates whether or not they paid, and auto-expires after the set days. No lookup needed.
                             </p>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
