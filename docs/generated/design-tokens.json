@@ -2391,6 +2391,10 @@
             "line": 208
           },
           {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 419
+          },
+          {
             "source": "shinobij.client/src/styles/layout/adaptive-tools.css",
             "line": 82
           }
@@ -3079,7 +3083,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
-            "line": 261
+            "line": 331
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -3397,6 +3401,17 @@
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 3417
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1399,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
+            "line": 313
           }
         ]
       },
