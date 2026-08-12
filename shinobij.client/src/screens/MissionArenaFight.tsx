@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
-import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
+import { CombatInstance } from "../components/CombatInstance";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -27,7 +27,6 @@ import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
     CombatApPanel,
-    CombatBoardStage,
     CombatCommandBar,
     CombatEnvironmentStrip,
     CombatHudHeader,
@@ -630,8 +629,7 @@ export function MissionArenaFight({
     }
 
     return (
-        <ShinobiCombatShell
-            mode="solo"
+        <CombatInstance
             className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
@@ -739,7 +737,6 @@ export function MissionArenaFight({
                         </div>
                     </CombatApPanel>
 
-                    <CombatBoardStage>
                     <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
@@ -844,8 +841,6 @@ export function MissionArenaFight({
                             </div>
                         </div>
                     </div>
-                    </CombatBoardStage>
-
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
 
                     {/* ONE grid child (see hasActionNotice above) — a rejection and an
@@ -1023,6 +1018,6 @@ export function MissionArenaFight({
                     </div>
                 )
             )}
-        </ShinobiCombatShell>
+        </CombatInstance>
     );
 }
