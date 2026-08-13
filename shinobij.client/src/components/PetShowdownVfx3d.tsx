@@ -76,6 +76,23 @@ function canvasTexture(key: string, w: number, h: number, draw: (ctx: CanvasRend
     return t;
 }
 
+/** Soft edge fade along the canvas Y axis — a hard texture edge on a curved
+ *  mesh reads as a paper cut; a dissolve reads as the element thinning out. */
+function fadeEdgesY(ctx: CanvasRenderingContext2D, w: number, h: number, frac = 0.16) {
+    ctx.globalCompositeOperation = "destination-out";
+    const top = ctx.createLinearGradient(0, 0, 0, h * frac);
+    top.addColorStop(0, "rgba(0,0,0,1)");
+    top.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = top;
+    ctx.fillRect(0, 0, w, h * frac);
+    const bottom = ctx.createLinearGradient(0, h * (1 - frac), 0, h);
+    bottom.addColorStop(0, "rgba(0,0,0,0)");
+    bottom.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = bottom;
+    ctx.fillRect(0, h * (1 - frac), w, h * frac);
+    ctx.globalCompositeOperation = "source-over";
+}
+
 /** Water shell: base→crest gradient along U with streaks and a foam crest. */
 function waterShellTexture(): THREE.CanvasTexture {
     return canvasTexture("water-shell", 256, 256, (ctx, w, h) => {
@@ -109,6 +126,8 @@ function waterShellTexture(): THREE.CanvasTexture {
             ctx.arc(x, y, r, 0, Math.PI * 2);
             ctx.fill();
         }
+        // The shell's lane-width ends dissolve into spray instead of cutting.
+        fadeEdgesY(ctx, w, h, 0.14);
     });
 }
 
@@ -134,6 +153,9 @@ function vortexBandTexture(): THREE.CanvasTexture {
             ctx.bezierCurveTo(w * 0.33, y - slant * 0.2, w * 0.66, y + slant * 0.2, w + 20, y - slant * 0.5);
             ctx.stroke();
         }
+        // The funnel's mouth and skirt dissolve — a hard cone rim reads as a
+        // lampshade, a fading one as wind thinning into air.
+        fadeEdgesY(ctx, w, h, 0.2);
     });
 }
 
@@ -151,8 +173,11 @@ function dotTexture(): THREE.CanvasTexture {
 
 // ─── Shared pieces: light, shock ring, particle burst ────────────────────────
 
-/** Transient element-colored point light — the cast lights the SCENE. */
-function PieceLight({ spawn, color, intensity }: { spawn: SetPieceSpawn; color: string; intensity: number }) {
+/** Transient element-colored point light — the cast lights the SCENE. With
+ *  `strobeWindows` (the bolt strikes), the light SLAMS inside each window and
+ *  falls to an ambient charge between them, so the arena flashes with every
+ *  strike instead of glowing evenly through the storm. */
+function PieceLight({ spawn, color, intensity, strobeWindows }: { spawn: SetPieceSpawn; color: string; intensity: number; strobeWindows?: Array<readonly [number, number]> }) {
     const light = useRef<THREE.PointLight>(null);
     useFrame(() => {
         if (!light.current) return;
@@ -161,7 +186,11 @@ function PieceLight({ spawn, color, intensity }: { spawn: SetPieceSpawn; color: 
             light.current.intensity = 0;
             return;
         }
-        const env = t < 0.1 ? t / 0.1 : Math.max(0, 1 - (t - 0.1) / 0.7);
+        let env = t < 0.1 ? t / 0.1 : Math.max(0, 1 - (t - 0.1) / 0.7);
+        if (strobeWindows) {
+            const inWindow = strobeWindows.some(([a, b]) => t >= a && t <= b);
+            env = inWindow ? 1 + Math.sin(t * 90) * 0.25 : 0.18;
+        }
         light.current.intensity = intensity * env;
         light.current.position.set(spawn.to[0], 1.6, spawn.to[2]);
     });
@@ -312,9 +341,10 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
         const x = spawn.from[0] + (spawn.to[0] - spawn.from[0]) * ease;
         const z = spawn.from[2] + (spawn.to[2] - spawn.from[2]) * ease;
         group.current.position.set(x, 0, z);
-        // Face the travel direction; the open curl leads.
+        // Face the travel direction; the open curl leads. A gentle pitch rock
+        // as it sweeps — a perfectly rigid curl reads as a sliding prop.
         const yaw = Math.atan2(spawn.to[0] - spawn.from[0], spawn.to[2] - spawn.from[2]);
-        group.current.rotation.set(0, yaw, 0);
+        group.current.rotation.set(Math.sin(t * 7) * 0.025, yaw, 0);
         const s = (0.65 + ease * 0.5) * (1 + Math.sin(t * 9) * 0.02);
         group.current.scale.set(s, s, s);
         // Water climbs the curl — the texture is reached through the material
@@ -398,7 +428,9 @@ function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
                     <meshBasicMaterial
                         ref={(el) => { matRefs.current[i] = el; }}
                         map={fireTex ?? undefined}
-                        color={fireTex ? "#ffffff" : "#ff7a35"}
+                        // Warm tint ladder — nine identical whites read as one
+                        // flat texture; staggered heat depths read as a blaze.
+                        color={fireTex ? ["#ffffff", "#ffd9a0", "#ffb27a"][i % 3] : "#ff7a35"}
                         transparent
                         opacity={0}
                         depthWrite={false}
@@ -572,19 +604,22 @@ function boltGeometry(seed: number, forks: boolean): { core: THREE.TubeGeometry;
     return { core, glow, forkCore };
 }
 
+/** Shared by the bolt meshes AND the strobing piece light — one schedule. */
+function boltStrikes(key: number, superCast: boolean): BoltStrike[] {
+    return superCast
+        ? [
+            { frac: 0.45, t0: 0.02, t1: 0.2, scale: 0.85, seed: key * 7 + 1 },
+            { frac: 0.78, t0: 0.24, t1: 0.42, scale: 0.95, seed: key * 7 + 2 },
+            { frac: 1, t0: 0.46, t1: 0.74, scale: 1.25, seed: key * 7 + 3 },
+        ]
+        : [
+            { frac: 1, t0: 0.05, t1: 0.3, scale: 1, seed: key * 7 + 1 },
+            { frac: 1, t0: 0.5, t1: 0.72, scale: 0.8, seed: key * 7 + 4 },
+        ];
+}
+
 function BoltVolume({ spawn }: { spawn: SetPieceSpawn }) {
-    const strikes = useMemo<BoltStrike[]>(() => (
-        spawn.superCast
-            ? [
-                { frac: 0.45, t0: 0.02, t1: 0.2, scale: 0.85, seed: spawn.key * 7 + 1 },
-                { frac: 0.78, t0: 0.24, t1: 0.42, scale: 0.95, seed: spawn.key * 7 + 2 },
-                { frac: 1, t0: 0.46, t1: 0.74, scale: 1.25, seed: spawn.key * 7 + 3 },
-            ]
-            : [
-                { frac: 1, t0: 0.05, t1: 0.3, scale: 1, seed: spawn.key * 7 + 1 },
-                { frac: 1, t0: 0.5, t1: 0.72, scale: 0.8, seed: spawn.key * 7 + 4 },
-            ]
-    ), [spawn.key, spawn.superCast]);
+    const strikes = useMemo<BoltStrike[]>(() => boltStrikes(spawn.key, spawn.superCast === true), [spawn.key, spawn.superCast]);
     return (
         <group>
             {strikes.map((s, i) => <BoltStrikeMesh key={i} spawn={spawn} strike={s} />)}
@@ -651,6 +686,9 @@ export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
     const glow = ELEMENT_GLOW[spawn.element];
     if (!glow) return null;
     const spec = PARTICLES[spawn.element](spawn.superCast === true);
+    const strobe = spawn.element === "Lightning"
+        ? boltStrikes(spawn.key, spawn.superCast === true).map((s) => [s.t0, s.t1] as const)
+        : undefined;
     return (
         <group>
             {spawn.element === "Water" && <WaveVolume spawn={spawn} />}
@@ -660,7 +698,7 @@ export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
             {spawn.element === "Lightning" && <BoltVolume spawn={spawn} />}
             <ParticleCloud spawn={spawn} spec={spec} />
             <ShockRing spawn={spawn} color={glow} size={spawn.superCast ? 5.6 : 4.2} />
-            <PieceLight spawn={spawn} color={glow} intensity={spawn.superCast ? 34 : 20} />
+            <PieceLight spawn={spawn} color={glow} intensity={spawn.superCast ? 34 : 20} strobeWindows={strobe} />
         </group>
     );
 }

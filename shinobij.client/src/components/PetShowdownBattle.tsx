@@ -204,7 +204,19 @@ const CONSUMABLE_CALLOUT: Record<Extract<ShowdownEvent, { t: "consumable" }>["ef
 };
 
 function beatDurationMs(event: ShowdownEvent, speed: number): number {
-    const base = event.t === "action" ? (event.super ? 3300 : (event.moveKind === "guard" || event.moveKind === "rest") ? 1200 : 2300)
+    // Staged casts (signatures and heavies — the ones that earn a volumetric
+    // set-piece) own their WHOLE choreography: the piece spawns at the strike
+    // (STRIKE_FRAC) and runs 2100/1150ms, so the beat must hold the strike
+    // point + the full piece + a settle breath of stillness before the next
+    // actor winds up. 3300 used to end a super beat 600ms before the tsunami
+    // finished landing — the next move attacked THROUGH the spectacle.
+    //   super: 5400 → strike 2970 + piece 2100 + ~330ms settle
+    //   heavy: 3400 → strike 1870 + piece 1150 + ~380ms settle
+    const base = event.t === "action" ? (
+        event.super ? 5400
+        : (event.moveKind === "guard" || event.moveKind === "rest") ? 1200
+        : event.weight === "heavy" ? 3400
+        : 2300)
         : event.t === "roundStart" ? 950
         : event.t === "skip" ? 900
         : event.t === "switch" ? 1500
