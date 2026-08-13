@@ -28,6 +28,8 @@ import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
+import { petHeroMoveStyle, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
+import { ScarLayer, ResidueFx, type BattleScar, type ResidueSpawn } from "./PetShowdownVfx3d";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
@@ -203,6 +205,19 @@ const CONSUMABLE_CALLOUT: Record<Extract<ShowdownEvent, { t: "consumable" }>["ef
     cleanse: "CLEANSED!",
 };
 
+/** mulberry32 — module-level so render-scope closures never reassign
+ *  captured variables (react-compiler immutability rule). */
+function sceneRand(seed: number): () => number {
+    let a = (seed >>> 0) || 1;
+    return () => {
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
 function beatDurationMs(event: ShowdownEvent, speed: number): number {
     // Staged casts (signatures and heavies — the ones that earn a volumetric
     // set-piece) own their WHOLE choreography: the piece spawns at the strike
@@ -212,7 +227,10 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
     // finished landing — the next move attacked THROUGH the spectacle.
     //   super: 5400 → strike 2970 + piece 2100 + ~330ms settle
     //   heavy: 3400 → strike 1870 + piece 1150 + ~380ms settle
-    const base = event.t === "action" ? (
+    // A killing blow buys the beat extra air on top of its class: the impact
+    // frame, the fall, and a breath of silence before anything else moves.
+    const koAir = event.t === "action" && event.targets.some((t) => t.ko && t.id !== event.actorId) ? 900 : 0;
+    const base = koAir + (event.t === "action" ? (
         event.super ? 5400
         : (event.moveKind === "guard" || event.moveKind === "rest") ? 1200
         : event.weight === "heavy" ? 3400
@@ -226,7 +244,7 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
         // The verdict banner plus the settling camera hold — at speed 2 a
         // shorter beat cuts the KO fade off mid-fall.
         : event.t === "end" ? 1700
-        : 350;
+        : 350);
     return base / speed;
 }
 
@@ -257,6 +275,10 @@ interface SceneFx {
      *  hit-stop (the fighting-game contact freeze). */
     hitStopUntil: number;
     superFocus: boolean;
+    /** The stands erupt: set at a landed signature or the killing blow, read
+     *  by the stage's confetti/roar layer. */
+    crowdBurstAt: number;
+    crowdBurstKind: "super" | "ko";
 }
 
 interface FighterSlotInfo {
@@ -466,8 +488,146 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
             </mesh>
             {/* Stage-tinted drifting motes — living air (embers/spores/snow). */}
             <Sparkles count={38} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={art.ember} opacity={0.5} />
+            <StageAmbient stage={stage} />
+            <CrowdEruption fxRef={fxRef} ember={art.ember} />
             <SuperLightRig beatRef={beatRef} />
         </group>
+    );
+}
+
+/** Each stage carries its own weather so the arena is alive between beats:
+ *  snowfall over the frost bowl, leaves drifting through the grove, embers
+ *  climbing off the volcano floor, and the storm sky flashing distant
+ *  lightning through the arches. The coliseum keeps its lantern motes. */
+function StageAmbient({ stage }: { stage: StageKey }) {
+    const points = useRef<THREE.Points>(null);
+    const flash = useRef<THREE.DirectionalLight>(null);
+    const nextFlash = useRef(0);
+    const COUNT = 44;
+    const kind = stage === "frost" ? "snow" : stage === "grove" ? "leaves" : stage === "volcano" ? "embers" : stage === "storm" ? "storm" : "none";
+    const params = useMemo(() => {
+        let h = 0;
+        for (const c of stage) h = (h * 31 + c.charCodeAt(0)) | 0;
+        const rand = sceneRand(h);
+        return Array.from({ length: COUNT }, () => ({
+            x: (rand() - 0.5) * 26,
+            z: (rand() - 0.5) * 22,
+            speed: 0.3 + rand() * 0.7,
+            phase: rand(),
+            sway: 0.4 + rand() * 1.1,
+        }));
+    }, [stage]);
+    useFrame((state) => {
+        const t = state.clock.elapsedTime;
+        if (points.current && kind !== "none" && kind !== "storm") {
+            const attr = points.current.geometry.attributes.position as THREE.BufferAttribute;
+            const pos = attr.array as Float32Array;
+            for (let i = 0; i < params.length; i++) {
+                const p = params[i];
+                const cycle = (t * p.speed * 0.12 + p.phase) % 1;
+                pos[i * 3] = p.x + Math.sin(t * 0.5 + p.phase * 9) * p.sway;
+                // Snow/leaves sink; embers climb.
+                pos[i * 3 + 1] = kind === "embers" ? 0.3 + cycle * 9 : 9.5 - cycle * 9;
+                pos[i * 3 + 2] = p.z + Math.cos(t * 0.4 + p.phase * 7) * p.sway * 0.7;
+            }
+            attr.needsUpdate = true;
+        }
+        if (flash.current && kind === "storm") {
+            const now = t;
+            if (now >= nextFlash.current) {
+                // Two-pulse strike, then quiet for 6-12 seconds.
+                nextFlash.current = now + 6 + (Math.sin(now * 13.7) * 0.5 + 0.5) * 6;
+            }
+            const sinceScheduled = nextFlash.current - now;
+            const active = sinceScheduled > 5.72 || (sinceScheduled < 5.5 && sinceScheduled > 5.38);
+            flash.current.intensity = active ? 1.9 : 0;
+        }
+    });
+    if (kind === "none") return null;
+    if (kind === "storm") {
+        return <directionalLight ref={flash} position={[6, 14, -8]} intensity={0} color="#cdd8ff" />;
+    }
+    const color = kind === "snow" ? "#e8f4ff" : kind === "leaves" ? "#9fd8a0" : "#ffb066";
+    return (
+        <points ref={points}>
+            <bufferGeometry>
+                <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
+            </bufferGeometry>
+            <pointsMaterial color={color} size={kind === "leaves" ? 0.22 : 0.16} transparent opacity={0.75} depthWrite={false} sizeAttenuation />
+        </points>
+    );
+}
+
+/** The stands ERUPT: confetti bursting inward off the bowl rim on a landed
+ *  signature or the killing blow, while the lighting punch (already wired to
+ *  the same fx clock) surges the painted crowd. Deterministic per burst —
+ *  particle params reseed from the burst timestamp. */
+function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx>; ember: string }) {
+    const points = useRef<THREE.Points>(null);
+    const mat = useRef<THREE.PointsMaterial>(null);
+    const COUNT = 160;
+    const seedAt = useRef(0);
+    const params = useRef<Array<{ angle: number; drop: number; drift: number; phase: number; ring: number }>>([]);
+    const dot = useMemo(() => {
+        const cv = document.createElement("canvas");
+        cv.width = 32; cv.height = 32;
+        const ctx = cv.getContext("2d")!;
+        const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+        g.addColorStop(0, "rgba(255,255,255,1)");
+        g.addColorStop(0.5, "rgba(255,255,255,0.9)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 32, 32);
+        const t = new THREE.CanvasTexture(cv);
+        t.colorSpace = THREE.SRGBColorSpace;
+        return t;
+    }, []);
+    useFrame(() => {
+        if (!points.current || !mat.current) return;
+        const fx = fxRef.current;
+        const now = performance.now();
+        const life = (now - fx.crowdBurstAt) / (fx.crowdBurstKind === "ko" ? 2600 : 1900);
+        if (fx.crowdBurstAt === 0 || life < 0 || life >= 1) {
+            points.current.visible = false;
+            return;
+        }
+        if (seedAt.current !== fx.crowdBurstAt) {
+            // Reseed the burst once — mulberry-style from the timestamp.
+            seedAt.current = fx.crowdBurstAt;
+            const rand = sceneRand(fx.crowdBurstAt);
+            params.current = Array.from({ length: COUNT }, () => ({
+                angle: rand() * Math.PI * 2,
+                drop: 0.5 + rand() * 0.9,
+                drift: (rand() - 0.5) * 2.4,
+                phase: rand(),
+                ring: 15.6 + rand() * 1.8,
+            }));
+        }
+        points.current.visible = true;
+        const attr = points.current.geometry.attributes.position as THREE.BufferAttribute;
+        const pos = attr.array as Float32Array;
+        for (let i = 0; i < params.current.length; i++) {
+            const p = params.current[i];
+            // Staggered launch off the rim, arcing inward and fluttering down.
+            const k = Math.max(0, Math.min(1, life * 1.35 - p.phase * 0.35));
+            const r = p.ring - k * (3.2 + p.drift);
+            const x = Math.cos(p.angle) * r + Math.sin(k * 9 + p.phase * 7) * 0.4;
+            const z = Math.sin(p.angle) * r + Math.cos(k * 8 + p.phase * 6) * 0.4;
+            const y = 4.6 + Math.sin(Math.min(1, k * 1.6) * Math.PI) * 1.7 - k * k * 6.2 * p.drop;
+            pos[i * 3] = x;
+            pos[i * 3 + 1] = Math.max(0.12, y);
+            pos[i * 3 + 2] = z;
+        }
+        attr.needsUpdate = true;
+        mat.current.opacity = life < 0.1 ? life / 0.1 : life > 0.72 ? Math.max(0, (1 - life) / 0.28) : 1;
+    });
+    return (
+        <points ref={points} visible={false}>
+            <bufferGeometry>
+                <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
+            </bufferGeometry>
+            <pointsMaterial ref={mat} map={dot} color={ember} size={0.22} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+        </points>
     );
 }
 
@@ -691,6 +851,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
     const [modelFailed, setModelFailed] = useState(false);
+    // Species performance identity (pet-hero-moves): the stalk idles, charger
+    // drives and dragon looms authored for the coliseum were NEVER wired into
+    // Showdown — every pet fell to the EMPTY_POSE generic. The base style
+    // carries idle/dash personality; the per-beat style below reshapes it per
+    // MOVE so a crush, a cast and a signature carry different bodies.
+    const baseStyle = useMemo<PetHeroMoveStyle>(
+        () => petHeroMoveStyle({ petId: info.view.templateId, petName: info.view.name, profile: info.model?.profile ?? null }),
+        [info.view.templateId, info.view.name, info.model],
+    );
+    const actionStyle = useRef<{ index: number; style: PetHeroMoveStyle }>({ index: -1, style: "generic" });
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
         faceX: 0,
@@ -757,10 +927,28 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         if (ko) {
             f.motion = "dead";
             f.victorious = false;
+            f.moveStyle = baseStyle;
         } else if (beat.event && beat.event.t === "action" && beat.event.actorId === info.view.id
             && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const ev = beat.event as ActionEvent;
             const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
+            // The MOVE reshapes the species pose (a crush pounces, a cast
+            // rears, a push slams) — recomputed once per beat, not per frame.
+            if (actionStyle.current.index !== beat.index) {
+                actionStyle.current = {
+                    index: beat.index,
+                    style: petHeroMoveStyle({
+                        petId: info.view.templateId, petName: info.view.name,
+                        move: ev.moveName, kind: ev.moveKind, profile: info.model?.profile ?? null,
+                    }),
+                };
+            }
+            f.moveStyle = actionStyle.current.style;
+            f.moveName = ev.moveName;
+            // Attack take pacing follows the move's WEIGHT: jabs snap, heavies
+            // grind through the wind-up, a signature crawls majestically across
+            // its long beat instead of finishing its take in the first second.
+            f.attackPace = ev.super ? 0.55 : ev.weight === "heavy" ? 0.75 : ev.weight === "light" ? 1.3 : 1;
             const targetPos = ev.targets[0] ? posRef.current.get(ev.targets[0].id) : undefined;
             if (targetPos && ev.targets[0].id !== info.view.id) {
                 const dx = targetPos[0] - stand[0];
@@ -789,15 +977,27 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             f.motion = "stagger";
             f.hit = Math.max(0, 1 - sinceHit / 480);
             f.impactPower = fx.hitPower.get(info.view.id) ?? 0.55;
+            f.moveStyle = baseStyle;
+            f.moveName = undefined;
+            f.attackPace = undefined;
         } else if (walking) {
             f.motion = "run";
             f.moving = true;
             f.speed = 7.2;
             f.moveX = walkX; f.moveZ = walkZ;
             faceX = walkX; faceZ = walkZ;
+            f.moveStyle = baseStyle;
+            f.moveName = undefined;
+            f.attackPace = undefined;
         } else {
+            // Idle keeps the species personality alive — the pouncer stalks,
+            // the pack hunter circles, the dragon looms — instead of the
+            // generic empty pose the mode used to fall back to.
             f.motion = "idle";
             f.hit = 0;
+            f.moveStyle = baseStyle;
+            f.moveName = undefined;
+            f.attackPace = undefined;
         }
         f.faceX = faceX;
         f.faceZ = faceZ;
@@ -861,7 +1061,13 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             {info.model && !modelFailed ? (
                 <PetModelBoundary onFail={() => setModelFailed(true)}>
                     <Suspense fallback={null}>
-                        <PetModel3D config={info.model} frame={frame} element={info.view.element} />
+                        {/* Physical presence follows rarity — a mythic stands
+                            visibly larger than a standard. Purely visual; the
+                            reticle, rings and popups are siblings and keep
+                            their shared scale. */}
+                        <group scale={info.view.rarity === "mythic" ? 1.13 : info.view.rarity === "legendary" ? 1.07 : info.view.rarity === "rare" ? 1.02 : 1}>
+                            <PetModel3D config={info.model} frame={frame} element={info.view.element} />
+                        </group>
                     </Suspense>
                 </PetModelBoundary>
             ) : (
@@ -1603,6 +1809,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [expired, setExpired] = useState(false);
     const [letterbox, setLetterbox] = useState(false);
     const [flash, setFlash] = useState(0);
+    /** The killing blow's manga impact frame (radial lines + desaturation). */
+    const [koImpact, setKoImpact] = useState(0);
+    /** Super-strike vignette breath — edges clamp and release. */
+    const [vignette, setVignette] = useState(0);
     const [endOutcome, setEndOutcome] = useState<"win" | "loss" | null>(null);
     /** Snapshotted from the tally when the battle ends (never read in render). */
     const [recap, setRecap] = useState<{ pet: ShowdownPetView; dmg: number; kos: number; supers: number; mvp: boolean }[]>([]);
@@ -1622,6 +1832,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, []);
     const [vfx, setVfx] = useState<VfxSpawn[]>([]);
     const [setPieces, setSetPieces] = useState<SetPieceSpawn[]>([]);
+    /** Persistent strike scars (capped; oldest evicted) + fading residues. */
+    const [scars, setScars] = useState<BattleScar[]>([]);
+    const [residues, setResidues] = useState<ResidueSpawn[]>([]);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
 
     // Command drafting.
@@ -1663,7 +1876,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const speed = fast ? 2.1 : 1;
 
     const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1, index: 0 });
-    const fxRef = useRef<SceneFx>({ hitAt: new Map(), hitPower: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false });
+    const fxRef = useRef<SceneFx>({ hitAt: new Map(), hitPower: new Map(), shakeUntil: 0, shakeAmp: 0, hitStopUntil: 0, superFocus: false, crowdBurstAt: 0, crowdBurstKind: "super" });
     const reducedMotion = prefersReducedMotion();
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
 
@@ -1949,6 +2162,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 // Reassign slots — the fighters physically run the exchange.
                 setLineup((l) => lineupAfterSwitch(l, event.side, event.outId, event.inId, event.reinforcement));
             }, 0);
+            // Entry theater: the gallop covers most of the beat — a dust pop
+            // greets the ARRIVAL, so planting on the line reads as a landing
+            // instead of a walk coming to a stop.
+            later(() => spawnFlipbook(event.inId, "impact", 1.5, 380, 0.18, 1, "#d9ccb8"), durationMs * 0.86);
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
@@ -2050,7 +2267,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         }, 0);
                     }
                     if (target.damage > 0) {
-                        addPopup(target.id, `-${target.damage}`, target.guarded ? "guarded" : event.super ? "super" : "damage");
+                        // Numbers carry the hit's WEIGHT: chips whisper, a hit
+                        // over ~18% of the bar lands big, a signature shouts.
+                        const dmgCls = target.guarded ? "guarded"
+                            : event.super ? "super"
+                            : target.damage >= stateMaxHp(stateView, target.id) * 0.18 ? "big"
+                            : "damage";
+                        addPopup(target.id, `-${target.damage}`, dmgCls);
                         fxRef.current.hitAt.set(target.id, performance.now());
                         // Damage-scaled recoil: a chip flinches, a haymaker folds
                         // the body. Uses the sibling mode's tuned curve — a raw
@@ -2090,6 +2313,25 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             // choreography) needs more air than the old flipbook
                             // pieces did to land its silhouettes.
                             spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 2100 : 1150) / speed, event.super);
+                        }
+                        // The arena keeps the receipts: signatures and killing
+                        // blows scar the boards where they land, and a
+                        // signature's element LINGERS as ambient residue for a
+                        // few beats after its set-piece clears.
+                        if (!reducedMotion && (event.super || target.ko) && !target.splash) {
+                            const at = posRef.current.get(target.id);
+                            if (at) {
+                                const [sx, , sz] = at;
+                                const scarKey = popupKey.current++;
+                                setScars((list) => [...list.slice(-9), { key: scarKey, x: sx, z: sz, element: event.element, bornAt: performance.now() }]);
+                                if (event.super) {
+                                    const residueKey = popupKey.current++;
+                                    later(() => {
+                                        setResidues((list) => [...list.slice(-3), { key: residueKey, element: event.element, x: sx, z: sz, startedAt: performance.now(), durationMs: 7000 }]);
+                                        window.setTimeout(() => setResidues((list) => list.filter((r) => r.key !== residueKey)), 7400);
+                                    }, (event.super ? 2100 : 1150) / speed);
+                                }
+                            }
                         }
                         // ONE impact, not two systems: a staged cast fuses its
                         // on-pet detonation with the hero art — bigger, and
@@ -2164,17 +2406,37 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     guarding: event.moveKind === "guard",
                 }));
                 const totalDamage = event.targets.reduce((sum, t) => sum + t.damage, 0);
+                // The killing blow is the fight's headline moment and gets the
+                // full anime ceremony: a LONG contact freeze, the manga impact
+                // frame (radial lines + desaturation), the hardest shake, and
+                // the crowd erupting — before the extended beat lets the fall
+                // and the silence land.
+                const kill = event.targets.some((t) => t.ko && t.id !== event.actorId);
                 if (totalDamage > 0) {
-                    fxRef.current.shakeUntil = performance.now() + (event.super ? 460 : 300);
+                    fxRef.current.shakeUntil = performance.now() + (kill ? 620 : event.super ? 460 : 300);
                     // Screen shake is motion; hit-stop is a timing freeze and stays.
                     fxRef.current.shakeAmp = reducedMotion
                         ? 0
-                        : event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
-                    playPetSfx(event.super ? "crit" : "hit");
+                        : kill ? 0.42 : event.super ? 0.34 : Math.min(0.24, 0.08 + totalDamage / 900);
+                    playPetSfx(kill ? "ko" : event.super ? "crit" : "hit");
+                    if (kill || event.super) later(() => playPetSfx("crowd"), kill ? 420 : 260);
                     // Damage-scaled hit-stop (fighting-game contact freeze),
                     // heavier for Lightning per the electric-hitlag convention.
                     const stopMs = Math.min(330, 110 + totalDamage * 0.45) * (event.element === "Lightning" ? 1.4 : 1);
-                    fxRef.current.hitStopUntil = performance.now() + (event.super ? Math.max(stopMs, 260) : stopMs);
+                    fxRef.current.hitStopUntil = performance.now() + (kill ? 640 : event.super ? Math.max(stopMs, 260) : stopMs);
+                    if (kill) {
+                        petHaptic(60);
+                        fxRef.current.crowdBurstAt = performance.now();
+                        fxRef.current.crowdBurstKind = "ko";
+                        if (!reducedMotion) {
+                            setKoImpact(popupKey.current++);
+                            later(() => setKoImpact(0), 520);
+                        }
+                    } else if (event.super) {
+                        // A landed signature also brings the stands to their feet.
+                        fxRef.current.crowdBurstAt = performance.now();
+                        fxRef.current.crowdBurstKind = "super";
+                    }
                     if (event.super) {
                         // Signature detonation: light pillar on the primary target
                         // + a full-screen white flash.
@@ -2191,6 +2453,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         if (!reducedMotion) {
                             setFlash(popupKey.current++);
                             later(() => setFlash(0), 260);
+                            // The frame BREATHES with the detonation: a dark
+                            // vignette clamps the edges and releases.
+                            setVignette(popupKey.current++);
+                            later(() => setVignette(0), 760);
                         }
                     }
                 } else if (event.moveKind === "guard") {
@@ -2552,6 +2818,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
                 <ShowdownSetPieceLayer spawns={setPieces} />
+                {/* The arena remembers: persistent strike scars, and the
+                    element residue that lingers after each signature. */}
+                <ScarLayer scars={scars} />
+                {residues.map((r) => <ResidueFx key={r.key} spawn={r} />)}
                 {petBloomEnabled() && !reducedMotion && (
                     <EffectComposer>
                         <Bloom intensity={0.55} luminanceThreshold={0.62} luminanceSmoothing={0.3} mipmapBlur />
@@ -2593,6 +2863,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             )}
             {/* Full-screen white flash on the signature detonation. */}
             {flash !== 0 && <div key={flash} className="showdown-flash" />}
+            {/* The killing blow's impact frame: white core, manga radial
+                lines bursting from the edges, the world briefly drained of
+                color. Reduced-motion never mounts it. */}
+            {koImpact !== 0 && <div key={koImpact} className="showdown-ko-impact" />}
+            {vignette !== 0 && <div key={vignette} className="showdown-vignette" />}
 
             {/* Opening VS card. */}
             {intro && (

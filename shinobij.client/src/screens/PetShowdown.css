@@ -963,6 +963,19 @@
     100% { transform: translateY(-34px); opacity: 0; }
 }
 .showdown-popup.damage { color: #fca5a5; }
+/* A hit over ~18% of the bar: bigger, brighter, and it LANDS — a sharper
+   drop-in before the shared rise carries it away. */
+.showdown-popup.big {
+    color: #fecaca;
+    font-size: 1.45rem;
+    animation: showdown-popup-slam 1.2s ease-out forwards;
+}
+@keyframes showdown-popup-slam {
+    0% { opacity: 0; transform: translateY(-4px) scale(1.6); }
+    12% { opacity: 1; transform: translateY(0) scale(1); }
+    30% { opacity: 1; transform: translateY(-6px) scale(1.04); }
+    100% { opacity: 0; transform: translateY(-30px) scale(0.96); }
+}
 .showdown-popup.super { color: #f59e0b; font-size: 1.7rem; }
 .showdown-popup.guarded { color: #94a3b8; font-size: 1.1rem; }
 .showdown-popup.heal { color: #4ade80; }
@@ -1103,6 +1116,50 @@
 @keyframes showdown-flash-out {
     from { opacity: 0.85; }
     to { opacity: 0; }
+}
+
+/* ── Super-strike vignette breath ──────────────────────────────────────────
+   The frame clamps dark at the edges with the detonation and releases —
+   the cheap 90% of a radial-blur pass with zero GPU cost. */
+.showdown-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+    background: radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(4,3,8,0.55) 96%);
+    animation: showdown-vignette-breath 0.76s ease-out both;
+}
+@keyframes showdown-vignette-breath {
+    0% { opacity: 0; }
+    18% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* ── The killing blow's impact frame ───────────────────────────────────────
+   Manga grammar: a white core flash, black radial speed lines bursting in
+   from the edges, and the arena briefly drained of color underneath
+   (backdrop-filter). One-shot, 0.52s, mounted only when reduced-motion is
+   off. */
+.showdown-ko-impact {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+    background:
+        radial-gradient(circle at 50% 46%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.55) 16%, rgba(255,255,255,0) 34%),
+        repeating-conic-gradient(from 3deg at 50% 46%, rgba(8,6,10,0.92) 0deg 2.1deg, rgba(8,6,10,0) 2.1deg 9.3deg);
+    /* Lines live at the frame's edges only — the middle stays open for the
+       fallen body. */
+    -webkit-mask-image: radial-gradient(circle at 50% 46%, transparent 0 24%, #000 52%);
+    mask-image: radial-gradient(circle at 50% 46%, transparent 0 24%, #000 52%);
+    backdrop-filter: saturate(0.22) contrast(1.12);
+    animation: showdown-ko-impact-out 0.52s ease-out both;
+}
+@keyframes showdown-ko-impact-out {
+    0% { opacity: 0; transform: scale(1.12); }
+    8% { opacity: 1; transform: scale(1); }
+    62% { opacity: 1; transform: scale(0.995); }
+    100% { opacity: 0; transform: scale(0.99); }
 }
 
 /* ── Signature letterbox ───────────────────────────────────────────────── */
@@ -1594,6 +1651,7 @@
     /* animation:none is REQUIRED — the flash keyframe has `both` fill starting
        at 0.85 opacity, so a bare opacity declaration loses to it. */
     .showdown-flash { animation: none; opacity: 0; }
+    .showdown-ko-impact { animation: none; opacity: 0; backdrop-filter: none; }
 
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,
