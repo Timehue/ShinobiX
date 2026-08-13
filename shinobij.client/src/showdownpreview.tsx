@@ -80,6 +80,11 @@ const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
  *  off the same priority ladder so the VFX tier under test is the one the wire
  *  actually carries. */
 function mockWeight(move: ShowdownPetView["moves"][number], superCast: boolean): "light" | "normal" | "heavy" {
+    // ?heavy — VFX iteration switch: every damaging cast reports HEAVY so the
+    // elemental set-piece tier (tsunami / tornado / fire wash) fires on every
+    // strike instead of only when a real haymaker lands. Presentation-only,
+    // dev-only, and exactly what this harness exists for.
+    if (new URLSearchParams(window.location.search).has("heavy") && move.power > 0) return "heavy";
     if (superCast || move.priority <= SHOWDOWN_PRIORITY_HEAVY) return "heavy";
     return move.priority >= SHOWDOWN_PRIORITY_LIGHT ? "light" : "normal";
 }
