@@ -1349,6 +1349,35 @@ spire cage from side AND wide cameras, water shell + mother wave + flooded
 floor, fire crown + magma floor; the bolt verified via its strike residue
 (spark hits on the victim) — its windows are sub-second even under ?slowfx.
 
+## Round 36 — the tempo and the pick (2026-08-13)
+
+Owner: "AAA polish on the effects, put beats in between the moves so they
+don't attack while the move is still going" + "the attack goes onto the same
+pet every time, not the one we select."
+
+**Tempo — staged casts own their whole choreography.** `beatDurationMs`: a
+signature beat was 3300ms but its piece runs strike(0.55×beat)+2100ms — the
+next actor wound up 600ms before the tsunami landed. Now super 5400ms
+(strike 2970 + piece 2100 + ~330ms settle of stillness), heavy 3400ms
+(1870 + 1150 + ~380ms). The camera hold extends with the beat, and the
+arena goes quiet before the next windup — the Pokémon rhythm.
+
+**The pick — a review-bench lie, not an engine bug.** The REAL path was
+verified correct end-to-end (client sends the picked targetId → endpoint
+sanitizes it through → engine `resolveTarget` honors it, taunt aside). The
+harness MOCK always hit the first living enemy — every earlier bench session
+"confirmed" targeting only because we happened to click slot 1. The mock now
+mirrors resolveTarget (requested id if alive, else first living); verified
+by plate math — picked-slot-2 Fire Overdrive: Mist Ferret 80%, Blue Frog 90%
+(splash only).
+
+**Polish**: canvas edge fades on the wave shell's lane ends and the vortex
+funnel's mouth/skirt (hard rims read as paper cuts / lampshades); the
+lightning piece light now STROBES with the shared bolt-strike schedule
+(slams inside each window, 0.18 ambient charge between) instead of glowing
+evenly; flame crown cards run a warm tint ladder (#fff/#ffd9a0/#ffb27a) so
+the blaze has heat depth; the wave shell rocks gently as it sweeps.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified
