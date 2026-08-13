@@ -57,3 +57,13 @@ a short frame-swap animation over the struck tile (see JutsuSpriteFx in App.tsx)
 A key with no folder here (e.g. the pet-only "chakra" tint, or "none"/neutral
 beats) falls back to the procedural element-tinted particle burst. Drop a
 matching folder here to give it a sprite too — no code change needed.
+
+epic/ — Pet Showdown hero sprites (single WebP paintings, not frame sequences):
+=========================================
+Generated in-house for this project with gpt-image-1 via
+scripts/gen-showdown-vfx.mjs (owned output, no third-party license terms).
+Structures (tsunami, firewall, tornado, quake, stormbolt) are transparent
+billboards; floor-* are the "arena floor becomes the element" takeover discs.
+The same script generates the crowd-integrated arena backdrops in
+src/assets/coliseum/<stage>-bg-crowd.webp. Loaded by EPIC_SPRITES in
+src/components/PetShowdownVfx.tsx (new URL imports, not the glob).

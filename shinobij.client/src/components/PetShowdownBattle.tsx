@@ -77,30 +77,34 @@ const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
 
 // ── Arena roster: five painted stages, picked per session. ──────────────────
+// Showdown wraps the `-bg-crowd` backdrops: the same five stages repainted with
+// the spectator tiers PAINTED INTO the bowl wall (gen-showdown-vfx.mjs) — one
+// coherent painting per stage instead of a crowd band composited over art that
+// was never drawn for it. Legacy screens keep the original `-bg` files.
 const STAGES = {
     coliseum: {
         floor: new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/coliseum-bg-crowd.webp", import.meta.url).href,
         ember: "#ff7a35", ambient: "#8fc7ff",
     },
     grove: {
         floor: new URL("../assets/coliseum/grove-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/grove-bg.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/grove-bg-crowd.webp", import.meta.url).href,
         ember: "#9fe7a0", ambient: "#bfe9c9",
     },
     frost: {
         floor: new URL("../assets/coliseum/frost-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/frost-bg.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/frost-bg-crowd.webp", import.meta.url).href,
         ember: "#9fd8ff", ambient: "#cfe9ff",
     },
     storm: {
         floor: new URL("../assets/coliseum/storm-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/storm-bg.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/storm-bg-crowd.webp", import.meta.url).href,
         ember: "#ffe24a", ambient: "#9aa7d8",
     },
     volcano: {
         floor: new URL("../assets/coliseum/volcano-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/volcano-bg.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/volcano-bg-crowd.webp", import.meta.url).href,
         ember: "#ff5a2c", ambient: "#ffb08a",
     },
 } as const;
@@ -2066,20 +2070,29 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // — on the primary victim only (splash keeps the burst).
                         // Reduced-motion keeps the readable burst and skips the
                         // traveling/spinning layer, same policy as the flash.
-                        if (!reducedMotion && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId) {
+                        const staged = !reducedMotion && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId;
+                        if (staged) {
                             // A signature stages its element's SUPER sequence —
                             // longer, layered, and choreographed down the lane.
-                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 1600 : 900) / speed, event.super);
+                            // The painted hero art (floor takeover + multi-crest
+                            // choreography) needs more air than the old flipbook
+                            // pieces did to land its silhouettes.
+                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 2100 : 1150) / speed, event.super);
                         }
+                        // ONE impact, not two systems: a staged cast fuses its
+                        // on-pet detonation with the hero art — bigger, and
+                        // timed to the moment the piece ARRIVES (the wave
+                        // breaking, the eruption cresting) instead of popping
+                        // its own small burst at contact beside the painting.
                         later(() => spawnFlipbook(
                             target.id,
                             impactFlipbookKey(event.element, event.moveKind, event.super),
-                            burst,
-                            (440 + Math.min(1, frac * 2.4) * 380) / speed,
+                            staged ? burst * 1.5 : burst,
+                            ((staged ? 620 : 440) + Math.min(1, frac * 2.4) * 380) / speed,
                             1.0,
                             1,
                             elementVfxTint(event.element),
-                        ), 60 / speed);
+                        ), (staged ? (event.super ? 840 : 460) : 60) / speed);
                         // A heavy or lethal blow gets a second, larger shell over
                         // the first — `explosion` and `bighit` ship in the bundle
                         // and nothing used to spawn them.
@@ -2095,13 +2108,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             ), 70 / speed);
                         }
                         // Lightning ranged attacks STRIKE FROM THE SKY — a tall
-                        // bolt drops on the victim (there was no travel to watch).
-                        if (event.element === "Lightning" && event.delivery === "ranged" && !target.splash) {
+                        // bolt drops on the victim (there was no travel to
+                        // watch). A STAGED cast already strikes with the painted
+                        // stormbolt piece; doubling it with the chunky flipbook
+                        // bolt was exactly the "two different vfx firing" read.
+                        if (event.element === "Lightning" && event.delivery === "ranged" && !target.splash && !staged) {
                             spawnFlipbook(target.id, "lightning", 2.9, 520, 2.6, 2.2);
                         }
                         // A signature also detonates its ELEMENT large over the
-                        // kaboom, so every super reads as its nature.
-                        if (event.super && !target.splash) {
+                        // kaboom, so every super reads as its nature — but only
+                        // when reduced-motion suppressed the staged hero piece
+                        // that now owns that job.
+                        if (event.super && !target.splash && !staged) {
                             const el = event.element.toLowerCase();
                             if (["fire", "water", "earth", "wind", "lightning"].includes(el)) {
                                 spawnFlipbook(target.id, el, 4.4, 820);
