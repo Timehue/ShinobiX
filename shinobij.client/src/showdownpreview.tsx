@@ -303,7 +303,13 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
     for (const c of commands) {
         if (c.kind === "switch") continue;
         const actor = playerPets.find((p) => p.id === c.petId);
-        const target = livingEnemy();
+        // Honor the PICKED target like the real engine's resolveTarget does
+        // (requested id if alive, first living foe as the fallback). The mock
+        // used to always hit the first living enemy, which made the bench lie
+        // about targeting: every attack landed on the same pet regardless of
+        // what the player selected.
+        const requested = c.kind === "move" || c.kind === "super" ? c.targetId : "";
+        const target = enemyPets.find((p) => p.id === requested && (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id)) ?? livingEnemy();
         if (!actor || (world.hp.get(actor.id) ?? 0) <= 0) continue;
         if (c.kind === "guard" || c.kind === "rest") {
             // Rest buys stamina back and heals NOTHING — what you give the turn
