@@ -52,6 +52,12 @@ import {
     SHOWDOWN_SUPER_POWER_MULT,
     SHOWDOWN_SUPER_SPLASH_SCALE,
     SHOWDOWN_SYNERGY_MULT,
+    SHOWDOWN_STAB_MULT,
+    SHOWDOWN_MAX_STATUSES,
+    SHOWDOWN_STATUS_CANCELS,
+    SHOWDOWN_TURN_CAP,
+    type ShowdownJudgeReason,
+    type ShowdownMoveClass,
     type ShowdownCommand,
     type ShowdownEvent,
     type ShowdownFormat,
@@ -95,6 +101,14 @@ export interface ShowdownMove {
     /** Rounds in battle required before this move fires (Temtem Hold).
      *  NO COOLDOWNS — stamina and hold are the only gates (the Temtem model). */
     hold: number;
+    /** The technique's OWN element. Kit/signature moves carry the pet's;
+     *  the universal basic is "None" (no STAB, wheel-neutral both ways). */
+    element: string;
+    /** Physical rides ATK vs DEF; special rides the role-derived special
+     *  axis; status deals no direct hit. Derived from `kind` at seal. */
+    cls: ShowdownMoveClass;
+    /** Ally element that empowers this technique (Temtem Synergy). */
+    synergyElement?: string;
 }
 
 /** Combat procs carried from equipped PvP gear (pet-config.ts definitions). */
@@ -141,6 +155,11 @@ export interface ShowdownPet {
     maxHp: number;
     attack: number;
     defense: number;
+    /** Special axis (Temtem SPATK/SPDEF), DERIVED at seal from the physical
+     *  pair by role lean — sages cast harder than they swing, assassins the
+     *  reverse — so the split exists with zero catalog or storage changes. */
+    spAttack: number;
+    spDefense: number;
     speed: number;
     stamina: number;
     /** Per-pet stamina pool — a stat derived from bulk (~85-120). */
@@ -536,6 +555,39 @@ export function promoteHeavy(moves: ShowdownMove[], rarity: string): ShowdownMov
 }
 
 /** Universal cheap opener every pet gets, so low stamina never means no play. */
+/** Role lean for the derived special axis. The physical numbers stay exactly
+ *  the sealed attack/defense (so every prior tuning still describes the
+ *  physical game); the special pair scales off them. A sage's casts outhit its
+ *  swings, an assassin's blades outhit its bolts, defenders are even — and
+ *  because a pet's KIT decides which axis each technique rolls, the split
+ *  creates in-kit texture rather than a flat relabel. */
+const ROLE_SPECIAL_LEAN: Record<string, { atk: number; def: number }> = {
+    sage: { atk: 1.16, def: 1.08 },
+    assassin: { atk: 0.94, def: 0.94 },
+    tracker: { atk: 0.96, def: 1.0 },
+    defender: { atk: 1.0, def: 1.02 },
+};
+
+/** Technique class from the move's KIND — the physical/special split, derived
+ *  so no catalog data changes anywhere. Contact kinds ride ATK vs DEF;
+ *  elemental/energetic kinds ride the role-derived special axis; anything that
+ *  deals no direct hit is status. */
+const PHYSICAL_KINDS = new Set(['crush', 'wound', 'push', 'pull', 'lifesteal']);
+const SPECIAL_KINDS = new Set(['damage', 'burn', 'dot', 'freeze']);
+function moveClass(kind: string): ShowdownMoveClass {
+    if (PHYSICAL_KINDS.has(kind)) return 'physical';
+    if (SPECIAL_KINDS.has(kind)) return 'special';
+    return 'status';
+}
+
+/** Temtem Synergy partner for a technique: the element this move's element
+ *  BEATS — wind fans the fire, fire boils the water line dry. Deterministic,
+ *  and it turns team COMPOSITION into a damage lever the lobby can plan. */
+function synergyPartnerOf(element: string, cls: ShowdownMoveClass): string | undefined {
+    if (cls === 'status' || element === 'None') return undefined;
+    return SHOWDOWN_ELEMENT_BEATS[element];
+}
+
 function basicStrike(): ShowdownMove {
     return {
         name: 'Swift Strike',
@@ -545,6 +597,11 @@ function basicStrike(): ShowdownMove {
         signature: false,
         priority: SHOWDOWN_PRIORITY_LIGHT,
         hold: 0,
+        // Sealed NEUTRAL and PHYSICAL on purpose: no STAB, no wheel either
+        // way. This is the jab you keep for a resisted matchup — exactly the
+        // role a neutral move plays in the games this system studies.
+        element: 'None',
+        cls: 'physical',
     };
 }
 
@@ -570,6 +627,9 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
         signature: true,
         priority: SHOWDOWN_PRIORITY_SUPER,
         hold: SHOWDOWN_HOLD_SUPER,
+        element: el,
+        cls: 'special',
+        ...(el !== 'None' ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[el] } : {}),
     };
 }
 
@@ -585,19 +645,19 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
  */
 const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number; kind: string; signature?: boolean }>> = {
     'mythic-1': [   // Worldstorm Dragon — Lightning assassin
-        { name: 'Stormfang Dive', power: 138, kind: 'damage' },
+        { name: 'Stormfang Dive', power: 138, kind: 'crush' },
         { name: 'Static Brand', power: 96, kind: 'mark' },
         { name: 'Skybreaker Bolt', power: 168, kind: 'stun' },
         { name: 'Worldstorm Requiem', power: 300, kind: 'damage', signature: true },
     ],
     'mythic-4': [   // Abyssal Oni Hound — Earth assassin
-        { name: 'Abyssal Rend', power: 142, kind: 'damage' },
+        { name: 'Abyssal Rend', power: 142, kind: 'crush' },
         { name: 'Graveearth Jaws', power: 150, kind: 'crush' },
         { name: 'Hungering Maw', power: 128, kind: 'lifesteal' },
         { name: 'Oni Gate Requiem', power: 300, kind: 'lifesteal', signature: true },
     ],
     'mythic-8': [   // Stormgod Raijin — Lightning assassin
-        { name: 'Raijin Claw', power: 140, kind: 'damage' },
+        { name: 'Raijin Claw', power: 140, kind: 'crush' },
         { name: 'Thundergod Brand', power: 98, kind: 'mark' },
         { name: 'Heavenly Piercer', power: 172, kind: 'stun' },
         { name: 'Stormgod Judgement', power: 300, kind: 'damage', signature: true },
@@ -618,6 +678,10 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const consumableDef = petConsumableById(raw.loadout?.consumable);
     const rarity = ['standard', 'rare', 'legendary', 'mythic'].includes(String(raw.rarity)) ? String(raw.rarity) : 'standard';
     const level = clampInt(raw.level, 1, 100, 1);
+    // Sanitized ONCE here: sealMove stamps it onto every kit technique (per-
+    // move elements are what make STAB and synergy real), and the pet record
+    // below reuses the same value.
+    const element = ELEMENT_OK.has(String(raw.element)) ? String(raw.element) : 'None';
     const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
     const overrideKeyEarly = String(raw.templateId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
     // hasOwnProperty, NOT a bare index: a pet id of 'constructor' or
@@ -636,6 +700,11 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }): ShowdownMove => {
         const power = clampInt(Math.round((Number(j.power) || 0) * kitNorm), 0, powerCeil, 0);
         const kind = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
+        const cls = moveClass(kind);
+        // Kit techniques are the pet's own element (catalog jutsus carry
+        // none of their own) — which is what makes STAB and the synergy
+        // partner real properties rather than universal constants.
+        const moveElement = element;
         return {
             name: String(j.name).slice(0, 48),
             power,
@@ -644,6 +713,9 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
             signature: j.signature === true,
             priority: movePriority(power, kind),
             hold: moveHold(power, kind),
+            element: moveElement,
+            cls,
+            ...(synergyPartnerOf(moveElement, cls) ? { synergyElement: synergyPartnerOf(moveElement, cls) } : {}),
         };
     };
 
@@ -702,7 +774,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         id: String(raw.id),
         name: String(raw.nickname || raw.name || 'Companion').slice(0, 32),
         ...(typeof raw.templateId === 'string' && raw.templateId ? { templateId: raw.templateId } : {}),
-        element: ELEMENT_OK.has(String(raw.element)) ? String(raw.element) : 'None',
+        element,
         role: ROLE_OK.has(String(raw.role)) ? String(raw.role) : 'defender',
         rarity,
         level,
@@ -710,6 +782,10 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         maxHp,
         attack: clampInt(scaled(raw.attack, 40), 1, petStatCeil(rarity, 'attack'), 40),
         defense,
+        spAttack: Math.max(1, Math.round(clampInt(scaled(raw.attack, 40), 1, petStatCeil(rarity, 'attack'), 40)
+            * (ROLE_SPECIAL_LEAN[ROLE_OK.has(String(raw.role)) ? String(raw.role) : 'defender']?.atk ?? 1))),
+        spDefense: Math.max(1, Math.round(defense
+            * (ROLE_SPECIAL_LEAN[ROLE_OK.has(String(raw.role)) ? String(raw.role) : 'defender']?.def ?? 1))),
         speed: clampInt(scaled(raw.speed, 30), 1, petStatCeil(rarity, 'speed'), 30),
         stamina: maxStamina,
         maxStamina,
@@ -860,6 +936,12 @@ const traitOf = (p: ShowdownPet): string => p.trait ?? '';
 
 const effAttack = (p: ShowdownPet) => p.attack * statusMult(p, { buff: 1.25, debuff: 0.8, burn: 0.9 });
 const effDefense = (p: ShowdownPet) => p.defense * statusMult(p, { crush: 0.8, tauntGuard: 1.2 });
+// The special axis wears the same combat modifiers — buffs, burns and armour
+// shred are whole-pet conditions here, not per-axis ones. Older sealed
+// sessions (mid-flight across a deploy) predate the fields; fall back to the
+// physical pair so a live fight never divides by undefined.
+const effSpAttack = (p: ShowdownPet) => (p.spAttack || p.attack) * statusMult(p, { buff: 1.25, debuff: 0.8, burn: 0.9 });
+const effSpDefense = (p: ShowdownPet) => (p.spDefense || p.defense) * statusMult(p, { crush: 0.8, tauntGuard: 1.2 });
 const effSpeed = (p: ShowdownPet) => p.speed * statusMult(p, { haste: 1.25, slow: 0.75, movelock: 0.7 }) * tableMult(TRAIT_FX.speed, traitOf(p));
 
 function elementMult(attacker: string, defender: string): number {
@@ -925,7 +1007,7 @@ function pushConsumableEvent(
  *  charge is a panic button, not a board wipe. */
 const CLEANSABLE_STATUS = new Set(['burn', 'wound', 'freeze', 'confuse', 'stun']);
 
-function addStatus(
+export function addStatus(
     session: ShowdownSession,
     pet: ShowdownPet,
     kind: string,
@@ -943,13 +1025,31 @@ function addStatus(
         pushConsumableEvent(session, pet, 'cleanse', reactions);
         return;
     }
+    // Temtem status interactions: fire thaws, frost smothers, a burst of speed
+    // shakes the slow off. Runs BEFORE the condition cap so a thaw never
+    // evicts an unrelated condition to make room for the burn that caused it.
+    const cancels = SHOWDOWN_STATUS_CANCELS[kind];
+    if (cancels?.length) {
+        pet.statuses = pet.statuses.filter((s) => !cancels.includes(s.kind));
+    }
     const existing = pet.statuses.find((s) => s.kind === kind);
     if (existing) {
         existing.rounds = Math.max(existing.rounds, rounds);
         existing.magnitude = Math.max(existing.magnitude, magnitude);
         existing.bornRound = session.round;
-    } else {
-        pet.statuses.push({ kind, rounds, magnitude, bornRound: session.round });
+        return;
+    }
+    pet.statuses.push({ kind, rounds, magnitude, bornRound: session.round });
+    // Temtem's two-condition rule: a third CONDITION evicts the oldest. The
+    // absorb pools (shield/barrier/absorb) and the taunt bookkeeping are board
+    // state, not conditions, and never count against or fall to the cap —
+    // Temtem itself puts barriers outside the status system.
+    const isCondition = (s: { kind: string }) =>
+        s.kind !== 'shield' && s.kind !== 'barrier' && s.kind !== 'absorb' && s.kind !== 'tauntGuard';
+    const conditions = pet.statuses.filter(isCondition);
+    if (conditions.length > SHOWDOWN_MAX_STATUSES) {
+        const oldest = conditions.reduce((a, b) => (b.bornRound < a.bornRound ? b : a));
+        pet.statuses = pet.statuses.filter((s) => s !== oldest);
     }
 }
 
@@ -1106,11 +1206,11 @@ const RARITY_DAMAGE_TIER: Record<string, number> = {
  * multiplier AND the lowest damage taken, so it hit hardest and was hit least.
  * Result: elements now span 47.6-53.4% (was 44.0-60.6%). */
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.06,
-    Water: 1.1,
-    Wind: 1.05,
-    Earth: 0.91,
-    Lightning: 1.0,
+    Fire: 1.11,
+    Water: 1.11,
+    Wind: 1.11,
+    Earth: 0.84,
+    Lightning: 0.97,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
@@ -1122,15 +1222,25 @@ const ELEMENT_TAKEN_MULT: Record<string, number> = {
     Lightning: 0.97,
 };
 
-function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[]): number {
-    const atk = effAttack(attacker);
-    const def = effDefense(defender);
+function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, power: number, extraMult = 1, procs?: string[], move?: { element: string; cls: ShowdownMoveClass }): number {
+    // The physical/special split: contact techniques roll ATK vs DEF, casts
+    // roll the role-derived special pair. DoT ticks and reflects arrive with
+    // no move and keep the physical axis, matching their pre-split numbers.
+    const special = move?.cls === 'special';
+    const atk = special ? effSpAttack(attacker) : effAttack(attacker);
+    const def = special ? effSpDefense(defender) : effDefense(defender);
     const base = DAMAGE_SCALE * (power / 100) * REF_DEF * (atk / Math.max(1, def));
     // ±8% in 16 discrete steps — the genre-proven roll (Pokémon's 85-100 band):
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
     // Lucky shifts the whole window up.
     const variance = 0.92 + tableMult(TRAIT_FX.varianceShift, traitOf(attacker), 0) + Math.floor(nextRand(session) * 16) * 0.01;
-    let mult = elementMult(attacker.element, defender.element) * variance * extraMult
+    // The wheel keys off the MOVE's element, not the pet's — which is what
+    // makes the neutral basic a real out in a resisted matchup. STAB rides the
+    // same property: an own-element technique hits harder.
+    const offenseElement = move?.element ?? attacker.element;
+    const stab = offenseElement !== 'None' && offenseElement === attacker.element ? SHOWDOWN_STAB_MULT : 1;
+    if (stab !== 1) procs?.push('STAB');
+    let mult = elementMult(offenseElement, defender.element) * stab * variance * extraMult
         * tableMult(ROLE_DAMAGE_MULT, attacker.role)
         * tableMult(ELEMENT_DAMAGE_MULT, attacker.element)
         * tableMult(ELEMENT_TAKEN_MULT, defender.element)
@@ -1274,14 +1384,17 @@ function executeMove(
             return false;
         }
         const guarded = target.guarding;
-        // Temtem-style ally synergy: a LIVING teammate whose element beats the
-        // target amplifies the hit (Boonbringers amplify it further). Solo
-        // formats have no ally, so no bonus.
-        const synergy = livingOf(session, actorSide)
-            .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
+        // Temtem Synergy, the real thing: the TECHNIQUE declares its partner
+        // element (sealed at derivation — the element it beats; wind fans the
+        // fire), and a LIVING fielded ally of that element empowers the cast.
+        // Partner-driven, not target-driven, so the lobby can BUILD for it —
+        // which is the entire point of synergy in a 2v2. Boonbringers amplify
+        // it further; solo formats have no ally, so no bonus.
+        const synergy = !!move.synergyElement && livingOf(session, actorSide)
+            .some((ally) => ally !== actor && ally.element === move.synergyElement);
         const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
         const procs: string[] = [];
-        let dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs);
+        let dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs, move);
         // MITIGATE charge: one softened blow. Applied to the finished roll (so
         // it discounts guard, element and every proc alike) and spent whether
         // or not the hit would have hurt.
@@ -1318,7 +1431,9 @@ function executeMove(
                 targetId: actor.id, damage: back.dealt, ko: back.ko,
             });
         }
-        const eff = elementMult(actor.element, target.element);
+        // The label follows the MOVE's element, same as the roll — a neutral
+        // basic must never announce "super effective".
+        const eff = elementMult(move.element ?? actor.element, target.element);
         targets.push({
             id: target.id,
             damage: dealt,
@@ -1445,7 +1560,9 @@ function executeMove(
         actorSide,
         moveName: move.name,
         moveKind: kind,
-        element: actor.element,
+        // The MOVE's element rides the wire — the VFX tint, the wheel banner
+        // and the impact silhouette all follow what was actually thrown.
+        element: move.element ?? actor.element,
         delivery: deliveryFor(kind, actor.role),
         // The haymaker is exactly the move promoteHeavy stamped with a hold and
         // the heavy priority; a jab is the cheap always-affordable opener.
@@ -1671,13 +1788,11 @@ export function resolveShowdownRound(
     }
 
     // ── Attrition ───────────────────────────────────────────────────────────
-    // There is NO round cap and no judge: a fight ends when a team falls. What
-    // stops it running forever is this — from SHOWDOWN_ATTRITION_START every
-    // living pet bleeds a ramping share of its own max HP, and healing has
-    // already decayed (see applyHeal). It hits both sides equally, so it never
-    // decides the winner; it just guarantees there is one. It begins at the
-    // round the old cap used to fire, so the ~96% of fights that finish sooner
-    // are completely unaffected.
+    // From SHOWDOWN_ATTRITION_START every living pet bleeds a ramping share of
+    // its own max HP, and healing has already decayed (see applyHeal). It hits
+    // both sides equally, so it never decides the winner — it makes the last
+    // stretch before the SHOWDOWN_TURN_CAP judge a closing fight instead of a
+    // stall for position. The ~96% of fights that finish sooner never see it.
     if (!session.finished) {
         const pct = showdownAttritionPct(session.round);
         if (pct > 0) {
@@ -1696,6 +1811,37 @@ export function resolveShowdownRound(
             if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
             else if (sideDefeated(session, 'player')) finish(session, 'loss', events);
         }
+    }
+
+    // ── The judge ───────────────────────────────────────────────────────────
+    // Temtem's competitive turn cap, restored by owner ruling for full parity.
+    // A fight still standing at the end of this round is decided on the same
+    // ladder Temtem publishes: surviving pets, combined HP%, combined
+    // stamina%, then the speed arrow — here the session's own seeded coin, so
+    // a replayed script judges identically.
+    if (!session.finished && session.round >= SHOWDOWN_TURN_CAP) {
+        const tally = (side: Side) => {
+            const team = session[side];
+            const alive = team.filter((p) => !p.ko);
+            return {
+                pets: alive.length,
+                hp: alive.reduce((sum, p) => sum + p.hp / Math.max(1, p.maxHp), 0),
+                sta: alive.reduce((sum, p) => sum + p.stamina / Math.max(1, p.maxStamina), 0),
+            };
+        };
+        const mine = tally('player');
+        const theirs = tally('enemy');
+        const verdict: { outcome: ShowdownOutcome; judgeReason: ShowdownJudgeReason } =
+            mine.pets !== theirs.pets
+                ? { outcome: mine.pets > theirs.pets ? 'win' : 'loss', judgeReason: 'pets' }
+                : Math.abs(mine.hp - theirs.hp) > 1e-9
+                    ? { outcome: mine.hp > theirs.hp ? 'win' : 'loss', judgeReason: 'hp' }
+                    : Math.abs(mine.sta - theirs.sta) > 1e-9
+                        ? { outcome: mine.sta > theirs.sta ? 'win' : 'loss', judgeReason: 'stamina' }
+                        : { outcome: nextRand(session) < 0.5 ? 'win' : 'loss', judgeReason: 'speed' };
+        session.finished = true;
+        session.outcome = verdict.outcome;
+        events.push({ t: 'end', outcome: verdict.outcome, byJudge: true, judgeReason: verdict.judgeReason });
     }
 
     events.push({ t: 'roundEnd', round: session.round });
@@ -1757,11 +1903,15 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         moves: pet.moves.map((m) => ({
             name: m.name, power: m.power, kind: m.kind, cost: m.cost, signature: false,
             priority: m.priority, hold: m.hold, effect: moveEffectText(m.kind, m.power),
+            element: m.element ?? pet.element, cls: m.cls ?? moveClass(m.kind),
+            ...(m.synergyElement ? { synergyElement: m.synergyElement } : {}),
         })).concat([{
             name: pet.signatureMove.name, power: pet.signatureMove.power, kind: pet.signatureMove.kind,
             cost: 0, signature: true,
             priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
             effect: 'Spends the full meter — massive damage',
+            element: pet.signatureMove.element ?? pet.element, cls: pet.signatureMove.cls ?? 'special',
+            ...(pet.signatureMove.synergyElement ? { synergyElement: pet.signatureMove.synergyElement } : {}),
         }]),
     };
 }
@@ -1773,6 +1923,7 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         tier: session.tier,
         round: session.round,
         attritionAt: SHOWDOWN_ATTRITION_START,
+        turnCap: SHOWDOWN_TURN_CAP,
         finished: session.finished,
         outcome: session.outcome,
         player: session.player.map(petView),

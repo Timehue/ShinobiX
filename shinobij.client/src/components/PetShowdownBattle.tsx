@@ -1080,16 +1080,24 @@ interface MenuRowSpec {
 
 /** Builds the inspector readout for one technique. Every number here is a
  *  server-sent field on the move view — nothing is recomputed client-side. */
-function moveInspector(move: ShowdownMoveView, element: string, staminaNow: number, readiness: number): InspectorSpec {
+function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaNow: number, readiness: number): InspectorSpec {
     const deficit = Math.max(0, move.cost - staminaNow);
     const holding = move.hold > readiness;
     const pace = move.priority > 1 ? "Fast" : move.priority < 1 ? "Slow" : "Even";
+    // The technique's OWN element — the neutral basic reads Neutral, never the
+    // pet's colour, because dodging the wheel is its whole identity.
+    const element = move.element ?? fallbackElement;
+    const clsLabel = move.cls === "physical" ? "Physical" : move.cls === "special" ? "Special" : "Status";
     return {
         title: move.name,
         glyph: move.signature ? "signature" : KIND_GLYPH[move.kind] ?? "strike",
         element,
-        category: move.signature ? "Signature" : `${element} · ${move.kind}`,
-        description: move.effect,
+        category: move.signature
+            ? `Signature · ${clsLabel}`
+            : `${element === "None" ? "Neutral" : element} · ${clsLabel} · ${move.kind}`,
+        description: move.synergyElement
+            ? `${move.effect} Synergy: a fielded ${move.synergyElement} ally empowers it.`
+            : move.effect,
         stats: [
             { k: "PWR", v: move.power > 0 ? String(move.power) : "—" },
             { k: "STA", v: move.signature ? "meter" : String(move.cost) },
@@ -1181,7 +1189,10 @@ function buildMenuRows({
         key: `move-${entry.index}`,
         icon: KIND_GLYPH[entry.move.kind] ?? "strike",
         family: KIND_FAMILY[entry.move.kind],
-        element,
+        // The pill wears the TECHNIQUE's element, so the neutral basic reads
+        // grey next to the pet's own colour — the wheel-dodge is visible
+        // before the inspector says a word.
+        element: entry.move.element ?? element,
         label: entry.move.name,
         note: entry.move.hold > commander.readiness ? "…" : `${entry.move.cost}`,
         tone: "attack",
@@ -1864,11 +1875,21 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             }, durationMs * 0.25);
         } else if (event.t === "end") {
             setEndOutcome(event.outcome);
+            // A judged finish names itself BEFORE the verdict: the fight hit
+            // the turn cap and went to the ladder, and the player deserves to
+            // know which rung separated the sides.
+            if (event.byJudge) {
+                const rung = event.judgeReason === "pets" ? "more pets standing"
+                    : event.judgeReason === "hp" ? "higher total health"
+                        : event.judgeReason === "stamina" ? "higher total stamina"
+                            : "the speed arrow";
+                later(() => showBanner(`JUDGES' DECISION — ${rung}`, "status", 1400 / speed), 0);
+            }
             later(() => {
                 showBanner(event.outcome === "win" ? "VICTORY!" : "DEFEAT", event.outcome === "win" ? "victory" : "defeat", 2400 / speed);
                 playPetSfx(event.outcome === "win" ? "victory" : "ko");
                 if (event.outcome === "win") playPetSfx("crowd");
-            }, durationMs * 0.2);
+            }, durationMs * (event.byJudge ? 0.55 : 0.2));
         } else if (event.t === "action") {
             if (event.super) {
                 later(() => {
@@ -2483,7 +2504,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     <div className="showdown-topbar-right">
                         {/* stateView.round reconciles at playback end, so the round
                             IN PROGRESS (command or playing) is always round + 1. */}
-                        <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}</div>
+                        <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}/{stateView.turnCap}</div>
                         {stateView.turnDeadline !== undefined && phase === "command" && (
                             <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
                         )}

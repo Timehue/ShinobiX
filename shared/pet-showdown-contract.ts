@@ -238,6 +238,51 @@ export const SHOWDOWN_MAX_TEAM = 3;
  *  with defaults (the engine already treats a missing command as guard). */
 export const SHOWDOWN_PVP_TURN_SECONDS = 45;
 
+/*
+ * Full-Temtem parity block (owner: "we are doing them all").
+ */
+
+/** Technique class — the physical/special split. Derived at SEAL from the
+ *  move's kind (contact kinds are physical, elemental/energetic kinds are
+ *  special, everything that deals no direct hit is status); pets derive
+ *  matching offense/defense leans from their ROLE, so no catalog or storage
+ *  changes anywhere. */
+export type ShowdownMoveClass = "physical" | "special" | "status";
+
+/** Same-type attack bonus. Kit and signature techniques carry the pet's own
+ *  element and earn this; the universal basic strike is sealed NEUTRAL — it
+ *  skips STAB and the wheel both ways, which is exactly its job: the safe jab
+ *  you keep for a bad matchup. Temtem's figure is 1.5, but our wheel already
+ *  swings 1.5/0.75 and stacking both at full strength would decide fights on
+ *  typing alone — 1.2 measured well. */
+export const SHOWDOWN_STAB_MULT = 1.15;
+
+/** Temtem's two-condition rule: a pet holds at most this many CONDITIONS at
+ *  once; applying a third evicts the oldest. The shield absorb pool is not a
+ *  condition and sits outside the cap. */
+export const SHOWDOWN_MAX_STATUSES = 2;
+
+/** Status interactions, Temtem-style: applying the key removes the listed
+ *  kinds outright (fire thaws, frost smothers, a burst of speed shakes off the
+ *  slow). The interaction runs BEFORE the two-slot cap, so a thaw never evicts
+ *  an unrelated condition. */
+export const SHOWDOWN_STATUS_CANCELS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+    burn: ["freeze"],
+    freeze: ["burn"],
+    haste: ["slow", "movelock"],
+    slow: ["haste"],
+    cleanse: [],
+});
+
+/** The competitive turn cap, back by owner ruling (it replaced "no round
+ *  limit" when full Temtem parity was ordered). A fight that reaches the end
+ *  of this round is judged on Temtem's ladder: surviving pets, then combined
+ *  HP%, then combined stamina%, then the speed arrow (a seeded coin). Attrition
+ *  still bleeds from SHOWDOWN_ATTRITION_START, so the last stretch before the
+ *  judge is a closing fight, not a stall. */
+export const SHOWDOWN_TURN_CAP = 25;
+export type ShowdownJudgeReason = "pets" | "hp" | "stamina" | "speed";
+
 /** One command per living pet per round. Deliberately carries no execution
  *  input: the timing-needle grade that used to ride along here was removed in
  *  round 18, so a command is pure INTENT and the engine alone decides outcome. */
@@ -305,6 +350,17 @@ export interface ShowdownPetView {
          *  Hold). 0 = always ready. NO COOLDOWNS — stamina and hold are the
          *  only gates, exactly the Temtem model. */
         hold: number;
+        /** The technique's OWN element. Kit and signature moves carry the
+         *  pet's element (STAB + the wheel apply); the universal basic strike
+         *  is "None" — no STAB, no wheel either way, the safe jab. */
+        element: string;
+        /** Physical hits roll ATK vs DEF, special rolls the role-derived
+         *  special axis, status deals no direct hit. */
+        cls: ShowdownMoveClass;
+        /** Partner element that empowers this technique (Temtem Synergy) —
+         *  thematically the element this move's element BEATS (wind fans the
+         *  fire). Absent on status moves and the neutral basic. */
+        synergyElement?: string;
     }[];
     /** Rounds this pet has been in the battle (holds count down everywhere,
      *  field or bench — the Temtem rule). */
@@ -318,6 +374,9 @@ export interface ShowdownStateView {
     round: number;
     /** The round attrition begins — the fight's pressure cue, not a limit. */
     attritionAt: number;
+    /** The judged turn cap (SHOWDOWN_TURN_CAP) — the round readout's
+     *  denominator, restored by the full-Temtem ruling. */
+    turnCap: number;
     finished: boolean;
     outcome: ShowdownOutcome | null;
     player: ShowdownPetView[];
@@ -427,7 +486,12 @@ export type ShowdownEvent =
     | { t: "confused"; actorId: string; actorSide: "player" | "enemy"; selfDamage: number; ko: boolean }
     | { t: "dot"; targetId: string; targetSide: "player" | "enemy"; kind: string; damage: number; ko: boolean }
     | { t: "roundEnd"; round: number }
-    | { t: "end"; outcome: ShowdownOutcome };
+    | {
+        t: "end"; outcome: ShowdownOutcome;
+        /** Present when the SHOWDOWN_TURN_CAP judge decided it, with the rung
+         *  of the tiebreak ladder that separated the sides. */
+        byJudge?: true; judgeReason?: ShowdownJudgeReason;
+    };
 
 export interface ShowdownTurnResponse {
     ok: boolean;
