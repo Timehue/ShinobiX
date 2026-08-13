@@ -962,11 +962,19 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
     /** Mirrors the creature the pointer is over in the 3D scene. */
     hoveredId?: string | null;
 }) {
+    // The bench stays OFF the field until the Switch flow asks for it. A
+    // standing row of reserve plates was chrome the stage paid for every
+    // round, to present a choice that exists only inside one action — and for
+    // the ENEMY side it also leaked the full reserve roster, where a count is
+    // all the opponent has earned. The count survives as pips.
+    const benchHidden = pets.filter((pet) => (benchedIds?.has(pet.id) ?? false)
+        && !(benchPicking && side === "player"));
     return (
         <div className={`showdown-team-panel ${side}`}>
             {pets.map((pet) => {
                 const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
                 const benched = benchedIds?.has(pet.id) ?? false;
+                if (benched && !(benchPicking && side === "player")) return null;
                 const clickable = !d.ko && (benchPicking ? benched : targeting && !benched);
                 return (
                     <StatusPlate
@@ -984,6 +992,15 @@ function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, 
                     />
                 );
             })}
+            {benchHidden.length > 0 && (
+                <span
+                    className="showdown-reserve-pips"
+                    title={side === "player" ? "Reserves — press Switch to send one in" : "Enemy reserves"}
+                    aria-label={`${benchHidden.length} reserve${benchHidden.length > 1 ? "s" : ""} waiting`}
+                >
+                    {benchHidden.map((pet) => <i key={pet.id} className={(display[pet.id]?.ko ?? pet.ko) ? "down" : ""} aria-hidden="true" />)}
+                </span>
+            )}
         </div>
     );
 }
@@ -1012,9 +1029,7 @@ type MenuAction =
     | { t: "move"; moveIndex: number; super: boolean }
     | { t: "guard" }
     | { t: "rest" }
-    | { t: "beginSwitch" }
-    | { t: "openSkills" }
-    | { t: "backToRoot" };
+    | { t: "beginSwitch" };
 
 interface MenuRowSpec {
     key: string;
@@ -1029,6 +1044,10 @@ interface MenuRowSpec {
     note?: string;
     disabled?: boolean;
     tone?: "attack" | "utility" | "signature";
+    /** Stance rows (Guard/Rest/Switch) render as icon chips BESIDE the
+     *  technique grid, not as grid pills — the techniques are the decision,
+     *  the stances are the standing options. */
+    chip?: boolean;
     action: MenuAction;
     detail: InspectorSpec;
 }
@@ -1061,13 +1080,17 @@ function moveInspector(move: ShowdownMoveView, element: string, staminaNow: numb
 
 /** Assembles the command list for the pet currently taking orders. Kept OUT of
  *  the component body so it is a plain pure builder — the row objects it makes
- *  are data, and the component just renders them. */
+ *  are data, and the component just renders them.
+ *
+ *  Temtem-shaped: the TECHNIQUES are the root level, in a grid, with
+ *  Guard/Rest/Switch as icon chips beside them. There used to be an
+ *  Attack/Skill submenu in front of them, which cost a tap every single round
+ *  to reach the only decision the round actually asks. */
 function buildMenuRows({
-    commander, mustSwitch, tab, moves, signature, staminaNow, meterNow, benchCount, fieldCount,
+    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount,
 }: {
     commander: ShowdownPetView | null;
     mustSwitch: boolean;
-    tab: "root" | "skill";
     /** Non-signature moves, each carrying its REAL index in `commander.moves`. */
     moves: { move: ShowdownMoveView; index: number }[];
     signature: ShowdownMoveView | null;
@@ -1084,8 +1107,9 @@ function buildMenuRows({
         icon: "rotate",
         family: "sup",
         label: "Switch",
-        note: benchCount ? `${benchCount} ready` : "none",
+        note: benchCount ? `${benchCount}` : undefined,
         tone: "utility",
+        chip: true,
         disabled: !benchCount,
         action: { t: "beginSwitch" },
         detail: {
@@ -1104,9 +1128,10 @@ function buildMenuRows({
     };
 
     // A stunned pet cannot act, but it MAY rotate out — so it gets the switch
-    // decision and nothing else.
+    // decision and nothing else, both presented as full pills: in this state
+    // the stance IS the decision.
     if (mustSwitch) {
-        return [switchRow, {
+        return [{ ...switchRow, chip: false }, {
             key: "hold",
             icon: "brace",
             family: "sup",
@@ -1122,84 +1147,39 @@ function buildMenuRows({
         }];
     }
 
-    if (tab === "skill") {
-        // Overdraft is allowed (it just costs HP), so a move you cannot afford
-        // stays selectable — only an unmet HOLD disables the row.
-        const rows: MenuRowSpec[] = moves.slice(1).map((entry): MenuRowSpec => ({
-            key: `skill-${entry.index}`,
-            icon: KIND_GLYPH[entry.move.kind] ?? "strike",
-            family: KIND_FAMILY[entry.move.kind],
+    // Every technique sits at the root, the basic strike included, each under
+    // its own name — "Attack" as an alias hid what the button actually threw.
+    // Overdraft is allowed (it just costs HP), so a move you cannot afford
+    // stays selectable — only an unmet HOLD disables its pill.
+    const rows: MenuRowSpec[] = moves.map((entry): MenuRowSpec => ({
+        key: `move-${entry.index}`,
+        icon: KIND_GLYPH[entry.move.kind] ?? "strike",
+        family: KIND_FAMILY[entry.move.kind],
+        element,
+        label: entry.move.name,
+        note: entry.move.hold > commander.readiness ? "…" : `${entry.move.cost}`,
+        tone: "attack",
+        disabled: entry.move.hold > commander.readiness,
+        action: { t: "move", moveIndex: entry.index, super: false },
+        detail: moveInspector(entry.move, element, staminaNow, commander.readiness),
+    }));
+    if (signature) {
+        const sigHolding = signature.hold > commander.readiness;
+        const ready = meterNow >= 100 && !sigHolding;
+        rows.push({
+            key: "signature",
+            icon: "signature",
             element,
-            label: entry.move.name,
-            note: entry.move.hold > commander.readiness ? "charging" : `${entry.move.cost} EN`,
-            disabled: entry.move.hold > commander.readiness,
-            action: { t: "move", moveIndex: entry.index, super: false },
-            detail: moveInspector(entry.move, element, staminaNow, commander.readiness),
-        }));
-        if (signature) {
-            const sigHolding = signature.hold > commander.readiness;
-            const ready = meterNow >= 100 && !sigHolding;
-            rows.push({
-                key: "signature",
-                icon: "signature",
-                element,
-                label: signature.name,
-                note: ready ? "READY" : sigHolding ? "charging" : `${Math.round(meterNow)}%`,
-                tone: "signature",
-                disabled: !ready,
-                action: { t: "move", moveIndex: -1, super: true },
-                detail: {
-                    ...moveInspector(signature, element, staminaNow, commander.readiness),
-                    warn: sigHolding
-                        ? `Still charging — unleashes from round ${signature.hold + 1}.`
-                        : ready ? undefined : "The signature meter is not full yet.",
-                },
-            });
-        }
-        rows.push({
-            key: "back",
-            icon: "caret-back",
-            label: "Back",
-            tone: "utility",
-            action: { t: "backToRoot" },
-            detail: { title: "Back", element, category: "Menu", description: "Return to the main command list." },
-        });
-        return rows;
-    }
-
-    const rows: MenuRowSpec[] = [];
-    const basic = moves[0];
-    if (basic) {
-        rows.push({
-            key: "attack",
-            icon: KIND_GLYPH[basic.move.kind] ?? "strike",
-            family: KIND_FAMILY[basic.move.kind],
-            element,
-            label: "Attack",
-            note: `${basic.move.cost} EN`,
-            tone: "attack",
-            disabled: basic.move.hold > commander.readiness,
-            action: { t: "move", moveIndex: basic.index, super: false },
-            detail: moveInspector(basic.move, element, staminaNow, commander.readiness),
-        });
-    }
-    if (moves.length > 1 || signature) {
-        rows.push({
-            key: "skill",
-            icon: "scroll",
-            label: "Skill",
-            note: `${moves.length - 1 + (signature ? 1 : 0)}`,
-            action: { t: "openSkills" },
+            label: signature.name,
+            note: ready ? "READY" : `${Math.round(meterNow)}%`,
+            tone: "signature",
+            disabled: !ready,
+            action: { t: "move", moveIndex: -1, super: true },
             detail: {
-                title: "Techniques",
-                element,
-                category: "Menu",
-                description: `${commander.name}'s learned techniques${signature ? ", including its signature" : ""}. Stamina and hold are the only gates — there are no cooldowns.`,
-                stats: [
-                    { k: "EN", v: `${Math.round(staminaNow)}/${commander.maxStamina}` },
-                    { k: "METER", v: `${Math.round(meterNow)}%` },
-                    { k: "ROUND", v: `${commander.readiness + 1}` },
-                ],
+                ...moveInspector(signature, element, staminaNow, commander.readiness),
+                warn: sigHolding
+                    ? `Still charging — unleashes from round ${signature.hold + 1}.`
+                    : ready ? undefined : "The signature meter is not full yet.",
             },
         });
     }
@@ -1208,8 +1188,9 @@ function buildMenuRows({
         icon: "aegis",
         family: "sup",
         label: "Guard",
-        note: `${SHOWDOWN_GUARD_COST} EN`,
+        note: `${SHOWDOWN_GUARD_COST}`,
         tone: "utility",
+        chip: true,
         action: { t: "guard" },
         detail: {
             title: "Guard",
@@ -1235,6 +1216,7 @@ function buildMenuRows({
         label: "Rest",
         note: "+EN",
         tone: "utility",
+        chip: true,
         action: { t: "rest" },
         detail: {
             title: "Catch Breath",
@@ -1268,10 +1250,7 @@ function useReclaimFocus(container: React.RefObject<HTMLElement | null>, index =
     }, [container]);
 }
 
-function ActionMenu({ title, rows, focus, onFocusRow, onSelect, sub }: {
-    title: string;
-    /** Small line under the title (element + commander name). */
-    sub?: string;
+function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
     rows: MenuRowSpec[];
     focus: number;
     onFocusRow: (index: number) => void;
@@ -1279,68 +1258,65 @@ function ActionMenu({ title, rows, focus, onFocusRow, onSelect, sub }: {
 }) {
     const rowsRef = useRef<HTMLDivElement>(null);
     useReclaimFocus(rowsRef, focus);
-    // Arrow keys walk the list the way a console menu does; the buttons stay
-    // real buttons so Tab and screen readers keep working unchanged.
+    // The techniques render as a two-column grid with the stance chips in a
+    // row beneath, but the FOCUS ORDER stays the single flat `rows` array —
+    // arrows move through one list (Up/Down by a grid row, Left/Right by one),
+    // Tab and screen readers see plain buttons in reading order.
+    const gridCount = rows.filter((r) => !r.chip).length;
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
         e.preventDefault();
         const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
         if (!buttons.length) return;
         const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-        const step = e.key === "ArrowDown" ? 1 : -1;
-        const next = at < 0 ? 0 : (at + step + buttons.length) % buttons.length;
+        // Inside the grid a vertical arrow jumps a full row (two pills); once
+        // past the grid's edge it lands on the chips, and vice versa.
+        const step = e.key === "ArrowRight" ? 1
+            : e.key === "ArrowLeft" ? -1
+                : e.key === "ArrowDown" ? (at < gridCount ? 2 : 1)
+                    : (at <= gridCount ? -2 : -1);
+        const next = at < 0 ? 0 : Math.max(0, Math.min(buttons.length - 1, at + step));
         buttons[next]?.focus();
     };
+    const renderRow = (row: MenuRowSpec, i: number) => (
+        // Unavailable rows are aria-disabled, NOT natively disabled: a disabled
+        // button fires no hover and takes no focus, which made the inspector
+        // line explaining WHY it is unavailable ("Still charging…", "No
+        // reserves left…") unreachable.
+        <button
+            key={row.key}
+            type="button"
+            aria-disabled={row.disabled || undefined}
+            className={[row.chip ? "showdown-stance-chip" : "showdown-tech-pill", row.tone ?? "", row.element ? "technique" : "", row.disabled ? "is-disabled" : "", i === focus ? "focused" : ""].join(" ")}
+            style={row.element
+                ? { "--elem-tint": ELEMENT_TINT[row.element] ?? ELEMENT_TINT.None } as React.CSSProperties
+                : undefined}
+            onMouseEnter={() => { if (i !== focus) playPetSfx("uiMove"); onFocusRow(i); }}
+            onFocus={() => { if (i !== focus) playPetSfx("uiMove"); onFocusRow(i); }}
+            onClick={() => {
+                // An unavailable row must SOUND unavailable: silence is
+                // indistinguishable from a dropped input, and the player just
+                // presses again.
+                if (row.disabled) { playPetSfx("uiDenied"); return; }
+                playPetSfx("uiConfirm");
+                petHaptic(12);
+                onSelect(row.action);
+            }}
+        >
+            <span className={`showdown-menu-icon fam-${row.family ?? "none"}`} aria-hidden="true">
+                <ShowdownIcon name={row.icon} size={15} />
+            </span>
+            <span className="showdown-menu-label">{row.label}</span>
+            {row.note && <span className="showdown-menu-note">{row.note}</span>}
+        </button>
+    );
     return (
-        <div className="showdown-menu">
-            <div className="showdown-menu-head">
-                <span className="showdown-menu-title">{title}</span>
-                {sub && <span className="showdown-menu-sub">{sub}</span>}
+        <div className="showdown-menu" ref={rowsRef} onKeyDown={onKeyDown}>
+            <div className="showdown-tech-grid">
+                {rows.map((row, i) => (row.chip ? null : renderRow(row, i)))}
             </div>
-            <div className="showdown-menu-rows" ref={rowsRef} onKeyDown={onKeyDown}>
-                {/* ONE cursor that slides, not an arrow per row fading in and out.
-                    The slide is the thing that reads as designed; N opacity flips
-                    read as N separate widgets. Row pitch is a CSS variable so the
-                    transform never has to measure the DOM. */}
-                <span
-                    className="showdown-menu-cursor"
-                    aria-hidden="true"
-                    style={{ transform: `translateY(calc(var(--row-pitch) * ${Math.max(0, focus)}))` }}
-                >
-                    <ShowdownIcon name="cursor" size={16} />
-                </span>
-                {rows.map((row, i) => (
-                    // Unavailable rows are aria-disabled, NOT natively disabled:
-                    // a disabled button fires no hover and takes no focus, which
-                    // made the inspector line explaining WHY it is unavailable
-                    // ("Still charging…", "No reserves left…") unreachable.
-                    <button
-                        key={row.key}
-                        type="button"
-                        aria-disabled={row.disabled || undefined}
-                        className={["showdown-menu-row", row.tone ?? "", row.element ? "technique" : "", row.disabled ? "is-disabled" : "", i === focus ? "focused" : ""].join(" ")}
-                        style={row.element
-                            ? { "--elem-tint": ELEMENT_TINT[row.element] ?? ELEMENT_TINT.None } as React.CSSProperties
-                            : undefined}
-                        onMouseEnter={() => { if (i !== focus) playPetSfx("uiMove"); onFocusRow(i); }}
-                        onFocus={() => { if (i !== focus) playPetSfx("uiMove"); onFocusRow(i); }}
-                        onClick={() => {
-                            // An unavailable row must SOUND unavailable: silence
-                            // is indistinguishable from a dropped input, and the
-                            // player just presses again.
-                            if (row.disabled) { playPetSfx("uiDenied"); return; }
-                            playPetSfx("uiConfirm");
-                            petHaptic(12);
-                            onSelect(row.action);
-                        }}
-                    >
-                        <span className={`showdown-menu-icon fam-${row.family ?? "none"}`} aria-hidden="true">
-                            <ShowdownIcon name={row.icon} size={15} />
-                        </span>
-                        <span className="showdown-menu-label">{row.label}</span>
-                        {row.note && <span className="showdown-menu-note">{row.note}</span>}
-                    </button>
-                ))}
+            <div className="showdown-stance-chips">
+                {rows.map((row, i) => (row.chip ? renderRow(row, i) : null))}
             </div>
         </div>
     );
@@ -1353,14 +1329,13 @@ function TargetingPanel({ title, sub, onBack }: { title: string; sub: string; on
     const rowsRef = useRef<HTMLDivElement>(null);
     useReclaimFocus(rowsRef);
     return (
-        <div className="showdown-menu targeting">
-            <div className="showdown-menu-head">
-                <span className="showdown-menu-title">{title}</span>
-                <span className="showdown-menu-sub">{sub}</span>
+        <div className="showdown-menu targeting" ref={rowsRef}>
+            <div className="showdown-targeting-ask">
+                <span className="showdown-targeting-title">{title}</span>
+                <span className="showdown-targeting-sub">{sub}</span>
             </div>
-            <div className="showdown-menu-rows" ref={rowsRef}>
-                <span className="showdown-menu-cursor" aria-hidden="true"><ShowdownIcon name="cursor" size={16} /></span>
-                <button type="button" className="showdown-menu-row utility focused" onClick={() => { playPetSfx("uiCancel"); onBack(); }}>
+            <div className="showdown-stance-chips">
+                <button type="button" className="showdown-stance-chip focused" onClick={() => { playPetSfx("uiCancel"); onBack(); }}>
                     <span className="showdown-menu-icon fam-none" aria-hidden="true"><ShowdownIcon name="caret-back" size={15} /></span>
                     <span className="showdown-menu-label">Back</span>
                 </button>
@@ -1486,7 +1461,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [pendingMove, setPendingMove] = useState<{ moveIndex: number; super: boolean } | null>(null);
     const [pickingSwitch, setPickingSwitch] = useState(false);
     /** Console-style menu: the root list, or the technique sub-list. */
-    const [menuTab, setMenuTab] = useState<"root" | "skill">("root");
     /** Highlighted menu row — drives the cursor and the inspector readout. */
     const [focusRow, setFocusRow] = useState(0);
     /** The creature the pointer is over while targeting (drives the cursor and
@@ -1605,16 +1579,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 playPetSfx("uiCancel");
                 setPickingSwitch(false);
                 setHoveredTarget(null);
-            } else if (menuTab === "skill") {
-                e.preventDefault();
-                playPetSfx("uiCancel");
-                setMenuTab("root");
-                setFocusRow(0);
             }
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [confirmForfeit, pendingMove, pickingSwitch, menuTab]);
+    }, [confirmForfeit, pendingMove, pickingSwitch]);
 
     // ── Fighter slot map (positions + model configs, stable per roster) ─────
     const slots = useMemo(() => {
@@ -2128,7 +2097,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const pushCommand = (command: ShowdownCommand) => {
         setPendingMove(null);
         setPickingSwitch(false);
-        setMenuTab("root");
         setFocusRow(0);
         const nextDraft = [...draft, command];
         setDraft(nextDraft);
@@ -2188,7 +2156,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setFailedOrders(null);
         setPendingMove(null);
         setPickingSwitch(false);
-        setMenuTab("root");
         setFocusRow(0);
     };
 
@@ -2296,7 +2263,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const menuRows = buildMenuRows({
         commander,
         mustSwitch: commanderMustSwitch,
-        tab: menuTab,
         moves: commanderMoves,
         signature: commanderSignature,
         staminaNow,
@@ -2311,8 +2277,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             case "guard": return pushCommand({ kind: "guard", petId: commander.id });
             case "rest": return pushCommand({ kind: "rest", petId: commander.id });
             case "beginSwitch": setPickingSwitch(true); setFocusRow(0); return;
-            case "openSkills": setMenuTab("skill"); setFocusRow(0); return;
-            case "backToRoot": setMenuTab("root"); setFocusRow(0); return;
         }
     };
     const focusIndex = Math.min(focusRow, Math.max(0, menuRows.length - 1));
@@ -2562,13 +2526,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                 />
                             ) : (
                                 <ActionMenu
-                                    key={`${commander.id}:${menuTab}`}
-                                    title={menuTab === "skill" ? "Techniques" : commander.name}
-                                    sub={menuTab === "skill"
-                                        ? `${commander.name} · ${Math.round(staminaNow)} EN`
-                                        : commanderMustSwitch
-                                            ? "Loses this action — rotate out or hold"
-                                            : `${commanderElement} · Lv${commander.level}`}
+                                    key={commander.id}
                                     rows={menuRows}
                                     focus={focusIndex}
                                     onFocusRow={setFocusRow}
@@ -2579,7 +2537,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                 {draft.length > 0 && !pendingMove && !pickingSwitch && (
                                     <button type="button" className="showdown-chip showdown-undo" onClick={() => {
                                         playPetSfx("uiCancel");
-                                        setMenuTab("root");
                                         setFocusRow(0);
                                         setDraft((d) => d.slice(0, -1));
                                     }}>
