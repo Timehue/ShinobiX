@@ -2251,6 +2251,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 360,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 102
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 380,
         "occurrences": [
           {
@@ -2339,6 +2350,17 @@
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 1816
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 500,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 120
           }
         ]
       },
@@ -2476,6 +2498,17 @@
       },
       {
         "direction": "max",
+        "axis": "height",
+        "valuePx": 600,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 102
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "width",
         "valuePx": 600,
         "occurrences": [
@@ -2490,6 +2523,17 @@
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 1702
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 600,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 120
           }
         ]
       },
@@ -2650,6 +2694,10 @@
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 2328
+          },
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 76
           }
         ]
       },
@@ -2829,6 +2877,14 @@
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
             "line": 316
+          },
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 76
+          },
+          {
+            "source": "shinobij.client/src/styles/mission-arena-fight.css",
+            "line": 120
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
