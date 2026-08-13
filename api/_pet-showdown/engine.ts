@@ -1354,11 +1354,16 @@ function resolveAllyTarget(session: ShowdownSession, actorSide: Side, requestedI
 export const SELF_KINDS = new Set(['buff', 'haste', 'move', 'shield', 'barrier', 'absorb', 'taunt']);
 const ALLY_KINDS = new Set(['heal']);
 
-function deliveryFor(kind: string, role: string): 'melee' | 'ranged' | 'self' {
-    if (SELF_KINDS.has(kind) || ALLY_KINDS.has(kind)) return 'self';
-    if ((role === 'assassin' || role === 'defender') && (kind === 'damage' || kind === 'crush' || kind === 'lifesteal' || kind === 'push' || kind === 'pull')) {
-        return 'melee';
-    }
+/** How the action is STAGED — a charge into contact, or a cast from where the
+ *  pet stands. Follows the MOVE, not the pet (owner note: "don't have every
+ *  attack be a charge — use your logic"): contact kinds close the distance,
+ *  elemental casts throw. The class split already draws exactly this line —
+ *  physical techniques are the contact family, special ones are the casts —
+ *  and the one nuance on top is the pet's own NEUTRAL jab, which is always a
+ *  quick dash-in regardless of who throws it. */
+function deliveryFor(move: Pick<ShowdownMove, 'kind' | 'cls' | 'element'>): 'melee' | 'ranged' | 'self' {
+    if (SELF_KINDS.has(move.kind) || ALLY_KINDS.has(move.kind)) return 'self';
+    if (move.cls === 'physical' || move.element === 'None') return 'melee';
     return 'ranged';
 }
 
@@ -1613,7 +1618,7 @@ function executeMove(
         // The MOVE's element rides the wire — the VFX tint, the wheel banner
         // and the impact silhouette all follow what was actually thrown.
         element: move.element ?? actor.element,
-        delivery: deliveryFor(kind, actor.role),
+        delivery: deliveryFor(move),
         // The haymaker is exactly the move promoteHeavy stamped with a hold and
         // the heavy priority; a jab is the cheap always-affordable opener.
         weight: move.hold > 0 || move.priority <= SHOWDOWN_PRIORITY_HEAVY

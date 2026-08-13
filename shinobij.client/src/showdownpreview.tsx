@@ -323,8 +323,10 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         events.push({
             t: "action", actorId: actor.id, actorSide: "player",
             moveName: move.name,
-            moveKind: move.kind, element: actor.element ?? "None",
-            delivery: actor.role === "assassin" || actor.role === "defender" ? "melee" : "ranged",
+            // Mirror the engine: the MOVE decides the staging — contact
+            // kinds and the neutral jab charge in, elemental casts throw.
+            moveKind: move.kind, element: move.element,
+            delivery: move.cls === "physical" || move.element === "None" ? "melee" : "ranged",
             weight: mockWeight(move, superCast), super: superCast,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: world.round % 3 === 0 ? "super" : "neutral", guarded: false, ko }],
             staminaAfter, meterAfter: meter,

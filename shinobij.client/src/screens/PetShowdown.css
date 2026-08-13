@@ -809,13 +809,6 @@
     min-width: 0;
 }
 
-.showdown-playing-hint {
-    margin: 0 auto;
-    background: rgba(14, 10, 5, 0.7);
-    border-radius: 999px;
-    padding: 6px 16px;
-    animation: showdown-hint-pulse 1.6s ease-in-out infinite;
-}
 @keyframes showdown-hint-pulse { 50% { opacity: 0.55; } }
 
 /* Status pips: a framed socket carrying the mark, with the remaining rounds
@@ -1604,7 +1597,6 @@
 
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,
-    .showdown-playing-hint,
     /* Panel entrances and the signature pulse. The focused pill keeps its
        outline — that is state, not motion. */
     .showdown-menu,
@@ -1627,8 +1619,7 @@
     .showdown-result, .showdown-result-reward, .showdown-recap-row { opacity: 1; transform: none; }
     .showdown-tech-pill.signature:not(.is-disabled) .showdown-menu-note { opacity: 1; }
     .showdown-plate-meter.full > span { filter: brightness(1.35); }
-    .showdown-playing-hint { opacity: 0.85; }
-
+    
     /* Overshoot pop-ins become plain fades. */
     .showdown-banner { animation: showdown-fade-in 0.18s ease-out both; }
     .showdown-popup { animation: showdown-fade-out 1.2s ease-out forwards; }
