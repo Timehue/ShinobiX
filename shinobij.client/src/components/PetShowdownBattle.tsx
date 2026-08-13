@@ -67,9 +67,13 @@ import type {
 
 // ─── Staging constants ───────────────────────────────────────────────────────
 
-const PLAYER_Z = 3.6;
-const ENEMY_Z = -3.6;
-const SLOT_SPACING = 2.7;
+// Staging (owner note: "give the pets a little space — they're just standing
+// there really close together"): allies stand a full body apart, the lines a
+// touch further from each other, and each slot staggers off the baseline so a
+// team reads as individuals taking the field, not a queue.
+const PLAYER_Z = 4.1;
+const ENEMY_Z = -4.1;
+const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
 
 // ── Arena roster: five painted stages, picked per session. ──────────────────
@@ -251,7 +255,10 @@ function slotPositions(count: number, side: "player" | "enemy"): [number, number
     const z = side === "player" ? PLAYER_Z : ENEMY_Z;
     return Array.from({ length: count }, (_, i) => {
         const x = (i - (count - 1) / 2) * SLOT_SPACING * (side === "player" ? 1 : -1);
-        return [x, FLOOR_Y, z] as [number, number, number];
+        // Alternate slots step off the baseline: a staggered line has depth
+        // and silhouette, a flat rank reads as a queue.
+        const depth = (i % 2 === 0 ? 0 : 0.9) * (side === "player" ? 1 : -1);
+        return [x, FLOOR_Y, z + depth] as [number, number, number];
     });
 }
 
@@ -318,6 +325,51 @@ function lineupAfterSwitch(lineup: Lineup, side: "player" | "enemy", outId: stri
 }
 
 // ─── Stage environment (lifted from the proven Coliseum recipe) ──────────────
+
+/** The lightrig — four beams that snap on for a SIGNATURE and sweep onto the
+ *  arena, tinted by the cast's element. The rig only exists in the super
+ *  moment: house lights for the one beat per fight that is allowed to shout. */
+function SuperLightRig({ beatRef }: { beatRef: React.MutableRefObject<SceneBeat> }) {
+    const beams = useRef<Array<THREE.Mesh | null>>([]);
+    useFrame((state) => {
+        const beat = beatRef.current;
+        const isSuper = beat.event?.t === "action" && beat.event.super;
+        const frac = isSuper ? Math.min(1, (performance.now() - beat.startedAt) / beat.durationMs) : 0;
+        const tint = isSuper && beat.event?.t === "action" ? (ELEMENT_TINT[beat.event.element] ?? "#fde9bd") : "#fde9bd";
+        beams.current.forEach((b, i) => {
+            if (!b) return;
+            if (!isSuper) { b.visible = false; return; }
+            b.visible = true;
+            const mat = b.material as THREE.MeshBasicMaterial;
+            // Rise fast, hold through the strike, die with the beat.
+            mat.opacity = (frac < 0.12 ? frac / 0.12 : frac > 0.82 ? (1 - frac) / 0.18 : 1) * 0.16;
+            mat.color.set(tint);
+            const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            b.position.set(Math.cos(a) * 14.2, 12.8, Math.sin(a) * 14.2);
+            b.lookAt(0, 0.5, 0);
+            b.rotateX(Math.PI / 2);
+            // A slow sweep sells "operated", not "painted on".
+            b.rotation.z += Math.sin(state.clock.elapsedTime * 1.3 + i * 1.7) * 0.05;
+        });
+    });
+    return (
+        <group>
+            {Array.from({ length: 4 }, (_, i) => (
+                <mesh key={i} ref={(el) => { beams.current[i] = el; }} visible={false}>
+                    <cylinderGeometry args={[0.1, 1.9, 21, 8, 1, true]} />
+                    <meshBasicMaterial
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                        blending={THREE.AdditiveBlending}
+                        toneMapped={false}
+                        side={THREE.DoubleSide}
+                    />
+                </mesh>
+            ))}
+        </group>
+    );
+}
 
 function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef: React.MutableRefObject<SceneBeat>; fxRef: React.MutableRefObject<SceneFx> }) {
     const art = STAGES[stage];
@@ -398,6 +450,7 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
             </mesh>
             {/* Stage-tinted drifting motes — living air (embers/spores/snow). */}
             <Sparkles count={38} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={art.ember} opacity={0.5} />
+            <SuperLightRig beatRef={beatRef} />
         </group>
     );
 }
@@ -443,16 +496,32 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                 // Deterministic shot seed: the QUEUE INDEX, so a replay of the
                 // same script picks the same framings every time.
                 const v = (beat.index * 2654435761) >>> 0;
+                // ORIENTATION RULE (owner note): the camera NEVER goes behind
+                // the enemy line. Behind-the-shoulder framing is the player's
+                // grammar — used on an enemy it reads as if their pet were
+                // yours. Enemy actions are shot from the SIDE or high, with
+                // the player's half of the arena kept toward the lens.
+                const enemyActing = beat.event.actorSide === "enemy";
                 if (beat.event.super) {
-                    // Signature: swoop from the actor's shoulder into the impact
-                    // (kept as a continuous move — the letterbox moment).
                     nextShot = `super:${beat.index}`;
-                    const behind = a.clone().sub(b).normalize().multiplyScalar(3.4);
-                    // Reduced motion pins the swoop to its end framing: the
-                    // shot still reads, the continuous travel does not happen.
                     const swoop = reduced ? 1 : frac;
-                    targetPos = a.clone().add(behind).add(new THREE.Vector3(1.6 - swoop * 1.1, 2.0 + swoop * 0.6, 0));
-                    targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
+                    if (enemyActing) {
+                        // Enemy signature: a high side dolly along the lane —
+                        // dramatic, but unmistakably THEIR move coming at you.
+                        const mid = a.clone().lerp(b, 0.5);
+                        const dirS = b.clone().sub(a).setY(0).normalize();
+                        const perpS = new THREE.Vector3(-dirS.z, 0, dirS.x);
+                        targetPos = mid.clone()
+                            .add(perpS.multiplyScalar(6.4 - swoop * 1.6))
+                            .setY(3.4 + swoop * 0.6);
+                        targetLook = (reduced || frac >= 0.45 ? b : a).clone().setY(1.1);
+                    } else {
+                        // Player signature: the shoulder swoop into the impact
+                        // (kept as a continuous move — the letterbox moment).
+                        const behind = a.clone().sub(b).normalize().multiplyScalar(3.4);
+                        targetPos = a.clone().add(behind).add(new THREE.Vector3(1.6 - swoop * 1.1, 2.0 + swoop * 0.6, 0));
+                        targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
+                    }
                 } else {
                     // Colosseum cut sequence: a windup framing, then a HARD CUT
                     // to the impact. Ranged and melee are shot differently —
@@ -468,13 +537,17 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                     if (frac < STRIKE_FRAC * 0.92) {
                         const variant = v % 3;
                         nextShot = `windup:${beat.index}:${variant}`;
-                        if (ranged) {
-                            // Slot line: sit off the axis so the throw travels
-                            // across frame rather than into the lens.
+                        if (ranged || enemyActing) {
+                            // Slot line: sit off the axis so the action travels
+                            // across frame rather than into the lens. ALSO the
+                            // only windup an enemy gets — behind-the-shoulder
+                            // is player grammar (orientation rule above). An
+                            // enemy windup rides a touch higher: reading down
+                            // the lane keeps YOUR pets' backs toward the lens.
                             const mid = a.clone().lerp(b, 0.5);
                             targetPos = mid.clone()
                                 .add(perp.clone().multiplyScalar(variant === 1 ? -6.2 : 6.2))
-                                .setY(variant === 2 ? 3.4 : 2.6);
+                                .setY(enemyActing ? (variant === 2 ? 4.2 : 3.4) : variant === 2 ? 3.4 : 2.6);
                             targetLook = mid.clone().setY(1.2);
                         } else {
                             const lateral = perp.clone().multiplyScalar(variant === 1 ? -1.5 : 1.5);
@@ -2660,7 +2733,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             </div>
                         </>
                     )}
-                    {phase === "playing" && <div className="showdown-playing-hint">The exchange unfolds…</div>}
                 </div>
 
                 {panel === "result" && (
