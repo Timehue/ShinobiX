@@ -358,18 +358,32 @@
     color: inherit;
     font: inherit;
     isolation: isolate;
-    border-radius: 10px 10px 3px 10px;
-    /* Floating bars, not a wall of boxes: the resting plate is a whisper of a
-       shell — enough backing that the numerals survive a bright arena frame,
-       nothing more. The STATE styles below (commanding / targetable / hovered)
-       raise the rim when the plate becomes a control, which is the only time a
-       visible box earns its place over the stage. */
+    border-radius: 8px;
+    /* Champions-style angled broadcast plates (owner reference shot): the
+       whole shell leans forward, each SIDE wears its color — challenger
+       crimson, your line indigo — and the content counter-skews so numerals
+       and bars stay upright. Saturated but not opaque: the arena still reads
+       behind the rake. */
+    transform: skewX(-10deg);
     background:
         var(--grain),
-        linear-gradient(155deg, rgba(24, 17, 9, 0.5), rgba(8, 6, 4, 0.55));
-    border: 1px solid rgba(217, 180, 120, 0.18);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        linear-gradient(155deg, rgba(26, 19, 12, 0.78), rgba(8, 6, 5, 0.82));
+    border: 1px solid rgba(217, 180, 120, 0.35);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     transition: border-color 0.12s linear, box-shadow 0.12s linear, opacity 0.18s linear, background 0.12s linear;
+}
+.showdown-plate > * { transform: skewX(10deg); }
+.showdown-team-panel.enemy .showdown-plate {
+    background:
+        var(--grain),
+        linear-gradient(100deg, rgba(158, 22, 66, 0.82), rgba(52, 8, 24, 0.86) 70%);
+    border-color: rgba(255, 120, 160, 0.4);
+}
+.showdown-team-panel.player .showdown-plate {
+    background:
+        var(--grain),
+        linear-gradient(100deg, rgba(70, 54, 190, 0.8), rgba(22, 14, 62, 0.86) 70%);
+    border-color: rgba(150, 140, 255, 0.42);
 }
 
 .showdown-plate.ko { opacity: 0.45; filter: grayscale(0.8); --frame-ink: #6b5a44; --frame-alpha: 0.35; }
@@ -396,15 +410,11 @@
 /* Pointing at the creature in the arena lights its plate too, so the link
    between the model and the readout is never ambiguous. */
 .showdown-plate.hovered { border-color: #fde68a; box-shadow: 0 0 16px rgba(253, 230, 138, 0.6); }
-/* A plate acting as a control regains a solid body — the whisper shell is for
-   plates that are only readouts. */
+/* A plate acting as a control brightens its own side color rather than
+   swapping to a neutral body — the side identity is the Champions read. */
 .showdown-plate.commanding,
 .showdown-plate.targetable,
-.showdown-plate.hovered {
-    background:
-        var(--grain),
-        linear-gradient(155deg, rgba(38, 27, 14, 0.88), rgba(10, 8, 5, 0.9));
-}
+.showdown-plate.hovered { filter: brightness(1.18) saturate(1.1); }
 
 /* Hidden reserves, as a count. One diamond per benched pet, dimmed when it is
    down — the roster itself only appears inside the Switch flow. */
@@ -622,7 +632,9 @@
 .showdown-targeting-title { font-weight: 800; font-size: 0.9rem; text-shadow: 0 1px 3px #000; }
 .showdown-targeting-sub { font-size: 0.66rem; color: #c3b090; text-shadow: 0 1px 3px #000; }
 
-/* Stance chips: standing options, icon-first, half a pill tall. */
+/* Stance medallions: Champions' round action buttons, each wearing its own
+   color identity — Guard teal, Rest green, Switch amber — so the standing
+   options read as three distinct objects at a glance. */
 .showdown-stance-chips { display: flex; gap: 6px; }
 .showdown-stance-chip {
     flex: 1 1 0;
@@ -634,16 +646,23 @@
     padding: 5px 8px;
     background:
         var(--grain),
-        linear-gradient(100deg, rgba(30, 23, 13, 0.82), rgba(10, 8, 5, 0.86));
+        radial-gradient(120% 140% at 30% 20%, rgba(60, 48, 26, 0.9), rgba(12, 9, 6, 0.92));
     border: 1px solid rgba(217, 180, 120, 0.3);
     border-radius: 999px;
     color: inherit;
     font: inherit;
     cursor: pointer;
     min-block-size: 38px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    transition: border-color 0.1s linear, box-shadow 0.1s linear;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: border-color 0.1s linear, box-shadow 0.1s linear, filter 0.1s linear;
 }
+.showdown-stance-chip:nth-child(1) { border-color: rgba(94, 214, 196, 0.45); }
+.showdown-stance-chip:nth-child(1) .showdown-menu-icon { color: #5ed6c4; box-shadow: inset 0 0 0 1px rgba(94, 214, 196, 0.4); }
+.showdown-stance-chip:nth-child(2) { border-color: rgba(134, 239, 172, 0.45); }
+.showdown-stance-chip:nth-child(2) .showdown-menu-icon { color: #86efac; box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.4); }
+.showdown-stance-chip:nth-child(3) { border-color: rgba(251, 191, 36, 0.45); }
+.showdown-stance-chip:nth-child(3) .showdown-menu-icon { color: #fbbf24; box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.4); }
+.showdown-stance-chip:hover:not(.is-disabled) { filter: brightness(1.15); }
 .showdown-stance-chip.focused {
     border-color: #fde9bd;
     box-shadow: 0 0 0 1px rgba(253, 233, 189, 0.7), 0 2px 8px rgba(0, 0, 0, 0.45);
