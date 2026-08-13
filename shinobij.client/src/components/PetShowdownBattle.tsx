@@ -1709,8 +1709,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
     /** Spawn a one-shot painted flipbook at a pet's current position. */
     /** Elemental set-piece (tsunami / tornado / fire wash…) for the casts that
-     *  earned one. Anchored on both bodies so traveling pieces have a lane. */
-    const spawnSetPiece = useCallback((element: string, casterId: string, victimId: string, durationMs: number) => {
+     *  earned one. Anchored on both bodies so traveling pieces have a lane.
+     *
+     *  ?slowfx stretches every piece 3x — a REVIEW knob for tuning the
+     *  spectacle frame-by-frame (the pieces live ~900ms, too brief to study).
+     *  URL-gated, presentation-only, and inert unless someone types it. */
+    const fxStretch = useMemo(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("slowfx") ? 3 : 1), []);
+    const spawnSetPiece = useCallback((element: string, casterId: string, victimId: string, baseDurationMs: number) => {
+        const durationMs = baseDurationMs * fxStretch;
         const from = posRef.current.get(casterId);
         const to = posRef.current.get(victimId);
         if (!from || !to) return;
@@ -1722,7 +1728,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             startedAt: performance.now(), durationMs,
         }]);
         window.setTimeout(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
-    }, []);
+    }, [fxStretch]);
 
     const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string) => {
         // An empty key means "this action detonates nothing" (Rest).
@@ -2456,7 +2462,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 last one rather than queuing behind it, which is what keeps the
                 readout with the battle instead of minutes behind it. */}
             <div style={SR_ONLY} role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
-            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 6.2, 12.2], near: 0.1, far: 80 }}>
+            {/* preserveDrawingBuffer rides the ?slowfx review flag: it lets the
+                dev harness snapshot the WebGL canvas mid-beat (toDataURL reads
+                blank without it). Off in normal play — it costs a buffer. */}
+            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 }} camera={{ fov: 48, position: [0, 6.2, 12.2], near: 0.1, far: 80 }}>
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />

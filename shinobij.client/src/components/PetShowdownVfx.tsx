@@ -37,23 +37,26 @@ export type VfxPositions = ReadonlyMap<string, readonly [number, number, number]
 
 const flipbookCache = new Map<string, THREE.Texture[] | null>();
 
-function flipbookTextures(key: string): THREE.Texture[] | null {
-    if (flipbookCache.has(key)) return flipbookCache.get(key)!;
+function flipbookTextures(key: string, smooth = false): THREE.Texture[] | null {
+    const cacheKey = smooth ? `${key}|smooth` : key;
+    if (flipbookCache.has(cacheKey)) return flipbookCache.get(cacheKey)!;
     const frames = bundledJutsuFxFrames(key);
     if (!frames) {
-        flipbookCache.set(key, null);
+        flipbookCache.set(cacheKey, null);
         return null;
     }
     const loader = new THREE.TextureLoader();
     const textures = frames.map((url) => {
         const t = loader.load(url);
         t.colorSpace = THREE.SRGBColorSpace;
-        // Crisp pixel-art frames — no mip smear at billboard scale.
-        t.magFilter = THREE.NearestFilter;
+        // Impact-scale bursts keep crisp pixel-art edges (Nearest); the big
+        // SET-PIECE layers span several world units, where nearest-neighbour
+        // reads as chunky staircase pixels — they filter smooth instead.
+        t.magFilter = smooth ? THREE.LinearFilter : THREE.NearestFilter;
         t.minFilter = THREE.LinearFilter;
         return t;
     });
-    flipbookCache.set(key, textures);
+    flipbookCache.set(cacheKey, textures);
     return textures;
 }
 
@@ -211,7 +214,7 @@ const SET_PIECES: Record<string, SetPieceLayer[]> = {
 };
 
 function SetPieceLayerMesh({ spawn, layer, offsetX }: { spawn: SetPieceSpawn; layer: SetPieceLayer; offsetX: number }) {
-    const textures = useMemo(() => flipbookTextures(layer.frames), [layer.frames]);
+    const textures = useMemo(() => flipbookTextures(layer.frames, true), [layer.frames]);
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     useFrame(() => {
