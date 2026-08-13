@@ -261,8 +261,6 @@
 /* The eight-hairline corner bracket, shared by EVERY framed surface. State is
    expressed by changing --frame-ink and opacity only — the geometry never
    changes, so nothing in the HUD reflows when a state flips. */
-.showdown-plate::before,
-.showdown-menu-rows::before,
 .showdown-inspector::before {
     content: "";
     position: absolute;
@@ -361,17 +359,17 @@
     font: inherit;
     isolation: isolate;
     border-radius: 10px 10px 3px 10px;
+    /* Floating bars, not a wall of boxes: the resting plate is a whisper of a
+       shell — enough backing that the numerals survive a bright arena frame,
+       nothing more. The STATE styles below (commanding / targetable / hovered)
+       raise the rim when the plate becomes a control, which is the only time a
+       visible box earns its place over the stage. */
     background:
         var(--grain),
-        var(--sheen),
-        linear-gradient(155deg, rgba(42, 30, 16, 0.94), rgba(11, 8, 5, 0.94));
-    /* Opaque rim: this is what survives a white-blown VFX frame. */
-    border: 1px solid color-mix(in srgb, var(--brass) 62%, transparent);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 235, 190, 0.2),
-        inset 0 0 0 1px rgba(251, 220, 160, 0.14),
-        0 4px 14px rgba(0, 0, 0, 0.55);
-    transition: border-color 0.12s linear, box-shadow 0.12s linear, opacity 0.18s linear;
+        linear-gradient(155deg, rgba(24, 17, 9, 0.5), rgba(8, 6, 4, 0.55));
+    border: 1px solid rgba(217, 180, 120, 0.18);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.12s linear, box-shadow 0.12s linear, opacity 0.18s linear, background 0.12s linear;
 }
 
 .showdown-plate.ko { opacity: 0.45; filter: grayscale(0.8); --frame-ink: #6b5a44; --frame-alpha: 0.35; }
@@ -398,6 +396,33 @@
 /* Pointing at the creature in the arena lights its plate too, so the link
    between the model and the readout is never ambiguous. */
 .showdown-plate.hovered { border-color: #fde68a; box-shadow: 0 0 16px rgba(253, 230, 138, 0.6); }
+/* A plate acting as a control regains a solid body — the whisper shell is for
+   plates that are only readouts. */
+.showdown-plate.commanding,
+.showdown-plate.targetable,
+.showdown-plate.hovered {
+    background:
+        var(--grain),
+        linear-gradient(155deg, rgba(38, 27, 14, 0.88), rgba(10, 8, 5, 0.9));
+}
+
+/* Hidden reserves, as a count. One diamond per benched pet, dimmed when it is
+   down — the roster itself only appears inside the Switch flow. */
+.showdown-reserve-pips {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    align-self: center;
+}
+.showdown-reserve-pips i {
+    width: 9px;
+    height: 9px;
+    transform: rotate(45deg);
+    background: linear-gradient(135deg, #fde9bd, var(--brass));
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+.showdown-reserve-pips i.down { background: #4a3c2a; opacity: 0.6; }
 @keyframes showdown-target-pulse {
     50% { box-shadow: 0 0 18px rgba(248, 113, 113, 0.85); }
 }
@@ -523,93 +548,110 @@
 /* Capsule-over-box: the head is its own stadium pill sitting ON the rows box,
    so the two read as a stacked assembly rather than one blob. The wrapper is
    layout only — it carries no material of its own. */
+/* Temtem-shaped command cluster: the TECHNIQUES are a two-column grid of dark
+   pills sitting straight on the stage — no boxed panel behind them — with the
+   stance chips (Guard/Rest/Switch) in a short row beneath. The stage is the
+   background; each pill carries its own contrast. */
 .showdown-menu {
     pointer-events: auto;
-    flex: 0 1 268px;
-    min-width: 214px;
+    flex: 0 1 372px;
+    min-width: 300px;
     overflow: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
     animation: showdown-panel-in 0.16s var(--e-out) both;
-}
-.showdown-menu-head {
-    position: relative;
-    z-index: 1;
-    margin: 0 6px -8px;
-    padding: 6px 14px 12px;
-    border-radius: 999px;
-    background:
-        var(--grain),
-        linear-gradient(180deg, rgba(120, 88, 34, 0.74), rgba(52, 36, 15, 0.93));
-    border: 1px solid color-mix(in srgb, var(--brass) 58%, transparent);
-    box-shadow: inset 0 1px 0 rgba(255, 235, 190, 0.22), 0 3px 10px rgba(0, 0, 0, 0.5);
 }
 @keyframes showdown-panel-in {
     from { opacity: 0; transform: translateY(10px); }
 }
-.showdown-menu-title {
-    display: block;
-    font-weight: 800;
-    font-size: 0.9rem;
-    letter-spacing: 0.02em;
-    text-shadow: 0 1px 3px #000;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.showdown-menu-sub { display: block; font-size: 0.64rem; color: #c3b090; margin-top: 1px; }
 
-.showdown-menu-rows {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 13px 5px 5px;
-    gap: 1px;
-    /* Row pitch is a variable so the cursor transform never measures the DOM. */
-    --row-pitch: 45px;
-    border-radius: 12px 12px 4px 12px;
-    background:
-        var(--grain),
-        var(--sheen),
-        linear-gradient(155deg, rgba(44, 31, 16, 0.95), rgba(11, 8, 5, 0.96));
-    border: 1px solid color-mix(in srgb, var(--brass) 58%, transparent);
-    box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.16), 0 8px 24px rgba(0, 0, 0, 0.6);
+.showdown-tech-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
 }
+/* An odd technique count leaves the last pill full-width rather than leaving a
+   hole in the grid — the signature usually lands there, which suits it. */
+.showdown-tech-grid > .showdown-tech-pill:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
-/* ONE cursor that slides. N arrows fading in and out read as N widgets; a
-   single node travelling between rows is the thing that reads as designed. */
-.showdown-menu-cursor {
-    position: absolute;
-    left: 6px;
-    top: 13px;
-    height: var(--row-pitch);
-    display: flex;
-    align-items: center;
-    color: var(--brass-hot);
-    pointer-events: none;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
-    transition: transform 0.09s var(--e-out);
-}
-.showdown-menu-cursor svg { animation: showdown-cursor-bob 1.6s ease-in-out infinite; }
-@keyframes showdown-cursor-bob {
-    50% { transform: translateX(1.5px); }
-}
-
-.showdown-menu-row {
+.showdown-tech-pill {
     display: flex;
     align-items: center;
     gap: 7px;
-    width: 100%;
-    /* The left inset is the cursor's lane — rows never sit under it. */
-    padding: 7px 9px 7px 22px;
-    background: transparent;
-    border: 1px solid transparent;
+    min-width: 0;
+    /* The pill shape IS the panel: one dark capsule per technique, angled off
+       the same lacquer ramp the old deck used, so the material survives even
+       though the box around it is gone. */
+    padding: 6px 10px 6px 7px;
+    background:
+        var(--grain),
+        linear-gradient(100deg, rgba(34, 25, 13, 0.88), rgba(10, 8, 5, 0.9));
+    border: 1px solid rgba(217, 180, 120, 0.34);
     border-radius: 999px;
     color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
     min-block-size: var(--touch-target-min, 44px);
-    transition: background 0.1s linear, border-color 0.1s linear;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    transition: background 0.1s linear, border-color 0.1s linear, transform 0.1s var(--e-out);
 }
+.showdown-tech-pill.focused {
+    border-color: #fde9bd;
+    box-shadow: 0 0 0 1px rgba(253, 233, 189, 0.7), 0 2px 10px rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+}
+/* Selected but unavailable reads as grey, never as "press me". */
+.showdown-tech-pill.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.showdown-tech-pill.focused.is-disabled {
+    border-color: rgba(217, 180, 120, 0.45);
+    box-shadow: 0 0 0 1px rgba(217, 180, 120, 0.3);
+    transform: none;
+}
+.showdown-tech-pill.signature .showdown-menu-label { color: #fcd34d; }
+.showdown-tech-pill.signature:not(.is-disabled) .showdown-menu-note {
+    color: #fbbf24;
+    animation: showdown-hint-pulse 1.1s ease-in-out infinite;
+}
+
+/* Targeting hand-off: one line naming who is asking, floating on the stage —
+   the choice itself is made by clicking a creature, so the panel is a caption
+   plus the way back, nothing more. */
+.showdown-targeting-ask { display: flex; flex-direction: column; gap: 1px; padding: 2px 8px 6px; }
+.showdown-targeting-title { font-weight: 800; font-size: 0.9rem; text-shadow: 0 1px 3px #000; }
+.showdown-targeting-sub { font-size: 0.66rem; color: #c3b090; text-shadow: 0 1px 3px #000; }
+
+/* Stance chips: standing options, icon-first, half a pill tall. */
+.showdown-stance-chips { display: flex; gap: 6px; }
+.showdown-stance-chip {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+    padding: 5px 8px;
+    background:
+        var(--grain),
+        linear-gradient(100deg, rgba(30, 23, 13, 0.82), rgba(10, 8, 5, 0.86));
+    border: 1px solid rgba(217, 180, 120, 0.3);
+    border-radius: 999px;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    min-block-size: 38px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    transition: border-color 0.1s linear, box-shadow 0.1s linear;
+}
+.showdown-stance-chip.focused {
+    border-color: #fde9bd;
+    box-shadow: 0 0 0 1px rgba(253, 233, 189, 0.7), 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+.showdown-stance-chip.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.showdown-stance-chip .showdown-menu-label { flex: 0 1 auto; font-size: 0.72rem; }
+.showdown-stance-chip .showdown-menu-note { font-size: 0.58rem; }
+
 /* The icon sits in a recessed well, so the kind mark reads as inlaid hardware
    rather than as clip art dropped on a row. */
 .showdown-menu-icon {
@@ -628,31 +670,19 @@
 .showdown-menu-icon.fam-sup { color: var(--fam-sup); }
 /* On a technique the ELEMENT tint wins — the type colour is what a player is
    scanning the list for, and it keeps that colour when selected. */
-.showdown-menu-row.technique .showdown-menu-icon {
+.showdown-tech-pill.technique .showdown-menu-icon {
     color: var(--elem-tint);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--elem-tint) 45%, transparent);
-}
-/* `.is-disabled`, not `:disabled` — the rows are aria-disabled so they stay
-   hoverable and focusable, which is the only way to read the inspector line
-   that explains why they are unavailable. */
-.showdown-menu-row.is-disabled { opacity: 0.45; cursor: not-allowed; }
-.showdown-menu-row.focused {
-    background: linear-gradient(90deg, rgba(251, 191, 36, 0.22), rgba(251, 191, 36, 0.04));
-    border-color: rgba(251, 191, 36, 0.6);
-}
-/* Selected but unavailable reads as grey, never as "press me". */
-.showdown-menu-row.focused.is-disabled {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(217, 180, 120, 0.35);
 }
 .showdown-menu-label {
     flex: 1 1 auto;
     min-width: 0;
     font-weight: 700;
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-shadow: 0 1px 3px #000;
 }
 .showdown-menu-note {
     flex: 0 0 auto;
@@ -660,11 +690,6 @@
     font-weight: 800;
     color: #b9a583;
     font-variant-numeric: tabular-nums;
-}
-.showdown-menu-row.signature .showdown-menu-label { color: #fcd34d; }
-.showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note {
-    color: #fbbf24;
-    animation: showdown-hint-pulse 1.1s ease-in-out infinite;
 }
 
 /* ── Move inspector ────────────────────────────────────────────────────── */
@@ -1367,15 +1392,12 @@
     .showdown-inspector-stats b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .showdown-inspector-glyph { width: 58px; height: 58px; right: -6px; bottom: -10px; }
     .showdown-inspector-desc { font-size: 0.64rem; }
-    .showdown-menu-rows { padding: 3px; }
-    .showdown-menu-rows { --row-pitch: 41px; padding: 11px 4px 4px; }
-    .showdown-menu-cursor { left: 4px; top: 11px; }
-    .showdown-menu-row { padding: 5px 6px 5px 19px; gap: 5px; min-block-size: 40px; }
+    .showdown-tech-grid { gap: 5px; }
+    .showdown-tech-pill { padding: 4px 8px 4px 5px; gap: 5px; min-block-size: 40px; }
+    .showdown-stance-chip { min-block-size: 36px; padding: 4px 6px; }
     .showdown-menu-icon { width: 20px; height: 20px; }
     .showdown-menu-label { font-size: 0.74rem; }
     .showdown-menu-note { font-size: 0.55rem; }
-    .showdown-menu-head { padding: 5px 8px; }
-    .showdown-menu-title { font-size: 0.8rem; }
     .showdown-topbar { flex-wrap: nowrap; gap: 6px; padding-inline: 6px; }
     .showdown-topbar .showdown-team-panel { min-width: 0; }
     .showdown-topbar-right { flex: 0 0 auto; gap: 4px; }
@@ -1454,23 +1476,19 @@
     .showdown-order-chip img { width: 18px; height: 18px; }
     .showdown-playerbar { padding-bottom: 4px; }
 
-    /* Rows keep a 40px block size — below that the deck stops being touchable,
-       which is the whole reason it is the last thing to compress. */
-    .showdown-menu-rows {
-        --row-pitch: 41px;
-        padding: 11px 4px 4px;
+    /* Pills keep a 40px block size — below that the deck stops being
+       touchable, which is the whole reason it is the last thing to compress.
+       The GRID owns the height budget and scrolls inside it, so a six-move
+       kit is still reachable on a screen that cannot show three rows. */
+    .showdown-tech-grid {
         max-block-size: var(--sd-deck-max);
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-width: thin;
         scrollbar-color: rgba(217, 180, 120, 0.5) transparent;
     }
-    /* The cursor's origin is the rows box's own padding — the two are set
-       together or the arrow stops pointing at the row it has selected. */
-    .showdown-menu-cursor { top: 11px; left: 5px; }
-    .showdown-menu-row { min-block-size: 40px; padding-block: 5px; }
-    .showdown-menu-head { padding: 5px 12px 11px; }
-    .showdown-menu-title { font-size: 0.84rem; }
+    .showdown-tech-pill { min-block-size: 40px; padding-block: 4px; }
+    .showdown-stance-chip { min-block-size: 34px; }
     /* The inspector shares the deck's row, so an unusually long effect line
        must not become the thing that sets the bar's height. */
     .showdown-inspector {
@@ -1505,13 +1523,6 @@
             inset 0 0 0 1px rgba(251, 220, 160, 0.1),
             0 2px 8px rgba(0, 0, 0, 0.4);
     }
-    .showdown-menu-rows {
-        background:
-            var(--grain),
-            var(--sheen),
-            linear-gradient(155deg, rgba(44, 31, 16, 0.72), rgba(11, 8, 5, 0.8));
-        box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.12), 0 4px 14px rgba(0, 0, 0, 0.45);
-    }
     .showdown-inspector {
         background:
             var(--grain),
@@ -1519,14 +1530,10 @@
             linear-gradient(155deg, rgba(30, 22, 12, 0.8), rgba(10, 8, 5, 0.85));
     }
 
-    /* The deck gets out of its own commander's face: slimmer column, and the
-       ceremonial name-plate header collapses to a strip — the commander is
-       already named by the focus ring on their plate, so a two-line crest is
-       chrome the arena pays for. */
-    .showdown-menu { flex: 0 1 224px; min-width: 186px; }
-    .showdown-menu-head { padding: 3px 12px 9px; }
-    .showdown-menu-title { font-size: 0.78rem; }
-    .showdown-menu-sub { display: none; }
+    /* The grid runs two pills wide, so the deck column carries more width than
+       the old single-file list but half the height — width is what a
+       landscape screen has to spend. */
+    .showdown-menu { flex: 0 1 330px; min-width: 272px; }
 
     /* The inspector is a caption for the focused row, not a second deck: cap
        its share of the row and let the stat cells sit as small chips. */
@@ -1588,13 +1595,9 @@
 
     .showdown-topbar { padding-top: 2px; }
     .showdown-playerbar { padding-bottom: 2px; }
-    .showdown-menu-head { padding: 2px 10px 8px; }
-    .showdown-menu-title { font-size: 0.72rem; }
-    .showdown-menu-sub { font-size: 0.58rem; }
-    /* Pitch and row height must move together — the cursor is transformed by
-       `--row-pitch` alone and never measures the rows it is pointing at. */
-    .showdown-menu-rows { --row-pitch: 40px; gap: 0; padding: 9px 4px 3px; }
-    .showdown-menu-cursor { top: 9px; left: 4px; }
+    .showdown-tech-grid { gap: 4px; }
+    .showdown-stance-chips { gap: 4px; }
+    .showdown-stance-chip { min-block-size: 32px; }
     .showdown-inspector { padding: 7px 9px; }
     .showdown-inspector-desc { font-size: 0.66rem; }
     .showdown-inspector-glyph { width: 52px; height: 52px; }
@@ -1636,10 +1639,8 @@
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,
     .showdown-playing-hint,
-    /* New in the art pass: the cursor's idle travel and the panel entrances.
-       The cursor's SLIDE between rows is kept — it is the focus indicator, and
-       removing it loses information. */
-    .showdown-menu-cursor svg,
+    /* Panel entrances and the signature pulse. The focused pill keeps its
+       outline — that is state, not motion. */
     .showdown-menu,
     .showdown-inspector,
     .showdown-result,
@@ -1647,7 +1648,7 @@
     .showdown-recap-row,
     /* Must repeat :not(.is-disabled) — the declaring selector carries it, and
        a lower-specificity `animation: none` silently loses the cascade. */
-    .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note,
+    .showdown-tech-pill.signature:not(.is-disabled) .showdown-menu-note,
     .showdown-letterbox .bar,
     .showdown-vs-side.mine,
     .showdown-vs-side.theirs,
@@ -1658,7 +1659,7 @@
     .showdown-plate.targetable { box-shadow: 0 0 0 2px #f87171; }
     .showdown-menu, .showdown-inspector { opacity: 1; transform: none; }
     .showdown-result, .showdown-result-reward, .showdown-recap-row { opacity: 1; transform: none; }
-    .showdown-menu-row.signature:not(.is-disabled) .showdown-menu-note { opacity: 1; }
+    .showdown-tech-pill.signature:not(.is-disabled) .showdown-menu-note { opacity: 1; }
     .showdown-plate-meter.full > span { filter: brightness(1.35); }
     .showdown-playing-hint { opacity: 0.85; }
 

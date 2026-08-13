@@ -98,7 +98,12 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
         : `${kind} · reduced hit`;
     const moves: ShowdownPetView["moves"] = [
         { name: "Swift Strike", power: 34, kind: "damage", cost: SHOWDOWN_COST_BASIC, signature: false, priority: SHOWDOWN_PRIORITY_LIGHT, hold: 0, effect: "Straight damage" },
-        ...(pet.jutsus ?? []).slice(0, 3).map((j) => ({
+        // Mirror the engine's kit rule (engine.ts sealShowdownPet): mobility
+        // jutsus are stripped BEFORE the slice — there is no board to dash
+        // across in this mode, so a `kind: "move"` entry must never reach the
+        // list. Without this the harness offered "Red Fox Dash", a technique
+        // the real engine refuses to seal.
+        ...(pet.jutsus ?? []).filter((j) => j.kind !== "move").slice(0, 3).map((j) => ({
             name: j.name,
             power: j.power,
             kind: j.kind,
