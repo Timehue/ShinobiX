@@ -1265,7 +1265,50 @@ and the three mythic-assassin override openers reclassed `damage`→`crush`
 class now agree). Roles 47.9–52.8, pace 7.5, species hard band 15-85 holds
 with 6 comfort outliers against a budget of 14.
 
-## Follow-ups
+## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
+
+### Shipped and verified
+- Server-only turn engine, full Temtem ruleset: shared stamina + overdraft,
+  Rest (stamina only), Hold, priority×speed order, 2v2 bench/switch, traits +
+  gear (AI wears them by tier), phys/special split, per-move elements + STAB
+  (neutral basic), synergy-as-technique-property, two-condition rule with
+  interactions, 25-round judge over round-14 attrition, deterministic damage.
+- Coherence, measured: training foci 81.7–96.7% vs untrained twin (real-AI
+  driver); elements 48.6–51.2 aggregate with 93% advantaged-matchup wins;
+  roles 47.9–52.8; rarity ladder 90/87.5%; pace 7.5; species hard band holds.
+- Presentation: Temtem command grid + Champions plate skin, pulled-back board,
+  full backdrop ring + sky cap, bench off-stage with gallop-in staging, layered
+  impacts (flash → burst → heavy shell), elemental set-pieces (tsunami /
+  tornado / fire wash / eruption / storm bolts — smooth-filtered, reduced-
+  motion-aware, verified live via in-page canvas capture), own battle theme,
+  camera director, modal a11y shell, refresh-resume, practice/no-pay seal,
+  45s PvP clock scaffold. Review tooling: /showdownpreview.html?heavy&slowfx.
+
+### Next up (agreed direction, no blockers)
+- Per-species kit tuning for the last comfort-band outliers (Storm line high,
+  Tempest Pegasus / Void Raven low) — kit surgery, not more damping.
+- Set-piece polish round against real play: per-element scale/height/speed
+  tuning from owner screenshots; melee streaks on elemental contact kinds.
+- Stage dressing: crowd silhouettes + reactive lightrig for supers (art
+  assets); the enemy RESISTED/matchup chips could sit tighter on the plates.
+- Signature (super) cinematics per element — the letterbox moment deserves
+  element-specific choreography beyond the pillar + kaboom.
+
+### Blocked on a design decision
+- Live/ghost PvP: the engine, timer and reward seal are ready; needs the
+  matchmaking surface (ghost-team async is the low-infra start). Pick/Ban is
+  DROPPED by owner ruling.
+- Reward-eligible callers (Hollow Gate, sector ambush, war modes) migrating
+  onto this engine — activates the sealed payout + consumable spend paths.
+
+### Standing rules (do not relitigate)
+- Practice (hand-picked AI) pays nothing and moves no counters.
+- No catalog/storage changes for Showdown mechanics — derive at seal.
+- The 25-round judge is BACK by owner ruling (supersedes round 18's no-limit).
+- Swift Strike stays Neutral; kit moves carry the pet's element.
+- Legacy coliseum sims stay until their cross-system consumers migrate.
+
+## Older follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
 - The Pokémon-Champions skin pass on the new Temtem-shaped HUD: angled
