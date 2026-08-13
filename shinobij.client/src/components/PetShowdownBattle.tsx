@@ -1984,7 +1984,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // as an arena event — a tsunami that travels the lane,
                         // a tornado that spins up, fire that catches the ground
                         // — on the primary victim only (splash keeps the burst).
-                        if ((event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId) {
+                        // Reduced-motion keeps the readable burst and skips the
+                        // traveling/spinning layer, same policy as the flash.
+                        if (!reducedMotion && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId) {
                             spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 1150 : 900) / speed);
                         }
                         later(() => spawnFlipbook(

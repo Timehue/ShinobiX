@@ -161,16 +161,34 @@ console.log([...kindStats.entries()]
 // growth rule, here +60% on the focused stat as a mid-game snapshot) fights
 // its untrained twin. Every focus should win CLEARLY (>=65%) or that training
 // choice is a trap.
-const TRAIN_SAMPLES = 30;
-console.log('\nTRAINING RELEVANCE (trained-in-one-stat vs untrained twin):');
+//
+// Driven by the REAL game AI on both sides, not the sweep's simplified policy:
+// the sweep policy is symmetric so it cancels out of role/element BANDS, but
+// it underuses tempo, which flattened the SPEED row to a 50% coin — the same
+// question asked under chooseShowdownAiCommands reads ~88%. The swapped-view
+// trick lets the enemy-side brain command the player side.
+const TRAIN_SAMPLES = 60;
+const aiFightWin = (trainedTpl, baseTpl, seed) => {
+    const session = createShowdownSession({
+        sessionId: 'train', playerName: 'A', format: '1v1', tier: 'warrior', seed,
+        playerPets: [scaled(trainedTpl, 'a')], enemyPets: [scaled(baseTpl, 'b')], enemyTeamName: 'B',
+    });
+    let rounds = 0;
+    while (!session.finished && rounds < HARD_STOP + 1) {
+        rounds += 1;
+        const mine = chooseShowdownAiCommands({ ...session, player: session.enemy, enemy: session.player });
+        resolveShowdownRound(session, mine, chooseShowdownAiCommands(session));
+    }
+    return session.outcome === 'win';
+};
+console.log('\nTRAINING RELEVANCE (trained-in-one-stat vs untrained twin, real AI both sides):');
 for (const focus of ['hp', 'attack', 'defense', 'speed']) {
     let wins = 0;
     const pool = [...byRarity.values()].flat();
     for (let s = 0; s < TRAIN_SAMPLES; s++) {
         const tpl = pool[(s * 13) % pool.length];
         const trained = { ...tpl, [focus]: Math.round(Number(tpl[focus]) * 1.6) };
-        const { outcome } = fight(trained, tpl, 777_001 + s * 101);
-        wins += outcome === 'win' ? 1 : 0;
+        wins += aiFightWin(trained, tpl, 777_001 + s * 101) ? 1 : 0;
     }
     console.log(`  ${focus}: ${(100 * wins / TRAIN_SAMPLES).toFixed(1)}%`);
 }
