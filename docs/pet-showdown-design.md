@@ -1378,6 +1378,47 @@ lightning piece light now STROBES with the shared bolt-strike schedule
 evenly; flame crown cards run a warm tint ladder (#fff/#ffd9a0/#ffb27a) so
 the blaze has heat depth; the wave shell rocks gently as it sweeps.
 
+## Round 37 — the ceremony round (2026-08-13)
+
+Owner: "do them all, AAA level, no shortcuts" (the six Champions-gap items).
+
+**Species performance layer switched ON.** The 23-style hero-pose vocabulary
+(`pet-hero-moves`: pouncer-stalk, charger-drive, dragon-overrun…) authored for
+the coliseum was never wired into Showdown — every pet fell to the generic
+EMPTY_POSE. The fighter now derives a BASE style (idle/dash personality) per
+species and a PER-BEAT style from the acting move's name/kind, so a crush
+pounces, a cast rears and a signature looms differently per family. On top:
+`attackPace` scales the authored attack take by move weight (jab 1.3×, heavy
+0.75×, signature 0.55× — it crawls majestically across its long beat).
+
+**The killing blow's ceremony**: 640ms contact freeze, the manga impact frame
+(white core + radial speed lines + backdrop-filter desaturation, DOM overlay,
+reduced-motion never mounts it), hardest shake, `ko` + delayed `crowd` SFX,
++900ms of beat air for the fall and the silence after.
+
+**The stands erupt**: CrowdEruption — 160 confetti points bursting inward off
+the bowl rim on landed signatures and kills (the existing light punch surges
+the painted crowd on the same clock), plus the roar sting.
+
+**The arena remembers**: ScarLayer — signatures and kills leave ragged
+element-rimmed scorch decals where they land (cap 10, ~100s bleach-out);
+ResidueFx — after a signature's set-piece clears, its element lingers ~7s
+(embers climb, wet sheen, charge ticks) at the impact site.
+
+**Connective tissue**: damage numbers carry weight (hits ≥18% of the bar slam
+in via `.big`); the super strike breathes a dark vignette at the frame edges;
+switch-ins land with a dust pop under the arrival; each stage carries weather
+(frost snowfall, grove leaves, volcano ember climb, storm sky flashing
+distant lightning); physical presence follows rarity (mythic ×1.13,
+legendary ×1.07, rare ×1.02 — model group only, HUD/rings untouched). The
+HP ghost-drain ask was already shipped (the plate `chip` layer).
+
+Harness: `?glass` (enemies open at 30% HP) makes the KO ceremony reachable
+from one order. Verified on the bench: the lethal-Overdrive frame (magma
+floor + flame crown + dying flash + full crowd) and the aftermath (the body
+stays where it fell while the fight continues). Balance instruments run
+unchanged — everything here is presentation; no kit or engine numbers moved.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified

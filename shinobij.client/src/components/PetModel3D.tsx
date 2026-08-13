@@ -44,6 +44,10 @@ export type PetModelFrame = {
      * selects species-specific posing inside that state. */
     moveStyle?: PetHeroMoveStyle;
     moveName?: string;
+    /** Attack-take pacing multiplier for windup/strike/recover playback —
+     * jabs snap (>1), heavies grind (<1), signatures crawl majestically
+     * through their long beat. Omit for the neutral authored pacing. */
+    attackPace?: number;
     /** Optional presentation time in seconds. Coliseum combat supplies its
      * slowed/hit-stopped clock so skeletal clips cannot outrun the fight. */
     timeline?: number;
@@ -853,15 +857,19 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             // the generic 2.5-3.2x cadence hides its stride and reads as a static
             // model vibrating. Its world speed stays fast; only the leg-cycle
             // playback is brought into a readable 2-3 strides/second range.
+            // The attack take's pacing scales with the MOVE's weight (frame
+            // .attackPace) — a jab snaps through its take, a heavy grinds the
+            // anticipation, a signature stretches across its whole long beat.
+            const attackPace = f.attackPace ?? 1;
             const locomotionRate = authoredCombatRig
                 ? f.motion === "dodge"
                     ? 1.16
                     : f.motion === "windup"
-                        ? 0.76
+                        ? 0.76 * attackPace
                         : f.motion === "strike"
-                            ? 1.48
+                            ? 1.48 * Math.max(0.8, attackPace)
                             : f.motion === "recover"
-                                ? 1.04
+                                ? 1.04 * attackPace
                     : f.motion === "dash"
                         ? config.profile === "avian"
                             ? THREE.MathUtils.clamp(1.22 + f.speed * 0.11, 1.35, 1.92)
