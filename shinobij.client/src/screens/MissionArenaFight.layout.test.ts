@@ -107,6 +107,22 @@ test("mission fight reserves a row for its action notice instead of displacing t
         "the mission touch-target correction must use the shared mobile boundary",
     );
 
+    assert.match(
+        missionCss,
+        /@media \(max-width:\s*800px\) and \(max-height:\s*740px\)[\s\S]*?\.mission-arena-fight \.combat-layout > \.combat-side-hud\s*\{[^}]*padding-block:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line\s*\{[^}]*row-gap:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.hud-bar\s*\{[^}]*height:\s*4px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*12px\s*!important;/,
+        "short mission viewports must keep non-duplicate resources and effects inside the compact fighter dossier",
+    );
+    assert.match(
+        missionCss,
+        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.mission-arena-fight \.combat-layout\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-layout\.has-rookie-tip\s*\{[^}]*grid-template-rows:\s*auto auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        "the smallest mission tier must keep the first jutsu card centre tappable without collapsing the board",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*600px\) and \(max-width:\s*800px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px auto minmax\(90px, 25dvh\)[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;/,
+        "short landscape mission combat must use its width for compact dossiers and a one-row command deck",
+    );
+
     // The fix is load-bearing on that class still reserving a track.
     assert.ok(
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
