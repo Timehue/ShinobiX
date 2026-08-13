@@ -56,13 +56,20 @@ import {
     type ShowdownEvent,
     type ShowdownFormat,
     type ShowdownOutcome,
+    type PetConsumableEffectName,
     type ShowdownPetView,
     type ShowdownStateView,
     type ShowdownTier,
 } from '../../shared/pet-showdown-contract.js';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
-import { applyPetPvpGear, petPvpGearById } from '../_pet-sim/pet-config.js';
+import {
+    applyPetPvpGear,
+    petConsumableById,
+    petConsumableCharges,
+    petPvpGearById,
+    PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
+} from '../_pet-sim/pet-config.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 // ─── Internal state ──────────────────────────────────────────────────────────
@@ -103,6 +110,25 @@ export interface ShowdownGear {
     lifestealPctOfDamage?: number;
 }
 
+/*
+ * Reactive charges from the equipped battle consumable (pet-config.ts
+ * `petConsumables`). Sealed off the loadout alongside the PvP gear, and unlike
+ * gear these are STATE: each field is spent down as its trigger fires, so a
+ * charge is single-use inside the battle. `dodge`/`endure`/`cleanse` are
+ * counts; `mitigate`/`thorns`/`lifeline` carry the item's percentage and zero
+ * out once used.
+ */
+export interface ShowdownConsumable {
+    id: string;
+    name: string;
+    dodge: number;
+    mitigate: number;
+    endure: number;
+    thorns: number;
+    lifeline: number;
+    cleanse: number;
+}
+
 export interface ShowdownPet {
     id: string;
     name: string;
@@ -131,6 +157,12 @@ export interface ShowdownPet {
     trait?: string;
     /** Equipped PvP gear procs. */
     gear?: ShowdownGear;
+    /** Equipped battle consumable's remaining reactive charges. */
+    consumable?: ShowdownConsumable;
+    /** The one-use item is burned by this battle and must be struck from the
+     *  save. Only reward-eligible sessions commit it — see createShowdownSession
+     *  and showdownConsumableSpends. */
+    consumableSpent?: boolean;
     statuses: ShowdownStatus[];
     moves: ShowdownMove[];
     /** The full-meter finisher — excluded from the normal move list. */
@@ -571,6 +603,11 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     // normalizes against the template, so the gear percentage survives).
     const raw = applyPetPvpGear(rawInput);
     const gearDef = petPvpGearById(raw.loadout?.pvp);
+    // Reactive charges come from the SAME loadout, through pet-config's own
+    // helper — the legacy sims read it at fighter-build time for exactly this
+    // reason, and re-deriving the per-effect values here would let the two
+    // drift the moment an item is repriced.
+    const consumableDef = petConsumableById(raw.loadout?.consumable);
     const rarity = ['standard', 'rare', 'legendary', 'mythic'].includes(String(raw.rarity)) ? String(raw.rarity) : 'standard';
     const level = clampInt(raw.level, 1, 100, 1);
     const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
@@ -686,6 +723,9 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
                 ...(gearDef.lifestealPctOfDamage ? { lifestealPctOfDamage: gearDef.lifestealPctOfDamage } : {}),
             },
         } : {}),
+        ...(consumableDef ? {
+            consumable: { id: consumableDef.id, name: consumableDef.name, ...petConsumableCharges(raw) },
+        } : {}),
         statuses: [],
         moves: promoteHeavy([basicStrike(), ...kit], rarity),
         signatureMove: { ...signatureMove, cost: 0 },
@@ -710,7 +750,7 @@ export function createShowdownSession(input: {
     rewardEligible: boolean;
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
-    const sealTeam = (pets: Pet[]): ShowdownPet[] =>
+    const sealTeam = (pets: Pet[], commitConsumables: boolean): ShowdownPet[] =>
         pets.slice(0, SHOWDOWN_MAX_TEAM).map((raw, i) => {
             const sealed = { ...sealShowdownPet(raw), benched: i >= size };
             // Gear proc: Aegis-style start shields raise before round one.
@@ -720,6 +760,12 @@ export function createShowdownSession(input: {
                     magnitude: Math.round(sealed.maxHp * sealed.gear.shieldStartPctOfHp / 100),
                 }];
             }
+            // Entering a fight that can PAY commits the one-use item, the same
+            // way summoning into a PvE fight does (api/pet/_progress.ts). A
+            // practice fight keeps it: the charges still fire, so a build can
+            // be tested, but burning a 1,600-ryo item for a mode that pays
+            // nothing would make equipping one strictly irrational.
+            if (commitConsumables && sealed.consumable) sealed.consumableSpent = true;
             return sealed;
         });
     return {
@@ -734,10 +780,30 @@ export function createShowdownSession(input: {
         sealedOpponentLevel: clampInt(Math.max(1, ...input.enemyPets.map((p) => Number(p.level) || 1)), 1, 100, 1),
         rewardEligible: input.rewardEligible === true,
         enemyTeamName: input.enemyTeamName,
-        player: sealTeam(input.playerPets),
-        enemy: sealTeam(input.enemyPets),
+        player: sealTeam(input.playerPets, input.rewardEligible === true),
+        // AI pets are built from the catalog, not from a save, so there is no
+        // inventory behind their loadout and nothing to burn.
+        enemy: sealTeam(input.enemyPets, false),
         createdAt: Date.now(),
     };
+}
+
+/**
+ * The player-side battle consumables this session COMMITTED — the pets whose
+ * `loadout.consumable` must be struck from the save, exactly as
+ * applyPetSummonCost does it for the PvE summon path (`delete
+ * loadout.consumable`, reporting which id was spent).
+ *
+ * The engine is pure and never writes a save; the endpoint that owns the save
+ * lock calls this and does the delete. It returns EMPTY today, because every
+ * caller seals rewardEligible=false — the spend path activates with the first
+ * reward-eligible caller (Hollow Gate, sector ambush, clan/sector war).
+ */
+export function showdownConsumableSpends(session: ShowdownSession): Array<{ petId: string; consumableId: string }> {
+    return session.player
+        .filter((pet): pet is ShowdownPet & { consumable: ShowdownConsumable } =>
+            pet.consumableSpent === true && !!pet.consumable)
+        .map((pet) => ({ petId: pet.id, consumableId: pet.consumable.id }));
 }
 
 // ─── Effective stats ─────────────────────────────────────────────────────────
@@ -800,7 +866,7 @@ function livingOf(session: ShowdownSession, side: Side): ShowdownPet[] {
     return (side === 'player' ? session.player : session.enemy).filter((p) => !p.ko && !p.benched);
 }
 
-/** Living team members including the bench — the defeat/judge pool. */
+/** Living team members including the bench — the defeat check counts these. */
 function livingTeam(session: ShowdownSession, side: Side): ShowdownPet[] {
     return (side === 'player' ? session.player : session.enemy).filter((p) => !p.ko);
 }
@@ -809,7 +875,62 @@ function hasStatus(pet: ShowdownPet, kind: string): boolean {
     return pet.statuses.some((s) => s.kind === kind);
 }
 
-function addStatus(session: ShowdownSession, pet: ShowdownPet, kind: string, rounds: number, magnitude: number): void {
+const sideOf = (session: ShowdownSession, pet: ShowdownPet): Side =>
+    session.player.includes(pet) ? 'player' : 'enemy';
+
+/*
+ * Reactive-charge beats. These are pushed into a REACTIONS list rather than
+ * straight into the script, because the trigger's own event (the action, the
+ * dot tick, the confusion hit) is written after its numbers are known — a
+ * charge appended eagerly would narrate the save before the blow that needed
+ * saving from. Every call site drains its reactions immediately after the beat
+ * that produced them.
+ */
+function pushConsumableEvent(
+    session: ShowdownSession,
+    pet: ShowdownPet,
+    effect: PetConsumableEffectName,
+    reactions: ShowdownEvent[] | undefined,
+    landed: { targetId?: string; damage?: number; heal?: number; ko?: boolean } = {},
+): void {
+    if (!reactions || !pet.consumable) return;
+    reactions.push({
+        t: 'consumable',
+        petId: pet.id,
+        side: sideOf(session, pet),
+        effect,
+        itemName: pet.consumable.name,
+        targetId: landed.targetId ?? pet.id,
+        damage: landed.damage ?? 0,
+        heal: landed.heal ?? 0,
+        ko: landed.ko === true,
+        spent: pet.consumableSpent === true,
+    });
+}
+
+/** What a Cleansing Incense answers: the poisons and burns, and the three
+ *  turn-denial effects. Buffs and the steadfast immunity are untouched — the
+ *  charge is a panic button, not a board wipe. */
+const CLEANSABLE_STATUS = new Set(['burn', 'wound', 'freeze', 'confuse', 'stun']);
+
+function addStatus(
+    session: ShowdownSession,
+    pet: ShowdownPet,
+    kind: string,
+    rounds: number,
+    magnitude: number,
+    reactions?: ShowdownEvent[],
+): void {
+    // CLEANSE charge: the first poison or control effect that would land is
+    // burned off along with everything already stuck to the pet, and never
+    // applies at all.
+    const charges = pet.consumable;
+    if (charges && charges.cleanse > 0 && CLEANSABLE_STATUS.has(kind)) {
+        charges.cleanse -= 1;
+        pet.statuses = pet.statuses.filter((s) => !CLEANSABLE_STATUS.has(s.kind));
+        pushConsumableEvent(session, pet, 'cleanse', reactions);
+        return;
+    }
     const existing = pet.statuses.find((s) => s.kind === kind);
     if (existing) {
         existing.rounds = Math.max(existing.rounds, rounds);
@@ -841,9 +962,25 @@ function soakThroughShields(pet: ShowdownPet, damage: number): number {
     return remaining;
 }
 
-function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: number, grantMeter = true): { dealt: number; ko: boolean } {
+function applyDamage(
+    session: ShowdownSession,
+    target: ShowdownPet,
+    amount: number,
+    grantMeter = true,
+    reactions?: ShowdownEvent[],
+): { dealt: number; ko: boolean } {
     const soaked = soakThroughShields(target, Number.isFinite(amount) ? amount : 0);
-    const dealt = Number.isFinite(soaked) ? Math.max(0, Math.round(soaked)) : 0;
+    let dealt = Number.isFinite(soaked) ? Math.max(0, Math.round(soaked)) : 0;
+    const charges = target.consumable;
+    // ENDURE charge: one otherwise-lethal blow leaves the pet standing at 1 HP.
+    // Sits AFTER the shield soak (a hit the shield ate was never lethal) and
+    // trims `dealt` itself, so the figure on the wire is the figure the client
+    // subtracts off the bar.
+    if (charges && charges.endure > 0 && dealt >= target.hp && target.hp > 1) {
+        dealt = target.hp - 1;
+        charges.endure -= 1;
+        pushConsumableEvent(session, target, 'endure', reactions);
+    }
     target.hp = Math.max(0, target.hp - dealt);
     if (target.hp <= 0 && !target.ko) {
         target.ko = true;
@@ -854,6 +991,15 @@ function applyDamage(session: ShowdownSession, target: ShowdownPet, amount: numb
     // choice must not FARM the super meter.
     if (dealt > 0 && grantMeter) {
         gainMeter(target, target.guarding ? SHOWDOWN_METER_ON_GUARDED_HIT : SHOWDOWN_METER_ON_HIT_TAKEN);
+    }
+    // LIFELINE charge: the first drop under the threshold pulls the pet back
+    // up. Routed through applyHeal so the late-fight healing decay still binds
+    // — an item that ignored attrition would reopen the stall it closes.
+    if (charges && charges.lifeline > 0 && !target.ko
+        && (target.hp / target.maxHp) * 100 < PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
+        const healed = applyHeal(target, target.maxHp * charges.lifeline / 100, session.round);
+        charges.lifeline = 0;
+        pushConsumableEvent(session, target, 'lifeline', reactions, { heal: healed });
     }
     return { dealt, ko: target.ko };
 }
@@ -874,9 +1020,9 @@ function applyHeal(target: ShowdownPet, amount: number, round = 0): number {
 }
 
 /** Global damage pace. Tuned with scripts/showdown-balance.mjs: at 1.0 the
- * average same-rarity duel ran 12+ rounds and 56% of games went to the judge
- * (attrition meta — burst roles starved, chip roles dominated). 2.2 lands the
- * typical KO in 6-9 rounds with the judge as a genuine minority outcome. */
+ * average same-rarity duel ran 12+ rounds and 56% of games timed out unresolved
+ * (attrition meta — burst roles starved, chip roles dominated; this era had a
+ * round-cap judge, since deleted). 2.2 lands the typical KO in 6-9 rounds. */
 // Damage magnitude for the A/D RATIO formula below. History: the original
 // atk²/(atk+def) shape gave attack ~3x the marginal value of defense, which
 // made defense TRAINING a bad buy — switched to Pokémon's pure-ratio shape
@@ -1060,6 +1206,9 @@ function executeMove(
     const { move, superCast } = action;
     const kind = move.kind;
     const power = superCast ? Math.round(move.power * SHOWDOWN_SUPER_POWER_MULT) : move.power;
+    // Reactive-item beats produced anywhere in this resolution, drained after
+    // the action event so the script reads blow-then-save.
+    const reactions: ShowdownEvent[] = [];
 
     // Costs and cooldowns — overexertion is allowed and priced the Temtem way:
     // the move fires, the pet pays HP for the deficit, and it is winded next
@@ -1090,6 +1239,7 @@ function executeMove(
                 actor,
                 Math.round(deficit * SHOWDOWN_OVERDRAFT_HP_PER_POINT),
                 false,
+                reactions,
             ).dealt;
         } else {
             actor.stamina -= move.cost;
@@ -1099,7 +1249,18 @@ function executeMove(
 
     const targets: Extract<ShowdownEvent, { t: 'action' }>['targets'] = [];
 
-    const applyOffensiveHit = (target: ShowdownPet, powerScale: number, applied?: string, splash = false): void => {
+    /** Returns false when the blow never landed, so the caller skips the
+     *  on-hit rider (a dodged crush must not still lower DEF). */
+    const applyOffensiveHit = (target: ShowdownPet, powerScale: number, applied?: string, splash = false): boolean => {
+        const charges = target.consumable;
+        // DODGE charge: the attack is negated outright — no damage, no rider,
+        // and NO target entry, so the client paints the slip from the
+        // consumable beat instead of narrating an absorbed hit that never was.
+        if (charges && charges.dodge > 0) {
+            charges.dodge -= 1;
+            pushConsumableEvent(session, target, 'dodge', reactions);
+            return false;
+        }
         const guarded = target.guarding;
         // Temtem-style ally synergy: a LIVING teammate whose element beats the
         // target amplifies the hit (Boonbringers amplify it further). Solo
@@ -1108,8 +1269,16 @@ function executeMove(
             .some((ally) => ally !== actor && SHOWDOWN_ELEMENT_BEATS[ally.element] === target.element);
         const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
         const procs: string[] = [];
-        const dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs);
-        const { dealt, ko } = applyDamage(session, target, dmg);
+        let dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs);
+        // MITIGATE charge: one softened blow. Applied to the finished roll (so
+        // it discounts guard, element and every proc alike) and spent whether
+        // or not the hit would have hurt.
+        if (charges && charges.mitigate > 0) {
+            dmg = Math.max(1, Math.round(dmg * (1 - charges.mitigate / 100)));
+            charges.mitigate = 0;
+            pushConsumableEvent(session, target, 'mitigate', reactions);
+        }
+        const { dealt, ko } = applyDamage(session, target, dmg, true, reactions);
         if (dealt > 0) gainMeter(actor, SHOWDOWN_METER_ON_HIT_DEALT);
         // Hollowborn drinks a slice of every hit it lands.
         const drain = tableMult(TRAIT_FX.lifedrainPct, traitOf(actor), 0);
@@ -1120,12 +1289,22 @@ function executeMove(
         // Gear procs on plain strikes: on-hit poison and gear lifesteal.
         const gear = actor.gear;
         if (dealt > 0 && !target.ko && gear?.dotOnHitPctOfAtk && kind === 'damage') {
-            addStatus(session, target, 'wound', gear.dotRounds ?? 2, Math.max(1, Math.round(effAttack(actor) * gear.dotOnHitPctOfAtk / 100)));
+            addStatus(session, target, 'wound', gear.dotRounds ?? 2, Math.max(1, Math.round(effAttack(actor) * gear.dotOnHitPctOfAtk / 100)), reactions);
             procs.push(gear.name);
         }
         if (dealt > 0 && gear?.lifestealPctOfDamage && kind === 'damage') {
             applyHeal(actor, dealt * gear.lifestealPctOfDamage / 100, session.round);
             procs.push(gear.name);
+        }
+        // THORNS charge: a slice of the blow comes straight back at whoever
+        // threw it. Priced off what actually landed, not what was rolled.
+        if (dealt > 0 && charges && charges.thorns > 0 && !actor.ko) {
+            const reflect = Math.max(1, Math.round(dealt * charges.thorns / 100));
+            charges.thorns = 0;
+            const back = applyDamage(session, actor, reflect, false, reactions);
+            pushConsumableEvent(session, target, 'thorns', reactions, {
+                targetId: actor.id, damage: back.dealt, ko: back.ko,
+            });
         }
         const eff = elementMult(actor.element, target.element);
         targets.push({
@@ -1140,6 +1319,7 @@ function executeMove(
             ...(splash ? { splash: true } : {}),
             ...(procs.length && dealt > 0 ? { procs: [...new Set(procs.filter(Boolean))] } : {}),
         });
+        return true;
     };
 
     if (SELF_KINDS.has(kind)) {
@@ -1158,7 +1338,8 @@ function executeMove(
     } else if (kind === 'heal') {
         const ally = resolveAllyTarget(session, actorSide, action.targetId, actor);
         // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the 2.2x
-        // damage pace without enabling heal-stall (the judge counts HP%).
+        // damage pace without enabling heal-stall (attrition decays this to
+        // zero in long fights; see applyHeal).
         const sageBonus = actor.role === 'sage' ? SAGE_HEAL_MULT : 1;
         const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, (Math.max(60, power) / 700) * sageBonus), session.round);
         targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
@@ -1175,8 +1356,9 @@ function executeMove(
                     applyOffensiveHit(target, 1);
                     break;
                 case 'crush':
-                    applyOffensiveHit(target, 1.1, 'crush');
-                    if (!target.ko) addStatus(session, target, 'crush', 2, 0.8);
+                    if (applyOffensiveHit(target, 1.1, 'crush') && !target.ko) {
+                        addStatus(session, target, 'crush', 2, 0.8, reactions);
+                    }
                     break;
                 case 'lifesteal': {
                     const before = targets.length;
@@ -1193,39 +1375,47 @@ function executeMove(
                     // over three rounds — the kind-carrier analysis showed the
                     // old 0.75/0.20 premium still under-paid for the delay (dot
                     // carriers at ~30% win rate, burn ~43%).
-                    applyOffensiveHit(target, 0.82, kind);
-                    if (!target.ko) addStatus(session, target, storedStatusKind(kind), 2, Math.round(power * 0.24));
+                    if (applyOffensiveHit(target, 0.82, kind) && !target.ko) {
+                        addStatus(session, target, storedStatusKind(kind), 2, Math.round(power * 0.24), reactions);
+                    }
                     break;
                 }
                 case 'stun':
-                    applyOffensiveHit(target, 0.5, 'stun');
-                    if (!target.ko && !hasStatus(target, 'steadfast')) addStatus(session, target, 'stun', 1, 1);
+                    if (applyOffensiveHit(target, 0.5, 'stun') && !target.ko && !hasStatus(target, 'steadfast')) {
+                        addStatus(session, target, 'stun', 1, 1, reactions);
+                    }
                     break;
                 case 'freeze':
-                    applyOffensiveHit(target, 0.6, 'freeze');
-                    if (!target.ko && !hasStatus(target, 'steadfast')) addStatus(session, target, 'freeze', 1, 1);
+                    if (applyOffensiveHit(target, 0.6, 'freeze') && !target.ko && !hasStatus(target, 'steadfast')) {
+                        addStatus(session, target, 'freeze', 1, 1, reactions);
+                    }
                     break;
                 case 'confuse':
-                    applyOffensiveHit(target, 0.6, 'confuse');
-                    if (!target.ko && !hasStatus(target, 'steadfast')) addStatus(session, target, 'confuse', 2, 1);
+                    if (applyOffensiveHit(target, 0.6, 'confuse') && !target.ko && !hasStatus(target, 'steadfast')) {
+                        addStatus(session, target, 'confuse', 2, 1, reactions);
+                    }
                     break;
                 case 'debuff':
-                    applyOffensiveHit(target, 0.4, 'debuff');
-                    if (!target.ko) addStatus(session, target, 'debuff', 2, 0.8);
+                    if (applyOffensiveHit(target, 0.4, 'debuff') && !target.ko) {
+                        addStatus(session, target, 'debuff', 2, 0.8, reactions);
+                    }
                     break;
                 case 'mark':
-                    applyOffensiveHit(target, 0.4, 'mark');
-                    if (!target.ko) addStatus(session, target, 'mark', 3, 1.25);
+                    if (applyOffensiveHit(target, 0.4, 'mark') && !target.ko) {
+                        addStatus(session, target, 'mark', 3, 1.25, reactions);
+                    }
                     break;
                 case 'slow':
                 case 'movelock':
-                    applyOffensiveHit(target, 0.4, 'slow');
-                    if (!target.ko) addStatus(session, target, storedStatusKind(kind), 2, 0.75);
+                    if (applyOffensiveHit(target, 0.4, 'slow') && !target.ko) {
+                        addStatus(session, target, storedStatusKind(kind), 2, 0.75, reactions);
+                    }
                     break;
                 case 'push':
                 case 'pull':
-                    applyOffensiveHit(target, 0.85, kind);
-                    target.stamina = Math.max(0, target.stamina - 16);
+                    if (applyOffensiveHit(target, 0.85, kind)) {
+                        target.stamina = Math.max(0, target.stamina - 16);
+                    }
                     break;
                 default:
                     applyOffensiveHit(target, 1);
@@ -1257,6 +1447,8 @@ function executeMove(
         overexerted,
         ...(overexertDamage > 0 ? { overexertDamage } : {}),
     });
+    // ...and only now the charges that answered it.
+    for (const reaction of reactions) events.push(reaction);
 }
 
 function sideDefeated(session: ShowdownSession, side: Side): boolean {
@@ -1375,8 +1567,10 @@ export function resolveShowdownRound(
         // Confusion: half chance the action becomes a self-hit.
         if (hasStatus(pet, 'confuse') && command.kind !== 'guard' && command.kind !== 'rest' && nextRand(session) < 0.5) {
             const selfDmg = Math.max(1, Math.round((effAttack(pet) * 0.55 * (0.95 + nextRand(session) * 0.1))));
-            const { ko } = applyDamage(session, pet, selfDmg);
+            const reactions: ShowdownEvent[] = [];
+            const { ko } = applyDamage(session, pet, selfDmg, true, reactions);
             events.push({ t: 'confused', actorId: pet.id, actorSide: side, selfDamage: selfDmg, ko });
+            for (const reaction of reactions) events.push(reaction);
         } else if (command.kind === 'guard') {
             pet.guarding = true;
             pet.stamina = Math.max(0, pet.stamina - SHOWDOWN_GUARD_COST);
@@ -1420,8 +1614,10 @@ export function resolveShowdownRound(
                 // sides always take their full end-of-round damage.
                 for (const s of pet.statuses) {
                     if ((s.kind === 'burn' || s.kind === 'wound') && s.magnitude > 0) {
-                        const { dealt, ko } = applyDamage(session, pet, s.magnitude);
+                        const reactions: ShowdownEvent[] = [];
+                        const { dealt, ko } = applyDamage(session, pet, s.magnitude, true, reactions);
                         if (dealt > 0) events.push({ t: 'dot', targetId: pet.id, targetSide: side, kind: s.kind, damage: dealt, ko });
+                        for (const reaction of reactions) events.push(reaction);
                     }
                 }
                 if (pet.ko) continue;
@@ -1477,10 +1673,12 @@ export function resolveShowdownRound(
                 for (const pet of session[side]) {
                     if (pet.ko || pet.benched) continue;
                     const bleed = Math.max(1, Math.round(pet.maxHp * pct));
-                    const { dealt, ko } = applyDamage(session, pet, bleed, false);
+                    const reactions: ShowdownEvent[] = [];
+                    const { dealt, ko } = applyDamage(session, pet, bleed, false, reactions);
                     if (dealt > 0) {
                         events.push({ t: 'dot', targetId: pet.id, targetSide: side, kind: 'attrition', damage: dealt, ko });
                     }
+                    for (const reaction of reactions) events.push(reaction);
                 }
             }
             if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
@@ -1538,6 +1736,12 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         readiness: pet.readiness,
         ...(pet.trait ? { trait: pet.trait } : {}),
         ...(pet.gear ? { gearName: pet.gear.name } : {}),
+        // Published only while a charge remains: the chip vanishing when the
+        // item fires is the whole spent indicator, no extra state needed.
+        ...(pet.consumable && (pet.consumable.dodge > 0 || pet.consumable.mitigate > 0
+            || pet.consumable.endure > 0 || pet.consumable.thorns > 0
+            || pet.consumable.lifeline > 0 || pet.consumable.cleanse > 0)
+            ? { consumableName: pet.consumable.name } : {}),
         moves: pet.moves.map((m) => ({
             name: m.name, power: m.power, kind: m.kind, cost: m.cost, signature: false,
             priority: m.priority, hold: m.hold, effect: moveEffectText(m.kind, m.power),

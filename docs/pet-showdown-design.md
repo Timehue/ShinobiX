@@ -133,9 +133,15 @@ touching the shared pet data:
    the wheel decides ~73% of advantaged matchups (an edge, not a hard counter).
 
 Result: every role and element inside 40–60% overall; `scripts/
-showdown-balance.test.ts` ratchets the standard+rare slice in CI (35–65 bands,
-pace 5.5–11.5, judge <30%). ~25 of 140 species remain outside 25–75% from kit
+showdown-balance.test.ts` ratchets the sweep in CI (35–65 role/element bands,
+pace 5.5–11.5). ~25 of 140 species sat outside 25–75% at this tuning, from kit
 composition differences — kit-level (kind-value) tuning is the remaining lever.
+
+**This section is the 2026-08-07 snapshot and the tables have moved since.**
+Round 18 deleted the round cap and the judge, round 19 re-fitted the role and
+element tables from measurement after Rest stopped healing, and round 21 raised
+budget damping to 0.78, extended the CI slice to all four rarities and added the
+per-species band. The current measured spread is in Follow-ups.
 
 ## Round 3 — Temtem depth + painted VFX (2026-08-07)
 
@@ -1025,13 +1031,169 @@ The filter moved to `lib/showdown-turn.ts` as a pure function specifically so
 the empty case is testable. It could not be seen before: it was a local `const`
 inside a 2,300-line component, which is exactly how a reachable soft-lock ships.
 
+## Round 23 — the harness and the guide catch up (2026-08-11)
+
+Two of the mode's explaining surfaces were still teaching the game as it stood
+before round 18, which is worse than teaching nothing: one is the only tool for
+iterating the presentation layer, and the other is what a player reads when the
+battle does something they did not expect.
+
+**The dev harness was still simulating the judge.** `/showdownpreview.html`
+ended any fight that reached round 14 by comparing HP percentages, so the one
+place a designer can watch the mode without a backend played a mode that no
+longer exists — and it never once showed the attrition tail that replaced it.
+The rest of its mock had drifted the same way: `Rest` healed 32 HP (round 19
+took the heal away), the EN bar was a decreasing literal rather than a pool,
+and a win returned `reward: 84` with a ryo balance for a mode that has paid
+nothing since round 22. It now runs the contract instead of remembering it —
+stamina spent per move and regenerated at the contract's own rates, Rest as
+stamina-only, overdraft charging HP and the next action, the bench filling a
+fallen slot at round end, attrition bleeding from `SHOWDOWN_ATTRITION_START`,
+and a `practice: true` settlement. Damage stays a harness fiction (the formula
+is server-only) but is now a share of the target's bar scaled by the chosen
+move's power, so a mock fight lasts about as long as a real one and the
+attrition beat is reachable rather than theoretical.
+
+**The in-game guide was still teaching the round limit.** The Pet Battles guide
+told players "at the round limit the judge awards the win to the team with more
+remaining HP, and a tie goes to your opponent" — a rule with no code behind it
+for five rounds, and one that would make a player defend a lead that no longer
+wins. It now describes attrition, states outright that Rest heals nothing, and
+carries the practice payout so a win that pays zero is not read as a bug. The
+switch line was also overstated: an attack aimed at a pet that rotated out lands
+on whoever is still standing in its place, which in 2v2 is not always the pet
+that came in.
+
+## Round 24 — items fire, opponents dress for their tier, and the shell grows up (2026-08-11)
+
+The audit round: five workstreams landed together, four of them closing
+confirmed defects from the adversarially-verified gap audit.
+
+### Battle consumables fire (owner ruling)
+
+The 960–1,600 ryo one-use items were completely inert here while the Pet Yard
+promised they fire in 1v1 and 2v2. All six now work, each hooked where its
+trigger actually lives: dodge/mitigate/thorns in the attack resolution (the
+attacker is in scope, so thorns can route back through `applyDamage` and be
+answered by the attacker's own endure), endure/lifeline in damage application
+(after the shield soak, so the number on the wire is the number the bar loses),
+cleanse in `addStatus` (refuses the incoming control and purges what is already
+stuck). Every charge is single-use; the reaction is its own `consumable` event
+beat so a save is narrated after the blow that provoked it, never before.
+
+**The spend rule rides `rewardEligible`:** the effect always fires, but the
+item is only struck from the save in a reward-eligible session. Practice is
+where a player tests a build — burning a 1,600 ryo item for a mode that pays
+nothing would make equipping one strictly irrational, so today (every entry is
+practice) nothing is ever consumed. `showdownConsumableSpends(session)` is the
+helper the first live caller wires into its start path; committed at battle
+entry, matching how the legacy summon path burns the item. The equipped item
+shows as a green chip on the pet's plate, published only while a charge
+remains — the chip vanishing IS the spent indicator.
+
+### AI opponents carry the identity layer, laddered by tier
+
+Every opponent was a bare statline; the player's own trait/gear layer was never
+mirrored back. The ladder is now legible: **scrapper** fights bare (a template's
+own trait is stripped — clean fundamentals), **warrior** carries a trait,
+**champion** carries a trait AND a PvP gear proc. Pools are drawn from the real
+player-side catalogs, filtered to pieces with a *visible* in-combat beat
+(Aggressive/Guardian/Battleborn/Swift; shield/lifesteal/execute/poison/
+last-stand gear) — the point is teaching by example, and a silent stat nudge
+teaches nothing. Draws come from the session's seeded RNG; the trait is a name
+only (player traits bake their stats in at acquisition, so granting the AI the
+in-combat behavior without a second helping of stats keeps `TIER_GROWTH_SHARE`
+the only stat lever).
+
+### The takeover became a real modal
+
+Tab is trapped inside the overlay (with a visibility-aware stop list, since the
+fixed takeover nulls `offsetParent`), focus returns to the opener on unmount,
+and Escape peels exactly one layer — forfeit prompt, then targeting, then the
+technique list — and never concedes. A screen-reader live region narrates each
+beat at the moment of contact via `describeBeat`. The three full-screen panels
+(result / expired / forfeit) collapsed into one precedence-ordered `panel`
+discriminant: a finished fight always beats a pending forfeit prompt, and
+`concede()` re-checks `battleDecided` at the click so the button can never
+throw away a fight that resolved under it.
+
+### A failed submit holds the round
+
+A server 500 used to silently discard a full 3v3 draft — six decisions — behind
+a suppressible caption. The orders are now kept verbatim (`failedOrders`), the
+deck stands down behind an explicit failure panel, and retry re-sends exactly
+what was chosen; "revise" reopens the deck on the last pet with everything
+before it intact.
+
+### Landscape and short viewports
+
+The CSS had exactly one layout breakpoint (559px) and no height handling at
+all, so on any landscape phone the whole command deck rendered below the fold —
+unplayable until rotated back. There is now a 979px tier plus `max-height`
+tiers (700px/480px) built on a measured `--sd-deck-max` budget: the arena band
+yields first, the readouts second, and the deck last, scrolling INSIDE its
+budget rather than pushing off-screen. Plate rows stop wrapping (height must be
+constant for the budget to hold) and scroll sideways instead.
+
+### Refresh-resume actually runs
+
+The resume was built in round 13 and never once fired: `lastScreen.v1` already
+remembered the screen, but `RESTORABLE_SCREENS` rejected it, so every mid-fight
+reload was dumped in the village while the fight sat live on the server for 45
+minutes. `petShowdown` now follows the Battle Towers precedent (server-owned
+session, screen re-fetches by id on mount). The breadcrumb moved to
+localStorage — sessionStorage dies with the tab, which is precisely the crash
+case the crumb exists for — TTL-bounded to the session's own 45 minutes and
+bound to the account name. A FINISHED session found on resume is *claimed*, not
+resumed: re-posting an empty round re-reads the settlement idempotently, which
+recovers the paid-but-never-shown win the audit flagged. (Deliberately NOT the
+`BattleLockKeeper` route: `battleResumeStateExists` treats an unknown lock kind
+as the cleared-localStorage loss and would hospitalize the player for reloading
+a practice fight.)
+
+### The shared reward machinery is hardened
+
+Showdown pays nothing, but the legacy coliseum pays through the same paths, so
+they were fixed at the source: `dailyPetWins` got the same same-day monotonic
+floor `dailyMissionsCompleted` already had (a stale second tab's autosave could
+silently reset the 100/day cap — the manifest now marks it server-clamped);
+the win payout became exactly-once for real (the in-save receipt window derives
+from the cap instead of undercutting it at 64, and every paid settlement also
+writes a durable 24h `pet:battle-paid:` nx-marker placed AFTER the paying
+write, so a receipt can no longer be flushed inside the window it must cover);
+a settled session's lease is stamped only by the turn that actually finished
+the fight, so a paid session can no longer be kept warm and re-cashed; and
+`state`/`forfeit` got the rate limits every sibling endpoint already had. Each
+protection was verified by deliberately breaking it and watching its test fail.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
+- When the first world-initiated (reward-eligible) mode lands on this engine:
+  wire `showdownConsumableSpends` into its start path under the save lock, set
+  its sessions `rewardEligible: true`, surface the reclaimed reward on the
+  finished-session resume path (today it adopts silently because the amount is
+  always zero), and update the guide's "practice pays nothing" callout.
+- A balance guard for the AI tier ladder: the CI ratchet sims catalog templates
+  directly and never calls `buildShowdownAiTeam`, so it is structurally blind
+  to the warrior/champion trait+gear outfits. A player-team-vs-AI-team sweep
+  per tier would pin the intended difficulty spacing.
+- Activity-spine `resume` card for a live Showdown session (the spine already
+  offers "return to" cards for Hollow Gate and tower runs).
 - Reserve balance levers from the research pass, deliberately unshipped:
   U-turn-style pivot moves, entry-hazard analogues, priority-bracket moves,
   trick-room analogues for slow archetypes.
-- Kit-level (kind-value) tuning for the remaining ~25/140 species outliers.
+- Kit-level (kind-value) tuning for the species still outside the comfort band.
+  Re-measured 2026-08-11 against the shipped tables: the CI ratchet slice
+  (`scripts/showdown-balance.test.ts` — 1 seed, all four rarities, 2,930 games)
+  leaves **8 of 140** species outside 25–75%, against its budget of 14, and
+  **none** outside the 15–85% hard band; the 3-seed analyzer sweep (8,790 games)
+  narrows that to five — Storm Wyvern 82.8%, Storm Roc 78.2%, Armored Polar Bear
+  75.9%, Eclipse Kitsune 22.2%, Umbra Fox 20.7%. The "~25 of 140" this item used
+  to claim predates the round-19 and round-21 re-fits. The analyzer's kind-carrier
+  readout cannot localize the rest of the work: `absorb` has exactly ONE carrier
+  in the catalog and `push` five, so a low number against a kind there is one
+  species wearing that kind's name, not a kind that is mispriced.
 - Per-pet mastery/bond progression and seasonal track.
 - Migrating Hollow Gate / clan war / sector war / ladder onto the turn engine,
   then deleting the legacy sim stack (~45k lines client+server).

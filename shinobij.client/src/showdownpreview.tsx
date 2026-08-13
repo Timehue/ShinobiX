@@ -1,6 +1,6 @@
 // ── DEV-ONLY Pet Showdown harness ────────────────────────────────────────────
 // Drives PetShowdownBattle with a scripted MOCK turn generator so the cinematic
-// playback layer (camera, lunges, projectiles, popups, HUD, needle, result)
+// playback layer (camera, lunges, projectiles, popups, HUD, attrition, result)
 // can be iterated without a backend or login. NOT part of the shipped app —
 // reachable only at /showdownpreview.html in `vite dev`, and not listed in the
 // production build inputs. The mock mimics the /api/pet/showdown turn contract;
@@ -21,15 +21,33 @@ import {
     SHOWDOWN_COST_CONTROL_FLOOR,
     SHOWDOWN_COST_SUSTAIN_FLOOR,
     SHOWDOWN_HEAVY_PROMOTE_MULT,
+    SHOWDOWN_HEAVY_COST_PREMIUM,
     SHOWDOWN_HOLD_HEAVY,
+    SHOWDOWN_HOLD_SUPER,
     SHOWDOWN_PRIORITY_HEAVY,
     SHOWDOWN_PRIORITY_LIGHT,
     SHOWDOWN_PRIORITY_NORMAL,
+    SHOWDOWN_PRIORITY_SUPER,
     SHOWDOWN_ATTRITION_START,
+    SHOWDOWN_GUARD_COST,
+    SHOWDOWN_REST_PCT,
+    SHOWDOWN_REST_FLAT,
+    SHOWDOWN_STAMINA_REFERENCE,
+    SHOWDOWN_STAMINA_POOL_SCALE,
+    SHOWDOWN_STAMINA_REGEN_PCT,
+    SHOWDOWN_STAMINA_REGEN_FLAT,
+    SHOWDOWN_OVERDRAFT_HP_PER_POINT,
+    SHOWDOWN_METER_MAX,
+    SHOWDOWN_METER_ON_HIT_DEALT,
+    SHOWDOWN_METER_ON_HIT_TAKEN,
+    SHOWDOWN_SUPER_POWER_MULT,
+    SHOWDOWN_FORMAT_SIZE,
+    showdownAttritionPct,
 } from "../../shared/pet-showdown-contract";
 import type {
     ShowdownCommand,
     ShowdownEvent,
+    ShowdownFormat,
     ShowdownPetView,
     ShowdownStateView,
     ShowdownTurnResponse,
@@ -46,6 +64,31 @@ function mockCost(power: number, kind: string): number {
     if (kind === "stun" || kind === "freeze" || kind === "confuse") return Math.max(base, SHOWDOWN_COST_CONTROL_FLOOR);
     if (kind === "heal") return Math.max(base, SHOWDOWN_COST_SUSTAIN_FLOOR);
     return base;
+}
+
+/* The engine sizes each pool off bulk; the harness has no bulk curve, so it
+   takes the reference pet — one number, still off the contract, so the EN bar
+   drains at the rate the real ladder is priced against. */
+const MOCK_MAX_STAMINA = Math.round(SHOWDOWN_STAMINA_REFERENCE * SHOWDOWN_STAMINA_POOL_SCALE);
+
+const FORMAT: ShowdownFormat = "2v2";
+const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
+
+/** The engine derives an action's presentation weight server-side; mirror it
+ *  off the same priority ladder so the VFX tier under test is the one the wire
+ *  actually carries. */
+function mockWeight(move: ShowdownPetView["moves"][number], superCast: boolean): "light" | "normal" | "heavy" {
+    if (superCast || move.priority <= SHOWDOWN_PRIORITY_HEAVY) return "heavy";
+    return move.priority >= SHOWDOWN_PRIORITY_LIGHT ? "light" : "normal";
+}
+
+/** Damage is the one number the harness has to invent — the engine's formula is
+ *  server-only. Only the SHAPE is real: a share of the target's bar that tracks
+ *  move power, so a fight lasts the handful of rounds a real one does and the
+ *  attrition tail is reachable instead of theoretical. */
+function mockDamage(target: Pet, power: number, superCast: boolean): number {
+    const share = (0.06 + power / 1400) * (superCast ? SHOWDOWN_SUPER_POWER_MULT : 1);
+    return Math.max(1, Math.round(Math.max(1, target.hp) * share));
 }
 
 function mockKit(pet: Pet): ShowdownPetView["moves"] {
@@ -77,7 +120,7 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
         moves[best] = {
             ...moves[best],
             power,
-            cost: Math.min(SHOWDOWN_COST_MAX, Math.round(mockCost(power, moves[best].kind) * 1.3)),
+            cost: Math.min(SHOWDOWN_COST_MAX, Math.round(mockCost(power, moves[best].kind) * SHOWDOWN_HEAVY_COST_PREMIUM)),
             priority: SHOWDOWN_PRIORITY_HEAVY,
             hold: SHOWDOWN_HOLD_HEAVY,
         };
@@ -85,7 +128,7 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
     moves.push({
         name: `${pet.element ?? "Spirit"} Overdrive`,
         power: 96, kind: "damage", cost: 0, signature: true,
-        priority: 0.75, hold: 2, effect: "Spends the full meter",
+        priority: SHOWDOWN_PRIORITY_SUPER, hold: SHOWDOWN_HOLD_SUPER, effect: "Spends the full meter",
     });
     return moves;
 }
@@ -97,8 +140,9 @@ function poolPet(index: number): Pet {
 const playerPets = [poolPet(0), poolPet(4), poolPet(16)];
 const enemyPets = [poolPet(8), poolPet(12)];
 
-function petView(pet: Pet, hp?: number): ShowdownPetView {
+function petView(pet: Pet): ShowdownPetView {
     const maxHp = Math.max(1, Math.round(pet.hp));
+    const hp = world.hp.get(pet.id) ?? maxHp;
     return {
         id: pet.id,
         name: pet.name,
@@ -107,17 +151,20 @@ function petView(pet: Pet, hp?: number): ShowdownPetView {
         rarity: pet.rarity,
         templateId: pet.id,
         level: 30,
-        hp: hp ?? maxHp,
+        hp,
         maxHp,
-        stamina: 105,
-        maxStamina: 105,
-        meter: 0,
-        ko: (hp ?? maxHp) <= 0,
+        stamina: world.stamina.get(pet.id) ?? MOCK_MAX_STAMINA,
+        maxStamina: MOCK_MAX_STAMINA,
+        meter: world.meter.get(pet.id) ?? 0,
+        ko: hp <= 0,
         guarding: false,
         benched: world.benched.has(pet.id),
         speed: pet.speed ?? 30,
-        skipsNextAction: false,
-        canSwitchOut: true,
+        // A winded pet loses its next action and may not rotate out — the pair
+        // of flags the command deck filters on, so the harness can reach the
+        // "nobody can act" round the deck has to resolve on its own.
+        skipsNextAction: world.winded.has(pet.id),
+        canSwitchOut: !world.winded.has(pet.id),
         readiness: world.round,
         statuses: [],
         moves: mockKit(pet),
@@ -129,30 +176,29 @@ const world = {
     round: 0,
     hp: new Map<string, number>(),
     meter: new Map<string, number>(),
+    stamina: new Map<string, number>(),
+    winded: new Set<string>(),
     // The third player pet starts on the bench (mirrors the 2v2+bench format).
     benched: new Set<string>([]),
 };
 world.benched.add(playerPets[2].id);
-for (const pet of [...playerPets, ...enemyPets]) world.hp.set(pet.id, Math.round(pet.hp));
-for (const pet of [...playerPets, ...enemyPets]) world.meter.set(pet.id, 0);
+for (const pet of [...playerPets, ...enemyPets]) {
+    world.hp.set(pet.id, Math.round(pet.hp));
+    world.meter.set(pet.id, 0);
+    world.stamina.set(pet.id, MOCK_MAX_STAMINA);
+}
 
 function stateView(finished = false, outcome: "win" | "loss" | null = null): ShowdownStateView {
-    const view = (pet: Pet): ShowdownPetView => {
-        const v = petView(pet, world.hp.get(pet.id));
-        v.meter = world.meter.get(pet.id) ?? 0;
-        v.stamina = Math.max(8, 105 - world.round * 22);
-        return v;
-    };
     return {
         sessionId: "devharness",
-        format: "2v2",
+        format: FORMAT,
         tier: "warrior",
         round: world.round,
         attritionAt: SHOWDOWN_ATTRITION_START,
         finished,
         outcome,
-        player: playerPets.map(view),
-        enemy: enemyPets.map(view),
+        player: playerPets.map((p) => petView(p)),
+        enemy: enemyPets.map((p) => petView(p)),
         enemyTeamName: "Harness Pack",
         nextOrder: [...playerPets, ...enemyPets]
             .filter((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id))
@@ -167,12 +213,45 @@ function hit(targetId: string, damage: number): boolean {
     return hp <= 0;
 }
 
+/** A side is beaten only when its BENCH is gone too — a fallen field slot is
+ *  refilled at round end, not a defeat. */
+function teamAlive(team: Pet[]): boolean {
+    return team.some((p) => (world.hp.get(p.id) ?? 0) > 0);
+}
+
+/** Stamina moves by the contract's own numbers, so the EN bar in the HUD
+ *  empties, refills and gates the deck the way it does against the engine. */
+function spendStamina(petId: string, cost: number): number {
+    const left = Math.max(0, (world.stamina.get(petId) ?? MOCK_MAX_STAMINA) - cost);
+    world.stamina.set(petId, left);
+    return left;
+}
+
+function restStamina(petId: string): number {
+    const gained = Math.round(MOCK_MAX_STAMINA * SHOWDOWN_REST_PCT) + SHOWDOWN_REST_FLAT;
+    const left = Math.min(MOCK_MAX_STAMINA, (world.stamina.get(petId) ?? 0) + gained);
+    world.stamina.set(petId, left);
+    return left;
+}
+
 async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurnResponse | null> {
     await new Promise((resolve) => setTimeout(resolve, 250));
     world.round += 1;
     const events: ShowdownEvent[] = [{ t: "roundStart", round: world.round }];
     const livingEnemy = () => enemyPets.find((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id));
     const livingPlayer = () => playerPets.find((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id));
+
+    // The overdraft's stolen turn is paid at the top of the round, before
+    // anything else can be spent on it.
+    for (const pet of [...playerPets, ...enemyPets]) {
+        if (!world.winded.has(pet.id)) continue;
+        world.winded.delete(pet.id);
+        if ((world.hp.get(pet.id) ?? 0) <= 0 || world.benched.has(pet.id)) continue;
+        events.push({
+            t: "skip", actorId: pet.id, reason: "winded",
+            actorSide: playerPets.some((p) => p.id === pet.id) ? "player" : "enemy",
+        });
+    }
 
     // Switches resolve first, like the real engine.
     for (const c of commands) {
@@ -189,52 +268,67 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         const target = livingEnemy();
         if (!actor || (world.hp.get(actor.id) ?? 0) <= 0) continue;
         if (c.kind === "guard" || c.kind === "rest") {
+            // Rest buys stamina back and heals NOTHING — what you give the turn
+            // up for is the pool, never the bar above it.
+            const staminaAfter = c.kind === "guard" ? spendStamina(actor.id, SHOWDOWN_GUARD_COST) : restStamina(actor.id);
             events.push({
                 t: "action", actorId: actor.id, actorSide: "player", moveName: c.kind === "guard" ? "Guard" : "Catch Breath",
                 moveKind: c.kind, element: actor.element ?? "None", delivery: "self", weight: "light", super: false,
-                targets: [{ id: actor.id, damage: 0, heal: c.kind === "rest" ? 32 : 0, effectiveness: "neutral", guarded: false, ko: false, applied: c.kind }],
-                staminaAfter: 80, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
+                targets: [{ id: actor.id, damage: 0, heal: 0, effectiveness: "neutral", guarded: false, ko: false, applied: c.kind }],
+                staminaAfter, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
             });
             continue;
         }
         if (!target) break;
+        const kit = mockKit(actor);
         const superCast = c.kind === "super";
-        const damage = superCast ? 340 : 120 + world.round * 18;
+        const move = superCast ? kit[kit.length - 1] : kit[c.moveIndex] ?? kit[0];
+        // Overdraft: the move fires whatever the pool says, and the shortfall is
+        // paid in HP now and in next round's action.
+        const pool = world.stamina.get(actor.id) ?? MOCK_MAX_STAMINA;
+        const cost = superCast ? 0 : move.cost;
+        const overexerted = cost > pool;
+        const staminaAfter = spendStamina(actor.id, cost);
+        const overexertDamage = overexerted ? (cost - pool) * SHOWDOWN_OVERDRAFT_HP_PER_POINT : 0;
+        if (overexertDamage > 0) hit(actor.id, overexertDamage);
+        if (overexerted) world.winded.add(actor.id);
+        const damage = mockDamage(target, move.power, superCast);
         const ko = hit(target.id, damage);
-        const meter = superCast ? 0 : Math.min(100, (world.meter.get(actor.id) ?? 0) + 34);
+        const meter = superCast ? 0 : Math.min(SHOWDOWN_METER_MAX, (world.meter.get(actor.id) ?? 0) + SHOWDOWN_METER_ON_HIT_DEALT);
         world.meter.set(actor.id, meter);
         events.push({
             t: "action", actorId: actor.id, actorSide: "player",
-            moveName: superCast ? `${actor.element} Overdrive` : "Swift Strike",
-            moveKind: "damage", element: actor.element ?? "None",
+            moveName: move.name,
+            moveKind: move.kind, element: actor.element ?? "None",
             delivery: actor.role === "assassin" || actor.role === "defender" ? "melee" : "ranged",
-            weight: superCast ? "heavy" : "normal", super: superCast,
+            weight: mockWeight(move, superCast), super: superCast,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: world.round % 3 === 0 ? "super" : "neutral", guarded: false, ko }],
-            staminaAfter: Math.max(0, 100 - world.round * 25), meterAfter: meter,
-            overexerted: world.round === 3,
+            staminaAfter, meterAfter: meter,
+            overexerted, ...(overexertDamage > 0 ? { overexertDamage } : {}),
         });
-        if (ko && !livingEnemy()) {
+        if (ko && !teamAlive(enemyPets)) {
             events.push({ t: "end", outcome: "win" }, { t: "roundEnd", round: world.round });
-            return { ok: true, events, state: stateView(true, "win"), reward: 84, balances: { ryo: 1234 } };
+            return { ok: true, events, state: stateView(true, "win"), practice: true };
         }
     }
 
     // Enemy replies.
     for (const enemy of enemyPets) {
-        if ((world.hp.get(enemy.id) ?? 0) <= 0) continue;
+        if ((world.hp.get(enemy.id) ?? 0) <= 0 || world.benched.has(enemy.id)) continue;
         const target = livingPlayer();
         if (!target) break;
-        const damage = 90 + world.round * 12;
+        const damage = mockDamage(target, 60, false);
         const ko = hit(target.id, damage);
-        const meter = Math.min(100, (world.meter.get(target.id) ?? 0) + 22);
+        const meter = Math.min(SHOWDOWN_METER_MAX, (world.meter.get(target.id) ?? 0) + SHOWDOWN_METER_ON_HIT_TAKEN);
         world.meter.set(target.id, meter);
         events.push({
             t: "action", actorId: enemy.id, actorSide: "enemy", moveName: "Fang Rush",
             moveKind: "damage", element: enemy.element ?? "None", delivery: "melee", weight: "normal", super: false,
             targets: [{ id: target.id, damage, heal: 0, effectiveness: "neutral", guarded: false, ko }],
-            staminaAfter: 60, meterAfter: 40, overexerted: false,
+            staminaAfter: spendStamina(enemy.id, SHOWDOWN_COST_BASIC), meterAfter: world.meter.get(enemy.id) ?? 0,
+            overexerted: false,
         });
-        if (ko && !livingPlayer()) {
+        if (ko && !teamAlive(playerPets)) {
             events.push({ t: "end", outcome: "loss" }, { t: "roundEnd", round: world.round });
             return { ok: true, events, state: stateView(true, "loss") };
         }
@@ -243,14 +337,51 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
         const victim = livingPlayer();
         if (victim) events.push({ t: "dot", targetId: victim.id, targetSide: "player", kind: "burn", damage: 24, ko: false });
     }
-    events.push({ t: "roundEnd", round: world.round });
-    if (world.round >= 14) {
-        // Mirror the real engine's round-cap judge so the harness never plays R15+.
-        const hpPct = (pets: Pet[]) => pets.reduce((sum, p) => sum + (world.hp.get(p.id) ?? 0) / Math.max(1, p.hp), 0);
-        const outcome = hpPct(playerPets) > hpPct(enemyPets) ? "win" as const : "loss" as const;
-        events.push({ t: "end", outcome });
-        return { ok: true, events, state: stateView(true, outcome), ...(outcome === "win" ? { reward: 84, balances: { ryo: 1234 } } : {}) };
+
+    // End-of-round upkeep: stamina turns over for everyone, bench included.
+    for (const pet of [...playerPets, ...enemyPets]) {
+        if ((world.hp.get(pet.id) ?? 0) <= 0) continue;
+        const regen = Math.round(MOCK_MAX_STAMINA * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT;
+        world.stamina.set(pet.id, Math.min(MOCK_MAX_STAMINA, (world.stamina.get(pet.id) ?? 0) + regen));
     }
+
+    // Reinforcements: the bench fills an empty field slot at round end.
+    for (const [side, team] of [["player", playerPets], ["enemy", enemyPets]] as const) {
+        let fielded = team.filter((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id)).length;
+        for (const pet of team) {
+            if (fielded >= FIELD_SIZE) break;
+            if ((world.hp.get(pet.id) ?? 0) <= 0 || !world.benched.has(pet.id)) continue;
+            world.benched.delete(pet.id);
+            fielded += 1;
+            const fallen = team.find((p) => (world.hp.get(p.id) ?? 0) <= 0 && !world.benched.has(p.id));
+            events.push({ t: "switch", side, outId: fallen?.id ?? pet.id, inId: pet.id, reinforcement: true });
+        }
+    }
+
+    // There is no round limit and no judge — a fight ends when a team falls.
+    // What stops it running forever is attrition: from SHOWDOWN_ATTRITION_START
+    // every living pet bleeds a ramping share of its own bar, both sides alike.
+    const bleedPct = showdownAttritionPct(world.round);
+    if (bleedPct > 0) {
+        for (const pet of [...playerPets, ...enemyPets]) {
+            if ((world.hp.get(pet.id) ?? 0) <= 0 || world.benched.has(pet.id)) continue;
+            const damage = Math.max(1, Math.round(Math.max(1, pet.hp) * bleedPct));
+            const ko = hit(pet.id, damage);
+            events.push({
+                t: "dot", targetId: pet.id, kind: "attrition", damage, ko,
+                targetSide: playerPets.some((p) => p.id === pet.id) ? "player" : "enemy",
+            });
+        }
+        if (!teamAlive(enemyPets)) {
+            events.push({ t: "end", outcome: "win" }, { t: "roundEnd", round: world.round });
+            return { ok: true, events, state: stateView(true, "win"), practice: true };
+        }
+        if (!teamAlive(playerPets)) {
+            events.push({ t: "end", outcome: "loss" }, { t: "roundEnd", round: world.round });
+            return { ok: true, events, state: stateView(true, "loss") };
+        }
+    }
+    events.push({ t: "roundEnd", round: world.round });
     return { ok: true, events, state: stateView() };
 }
 

@@ -277,6 +277,9 @@ export interface ShowdownPetView {
     trait?: string;
     /** Equipped PvP gear name, for the HUD chip. */
     gearName?: string;
+    /** Equipped battle consumable, for the HUD chip — present only while a
+     *  charge remains, so the chip disappearing IS the spent indicator. */
+    consumableName?: string;
     moves: {
         name: string;
         power: number;
@@ -319,6 +322,13 @@ export interface ShowdownStateView {
 
 /** Effectiveness callout the presentation layer banners on impact. */
 export type ShowdownEffectiveness = "super" | "weak" | "neutral";
+
+/** Reactive battle-consumable effects. Structurally identical to
+ *  `PetConsumableEffect` in api/_pet-sim/pet-config.ts and deliberately
+ *  restated rather than imported: this file must stay dependency-free so the
+ *  client bundle never pulls a server catalog in behind a type. */
+export type PetConsumableEffectName =
+    | "dodge" | "mitigate" | "endure" | "thorns" | "lifeline" | "cleanse";
 
 /** One beat of the turn script. The client plays these strictly in order. */
 export type ShowdownEvent =
@@ -366,6 +376,33 @@ export type ShowdownEvent =
         overexertDamage?: number;
     }
     | { t: "skip"; actorId: string; actorSide: "player" | "enemy"; reason: "winded" | "stun" | "freeze" | "ko" }
+    | {
+        /** A reactive battle-consumable charge fired (api/_pet-sim/pet-config.ts
+         *  `petConsumables`). Its own beat rather than a field on the action,
+         *  because a charge also answers a DoT tick, an attrition bleed or a
+         *  confusion self-hit — and because the reflect it can throw back lands
+         *  on a pet the action never targeted. Always scripted AFTER the beat
+         *  that triggered it. */
+        t: "consumable";
+        /** The pet whose equipped item fired. */
+        petId: string;
+        side: "player" | "enemy";
+        effect: PetConsumableEffectName;
+        /** Item name for the callout ("Thornmail Oil"). */
+        itemName: string;
+        /** Who the numbers below land on — the ATTACKER for a thorns reflect,
+         *  the owner itself for everything else. */
+        targetId: string;
+        /** Reflected damage (thorns); 0 for every other effect. */
+        damage: number;
+        /** HP restored (lifeline); 0 for every other effect. */
+        heal: number;
+        /** The reflect finished its target. */
+        ko: boolean;
+        /** The save-side item was consumed by entering this battle. False in
+         *  practice, where the charge still fires and nothing is burned. */
+        spent: boolean;
+    }
     | {
         t: "switch";
         side: "player" | "enemy";

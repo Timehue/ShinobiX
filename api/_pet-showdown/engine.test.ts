@@ -17,6 +17,7 @@ import {
     moveStaminaCost,
     moveEffectText,
     storedStatusKind,
+    showdownConsumableSpends,
     KIND_FX,
     type ShowdownSession,
 } from './engine.js';
@@ -818,6 +819,176 @@ test('the universal basic is never promoted — every pet can attack on round on
         checked++;
     }
     assert.ok(checked > 100, `swept the catalog (${checked} species)`);
+});
+
+// ─── Battle consumables ──────────────────────────────────────────────────────
+// The reactive one-use items sold in the Shop. Every one of them was inert in
+// Showdown: the engine never read loadout.consumable, so a 960-1,600 ryo
+// purchase the Pet Yard advertises for 1v1 and 2v2 simply did nothing here.
+
+type ConsumableEvent = Extract<ShowdownEvent, { t: 'consumable' }>;
+
+const consumableEvents = (events: ShowdownEvent[]): ConsumableEvent[] =>
+    events.filter((e): e is ConsumableEvent => e.t === 'consumable');
+
+/** One round of 'a' (fast) hitting 'b' (slow, item-carrying) with Ember Jab. */
+function jabRound(consumableId: string, tune: (session: ShowdownSession) => void = () => undefined, seed = 4242) {
+    const session = makeSession(
+        [makePet('a', { speed: 200, element: 'None', attack: 300 })],
+        [makePet('b', {
+            speed: 10, element: 'None', hp: 4000, attack: 1,
+            ...(consumableId ? { loadout: { consumable: consumableId } } : {}),
+        })],
+        seed,
+    );
+    tune(session);
+    const events = resolveShowdownRound(session, [
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
+    ], [{ kind: 'rest', petId: 'b' }]);
+    const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+    return { session, events, action: action!, fired: consumableEvents(events) };
+}
+
+test('a dodge charge negates the whole attack and scripts its own beat', () => {
+    const { session, action, fired } = jabRound('consum-phantom-charm');
+    assert.equal(action.targets.length, 0, 'a dodged blow produces no target entry at all');
+    assert.equal(session.enemy[0].hp, session.enemy[0].maxHp, 'the victim took nothing');
+    assert.equal(fired.length, 1);
+    assert.equal(fired[0].effect, 'dodge');
+    assert.equal(fired[0].petId, 'b');
+    assert.equal(fired[0].itemName, 'Phantom Charm');
+});
+
+test('a mitigate charge halves one blow', () => {
+    const open = jabRound('').action.targets[0].damage;
+    const { action, fired } = jabRound('consum-smoke-pellet');
+    const softened = action.targets[0].damage;
+    assert.equal(fired[0]?.effect, 'mitigate');
+    assert.ok(softened < open, `softened ${softened} < open ${open}`);
+    assert.ok(Math.abs(softened - open * 0.5) <= 1, 'Smoke Pellet is the advertised 50% off');
+});
+
+test('an endure charge survives a lethal blow at 1 HP', () => {
+    const { session, fired } = jabRound('consum-second-wind', (s) => { s.enemy[0].hp = 40; });
+    assert.equal(session.enemy[0].ko, false, 'the blow did not finish it');
+    assert.equal(session.enemy[0].hp, 1);
+    assert.ok(fired.some((e) => e.effect === 'endure'));
+});
+
+test('a thorns charge reflects a slice of the blow back at the attacker', () => {
+    const { session, fired } = jabRound('consum-thornmail-oil');
+    const reflect = fired.find((e) => e.effect === 'thorns');
+    assert.ok(reflect, 'the reflect scripted a beat');
+    assert.equal(reflect.targetId, 'a', 'the damage lands on the ATTACKER, not the wearer');
+    assert.ok(reflect.damage > 0);
+    assert.ok(session.player[0].hp < session.player[0].maxHp, 'the attacker actually bled');
+});
+
+test('a lifeline charge heals the first drop under the threshold', () => {
+    const { session, fired } = jabRound('consum-lifeline-elixir', (s) => {
+        s.enemy[0].hp = Math.round(s.enemy[0].maxHp * 0.4);   // just above the 35% line
+    });
+    const lifeline = fired.find((e) => e.effect === 'lifeline');
+    assert.ok(lifeline, 'crossing the line pulled the pet back up');
+    assert.ok(lifeline.heal > 0);
+    assert.ok(session.enemy[0].hp / session.enemy[0].maxHp > 0.35, 'and it landed back above the line');
+});
+
+test('a cleanse charge purges the poisons and refuses the control effect that triggered it', () => {
+    const stunner = makePet('stunner', {
+        speed: 200, attack: 200,
+        jutsus: [{ name: 'Skull Ring', power: 120, cooldown: 0, currentCooldown: 0, kind: 'stun' }],
+    });
+    const session = makeSession(
+        [stunner],
+        [makePet('victim', { speed: 10, hp: 6000, loadout: { consumable: 'consum-cleansing-incense' } })],
+    );
+    session.player[0].readiness = 1;   // control moves HOLD until round 2
+    session.enemy[0].statuses.push({ kind: 'burn', rounds: 3, magnitude: 30, bornRound: 0 });
+    const events = resolveShowdownRound(session, [
+        { kind: 'move', petId: 'stunner', moveIndex: 1, targetId: 'victim' },
+    ], [{ kind: 'rest', petId: 'victim' }]);
+    assert.ok(consumableEvents(events).some((e) => e.effect === 'cleanse'));
+    const kinds = session.enemy[0].statuses.map((s) => s.kind);
+    assert.ok(!kinds.includes('stun'), 'the incoming stun never landed');
+    assert.ok(!kinds.includes('burn'), 'and the burn already on the pet was purged');
+});
+
+test('every charge is single-use — the second blow gets nothing', () => {
+    const session = makeSession(
+        [makePet('a', { speed: 200, element: 'None', attack: 300 })],
+        [makePet('b', {
+            speed: 10, element: 'None', hp: 8000, attack: 1,
+            loadout: { consumable: 'consum-phantom-charm' },
+        })],
+        606,
+    );
+    const swing = () => resolveShowdownRound(session, [
+        { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
+    ], [{ kind: 'rest', petId: 'b' }]);
+    const first = swing();
+    assert.equal(consumableEvents(first).length, 1, 'the charge answered the first blow');
+    const second = swing();
+    assert.equal(consumableEvents(second).length, 0, 'and had nothing left for the second');
+    const landed = second.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+    assert.ok((landed?.targets[0]?.damage ?? 0) > 0, 'so the second blow lands in full');
+    assert.equal(session.enemy[0].consumable?.dodge, 0, 'the charge is spent down, not re-read from the loadout');
+});
+
+test('practice fires the charge but never burns the item; an eligible fight burns it', () => {
+    const carrier = () => makePet('a', {
+        speed: 200, attack: 300, loadout: { consumable: 'consum-second-wind' },
+    });
+    const practice = makeSession([carrier()], [makePet('b', { speed: 10 })], 7, '1v1', false);
+    assert.deepEqual(showdownConsumableSpends(practice), [],
+        'a mode that pays nothing must not eat a 1,600 ryo item');
+    assert.equal(practice.player[0].consumable?.endure, 1, 'the charge is still loaded and will fire');
+
+    const eligible = makeSession([carrier()], [makePet('b', { speed: 10 })], 7, '1v1', true);
+    assert.deepEqual(showdownConsumableSpends(eligible), [{ petId: 'a', consumableId: 'consum-second-wind' }],
+        'a fight that pays commits the item for the endpoint to strike from the save');
+    assert.equal(eligible.player[0].consumable?.endure, 1, 'and the charge fires there too');
+
+    // The wire says which of the two it was, so the client can credit or spare.
+    const spentFlag = (session: ShowdownSession) => {
+        session.player[0].hp = 40;
+        const events = resolveShowdownRound(session, [
+            { kind: 'rest', petId: 'a' },
+        ], [{ kind: 'move', petId: 'b', moveIndex: 1, targetId: 'a' }]);
+        return consumableEvents(events).find((e) => e.effect === 'endure')?.spent;
+    };
+    assert.equal(spentFlag(makeSession([carrier()], [makePet('b', { speed: 10, attack: 400 })], 11, '1v1', false)), false);
+    assert.equal(spentFlag(makeSession([carrier()], [makePet('b', { speed: 10, attack: 400 })], 11, '1v1', true)), true);
+});
+
+test('the AI build ladder is legible: scrapper bare, warrior a trait, champion trait AND gear', () => {
+    const players = [makePet('mine', { level: 50 }), makePet('mine2', { level: 50 })];
+    const scrapper = buildShowdownAiTeam(players, 2, 'scrapper', 8080);
+    const warrior = buildShowdownAiTeam(players, 2, 'warrior', 8080);
+    const champion = buildShowdownAiTeam(players, 2, 'champion', 8080);
+
+    // A catalog template may ship its own trait, so "bare" has to mean the
+    // build STRIPS it — not merely that nothing was added.
+    for (const pet of scrapper.pets) {
+        assert.equal(pet.trait, undefined, 'a scrapper teaches the base game and nothing else');
+        assert.equal(pet.loadout?.pvp, undefined);
+    }
+    for (const pet of warrior.pets) {
+        assert.ok(pet.trait, 'a warrior carries a trait');
+        assert.equal(pet.loadout?.pvp, undefined, 'but no gear yet');
+    }
+    for (const pet of champion.pets) {
+        assert.ok(pet.trait, 'a champion carries a trait');
+        assert.ok(pet.loadout?.pvp, 'and PvP gear on top');
+    }
+
+    // Both layers must survive sealing, or the ladder is decorative.
+    const sealed = sealShowdownPet(champion.pets[0]);
+    assert.ok(sealed.trait, 'the engine recognized the trait it was handed');
+    assert.ok(sealed.gear?.name, 'and the gear resolved to a real proc set');
+
+    // Seeded, never Math.random: the same seed rebuilds the same opponent.
+    assert.deepEqual(buildShowdownAiTeam(players, 2, 'champion', 8080), champion);
 });
 
 test('an overdraft onto a SHIELD reports what was dealt, not what was rolled', () => {
