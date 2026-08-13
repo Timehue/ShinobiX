@@ -14,6 +14,7 @@ import {
     resolveShowdownRound,
     sealShowdownPet,
     showdownStateView,
+    addStatus,
     moveStaminaCost,
     moveEffectText,
     storedStatusKind,
@@ -25,6 +26,7 @@ import { PET_CATALOG } from '../pet/_catalog.js';
 import { buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
 import {
     SHOWDOWN_ATTRITION_START,
+    SHOWDOWN_TURN_CAP,
     SHOWDOWN_ELEMENT_ADVANTAGE,
     SHOWDOWN_ELEMENT_DISADVANTAGE,
     SHOWDOWN_METER_MAX,
@@ -432,13 +434,19 @@ test('a signature in 2v2 splashes the second foe at a reduced rate', () => {
     assert.ok(splash.damage < primary.damage, 'splash is reduced-rate');
 });
 
-test('ally element synergy amplifies the hit and flags the event', () => {
+test('synergy is a TECHNIQUE property: the sealed partner element empowers it', () => {
+    // A Fire technique's synergy partner is Wind (the element it beats — wind
+    // fans the fire), sealed onto the move itself. Partner-driven, not
+    // target-driven: the ally the player FIELDS is what turns it on.
     const damageWithAlly = (allyElement: string) => {
         const session = makeSession(
-            [makePet('a', { speed: 300, element: 'None' }), makePet('ally', { speed: 5, attack: 1, element: allyElement as Pet['element'] })],
-            [makePet('b', { speed: 4, hp: 6000, element: 'Wind' }), makePet('b2', { speed: 3, hp: 6000, element: 'Wind' })],
+            [makePet('a', { speed: 300, element: 'Fire' }), makePet('ally', { speed: 5, attack: 1, element: allyElement as Pet['element'] })],
+            [makePet('b', { speed: 4, hp: 6000, element: 'None' }), makePet('b2', { speed: 3, hp: 6000, element: 'None' })],
             424242, '2v2',
         );
+        const move = session.player[0].moves[1];
+        assert.equal(move.element, 'Fire', 'kit moves carry the pet element');
+        assert.equal(move.synergyElement, 'Wind', 'Fire techniques partner with Wind');
         const events = resolveShowdownRound(session, [
             { kind: 'move', petId: 'a', moveIndex: 1, targetId: 'b' },
             { kind: 'rest', petId: 'ally' },
@@ -446,12 +454,97 @@ test('ally element synergy amplifies the hit and flags the event', () => {
         const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
         return action!.targets[0];
     };
-    // Fire beats Wind → the Fire ally powers up the hit; a Water ally does not.
-    const withSynergy = damageWithAlly('Fire');
+    const withSynergy = damageWithAlly('Wind');
     const without = damageWithAlly('Water');
     assert.equal(withSynergy.synergy, true);
     assert.equal(without.synergy, undefined);
     assert.ok(withSynergy.damage > without.damage);
+});
+
+test('STAB and the neutral basic: kit moves hit harder, the jab dodges the wheel', () => {
+    // Same attacker, same target: the Fire KIT move earns STAB; Swift Strike
+    // (sealed None/physical) takes neither STAB nor the wheel — into a
+    // Fire-resistant Water target it is the better tool, which is its job.
+    const session = makeSession(
+        [makePet('a', { speed: 300, element: 'Fire' })],
+        [makePet('b', { speed: 4, hp: 9000, element: 'Water' })],
+        777,
+    );
+    const basic = session.player[0].moves[0];
+    assert.equal(basic.element, 'None', 'the universal basic is neutral');
+    const kitFire = session.player[0].moves[1];
+    assert.equal(kitFire.element, 'Fire');
+    const hitWith = (moveIndex: number) => {
+        const s = makeSession(
+            [makePet('a', { speed: 300, element: 'Fire' })],
+            [makePet('b', { speed: 4, hp: 9000, element: 'Water' })],
+            777,
+        );
+        const events = resolveShowdownRound(s, [
+            { kind: 'move', petId: 'a', moveIndex, targetId: 'b' },
+        ], [{ kind: 'rest', petId: 'b' }]);
+        const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
+        return action!.targets[0];
+    };
+    const jab = hitWith(0);
+    assert.equal(jab.effectiveness, 'neutral', 'neutral jab never reads the wheel');
+    const fireIntoWater = hitWith(1);
+    assert.equal(fireIntoWater.effectiveness, 'weak', 'Fire kit move is resisted by Water');
+});
+
+test('the physical/special split rides the role-derived axis', () => {
+    // A sage's special axis outguns its physical one; the sealed pair proves
+    // the derivation and a crush (physical) vs blast (special) both resolve.
+    const sage = sealShowdownPet(makePet('s', { role: 'sage' }));
+    assert.ok(sage.spAttack > sage.attack, 'sage casts harder than it swings');
+    const assassin = sealShowdownPet(makePet('k', { role: 'assassin' }));
+    assert.ok(assassin.spAttack < assassin.attack, 'assassin blades beat its bolts');
+    const basic = sage.moves[0];
+    assert.equal(basic.cls, 'physical');
+    const blast = sage.moves.find((m) => m.kind === 'damage' && m !== basic);
+    assert.equal(blast?.cls, 'special');
+});
+
+test('the two-condition rule: a third status evicts the oldest, pools exempt', () => {
+    const session = makeSession([makePet('a')], [makePet('b', { hp: 9000 })], 12);
+    const victim = session.enemy[0];
+    // Shield first — board state, never counted, never evicted.
+    victim.statuses.push({ kind: 'shield', rounds: 9, magnitude: 50, bornRound: 0 });
+    session.round = 1; addStatus(session, victim, 'slow', 3, 10);
+    session.round = 2; addStatus(session, victim, 'debuff', 3, 10);
+    session.round = 3; addStatus(session, victim, 'wound', 3, 10);
+    const kinds = victim.statuses.map((s) => s.kind).sort();
+    assert.deepEqual(kinds, ['debuff', 'shield', 'wound'].sort(), 'oldest condition (slow) evicted, shield untouched');
+});
+
+test('status interactions: fire thaws, frost smothers', () => {
+    const session = makeSession([makePet('a')], [makePet('b', { hp: 9000 })], 13);
+    const victim = session.enemy[0];
+    addStatus(session, victim, 'freeze', 2, 10);
+    addStatus(session, victim, 'burn', 2, 10);
+    assert.deepEqual(victim.statuses.map((s) => s.kind), ['burn'], 'burn removed the freeze');
+    addStatus(session, victim, 'freeze', 2, 10);
+    assert.deepEqual(victim.statuses.map((s) => s.kind), ['freeze'], 'freeze smothered the burn');
+});
+
+test('the turn-cap judge decides a standing fight on the Temtem ladder', () => {
+    const session = makeSession(
+        [makePet('a', { hp: 4000 }), makePet('a2', { hp: 4000 })],
+        [makePet('b', { hp: 4000 }), makePet('b2', { hp: 4000 })],
+        99, '2v2',
+    );
+    // Fast-forward to the cap with a KO'd enemy: player leads on the first rung.
+    session.round = SHOWDOWN_TURN_CAP - 1;
+    session.enemy[1].ko = true;
+    session.enemy[1].hp = 0;
+    const events = resolveShowdownRound(session, [
+        { kind: 'guard', petId: 'a' }, { kind: 'guard', petId: 'a2' },
+    ], [{ kind: 'guard', petId: 'b' }]);
+    assert.equal(session.finished, true, 'the cap ends a standing fight');
+    assert.equal(session.outcome, 'win');
+    const end = events.find((e): e is Extract<ShowdownEvent, { t: 'end' }> => e.t === 'end');
+    assert.equal(end?.byJudge, true);
+    assert.equal(end?.judgeReason, 'pets');
 });
 
 test('the state view projects next-round order by effective speed', () => {

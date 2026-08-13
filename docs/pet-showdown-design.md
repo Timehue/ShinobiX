@@ -1224,6 +1224,47 @@ PvP lands, its start path seals `pvp: true` and the turn handler must also
 resolve a lapsed round with defaults for the absent side (one deadline check;
 noted at `armTurnDeadline`).
 
+## Round 27 — full Temtem parity: the split, STAB, real Synergy, two conditions, and the judge returns (2026-08-12)
+
+Owner ruling: "we are doing them all." Every mechanic derives at SEAL time from
+existing data — zero catalog or storage changes, so nothing outside Showdown
+moves.
+
+- **Physical/Special split.** Move CLASS derives from kind (contact kinds
+  physical, elemental casts special, no-hit kinds status); pets derive a
+  special ATK/DEF pair from their ROLE (`ROLE_SPECIAL_LEAN`: sages cast harder
+  than they swing, assassins the reverse). The physical pair is byte-identical
+  to the old stats, so all prior tuning still describes the physical game.
+- **Per-move elements + STAB (1.15).** Kit/signature techniques carry the
+  pet's element and earn the same-type bonus; **Swift Strike seals Neutral** —
+  no STAB, wheel-neutral both ways, making the basic the safe jab into a
+  resisted matchup (the wheel and the effectiveness label now key off the
+  MOVE, not the pet). STAB at Temtem's 1.5 over our 1.5/0.75 wheel would decide
+  fights on typing alone; 1.15 measured well.
+- **Synergy is a technique property.** Each elemental technique seals a
+  partner element (the one it beats — wind fans the fire); a FIELDED ally of
+  that element empowers the cast. Partner-driven, so the lobby can build for
+  it; replaces the old target-relative rule. Surfaced on the pill tint, the
+  inspector ("Synergy: a fielded Wind ally empowers it") and the SYNERGY banner.
+- **Two conditions + interactions.** A third condition evicts the oldest;
+  burn↔freeze cancel, haste shakes off slow/movelock. Shields/barriers/taunt
+  bookkeeping sit outside the cap (Temtem keeps barriers outside statuses too).
+- **The judge returns at round 25** (`SHOWDOWN_TURN_CAP`), overriding round
+  18's no-limit ruling by explicit owner decision. Temtem's ladder verbatim:
+  pets left → total HP% → total stamina% → speed arrow (the session's seeded
+  coin, so replays judge identically). Attrition still bleeds from round 14, so
+  rounds 14-25 are a closing fight, not a stall into the ledger. The round
+  readout shows /25 again and a judged end banners its rung.
+
+**Re-fit after the mechanics landed** (they moved the meta, as expected):
+elements re-fit to **48.6–51.2%** (tightest ever: Fire 1.11/Water 1.11/Wind
+1.11/Earth 0.84/Lightning 0.97), assassin special lean softened 0.88→0.94
+(special-heavy assassin kits — Eclipse Kitsune 11% — were double-punished),
+and the three mythic-assassin override openers reclassed `damage`→`crush`
+(Stormfang Dive / Raijin Claw / Abyssal Rend are contact moves; flavor and
+class now agree). Roles 47.9–52.8, pace 7.5, species hard band 15-85 holds
+with 6 comfort outliers against a budget of 14.
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).

@@ -296,7 +296,16 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 <ul>
                     <li><b>Elements</b> — Fire &gt; Wind &gt; Lightning &gt; Earth &gt; Water &gt; Fire.
                         Attacking the element you beat deals <b>×1.5</b>; attacking the one that
-                        beats you deals <b>×0.75</b>.</li>
+                        beats you deals <b>×0.75</b>. Your own-element techniques carry a
+                        <b> same-type bonus</b>; the neutral Swift Strike skips the wheel both
+                        ways — the safe jab into a bad matchup.</li>
+                    <li><b>Physical &amp; Special</b> — contact techniques roll Attack against
+                        Defense; elemental casts roll the pet's Special side, which follows its
+                        role. <b>Synergy</b>: elemental techniques name a partner element, and a
+                        fielded ally of it empowers the cast.</li>
+                    <li><b>Conditions</b> — a pet holds two at a time; a third pushes the oldest
+                        off. Fire thaws freeze, frost smothers burn. Shields sit outside the
+                        limit.</li>
                     <li><b>Stamina</b> — a technique's cost tracks its power, and stamina comes
                         back slowly. Every kit is a ladder: a <b>jab</b> you can throw all day,
                         <b> techniques</b> in the middle, and one <b>haymaker</b> worth about half
@@ -311,10 +320,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         resolves early; haymakers and signatures swing last.</li>
                     <li><b>Signature</b> — the meter fills as you deal and take damage, and it
                         empties in one cast.</li>
-                    <li><b>No round limit</b> — a fight ends when a team falls, never on a
-                        timer. If it runs long, <b>attrition</b> sets in: every pet starts
-                        bleeding a little more each round and healing fades, so the fight
-                        closes itself without ever deciding the winner for you.</li>
+                    <li><b>25 rounds, then the judges</b> — most fights end well before. From
+                        round 14 <b>attrition</b> bleeds both sides and healing fades; a fight
+                        still standing after round 25 goes to the ladder: pets left, total
+                        health, total stamina, then the speed arrow.</li>
                 </ul>
             </details>
 

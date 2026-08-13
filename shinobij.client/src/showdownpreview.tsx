@@ -42,6 +42,8 @@ import {
     SHOWDOWN_METER_ON_HIT_TAKEN,
     SHOWDOWN_SUPER_POWER_MULT,
     SHOWDOWN_FORMAT_SIZE,
+    SHOWDOWN_ELEMENT_BEATS,
+    SHOWDOWN_TURN_CAP,
     showdownAttritionPct,
 } from "../../shared/pet-showdown-contract";
 import type {
@@ -97,7 +99,9 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
         : kind === "burn" ? "Burns for 2 more rounds · 82% hit"
         : `${kind} · reduced hit`;
     const moves: ShowdownPetView["moves"] = [
-        { name: "Swift Strike", power: 34, kind: "damage", cost: SHOWDOWN_COST_BASIC, signature: false, priority: SHOWDOWN_PRIORITY_LIGHT, hold: 0, effect: "Straight damage" },
+        // Sealed neutral/physical exactly like the engine's basicStrike — no
+        // STAB, wheel-neutral both ways.
+        { name: "Swift Strike", power: 34, kind: "damage", cost: SHOWDOWN_COST_BASIC, signature: false, priority: SHOWDOWN_PRIORITY_LIGHT, hold: 0, effect: "Straight damage", element: "None", cls: "physical" as const },
         // Mirror the engine's kit rule (engine.ts sealShowdownPet): mobility
         // jutsus are stripped BEFORE the slice — there is no board to dash
         // across in this mode, so a `kind: "move"` entry must never reach the
@@ -112,6 +116,12 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
             priority: j.power <= 80 ? SHOWDOWN_PRIORITY_LIGHT : SHOWDOWN_PRIORITY_NORMAL,
             hold: 0,
             effect: effectFor(j.kind),
+            // Mirror the seal: kit techniques carry the pet's element; the
+            // class comes from the kind (contact physical, casts special).
+            element: pet.element ?? "None",
+            cls: (["crush", "wound", "push", "pull", "lifesteal"].includes(j.kind) ? "physical"
+                : ["damage", "burn", "dot", "freeze"].includes(j.kind) ? "special" : "status") as ShowdownPetView["moves"][number]["cls"],
+            ...(pet.element && SHOWDOWN_ELEMENT_BEATS[pet.element] ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[pet.element] } : {}),
         })),
     ];
     // Mirror promoteHeavy: the kit's biggest damage move becomes the haymaker.
@@ -134,6 +144,8 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
         name: `${pet.element ?? "Spirit"} Overdrive`,
         power: 96, kind: "damage", cost: 0, signature: true,
         priority: SHOWDOWN_PRIORITY_SUPER, hold: SHOWDOWN_HOLD_SUPER, effect: "Spends the full meter",
+        element: pet.element ?? "None", cls: "special" as const,
+        ...(pet.element && SHOWDOWN_ELEMENT_BEATS[pet.element] ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[pet.element] } : {}),
     });
     return moves;
 }
@@ -198,6 +210,7 @@ function stateView(finished = false, outcome: "win" | "loss" | null = null): Sho
         sessionId: "devharness",
         format: FORMAT,
         tier: "warrior",
+        turnCap: SHOWDOWN_TURN_CAP,
         round: world.round,
         attritionAt: SHOWDOWN_ATTRITION_START,
         finished,
