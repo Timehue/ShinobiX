@@ -1306,6 +1306,49 @@ Verified live on the bench (in-page timed canvas captures through both
 signatures): magma floor + converging flame sheets + painted crowd for Fire;
 flooded arena + curling crest + pinned contact flash for Water.
 
+## Round 35 — the volumetric round (2026-08-13)
+
+Owner: "we need the vfx to be more 3d and impactful — they look okay from one
+angle and awful from another. AAA quality, use whatever you need."
+
+**`PetShowdownVfx3d.tsx`** — every element's set-piece is now real 3D
+structure that parallaxes from any camera, with the painted art demoted to
+accent layers (mother-wave backdrop, spray, dust, spark pops):
+
+- **Water**: a curved wave SHELL (open cylinder arc, procedural water canvas
+  texture with scrolling climb + foam crest) sweeps the lane and curls over
+  the victim; a second shell crossed at a slight yaw keeps it a volume when
+  the camera looks down the lane. Spray points at the break.
+- **Fire**: a crown of 6/9 flame cards ringing the victim, each mapped to a
+  different u-slice of the painted firewall so it never reads as clones;
+  rising ember points.
+- **Wind**: two counter-rotating open CONES with slanted procedural wind
+  bands — real rotation about the column axis, debris orbiting.
+- **Earth**: real rock meshes — cones with seeded radial vertex displacement
+  (perfect cones read as paper pyramids in close-ups), dark granite
+  MeshStandardMaterial shaded by the arena lights, staggered eruption,
+  sink-back at the tail, dust burst.
+- **Lightning**: procedurally jagged 3D bolts (CatmullRom TubeGeometry core +
+  glow + fork) that STROBE — two strikes on heavies, three walking down the
+  lane on supers; spark burst.
+
+Every staged cast also fires a transient element-colored POINT LIGHT (the
+pets and floor visibly catch the glow — the single strongest "it's in the
+scene" cue) and an expanding additive ground shock ring at the strike.
+
+All shapes/particles seed from `spawn.key` (mulberry32) so replays render
+identically. React-compiler discipline: geometry/textures are never mutated
+through render-scope bindings — every per-frame write goes through refs
+(`points.current.geometry`, `mat.current.map`).
+
+Harness gained `?elements=A,B,C,D,E` (remaps lineup elements in order:
+player0, player1, bench, enemy0, enemy1) so every element's volume and
+Overdrive is reachable from one session. Verified on the bench across
+multiple camera angles: wind cyclone floor + vortex-wrapped victim, earth
+spire cage from side AND wide cameras, water shell + mother wave + flooded
+floor, fire crown + magma floor; the bolt verified via its strike residue
+(spark hits on the victim) — its windows are sub-second even under ?slowfx.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified

@@ -22,6 +22,7 @@ import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual } from "../lib/pet-projectile-vfx";
+import { VolumetricSetPiece } from "./PetShowdownVfx3d";
 import type { ShowdownEvent } from "../lib/pet-showdown-api";
 
 /** The slice of the battle's beat/slot state this layer needs. */
@@ -105,7 +106,7 @@ const EPIC_SPRITES: Record<string, string> = {
 };
 
 const epicTexCache = new Map<string, THREE.Texture>();
-function epicTexture(slug: string): THREE.Texture | null {
+export function epicTexture(slug: string): THREE.Texture | null {
     const url = EPIC_SPRITES[slug];
     if (!url) return null;
     let t = epicTexCache.get(slug);
@@ -272,34 +273,23 @@ const FLOOR_TAKEOVERS: Record<string, FloorTakeover> = {
 };
 
 const SET_PIECES: Record<string, SetPieceLayer[]> = {
-    // Tsunami: the painted wave wall sweeps the lane and breaks on the victim,
-    // a mirrored second crest chasing it.
+    // ACCENT layers only — the volumetric structures (PetShowdownVfx3d) carry
+    // the read from every angle; the painted art stays where a flat plane
+    // still earns its place: the distant mother-wave behind the 3D shell, the
+    // grounded dust and spray, the spark pops between real bolt strikes.
     Water: [
-        { sprite: "tsunami", scale: 8.6, aspect: 0.667, delay: 0, y0: 0.55, y1: 1.05, travel: 1, spin: 0, grow: 1.22, sway: 0.03 },
-        { sprite: "tsunami", scale: 6.2, aspect: 0.667, delay: 0.24, y0: 0.4, y1: 0.8, travel: 1, spin: 0, grow: 1.18, flip: true, tint: "#bfe6ff" },
+        { sprite: "tsunami", scale: 7.6, aspect: 0.667, delay: 0.08, y0: 0.5, y1: 0.95, travel: 1, spin: 0, grow: 1.2, sway: 0.03, tint: "#dcf2ff" },
     ],
-    // Firewall: a wall of flame roars up out of the ground across the victim's
-    // line, a mirrored second sheet burning behind it.
     Fire: [
-        { sprite: "firewall", scale: 7.8, aspect: 0.667, delay: 0, y0: -0.4, y1: 1.15, travel: 0, spin: 0, grow: 1.38, sway: 0.035, puls: 0.05 },
-        { sprite: "firewall", scale: 5.4, aspect: 0.667, delay: 0.2, y0: -0.2, y1: 0.9, travel: 0, spin: 0, grow: 1.3, flip: true, lane: 0.88, tint: "#ffd9a0" },
+        { frames: "lava", scale: 3.2, aspect: 0.6, delay: 0.3, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.35 },
     ],
-    // Tornado: the full-height painted column climbs off the victim, a
-    // counter-swaying mirror behind it fakes the churn; flipbook debris skirt.
     Wind: [
-        { sprite: "tornado", scale: 3.7, aspect: 1.5, delay: 0, y0: 0.9, y1: 2.4, travel: 0, spin: 0, grow: 1.3, sway: 0.06, puls: 0.04 },
-        { sprite: "tornado", scale: 2.6, aspect: 1.5, delay: 0.2, y0: 0.7, y1: 1.9, travel: 0, spin: 0, grow: 1.25, flip: true, sway: -0.06, tint: "#d6fff0" },
         { frames: "vortex", scale: 2.6, aspect: 0.9, delay: 0.1, y0: 0.25, y1: 0.45, travel: 0, spin: 2.4, grow: 1.3, tint: "#c8ffe9" },
     ],
-    // Eruption: the painted spire cluster tears up from under the victim.
     Earth: [
-        { sprite: "quake", scale: 7.4, aspect: 0.667, delay: 0, y0: -1.9, y1: 0.35, travel: 0, spin: 0, grow: 1.12 },
         { frames: "impact", scale: 2.8, aspect: 0.6, delay: 0.3, y0: 0.25, y1: 0.55, travel: 0, spin: 0, grow: 1.3, tint: "#d8a86a" },
     ],
-    // Stormfall: two painted bolts STROBE in — strike, gone, strike.
     Lightning: [
-        { sprite: "stormbolt", scale: 3.4, aspect: 1.5, delay: 0.06, dur: 0.34, y0: 2.6, y1: 2.55, travel: 0, spin: 0, grow: 1.0, puls: 0.1, add: true },
-        { sprite: "stormbolt", scale: 2.6, aspect: 1.5, delay: 0.5, dur: 0.3, y0: 2.2, y1: 2.15, travel: 0, spin: 0, grow: 1.0, flip: true, offsetX: 0.9, puls: 0.1, add: true, tint: "#fff2b0" },
         { frames: "spark", scale: 2.6, aspect: 0.8, delay: 0.16, dur: 0.3, y0: 0.7, y1: 0.9, travel: 0, spin: 0, grow: 1.35, tint: "#fff6c0" },
     ],
 };
@@ -311,34 +301,27 @@ const SET_PIECES: Record<string, SetPieceLayer[]> = {
  *  three strikes down the lane onto the victim. The one moment per fight that
  *  is allowed to shout. */
 const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
+    // Signature ACCENTS over the volumetric choreography: the mother wave
+    // towering behind the 3D shell, the overhead fire bloom, the debris skirt,
+    // the grounded dust, the final spark pop. The structures themselves live
+    // in PetShowdownVfx3d.
     Fire: [
-        { sprite: "firewall", scale: 10.5, aspect: 0.667, delay: 0, y0: -0.5, y1: 1.3, travel: 0, spin: 0, grow: 1.45, sway: 0.04, puls: 0.06 },
-        { sprite: "firewall", scale: 7.0, aspect: 0.667, delay: 0.18, y0: -0.3, y1: 1.0, travel: 0, spin: 0, grow: 1.35, flip: true, lane: 0.85, tint: "#ffd9a0" },
-        { sprite: "firewall", scale: 5.0, aspect: 0.667, delay: 0.36, y0: -0.2, y1: 0.8, travel: 0, spin: 0, grow: 1.3, lane: 0.65, offsetX: -1.3, tint: "#ffb27a" },
         { frames: "fire", scale: 3.4, aspect: 1.4, delay: 0.45, y0: 1.0, y1: 2.2, travel: 0, spin: 0, grow: 1.5 },
+        { frames: "lava", scale: 4.0, aspect: 0.6, delay: 0.3, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.45 },
     ],
     Water: [
-        { sprite: "tsunami", scale: 11.5, aspect: 0.667, delay: 0, y0: 0.6, y1: 1.25, travel: 1, spin: 0, grow: 1.28, sway: 0.03 },
-        { sprite: "tsunami", scale: 8.4, aspect: 0.667, delay: 0.2, y0: 0.45, y1: 0.95, travel: 1, spin: 0, grow: 1.22, flip: true, tint: "#bfe6ff" },
-        { sprite: "tsunami", scale: 6.0, aspect: 0.667, delay: 0.42, y0: 0.35, y1: 1.6, travel: 0, spin: 0, grow: 1.4 },
+        { sprite: "tsunami", scale: 10.5, aspect: 0.667, delay: 0, y0: 0.6, y1: 1.2, travel: 1, spin: 0, grow: 1.26, sway: 0.03, tint: "#e6f6ff" },
+        { sprite: "tsunami", scale: 7.2, aspect: 0.667, delay: 0.22, y0: 0.45, y1: 0.9, travel: 1, spin: 0, grow: 1.2, flip: true, tint: "#bfe6ff" },
         { frames: "water", scale: 4.2, aspect: 0.5, delay: 0.52, y0: 0.3, y1: 0.7, travel: 0, spin: 0, grow: 1.5, tint: "#e8f8ff" },
     ],
     Wind: [
-        { sprite: "tornado", scale: 4.8, aspect: 1.5, delay: 0, y0: 1.0, y1: 2.8, travel: 0, spin: 0, grow: 1.4, sway: 0.07, puls: 0.05 },
-        { sprite: "tornado", scale: 3.2, aspect: 1.5, delay: 0.16, y0: 0.8, y1: 2.2, travel: 0, spin: 0, grow: 1.3, flip: true, sway: -0.08, tint: "#d6fff0" },
         { frames: "vortex", scale: 3.2, aspect: 0.9, delay: 0.08, y0: 0.3, y1: 0.5, travel: 0, spin: 3.2, grow: 1.5, tint: "#c8ffe9" },
         { frames: "wind", scale: 4.6, aspect: 0.8, delay: 0.4, y0: 0.5, y1: 1.1, travel: 0, spin: 0, grow: 1.35 },
     ],
     Earth: [
-        { sprite: "quake", scale: 5.6, aspect: 0.667, delay: 0, y0: -2.2, y1: 0.1, travel: 0, spin: 0, grow: 1.1, lane: 0.5 },
-        { sprite: "quake", scale: 7.0, aspect: 0.667, delay: 0.18, y0: -2.2, y1: 0.2, travel: 0, spin: 0, grow: 1.12, flip: true, lane: 0.8 },
-        { sprite: "quake", scale: 8.8, aspect: 0.667, delay: 0.38, y0: -2.4, y1: 0.45, travel: 0, spin: 0, grow: 1.18 },
         { frames: "impact", scale: 3.2, aspect: 0.6, delay: 0.55, y0: 0.3, y1: 0.6, travel: 0, spin: 0, grow: 1.35, tint: "#d8a86a" },
     ],
     Lightning: [
-        { sprite: "stormbolt", scale: 3.0, aspect: 1.5, delay: 0.02, dur: 0.26, y0: 2.4, y1: 2.35, travel: 0, spin: 0, grow: 1.0, lane: 0.45, offsetX: -0.8, puls: 0.12, add: true },
-        { sprite: "stormbolt", scale: 3.4, aspect: 1.5, delay: 0.24, dur: 0.26, y0: 2.5, y1: 2.45, travel: 0, spin: 0, grow: 1.0, flip: true, lane: 0.78, offsetX: 0.8, puls: 0.12, add: true },
-        { sprite: "stormbolt", scale: 4.6, aspect: 1.5, delay: 0.46, dur: 0.34, y0: 2.9, y1: 2.85, travel: 0, spin: 0, grow: 1.05, puls: 0.14, add: true, tint: "#fff2b0" },
         { frames: "spark", scale: 3.4, aspect: 0.8, delay: 0.52, dur: 0.35, y0: 0.8, y1: 1.1, travel: 0, spin: 0, grow: 1.45, tint: "#fff6c0" },
     ],
 };
@@ -462,6 +445,10 @@ function SetPieceOnce({ spawn }: { spawn: SetPieceSpawn }) {
     return (
         <group>
             {floor && <FloorTakeoverMesh spawn={spawn} floor={floor} presence={spawn.superCast ? 1 : 0.55} />}
+            {/* The 3D structure (wave shell / flame crown / vortex cones /
+                real rocks / procedural bolt + particles + light + shock ring)
+                — reads from every camera; the flat layers are accents now. */}
+            <VolumetricSetPiece spawn={spawn} />
             {layers.map((layer, i) => (
                 <SetPieceLayerMesh key={i} spawn={spawn} layer={layer} />
             ))}
