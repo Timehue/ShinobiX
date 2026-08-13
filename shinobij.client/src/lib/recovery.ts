@@ -18,6 +18,10 @@ const LOCAL_RECOVERY_KEYS = [
     "pvpSession.v1",
     "pendingPetPvp.v1",
     "shinobix:towerRunId",
+    // Pet Showdown's refresh-resume breadcrumb (screens/PetShowdown.tsx). It is
+    // TTL- and name-bounded on read, but a recovery reset should still not
+    // leave a pointer at a fight on someone else's account.
+    "showdown.session.v1",
     BATTLE_LOCK_ID_KEY,
     BATTLE_LOCK_RESOLVED_KEY,
     ...ACTIVE_KEYS,

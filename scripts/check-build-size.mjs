@@ -262,7 +262,18 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // whole remaining headroom for a surface 24px tall. The exact CI-equivalent
 // product graph is 7,358,463 B, leaving ~19 KB of measured variance, consistent
 // with prior entries. Startup gates unchanged (1.31 MB raw / 351 KB gzip).
-const TOTAL_JS_CSS_FAIL_BYTES = 7_378_000;
+// 2026-08-11: 7.378 -> 7.40 MB. Pet Showdown round 24 — the audit round: the
+// takeover became a real modal (focus trap, one-layer Escape, live-region
+// narration, panel precedence), a failed submit holds the round behind a retry
+// panel instead of discarding the draft, the missing 979px and max-height
+// viewport tiers landed (the deck was below the fold on every landscape
+// phone), battle consumables fire with their own event beat and plate chip,
+// and AI teams carry tier outfits. All of it lives on the lazy Showdown chunk;
+// the entry chunk (583,449 B of 640,000) and the initial graph (1.31 MB raw /
+// 351 KB gzip) are unchanged. The exact CI-equivalent product graph is
+// 7,379,497 B, leaving ~20 KB of measured variance, consistent with prior
+// entries. The scheduled drain remains the legacy coliseum-stack deletion.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_400_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

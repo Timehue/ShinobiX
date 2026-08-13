@@ -186,15 +186,24 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
     }
 
     if (focus === 'companions') {
-        const blocked = facts.companions.count === 0;
-        const blocker = blocked ? 'Choose a companion at the Pet Yard first.' : undefined;
+        const noCompanion = facts.companions.count === 0;
+        // Showdown fields the roster that is actually home. A lone companion out
+        // on an expedition leaves nothing to enter with; a second one covers for
+        // it, so the gate is roster size against the one known absence rather
+        // than the expedition flag alone.
+        const onlyOneAway = facts.companions.count === 1 && facts.companions.expeditionActive;
+        const blocked = noCompanion || onlyOneAway;
+        const blocker = noCompanion
+            ? 'Choose a companion at the Pet Yard first.'
+            : onlyOneAway ? `${facts.companions.activeName || 'Your companion'} is away on an expedition.` : undefined;
         const active = facts.companions.activeName || 'Active companion';
         return [
             item('this-week', {
-                id: 'focus-companion-week', title: blocked ? 'Choose your first companion' : facts.companions.expeditionActive ? 'Check your companion expedition' : `Train with ${active}`,
-                why: 'Care, expeditions, and arena practice build a companion identity separate from ordinary shinobi combat.',
-                commitment: '10–20 min', progress: blocked ? 'No companion active' : `${active} • level ${facts.companions.activeLevel} • ${facts.companions.expeditionActive ? 'expedition active' : 'ready for activity'}`,
-                screen: 'pets', cta: 'Visit Pet Yard', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'companions',
+                id: 'focus-companion-week', title: noCompanion ? 'Choose your first companion' : 'Fight a Pet Showdown',
+                why: 'Showdown is the companion battle in full: elements, stamina, and one signature per pet decide a turn-based duel your roster wins on its own merits.',
+                commitment: '10–20 min', progress: noCompanion ? 'No companion active' : `${active} • level ${facts.companions.activeLevel} • ${facts.companions.count} companion${facts.companions.count === 1 ? '' : 's'} on the roster${facts.companions.expeditionActive ? ' • one away on expedition' : ''}`,
+                screen: blocked ? 'pets' : 'petShowdown', cta: blocked ? 'Visit Pet Yard' : 'Enter the Showdown',
+                eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'companions',
             }),
             item('long-term', {
                 id: 'focus-companion-long', title: 'Grow your companion arena record',

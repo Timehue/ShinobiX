@@ -5,15 +5,17 @@
  * species with authored kits) scaled to the challenger's own pets, and the
  * command picker plays the same rules the player does — stamina, holds,
  * element counters, supers. Three tiers ladder the pressure:
- *   scrapper — softer stats, impulsive move choice
- *   warrior  — even stats, sound fundamentals
- *   champion — harder stats, element-optimal focus fire + super discipline
+ *   scrapper — softer stats, impulsive move choice, bare statline
+ *   warrior  — even stats, sound fundamentals, one trait
+ *   champion — harder stats, element-optimal focus fire + super discipline,
+ *              trait AND PvP gear
  *
  * Deterministic: all randomness flows through the session rng (or the local
  * mulberry sampler seeded by the caller for team generation).
  */
 
 import { PET_CATALOG } from '../pet/_catalog.js';
+import { petPvpGear, petTraits } from '../_pet-sim/pet-config.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_ELEMENT_BEATS,
@@ -52,6 +54,32 @@ const TIER_GROWTH_SHARE: Record<ShowdownTier, number> = {
     champion: 0.38,
 };
 
+/*
+ * The BUILD layer, laddered so the tier itself is legible. An opponent used to
+ * be a bare statline whatever the tier, which meant the trait and gear systems
+ * the player is asked to invest in were never once shown back to them in play.
+ *   scrapper — nothing. Clean fundamentals; a new player learns the base game.
+ *   warrior  — a trait.
+ *   champion — a trait AND PvP gear.
+ * The pools below are narrowed to effects that READ on screen (a shield that
+ * raises, a drink of blood, an execute) rather than silent stat nudges,
+ * because the point is teaching by example: a champion's Aegis Pendant is the
+ * clearest advert the item has.
+ */
+const TIER_GIVES_TRAIT: Record<ShowdownTier, boolean> = { scrapper: false, warrior: true, champion: true };
+const TIER_GIVES_GEAR: Record<ShowdownTier, boolean> = { scrapper: false, warrior: false, champion: true };
+
+/** Drawn from the player's own roster (pet-config's `petTraits`), filtered to
+ *  the ones the showdown engine gives a visible combat beat. Loyal (training
+ *  speed) and Lucky (a 3% roll shift) teach nothing at a glance. */
+const AI_TRAIT_POOL = petTraits.filter((t) => t === 'Aggressive' || t === 'Guardian' || t === 'Battleborn' || t === 'Swift');
+
+/** Proc gear only — the pieces whose whole effect is a passive percentage
+ *  would inflate the AI's statline invisibly, which is exactly the kind of
+ *  hidden advantage the tier growth share already owns. */
+const AI_GEAR_POOL = petPvpGear.filter((g) =>
+    g.shieldStartPctOfHp || g.lifestealPctOfDamage || g.executeBelowPct || g.dotOnHitPctOfAtk || g.lastStandBelowPct);
+
 export const SHOWDOWN_TEAM_NAMES: Record<ShowdownTier, string[]> = {
     scrapper: ['Backalley Strays', 'Riverbank Pack', 'Dust Yard Runts'],
     warrior: ['Ironfang Company', 'Stormcaller Kennel', 'Ashen Vanguard'],
@@ -76,6 +104,34 @@ export function buildShowdownAiTeam(
     const growth = 1 + (avgLevel - 1) * 0.04 * TIER_GROWTH_SHARE[tier];
     const picked: Pet[] = [];
     const usedElements = new Set<string>();
+    /*
+     * One catalog template, scaled and kitted for this tier. Trait and gear are
+     * drawn from the SEEDED sampler (never Math.random or a clock — the engine
+     * is a pure function of its seed and a persisted session has to replay).
+     *
+     * The trait is a NAME only: player traits bake their stat bonus in at
+     * acquisition (applyOwnedPetTrait) and the engine reads stored stats as
+     * already-baked, so stamping one here grants the in-combat behavior without
+     * a second helping of stats. The tier growth share stays the only stat
+     * lever. A template that ships its own trait is overwritten either way, so
+     * a scrapper cannot leak one.
+     */
+    const outfit = (tpl: Record<string, unknown>, slot: number): Pet => ({
+        ...(tpl as unknown as Pet),
+        id: `showdown-ai-${slot}-${String(tpl.id)}`,
+        templateId: String(tpl.id),
+        level: avgLevel,
+        hp: Math.round(Number(tpl.hp) * growth),
+        attack: Math.round(Number(tpl.attack) * growth),
+        defense: Math.round(Number(tpl.defense) * growth),
+        speed: Math.round(Number(tpl.speed) * growth),
+        trait: TIER_GIVES_TRAIT[tier] && AI_TRAIT_POOL.length
+            ? AI_TRAIT_POOL[Math.floor(rand() * AI_TRAIT_POOL.length)]
+            : undefined,
+        ...(TIER_GIVES_GEAR[tier] && AI_GEAR_POOL.length
+            ? { loadout: { pvp: AI_GEAR_POOL[Math.floor(rand() * AI_GEAR_POOL.length)].id } }
+            : {}),
+    });
     // Fisher–Yates with the seeded sampler — a rand() sort comparator is not a
     // deterministic shuffle across engines.
     const shuffled = [...pool];
@@ -89,31 +145,13 @@ export function buildShowdownAiTeam(
         // Prefer element diversity so 2v2/3v3 teams pose varied matchups.
         if (usedElements.has(element) && shuffled.length > size * 3 && rand() < 0.8) continue;
         usedElements.add(element);
-        picked.push({
-            ...(tpl as unknown as Pet),
-            id: `showdown-ai-${picked.length}-${String(tpl.id)}`,
-            templateId: String(tpl.id),
-            level: avgLevel,
-            hp: Math.round(Number(tpl.hp) * growth),
-            attack: Math.round(Number(tpl.attack) * growth),
-            defense: Math.round(Number(tpl.defense) * growth),
-            speed: Math.round(Number(tpl.speed) * growth),
-        });
+        picked.push(outfit(tpl, picked.length));
     }
     // Pool exhausted (over-filtered) — refill without the diversity preference.
     for (const tpl of shuffled) {
         if (picked.length >= size) break;
         if (picked.some((p) => p.id.endsWith(String(tpl.id)))) continue;
-        picked.push({
-            ...(tpl as unknown as Pet),
-            id: `showdown-ai-${picked.length}-${String(tpl.id)}`,
-            templateId: String(tpl.id),
-            level: avgLevel,
-            hp: Math.round(Number(tpl.hp) * growth),
-            attack: Math.round(Number(tpl.attack) * growth),
-            defense: Math.round(Number(tpl.defense) * growth),
-            speed: Math.round(Number(tpl.speed) * growth),
-        });
+        picked.push(outfit(tpl, picked.length));
     }
     const names = SHOWDOWN_TEAM_NAMES[tier];
     return { pets: picked, teamName: names[Math.floor(rand() * names.length)] };

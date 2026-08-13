@@ -10,7 +10,7 @@
  *   - no ELEMENT outside ~40-60% against the field (the wheel should decide
  *     individual matchups, not the aggregate),
  *   - species outliers inside ~25-75% (kits differentiate, never dominate),
- *   - typical match length 6-12 rounds, judge decisions a minority.
+ *   - typical match length 6-12 rounds, unresolved (400-round hard-stop) games a rarity.
  *
  * Read-only: prints the report and exits non-zero if a band is violated, so it
  * can back a ratchet test. Tuning happens in api/_pet-showdown/engine.ts.
@@ -70,7 +70,7 @@ function fight(tplA, tplB, seed) {
         const enemyCommands = commandsFor(session, 'enemy');
         resolveShowdownRound(session, playerCommands, enemyCommands);
     }
-    return { outcome: session.outcome, rounds: session.round, byJudge: session.round >= HARD_STOP };
+    return { outcome: session.outcome, rounds: session.round, hitHardStop: session.round >= HARD_STOP };
 }
 
 const byRarity = new Map();
@@ -86,7 +86,7 @@ const speciesStats = new Map();  // id -> {w, n, name, role, element, rarity}
 const roleStats = new Map();
 const elementStats = new Map();
 const elementEdge = { advWins: 0, advGames: 0 };
-let totalRounds = 0, totalGames = 0, judgeGames = 0;
+let totalRounds = 0, totalGames = 0, unresolvedGames = 0;
 
 const bump = (map, key, won) => {
     const s = map.get(key) ?? { w: 0, n: 0 };
@@ -104,9 +104,9 @@ for (const [rarity, list] of byRarity) {
                 const seed = 1_000_003 * (i * 251 + j) + s * 7919 + rarity.length;
                 // Alternate who sits on which side so side bias cancels out.
                 const [A, B] = s % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
-                const { outcome, rounds, byJudge } = fight(A, B, seed);
+                const { outcome, rounds, hitHardStop } = fight(A, B, seed);
                 const aWon = outcome === 'win';
-                totalRounds += rounds; totalGames += 1; judgeGames += byJudge ? 1 : 0;
+                totalRounds += rounds; totalGames += 1; unresolvedGames += hitHardStop ? 1 : 0;
                 for (const [tpl, won] of [[A, aWon], [B, !aWon]]) {
                     bump(speciesStats, tpl.id, won);
                     const sp = speciesStats.get(tpl.id);
@@ -127,7 +127,7 @@ const fmtMap = (map) => [...map.entries()]
     .join('  ·  ');
 
 console.log(`\n=== Pet Showdown balance @ level ${LEVEL}, ${SEEDS} seeds, ${totalGames} games ===`);
-console.log(`pace: avg ${(totalRounds / Math.max(1, totalGames)).toFixed(1)} rounds; judge decisions ${(100 * judgeGames / Math.max(1, totalGames)).toFixed(1)}%`);
+console.log(`pace: avg ${(totalRounds / Math.max(1, totalGames)).toFixed(1)} rounds; unresolved at hard-stop ${(100 * unresolvedGames / Math.max(1, totalGames)).toFixed(1)}%`);
 console.log(`element-advantage matchup win rate: ${(100 * elementEdge.advWins / Math.max(1, elementEdge.advGames)).toFixed(1)}% of ${elementEdge.advGames}`);
 console.log(`\nROLES     ${fmtMap(roleStats)}`);
 console.log(`ELEMENTS  ${fmtMap(elementStats)}`);
@@ -211,7 +211,7 @@ for (const [el, s] of elementStats) if (pct(s) < 40 || pct(s) > 60) failures.pus
 for (const s of species) if (pct(s) < 25 || pct(s) > 75) failures.push(`species ${s.name} at ${pct(s).toFixed(1)}%`);
 const avgRounds = totalRounds / Math.max(1, totalGames);
 if (avgRounds < 5 || avgRounds > 12.5) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside 5-12.5`);
-if (judgeGames / Math.max(1, totalGames) > 0.35) failures.push(`judge decides ${(100 * judgeGames / totalGames).toFixed(1)}% of games`);
+if (unresolvedGames / Math.max(1, totalGames) > 0.35) failures.push(`hard-stop leaves unresolved ${(100 * unresolvedGames / totalGames).toFixed(1)}% of games`);
 
 if (failures.length) {
     console.log(`\nBANDS VIOLATED (${failures.length}):`);

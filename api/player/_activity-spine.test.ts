@@ -86,6 +86,30 @@ describe('server activity spine', () => {
         }
     });
 
+    it('points the companion focus at Pet Showdown once a companion is home', () => {
+        const roster = { count: 2, activeName: 'Kumo', activeLevel: 18, expeditionActive: false, ladderRating: 1080 };
+        const companions = (over: Partial<typeof roster>) => buildActivitySpine({
+            ...input,
+            focus: 'companions',
+            facts: { ...input.facts, companions: { ...roster, ...over } },
+        }).horizons['this-week'][0];
+
+        const ready = companions({});
+        assert.equal(ready?.screen, 'petShowdown');
+        assert.equal(ready?.eligibility, 'eligible');
+
+        const noRoster = companions({ count: 0, activeName: '', activeLevel: 0 });
+        assert.equal(noRoster?.screen, 'pets');
+        assert.match(noRoster?.blocker ?? '', /Pet Yard/);
+
+        const soleCompanionAway = companions({ count: 1, expeditionActive: true });
+        assert.equal(soleCompanionAway?.eligibility, 'blocked');
+        assert.match(soleCompanionAway?.blocker ?? '', /expedition/);
+
+        // A second companion covers the absence, so the mode stays open.
+        assert.equal(companions({ expeditionActive: true })?.screen, 'petShowdown');
+    });
+
     it('keeps story recommendations spoiler-safe and unknown focus values harmless', () => {
         const story = buildActivitySpine({ ...input, focus: 'village-chronicle' });
         const copy = JSON.stringify([story.horizons['this-week'], story.horizons['long-term']]);

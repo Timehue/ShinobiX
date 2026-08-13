@@ -302,7 +302,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('dailyMissionsCompleted', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day'),
     f('dailyHuntsCompleted', 'character', 'server-clamped', 'dailies', [], 'floored at stored within the same UTC day'),
     f('dailyHollowGateRuns', 'character', 'server-clamped', 'hollow-gate', [], 'floored at stored within the same UTC day'),
-    f('dailyPetWins', 'character', 'client-state', 'dailies', ['combat-strip-char']),
+    f('dailyPetWins', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day; bounds the pet-arena ryo faucet'),
     f('dailyTilesExplored', 'character', 'client-state', 'dailies', ['combat-strip-char']),
     f('dailyFateSpins', 'character', 'client-state', 'dailies', ['combat-strip-char']),
     f('pvpKillMonth', 'character', 'client-state', 'pvp', ['combat-strip-char']),
