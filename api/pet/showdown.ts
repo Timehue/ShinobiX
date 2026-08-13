@@ -12,6 +12,7 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_FORMAT_SIZE,
     SHOWDOWN_MAX_TEAM,
+    SHOWDOWN_PVP_TURN_SECONDS,
     type ShowdownCommand,
     type ShowdownFormat,
     type ShowdownTier,
@@ -80,6 +81,32 @@ function petArenaRyoReward(opponentLevel: number): number {
     // Same formula as /api/pet/battle-result — Showdown replaces that mode's
     // player-facing entry, so it inherits the identical economy faucet.
     return Math.max(20, opponentLevel * 2);
+}
+
+/** PvP command clock. The engine never reads a wall clock, so the deadline is
+ *  ENDPOINT bookkeeping: stamped onto the session at start and re-armed by
+ *  every resolved round, surfaced to the client via `turnDeadline` on the
+ *  state view. Dormant today — every live entry point is an AI practice fight
+ *  (`pvp: false`), so `armTurnDeadline` is a no-op and no view carries a
+ *  deadline. When live PvP lands on this engine its start path seals
+ *  `pvp: true` and this arms itself; the turn handler must then ALSO resolve a
+ *  lapsed round with defaults for the absent side, so a walked-away opponent
+ *  cannot hold the fight hostage (the engine already defaults any missing
+ *  command to guard — the enforcement is one deadline check, not new combat
+ *  rules). */
+function armTurnDeadline(session: ShowdownSession): void {
+    if (!session.pvp || session.finished) return;
+    session.turnDeadlineAt = Date.now() + SHOWDOWN_PVP_TURN_SECONDS * 1000;
+}
+
+/** The public view plus the endpoint-owned deadline (PvP only). */
+function viewOf(session: ShowdownSession): Record<string, unknown> {
+    return {
+        ...showdownStateView(session),
+        ...(session.pvp && session.turnDeadlineAt && !session.finished
+            ? { turnDeadline: session.turnDeadlineAt }
+            : {}),
+    };
 }
 
 function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
@@ -265,8 +292,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // nothing. Sealed at start, never taken from the request body.
                 rewardEligible: false,
             });
+            armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
-            return res.status(200).json({ ok: true, state: showdownStateView(session) });
+            return res.status(200).json({ ok: true, state: viewOf(session) });
         }
 
         const sessionIdRaw = String(body.sessionId ?? '').trim();
@@ -282,7 +310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-state', 30, 60_000, identity.name))) return;
             const session = await kv.get<ShowdownSession>(key);
             if (!session || session.playerName !== playerName) return res.status(404).json({ error: 'No active showdown.' });
-            return res.status(200).json({ ok: true, state: showdownStateView(session) });
+            return res.status(200).json({ ok: true, state: viewOf(session) });
         }
 
         if (action === 'forfeit') {
@@ -310,6 +338,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     .filter((c) => playerIds.has(c.petId));
                 const aiCommands = chooseShowdownAiCommands(session);
                 const events = resolveShowdownRound(session, commands, aiCommands);
+                armTurnDeadline(session);
                 await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
                 return { session, events, replayed: false };
             }, { failClosed: true });
@@ -318,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { session, events, replayed } = turnResult;
 
             if (!session.finished) {
-                return res.status(200).json({ ok: true, events, state: showdownStateView(session) });
+                return res.status(200).json({ ok: true, events, state: viewOf(session) });
             }
 
             // Finishing turn: settle, then KEEP the finished session for one
@@ -337,7 +366,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 settlement = await settleShowdownWin(playerName, session);
             }
             if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
-            return res.status(200).json({ ok: true, events, state: showdownStateView(session), ...settlement });
+            return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });
         }
 
         return res.status(400).json({ error: 'Unknown action.' });

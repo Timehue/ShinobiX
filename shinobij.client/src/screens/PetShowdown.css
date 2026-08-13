@@ -1261,6 +1261,29 @@
     animation: none;
 }
 
+/* PvP command clock — appears only when the server put a deadline on the
+   round. Champions-style: a small plate by the round badge, going hot red for
+   the last ten seconds. */
+.showdown-turn-timer {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(217, 180, 120, 0.4);
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px #000;
+}
+.showdown-turn-timer.urgent {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.7);
+    animation: showdown-hint-pulse 0.8s ease-in-out infinite;
+}
+
 /* "No orders possible" panel — the soft-lock guard's visible half. Sized to
    occupy the command deck's slot so the bottom bar never reads as empty. */
 .showdown-stalled {
