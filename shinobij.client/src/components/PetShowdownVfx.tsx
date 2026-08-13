@@ -196,28 +196,28 @@ const SET_PIECES: Record<string, SetPieceLayer[]> = {
     // Tsunami: a wide wall of water sweeps the lane and breaks on the victim,
     // with a second crest chasing it.
     Water: [
-        { frames: "water", scale: 6.4, aspect: 0.42, delay: 0, y0: 0.5, y1: 0.8, travel: 1, spin: 0, grow: 1.25 },
+        { frames: "water", scale: 6.8, aspect: 0.44, delay: 0, y0: 0.5, y1: 0.95, travel: 1, spin: 0, grow: 1.3 },
         { frames: "water", scale: 4.6, aspect: 0.4, delay: 0.22, y0: 0.35, y1: 0.6, travel: 1, spin: 0, grow: 1.2, tint: "#9fdcff" },
     ],
     // Tornado: a tall column spinning up out of the ground on the victim.
     Wind: [
-        { frames: "vortex", scale: 2.7, aspect: 2.6, delay: 0, y0: 0.6, y1: 1.7, travel: 0, spin: 3.2, grow: 1.3 },
+        { frames: "vortex", scale: 3.0, aspect: 2.9, delay: 0, y0: 0.6, y1: 1.9, travel: 0, spin: 3.4, grow: 1.35 },
         { frames: "wind", scale: 3.4, aspect: 0.8, delay: 0.3, y0: 0.4, y1: 0.9, travel: 0, spin: -1.6, grow: 1.15, tint: "#c8ffe9" },
     ],
     // Fire wash: the blast blooms overhead while the ground itself catches.
     Fire: [
-        { frames: "fire", scale: 3.6, aspect: 1.1, delay: 0, y0: 1.0, y1: 1.5, travel: 0, spin: 0, grow: 1.45 },
-        { frames: "lava", scale: 3.0, aspect: 0.6, delay: 0.2, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.3 },
+        { frames: "fire", scale: 4.0, aspect: 1.1, delay: 0, y0: 1.0, y1: 1.6, travel: 0, spin: 0, grow: 1.5 },
+        { frames: "lava", scale: 3.4, aspect: 0.6, delay: 0.2, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.35 },
     ],
     // Eruption: stone tears upward from under the victim's feet.
     Earth: [
-        { frames: "earth", scale: 3.2, aspect: 1.2, delay: 0, y0: -0.7, y1: 1.3, travel: 0, spin: 0, grow: 1.2 },
+        { frames: "earth", scale: 3.5, aspect: 1.2, delay: 0, y0: -0.7, y1: 1.4, travel: 0, spin: 0, grow: 1.25 },
         { frames: "impact", scale: 2.6, aspect: 0.6, delay: 0.28, y0: 0.2, y1: 0.5, travel: 0, spin: 0, grow: 1.25, tint: "#d8a86a" },
     ],
     // Stormfall: paired sky bolts, the second hammering in off-line.
     Lightning: [
-        { frames: "lightning", scale: 2.5, aspect: 2.8, delay: 0, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05 },
-        { frames: "lightning", scale: 2.0, aspect: 2.6, delay: 0.24, y0: 2.2, y1: 2.2, travel: 0, spin: 0, grow: 1.05, tint: "#fff6c0", offsetX: 0.9 },
+        { frames: "lightning", scale: 2.8, aspect: 2.9, delay: 0, y0: 2.5, y1: 2.5, travel: 0, spin: 0, grow: 1.05 },
+        { frames: "lightning", scale: 2.2, aspect: 2.7, delay: 0.24, y0: 2.3, y1: 2.3, travel: 0, spin: 0, grow: 1.05, tint: "#fff6c0", offsetX: 0.9 },
     ],
 };
 
@@ -228,10 +228,10 @@ const SET_PIECES: Record<string, SetPieceLayer[]> = {
  *  fight that is allowed to shout. */
 const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
     Fire: [
-        { frames: "fire", scale: 2.6, aspect: 1.6, delay: 0, y0: 0.4, y1: 1.8, travel: 0, spin: 0, grow: 1.3, lane: 0.55, offsetX: -1.1 },
-        { frames: "fire", scale: 2.9, aspect: 1.6, delay: 0.14, y0: 0.4, y1: 2.0, travel: 0, spin: 0, grow: 1.3, lane: 0.8, offsetX: 1.0 },
-        { frames: "fire", scale: 4.4, aspect: 1.2, delay: 0.3, y0: 0.8, y1: 1.7, travel: 0, spin: 0, grow: 1.5 },
-        { frames: "lava", scale: 3.6, aspect: 0.6, delay: 0.4, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.4 },
+        { frames: "fire", scale: 3.0, aspect: 1.7, delay: 0, y0: 0.4, y1: 2.0, travel: 0, spin: 0, grow: 1.35, lane: 0.55, offsetX: -1.1 },
+        { frames: "fire", scale: 3.3, aspect: 1.7, delay: 0.14, y0: 0.4, y1: 2.2, travel: 0, spin: 0, grow: 1.35, lane: 0.8, offsetX: 1.0 },
+        { frames: "fire", scale: 5.0, aspect: 1.2, delay: 0.3, y0: 0.9, y1: 1.8, travel: 0, spin: 0, grow: 1.55 },
+        { frames: "lava", scale: 4.2, aspect: 0.6, delay: 0.4, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.45 },
     ],
     Water: [
         { frames: "water", scale: 7.4, aspect: 0.46, delay: 0, y0: 0.5, y1: 0.85, travel: 1, spin: 0, grow: 1.3 },
@@ -415,7 +415,7 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
     posRef: React.MutableRefObject<VfxPositions>;
 }) {
     const projectileDrive = useRef<ProjectileDrive>({ active: false, x: 0, y: 0, z: 0, element: "None", kind: "damage", charged: false, progress: 0, fan: 1, dirX: 0, dirZ: 1 });
-    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, element: "None", progress: 0 });
+    const meleeDrive = useRef<MeleeStreakDrive>({ active: false, fromX: 0, fromZ: 0, toX: 0, toZ: 0, element: "None", progress: 0, heavy: false });
 
     useFrame(() => {
         const beat = beatRef.current;
@@ -460,6 +460,7 @@ export function BeatDrivenVfx({ beatRef, posRef }: {
                 melee.toZ = target[2];
                 melee.element = ev.element;
                 melee.progress = Math.min(1, Math.max(0, (frac - 0.32) / 0.18));
+                melee.heavy = ev.super || ev.weight === "heavy";
             }
         }
     });
@@ -609,6 +610,8 @@ export interface MeleeStreakDrive {
     element: string;
     /** 0..1 along the dash. */
     progress: number;
+    /** Heavy contact dashes push a stronger, wider wake. */
+    heavy: boolean;
 }
 
 const STREAK_COUNT = 4;
@@ -630,7 +633,13 @@ export function MeleeStreaks({ drive }: { drive: React.MutableRefObject<MeleeStr
             const angle = Math.atan2(d.toX - d.fromX, d.toZ - d.fromZ);
             m.rotation.y = angle;
             const fade = (1 - lag * 1.6) * (d.progress < 0.9 ? 1 : (1 - d.progress) / 0.1);
-            (m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.34 * fade);
+            // An ELEMENTAL contact dash earns a real wake; the neutral jab
+            // keeps the faint one. Heavies push wider and brighter still.
+            const elemental = d.element !== "None";
+            const strength = (elemental ? 0.52 : 0.3) * (d.heavy ? 1.3 : 1);
+            (m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, strength * fade);
+            const w = (elemental ? 1.3 : 1) * (d.heavy ? 1.25 : 1);
+            m.scale.set(w, w, 1);
             const tint = { Fire: "#ff9a4d", Water: "#67c7ff", Wind: "#8df5d3", Lightning: "#ffe86b", Earth: "#e0b477" }[d.element] ?? "#cbd5f5";
             (m.material as THREE.MeshBasicMaterial).color.set(tint);
         });
