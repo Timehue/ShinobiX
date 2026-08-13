@@ -82,6 +82,41 @@ function projectileTexture(element: string): THREE.Texture | null {
     return t;
 }
 
+// ─── Epic hero sprites (the Champions-scale painted art) ─────────────────────
+// Large single-sprite paintings (gen-showdown-vfx.mjs → assets/fx/epic/) that
+// the set-piece layer stages as billboards and floor discs: a tsunami wall that
+// actually fills the frame, a firewall, a full-height tornado, erupting stone,
+// a sky-splitting bolt — plus per-element "the arena floor becomes the element"
+// takeover discs. Painted art renders NORMAL-blended (additive would blow the
+// foam whites and flame cores out to pure white); only the bolts opt into
+// additive glow.
+
+const EPIC_SPRITES: Record<string, string> = {
+    tsunami: new URL("../assets/fx/epic/tsunami.webp", import.meta.url).href,
+    firewall: new URL("../assets/fx/epic/firewall.webp", import.meta.url).href,
+    tornado: new URL("../assets/fx/epic/tornado.webp", import.meta.url).href,
+    quake: new URL("../assets/fx/epic/quake.webp", import.meta.url).href,
+    stormbolt: new URL("../assets/fx/epic/stormbolt.webp", import.meta.url).href,
+    "floor-water": new URL("../assets/fx/epic/floor-water.webp", import.meta.url).href,
+    "floor-lava": new URL("../assets/fx/epic/floor-lava.webp", import.meta.url).href,
+    "floor-wind": new URL("../assets/fx/epic/floor-wind.webp", import.meta.url).href,
+    "floor-earth": new URL("../assets/fx/epic/floor-earth.webp", import.meta.url).href,
+    "floor-storm": new URL("../assets/fx/epic/floor-storm.webp", import.meta.url).href,
+};
+
+const epicTexCache = new Map<string, THREE.Texture>();
+function epicTexture(slug: string): THREE.Texture | null {
+    const url = EPIC_SPRITES[slug];
+    if (!url) return null;
+    let t = epicTexCache.get(slug);
+    if (!t) {
+        t = new THREE.TextureLoader().load(url);
+        t.colorSpace = THREE.SRGBColorSpace;
+        epicTexCache.set(slug, t);
+    }
+    return t;
+}
+
 /** Impact/one-shot flipbook key for a move — kind identity first (every
  *  buff/debuff/heal family has its own painted burst), element fallback. */
 export { impactFlipbookKey, vfxElementTint, VFX_ELEMENT_TINT } from "../lib/showdown-vfx-map";
@@ -167,20 +202,29 @@ export interface SetPieceSpawn {
 }
 
 /** One animated layer of a set-piece. All motion derives from the normalized
- *  clock, so fast-forward scales everything together. */
+ *  clock, so fast-forward scales everything together. A layer is either a
+ *  flipbook accent (`frames`) or a painted EPIC sprite (`sprite`) — the hero
+ *  art carries the spectacle, the flipbooks add spray/embers/debris texture. */
 interface SetPieceLayer {
-    frames: string;
+    /** Flipbook key (assets/fx/<key>/NNN.png) — accent tier. */
+    frames?: string;
+    /** Epic sprite slug (assets/fx/epic/<slug>.webp) — hero tier. */
+    sprite?: string;
     /** Width in world units; height = width × aspect. */
     scale: number;
     aspect: number;
     /** Fraction of the piece's life before this layer joins in. */
     delay: number;
+    /** Fraction of the piece's life this layer lives (default: the rest).
+     *  Short-dur layers strobe — the storm's staggered bolt strikes. */
+    dur?: number;
     /** Vertical ride: start → end height above the floor. */
     y0: number;
     y1: number;
     /** 1 = travels from→to (the wave); 0 = sits on the victim. */
     travel: number;
-    /** Full view-axis turns over the layer's life (the tornado). */
+    /** Full view-axis turns over the layer's life (flipbook vortices only —
+     *  spinning a painted tornado sprite reads as the column tumbling). */
     spin: number;
     tint?: string;
     /** Growth over life: rendered scale goes scale → scale×grow. */
@@ -190,91 +234,142 @@ interface SetPieceLayer {
     lane?: number;
     /** Sideways offset in world units, perpendicular-ish via X (bolt spread). */
     offsetX?: number;
+    /** Gentle z-rock in radians — the wave crest rolling, flames licking. */
+    sway?: number;
+    /** Scale flicker amplitude — fire shimmer, bolt crackle. */
+    puls?: number;
+    /** Mirror the art horizontally so repeated sprites don't read as clones. */
+    flip?: boolean;
+    /** Painted sprites render normal-blended by default; bolts opt back into
+     *  additive so they FLASH. (Flipbook accents are always additive.) */
+    add?: boolean;
 }
 
+/** "The arena floor becomes the element" — the single biggest ingredient of
+ *  the Champions look. A painted disc laid flat over the whole arena floor
+ *  while the set-piece plays: ocean under the tsunami, magma under the
+ *  firestorm, a flattened cyclone under the tornado. */
+interface FloorTakeover {
+    sprite: string;
+    /** Disc diameter in world units (arena floor is r14). */
+    scale: number;
+    opacity: number;
+    /** Slow turns over the piece's life — the cyclone spins, cracks don't. */
+    spin: number;
+    /** Growth over life — spreading cracks, rising flood. */
+    grow: number;
+}
+
+const FLOOR_TAKEOVERS: Record<string, FloorTakeover> = {
+    // Scale 30: the square plane's edge midpoints land at r15, past the r14
+    // floor circle, so the painted disc's own soft fade is the only edge the
+    // camera can ever see (26 left a straight texture cut on the near floor).
+    Water: { sprite: "floor-water", scale: 30, opacity: 0.9, spin: 0.06, grow: 1.06 },
+    Fire: { sprite: "floor-lava", scale: 30, opacity: 0.88, spin: 0, grow: 1.1 },
+    Wind: { sprite: "floor-wind", scale: 30, opacity: 0.72, spin: 0.45, grow: 1.08 },
+    Earth: { sprite: "floor-earth", scale: 30, opacity: 0.92, spin: 0, grow: 1.12 },
+    Lightning: { sprite: "floor-storm", scale: 30, opacity: 0.82, spin: 0.05, grow: 1.06 },
+};
+
 const SET_PIECES: Record<string, SetPieceLayer[]> = {
-    // Tsunami: a wide wall of water sweeps the lane and breaks on the victim,
-    // with a second crest chasing it.
+    // Tsunami: the painted wave wall sweeps the lane and breaks on the victim,
+    // a mirrored second crest chasing it.
     Water: [
-        { frames: "water", scale: 6.8, aspect: 0.44, delay: 0, y0: 0.5, y1: 0.95, travel: 1, spin: 0, grow: 1.3 },
-        { frames: "water", scale: 4.6, aspect: 0.4, delay: 0.22, y0: 0.35, y1: 0.6, travel: 1, spin: 0, grow: 1.2, tint: "#9fdcff" },
+        { sprite: "tsunami", scale: 8.6, aspect: 0.667, delay: 0, y0: 0.55, y1: 1.05, travel: 1, spin: 0, grow: 1.22, sway: 0.03 },
+        { sprite: "tsunami", scale: 6.2, aspect: 0.667, delay: 0.24, y0: 0.4, y1: 0.8, travel: 1, spin: 0, grow: 1.18, flip: true, tint: "#bfe6ff" },
     ],
-    // Tornado: a tall column spinning up out of the ground on the victim.
-    Wind: [
-        { frames: "vortex", scale: 3.0, aspect: 2.9, delay: 0, y0: 0.6, y1: 1.9, travel: 0, spin: 3.4, grow: 1.35 },
-        { frames: "wind", scale: 3.4, aspect: 0.8, delay: 0.3, y0: 0.4, y1: 0.9, travel: 0, spin: -1.6, grow: 1.15, tint: "#c8ffe9" },
-    ],
-    // Fire wash: the blast blooms overhead while the ground itself catches.
+    // Firewall: a wall of flame roars up out of the ground across the victim's
+    // line, a mirrored second sheet burning behind it.
     Fire: [
-        { frames: "fire", scale: 4.0, aspect: 1.1, delay: 0, y0: 1.0, y1: 1.6, travel: 0, spin: 0, grow: 1.5 },
-        { frames: "lava", scale: 3.4, aspect: 0.6, delay: 0.2, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.35 },
+        { sprite: "firewall", scale: 7.8, aspect: 0.667, delay: 0, y0: -0.4, y1: 1.15, travel: 0, spin: 0, grow: 1.38, sway: 0.035, puls: 0.05 },
+        { sprite: "firewall", scale: 5.4, aspect: 0.667, delay: 0.2, y0: -0.2, y1: 0.9, travel: 0, spin: 0, grow: 1.3, flip: true, lane: 0.88, tint: "#ffd9a0" },
     ],
-    // Eruption: stone tears upward from under the victim's feet.
+    // Tornado: the full-height painted column climbs off the victim, a
+    // counter-swaying mirror behind it fakes the churn; flipbook debris skirt.
+    Wind: [
+        { sprite: "tornado", scale: 3.7, aspect: 1.5, delay: 0, y0: 0.9, y1: 2.4, travel: 0, spin: 0, grow: 1.3, sway: 0.06, puls: 0.04 },
+        { sprite: "tornado", scale: 2.6, aspect: 1.5, delay: 0.2, y0: 0.7, y1: 1.9, travel: 0, spin: 0, grow: 1.25, flip: true, sway: -0.06, tint: "#d6fff0" },
+        { frames: "vortex", scale: 2.6, aspect: 0.9, delay: 0.1, y0: 0.25, y1: 0.45, travel: 0, spin: 2.4, grow: 1.3, tint: "#c8ffe9" },
+    ],
+    // Eruption: the painted spire cluster tears up from under the victim.
     Earth: [
-        { frames: "earth", scale: 3.5, aspect: 1.2, delay: 0, y0: -0.7, y1: 1.4, travel: 0, spin: 0, grow: 1.25 },
-        { frames: "impact", scale: 2.6, aspect: 0.6, delay: 0.28, y0: 0.2, y1: 0.5, travel: 0, spin: 0, grow: 1.25, tint: "#d8a86a" },
+        { sprite: "quake", scale: 7.4, aspect: 0.667, delay: 0, y0: -1.9, y1: 0.35, travel: 0, spin: 0, grow: 1.12 },
+        { frames: "impact", scale: 2.8, aspect: 0.6, delay: 0.3, y0: 0.25, y1: 0.55, travel: 0, spin: 0, grow: 1.3, tint: "#d8a86a" },
     ],
-    // Stormfall: paired sky bolts, the second hammering in off-line.
+    // Stormfall: two painted bolts STROBE in — strike, gone, strike.
     Lightning: [
-        { frames: "lightning", scale: 2.8, aspect: 2.9, delay: 0, y0: 2.5, y1: 2.5, travel: 0, spin: 0, grow: 1.05 },
-        { frames: "lightning", scale: 2.2, aspect: 2.7, delay: 0.24, y0: 2.3, y1: 2.3, travel: 0, spin: 0, grow: 1.05, tint: "#fff6c0", offsetX: 0.9 },
+        { sprite: "stormbolt", scale: 3.4, aspect: 1.5, delay: 0.06, dur: 0.34, y0: 2.6, y1: 2.55, travel: 0, spin: 0, grow: 1.0, puls: 0.1, add: true },
+        { sprite: "stormbolt", scale: 2.6, aspect: 1.5, delay: 0.5, dur: 0.3, y0: 2.2, y1: 2.15, travel: 0, spin: 0, grow: 1.0, flip: true, offsetX: 0.9, puls: 0.1, add: true, tint: "#fff2b0" },
+        { frames: "spark", scale: 2.6, aspect: 0.8, delay: 0.16, dur: 0.3, y0: 0.7, y1: 0.9, travel: 0, spin: 0, grow: 1.35, tint: "#fff6c0" },
     ],
 };
 
-/** The SIGNATURE choreography — what plays under the letterbox. Each element
- *  stages a sequence, not a burst: the fire storm builds in columns, the flood
- *  comes as two crests and a breaking pillar, the storm WALKS its bolts down
- *  the lane onto the victim. Longer, larger, layered — the one moment per
- *  fight that is allowed to shout. */
+/** The SIGNATURE choreography — what plays under the letterbox, now on the
+ *  painted hero art at full frame-filling scale WITH the floor takeover. The
+ *  flood comes as two sweeping crests and a final breaking wall; the firestorm
+ *  builds in mirrored sheets until the whole line is engulfed; the storm WALKS
+ *  three strikes down the lane onto the victim. The one moment per fight that
+ *  is allowed to shout. */
 const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
     Fire: [
-        { frames: "fire", scale: 3.0, aspect: 1.7, delay: 0, y0: 0.4, y1: 2.0, travel: 0, spin: 0, grow: 1.35, lane: 0.55, offsetX: -1.1 },
-        { frames: "fire", scale: 3.3, aspect: 1.7, delay: 0.14, y0: 0.4, y1: 2.2, travel: 0, spin: 0, grow: 1.35, lane: 0.8, offsetX: 1.0 },
-        { frames: "fire", scale: 5.0, aspect: 1.2, delay: 0.3, y0: 0.9, y1: 1.8, travel: 0, spin: 0, grow: 1.55 },
-        { frames: "lava", scale: 4.2, aspect: 0.6, delay: 0.4, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.45 },
+        { sprite: "firewall", scale: 10.5, aspect: 0.667, delay: 0, y0: -0.5, y1: 1.3, travel: 0, spin: 0, grow: 1.45, sway: 0.04, puls: 0.06 },
+        { sprite: "firewall", scale: 7.0, aspect: 0.667, delay: 0.18, y0: -0.3, y1: 1.0, travel: 0, spin: 0, grow: 1.35, flip: true, lane: 0.85, tint: "#ffd9a0" },
+        { sprite: "firewall", scale: 5.0, aspect: 0.667, delay: 0.36, y0: -0.2, y1: 0.8, travel: 0, spin: 0, grow: 1.3, lane: 0.65, offsetX: -1.3, tint: "#ffb27a" },
+        { frames: "fire", scale: 3.4, aspect: 1.4, delay: 0.45, y0: 1.0, y1: 2.2, travel: 0, spin: 0, grow: 1.5 },
     ],
     Water: [
-        { frames: "water", scale: 7.4, aspect: 0.46, delay: 0, y0: 0.5, y1: 0.85, travel: 1, spin: 0, grow: 1.3 },
-        { frames: "water", scale: 5.6, aspect: 0.44, delay: 0.2, y0: 0.35, y1: 0.7, travel: 1, spin: 0, grow: 1.25, tint: "#9fdcff" },
-        { frames: "water", scale: 3.2, aspect: 2.0, delay: 0.44, y0: 0.2, y1: 1.9, travel: 0, spin: 0, grow: 1.35 },
+        { sprite: "tsunami", scale: 11.5, aspect: 0.667, delay: 0, y0: 0.6, y1: 1.25, travel: 1, spin: 0, grow: 1.28, sway: 0.03 },
+        { sprite: "tsunami", scale: 8.4, aspect: 0.667, delay: 0.2, y0: 0.45, y1: 0.95, travel: 1, spin: 0, grow: 1.22, flip: true, tint: "#bfe6ff" },
+        { sprite: "tsunami", scale: 6.0, aspect: 0.667, delay: 0.42, y0: 0.35, y1: 1.6, travel: 0, spin: 0, grow: 1.4 },
+        { frames: "water", scale: 4.2, aspect: 0.5, delay: 0.52, y0: 0.3, y1: 0.7, travel: 0, spin: 0, grow: 1.5, tint: "#e8f8ff" },
     ],
     Wind: [
-        { frames: "vortex", scale: 3.4, aspect: 2.8, delay: 0, y0: 0.5, y1: 2.0, travel: 0, spin: 4.2, grow: 1.45 },
-        { frames: "vortex", scale: 2.2, aspect: 2.4, delay: 0.18, y0: 0.4, y1: 1.6, travel: 0, spin: -3.0, grow: 1.3, tint: "#c8ffe9" },
-        { frames: "wind", scale: 4.4, aspect: 0.8, delay: 0.36, y0: 0.5, y1: 1.0, travel: 0, spin: 0, grow: 1.3 },
+        { sprite: "tornado", scale: 4.8, aspect: 1.5, delay: 0, y0: 1.0, y1: 2.8, travel: 0, spin: 0, grow: 1.4, sway: 0.07, puls: 0.05 },
+        { sprite: "tornado", scale: 3.2, aspect: 1.5, delay: 0.16, y0: 0.8, y1: 2.2, travel: 0, spin: 0, grow: 1.3, flip: true, sway: -0.08, tint: "#d6fff0" },
+        { frames: "vortex", scale: 3.2, aspect: 0.9, delay: 0.08, y0: 0.3, y1: 0.5, travel: 0, spin: 3.2, grow: 1.5, tint: "#c8ffe9" },
+        { frames: "wind", scale: 4.6, aspect: 0.8, delay: 0.4, y0: 0.5, y1: 1.1, travel: 0, spin: 0, grow: 1.35 },
     ],
     Earth: [
-        { frames: "earth", scale: 2.4, aspect: 1.1, delay: 0, y0: -0.7, y1: 1.0, travel: 0, spin: 0, grow: 1.2, lane: 0.4 },
-        { frames: "earth", scale: 2.9, aspect: 1.15, delay: 0.16, y0: -0.7, y1: 1.2, travel: 0, spin: 0, grow: 1.2, lane: 0.7 },
-        { frames: "earth", scale: 3.6, aspect: 1.25, delay: 0.34, y0: -0.7, y1: 1.5, travel: 0, spin: 0, grow: 1.3 },
-        { frames: "impact", scale: 3.0, aspect: 0.6, delay: 0.5, y0: 0.25, y1: 0.5, travel: 0, spin: 0, grow: 1.3, tint: "#d8a86a" },
+        { sprite: "quake", scale: 5.6, aspect: 0.667, delay: 0, y0: -2.2, y1: 0.1, travel: 0, spin: 0, grow: 1.1, lane: 0.5 },
+        { sprite: "quake", scale: 7.0, aspect: 0.667, delay: 0.18, y0: -2.2, y1: 0.2, travel: 0, spin: 0, grow: 1.12, flip: true, lane: 0.8 },
+        { sprite: "quake", scale: 8.8, aspect: 0.667, delay: 0.38, y0: -2.4, y1: 0.45, travel: 0, spin: 0, grow: 1.18 },
+        { frames: "impact", scale: 3.2, aspect: 0.6, delay: 0.55, y0: 0.3, y1: 0.6, travel: 0, spin: 0, grow: 1.35, tint: "#d8a86a" },
     ],
     Lightning: [
-        { frames: "lightning", scale: 2.2, aspect: 2.8, delay: 0, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05, lane: 0.35, offsetX: -0.7 },
-        { frames: "lightning", scale: 2.4, aspect: 2.8, delay: 0.16, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05, lane: 0.7, offsetX: 0.7 },
-        { frames: "lightning", scale: 3.0, aspect: 3.0, delay: 0.34, y0: 2.6, y1: 2.6, travel: 0, spin: 0, grow: 1.1 },
-        { frames: "spark", scale: 3.2, aspect: 0.8, delay: 0.46, y0: 0.9, y1: 1.1, travel: 0, spin: 0, grow: 1.4, tint: "#fff6c0" },
+        { sprite: "stormbolt", scale: 3.0, aspect: 1.5, delay: 0.02, dur: 0.26, y0: 2.4, y1: 2.35, travel: 0, spin: 0, grow: 1.0, lane: 0.45, offsetX: -0.8, puls: 0.12, add: true },
+        { sprite: "stormbolt", scale: 3.4, aspect: 1.5, delay: 0.24, dur: 0.26, y0: 2.5, y1: 2.45, travel: 0, spin: 0, grow: 1.0, flip: true, lane: 0.78, offsetX: 0.8, puls: 0.12, add: true },
+        { sprite: "stormbolt", scale: 4.6, aspect: 1.5, delay: 0.46, dur: 0.34, y0: 2.9, y1: 2.85, travel: 0, spin: 0, grow: 1.05, puls: 0.14, add: true, tint: "#fff2b0" },
+        { frames: "spark", scale: 3.4, aspect: 0.8, delay: 0.52, dur: 0.35, y0: 0.8, y1: 1.1, travel: 0, spin: 0, grow: 1.45, tint: "#fff6c0" },
     ],
 };
 
 function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetPieceLayer }) {
-    const textures = useMemo(() => flipbookTextures(layer.frames, true), [layer.frames]);
+    const textures = useMemo(() => (layer.frames ? flipbookTextures(layer.frames, true) : null), [layer.frames]);
+    const sprite = useMemo(() => (layer.sprite ? epicTexture(layer.sprite) : null), [layer.sprite]);
     const offsetX = layer.offsetX ?? 0;
+    const group = useRef<THREE.Group>(null);
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     useFrame(() => {
-        if (!textures || !mesh.current || !mat.current) return;
+        if ((!textures && !sprite) || !group.current || !mesh.current || !mat.current) return;
         const life = (performance.now() - spawn.startedAt) / spawn.durationMs;
-        // The layer's own clock starts after its stagger and fills the rest.
-        const t = (life - layer.delay) / Math.max(0.05, 1 - layer.delay);
+        // The layer's own clock starts after its stagger and fills its `dur`
+        // (default: the rest of the piece). Short durs strobe — bolt strikes.
+        const span = Math.max(0.05, layer.dur ?? (1 - layer.delay));
+        const t = (life - layer.delay) / span;
         if (t < 0 || t >= 1) {
             mesh.current.visible = false;
             return;
         }
         mesh.current.visible = true;
-        const frame = textures[Math.min(textures.length - 1, Math.floor(t * textures.length))];
-        if (mat.current.map !== frame) {
-            mat.current.map = frame;
+        if (textures) {
+            const frame = textures[Math.min(textures.length - 1, Math.floor(t * textures.length))];
+            if (mat.current.map !== frame) {
+                mat.current.map = frame;
+                mat.current.needsUpdate = true;
+            }
+        } else if (sprite && mat.current.map !== sprite) {
+            mat.current.map = sprite;
             mat.current.needsUpdate = true;
         }
         // Ease-out travel: the wave arrives fast and breaks slow. Stationary
@@ -285,15 +380,27 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
         const x = spawn.from[0] + (spawn.to[0] - spawn.from[0]) * parkFrac + offsetX;
         const z = spawn.from[2] + (spawn.to[2] - spawn.from[2]) * parkFrac;
         const y = layer.y0 + (layer.y1 - layer.y0) * ease;
-        mesh.current.position.set(x, y, z);
-        const s = 1 + (layer.grow - 1) * ease;
-        mesh.current.scale.set(s, s, 1);
-        mesh.current.rotation.z = layer.spin * t * Math.PI * 2;
+        // Move the BILLBOARD GROUP, not the mesh inside it. The billboard
+        // rotates about its own origin — a mesh offset inside it ORBITS when
+        // the camera goes off-axis, which detached every piece from its victim
+        // in side/high shots (the art drifted to mid-arena while the pet only
+        // wore the small burst). Group at the world point, mesh at local zero:
+        // the painting pivots in place, pinned to the pet it is hitting.
+        group.current.position.set(x, y, z);
+        const flick = layer.puls ? 1 + Math.sin(t * 43) * layer.puls : 1;
+        const s = (1 + (layer.grow - 1) * ease) * flick;
+        mesh.current.scale.set(layer.flip ? -s : s, s, 1);
+        mesh.current.rotation.z = layer.spin * t * Math.PI * 2 + (layer.sway ? Math.sin(t * 11) * layer.sway : 0);
         mat.current.opacity = t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1;
     });
-    if (!textures) return null;
+    if (!textures && !sprite) return null;
+    // Hero sprites face the lens FULLY (no axis lock): the action camera's high
+    // enemy-side shots looked at yaw-locked planes edge-on and the painting
+    // collapsed into a smear on the floor. Small flipbook accents keep the
+    // yaw-only lock — they're ground-anchored texture, not the picture.
+    const billboardProps = layer.sprite ? {} : { lockX: true, lockZ: true };
     return (
-        <Billboard lockX lockZ>
+        <Billboard ref={group} {...billboardProps}>
             <mesh ref={mesh} visible={false}>
                 <planeGeometry args={[layer.scale, layer.scale * layer.aspect]} />
                 <meshBasicMaterial
@@ -302,19 +409,59 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
                     opacity={0}
                     color={layer.tint ?? "#ffffff"}
                     depthWrite={false}
-                    blending={THREE.AdditiveBlending}
+                    // Painted hero art keeps its true values (foam whites, flame
+                    // cores) under normal blending; flipbook accents and bolts
+                    // glow additive.
+                    blending={layer.sprite && !layer.add ? THREE.NormalBlending : THREE.AdditiveBlending}
                     toneMapped={false}
+                    side={THREE.DoubleSide}
                 />
             </mesh>
         </Billboard>
     );
 }
 
+/** The floor-takeover disc: painted element laid flat over the arena floor,
+ *  fading in under the choreography and out with it. */
+function FloorTakeoverMesh({ spawn, floor, presence }: { spawn: SetPieceSpawn; floor: FloorTakeover; presence: number }) {
+    const sprite = useMemo(() => epicTexture(floor.sprite), [floor.sprite]);
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame(() => {
+        if (!sprite || !mesh.current || !mat.current) return;
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        if (t < 0 || t >= 1) {
+            mesh.current.visible = false;
+            return;
+        }
+        mesh.current.visible = true;
+        if (mat.current.map !== sprite) {
+            mat.current.map = sprite;
+            mat.current.needsUpdate = true;
+        }
+        const ease = 1 - (1 - t) * (1 - t);
+        const s = floor.scale * (1 + (floor.grow - 1) * ease) * presence;
+        mesh.current.scale.set(s, s, 1);
+        mesh.current.rotation.z = floor.spin * t * Math.PI * 2;
+        const env = t < 0.18 ? t / 0.18 : t > 0.74 ? Math.max(0, (1 - t) / 0.26) : 1;
+        mat.current.opacity = floor.opacity * presence * env;
+    });
+    if (!sprite) return null;
+    return (
+        <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]} visible={false}>
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial ref={mat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+        </mesh>
+    );
+}
+
 function SetPieceOnce({ spawn }: { spawn: SetPieceSpawn }) {
     const layers = (spawn.superCast ? SUPER_SET_PIECES[spawn.element] : undefined) ?? SET_PIECES[spawn.element];
     if (!layers) return null;
+    const floor = FLOOR_TAKEOVERS[spawn.element];
     return (
         <group>
+            {floor && <FloorTakeoverMesh spawn={spawn} floor={floor} presence={spawn.superCast ? 1 : 0.55} />}
             {layers.map((layer, i) => (
                 <SetPieceLayerMesh key={i} spawn={spawn} layer={layer} />
             ))}
