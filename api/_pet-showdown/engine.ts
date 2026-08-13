@@ -183,6 +183,14 @@ export interface ShowdownSession {
     /** Whether a win here may pay at all. Sealed at start; see
      *  createShowdownSession. False for the hand-picked-AI practice entry. */
     rewardEligible: boolean;
+    /** Sealed at start: a live player-vs-player session. Turns the endpoint's
+     *  45s command timer on (SHOWDOWN_PVP_TURN_SECONDS) — the engine itself
+     *  never reads a clock, so the deadline bookkeeping lives endpoint-side
+     *  (`turnDeadlineAt` below). False for every AI entry. */
+    pvp: boolean;
+    /** Endpoint-maintained epoch-ms deadline for the CURRENT round's orders.
+     *  Only meaningful while `pvp`; the engine ignores it entirely. */
+    turnDeadlineAt?: number;
     enemyTeamName: string;
     player: ShowdownPet[];
     enemy: ShowdownPet[];
@@ -748,6 +756,9 @@ export function createShowdownSession(input: {
      *  clan/sector war) are slated to migrate onto this engine and those DO
      *  pay — at which point they set it true and nothing else has to move. */
     rewardEligible: boolean;
+    /** Live player-vs-player. Arms the endpoint's 45s command timer; every
+     *  caller today is an AI entry and omits it. */
+    pvp?: boolean;
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[], commitConsumables: boolean): ShowdownPet[] =>
@@ -779,6 +790,7 @@ export function createShowdownSession(input: {
         outcome: null,
         sealedOpponentLevel: clampInt(Math.max(1, ...input.enemyPets.map((p) => Number(p.level) || 1)), 1, 100, 1),
         rewardEligible: input.rewardEligible === true,
+        pvp: input.pvp === true,
         enemyTeamName: input.enemyTeamName,
         player: sealTeam(input.playerPets, input.rewardEligible === true),
         // AI pets are built from the catalog, not from a save, so there is no
