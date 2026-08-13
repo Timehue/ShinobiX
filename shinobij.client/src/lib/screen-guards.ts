@@ -37,6 +37,12 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     // is rehydrated from the server, not reconstructed from lost React state.
     // (NOT in DEEP_LINKABLE_SCREENS — an in-fight URL shouldn't be shareable.)
     "battleTowers",
+    // Pet Showdown follows the Battle Towers precedent: the fight lives in a
+    // SERVER session (pet:showdown:<player>:<id>, 45-min TTL) and the screen
+    // re-fetches it by id on mount, so restoring the screen re-enters the live
+    // fight instead of reconstructing lost React state. Without this entry the
+    // allowlist rejection is what dumped a mid-fight reload in the village.
+    "petShowdown",
 ]);
 
 // An active Hollow Gate run is the strongest restore signal. Older builds sent

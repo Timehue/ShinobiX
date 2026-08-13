@@ -1859,6 +1859,15 @@ export function sanitizeCharacterSave(
         const floorM = Math.max(0, Math.floor(Number(exChar.dailyMissionsCompleted ?? 0)));
         const inM = Math.max(0, Math.floor(Number(char.dailyMissionsCompleted ?? 0)));
         char.dailyMissionsCompleted = Math.max(inM, floorM);
+        // dailyPetWins is the same shape of guard for the pet-arena ryo faucet:
+        // api/pet/battle-result.ts and api/pet/showdown.ts read this counter
+        // straight off the save to decide whether the 100/day cap is spent, so a
+        // save carrying a lower value re-opens the cap for another hundred wins.
+        // It does not even take a tampered client — a second tab holding a stale
+        // count zeroes it on its next autosave.
+        const floorP = Math.max(0, Math.floor(Number(exChar.dailyPetWins ?? 0)));
+        const inP = Math.max(0, Math.floor(Number(char.dailyPetWins ?? 0)));
+        char.dailyPetWins = Math.max(inP, floorP);
     }
     if (exChar.lastHuntReset === SERVER_UTC_DATE) {
         const floorH = Math.max(0, Math.floor(Number(exChar.dailyHuntsCompleted ?? 0)));

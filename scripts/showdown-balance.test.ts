@@ -4,13 +4,12 @@
  * ELEMENT_DAMAGE/TAKEN_MULT, the species budget normalization) and the wheel
  * constants in shared/pet-showdown-contract.ts.
  *
- * Runs a REDUCED slice of scripts/showdown-balance.mjs (standard + rare
- * rarities, 1 seed — fully deterministic) so the suite stays fast; the full
- * 3-seed all-rarity sweep lives in the analyzer script for tuning sessions.
- * Bands are set from the tuned baseline (2026-08-07: roles 41-59%, elements
- * 40-60%, pace 8.5, judge 14%) with sampling slack — a change that pushes a
- * ROLE or ELEMENT outside 35-65 on this slice, stalls the pace, or turns the
- * judge into the main outcome is a balance regression, not noise.
+ * Runs a REDUCED slice of scripts/showdown-balance.mjs (every rarity, 1 seed —
+ * fully deterministic) so the suite stays fast; the full 3-seed sweep lives in
+ * the analyzer script for tuning sessions. Bands carry sampling slack — a
+ * change that pushes a ROLE or ELEMENT outside 35-65 on this slice, stalls the
+ * pace, breaches the per-species bands, or leaves fights unresolved at the
+ * sim's hard stop is a balance regression, not noise.
  *
  * Modeled on scripts/pet-role-balance.test.ts.
  */
@@ -75,7 +74,7 @@ test('showdown balance bands hold across EVERY rarity, chase tiers included', ()
     const roleStats = new Map<string, { w: number; n: number }>();
     const elementStats = new Map<string, { w: number; n: number }>();
     const speciesStats = new Map<string, { w: number; n: number }>();
-    let totalRounds = 0, totalGames = 0, judgeGames = 0;
+    let totalRounds = 0, totalGames = 0, unresolvedGames = 0;
     const bump = (map: Map<string, { w: number; n: number }>, key: string, won: boolean) => {
         const s = map.get(key) ?? { w: 0, n: 0 };
         s.w += won ? 1 : 0; s.n += 1;
@@ -89,7 +88,7 @@ test('showdown balance bands hold across EVERY rarity, chase tiers included', ()
                 const [A, B] = (i + j) % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
                 const { won, rounds } = fight(A, B, seed);
                 totalGames += 1; totalRounds += rounds;
-                judgeGames += rounds >= HARD_STOP ? 1 : 0;
+                unresolvedGames += rounds >= HARD_STOP ? 1 : 0;
                 for (const [tpl, w] of [[A, won], [B, !won]] as const) {
                     bump(roleStats, String(tpl.role ?? 'none'), w);
                     bump(elementStats, String(tpl.element ?? 'None'), w);
@@ -110,7 +109,7 @@ test('showdown balance bands hold across EVERY rarity, chase tiers included', ()
     }
     const avgRounds = totalRounds / totalGames;
     if (avgRounds < 5.5 || avgRounds > 11.5) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside 5.5-11.5`);
-    if (judgeGames / totalGames > 0.3) failures.push(`judge decides ${(100 * judgeGames / totalGames).toFixed(1)}% of games`);
+    if (unresolvedGames / totalGames > 0.3) failures.push(`hard-stop leaves unresolved ${(100 * unresolvedGames / totalGames).toFixed(1)}% of games`);
 
     // SPECIES spread — the band nothing used to gate, on the tier nothing used
     // to simulate. This is the one a player actually feels: if the pet you pull

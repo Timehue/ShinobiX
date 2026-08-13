@@ -35,26 +35,42 @@ import {
 } from "../lib/pet-showdown-api";
 import { PetShowdownBattle } from "../components/PetShowdownBattle";
 
-// Refresh-resume breadcrumb: the server session outlives the tab (45-min KV
-// TTL), so a reload mid-battle can pick the fight back up via action:"state".
+/*
+ * Refresh-resume breadcrumb: the server session outlives the tab (45-min KV
+ * TTL), so a reload mid-battle picks the fight back up via action:"state".
+ *
+ * It lives in localStorage, alongside every other resume pointer in the client
+ * (`arena.battle.v3.*`, `shinobix:towerRunId`, `storyBoss.battle.v1.*`).
+ * sessionStorage dies with the tab, which is precisely the case the breadcrumb
+ * exists for — a crash or a closed tab left a live server fight with nothing
+ * pointing at it. The stamp bounds the crumb to the session's own TTL and the
+ * name binds it to one account, so a shared device never inherits a pointer.
+ */
 const SESSION_BREADCRUMB_KEY = "showdown.session.v1";
+// Mirrors SESSION_TTL_SECONDS in api/pet/showdown.ts: past it the session is
+// gone from KV and the crumb is noise.
+const SESSION_BREADCRUMB_TTL_MS = 45 * 60 * 1000;
 
-function readSessionBreadcrumb(): { sessionId: string; petIds: string[] } | null {
+type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string };
+
+function readSessionBreadcrumb(playerName: string): SessionBreadcrumb | null {
     try {
-        const raw = sessionStorage.getItem(SESSION_BREADCRUMB_KEY);
+        const raw = localStorage.getItem(SESSION_BREADCRUMB_KEY);
         if (!raw) return null;
-        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown };
+        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; savedAt?: unknown };
         if (typeof parsed.sessionId !== "string" || !Array.isArray(parsed.petIds)) return null;
-        return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String) };
+        if (parsed.playerName !== playerName) return null;
+        if (Date.now() - (Number(parsed.savedAt) || 0) > SESSION_BREADCRUMB_TTL_MS) return null;
+        return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String), playerName };
     } catch {
         return null;
     }
 }
 
-function writeSessionBreadcrumb(value: { sessionId: string; petIds: string[] } | null): void {
+function writeSessionBreadcrumb(value: SessionBreadcrumb | null): void {
     try {
-        if (value) sessionStorage.setItem(SESSION_BREADCRUMB_KEY, JSON.stringify(value));
-        else sessionStorage.removeItem(SESSION_BREADCRUMB_KEY);
+        if (value) localStorage.setItem(SESSION_BREADCRUMB_KEY, JSON.stringify({ ...value, savedAt: Date.now() }));
+        else localStorage.removeItem(SESSION_BREADCRUMB_KEY);
     } catch { /* storage disabled — resume simply won't survive a refresh */ }
 }
 
@@ -130,8 +146,17 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     useEffect(() => () => setSignals(false, false), [setSignals]);
 
     // Refresh-resume: an unresolved server session picks the fight back up.
+    //
+    // A FINISHED session is not resumed but CLAIMED. It is where a win whose
+    // settling response was lost to the network sits — the server already
+    // resolved and paid it, and only the client is missing the settled
+    // character. Re-posting an empty round re-reads that settlement (the
+    // receipt in api/pet/showdown.ts makes the payout exactly-once, and a
+    // practice session answers from memory without touching the save). The
+    // crumb is dropped on the same pass, so a decided session is only ever
+    // claimed once and never outlives its own TTL.
     useEffect(() => {
-        const crumb = readSessionBreadcrumb();
+        const crumb = readSessionBreadcrumb(character.name);
         if (!crumb) return;
         let cancelled = false;
         void (async () => {
@@ -141,9 +166,14 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 setSelected(crumb.petIds);
                 setBattle({ state, key: battleKey.current++ });
                 setSignals(true, true);
-            } else {
-                writeSessionBreadcrumb(null);
+                return;
             }
+            writeSessionBreadcrumb(null);
+            if (!state || state.outcome !== "win") return;
+            const settlement = await submitShowdownTurn(character.name, crumb.sessionId, []);
+            if (cancelled || !settlement || "expired" in settlement) return;
+            const settled = settlement.character as Character | undefined;
+            if (settled && typeof settled === "object") updateCharacter(settled);
         })();
         return () => { cancelled = true; };
         // Mount-only: the breadcrumb is a one-shot restore.
@@ -169,7 +199,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             return;
         }
         setBattle({ state: result.state, key: battleKey.current++ });
-        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected });
+        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
         setSignals(true, true);
     }, [starting, selected, size, character.name, format, tier, setSignals]);
 
@@ -259,8 +289,8 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             </div>
 
             {/* The rules the battle never gets a chance to teach — especially
-                the judge, which decides real fights and is never stated in the
-                battle UI. */}
+                attrition, which closes long fights and is never stated in the
+                battle UI until its banner is already up. */}
             <details className="showdown-rules">
                 <summary>How a Showdown works</summary>
                 <ul>

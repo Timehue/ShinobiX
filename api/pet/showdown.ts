@@ -47,18 +47,30 @@ import { buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/
  *
  * Reward integrity, for when a caller IS eligible: the payout magnitude
  * (opponent level) is SEALED at start from the AI team actually generated; the
- * outcome is engine-computed on the server; the receipt (`sd:<sessionId>` in
- * redeemedPetBattleTokens) makes the credit idempotent; the shared dailyPetWins
- * cap bounds the faucet. The client never reports an outcome, a reward, or
- * combat numbers.
+ * outcome is engine-computed on the server; the paired receipt (`sd:<sessionId>`
+ * in redeemedPetBattleTokens plus a TTL'd `pet:battle-paid:` key) makes the
+ * credit idempotent for longer than the session stays redeemable; the shared
+ * dailyPetWins cap bounds the faucet, floored server-side in api/save/[name].ts
+ * so a stale save cannot re-open it. The client never reports an outcome, a
+ * reward, or combat numbers.
  *
  * Kill switch: DISABLE_PET_SHOWDOWN=1 (ships ON by default).
  */
 
 const SESSION_TTL_SECONDS = 45 * 60;
 const DAILY_ARENA_WIN_CAP = 100;   // shared faucet with the legacy coliseum cap
+// In-save receipt window. Derived from the cap so it is never narrower than the
+// faucet it records: a hardcoded width silently becomes too small the day
+// someone raises DAILY_ARENA_WIN_CAP. (Twin constant in pet/battle-result.ts —
+// the two share the array.)
+const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
+// Durable receipt lifetime. Must outlast anything that can still be presented
+// for payment — a Showdown session leases 45 minutes, a coliseum battle token
+// 15 — with room to spare on both.
+const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
 const sessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
+const paidReceiptKey = (playerName: string, receipt: string) => `pet:battle-paid:${playerName}:${receipt}`;
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -94,7 +106,7 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
     return out;
 }
 
-/** Win payout under the save lock. Exactly-once via the receipt array. */
+/** Win payout under the save lock. Exactly-once via the paired receipts. */
 async function settleShowdownWin(playerName: string, session: ShowdownSession): Promise<Record<string, unknown>> {
     // PRACTICE FIGHTS PAY NOTHING, and pay it cheaply: no lock, no save write,
     // no receipt. Picking your own AI opponent is a sparring match — the reward
@@ -114,14 +126,21 @@ async function settleShowdownWin(playerName: string, session: ShowdownSession): 
     }
     const saveKey = `save:${playerName}`;
     const receipt = `sd:${session.sessionId}`;
+    const paidKey = paidReceiptKey(playerName, receipt);
     return withKvLock(saveKey, async () => {
         const record = await kv.get<Record<string, unknown>>(saveKey);
         const char = record?.character as Record<string, unknown> | undefined;
         if (!record || !char) return { reward: 0 };
         const receipts = Array.isArray(char.redeemedPetBattleTokens)
-            ? (char.redeemedPetBattleTokens as unknown[]).filter((e): e is string => typeof e === 'string').slice(-63)
+            ? (char.redeemedPetBattleTokens as unknown[]).filter((e): e is string => typeof e === 'string').slice(-(RECEIPT_HISTORY - 1))
             : [];
-        if (receipts.includes(receipt)) {
+        // Two records of the same fact, because neither is sufficient alone. The
+        // in-save array is exact — it lands in the same write as the ryo — but it
+        // is a rolling window shared with the legacy coliseum, and later battles
+        // evict it faster than a session expires. The durable key does not move
+        // when other battles are reported, so a settled fight cannot be cashed
+        // again by flushing the array out from under its receipt.
+        if (receipts.includes(receipt) || await kv.get(paidKey)) {
             return {
                 reward: 0,
                 totalPetWins: Number(char.totalPetWins ?? 0),
@@ -155,6 +174,11 @@ async function settleShowdownWin(playerName: string, session: ShowdownSession): 
         };
         const updated = bumpSaveVersion({ ...record, character: updatedChar });
         await writeSaveProjected(saveKey, updated, record);
+        // AFTER the paying write, never before: a failed key write must not be
+        // able to swallow a reward the player earned. Until it lands the array
+        // receipt is still covering, and it is covering for a full day of wins.
+        await kv.set(paidKey, { sessionId: session.sessionId, at: Date.now() }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
+            .catch(() => undefined);
         return {
             reward,
             totalPetWins: updatedChar.totalPetWins,
@@ -252,12 +276,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const key = sessionKey(playerName, sessionIdRaw);
 
         if (action === 'state') {
+            // A resume view is one read per screen entry, so this ceiling is far
+            // above honest use; it is here so an unlimited KV read loop can't be
+            // pointed at the session store, same as every sibling pet endpoint.
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-state', 30, 60_000, identity.name))) return;
             const session = await kv.get<ShowdownSession>(key);
             if (!session || session.playerName !== playerName) return res.status(404).json({ error: 'No active showdown.' });
             return res.status(200).json({ ok: true, state: showdownStateView(session) });
         }
 
         if (action === 'forfeit') {
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-forfeit', 20, 60_000, identity.name))) return;
             const session = await kv.get<ShowdownSession>(key);
             if (session && session.playerName === playerName) await kv.del(key).catch(() => undefined);
             return res.status(200).json({ ok: true });
@@ -272,8 +301,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!session || session.playerName !== playerName) return { error: 404 as const };
                 if (session.finished) {
                     // Already resolved (e.g. payout retry after a 503): no new
-                    // events; fall through to settlement below.
-                    return { session, events: [] };
+                    // events; fall through to settlement below. Flagged so the
+                    // settle path can tell a genuine finish from a re-post.
+                    return { session, events: [], replayed: true };
                 }
                 const playerIds = new Set(session.player.map((p) => p.id));
                 const commands = parseCommands(body.commands, session.player.length)
@@ -281,33 +311,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const aiCommands = chooseShowdownAiCommands(session);
                 const events = resolveShowdownRound(session, commands, aiCommands);
                 await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
-                return { session, events };
+                return { session, events, replayed: false };
             }, { failClosed: true });
 
             if ('error' in turnResult) return res.status(404).json({ error: 'No active showdown.' });
-            const { session, events } = turnResult;
+            const { session, events, replayed } = turnResult;
 
             if (!session.finished) {
                 return res.status(200).json({ ok: true, events, state: showdownStateView(session) });
             }
 
-            // Finishing turn: settle, then KEEP the finished session until its
-            // normal TTL instead of deleting it.
+            // Finishing turn: settle, then KEEP the finished session for one
+            // normal TTL instead of deleting it. Deleting made a dropped reply
+            // unrecoverable — the ryo was already paid under the save lock, but
+            // the retry found no session and the client told the winner "no
+            // result was recorded". Retaining it lets the retry hit the
+            // already-resolved branch above, which returns the terminal state
+            // and no new events.
             //
-            // Deleting here meant a dropped response on the settling turn was
-            // unrecoverable: the ryo was already paid (settleShowdownWin writes
-            // it under the save lock with a receipt), but the retry found no
-            // session and the client told the winner "no result was recorded" —
-            // no victory screen, no recap, no reward line, for a fight they won
-            // and were paid for. Retaining it lets the retry hit the
-            // already-resolved branch above, which returns no new events plus
-            // the terminal state, and the receipt check makes the settlement
-            // idempotent so nothing is paid twice.
+            // Only the turn that FINISHES the fight stamps that lease. Stamping
+            // it on every re-post kept a settled session warm for as long as
+            // someone kept posting, with no expiry to run out.
             let settlement: Record<string, unknown> = { reward: 0 };
             if (session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
             }
-            await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
+            if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             return res.status(200).json({ ok: true, events, state: showdownStateView(session), ...settlement });
         }
 

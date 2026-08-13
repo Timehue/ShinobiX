@@ -183,6 +183,16 @@ const ALLY_MOVE_KINDS = new Set(["heal"]);
 
 type ActionEvent = Extract<ShowdownEvent, { t: "action" }>;
 
+/** The word that pops over a pet when its battle consumable fires. */
+const CONSUMABLE_CALLOUT: Record<Extract<ShowdownEvent, { t: "consumable" }>["effect"], string> = {
+    dodge: "DODGED!",
+    mitigate: "SOFTENED!",
+    endure: "ENDURED!",
+    thorns: "THORNS!",
+    lifeline: "LIFELINE!",
+    cleanse: "CLEANSED!",
+};
+
 function beatDurationMs(event: ShowdownEvent, speed: number): number {
     const base = event.t === "action" ? (event.super ? 3300 : (event.moveKind === "guard" || event.moveKind === "rest") ? 1200 : 2300)
         : event.t === "roundStart" ? 950
@@ -190,8 +200,9 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
         : event.t === "switch" ? 1500
         : event.t === "confused" ? 1200
         : event.t === "dot" ? 850
-        // A judge ending shows two banners in sequence — at speed 2 a 1700ms
-        // beat collides them.
+        : event.t === "consumable" ? 900
+        // The verdict banner plus the settling camera hold — at speed 2 a
+        // shorter beat cuts the KO fade off mid-fall.
         : event.t === "end" ? 1700
         : 350;
     return base / speed;
@@ -917,6 +928,9 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                     )}
                     {side === "player" && pet.trait && <span className="showdown-kit-chip trait" title="Trait">{pet.trait}</span>}
                     {side === "player" && pet.gearName && <span className="showdown-kit-chip gear" title="Equipped gear">{pet.gearName}</span>}
+                    {/* Present only while the charge is live — the server stops
+                        publishing it once spent, so no client bookkeeping. */}
+                    {side === "player" && pet.consumableName && <span className="showdown-kit-chip consum" title="Battle item — one use">{pet.consumableName}</span>}
                     {d.statuses.map((s) => (
                         <span key={s.kind} className={`showdown-status-pip fam-${KIND_FAMILY[s.kind] ?? "ctl"}`} title={statusTitle(s)}>
                             <ShowdownIcon name={STATUS_GLYPH[s.kind] ?? "mark"} size={12} />
@@ -1395,6 +1409,30 @@ function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targe
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+/** Everything the tab ring may legally land on inside the takeover. */
+const FOCUSABLE_SELECTOR = [
+    "button:not([disabled])",
+    "[href]",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+/** Spoken, never seen. The live region has no visual form at any breakpoint,
+ *  so its clip rides inline rather than spending a class on nothing. */
+const SR_ONLY: React.CSSProperties = {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    margin: -1,
+    padding: 0,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+    border: 0,
+};
+
 export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch }: {
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
@@ -1416,7 +1454,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [popups, setPopups] = useState<PopupEntry[]>([]);
     const [fast, setFast] = useState(false);
     const [confirmForfeit, setConfirmForfeit] = useState(false);
-    const [netError, setNetError] = useState(false);
+    /** The round of orders the server refused, held so a failed submit costs
+     *  the player nothing but a second press. Null whenever the last submit
+     *  was accepted (or none has been made). */
+    const [failedOrders, setFailedOrders] = useState<ShowdownCommand[] | null>(null);
     const [expired, setExpired] = useState(false);
     const [letterbox, setLetterbox] = useState(false);
     const [flash, setFlash] = useState(0);
@@ -1451,6 +1492,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** The creature the pointer is over while targeting (drives the cursor and
      *  the inspector's "→ target" line). */
     const [hoveredTarget, setHoveredTarget] = useState<string | null>(null);
+    /** What the live region currently says. Everything a sighted player reads
+     *  off a damage popup or a 900ms banner has to reach a screen reader some
+     *  other way, and this is it. */
+    const [announcement, setAnnouncement] = useState("");
+    const takeoverRef = useRef<HTMLDivElement>(null);
     // VS intro card over the opening seconds.
     const [intro, setIntro] = useState(true);
     useEffect(() => {
@@ -1490,6 +1536,85 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             stopBattleMusic();
         };
     }, []);
+
+    // ── Modal contract ──────────────────────────────────────────────────────
+    // The takeover paints over the whole app but is a portal SIBLING of it, so
+    // the tab ring runs off the last control and straight into the village
+    // chrome underneath — a keyboard player walks out of a fight they cannot
+    // see they have left. Keep Tab inside the overlay, and hand focus back to
+    // whatever opened the battle when it unmounts.
+    useEffect(() => {
+        const opener = document.activeElement as HTMLElement | null;
+        // Rendered-but-hidden controls (a panel mid-transition) are not tab
+        // stops; getClientRects is the only visibility test that survives the
+        // takeover's fixed positioning, which nulls offsetParent.
+        const stops = () => Array.from(
+            takeoverRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? [],
+        ).filter((el) => el.getClientRects().length > 0);
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            const items = stops();
+            if (!items.length) {
+                e.preventDefault();
+                takeoverRef.current?.focus({ preventScroll: true });
+                return;
+            }
+            const first = items[0];
+            const last = items[items.length - 1];
+            const active = document.activeElement;
+            if (!takeoverRef.current?.contains(active)) {
+                e.preventDefault();
+                (e.shiftKey ? last : first).focus();
+            } else if (e.shiftKey && active === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && active === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+            // The portal teardown drops focus to <body>; restore on the next
+            // frame, once React has removed the overlay node.
+            requestAnimationFrame(() => {
+                if (opener?.isConnected) opener.focus();
+            });
+        };
+    }, []);
+
+    // Escape peels ONE layer and stops. It closes the forfeit prompt, cancels
+    // targeting, and walks the technique list back to the root — it never
+    // concedes and never leaves the fight, because a fullscreen takeover is
+    // exactly where a reflexive Escape gets pressed.
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            if (confirmForfeit) {
+                e.preventDefault();
+                playPetSfx("uiCancel");
+                setConfirmForfeit(false);
+            } else if (pendingMove) {
+                e.preventDefault();
+                playPetSfx("uiCancel");
+                setPendingMove(null);
+                setHoveredTarget(null);
+            } else if (pickingSwitch) {
+                e.preventDefault();
+                playPetSfx("uiCancel");
+                setPickingSwitch(false);
+                setHoveredTarget(null);
+            } else if (menuTab === "skill") {
+                e.preventDefault();
+                playPetSfx("uiCancel");
+                setMenuTab("root");
+                setFocusRow(0);
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [confirmForfeit, pendingMove, pickingSwitch, menuTab]);
 
     // ── Fighter slot map (positions + model configs, stable per roster) ─────
     const slots = useMemo(() => {
@@ -1595,6 +1720,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         const durationMs = beatDurationMs(event, speed);
         beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex };
 
+        // Speak the beat as it lands. The damage figures live in popups that
+        // fade in 1.25s and the verdicts live in banners — neither reaches a
+        // screen reader, so the same numbers go out on the live region at the
+        // moment of contact rather than when the beat opens.
+        const spoken = describeBeat(event, stateView);
+        if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? STRIKE_FRAC : 0.1));
+
         if (event.t === "roundStart") {
             // The old cap's moment survives as the pressure cue: this is where
             // attrition starts biting, not where a timer ends the fight.
@@ -1656,6 +1788,29 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 playPetSfx("dot");
                 applyToDisplay(setDisplay, event.targetId, (d) => ({ ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko }));
             }, durationMs * 0.35);
+        } else if (event.t === "consumable") {
+            // A reactive item answered the last beat. The label is the verb the
+            // player bought; the item name goes in the banner so the purchase
+            // is the thing being credited.
+            later(() => {
+                addPopup(event.petId, CONSUMABLE_CALLOUT[event.effect], "proc");
+                showBanner(`${nameOf(stateView, event.petId)}'s ${event.itemName}!`, "status", durationMs * 0.8);
+                playPetSfx(event.effect === "thorns" ? "hit" : event.effect === "lifeline" ? "heal" : "buff");
+                if (event.damage > 0) {
+                    addPopup(event.targetId, `-${event.damage}`, "damage");
+                    fxRef.current.hitAt.set(event.targetId, performance.now());
+                    applyToDisplay(setDisplay, event.targetId, (d) => ({
+                        ...d, hp: Math.max(0, d.hp - event.damage), ko: event.ko,
+                    }));
+                }
+                if (event.heal > 0) {
+                    addPopup(event.targetId, `+${event.heal}`, "heal");
+                    spawnFlipbook(event.targetId, "heal", 2.2, 700);
+                    applyToDisplay(setDisplay, event.targetId, (d) => ({
+                        ...d, hp: Math.min(stateMaxHp(stateView, event.targetId), d.hp + event.heal),
+                    }));
+                }
+            }, durationMs * 0.25);
         } else if (event.t === "end") {
             setEndOutcome(event.outcome);
             later(() => {
@@ -1692,7 +1847,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     // A hit the shield ate entirely arrives as damage 0, and the
                     // whole impact block used to be gated on damage > 0 — so the
                     // attacker lunged, and the victim reacted in no way at all.
-                    if (target.damage <= 0 && !target.heal && event.moveKind !== "guard" && event.moveKind !== "rest") {
+                    // `applied` excludes deliberate zero-damage casts: a
+                    // self-cast barrier lands as damage 0 + applied "shield",
+                    // and popping ABSORBED over its own SHIELD read as the
+                    // buff having failed.
+                    if (target.damage <= 0 && !target.heal && !target.applied && event.moveKind !== "guard" && event.moveKind !== "rest") {
                         later(() => {
                             addPopup(target.id, "ABSORBED", "guarded");
                             spawnFlipbook(target.id, "eshield", 2.2, 520 / speed, 1.0, 1, "#8ecdf7");
@@ -1882,13 +2041,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // round on an empty draft. The engine already defaults every missing
     // command to a guard, and its winded/stun branch discards that anyway —
     // the same reasoning pushCommand relies on when it omits skipped pets.
-    const roundStalled = phase === "command" && promptable.length === 0 && !expired;
+    //
+    // A refused submit takes precedence: the auto-resolve would otherwise sit
+    // in a silent 900ms retry loop against a server that just said no, and the
+    // retry panel is the surface that says so out loud.
+    const roundStalled = phase === "command" && promptable.length === 0 && !expired && !failedOrders;
 
     // Fire the round: called from the LAST pushCommand (event handler, not an
     // effect — every setState here runs in handler/async context).
     const submitRound = useCallback(async (commands: ShowdownCommand[]) => {
         setPhase("playing");
-        setNetError(false);
+        setFailedOrders(null);
         const response = await submitTurn(commands);
         if (response && "expired" in response) {
             // Session lapsed (45-min TTL) — a distinct dead end, not a retry.
@@ -1896,9 +2059,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             return;
         }
         if (!response || !response.ok) {
-            setNetError(true);
+            // HOLD THE ROUND. A 3v3 draft is six decisions, and throwing them
+            // away turns the server's failure into the player's re-entry work.
+            // The orders are kept verbatim so the retry sends exactly what was
+            // chosen — the deck stands down and the failure takes its place.
+            setFailedOrders(commands);
             setPhase("command");
-            setDraft([]);
             return;
         }
         settlementRef.current = response;
@@ -1942,6 +2108,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         const t = setTimeout(() => { void submitRound([]); }, 900);
         return () => clearTimeout(t);
     }, [roundStalled, submitRound]);
+
+    // Say whose turn it is. The deck is a list of buttons that names the move
+    // but never the pet being asked, nor the shape it is in — both of which a
+    // sighted player reads straight off the plate.
+    useEffect(() => {
+        if (phase !== "command" || !commander) return;
+        const line = pickingSwitch
+            ? `Choose a reserve to send in for ${commander.name}.`
+            : pendingMove
+                ? `Choose a target for ${commander.name}.`
+                : `${commander.name}'s orders. ${commander.hp} of ${commander.maxHp} health, ${commander.stamina} stamina.${commanderMustSwitch ? " It loses this action — rotate out or hold the line." : ""}`;
+        const t = window.setTimeout(() => setAnnouncement(line), 0);
+        return () => window.clearTimeout(t);
+    }, [phase, commander, commanderMustSwitch, pendingMove, pickingSwitch]);
 
     // Plain handlers (not useCallback): they close over render-derived values
     // (draft, livingPlayer) and only ever run from committed-event contexts.
@@ -1998,7 +2178,40 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     };
 
 
+    /** Hand the kept orders back to the deck, minus the last one — the deck
+     *  reopens on the pet whose order the player is most likely rewriting, and
+     *  everything before it survives. */
+    const reviseOrders = () => {
+        if (!failedOrders) return;
+        playPetSfx("uiCancel");
+        setDraft(failedOrders.slice(0, -1));
+        setFailedOrders(null);
+        setPendingMove(null);
+        setPickingSwitch(false);
+        setMenuTab("root");
+        setFocusRow(0);
+    };
+
     const outcome = stateView.outcome;
+    /** The fight is DECIDED the instant the server's end event opens: the
+     *  result is already banked on the server, so from here a forfeit is a
+     *  stale question about a fight that is over. */
+    const battleDecided = phase === "finished" || !!endOutcome || stateView.finished;
+    /** Exactly ONE full-screen panel, in this order. They used to be
+     *  independent siblings, so a forfeit prompt opened during the last
+     *  exchange stayed up over the victory screen and its scrim — and the
+     *  concede button under it would then throw away a won fight. */
+    const panel: "result" | "expired" | "forfeit" | null =
+        phase === "finished" ? "result"
+            : expired ? "expired"
+                : confirmForfeit && !battleDecided ? "forfeit"
+                    : null;
+    const concede = () => {
+        // Guard the action, not just its visibility: a click can still land on
+        // the button in the frame where the fight resolves.
+        if (battleDecided || expired) { setConfirmForfeit(false); return; }
+        onForfeit();
+    };
     const targetingAllies = !!pendingMove && !!commander && ALLY_MOVE_KINDS.has((pendingMove.super ? commander.moves.find((m) => m.signature) : commander.moves[pendingMove.moveIndex])?.kind ?? "");
     /** Which creatures may be clicked right now. Targeting an enemy for an
      *  attack, an ally for a heal, or a bench pet for a switch — all three are
@@ -2116,7 +2329,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         : null;
 
     const overlay = (
-        <div className="pet-combat-takeover showdown-takeover">
+        <div
+            ref={takeoverRef}
+            className="pet-combat-takeover showdown-takeover"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Pet Showdown — your team against ${stateView.enemyTeamName}`}
+            tabIndex={-1}
+        >
+            {/* The whole fight, in words. Polite and atomic: a beat replaces the
+                last one rather than queuing behind it, which is what keeps the
+                readout with the battle instead of minutes behind it. */}
+            <div style={SR_ONLY} role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
             <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 5.2, 9.6], near: 0.1, far: 80 }}>
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
@@ -2210,8 +2434,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         <button type="button" className="showdown-chip icon" onClick={toggleAudio}>
                             <ShowdownIcon name={muted ? "sound-off" : "sound-on"} size={15} title={muted ? "Sound off" : "Sound on"} />
                         </button>
-                        {phase !== "finished" && (
-                            <button type="button" className="showdown-chip danger icon" onClick={() => setConfirmForfeit(true)}>
+                        {!battleDecided && !expired && (
+                            <button type="button" className="showdown-chip danger icon" aria-label="Forfeit the battle" onClick={() => setConfirmForfeit(true)}>
                                 <ShowdownIcon name="flag" size={15} title="Forfeit" />
                             </button>
                         )}
@@ -2286,7 +2510,38 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             </button>
                         </div>
                     )}
-                    {phase === "command" && commander && (
+                    {/* The submit was refused. This stands in the command deck's
+                        own slot — the failure is the loudest thing on screen,
+                        and the orders it lists are the ones still held, so the
+                        panel is also the receipt that nothing was lost. */}
+                    {failedOrders && phase === "command" && (
+                        <div className="showdown-stalled" role="alert">
+                            <div className="showdown-stalled-title">Orders not sent</div>
+                            <div className="showdown-stalled-body">
+                                {failedOrders.length > 0
+                                    ? <>The server refused this round. Your {failedOrders.length === 1 ? "order is" : `${failedOrders.length} orders are`} still here — send {failedOrders.length === 1 ? "it" : "them"} again.</>
+                                    : <>The server refused this round. Nothing was lost — try resolving it again.</>}
+                            </div>
+                            {failedOrders.length > 0 && (
+                                <ul className="showdown-stalled-body" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                                    {failedOrders.map((command, i) => (
+                                        <li key={`${command.petId}-${i}`}>{describeCommand(stateView, command)}</li>
+                                    ))}
+                                </ul>
+                            )}
+                            <div className="showdown-result-buttons">
+                                <button type="button" className="showdown-cta" autoFocus onClick={() => { void submitRound(failedOrders); }}>
+                                    Send again
+                                </button>
+                                {failedOrders.length > 0 && (
+                                    <button type="button" className="showdown-chip" onClick={reviseOrders}>
+                                        Change the last order
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    {phase === "command" && commander && !failedOrders && (
                         <>
                             {/* Targeting takes over the menu column: the choice is
                                 made in the 3D scene, so the panel only says who
@@ -2313,9 +2568,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                         ? `${commander.name} · ${Math.round(staminaNow)} EN`
                                         : commanderMustSwitch
                                             ? "Loses this action — rotate out or hold"
-                                            : netError
-                                                ? "Connection hiccup — try again"
-                                                : `${commanderElement} · Lv${commander.level}`}
+                                            : `${commanderElement} · Lv${commander.level}`}
                                     rows={menuRows}
                                     focus={focusIndex}
                                     onFocusRow={setFocusRow}
@@ -2340,8 +2593,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     {phase === "playing" && <div className="showdown-playing-hint">The exchange unfolds…</div>}
                 </div>
 
-                {phase === "finished" && (
-                    <div className="showdown-result">
+                {panel === "result" && (
+                    <div className="showdown-result" role="dialog" aria-modal="true" aria-label={outcome === "win" ? "Victory" : "Defeat"}>
                         <div className={`showdown-result-title ${outcome === "win" ? "win" : "loss"}`}>
                             {outcome === "win" ? "VICTORY" : "DEFEAT"}
                         </div>
@@ -2383,28 +2636,31 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             <div className="showdown-result-reward capped">Daily arena reward cap reached</div>
                         )}
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta" onClick={onRematch}>Battle Again</button>
+                            <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>Battle Again</button>
                             <button type="button" className="showdown-chip" onClick={onExit}>Leave the Showdown</button>
                         </div>
                     </div>
                 )}
 
-                {expired && (
-                    <div className="showdown-result">
+                {panel === "expired" && (
+                    <div className="showdown-result" role="dialog" aria-modal="true" aria-label="This Showdown expired">
                         <div className="showdown-result-title loss">This Showdown expired</div>
                         <div className="showdown-result-reward capped">The session timed out on the server — no result was recorded.</div>
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta" onClick={onExit}>Back to the lobby</button>
+                            <button type="button" className="showdown-cta" autoFocus onClick={onExit}>Back to the lobby</button>
                         </div>
                     </div>
                 )}
 
-                {confirmForfeit && (
-                    <div className="showdown-result">
+                {panel === "forfeit" && (
+                    <div className="showdown-result" role="alertdialog" aria-modal="true" aria-label="Forfeit the battle?">
                         <div className="showdown-result-title loss">Forfeit the battle?</div>
+                        {/* The safe answer takes the focus: this prompt sits over
+                            a live fight, and the destructive one is the reason
+                            Escape closes the prompt instead of answering it. */}
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta danger" onClick={onForfeit}>Yes, concede</button>
-                            <button type="button" className="showdown-chip" onClick={() => setConfirmForfeit(false)}>Keep fighting</button>
+                            <button type="button" className="showdown-cta danger" onClick={concede}>Yes, concede</button>
+                            <button type="button" className="showdown-chip" autoFocus onClick={() => setConfirmForfeit(false)}>Keep fighting</button>
                         </div>
                     </div>
                 )}
@@ -2448,6 +2704,96 @@ function applyToDisplay(
 
 function nameOf(state: ShowdownStateView, petId: string): string {
     return [...state.player, ...state.enemy].find((p) => p.id === petId)?.name ?? "The pet";
+}
+
+function petViewOf(state: ShowdownStateView, petId: string): ShowdownPetView | undefined {
+    return [...state.player, ...state.enemy].find((p) => p.id === petId);
+}
+
+/** One beat in plain speech, for the live region. Same figures the popups and
+ *  banners paint — nothing here is computed, it is all read off the event. */
+function describeBeat(event: ShowdownEvent, state: ShowdownStateView): string {
+    switch (event.t) {
+        case "roundStart":
+            return `Round ${event.round}.`;
+        case "action": {
+            const actor = nameOf(state, event.actorId);
+            if (event.moveKind === "guard") return `${actor} braces behind its guard.`;
+            if (event.moveKind === "rest") return `${actor} catches its breath.`;
+            const hits = event.targets.map((target) => {
+                const who = nameOf(state, target.id);
+                const parts: string[] = [];
+                if (target.damage > 0) parts.push(`${who} takes ${target.damage}${target.guarded ? " through its guard" : ""}`);
+                else if (target.heal > 0) parts.push(`${who} recovers ${target.heal}`);
+                else if (target.applied) parts.push(`${who} is ${target.applied}`);
+                else parts.push(`${who} takes nothing`);
+                if (target.effectiveness === "super") parts.push("super effective");
+                else if (target.effectiveness === "weak") parts.push("not very effective");
+                if (target.ko) parts.push(`${who} is knocked out`);
+                return parts.join(", ");
+            });
+            const overdraft = event.overexertDamage
+                ? ` ${actor} overexerts for ${event.overexertDamage} and loses its next action.`
+                : "";
+            return `${actor} used ${event.moveName}. ${hits.join(". ")}.${overdraft}`;
+        }
+        case "skip": {
+            const actor = nameOf(state, event.actorId);
+            return event.reason === "winded" ? `${actor} is winded and loses its action.`
+                : event.reason === "stun" ? `${actor} is stunned and loses its action.`
+                    : event.reason === "freeze" ? `${actor} is frozen solid and loses its action.`
+                        : `${actor} is down.`;
+        }
+        case "confused": {
+            const actor = nameOf(state, event.actorId);
+            return `${actor} hurt itself in confusion for ${event.selfDamage}.${event.ko ? ` ${actor} is knocked out.` : ""}`;
+        }
+        case "switch": {
+            const arriving = nameOf(state, event.inId);
+            return event.side === "player"
+                ? `${arriving} takes the field.`
+                : `The enemy sends in ${arriving}.`;
+        }
+        case "dot": {
+            const who = nameOf(state, event.targetId);
+            return `${who} takes ${event.damage} from ${event.kind}.${event.ko ? ` ${who} is knocked out.` : ""}`;
+        }
+        case "consumable": {
+            const owner = nameOf(state, event.petId);
+            const who = nameOf(state, event.targetId);
+            const result = event.damage > 0 ? ` ${who} takes ${event.damage}.`
+                : event.heal > 0 ? ` ${who} recovers ${event.heal}.`
+                    : "";
+            return `${owner}'s ${event.itemName} fires.${result}`;
+        }
+        case "end":
+            return event.outcome === "win" ? "Victory. The battle is over." : "Defeat. The battle is over.";
+        default:
+            return "";
+    }
+}
+
+/** One drafted order in words. Used where the orders have to be shown back to
+ *  the player as proof they were kept. */
+function describeCommand(state: ShowdownStateView, command: ShowdownCommand): string {
+    const actor = nameOf(state, command.petId);
+    switch (command.kind) {
+        case "guard":
+            return `${actor} — Guard`;
+        case "rest":
+            return `${actor} — Catch Breath`;
+        case "switch":
+            return `${actor} — switch to ${nameOf(state, command.benchPetId)}`;
+        case "super": {
+            const signature = petViewOf(state, command.petId)?.moves.find((m) => m.signature);
+            return `${actor} — ${signature?.name ?? "signature"} → ${nameOf(state, command.targetId)}`;
+        }
+        case "move": {
+            const move = petViewOf(state, command.petId)?.moves[command.moveIndex];
+            const target = command.targetId === command.petId ? "itself" : nameOf(state, command.targetId);
+            return `${actor} — ${move?.name ?? "attack"} → ${target}`;
+        }
+    }
 }
 
 function stateMaxHp(state: ShowdownStateView, petId: string): number {

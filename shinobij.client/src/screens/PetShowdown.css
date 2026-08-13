@@ -811,6 +811,9 @@
     white-space: nowrap;
 }
 .showdown-kit-chip.gear { background: rgba(147, 197, 253, 0.14); border-color: rgba(147, 197, 253, 0.3); }
+/* One-use battle item — green like the support family, so "this will save you
+   once" reads apart from the permanent gear chip beside it. */
+.showdown-kit-chip.consum { background: rgba(134, 239, 172, 0.14); border-color: rgba(134, 239, 172, 0.32); }
 
 .showdown-skip-tag {
     display: inline-flex;
@@ -895,7 +898,6 @@
     padding: 6px 22px;
 }
 .showdown-banner.status { --banner-ink: #93c5fd; font-size: 1.05rem; font-family: inherit; text-transform: none; }
-.showdown-banner.judge { --banner-ink: #d9c9a8; font-size: 1.35rem; letter-spacing: 0.1em; }
 /* Verdict tier: full-width, no shear — the one moment that stops the frame. */
 .showdown-banner.victory,
 .showdown-banner.defeat {
@@ -932,63 +934,6 @@
 .showdown-popup.overexert { color: #fb923c; font-size: 0.95rem; }
 /* Named trait/gear attribution — smaller than a damage number, it explains it. */
 .showdown-popup.proc { color: #fcd34d; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.02em; }
-
-/* ── Timing needle ─────────────────────────────────────────────────────── */
-
-.showdown-needle {
-    position: absolute;
-    left: 50%;
-    bottom: 34%;
-    transform: translateX(-50%);
-    width: min(420px, 86vw);
-    background: rgba(10, 7, 3, 0.85);
-    border: 1px solid rgba(251, 191, 36, 0.5);
-    border-radius: 14px;
-    padding: 14px;
-    cursor: pointer;
-    pointer-events: auto;
-}
-.showdown-needle-track {
-    position: relative;
-    height: 18px;
-    border-radius: 9px;
-    background: rgba(255, 255, 255, 0.1);
-    overflow: hidden;
-}
-.showdown-needle-zone.good {
-    position: absolute;
-    left: 30%;
-    width: 40%;
-    top: 0;
-    bottom: 0;
-    background: rgba(74, 222, 128, 0.3);
-}
-.showdown-needle-zone.perfect {
-    position: absolute;
-    left: 42%;
-    width: 16%;
-    top: 0;
-    bottom: 0;
-    background: rgba(251, 191, 36, 0.65);
-}
-.showdown-needle-marker {
-    position: absolute;
-    top: -2px;
-    bottom: -2px;
-    width: 4px;
-    margin-left: -2px;
-    background: #fff;
-    box-shadow: 0 0 8px #fff;
-    border-radius: 2px;
-}
-.showdown-needle-hint {
-    margin-top: 8px;
-    text-align: center;
-    font-weight: 800;
-    color: #fbbf24;
-    font-size: 0.9rem;
-    letter-spacing: 0.06em;
-}
 
 /* ── Bench tag, VS intro ───────────────────────────────────────────────── */
 
@@ -1332,6 +1277,47 @@
 
 .showdown-result-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 
+/* ── Narrow compression (the 560-979 tier) ──────────────────────────────────
+   The middle tier every other combat surface in this codebase carries. Between
+   560 and 979 the plate row is the problem: a 232px plate against a 62vw cap
+   fits ONE per row at 600px wide, so a three-pet team builds a 260px-tall
+   stack out of what is meant to be a corner readout. Each team gets the single
+   sideways-scrolling row the phone tier uses, which makes the panel's height a
+   constant instead of a function of team size.
+
+   Must stay ABOVE the 559 block: both match on a phone, and the phone's
+   tighter numbers only win by being declared later. */
+
+@media (max-width: 979px) {
+    .showdown-team-panel {
+        max-width: 100%;
+        gap: 5px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .showdown-team-panel::-webkit-scrollbar { display: none; }
+    /* flex-end plus overflow-x strands the leading plates off the LEFT edge
+       where no scroll reaches them — start-align and let the row scroll. */
+    .showdown-team-panel.player { justify-content: flex-start; }
+    .showdown-plate { flex: 0 0 auto; width: 204px; padding: 5px 9px 6px 5px; }
+    .showdown-plate.benched { width: 168px; }
+    .showdown-plate-portrait { width: 38px; height: 38px; }
+    .showdown-plate.benched .showdown-plate-portrait { width: 30px; height: 30px; }
+    .showdown-plate-title { font-size: 0.74rem; }
+
+    .showdown-topbar { gap: 6px; padding-inline: 8px; }
+    .showdown-topbar .showdown-team-panel { min-width: 0; }
+    .showdown-topbar-right { flex: 0 0 auto; }
+    .showdown-vs { max-width: 128px; }
+    .showdown-playerbar { padding-inline: 8px; }
+
+    /* The deck's two columns keep their desktop bases and their gap in the
+       middle — that gap is the one place the arena still reads between them.
+       They already shrink to fit on their own down to 560. */
+    .showdown-bottombar { gap: 8px; padding-inline: 8px; }
+}
+
 /* ── Mobile compression ────────────────────────────────────────────────── */
 
 @media (max-width: 559px) {
@@ -1401,6 +1387,240 @@
     .showdown-order-strip { padding: 3px 8px; }
     .showdown-vs { display: none; }
     .showdown-result-title { font-size: 1.8rem; }
+}
+
+/* ── Short viewports ───────────────────────────────────────────────────────
+   The takeover is `position: fixed; inset: 0; overflow: hidden` (see
+   adaptive-stages.css), so the HUD column has exactly one screen to spend and
+   whatever does not fit is clipped away with no scrollbar left to recover it.
+   Height, not width, is what runs out first here: the chrome above the deck is
+   the same ~350px whether the screen is 600px tall or 1200px, so a landscape
+   phone, a 1024x600 Chromebook and any laptop with devtools docked all put the
+   command deck past the bottom edge.
+
+   The order of sacrifice is fixed. The arena band yields first, then the
+   readouts, and the deck yields last — it is the only thing in the frame the
+   player has to touch. `--sd-deck-max` is what is left of the screen after the
+   compacted chrome is paid for, and the row list scrolls INSIDE that budget
+   rather than pushing itself off the bottom, so a six-row technique list is
+   still reachable on a screen that cannot show six rows at once. */
+
+@media (max-height: 700px) {
+    /* 252px is everything the deck's row list does not get: the plate row above
+       it (90), the order strip (34), the player's plate row (80), the menu head
+       standing on top of the list (43), and the bar's own bottom padding. It is
+       a measured constant, so the compaction below has to hold every one of
+       those to its stated height — a plate that can grow is a deck that can be
+       pushed back off the screen. */
+    .showdown-hud { --sd-deck-max: calc(100dvh - 252px - env(safe-area-inset-bottom, 0px)); }
+
+    /* One sideways-scrolling row per team at ANY width — a wrapping plate grid
+       is the largest single consumer of a short screen, and its height varies
+       with team size, which is the one thing this budget cannot allow. */
+    .showdown-team-panel {
+        max-width: 100%;
+        gap: 4px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .showdown-team-panel::-webkit-scrollbar { display: none; }
+    .showdown-team-panel.player { justify-content: flex-start; }
+    .showdown-plate { flex: 0 0 auto; width: 196px; padding: 4px 8px 5px 4px; gap: 6px; }
+    .showdown-plate.benched { width: 162px; }
+    .showdown-plate-portrait { width: 34px; height: 34px; }
+    .showdown-plate.benched .showdown-plate-portrait { width: 28px; height: 28px; }
+    .showdown-plate-title { font-size: 0.72rem; }
+    .showdown-plate-track { height: 8px; }
+    /* The trait/gear chips are the only thing on a plate that is not live
+       state, so they are what a plate gives up to hold one row. */
+    .showdown-kit-chip { display: none; }
+    /* The budget above is only sound while a plate's height is a CONSTANT. A
+       tag row that wraps as statuses accumulate would spend the arena band and
+       then start pushing the deck back off the screen mid-battle, so the pips
+       hold one line and the overflow is scrolled to rather than dropped. */
+    .showdown-plate-tags { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .showdown-plate-tags::-webkit-scrollbar { display: none; }
+
+    /* The control stack becomes a control ROW. Three 34px chips in a column
+       cost ~160px of a ~600px screen to present ~100px of button. */
+    .showdown-topbar { padding-top: 6px; gap: 6px; }
+    .showdown-topbar-right { flex-direction: row; align-items: center; gap: 5px; }
+    .showdown-round { font-size: 0.82rem; }
+    .showdown-vs { display: none; }
+
+    .showdown-order-strip { margin-top: 4px; padding: 3px 8px; }
+    .showdown-order-chip { width: 22px; height: 22px; }
+    .showdown-order-chip img { width: 18px; height: 18px; }
+    .showdown-playerbar { padding-bottom: 4px; }
+
+    /* Rows keep a 40px block size — below that the deck stops being touchable,
+       which is the whole reason it is the last thing to compress. */
+    .showdown-menu-rows {
+        --row-pitch: 41px;
+        padding: 11px 4px 4px;
+        max-block-size: var(--sd-deck-max);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(217, 180, 120, 0.5) transparent;
+    }
+    /* The cursor's origin is the rows box's own padding — the two are set
+       together or the arrow stops pointing at the row it has selected. */
+    .showdown-menu-cursor { top: 11px; left: 5px; }
+    .showdown-menu-row { min-block-size: 40px; padding-block: 5px; }
+    .showdown-menu-head { padding: 5px 12px 11px; }
+    .showdown-menu-title { font-size: 0.84rem; }
+    /* The inspector shares the deck's row, so an unusually long effect line
+       must not become the thing that sets the bar's height. */
+    .showdown-inspector {
+        max-block-size: calc(var(--sd-deck-max) + 36px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(217, 180, 120, 0.5) transparent;
+    }
+    .showdown-inspector-glyph { width: 44px; height: 44px; }
+    .showdown-bottombar { padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+
+    /* space-between floats the player row into the middle of the stage; with
+       flex-start the playerbar's own margin-top:auto pins it to the deck, so
+       the bottom cluster reads as ONE piece and the stage keeps the band. */
+    .showdown-hud { justify-content: flex-start; }
+
+    /* ── Chrome yields to the arena ─────────────────────────────────────────
+       In a short viewport every panel overlaps the battlefield, and four
+       near-opaque lacquer slabs turn the game into rectangles with a fight
+       somewhere behind them. The bodies thin out so the arena reads THROUGH
+       the chrome — the opaque brass rims and the text shadows keep doing the
+       legibility work, which is what they were for. Same gradients, lower
+       alpha, so the material still reads as the same hardware. */
+    .showdown-plate {
+        background:
+            var(--grain),
+            var(--sheen),
+            linear-gradient(155deg, rgba(42, 30, 16, 0.72), rgba(11, 8, 5, 0.74));
+        box-shadow:
+            inset 0 1px 0 rgba(255, 235, 190, 0.16),
+            inset 0 0 0 1px rgba(251, 220, 160, 0.1),
+            0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    .showdown-menu-rows {
+        background:
+            var(--grain),
+            var(--sheen),
+            linear-gradient(155deg, rgba(44, 31, 16, 0.72), rgba(11, 8, 5, 0.8));
+        box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.12), 0 4px 14px rgba(0, 0, 0, 0.45);
+    }
+    .showdown-inspector {
+        background:
+            var(--grain),
+            var(--sheen),
+            linear-gradient(155deg, rgba(30, 22, 12, 0.8), rgba(10, 8, 5, 0.85));
+    }
+
+    /* The deck gets out of its own commander's face: slimmer column, and the
+       ceremonial name-plate header collapses to a strip — the commander is
+       already named by the focus ring on their plate, so a two-line crest is
+       chrome the arena pays for. */
+    .showdown-menu { flex: 0 1 224px; min-width: 186px; }
+    .showdown-menu-head { padding: 3px 12px 9px; }
+    .showdown-menu-title { font-size: 0.78rem; }
+    .showdown-menu-sub { display: none; }
+
+    /* The inspector is a caption for the focused row, not a second deck: cap
+       its share of the row and let the stat cells sit as small chips. */
+    .showdown-inspector { max-width: 300px; padding: 7px 10px; }
+    .showdown-inspector-stats { margin-top: 5px; gap: 4px; }
+    .showdown-inspector-stats > span { min-width: 38px; padding: 2px 4px; }
+
+    /* The result panel is the same trap one screen later: centred content that
+       overflows a short screen hides its buttons off BOTH ends. `safe center`
+       keeps the centring wherever it fits and falls back to packing from the
+       top where it does not. */
+    .showdown-result {
+        gap: 8px;
+        padding: 12px;
+        justify-content: flex-start;
+        justify-content: safe center;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+    .showdown-result-title { font-size: 1.8rem; padding: 8px 30px; }
+    .showdown-recap-row { padding: 4px 9px; font-size: 0.76rem; }
+    .showdown-recap-row img { width: 22px; height: 22px; }
+    .showdown-banner { top: 16%; }
+}
+
+/* A landscape phone: wide, and shorter than the command deck alone used to be.
+   Below this line a 5-row deck at a 40px touch size plus two plate rows is very
+   nearly the whole screen, so the arena band thins to a strip. That is the
+   trade this tier exists to make — a stage you can barely see still beats a
+   deck you cannot reach. Every number below is height bought back for the deck:
+   the plate is stripped to its live state and the bars to their glyph. */
+@media (max-height: 480px) {
+    .showdown-hud { --sd-deck-max: calc(100dvh - 160px - env(safe-area-inset-bottom, 0px)); }
+
+    /* An ESTIMATE of the turn order is the readout this screen can do without:
+       every pet in it is already on a plate carrying live state. */
+    .showdown-order-strip { display: none; }
+
+    /* Slim bars, not a wall: on a landscape phone the player row sits directly
+       over the stage, so it holds the smallest footprint that still reads —
+       portrait, name, two thin tracks with their numerals. */
+    .showdown-plate { width: 154px; padding: 2px 6px 3px 3px; gap: 5px; }
+    .showdown-plate.benched { width: 128px; }
+    .showdown-plate-portrait { width: 26px; height: 26px; }
+    .showdown-plate.benched .showdown-plate-portrait { width: 22px; height: 22px; }
+    /* The element already reads from the portrait's tinted rim. */
+    .showdown-plate-elem { display: none; }
+    .showdown-plate-body { gap: 1px; }
+    .showdown-plate-title { font-size: 0.66rem; line-height: 1.1; }
+    /* A bar row is as tall as its tallest part, so the glyph and the numeral
+       have to come down together or the track's own height buys nothing. */
+    .showdown-plate-key { width: 11px; height: 11px; }
+    .showdown-plate-key svg { width: 10px; height: 10px; }
+    .showdown-plate-track { height: 7px; }
+    .showdown-plate-meter { height: 3px; }
+    .sd-num { font-size: 0.62rem; line-height: 1; }
+    .sd-num:not(.pct) i { display: none; }
+    .showdown-matchup { font-size: 0.58rem; padding: 0 4px 0 2px; }
+
+    .showdown-topbar { padding-top: 2px; }
+    .showdown-playerbar { padding-bottom: 2px; }
+    .showdown-menu-head { padding: 2px 10px 8px; }
+    .showdown-menu-title { font-size: 0.72rem; }
+    .showdown-menu-sub { font-size: 0.58rem; }
+    /* Pitch and row height must move together — the cursor is transformed by
+       `--row-pitch` alone and never measures the rows it is pointing at. */
+    .showdown-menu-rows { --row-pitch: 40px; gap: 0; padding: 9px 4px 3px; }
+    .showdown-menu-cursor { top: 9px; left: 4px; }
+    .showdown-inspector { padding: 7px 9px; }
+    .showdown-inspector-desc { font-size: 0.66rem; }
+    .showdown-inspector-glyph { width: 52px; height: 52px; }
+    .showdown-bottombar { padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px)); }
+
+    .showdown-banner { font-size: 1.15rem; padding: 8px 18px; top: 12%; }
+    .showdown-banner.victory, .showdown-banner.defeat { font-size: 1.6rem; }
+
+    /* The verdict screen carries its heaviest load on its smallest screen —
+       reward, practice notice, three recap rows, the daily line and two
+       buttons. Compacted until the whole panel clears the viewport, so the
+       "Battle Again" button never depends on the player finding a scroll. */
+    .showdown-result { gap: 6px; padding: 8px 12px; }
+    .showdown-result-title { font-size: 1.5rem; padding: 6px 24px; letter-spacing: 0.1em; }
+    .showdown-result-reward { font-size: 1.05rem; padding: 4px 14px; }
+    .showdown-result-reward.capped { font-size: 0.76rem; }
+    .showdown-result-practice,
+    .showdown-result-daily { font-size: 0.74rem; padding-block: 3px; }
+    .showdown-result-reason { font-size: 0.74rem; padding: 7px 12px; }
+    .showdown-recap { gap: 3px; padding: 7px 11px; }
+    .showdown-recap-row { padding: 3px 8px; font-size: 0.72rem; }
+    .showdown-recap-row img { width: 20px; height: 20px; }
+    .showdown-result-buttons { gap: 8px; }
+    .showdown-cta { padding: 10px 24px; font-size: 0.95rem; }
+    .showdown-vs-side img { width: 56px; height: 56px; }
+    .showdown-vs-burst { font-size: 2rem; }
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────────

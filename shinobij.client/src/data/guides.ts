@@ -486,14 +486,16 @@ const PETS: Guide = {
             heading: "4 · Pet Showdown (turn-based)",
             blocks: [
                 { type: "p", text: "Showdown is the flagship pet battle: you command every action of a turn-based fight, in 1v1, 2v2 or 3v3. Pick up to three pets — the extras wait on the bench and can be rotated in mid-fight." },
+                { type: "callout", tone: "warn", label: "Practice", text: "Choosing your own opponent is a practice match: it pays no ryo, and it spends none of your daily pet-battle wins. Fight it to learn the mode and test a team, not to earn." },
                 { type: "list", items: [
                     "Stamina, not cooldowns: every technique costs stamina from a pool sized by the pet's bulk, and it regenerates slowly each round.",
+                    "Rest gives up your turn to buy stamina back. It restores no HP at all — HP comes back only from a healing move, a lifesteal hit or a battle item.",
                     "Overdraft: you may cast a move you cannot afford. It still fires, but the pet takes damage for the shortfall and loses its next action.",
                     "Hold: the heaviest techniques need a round in battle before they come online, and signatures need two.",
                     "Turn order is speed × the priority of the move you chose — Guard resolves early, haymakers and signatures swing last.",
                     "The signature meter fills as you deal and take damage, then empties in a single cast.",
-                    "Switching resolves before all attacks, and the pet coming in eats whatever was aimed at that slot — so a read on the switch is a real play.",
-                    "No draws: at the round limit the judge awards the win to the team with more remaining HP, and a tie goes to your opponent.",
+                    "Switching resolves before all attacks, and an attack aimed at the pet that left lands on whoever is still standing in its place — so a read on the switch is a real play.",
+                    "No round limit: a fight ends when a team falls, never on a timer. If it runs long, attrition starts — every pet bleeds a little more each round and healing fades away, so the fight closes itself without deciding the winner for you.",
                 ] },
                 { type: "callout", tone: "tip", label: "Tip", text: "Benched pets keep recovering stamina but their statuses are frozen — you cannot wait out a burn on the bench." },
             ],

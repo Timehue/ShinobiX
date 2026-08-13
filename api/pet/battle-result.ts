@@ -19,6 +19,15 @@ import { writeSaveProjected } from '../save/_projected-write.js';
 
 const ARENA_WIN_RATE_LIMIT = 5_000;   // ms — one win per 5s per player
 const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
+// In-save receipt window. Derived from the cap so it is never narrower than the
+// faucet it records: a hardcoded width silently becomes too small the day
+// someone raises DAILY_ARENA_WIN_CAP. (Twin constant in pet/showdown.ts — the
+// two share the array.)
+const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
+// Durable receipt lifetime. Must outlast anything that can still be presented
+// for payment — a battle token leases 15 minutes, a Showdown session 45 — with
+// room to spare on both.
+const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 // Ranked-rating credit receipt window. A stale tab re-reporting hours later
 // must not re-apply the Elo swing. Matches the 24h receipt in pvp/claim-rewards.ts.
 const RANKED_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
@@ -35,6 +44,10 @@ type HollowGatePetResultReceipt = {
 
 function hollowGatePetResultKey(playerName: string, battleToken: string): string {
     return `hg-pet-result:${playerName}:${battleToken}`;
+}
+
+function paidReceiptKey(playerName: string, receipt: string): string {
+    return `pet:battle-paid:${playerName}:${receipt}`;
 }
 
 function utcDateKey(): string {
@@ -404,9 +417,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!char) return { error: 'no-character' as const };
             if (casualBattleTokenKey) {
                 const receipts = Array.isArray(char.redeemedPetBattleTokens)
-                    ? (char.redeemedPetBattleTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
+                    ? (char.redeemedPetBattleTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-(RECEIPT_HISTORY - 1))
                     : [];
-                if (receipts.includes(casualBattleReceipt)) {
+                // Two records of the same fact, because neither is sufficient
+                // alone. The in-save array is exact — it lands in the same write
+                // as the ryo — but it is a rolling window shared with Showdown,
+                // and later battles evict it faster than a battle token expires.
+                // The durable key does not move when other battles are reported,
+                // so a paid battle cannot be cashed again by flushing the array
+                // out from under its receipt.
+                if (receipts.includes(casualBattleReceipt) || await kv.get(paidReceiptKey(playerName, casualBattleReceipt))) {
                     await kv.del(casualBattleTokenKey).catch(() => undefined);
                     return {
                         ok: true,
@@ -480,7 +500,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const updated = bumpSaveVersion({ ...record, character: updatedChar });
             await writeSaveProjected(saveKey, updated, record);
-            if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
+            if (casualBattleTokenKey) {
+                await kv.del(casualBattleTokenKey).catch(() => undefined);
+                // AFTER the paying write, never before: a failed key write must
+                // not be able to swallow a reward the player earned. Until it
+                // lands the array receipt is still covering, and it is covering
+                // for a full day of wins. Only the paying branch needs it — the
+                // loss/draw and capped branches move no currency.
+                await kv.set(paidReceiptKey(playerName, casualBattleReceipt), { at: Date.now() }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
+                    .catch(() => undefined);
+            }
             return {
                 ok: true,
                 reward,
