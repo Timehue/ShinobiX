@@ -220,8 +220,12 @@ const world = {
     benched: new Set<string>([]),
 };
 world.benched.add(playerPets[2].id);
+// ?glass — review switch: enemies open at 30% health so one signature is
+// lethal and the KO ceremony (impact frame, crowd eruption, scar, extended
+// fall beat) is reachable in a single order instead of a five-round grind.
+const GLASS_ENEMIES = new URLSearchParams(window.location.search).has("glass");
 for (const pet of [...playerPets, ...enemyPets]) {
-    world.hp.set(pet.id, Math.round(pet.hp));
+    world.hp.set(pet.id, Math.round(pet.hp * (GLASS_ENEMIES && enemyPets.some((e) => e.id === pet.id) ? 0.3 : 1)));
     // ?meter — review switch: every pet opens with a FULL signature meter, so
     // the super cinematics are castable from round one instead of after five
     // rounds of charging. Dev-only, presentation-iteration tooling.

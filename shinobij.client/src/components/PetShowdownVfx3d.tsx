@@ -680,6 +680,205 @@ const PARTICLES: Record<string, (superCast: boolean) => ParticleSpec> = {
     Lightning: (s) => ({ count: s ? 30 : 18, color: "#f4f8ff", size: 0.24, mode: "burst", t0: 0.05, t1: 0.85, radius: s ? 1.9 : 1.4, height: 2.2 }),
 };
 
+// ─── Battle scars — the arena remembers the whole fight ──────────────────────
+// Every signature and killing blow leaves a mark where it landed: scorch,
+// fracture, frost-burn. Flat decals that fade in at the strike and linger,
+// so round nine looks like a battlefield instead of round one.
+
+export interface BattleScar {
+    key: number;
+    x: number;
+    z: number;
+    element: string;
+    bornAt: number;
+}
+
+const SCAR_RIM: Record<string, string> = {
+    Fire: "rgba(255,120,50,0.5)",
+    Water: "rgba(120,200,255,0.42)",
+    Wind: "rgba(160,240,200,0.4)",
+    Earth: "rgba(220,170,100,0.48)",
+    Lightning: "rgba(190,210,255,0.5)",
+};
+
+/** Ragged dark blotch with a faint element-colored rim — drawn once per
+ *  element and cached. */
+function scarTexture(element: string): THREE.CanvasTexture {
+    return canvasTexture(`scar-${element}`, 128, 128, (ctx, w, h) => {
+        const rand = seededRand(element.length * 97 + 13);
+        const cx = w / 2, cy = h / 2;
+        // Ragged char blotch: many overlapping dark arcs of varying radius.
+        for (let i = 0; i < 46; i++) {
+            const a = rand() * Math.PI * 2;
+            const d = rand() * rand() * w * 0.3;
+            const r = 6 + rand() * 20;
+            ctx.fillStyle = `rgba(16,11,9,${0.1 + rand() * 0.16})`;
+            ctx.beginPath();
+            ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Radial cracks.
+        ctx.strokeStyle = "rgba(10,7,6,0.5)";
+        for (let i = 0; i < 7; i++) {
+            const a = rand() * Math.PI * 2;
+            ctx.lineWidth = 1 + rand() * 1.6;
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6);
+            ctx.lineTo(cx + Math.cos(a + (rand() - 0.5) * 0.5) * (26 + rand() * 30), cy + Math.sin(a + (rand() - 0.5) * 0.5) * (26 + rand() * 30));
+            ctx.stroke();
+        }
+        // Element rim glow.
+        const rim = ctx.createRadialGradient(cx, cy, w * 0.16, cx, cy, w * 0.42);
+        rim.addColorStop(0, "rgba(0,0,0,0)");
+        rim.addColorStop(0.75, SCAR_RIM[element] ?? "rgba(255,255,255,0.3)");
+        rim.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = rim;
+        ctx.beginPath();
+        ctx.arc(cx, cy, w * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+    });
+}
+
+function ScarDecal({ scar }: { scar: BattleScar }) {
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const tex = useMemo(() => scarTexture(scar.element), [scar.element]);
+    const rand = useMemo(() => seededRand(scar.key * 61 + 3), [scar.key]);
+    const spin = useMemo(() => rand() * Math.PI * 2, [rand]);
+    const size = useMemo(() => 2.2 + rand() * 1.4, [rand]);
+    useFrame(() => {
+        if (!mesh.current || !mat.current) return;
+        const age = (performance.now() - scar.bornAt) / 1000;
+        // Fade in with the strike, hold, then bleach out over ~100s.
+        const env = age < 0.4 ? age / 0.4 : Math.max(0, 1 - (age - 0.4) / 100);
+        mesh.current.visible = env > 0.01;
+        mat.current.opacity = 0.46 * env;
+    });
+    return (
+        <mesh ref={mesh} rotation={[-Math.PI / 2, 0, spin]} position={[scar.x, 0.045, scar.z]} visible={false}>
+            <planeGeometry args={[size, size]} />
+            <meshBasicMaterial ref={mat} map={tex} transparent opacity={0} depthWrite={false} toneMapped={false} />
+        </mesh>
+    );
+}
+
+export function ScarLayer({ scars }: { scars: readonly BattleScar[] }) {
+    return <group>{scars.map((s) => <ScarDecal key={s.key} scar={s} />)}</group>;
+}
+
+// ─── Element residue — the arena remembers for a few beats ───────────────────
+// After a signature detonates, its element does not simply vanish: embers
+// drift where the firestorm stood, the flooded boards keep a wet sheen, charge
+// crackles off the storm's victim. A low-key ambient loop, spawned when the
+// set-piece ends and fading out on its own.
+
+export interface ResidueSpawn {
+    key: number;
+    element: string;
+    x: number;
+    z: number;
+    startedAt: number;
+    durationMs: number;
+}
+
+const RESIDUE_STYLE: Record<string, { color: string; count: number; size: number; mode: "rise" | "orbit" | "burst"; height: number; floor?: string; floorOpacity?: number }> = {
+    Fire: { color: "#ff9a55", count: 14, size: 0.2, mode: "rise", height: 2.4, floor: "floor-lava", floorOpacity: 0.16 },
+    Water: { color: "#a5e2ff", count: 10, size: 0.18, mode: "orbit", height: 0.7, floor: "floor-water", floorOpacity: 0.2 },
+    Wind: { color: "#c9f5df", count: 12, size: 0.18, mode: "orbit", height: 2.2 },
+    Earth: { color: "#d8b083", count: 10, size: 0.2, mode: "rise", height: 1.1, floor: "floor-earth", floorOpacity: 0.16 },
+    Lightning: { color: "#dfe8ff", count: 12, size: 0.18, mode: "burst", height: 1.6, floor: "floor-storm", floorOpacity: 0.14 },
+};
+
+export function ResidueFx({ spawn }: { spawn: ResidueSpawn }) {
+    const style = RESIDUE_STYLE[spawn.element];
+    const points = useRef<THREE.Points>(null);
+    const mat = useRef<THREE.PointsMaterial>(null);
+    const floorMesh = useRef<THREE.Mesh>(null);
+    const floorMat = useRef<THREE.MeshBasicMaterial>(null);
+    const params = useMemo(() => {
+        const rand = seededRand(spawn.key * 53 + 9);
+        const count = style?.count ?? 10;
+        return Array.from({ length: count }, () => ({
+            angle: rand() * Math.PI * 2,
+            r: 0.5 + rand() * 1.6,
+            speed: 0.25 + rand() * 0.5,
+            phase: rand(),
+        }));
+    }, [spawn.key, style]);
+    const dot = useMemo(() => dotTexture(), []);
+    const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
+    useFrame(() => {
+        if (!style) return;
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const env = t < 0.2 ? t / 0.2 : t > 0.65 ? Math.max(0, (1 - t) / 0.35) : 1;
+        if (points.current && mat.current) {
+            if (t < 0 || t >= 1) points.current.visible = false;
+            else {
+                points.current.visible = true;
+                const attr = points.current.geometry.attributes.position as THREE.BufferAttribute;
+                const pos = attr.array as Float32Array;
+                for (let i = 0; i < params.length; i++) {
+                    const p = params[i];
+                    const life = (t * p.speed * 3 + p.phase) % 1;
+                    let x = spawn.x, z = spawn.z;
+                    let y: number;
+                    if (style.mode === "rise") {
+                        x += Math.cos(p.angle) * p.r;
+                        z += Math.sin(p.angle) * p.r;
+                        y = 0.12 + life * style.height;
+                    } else if (style.mode === "orbit") {
+                        const a = p.angle + life * Math.PI * 2;
+                        x += Math.cos(a) * p.r;
+                        z += Math.sin(a) * p.r;
+                        y = 0.15 + Math.sin(life * Math.PI) * style.height * 0.5;
+                    } else {
+                        x += Math.cos(p.angle) * p.r * life;
+                        z += Math.sin(p.angle) * p.r * life;
+                        y = 0.12 + Math.sin(life * Math.PI) * style.height * 0.6;
+                    }
+                    pos[i * 3] = x;
+                    pos[i * 3 + 1] = y;
+                    pos[i * 3 + 2] = z;
+                }
+                attr.needsUpdate = true;
+                mat.current.opacity = env * 0.65;
+            }
+        }
+        if (floorMesh.current && floorMat.current) {
+            if (t < 0 || t >= 1 || !floorTex) floorMesh.current.visible = false;
+            else {
+                floorMesh.current.visible = true;
+                if (floorMat.current.map !== floorTex) {
+                    floorMat.current.map = floorTex;
+                    floorMat.current.needsUpdate = true;
+                }
+                floorMesh.current.position.set(spawn.x, 0.055, spawn.z);
+                floorMesh.current.rotation.z = t * 0.4;
+                floorMat.current.opacity = (style.floorOpacity ?? 0.15) * env;
+            }
+        }
+    });
+    if (!style) return null;
+    return (
+        <group>
+            <points ref={points} visible={false}>
+                <bufferGeometry>
+                    <bufferAttribute attach="attributes-position" args={[new Float32Array((style.count) * 3), 3]} />
+                </bufferGeometry>
+                <pointsMaterial ref={mat} map={dot} color={style.color} size={style.size} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+            </points>
+            {floorTex && (
+                <mesh ref={floorMesh} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                    <planeGeometry args={[7.5, 7.5]} />
+                    <meshBasicMaterial ref={floorMat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+                </mesh>
+            )}
+        </group>
+    );
+}
+
 /** The 3D structure for one staged cast. Rendered alongside the floor
  *  takeover and the slimmed painted accents by SetPieceOnce. */
 export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
