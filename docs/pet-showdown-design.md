@@ -1265,6 +1265,47 @@ and the three mythic-assassin override openers reclassed `damage`→`crush`
 class now agree). Roles 47.9–52.8, pace 7.5, species hard band 15-85 holds
 with 6 comfort outliers against a budget of 14.
 
+## Round 34 — the art round (2026-08-13)
+
+Owner call: "we need epic vfx like pokemon champions" (Vaporeon Surf reference —
+the element takes over the FRAME, floor included), then mid-round: "make a whole
+new arena with a crowd, we can't take shortcuts" and "there are 2 different vfx
+firing — one cheap on the pet, one better but mid-screen — do better."
+
+**The generated-art pipeline** (`scripts/gen-showdown-vfx.mjs`, gpt-image-1,
+same key resolution as gen-story-art): ten epic sprites into
+`assets/fx/epic/` — five painted STRUCTURES (tsunami wall, firewall, tornado
+column, quake spires, storm bolt; transparent, 1536px, high) and five FLOOR
+TAKEOVERS ("the arena floor becomes the element": ocean, magma field, flattened
+cyclone, fractured stone, storm-charged ground) — plus five full ARENA
+backdrops with the crowd PAINTED IN (`assets/coliseum/<stage>-bg-crowd.webp`),
+replacing a composited crowd-band attempt the owner rejected. Legacy screens
+keep the original `-bg` art; only Showdown's STAGES repoints.
+
+**Renderer**: SetPieceLayer grew `sprite` (single hero texture vs flipbook),
+`dur` (strobing bolt strikes), `sway`/`puls`/`flip`, `add`; painted art renders
+NORMAL-blended (additive blows the foam/flame values out), bolts opt back into
+additive. FLOOR_TAKEOVERS lays the disc flat over the whole arena during
+staged casts (full presence on supers, 0.55 on heavies) — the single biggest
+Champions ingredient. Set-piece air: 900/1600ms → 1150/2100ms.
+
+**Two bugs the owner's eye caught**:
+- *Detachment*: set-piece meshes were positioned INSIDE the drei Billboard
+  group — the billboard rotates about its own origin, so any off-axis camera
+  ORBITED the art away from its victim (the "better vfx mid-screen"). Group
+  moves to the world point now, mesh at local zero; hero sprites also face the
+  lens fully (yaw-locked planes collapsed to an edge-on smear in the high
+  enemy-side shots).
+- *Double impact*: a staged cast fired the hero piece AND the small on-pet
+  flipbook stack (element burst + super element + lightning bolt). Staged casts
+  now fuse them: one bigger detonation timed to the piece's ARRIVAL (wave
+  breaking, eruption cresting); the flipbook extras only run where reduced
+  motion suppressed the piece.
+
+Verified live on the bench (in-page timed canvas captures through both
+signatures): magma floor + converging flame sheets + painted crowd for Fire;
+flooded arena + curling crest + pinned contact flash for Water.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified
@@ -1287,8 +1328,10 @@ with 6 comfort outliers against a budget of 14.
 ### Next up (agreed direction, no blockers)
 - Set-piece polish round against real play: per-element scale/height/speed
   tuning from owner screenshots; melee streaks on elemental contact kinds.
-- Stage dressing: crowd silhouettes + reactive lightrig for supers (art
-  assets); the enemy RESISTED/matchup chips could sit tighter on the plates.
+- ~~Stage dressing: crowd + epic move art~~ DONE 2026-08-13 (round 34): five
+  arena backdrops with painted-in crowds, ten epic hero sprites, floor
+  takeovers, one-impact staging. Remaining polish: watch real play for
+  overlap pileups when two supers land back-to-back at 1× speed.
 - ~~Per-species kit tuning~~ DONE 2026-08-12: SHOWDOWN_KIT_OVERRIDES for the
   five legendary outliers (the HIGH four ran bulk + a 10-EN power-0 slow at
   the cost floor; Tempest Pegasus had no live damage in round one). Measured
