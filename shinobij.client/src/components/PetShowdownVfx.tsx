@@ -142,6 +142,139 @@ export function ShowdownVfxLayer({ spawns }: { spawns: VfxSpawn[] }) {
     return <group>{spawns.map((s) => <FlipbookOnce key={s.key} spawn={s} />)}</group>;
 }
 
+// ─── Elemental set-pieces ────────────────────────────────────────────────────
+// The spectacle tier above the impact burst: heavy and signature casts stage
+// their element as an EVENT in the arena — a wave that actually travels, a
+// tornado that actually spins — instead of one more billboard popping on the
+// victim. Purely presentational; the wire carries only element/weight and the
+// battle component decides when a cast earned one.
+
+export interface SetPieceSpawn {
+    key: number;
+    element: string;
+    /** Caster's position — where a traveling piece starts. */
+    from: readonly [number, number, number];
+    /** Victim's position — where every piece lands. */
+    to: readonly [number, number, number];
+    startedAt: number;
+    durationMs: number;
+}
+
+/** One animated layer of a set-piece. All motion derives from the normalized
+ *  clock, so fast-forward scales everything together. */
+interface SetPieceLayer {
+    frames: string;
+    /** Width in world units; height = width × aspect. */
+    scale: number;
+    aspect: number;
+    /** Fraction of the piece's life before this layer joins in. */
+    delay: number;
+    /** Vertical ride: start → end height above the floor. */
+    y0: number;
+    y1: number;
+    /** 1 = travels from→to (the wave); 0 = sits on the victim. */
+    travel: number;
+    /** Full view-axis turns over the layer's life (the tornado). */
+    spin: number;
+    tint?: string;
+    /** Growth over life: rendered scale goes scale → scale×grow. */
+    grow: number;
+}
+
+const SET_PIECES: Record<string, SetPieceLayer[]> = {
+    // Tsunami: a wide wall of water sweeps the lane and breaks on the victim,
+    // with a second crest chasing it.
+    Water: [
+        { frames: "water", scale: 6.4, aspect: 0.42, delay: 0, y0: 0.5, y1: 0.8, travel: 1, spin: 0, grow: 1.25 },
+        { frames: "water", scale: 4.6, aspect: 0.4, delay: 0.22, y0: 0.35, y1: 0.6, travel: 1, spin: 0, grow: 1.2, tint: "#9fdcff" },
+    ],
+    // Tornado: a tall column spinning up out of the ground on the victim.
+    Wind: [
+        { frames: "vortex", scale: 2.7, aspect: 2.6, delay: 0, y0: 0.6, y1: 1.7, travel: 0, spin: 3.2, grow: 1.3 },
+        { frames: "wind", scale: 3.4, aspect: 0.8, delay: 0.3, y0: 0.4, y1: 0.9, travel: 0, spin: -1.6, grow: 1.15, tint: "#c8ffe9" },
+    ],
+    // Fire wash: the blast blooms overhead while the ground itself catches.
+    Fire: [
+        { frames: "fire", scale: 3.6, aspect: 1.1, delay: 0, y0: 1.0, y1: 1.5, travel: 0, spin: 0, grow: 1.45 },
+        { frames: "lava", scale: 3.0, aspect: 0.6, delay: 0.2, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.3 },
+    ],
+    // Eruption: stone tears upward from under the victim's feet.
+    Earth: [
+        { frames: "earth", scale: 3.2, aspect: 1.2, delay: 0, y0: -0.7, y1: 1.3, travel: 0, spin: 0, grow: 1.2 },
+        { frames: "impact", scale: 2.6, aspect: 0.6, delay: 0.28, y0: 0.2, y1: 0.5, travel: 0, spin: 0, grow: 1.25, tint: "#d8a86a" },
+    ],
+    // Stormfall: paired sky bolts, the second hammering in off-line.
+    Lightning: [
+        { frames: "lightning", scale: 2.5, aspect: 2.8, delay: 0, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05 },
+        { frames: "lightning", scale: 2.0, aspect: 2.6, delay: 0.24, y0: 2.2, y1: 2.2, travel: 0, spin: 0, grow: 1.05, tint: "#fff6c0" },
+    ],
+};
+
+function SetPieceLayerMesh({ spawn, layer, offsetX }: { spawn: SetPieceSpawn; layer: SetPieceLayer; offsetX: number }) {
+    const textures = useMemo(() => flipbookTextures(layer.frames), [layer.frames]);
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame(() => {
+        if (!textures || !mesh.current || !mat.current) return;
+        const life = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        // The layer's own clock starts after its stagger and fills the rest.
+        const t = (life - layer.delay) / Math.max(0.05, 1 - layer.delay);
+        if (t < 0 || t >= 1) {
+            mesh.current.visible = false;
+            return;
+        }
+        mesh.current.visible = true;
+        const frame = textures[Math.min(textures.length - 1, Math.floor(t * textures.length))];
+        if (mat.current.map !== frame) {
+            mat.current.map = frame;
+            mat.current.needsUpdate = true;
+        }
+        // Ease-out travel: the wave arrives fast and breaks slow.
+        const ease = 1 - (1 - t) * (1 - t);
+        const x = spawn.from[0] + (spawn.to[0] - spawn.from[0]) * (layer.travel ? ease : 1) + offsetX;
+        const z = spawn.from[2] + (spawn.to[2] - spawn.from[2]) * (layer.travel ? ease : 1);
+        const y = layer.y0 + (layer.y1 - layer.y0) * ease;
+        mesh.current.position.set(layer.travel ? x : spawn.to[0] + offsetX, y, layer.travel ? z : spawn.to[2]);
+        const s = 1 + (layer.grow - 1) * ease;
+        mesh.current.scale.set(s, s, 1);
+        mesh.current.rotation.z = layer.spin * t * Math.PI * 2;
+        mat.current.opacity = t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1;
+    });
+    if (!textures) return null;
+    return (
+        <Billboard lockX lockZ>
+            <mesh ref={mesh} visible={false}>
+                <planeGeometry args={[layer.scale, layer.scale * layer.aspect]} />
+                <meshBasicMaterial
+                    ref={mat}
+                    transparent
+                    opacity={0}
+                    color={layer.tint ?? "#ffffff"}
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    toneMapped={false}
+                />
+            </mesh>
+        </Billboard>
+    );
+}
+
+function SetPieceOnce({ spawn }: { spawn: SetPieceSpawn }) {
+    const layers = SET_PIECES[spawn.element];
+    if (!layers) return null;
+    return (
+        <group>
+            {layers.map((layer, i) => (
+                <SetPieceLayerMesh key={i} spawn={spawn} layer={layer} offsetX={i === 1 && spawn.element === "Lightning" ? 0.9 : 0} />
+            ))}
+        </group>
+    );
+}
+
+export function ShowdownSetPieceLayer({ spawns }: { spawns: SetPieceSpawn[] }) {
+    return <group>{spawns.map((s) => <SetPieceOnce key={s.key} spawn={s} />)}</group>;
+}
+
 // ─── Looping status aura (burn keeps burning, poison keeps dripping) ─────────
 
 const STATUS_AURA: Record<string, { frames: string; scale: number; y: number; opacity: number }> = {

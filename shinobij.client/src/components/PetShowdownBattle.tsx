@@ -36,12 +36,14 @@ import { promptablePets } from "../lib/showdown-turn";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
     ShowdownVfxLayer,
+    ShowdownSetPieceLayer,
     StatusAuraFx,
     BeatDrivenVfx,
     SuperPillar,
     impactFlipbookKey,
     vfxElementTint as elementVfxTint,
     type VfxSpawn,
+    type SetPieceSpawn,
     type PillarDrive,
 } from "./PetShowdownVfx";
 import { ShowdownIcon, type ShowdownIconName } from "./icons/ShowdownIcon";
@@ -409,7 +411,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
     lineup: Lineup;
     reduced: boolean;
 }) {
-    const pos = useRef(new THREE.Vector3(0, 5.2, 9.6));
+    const pos = useRef(new THREE.Vector3(0, 6.2, 12.2));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
     /** Shot identity — when it changes, the camera CUTS (snaps) instead of
      *  lerping: the Pokémon Colosseum grammar. */
@@ -423,8 +425,12 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         const fx = fxRef.current;
         const now = performance.now();
         // Default: wide broadcast shot from behind the player's line.
-        let targetPos = new THREE.Vector3(0, 5.2, 10.2);
-        let targetLook = new THREE.Vector3(0, 1.0, -0.4);
+        // Pulled back from (5.2, 10.2): at the old distance the creatures sat
+        // large enough that the status plates read as ON them — the command
+        // view felt covered up. Wider and slightly higher gives the board
+        // Champions' framing: creatures mid-frame, chrome at the edges.
+        let targetPos = new THREE.Vector3(0, 6.2, 12.8);
+        let targetLook = new THREE.Vector3(0, 0.9, -0.6);
         let nextShot = "wide";
         let cutOnChange = false;
         if (beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
@@ -1526,6 +1532,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         }
     }, []);
     const [vfx, setVfx] = useState<VfxSpawn[]>([]);
+    const [setPieces, setSetPieces] = useState<SetPieceSpawn[]>([]);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
 
     // Command drafting.
@@ -1701,6 +1708,22 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, [stateView.player.length, stateView.enemy.length]);
 
     /** Spawn a one-shot painted flipbook at a pet's current position. */
+    /** Elemental set-piece (tsunami / tornado / fire wash…) for the casts that
+     *  earned one. Anchored on both bodies so traveling pieces have a lane. */
+    const spawnSetPiece = useCallback((element: string, casterId: string, victimId: string, durationMs: number) => {
+        const from = posRef.current.get(casterId);
+        const to = posRef.current.get(victimId);
+        if (!from || !to) return;
+        const key = popupKey.current++;
+        setSetPieces((list) => [...list.slice(-6), {
+            key, element,
+            from: [from[0], from[1], from[2]] as const,
+            to: [to[0], to[1], to[2]] as const,
+            startedAt: performance.now(), durationMs,
+        }]);
+        window.setTimeout(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
+    }, []);
+
     const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string) => {
         // An empty key means "this action detonates nothing" (Rest).
         if (!frames) return;
@@ -1957,6 +1980,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // alone read as a decal; the flash is what sells the
                         // FRAME of contact (and it is why hit-stop exists).
                         spawnFlipbook(target.id, "spark", burst * 0.72, 200 / speed, 1.0, 1, "#ffffff");
+                        // The casts that EARNED a spectacle stage their element
+                        // as an arena event — a tsunami that travels the lane,
+                        // a tornado that spins up, fire that catches the ground
+                        // — on the primary victim only (splash keeps the burst).
+                        if ((event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId) {
+                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 1150 : 900) / speed);
+                        }
                         later(() => spawnFlipbook(
                             target.id,
                             impactFlipbookKey(event.element, event.moveKind, event.super),
@@ -2424,12 +2454,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 last one rather than queuing behind it, which is what keeps the
                 readout with the battle instead of minutes behind it. */}
             <div style={SR_ONLY} role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
-            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 5.2, 9.6], near: 0.1, far: 80 }}>
+            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ fov: 48, position: [0, 6.2, 12.2], near: 0.1, far: 80 }}>
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
+                <ShowdownSetPieceLayer spawns={setPieces} />
                 {petBloomEnabled() && !reducedMotion && (
                     <EffectComposer>
                         <Bloom intensity={0.55} luminanceThreshold={0.62} luminanceSmoothing={0.3} mipmapBlur />
