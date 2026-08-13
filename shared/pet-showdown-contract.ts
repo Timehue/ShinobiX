@@ -230,6 +230,14 @@ export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Ob
  *  cap — the switch is the prediction layer that replaces board movement. */
 export const SHOWDOWN_MAX_TEAM = 3;
 
+/** PvP command timer: seconds each side gets to lock a round's orders (owner
+ *  ruling — Temtem runs 30s + a reserve bank; ours is a flat 45). Applies ONLY
+ *  to PvP sessions: practice against a hand-picked AI has no clock, because a
+ *  timer there punishes reading your own kit. The endpoint stamps the deadline
+ *  onto the state view (`turnDeadline`); a lapsed deadline resolves the round
+ *  with defaults (the engine already treats a missing command as guard). */
+export const SHOWDOWN_PVP_TURN_SECONDS = 45;
+
 /** One command per living pet per round. Deliberately carries no execution
  *  input: the timing-needle grade that used to ride along here was removed in
  *  round 18, so a command is pure INTENT and the engine alone decides outcome. */
@@ -318,6 +326,11 @@ export interface ShowdownStateView {
     /** Projected next-round action order (pet ids, current speed effects
      *  applied, rng tiebreaks excluded) — the Temtem-style order strip. */
     nextOrder: string[];
+    /** PvP command timer: epoch-ms deadline for this round's orders. Stamped
+     *  by the ENDPOINT (the engine never reads a clock) and only on PvP
+     *  sessions — absent for the practice AI entry, so the client shows no
+     *  countdown there. When it lapses the round resolves with defaults. */
+    turnDeadline?: number;
 }
 
 /** Effectiveness callout the presentation layer banners on impact. */

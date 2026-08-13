@@ -1166,9 +1166,77 @@ the fight, so a paid session can no longer be kept warm and re-cashed; and
 `state`/`forfeit` got the rate limits every sibling endpoint already had. Each
 protection was verified by deliberately breaking it and watching its test fail.
 
+## Round 26 — the playback race, the tunnel, and the PvP clock (2026-08-12)
+
+### Every fight was playing without its effects — a race, not missing art
+
+The owner's report was "there doesn't seem to be any visual effects," and the
+art was all there: 27 painted flipbook sets, projectiles, a spawn system, an
+impact composition. Instrumenting the beat player found the real defect:
+`submitRound` flips the phase to "playing" BEFORE the server answers, and the
+beat player's script-exhausted branch fired instantly on the stale queue,
+reconciled, and handed control back to "command" — so the arriving script
+landed in the wrong phase and **never played**. When the previous round's
+script was still queued, you briefly watched LAST round's beats instead.
+Round 1 was always silent; every later round was one script behind.
+
+Fix: an in-flight hold (`submitInFlight`) the exhausted branch respects — the
+empty-queue moment between submit and response is the anticipation hold, not
+the end of a script — plus the stale queue is dropped at submit so it can
+never replay. Verified by tracing beats: round 1 now runs
+roundStart + all four actions, 8 VFX spawns, from the very first fight.
+
+Two punch-ups landed with it: contact now reads in anime grammar (a hard white
+flash the frame the hit lands, the element burst blooming through it 60ms
+later), and the arena's backdrop ring — which covered only 1.6π of arc — is
+closed and capped, so the action camera's off-axis cuts no longer stare into
+raw void.
+
+### The bench leaves the building
+
+Reserves used to stand in the wings on screen. Owner ruling: off. The bench
+now parks OFF-STAGE at the tunnel mouth past the arena rim, undrawn while at
+rest — the roster only exists on the field. A chosen reserve pops in at the
+tunnel and GALLOPS across the arena to its slot (the fighters' walk-home chase,
+~9 units in about a second); a pulled pet gallops off and vanishes. No new
+animation system — the staging IS the animation.
+
+### Turn order, verified against the ask
+
+The owner asked to "make sure the speed stat dictates turns." It does, and it
+is exactly Temtem's shipped model: the engine sorts every round by
+`effectiveSpeed × movePriority` (a low-priority move halves you, a high one
+multiplies you up) with a hair of seeded rng as the tiebreak — highest
+effective speed acts first, every pet acts once, next round. The EST. ORDER
+strip previews it live against the draft.
+
+### The 45-second PvP clock (scaffolded, dormant)
+
+Owner ruling: PvP rounds get 45 seconds to commit orders.
+`SHOWDOWN_PVP_TURN_SECONDS = 45` in the contract; sessions seal a `pvp` flag
+(false on every AI entry — practice has no clock, a timer there punishes
+reading your own kit); the ENDPOINT stamps `turnDeadlineAt` at start and re-arms
+it on every resolved round (the engine never reads a wall clock), surfacing
+`turnDeadline` on the state view. The client renders a Champions-style MOVE
+TIME chip that goes hot for the last ten seconds and locks the round in as
+drafted at zero — the engine defaults every missing order to guard. When live
+PvP lands, its start path seals `pvp: true` and the turn handler must also
+resolve a lapsed round with defaults for the absent side (one deadline check;
+noted at `armTurnDeadline`).
+
 ## Follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
+- The Pokémon-Champions skin pass on the new Temtem-shaped HUD: angled
+  full-bleed name plates (portrait crest, big HP numerals), round FIGHT-style
+  action medallions, crowd-and-lightrig stage dressing.
+- Deeper Temtem parity, each item needing an owner call because it moves
+  balance or data: partner SYNERGY as a first-class technique property (a
+  synergy banner exists; the bonus today is flat), the two-status limit with
+  status interactions, STAB, and a physical/special split (that last one
+  re-prices the entire catalog and every table — a foundational rework, not a
+  patch). Temtem's 25-turn cap conflicts with the standing no-round-limit
+  ruling and is NOT planned; attrition remains the closer.
 - When the first world-initiated (reward-eligible) mode lands on this engine:
   wire `showdownConsumableSpends` into its start path under the save lock, set
   its sessions `rewardEligible: true`, surface the reclaimed reward on the

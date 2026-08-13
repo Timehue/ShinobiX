@@ -275,12 +275,15 @@ function computeArrangement(lineup: Lineup): Map<string, [number, number, number
     const out = new Map<string, [number, number, number]>();
     const place = (ids: string[], side: "player" | "enemy", bench: boolean) => {
         if (bench) {
-            // The bench waits in the WINGS (player left, enemy right), slightly
-            // behind its side's line — visible at the frame edge in wide shots,
-            // never looming in the camera foreground.
+            // The bench waits OFF-STAGE at the tunnel mouth (player left, enemy
+            // right), past the arena rim and outside every camera the director
+            // owns. Reserves used to stand in the wings on screen; now the
+            // roster only exists on the field — a chosen reserve GALLOPS in
+            // from the tunnel (the fighters' walk-home chase covers ~9 units
+            // in about a second), and a pulled pet gallops off and vanishes.
             ids.forEach((id, i) => {
                 const wing = side === "player" ? -1 : 1;
-                out.set(id, [wing * (6.8 + i * 1.9), FLOOR_Y, side === "player" ? 4.4 : -4.4]);
+                out.set(id, [wing * (10.4 + i * 1.2), FLOOR_Y, side === "player" ? 6.2 : -6.2]);
             });
             return;
         }
@@ -323,7 +326,9 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
         const backdrop = loader.load(art.bg);
         backdrop.colorSpace = THREE.SRGBColorSpace;
         backdrop.wrapS = THREE.MirroredRepeatWrapping;
-        backdrop.repeat.set(2, 1);
+        // 2.5 tiles over the now-FULL ring keeps the painted arches at the same
+        // apparent width the old 1.6π arc had at 2 tiles.
+        backdrop.repeat.set(2.5, 1);
         return { floor, backdrop };
     }, [art]);
     const ambient = useRef<THREE.AmbientLight>(null);
@@ -372,9 +377,18 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
             />
             <directionalLight position={[-7, 5, -7]} intensity={0.6} color="#79aaff" />
             <pointLight ref={ember} position={[0, 3.5, 2]} intensity={12} distance={15} decay={2} color={art.ember} />
+            {/* FULL ring + a night cap. The wall used to cover 1.6π of arc with
+                nothing behind the remaining 72° — the action camera's off-axis
+                cuts looked straight through the gap into raw void, and a third
+                of the frame went black mid-beat. MirroredRepeat makes the extra
+                arc seamless; the cap closes the sky the low shots tilt into. */}
             <mesh position={[0, 6.0, 0]}>
-                <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
+                <cylinderGeometry args={[19, 19, 21, 60, 1, true]} />
                 <meshBasicMaterial map={textures.backdrop} side={THREE.BackSide} toneMapped={false} fog={false} />
+            </mesh>
+            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 16.4, 0]}>
+                <circleGeometry args={[19.2, 48]} />
+                <meshBasicMaterial color="#0b0704" toneMapped={false} fog={false} />
             </mesh>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]} receiveShadow>
                 <circleGeometry args={[14, 64]} />
@@ -548,7 +562,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, popups, highlight, targetable, onPick, onHover }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, benchedRef, popups, highlight, targetable, onPick, onHover }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
@@ -560,6 +574,9 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     /** petId → assigned home position (field slot or bench row). A pet with no
      *  entry (a fallen body after reinforcement) freezes where it stands. */
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
+    /** ids currently on the bench — a reserve AT its off-stage park is not
+     *  drawn at all; it pops in the moment a switch starts it walking. */
+    benchedRef: React.MutableRefObject<ReadonlySet<string>>;
     popups: PopupEntry[];
     highlight: "none" | "commander" | "targeted";
     /** You pick your target by clicking the CREATURE, not a name card. */
@@ -624,6 +641,15 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.moving = false;
         f.speed = 0;
         f.casting = false;
+
+        // A reserve parked at its off-stage tunnel is not drawn: the roster
+        // lives on the field, and the bench exists only as the gallop that
+        // brings one in. `walking` is the whole state machine — the pop-in
+        // happens exactly when a switch hands the reserve a field slot and the
+        // chase starts, and the pop-out when a pulled pet reaches the tunnel.
+        if (group.current) {
+            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko);
+        }
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
         // contact freeze, so impacts have fighting-game weight.
@@ -1322,6 +1348,41 @@ function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
     );
 }
 
+/** PvP command clock (Pokémon Champions' MOVE TIME, Temtem's decision timer).
+ *  Renders only when the server put a deadline on the state view — practice
+ *  fights carry none, so this never appears there. At zero it locks the round
+ *  in as drafted; the engine defaults every missing order to guard, so an
+ *  undecided pet braces rather than stalling the opponent. */
+function TurnTimer({ deadline, onLapse }: { deadline: number; onLapse: () => void }) {
+    const [left, setLeft] = useState(() => Math.max(0, deadline - Date.now()));
+    const lapsed = useRef(false);
+    useEffect(() => {
+        lapsed.current = false;
+        // First paint via the interval, never synchronously in the effect —
+        // the 250ms tick is well inside human reaction to a 45s clock.
+        const tick = window.setInterval(() => {
+            const ms = Math.max(0, deadline - Date.now());
+            setLeft(ms);
+            if (ms <= 0 && !lapsed.current) {
+                lapsed.current = true;
+                window.clearInterval(tick);
+                onLapse();
+            }
+        }, 250);
+        return () => window.clearInterval(tick);
+        // onLapse is a fresh closure each render; the deadline is the identity
+        // of the countdown, so it alone restarts the clock.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deadline]);
+    const seconds = Math.ceil(left / 1000);
+    return (
+        <div className={`showdown-turn-timer ${seconds <= 10 ? "urgent" : ""}`} role="timer" aria-label={`${seconds} seconds to choose`}>
+            <ShowdownIcon name="fast" size={12} />
+            {seconds}s
+        </div>
+    );
+}
+
 /** The panel that replaces the command menu while a target is being picked.
  *  Its only control is the way back, so it must claim focus — the row the
  *  player just activated is gone. */
@@ -1479,6 +1540,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     }, []);
 
     const settlementRef = useRef<ShowdownTurnResponse | null>(null);
+    /** True from the moment a round is submitted until its response has been
+     *  ingested. The beat player's script-exhausted branch MUST idle while
+     *  this is set: phase flips to "playing" before the server answers, so
+     *  without the hold the exhausted branch fired instantly on the stale
+     *  queue, reconciled, and handed control back to "command" — and the real
+     *  script then arrived into the wrong phase and NEVER PLAYED. Every round
+     *  either showed nothing or replayed the PREVIOUS round's script for the
+     *  first round-trip's worth of beats. */
+    const submitInFlight = useRef(false);
     const tallyRef = useRef<Map<string, { dmg: number; kos: number; supers: number }>>(new Map());
     const finishedNotified = useRef(false);
     const popupKey = useRef(1);
@@ -1494,8 +1564,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // front line and the bench row; fighters walk to their assigned spot.
     const [lineup, setLineup] = useState<Lineup>(() => lineupFromState(initialState));
     const posRef = useRef<Map<string, [number, number, number]>>(computeArrangement(lineupFromState(initialState)));
+    /** Who is benched right now, for the fighters' visibility check — a ref
+     *  because it is read per-frame inside useFrame, never during render. */
+    const benchedRef = useRef<ReadonlySet<string>>(new Set([...lineupFromState(initialState).playerBench, ...lineupFromState(initialState).enemyBench]));
     useEffect(() => {
         posRef.current = computeArrangement(lineup);
+        benchedRef.current = new Set([...lineup.playerBench, ...lineup.enemyBench]);
     }, [lineup]);
 
     const stage = useMemo(() => stageForSession(initialState.sessionId), [initialState.sessionId]);
@@ -1660,6 +1734,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     useEffect(() => {
         if (phase !== "playing") return;
         if (queueIndex >= queue.length) {
+            // Response still in flight: this is the anticipation hold, not the
+            // end of the script. Reconciling here fired on the emptied queue
+            // the instant the phase flipped, handed control back to "command",
+            // and stranded the arriving script in the wrong phase — the fight
+            // played without a single beat, popup or effect. When the response
+            // lands, setQueue/setQueueIndex re-run this effect and the script
+            // plays from its first beat.
+            if (submitInFlight.current) return;
             // Script exhausted: reconcile to the server state and hand control
             // back. Deferred via the timer queue so the effect body itself never
             // sets state synchronously (react-hooks/set-state-in-effect).
@@ -1848,7 +1930,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         const frac = target.damage / Math.max(1, stateMaxHp(stateView, target.id));
                         const weightMul = event.super ? 1.5 : event.weight === "heavy" ? 1.25 : event.weight === "light" ? 0.78 : 1;
                         const burst = Math.min(4.2, (1.5 + Math.min(1, frac * 2.4) * 1.9) * weightMul) * (target.splash ? 0.7 : 1);
-                        spawnFlipbook(
+                        // Contact reads in two layers, anime grammar: a hard
+                        // white flash the instant the hit lands, then the
+                        // element's own burst blooming through it. One burst
+                        // alone read as a decal; the flash is what sells the
+                        // FRAME of contact (and it is why hit-stop exists).
+                        spawnFlipbook(target.id, "spark", burst * 0.72, 200 / speed, 1.0, 1, "#ffffff");
+                        later(() => spawnFlipbook(
                             target.id,
                             impactFlipbookKey(event.element, event.moveKind, event.super),
                             burst,
@@ -1856,7 +1944,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             1.0,
                             1,
                             elementVfxTint(event.element),
-                        );
+                        ), 60 / speed);
                         // A heavy or lethal blow gets a second, larger shell over
                         // the first — `explosion` and `bighit` ship in the bundle
                         // and nothing used to spawn them.
@@ -2019,9 +2107,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // Fire the round: called from the LAST pushCommand (event handler, not an
     // effect — every setState here runs in handler/async context).
     const submitRound = useCallback(async (commands: ShowdownCommand[]) => {
+        // Order matters. The stale queue from LAST round is dropped before the
+        // phase flips, and the in-flight hold is raised before anything else:
+        // the beat player wakes the moment phase changes, and what it must see
+        // is "empty script, response pending" — not last round's beats (which
+        // it would happily replay) and not "script exhausted, hand control
+        // back" (which orphaned the incoming script in the wrong phase).
+        submitInFlight.current = true;
+        setQueue([]);
+        setQueueIndex(0);
         setPhase("playing");
         setFailedOrders(null);
         const response = await submitTurn(commands);
+        submitInFlight.current = false;
         if (response && "expired" in response) {
             // Session lapsed (45-min TTL) — a distinct dead end, not a retry.
             setExpired(true);
@@ -2331,6 +2429,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         beatRef={beatRef}
                         fxRef={fxRef}
                         posRef={posRef}
+                        benchedRef={benchedRef}
                         popups={popups}
                         highlight={commander?.id === info.view.id ? "commander"
                             : pendingMove && ((info.side === "enemy" && !targetingAllies) || (info.side === "player" && targetingAllies)) && !(display[info.view.id]?.ko) ? "targeted"
@@ -2385,6 +2484,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         {/* stateView.round reconciles at playback end, so the round
                             IN PROGRESS (command or playing) is always round + 1. */}
                         <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}</div>
+                        {stateView.turnDeadline !== undefined && phase === "command" && (
+                            <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
+                        )}
                         <div className="showdown-vs">{stateView.enemyTeamName}</div>
                         <button
                             type="button"
