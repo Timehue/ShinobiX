@@ -161,6 +161,9 @@ export interface SetPieceSpawn {
     to: readonly [number, number, number];
     startedAt: number;
     durationMs: number;
+    /** Signature cast: the element stages its SUPER choreography — the bigger
+     *  multi-layer sequence under the letterbox — instead of the heavy piece. */
+    superCast?: boolean;
 }
 
 /** One animated layer of a set-piece. All motion derives from the normalized
@@ -182,6 +185,11 @@ interface SetPieceLayer {
     tint?: string;
     /** Growth over life: rendered scale goes scale → scale×grow. */
     grow: number;
+    /** Stationary layers only: park at this fraction of the caster→victim
+     *  lane instead of on the victim (marching eruptions, walking bolts). */
+    lane?: number;
+    /** Sideways offset in world units, perpendicular-ish via X (bolt spread). */
+    offsetX?: number;
 }
 
 const SET_PIECES: Record<string, SetPieceLayer[]> = {
@@ -209,12 +217,49 @@ const SET_PIECES: Record<string, SetPieceLayer[]> = {
     // Stormfall: paired sky bolts, the second hammering in off-line.
     Lightning: [
         { frames: "lightning", scale: 2.5, aspect: 2.8, delay: 0, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05 },
-        { frames: "lightning", scale: 2.0, aspect: 2.6, delay: 0.24, y0: 2.2, y1: 2.2, travel: 0, spin: 0, grow: 1.05, tint: "#fff6c0" },
+        { frames: "lightning", scale: 2.0, aspect: 2.6, delay: 0.24, y0: 2.2, y1: 2.2, travel: 0, spin: 0, grow: 1.05, tint: "#fff6c0", offsetX: 0.9 },
     ],
 };
 
-function SetPieceLayerMesh({ spawn, layer, offsetX }: { spawn: SetPieceSpawn; layer: SetPieceLayer; offsetX: number }) {
+/** The SIGNATURE choreography — what plays under the letterbox. Each element
+ *  stages a sequence, not a burst: the fire storm builds in columns, the flood
+ *  comes as two crests and a breaking pillar, the storm WALKS its bolts down
+ *  the lane onto the victim. Longer, larger, layered — the one moment per
+ *  fight that is allowed to shout. */
+const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
+    Fire: [
+        { frames: "fire", scale: 2.6, aspect: 1.6, delay: 0, y0: 0.4, y1: 1.8, travel: 0, spin: 0, grow: 1.3, lane: 0.55, offsetX: -1.1 },
+        { frames: "fire", scale: 2.9, aspect: 1.6, delay: 0.14, y0: 0.4, y1: 2.0, travel: 0, spin: 0, grow: 1.3, lane: 0.8, offsetX: 1.0 },
+        { frames: "fire", scale: 4.4, aspect: 1.2, delay: 0.3, y0: 0.8, y1: 1.7, travel: 0, spin: 0, grow: 1.5 },
+        { frames: "lava", scale: 3.6, aspect: 0.6, delay: 0.4, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.4 },
+    ],
+    Water: [
+        { frames: "water", scale: 7.4, aspect: 0.46, delay: 0, y0: 0.5, y1: 0.85, travel: 1, spin: 0, grow: 1.3 },
+        { frames: "water", scale: 5.6, aspect: 0.44, delay: 0.2, y0: 0.35, y1: 0.7, travel: 1, spin: 0, grow: 1.25, tint: "#9fdcff" },
+        { frames: "water", scale: 3.2, aspect: 2.0, delay: 0.44, y0: 0.2, y1: 1.9, travel: 0, spin: 0, grow: 1.35 },
+    ],
+    Wind: [
+        { frames: "vortex", scale: 3.4, aspect: 2.8, delay: 0, y0: 0.5, y1: 2.0, travel: 0, spin: 4.2, grow: 1.45 },
+        { frames: "vortex", scale: 2.2, aspect: 2.4, delay: 0.18, y0: 0.4, y1: 1.6, travel: 0, spin: -3.0, grow: 1.3, tint: "#c8ffe9" },
+        { frames: "wind", scale: 4.4, aspect: 0.8, delay: 0.36, y0: 0.5, y1: 1.0, travel: 0, spin: 0, grow: 1.3 },
+    ],
+    Earth: [
+        { frames: "earth", scale: 2.4, aspect: 1.1, delay: 0, y0: -0.7, y1: 1.0, travel: 0, spin: 0, grow: 1.2, lane: 0.4 },
+        { frames: "earth", scale: 2.9, aspect: 1.15, delay: 0.16, y0: -0.7, y1: 1.2, travel: 0, spin: 0, grow: 1.2, lane: 0.7 },
+        { frames: "earth", scale: 3.6, aspect: 1.25, delay: 0.34, y0: -0.7, y1: 1.5, travel: 0, spin: 0, grow: 1.3 },
+        { frames: "impact", scale: 3.0, aspect: 0.6, delay: 0.5, y0: 0.25, y1: 0.5, travel: 0, spin: 0, grow: 1.3, tint: "#d8a86a" },
+    ],
+    Lightning: [
+        { frames: "lightning", scale: 2.2, aspect: 2.8, delay: 0, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05, lane: 0.35, offsetX: -0.7 },
+        { frames: "lightning", scale: 2.4, aspect: 2.8, delay: 0.16, y0: 2.4, y1: 2.4, travel: 0, spin: 0, grow: 1.05, lane: 0.7, offsetX: 0.7 },
+        { frames: "lightning", scale: 3.0, aspect: 3.0, delay: 0.34, y0: 2.6, y1: 2.6, travel: 0, spin: 0, grow: 1.1 },
+        { frames: "spark", scale: 3.2, aspect: 0.8, delay: 0.46, y0: 0.9, y1: 1.1, travel: 0, spin: 0, grow: 1.4, tint: "#fff6c0" },
+    ],
+};
+
+function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetPieceLayer }) {
     const textures = useMemo(() => flipbookTextures(layer.frames, true), [layer.frames]);
+    const offsetX = layer.offsetX ?? 0;
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     useFrame(() => {
@@ -232,12 +277,15 @@ function SetPieceLayerMesh({ spawn, layer, offsetX }: { spawn: SetPieceSpawn; la
             mat.current.map = frame;
             mat.current.needsUpdate = true;
         }
-        // Ease-out travel: the wave arrives fast and breaks slow.
+        // Ease-out travel: the wave arrives fast and breaks slow. Stationary
+        // layers park on the victim, or at their `lane` fraction of the
+        // caster→victim line — the marching eruptions and walking bolts.
         const ease = 1 - (1 - t) * (1 - t);
-        const x = spawn.from[0] + (spawn.to[0] - spawn.from[0]) * (layer.travel ? ease : 1) + offsetX;
-        const z = spawn.from[2] + (spawn.to[2] - spawn.from[2]) * (layer.travel ? ease : 1);
+        const parkFrac = layer.travel ? ease : (layer.lane ?? 1);
+        const x = spawn.from[0] + (spawn.to[0] - spawn.from[0]) * parkFrac + offsetX;
+        const z = spawn.from[2] + (spawn.to[2] - spawn.from[2]) * parkFrac;
         const y = layer.y0 + (layer.y1 - layer.y0) * ease;
-        mesh.current.position.set(layer.travel ? x : spawn.to[0] + offsetX, y, layer.travel ? z : spawn.to[2]);
+        mesh.current.position.set(x, y, z);
         const s = 1 + (layer.grow - 1) * ease;
         mesh.current.scale.set(s, s, 1);
         mesh.current.rotation.z = layer.spin * t * Math.PI * 2;
@@ -263,12 +311,12 @@ function SetPieceLayerMesh({ spawn, layer, offsetX }: { spawn: SetPieceSpawn; la
 }
 
 function SetPieceOnce({ spawn }: { spawn: SetPieceSpawn }) {
-    const layers = SET_PIECES[spawn.element];
+    const layers = (spawn.superCast ? SUPER_SET_PIECES[spawn.element] : undefined) ?? SET_PIECES[spawn.element];
     if (!layers) return null;
     return (
         <group>
             {layers.map((layer, i) => (
-                <SetPieceLayerMesh key={i} spawn={spawn} layer={layer} offsetX={i === 1 && spawn.element === "Lightning" ? 0.9 : 0} />
+                <SetPieceLayerMesh key={i} spawn={spawn} layer={layer} />
             ))}
         </group>
     );

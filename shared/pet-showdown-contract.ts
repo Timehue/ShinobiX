@@ -382,9 +382,6 @@ export interface ShowdownStateView {
     player: ShowdownPetView[];
     enemy: ShowdownPetView[];
     enemyTeamName: string;
-    /** Projected next-round action order (pet ids, current speed effects
-     *  applied, rng tiebreaks excluded) — the Temtem-style order strip. */
-    nextOrder: string[];
     /** PvP command timer: epoch-ms deadline for this round's orders. Stamped
      *  by the ENDPOINT (the engine never reads a clock) and only on PvP
      *  sessions — absent for the practice AI entry, so the client shows no
