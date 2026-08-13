@@ -662,6 +662,56 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
         { name: 'Heavenly Piercer', power: 172, kind: 'stun' },
         { name: 'Stormgod Judgement', power: 300, kind: 'damage', signature: true },
     ],
+
+    /*
+     * The legendary comfort-band outliers (measured 2026-08-12, 3-seed sweep).
+     * The four HIGH species shared one engine: a power-0 `slow` that prices at
+     * the 10-EN cost floor — a persistent control effect at jab price — spammed
+     * from a 480-511 HP statline. Their surgery trades the free disruption for
+     * honestly-priced tools and keeps each species' identity. The one LOW
+     * species (Tempest Pegasus, 19.5%) had the opposite disease: BOTH of its
+     * damage techniques carried holds, so an assassin statline spent round one
+     * poking with the neutral jab; it gets a live blade and a real mark price.
+     */
+    'legendary-8': [    // Storm Lion — Lightning defender, 77.0% → the bulwark keeps its wall, loses the spam
+        { name: 'Storm Lion Maul', power: 118, kind: 'crush' },
+        { name: 'Static Lash', power: 96, kind: 'damage' },
+        { name: 'Roaring Bulwark', power: 90, kind: 'barrier' },
+        { name: 'Thunderbreak', power: 77, kind: 'stun' },
+        { name: "Heaven's Sundering", power: 300, kind: 'damage', signature: true },
+    ],
+    'legendary-13': [   // Armored Polar Bear — Fire tracker, 83.9% → armor reads as SHIELD, not free slows
+        // Second pass: at shield 85 the Bear just traded one crutch for
+        // another (a defender-grade absorb on a 498-HP frame held it at
+        // 82.8%). The plate stays for identity, sized as a moment of cover
+        // rather than a second health bar, and the claw comes down a notch.
+        { name: 'Ember Claw', power: 96, kind: 'damage' },
+        { name: 'Pyre Burst', power: 68, kind: 'burn' },
+        { name: 'Glacier Guard', power: 58, kind: 'shield' },
+        { name: 'Force Pulse', power: 84, kind: 'push' },
+        { name: 'Inferno Communion', power: 300, kind: 'damage', signature: true },
+    ],
+    'legendary-21': [   // Storm Roc — Wind tracker, 80.5% → talons over shackles
+        { name: 'Gale Talons', power: 110, kind: 'damage' },
+        { name: 'Skyshear', power: 85, kind: 'wound' },
+        { name: 'Roc Screech', power: 70, kind: 'debuff' },
+        { name: 'Force Pulse', power: 85, kind: 'push' },
+        { name: 'Skytalon: Tempest Dive', power: 300, kind: 'damage', signature: true },
+    ],
+    'legendary-22': [   // Tempest Pegasus — Wind assassin, 19.5% → a blade it can actually draw on round one
+        { name: 'Wind Slash', power: 96, kind: 'damage' },
+        { name: 'Skydance Blades', power: 118, kind: 'damage' },
+        { name: 'Death Mark', power: 60, kind: 'mark' },
+        { name: 'Lacerate', power: 87, kind: 'wound' },
+        { name: 'Tempest Sundering', power: 300, kind: 'damage', signature: true },
+    ],
+    'legendary-25': [   // Storm Wyvern — Lightning tracker, 82.8% → the storm burns, it does not stall
+        { name: 'Arc Fang', power: 112, kind: 'damage' },
+        { name: 'Storm Coil', power: 80, kind: 'dot' },
+        { name: 'Force Pulse', power: 89, kind: 'push' },
+        { name: 'Thunderbreak', power: 74, kind: 'stun' },
+        { name: "Heaven's Sundering", power: 300, kind: 'damage', signature: true },
+    ],
 };
 
 /** Seal one save/catalog pet into showdown combat form, ceilings applied. */
@@ -1929,12 +1979,8 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         player: session.player.map(petView),
         enemy: session.enemy.map(petView),
         enemyTeamName: session.enemyTeamName,
-        // Projected order for the NEXT round: current haste/slow effects
-        // applied, the per-round rng jitter deliberately excluded — a preview,
-        // not a promise (ties can still flip on the tiebreak roll).
-        nextOrder: [...session.player, ...session.enemy]
-            .filter((p) => !p.ko && !p.benched)
-            .sort((a, b) => effSpeed(b) - effSpeed(a))
-            .map((p) => p.id),
+        // NO turn-order projection rides the wire. Who acts first is learned
+        // by WATCHING a round — the read on the opponent's tempo is part of
+        // the game, and it is what a speed-trained pet buys. Owner ruling.
     };
 }

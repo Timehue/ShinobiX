@@ -187,7 +187,9 @@ function petView(pet: Pet): ShowdownPetView {
         // "nobody can act" round the deck has to resolve on its own.
         skipsNextAction: world.winded.has(pet.id),
         canSwitchOut: !world.winded.has(pet.id),
-        readiness: world.round,
+        // ?meter also satisfies HOLDS: the flag means "the signature is
+        // castable NOW", and the hold would otherwise gate it two rounds.
+        readiness: new URLSearchParams(window.location.search).has("meter") ? 99 : world.round,
         statuses: [],
         moves: mockKit(pet),
     };
@@ -206,7 +208,10 @@ const world = {
 world.benched.add(playerPets[2].id);
 for (const pet of [...playerPets, ...enemyPets]) {
     world.hp.set(pet.id, Math.round(pet.hp));
-    world.meter.set(pet.id, 0);
+    // ?meter — review switch: every pet opens with a FULL signature meter, so
+    // the super cinematics are castable from round one instead of after five
+    // rounds of charging. Dev-only, presentation-iteration tooling.
+    world.meter.set(pet.id, new URLSearchParams(window.location.search).has("meter") ? 100 : 0);
     world.stamina.set(pet.id, MOCK_MAX_STAMINA);
 }
 
@@ -223,10 +228,6 @@ function stateView(finished = false, outcome: "win" | "loss" | null = null): Sho
         player: playerPets.map((p) => petView(p)),
         enemy: enemyPets.map((p) => petView(p)),
         enemyTeamName: "Harness Pack",
-        nextOrder: [...playerPets, ...enemyPets]
-            .filter((p) => (world.hp.get(p.id) ?? 0) > 0 && !world.benched.has(p.id))
-            .sort((a, b) => (b.speed ?? 0) - (a.speed ?? 0))
-            .map((p) => p.id),
     };
 }
 

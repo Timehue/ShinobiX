@@ -123,7 +123,13 @@ test('showdown balance bands hold across EVERY rarity, chase tiers included', ()
     // regression pass.
     const HARD_LO = 15, HARD_HI = 85;
     const COMFORT_LO = 25, COMFORT_HI = 75;
-    const COMFORT_BUDGET = 14;
+    // Ratcheted 14 → 8 after the 2026-08-12 kit surgery (SHOWDOWN_KIT_OVERRIDES
+    // for the five legendary outliers). The 3-seed analyzer measures ONE
+    // species outside comfort (Armored Polar Bear, 75.9% — its raw budget, not
+    // its kit); THIS single-seed slice reads noisier and measured 7, so the
+    // budget gates on this file's own instrument with one of head-room.
+    // Tighten further when the next surgery earns it, never raise.
+    const COMFORT_BUDGET = 8;
     let outsideComfort = 0;
     for (const [name, st] of speciesStats) {
         const p = pct(st);

@@ -1715,7 +1715,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  spectacle frame-by-frame (the pieces live ~900ms, too brief to study).
      *  URL-gated, presentation-only, and inert unless someone types it. */
     const fxStretch = useMemo(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("slowfx") ? 3 : 1), []);
-    const spawnSetPiece = useCallback((element: string, casterId: string, victimId: string, baseDurationMs: number) => {
+    const spawnSetPiece = useCallback((element: string, casterId: string, victimId: string, baseDurationMs: number, superCast = false) => {
         const durationMs = baseDurationMs * fxStretch;
         const from = posRef.current.get(casterId);
         const to = posRef.current.get(victimId);
@@ -1726,6 +1726,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             from: [from[0], from[1], from[2]] as const,
             to: [to[0], to[1], to[2]] as const,
             startedAt: performance.now(), durationMs,
+            ...(superCast ? { superCast: true } : {}),
         }]);
         window.setTimeout(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
     }, [fxStretch]);
@@ -1993,7 +1994,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // Reduced-motion keeps the readable burst and skips the
                         // traveling/spinning layer, same policy as the flash.
                         if (!reducedMotion && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId) {
-                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 1150 : 900) / speed);
+                            // A signature stages its element's SUPER sequence —
+                            // longer, layered, and choreographed down the lane.
+                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 1600 : 900) / speed, event.super);
                         }
                         later(() => spawnFlipbook(
                             target.id,
@@ -2373,36 +2376,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const playerBenchedIds = useMemo(() => new Set(lineup.playerBench), [lineup.playerBench]);
     const enemyBenchedIds = useMemo(() => new Set(lineup.enemyBench), [lineup.enemyBench]);
 
-    // Mirrors the engine's ordering rule (speed × chosen-move priority), minus
-    // the per-round rng jitter — it is an estimate, and it is labelled as one.
-    const estimatedOrder = useMemo(() => {
-        const drafted = new Map(draft.map((c) => [c.petId, c]));
-        // A drafted SWITCH removes the pet from the round entirely and does NOT
-        // insert the incoming pet (which spends its action arriving) — the
-        // biggest single order change a command can make.
-        const switchedOut = new Set(
-            draft.filter((c): c is Extract<ShowdownCommand, { kind: "switch" }> => c.kind === "switch")
-                .map((c) => c.petId),
-        );
-        const rows: { pet: ShowdownPetView; mine: boolean; key: number; skipping: boolean }[] = [];
-        const add = (ids: string[], pool: ShowdownPetView[], mine: boolean) => {
-            for (const id of ids) {
-                const pet = pool.find((p) => p.id === id);
-                if (!pet || (display[id]?.ko ?? pet.ko)) continue;
-                if (mine && switchedOut.has(id)) continue;
-                let priority = 1;
-                const command = mine ? drafted.get(id) : undefined;
-                if (command?.kind === "guard") priority = 1.5;
-                else if (command?.kind === "rest") priority = 0.9;
-                else if (command?.kind === "super") priority = pet.moves.find((m) => m.signature)?.priority ?? 0.75;
-                else if (command?.kind === "move") priority = pet.moves[command.moveIndex]?.priority ?? 1;
-                rows.push({ pet, mine, key: pet.speed * priority, skipping: pet.skipsNextAction });
-            }
-        };
-        add(lineup.playerField, stateView.player, true);
-        add(lineup.enemyField, stateView.enemy, false);
-        return rows.sort((a, b) => b.key - a.key);
-    }, [stateView, draft, display, lineup.playerField, lineup.enemyField]);
+    // There is deliberately NO turn-order prediction (the old EST. ORDER
+    // strip): who acts first is something you LEARN by watching a round —
+    // reading the opponent's tempo is part of the game, and it is what makes
+    // a speed-trained pet feel trained. Owner ruling, 2026-08-12.
     // Carry each move's REAL index in `pet.moves`. The engine reads
     // `command.moveIndex` against its OWN move list, which the view mirrors with
     // the signature appended last (engine.ts serializes `pet.moves` then
@@ -2573,35 +2550,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
                 {banner && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
 
-                {/* Turn-order estimate. The engine's real key is speed × the
-                    priority of the CHOSEN move, so this recomputes from the
-                    live draft — picking Guard or a signature visibly moves your
-                    chip. Enemy commands are unknown, so their chips stay at
-                    neutral priority and are marked as such. */}
-                {estimatedOrder.length > 0 && phase !== "finished" && (
-                    <div className="showdown-order-strip">
-                        <span className="showdown-order-label">Est. order</span>
-                        {estimatedOrder.map((entry) => (
-                            <span
-                                key={entry.pet.id}
-                                className={[
-                                    "showdown-order-chip",
-                                    entry.mine ? "mine" : "theirs",
-                                    entry.skipping ? "skipping" : "",
-                                ].join(" ")}
-                                style={{ borderColor: ELEMENT_TINT[entry.pet.element] ?? ELEMENT_TINT.None }}
-                                title={entry.mine
-                                    ? `${entry.pet.name}${entry.skipping ? " — loses this action" : ""}`
-                                    : `${entry.pet.name} — their action is unknown`}
-                            >
-                                {panelArt[entry.pet.id]
-                                    ? <img src={panelArt[entry.pet.id]} alt={entry.pet.name} />
-                                    : entry.pet.name.slice(0, 2)}
-                                {!entry.mine && <i className="showdown-order-unknown">?</i>}
-                            </span>
-                        ))}
-                    </div>
-                )}
 
                 <div className="showdown-playerbar">
                     <TeamPanel

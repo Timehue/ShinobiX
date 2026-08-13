@@ -1048,73 +1048,6 @@
 
 /* ── Turn-order strip + matchup hints ──────────────────────────────────── */
 
-/* IN FLOW, centred — not absolutely positioned. Absolute placement put it on
-   top of the enemy plates, and no fixed offset survives every combination of
-   width and team size (the plate row wraps). Sitting in the HUD column after
-   the top bar makes the collision impossible instead of merely unlikely; the
-   player bar's `margin-top: auto` packs both against the top. */
-.showdown-order-strip {
-    align-self: center;
-    margin-top: 6px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(10, 7, 3, 0.66);
-    border: 1px solid rgba(217, 180, 120, 0.28);
-    pointer-events: none;
-    max-width: 90vw;
-    overflow: hidden;
-}
-.showdown-order-label {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #b9a583;
-    margin-right: 2px;
-}
-.showdown-order-chip {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 2px solid;
-    display: grid;
-    place-items: center;
-    font-size: 0.62rem;
-    font-weight: 800;
-    background: rgba(30, 22, 14, 0.9);
-    overflow: hidden;
-}
-.showdown-order-chip img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-}
-.showdown-order-chip.mine { color: #fcd34d; }
-.showdown-order-chip.theirs { color: #fca5a5; opacity: 0.85; }
-/* Chips slide when a drafted command re-sorts the round. */
-.showdown-order-strip { transition: none; }
-.showdown-order-chip { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1); position: relative; }
-.showdown-order-chip.skipping { opacity: 0.4; }
-.showdown-order-chip.skipping::after {
-    content: "";
-    position: absolute;
-    left: 2px; right: 2px; top: 50%;
-    height: 2px;
-    background: #f87171;
-    transform: rotate(-18deg);
-}
-.showdown-order-unknown {
-    position: absolute;
-    right: -1px;
-    bottom: -2px;
-    font-size: 0.5rem;
-    font-style: normal;
-    font-weight: 900;
-    color: #b9a583;
-}
-
 /* ── Post-battle recap ─────────────────────────────────────────────────── */
 
 .showdown-recap {
@@ -1141,8 +1074,7 @@
 .showdown-recap-stat { font-size: 0.72rem; color: #d9c9a8; white-space: nowrap; }
 .showdown-result-daily { font-size: 0.76rem; color: #b9a583; }
 @media (prefers-reduced-motion: reduce) {
-    .showdown-order-chip { transition: none; }
-    .showdown-recap { animation: none; }
+.showdown-recap { animation: none; }
 }
 
 /* Filled pills, not colour-only — the matchup readout must survive a
@@ -1448,8 +1380,7 @@
     /* flex-end plus overflow-x makes the leading plates spill off the LEFT edge
        where no scroll can reach them — start-align and let the row scroll. */
     .showdown-team-panel.player { justify-content: flex-start; }
-    .showdown-order-strip { padding: 3px 8px; }
-    .showdown-vs { display: none; }
+.showdown-vs { display: none; }
     .showdown-result-title { font-size: 1.8rem; }
 }
 
@@ -1513,10 +1444,7 @@
     .showdown-round { font-size: 0.82rem; }
     .showdown-vs { display: none; }
 
-    .showdown-order-strip { margin-top: 4px; padding: 3px 8px; }
-    .showdown-order-chip { width: 22px; height: 22px; }
-    .showdown-order-chip img { width: 18px; height: 18px; }
-    .showdown-playerbar { padding-bottom: 4px; }
+.showdown-playerbar { padding-bottom: 4px; }
 
     /* Pills keep a 40px block size — below that the deck stops being
        touchable, which is the whole reason it is the last thing to compress.
@@ -1609,10 +1537,6 @@
    the plate is stripped to its live state and the bars to their glyph. */
 @media (max-height: 480px) {
     .showdown-hud { --sd-deck-max: calc(100dvh - 160px - env(safe-area-inset-bottom, 0px)); }
-
-    /* An ESTIMATE of the turn order is the readout this screen can do without:
-       every pet in it is already on a plate carrying live state. */
-    .showdown-order-strip { display: none; }
 
     /* Slim bars, not a wall: on a landscape phone the player row sits directly
        over the stage, so it holds the smallest footprint that still reads —
