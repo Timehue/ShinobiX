@@ -273,7 +273,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 351 KB gzip) are unchanged. The exact CI-equivalent product graph is
 // 7,379,497 B, leaving ~20 KB of measured variance, consistent with prior
 // entries. The scheduled drain remains the legacy coliseum-stack deletion.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_400_000;
+// 2026-08-13: 7.40 -> 7.425 MB. Pet Showdown rounds 34-35 — the art round +
+// the volumetric round: EPIC_SPRITES/FLOOR_TAKEOVERS wiring in PetShowdownVfx
+// and the new PetShowdownVfx3d module (wave shell, flame crown, vortex cones,
+// displaced rock shards, procedural bolts, particle clouds, piece lights).
+// +21.5 KB of JS across both rounds — the heavy lifting is WebP art and
+// procedural geometry, not code. All on the lazy Showdown chunk; entry chunk
+// and initial graph unchanged. Exact product graph 7,401,001 B, leaving
+// ~24 KB headroom. The scheduled drain remains the legacy coliseum-stack
+// deletion.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_425_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

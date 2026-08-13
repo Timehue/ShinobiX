@@ -162,6 +162,20 @@ function poolPet(index: number): Pet {
 const playerPets = [poolPet(0), poolPet(4), poolPet(16)];
 const enemyPets = [poolPet(8), poolPet(12)];
 
+// ?elements=Wind,Earth,None,Lightning,Fire — review switch: remap the lineup's
+// elements in order (player0, player1, player2-bench, enemy0, enemy1) so every
+// element's volumetric set-piece and Overdrive is reachable from one harness
+// session instead of whatever the fixed pool indices happen to carry.
+{
+    const elementsParam = new URLSearchParams(window.location.search).get("elements");
+    if (elementsParam) {
+        const list = elementsParam.split(",").map((s) => s.trim()).filter(Boolean);
+        [...playerPets, ...enemyPets].forEach((pet, i) => {
+            if (list[i]) pet.element = list[i] as Pet["element"];
+        });
+    }
+}
+
 function petView(pet: Pet): ShowdownPetView {
     const maxHp = Math.max(1, Math.round(pet.hp));
     const hp = world.hp.get(pet.id) ?? maxHp;
