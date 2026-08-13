@@ -547,15 +547,13 @@ test('the turn-cap judge decides a standing fight on the Temtem ladder', () => {
     assert.equal(end?.judgeReason, 'pets');
 });
 
-test('the state view projects next-round order by effective speed', () => {
-    const session = makeSession(
-        [makePet('fast', { speed: 90 }), makePet('slow', { speed: 10 })],
-        [makePet('mid', { speed: 50 }), makePet('dead', { speed: 99 })],
-        1, '2v2',
-    );
-    session.enemy[1].ko = true;
-    const view = showdownStateView(session);
-    assert.deepEqual(view.nextOrder, ['fast', 'mid', 'slow'], 'speed-sorted, KO pets excluded');
+test('the state view carries NO turn-order projection (owner ruling)', () => {
+    // Who acts first is learned by watching a round. A projection on the wire
+    // is exactly the spoiler the ruling removed — pin its absence so it cannot
+    // quietly return as a "helpful" field.
+    const session = makeSession([makePet('a')], [makePet('b')], 1);
+    const view = showdownStateView(session) as unknown as Record<string, unknown>;
+    assert.equal('nextOrder' in view, false);
 });
 
 function makeBenchSession(seed = 999): ShowdownSession {

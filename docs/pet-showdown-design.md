@@ -1285,14 +1285,20 @@ with 6 comfort outliers against a budget of 14.
   45s PvP clock scaffold. Review tooling: /showdownpreview.html?heavy&slowfx.
 
 ### Next up (agreed direction, no blockers)
-- Per-species kit tuning for the last comfort-band outliers (Storm line high,
-  Tempest Pegasus / Void Raven low) — kit surgery, not more damping.
 - Set-piece polish round against real play: per-element scale/height/speed
   tuning from owner screenshots; melee streaks on elemental contact kinds.
 - Stage dressing: crowd silhouettes + reactive lightrig for supers (art
   assets); the enemy RESISTED/matchup chips could sit tighter on the plates.
-- Signature (super) cinematics per element — the letterbox moment deserves
-  element-specific choreography beyond the pillar + kaboom.
+- ~~Per-species kit tuning~~ DONE 2026-08-12: SHOWDOWN_KIT_OVERRIDES for the
+  five legendary outliers (the HIGH four ran bulk + a 10-EN power-0 slow at
+  the cost floor; Tempest Pegasus had no live damage in round one). Measured
+  17-84% → ONE species at 75.9 (Armored Polar Bear — raw budget, kit is
+  honest); comfort ratchet tightened 14 → 8.
+- ~~Signature cinematics per element~~ DONE 2026-08-12: SUPER_SET_PIECES —
+  fire columns + ground catch, double tsunami + breaking pillar, the big
+  tornado, marching eruptions, walking bolt barrage. Review bench flags:
+  ?meter (full signature meter + holds satisfied) alongside ?heavy and
+  ?slowfx.
 
 ### Blocked on a design decision
 - Live/ghost PvP: the engine, timer and reward seal are ready; needs the
@@ -1302,6 +1308,10 @@ with 6 comfort outliers against a budget of 14.
   onto this engine — activates the sealed payout + consumable spend paths.
 
 ### Standing rules (do not relitigate)
+- NO turn-order prediction in the HUD or on the wire (owner, 2026-08-12): who
+  acts first is learned by WATCHING a round — the tempo read is part of the
+  game and is what speed training buys. The EST. ORDER strip and the
+  `nextOrder` wire field are removed; a test pins the field's absence.
 - Practice (hand-picked AI) pays nothing and moves no counters.
 - No catalog/storage changes for Showdown mechanics — derive at seal.
 - The 25-round judge is BACK by owner ruling (supersedes round 18's no-limit).
