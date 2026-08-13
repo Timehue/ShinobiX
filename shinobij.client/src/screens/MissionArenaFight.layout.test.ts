@@ -114,12 +114,17 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         missionCss,
+        /@media \(min-width:\s*801px\) and \(max-width:\s*1023px\) and \(max-height:\s*650px\)[\s\S]*?\.mission-arena-fight \.combat-layout > \.combat-side-hud\s*\{[^}]*padding-block:\s*0\s*!important;[^}]*row-gap:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.hud-bar\s*\{[^}]*height:\s*4px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*12px\s*!important;[^}]*margin-block:\s*0\s*!important;[^}]*padding-top:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.shinobi-command-bar\s*\{[^}]*grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.shinobi-command-bar button\s*\{[^}]*min-height:\s*44px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        "zoom-equivalent mission viewports must retain resources and contain their effects strip",
+    );
+    assert.match(
+        missionCss,
         /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.mission-arena-fight \.combat-layout\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-layout\.has-rookie-tip\s*\{[^}]*grid-template-rows:\s*auto auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
         "the smallest mission tier must keep the first jutsu card centre tappable without collapsing the board",
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*600px\) and \(max-width:\s*800px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px auto minmax\(90px, 25dvh\)[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;/,
+        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px auto minmax\(90px, 25dvh\)[\s\S]*?grid-template-rows:\s*32px 10px 8px\s*!important;[\s\S]*?row-gap:\s*1px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*8px\s*!important;[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
         "short landscape mission combat must use its width for compact dossiers and a one-row command deck",
     );
 
