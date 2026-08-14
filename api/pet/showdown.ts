@@ -24,6 +24,14 @@ import {
     type ShowdownSession,
 } from '../_pet-showdown/engine.js';
 import { buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
+import { buildServerHollowHound } from './battle-start.js';
+import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
+import {
+    hollowGateCombatBindingKey,
+    validateHollowGatePetClaim,
+    type HollowGateCombatBinding,
+} from '../hollow-gate/_combat-session.js';
+import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 
 /*
  * /api/pet/showdown — POST only. The flagship turn-based pet battle mode.
@@ -69,6 +77,9 @@ const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
 // for payment — a Showdown session leases 45 minutes, a coliseum battle token
 // 15 — with room to spare on both.
 const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
+// Hollow Gate pet receipt lifetime — mirrors the twin in pet/battle-result.ts,
+// since combat-settle.ts reads whichever path minted it.
+const HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
 const sessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
 const paidReceiptKey = (playerName: string, receipt: string) => `pet:battle-paid:${playerName}:${receipt}`;
@@ -131,6 +142,31 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
         }
     }
     return out;
+}
+
+/** A Showdown session bound to a Hollow Gate encounter, stored BESIDE the
+ *  session rather than inside it: the session type is the shared client
+ *  contract, and a run binding is server-only bookkeeping the client must never
+ *  see. Keyed by session id, so the session IS the receipt handle. */
+interface ShowdownHollowGateBinding { runId: string; petIds: string[] }
+const showdownHollowGateKey = (playerName: string, sessionId: string) => `sd-hg:${playerName}:${sessionId}`;
+
+/** Mint the receipt Hollow Gate's settlement endpoint consumes. Same key shape,
+ *  same fields, same TTL as the legacy path — combat-settle.ts reads
+ *  `hg-pet-result:<player>:<receipt>` and checks playerName + runId, so a
+ *  Showdown-decided encounter settles through the identical door. `nx` so a
+ *  re-post cannot rewrite a decided outcome. */
+async function mintHollowGatePetReceipt(
+    playerName: string,
+    sessionId: string,
+    binding: ShowdownHollowGateBinding,
+    outcome: 'win' | 'loss',
+): Promise<void> {
+    await kv.set(
+        `hg-pet-result:${playerName}:${sessionId}`,
+        { playerName, runId: binding.runId, outcome, playerPetIds: binding.petIds, settledAt: Date.now() },
+        { nx: true, ex: HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS },
+    ).catch(() => undefined);
 }
 
 /** Win payout under the save lock. Exactly-once via the paired receipts. */
@@ -349,13 +385,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (pet.training && Number(pet.training.endsAt ?? 0) > now) return res.status(409).json({ error: `${pet.name} is mid-training.` });
             }
 
+            /*
+             * HOLLOW GATE BINDING (optional). A Hollow Gate pet encounter is
+             * still an arena bout — same engine, same bench, same cinematics —
+             * but the world started it, the opponent is the run's own Hound,
+             * and it pays HOLLOW GATE rewards, not the arena faucet. So it is
+             * validated exactly as battle-start validated it (run token +
+             * combat binding + claim check), fields the server-built Hound, and
+             * seals itself reward-INELIGIBLE so a run cannot also farm ryo.
+             */
+            const hgBody = body.hollowGate && typeof body.hollowGate === 'object'
+                ? body.hollowGate as Record<string, unknown>
+                : null;
+            let hollowGate: ShowdownHollowGateBinding | null = null;
+            let hollowHound: Pet | null = null;
+            if (hgBody) {
+                const runId = String(hgBody.runId ?? '').slice(0, 96);
+                const runToken = String(hgBody.token ?? '').slice(0, 64);
+                const houndId = String(hgBody.houndId ?? '').slice(0, 96);
+                if (!runId || !runToken || format !== '1v1' || !isHollowHoundEncounterId(houndId)) {
+                    return res.status(400).json({ error: 'Invalid Hollow Gate pet encounter.' });
+                }
+                const [binding, run] = await Promise.all([
+                    kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(runId)),
+                    kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, runToken)),
+                ]);
+                const validation = validateHollowGatePetClaim({
+                    binding, activeEncounter: run?.activeEncounter, playerName, token: runToken,
+                });
+                if (!validation.ok) {
+                    return res.status(409).json({ error: `Hollow Gate pet encounter rejected: ${validation.reason}.` });
+                }
+                if (binding?.runId !== runId) {
+                    return res.status(409).json({ error: 'Hollow Gate pet encounter binding drifted.' });
+                }
+                hollowHound = buildServerHollowHound(chosen[0], binding.floor, houndId, binding.kind as HollowGateHoundKind);
+                hollowGate = { runId, petIds: chosen.map((p) => String(p.id)) };
+            }
+
             // The cap is checked BEFORE the fight, not only at settlement. A
             // capped player would otherwise fight a full bout and be told at
-            // the end that it was never going to pay.
-            const today = utcDateKey();
-            const dailyPetWins = String(myChar.lastDailyReset ?? '') === today ? Number(myChar.dailyPetWins ?? 0) : 0;
-            if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
-                return res.status(409).json({ error: 'You have hit the daily arena win limit. Come back tomorrow.', capped: true });
+            // the end that it was never going to pay. A Hollow Gate bout skips
+            // it: it never touches the arena faucet.
+            if (!hollowGate) {
+                const today = utcDateKey();
+                const capped = String(myChar.lastDailyReset ?? '') === today ? Number(myChar.dailyPetWins ?? 0) : 0;
+                if (capped >= DAILY_ARENA_WIN_CAP) {
+                    return res.status(409).json({ error: 'You have hit the daily arena win limit. Come back tomorrow.', capped: true });
+                }
             }
 
             // The ARENA picks the opposition, scaled to the team you brought —
@@ -364,21 +441,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const avgLevel = Math.round(chosen.reduce((sum, p) => sum + (Number(p.level) || 1), 0) / Math.max(1, chosen.length));
             const tier: ShowdownTier = avgLevel >= 60 ? 'champion' : avgLevel >= 30 ? 'warrior' : 'scrapper';
             const seed = randomInt(1, 0x7fffffff);
-            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed);
-            if (enemyPets.length !== chosen.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
+            // A Hollow Gate encounter fields the run's own Hound; everything
+            // else gets the arena's scaled AI team.
+            const built = hollowHound
+                ? { pets: [hollowHound], teamName: hollowHound.name }
+                : buildShowdownAiTeam(chosen, chosen.length, tier, seed);
+            const enemyPets = built.pets;
+            const teamName = built.teamName;
+            if (!enemyPets.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
 
             const sessionId = randomUUID().replace(/-/g, '');
             const session = createShowdownSession({
                 sessionId, playerName, format, tier, seed,
                 playerPets: chosen, enemyPets, enemyTeamName: teamName,
-                // SEALED: this bout pays. The reward magnitude rides on
-                // sealedOpponentLevel, which createShowdownSession derives from
-                // the enemy team the server just built.
-                rewardEligible: true,
+                // SEALED at kickoff, never read from the body afterwards. An
+                // arena bout pays (magnitude rides on sealedOpponentLevel, which
+                // createShowdownSession derives from the team the server just
+                // built); a Hollow Gate bout does NOT — its rewards come from
+                // the run's own settlement, and paying twice would be a faucet.
+                rewardEligible: !hollowGate,
             });
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
-            return res.status(200).json({ ok: true, state: viewOf(session), dailyPetWins, dailyCap: DAILY_ARENA_WIN_CAP });
+            if (hollowGate) {
+                // Server-only bookkeeping, stored beside the session and never
+                // surfaced to the client.
+                await kv.set(showdownHollowGateKey(playerName, sessionId), hollowGate, { ex: SESSION_TTL_SECONDS });
+            }
+            return res.status(200).json({ ok: true, state: viewOf(session), dailyCap: DAILY_ARENA_WIN_CAP });
         }
 
         const sessionIdRaw = String(body.sessionId ?? '').trim();
@@ -448,6 +538,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let settlement: Record<string, unknown> = { reward: 0 };
             if (session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
+            }
+            /*
+             * HOLLOW GATE HANDSHAKE. A bound bout mints the receipt the run's
+             * settlement endpoint consumes — on a LOSS as well as a win, because
+             * a defeat is a real Hollow Gate outcome (it ends the run) and
+             * combat-settle.ts must be able to read it. `nx` means a re-posted
+             * finishing turn cannot rewrite a decided encounter, and the receipt
+             * is keyed by session id, so the session the player fought IS the
+             * handle they settle with — nothing client-supplied in between.
+             */
+            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, session.sessionId));
+            if (hgBinding && session.outcome) {
+                await mintHollowGatePetReceipt(playerName, session.sessionId, hgBinding, session.outcome);
+                settlement = { ...settlement, hollowGate: { runId: hgBinding.runId, petReceipt: session.sessionId } };
             }
             if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });

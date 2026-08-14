@@ -71,18 +71,28 @@ describe('showdown.ts wires practice as unpaid', () => {
         // The comment this test used to carry said "until a live entry point
         // exists". That entry point now exists, so the assertion moves from
         // "nothing pays" to "exactly one thing pays, and it is the right one".
-        indexOfOrFail('rewardEligible: false');
-        indexOfOrFail('rewardEligible: true');
-
-        const eligible = src.match(/rewardEligible: true/g) ?? [];
-        assert.equal(eligible.length, 1, 'exactly one entry point may seal a session as paying');
+        // Exactly TWO seal sites exist, and each is pinned to its entry:
+        //   practice → the literal false
+        //   arena    → `!hollowGate`, i.e. it pays UNLESS the bout is bound to a
+        //              Hollow Gate run, which pays through the run's own
+        //              settlement instead. Paying both would be a double faucet.
+        const seals = [...src.matchAll(/rewardEligible: ([^,\n]+)/g)].map((m) => m[1].trim());
+        assert.deepEqual(seals, ['false', '!hollowGate'], 'only these two seal forms may exist, in this order');
 
         const practiceAt = indexOfOrFail("action === 'start'");
         const arenaAt = indexOfOrFail("action === 'arena'");
-        const paidSeal = src.indexOf('rewardEligible: true');
+        const paidSeal = src.indexOf('rewardEligible: !hollowGate');
         const practiceSeal = src.indexOf('rewardEligible: false');
         assert.ok(paidSeal > arenaAt, 'the paying seal belongs to the arena entry');
         assert.ok(practiceSeal > practiceAt && practiceSeal < arenaAt, 'the practice entry seals itself unpaid');
+
+        // `hollowGate` must be SERVER-derived — built only after the run token
+        // and combat binding validate — never lifted from the body. A client
+        // can therefore make itself ineligible (harmless) but can never argue
+        // itself INTO a payout.
+        const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
+        assert.ok(/hollowGate = \{ runId, petIds/.test(arenaBlock), 'the binding is constructed server-side');
+        assert.ok(arenaBlock.includes('validateHollowGatePetClaim'), 'and only after the run claim validates');
     });
 
     it('never lets the paying entry take its tier or skip its cap', () => {
