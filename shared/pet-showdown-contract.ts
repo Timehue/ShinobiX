@@ -289,6 +289,28 @@ export interface ShowdownWeather {
  *  25-round cap can't absorb a coin-flip on a defensive commitment. */
 export const SHOWDOWN_PROTECT_ROUNDS = 1;
 
+/** Forced rotation — what `push` and `pull` mean in a game with no positions.
+ *
+ *  Both kinds are inherited from the board arena, where a shove or a grapple
+ *  moved a body across the field and distance was a real resource. Showdown is
+ *  slot-based: there is nowhere to shove anyone TO. They used to resolve as
+ *  identical 0.85-power hits with a stamina rider — invisible to the player,
+ *  indistinguishable from each other, and the strongest thing a legendary could
+ *  carry (their nine carriers won ~63% of same-rarity matchups).
+ *
+ *  The bench is the only spatial axis this mode has, so that is the axis they
+ *  act on now — the Whirlwind / Dragon Tail translation:
+ *    push — smash the active pet off the field; a RANDOM reserve is thrown in.
+ *           More damage, no control: it breaks up a setup but you take what
+ *           comes.
+ *    pull — hook a chosen reserve into the open, replacing the active pet. Less
+ *           damage, full control: drag out the wounded one and finish it.
+ *  Damage is priced well below a plain strike because the rotation IS the value.
+ *
+ *  With no living reserve (1v1, or a cleared bench) there is nothing to rotate,
+ *  so the shove only costs the target its footing. */
+export const SHOWDOWN_ROTATION_NO_BENCH_STAMINA = 20;
+
 /** Floor power for a control/utility technique the catalog authored at 0.
  *  Those price at the 10-EN stamina floor — persistent disruption for the cost
  *  of a breath, which is exactly the fault the round-28 legendary surgery

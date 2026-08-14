@@ -1193,3 +1193,106 @@ test('protect blocks the round outright and cannot be chained', () => {
     assert.ok(failed, 'the chained block reported its failure');
     assert.ok(session.player[0].hp < hpMid, 'and the attack got through');
 });
+
+// ─── Forced rotation (push / pull) ───────────────────────────────────────────
+// These two kinds arrived from the board arena, where a shove or a grapple
+// moved a body across a field. Showdown has no positions, so for a long time
+// they resolved as the same 0.85-power hit with a hidden stamina rider —
+// mechanically identical to each other, invisible to the player, and the
+// strongest thing a legendary could carry. They now act on the only spatial
+// axis this mode has: the bench.
+//
+// Kit note: the seal prepends a universal basic and appends a derived utility,
+// so an authored second technique lands at ROTATION_INDEX, not index 1.
+const ROTATION_INDEX = 2;
+
+/** 1v1 attacker carrying a rotation move, against a team with live reserves. */
+function rotationSession(kind: 'push' | 'pull', enemyCount = 2, seed = 909) {
+    const attacker = makePet('att', {
+        jutsus: [
+            { name: 'Jab', power: 60, cooldown: 1, currentCooldown: 0, kind: 'damage' },
+            { name: kind === 'push' ? 'Force Pulse' : 'Grappling Hook', power: 88, cooldown: 1, currentCooldown: 0, kind },
+        ],
+    });
+    const enemies = Array.from({ length: enemyCount }, (_, i) => makePet(`foe${i}`));
+    return makeSession([attacker], enemies, seed, '1v1');
+}
+
+test('push forces the struck pet off the field and a reserve in', () => {
+    const session = rotationSession('push');
+    const victim = session.enemy[0];
+    const reserve = session.enemy[1];
+    assert.ok(!victim.benched && reserve.benched, 'fixture: one active, one in reserve');
+    const events = resolveShowdownRound(
+        session,
+        [{ kind: 'move', petId: 'att', moveIndex: ROTATION_INDEX, targetId: victim.id }],
+        [],
+    );
+    assert.ok(victim.benched, 'the struck pet was forced out');
+    assert.ok(!reserve.benched, 'the reserve was forced in');
+    assert.ok(
+        events.some((e) => e.t === 'switch' && e.outId === victim.id && e.inId === reserve.id),
+        'the rotation reports as a switch, so the client plays the run-out/run-in',
+    );
+});
+
+test('pull hooks in the WEAKEST reserve, not a random one', () => {
+    const session = rotationSession('pull', 3);
+    const victim = session.enemy[0];
+    const healthy = session.enemy[1];
+    const wounded = session.enemy[2];
+    wounded.hp = Math.round(wounded.maxHp * 0.15);
+    resolveShowdownRound(
+        session,
+        [{ kind: 'move', petId: 'att', moveIndex: ROTATION_INDEX, targetId: victim.id }],
+        [],
+    );
+    assert.ok(!wounded.benched, 'the wounded reserve was dragged into the open');
+    assert.ok(healthy.benched, 'the healthy reserve stayed on the bench');
+});
+
+test('a rotated-out pet loses its queued action for the round', () => {
+    // The real cost of the rotation, and it only works because the actor loop
+    // skips benched pets. If that ever changed, a forced switch becomes free.
+    //
+    // The attacker is given overwhelming speed on purpose: order is speed x
+    // move priority, so a FASTER victim legitimately lands its hit before it is
+    // shoved out. The cancellation is a consequence of acting first, not a
+    // property of the rotation, and the test has to say which it is checking.
+    const session = rotationSession('push');
+    session.player[0].speed = 400;
+    const victim = session.enemy[0];
+    victim.speed = 20;
+    const attackerHpBefore = session.player[0].hp;
+    resolveShowdownRound(
+        session,
+        [{ kind: 'move', petId: 'att', moveIndex: ROTATION_INDEX, targetId: victim.id }],
+        // The victim had orders. It is gone before it can act on them.
+        [{ kind: 'move', petId: victim.id, moveIndex: 1, targetId: 'att' }],
+    );
+    assert.ok(victim.benched, 'the victim was rotated out');
+    assert.equal(session.player[0].hp, attackerHpBefore, 'the rotated-out pet never landed its attack');
+});
+
+test('with no living reserve there is nothing to rotate, so the shove costs footing', () => {
+    // 1v1 with no bench is the common case: the kind must still do something
+    // honest rather than silently becoming a plain hit.
+    const session = rotationSession('push', 1);
+    const victim = session.enemy[0];
+    const staminaBefore = victim.stamina;
+    resolveShowdownRound(
+        session,
+        [{ kind: 'move', petId: 'att', moveIndex: ROTATION_INDEX, targetId: victim.id }],
+        [],
+    );
+    assert.ok(!victim.benched, 'nobody was rotated — there was no reserve');
+    assert.ok(victim.stamina < staminaBefore, 'the shove cost the target stamina instead');
+});
+
+test('push and pull are no longer the same move wearing two names', () => {
+    // The bug that hid for so long: both kinds resolved through one identical
+    // branch. They must differ in what they do AND in what they are worth.
+    assert.notEqual(KIND_FX.push.mult, KIND_FX.pull.mult, 'the two are priced differently');
+    assert.ok(KIND_FX.push.mult < 0.85 && KIND_FX.pull.mult < 0.85, 'both priced under a plain strike — the rotation is the payload');
+    assert.notEqual(KIND_FX.push.blurb, KIND_FX.pull.blurb, 'and the player is told which is which');
+});
