@@ -59,6 +59,7 @@ import {
     SHOWDOWN_WEATHER_DAMPEN,
     SHOWDOWN_PROTECT_ROUNDS,
     SHOWDOWN_UTILITY_POWER_FLOOR,
+    SHOWDOWN_ROTATION_NO_BENCH_STAMINA,
     SHOWDOWN_COST_POOL_FRACTION,
     type ShowdownWeather,
     SHOWDOWN_STATUS_CANCELS,
@@ -332,8 +333,12 @@ export const KIND_FX: Record<string, KindFx> = {
     damage:    { mult: 1.0,  rounds: 0, blurb: 'Straight damage' },
     crush:     { mult: 1.1,  rounds: 2, blurb: 'Heavy hit, lowers DEF 2 rounds' },
     lifesteal: { mult: 1.0,  rounds: 0, blurb: 'Heals you for half the damage' },
-    push:      { mult: 0.85, rounds: 0, blurb: 'Hits and drains foe stamina' },
-    pull:      { mult: 0.85, rounds: 0, blurb: 'Hits and drains foe stamina' },
+    // Forced rotation. Damage is priced well under a plain strike because the
+    // SWAP is the payload — see SHOWDOWN_ROTATION_NO_BENCH_STAMINA. push trades
+    // control for damage (random reserve), pull trades damage for control
+    // (attacker picks the wounded one).
+    push:      { mult: 0.62, rounds: 0, blurb: 'Smashes the foe out; a random reserve is forced in' },
+    pull:      { mult: 0.45, rounds: 0, blurb: 'Hooks the foe’s weakest reserve into the fight' },
     dot:       { mult: 0.82, rounds: 2, store: 'burn', blurb: 'Burns for 2 more rounds' },
     burn:      { mult: 0.82, rounds: 2, blurb: 'Burns for 2 more rounds' },
     wound:     { mult: 0.82, rounds: 2, blurb: 'Bleeds and halves foe healing' },
@@ -1867,8 +1872,38 @@ function executeMove(
                     break;
                 case 'push':
                 case 'pull':
-                    if (applyOffensiveHit(target, 0.85, kind)) {
-                        target.stamina = Math.max(0, target.stamina - 16);
+                    // FORCED ROTATION. These two came from the board arena,
+                    // where a shove or a grapple moved a body across the field.
+                    // Showdown has no positions, so they resolved as the same
+                    // near-max hit with a hidden stamina rider. The bench is the
+                    // only spatial axis this mode has, so it is the one they act
+                    // on: push throws the active pet out for a RANDOM reserve,
+                    // pull hooks in the reserve the ATTACKER wants to fight.
+                    // Both leave the target's queued command dead — the actor
+                    // loop skips benched pets — which is the real cost.
+                    if (applyOffensiveHit(target, KIND_FX[kind].mult, kind) && !target.ko) {
+                        const targetTeam = session.player.includes(target) ? session.player : session.enemy;
+                        const targetSide: Side = targetTeam === session.player ? 'player' : 'enemy';
+                        const reserves = targetTeam.filter((p) => p.benched && !p.ko);
+                        if (reserves.length) {
+                            const inbound = kind === 'push'
+                                ? reserves[Math.floor(nextRand(session) * reserves.length)]
+                                : reserves.reduce((weakest, p) => (
+                                    p.hp / Math.max(1, p.maxHp) < weakest.hp / Math.max(1, weakest.maxHp) ? p : weakest
+                                ));
+                            target.benched = true;
+                            target.guarding = false;
+                            // Field-presence effects end when the body leaves —
+                            // identical to a voluntary switch, so a taunt can
+                            // never outlive the pet holding the field.
+                            target.statuses = target.statuses.filter((s) => s.kind !== 'taunt' && s.kind !== 'tauntGuard');
+                            inbound.benched = false;
+                            events.push({ t: 'switch', side: targetSide, outId: target.id, inId: inbound.id, reinforcement: false });
+                        } else {
+                            // Nothing to rotate to (1v1, or the bench is gone):
+                            // the shove only costs them their footing.
+                            target.stamina = Math.max(0, target.stamina - SHOWDOWN_ROTATION_NO_BENCH_STAMINA);
+                        }
                     }
                     break;
                 default:
