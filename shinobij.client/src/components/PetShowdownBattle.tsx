@@ -54,6 +54,8 @@ import {
     type PillarDrive,
 } from "./PetShowdownVfx";
 import { ShowdownIcon, type ShowdownIconName } from "./icons/ShowdownIcon";
+import { SceneAmbience } from "./SceneAmbience";
+import type { Biome, WeatherType } from "../types/core";
 import { ELEMENT_ICON } from "../lib/element-icons";
 import {
     SHOWDOWN_ELEMENT_BEATS,
@@ -181,6 +183,30 @@ const KIND_FAMILY: Record<string, "off" | "ctl" | "sup"> = {
     pivot: "off", protect: "sup", weather: "sup",
     heal: "sup", shield: "sup", guard: "sup", barrier: "sup", absorb: "sup",
     buff: "sup", haste: "sup", move: "sup", rest: "sup",
+};
+
+/** A weather technique turns the arena's sky, and it uses the SAME weather the
+ *  overworld already runs (SceneAmbience) rather than a second private system:
+ *  a Water sage makes it rain on the field exactly like rain in a sector, and a
+ *  Lightning sage brings the same thunderstorm with its procedural bolts.
+ *
+ *  The pairing is the element's real-world weather, which is also the one that
+ *  reads as "this is boosting that element":
+ *    Water     -> rain          Lightning -> thunderstorm
+ *    Fire      -> desertHaze (drought shimmer)
+ *    Wind      -> tornado       Earth     -> ashfall (driving dust)
+ *  The in-scene tint and light stay with ClimateLayer; this is the sky. */
+const ELEMENT_WEATHER: Record<string, { weather: WeatherType; biome: Biome }> = {
+    // SceneAmbience always draws a BIOME particle underneath the weather, so
+    // the biome is picked to suit the element rather than left on the default
+    // (which sprinkled neutral motes through every sky). The pair is what sells
+    // it: embers under drought haze read as a furnace, leaves under a gale read
+    // as wind you can see.
+    Water: { weather: "rain", biome: "central" },
+    Lightning: { weather: "thunderstorm", biome: "central" },
+    Fire: { weather: "desertHaze", biome: "volcano" },
+    Wind: { weather: "tornado", biome: "forest" },
+    Earth: { weather: "ashfall", biome: "central" },
 };
 
 const STATUS_GLYPH: Record<string, ShowdownIconName> = {
@@ -3125,6 +3151,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     />
                 ))}
             </Canvas>
+
+            {/* FIELD WEATHER. Driven by the server's standing weather, so it is
+                on exactly while the technique's window is, and reduced-motion
+                drops it entirely (SceneAmbience animates continuously). */}
+            {!reducedMotion && climateElement && ELEMENT_WEATHER[climateElement] && (
+                <SceneAmbience
+                    biome={ELEMENT_WEATHER[climateElement].biome}
+                    weather={ELEMENT_WEATHER[climateElement].weather}
+                    intensity={1.25}
+                    className="showdown-sky"
+                />
+            )}
 
             {/* Cinematic letterbox during signature casts. */}
             {letterbox && (
