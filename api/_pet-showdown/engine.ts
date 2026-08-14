@@ -731,6 +731,25 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
         { name: 'Thunderhead Rake', power: 124, kind: 'damage' },
         { name: 'Worldstorm Requiem', power: 300, kind: 'damage', signature: true },
     ],
+    'mythic-3': [   // Solar Stag — Fire tracker. Measured 23.8% in the bench
+                    // format. Two problems compounding: it carries the highest
+                    // raw budget of its tier (226 against a 188 median), so the
+                    // species normalization scales it DOWN ~14%, and every
+                    // damage move it owned was kind `damage` — which always
+                    // rolls SPECIAL — while the pet is a physical attacker
+                    // (atk 58, spAtk 56). It was hitting on its weaker axis
+                    // with a normalized-down statline behind it.
+                    //
+                    // Same repair as Turtle Duck, which has the identical stat
+                    // pair: the haymaker moves to the PHYSICAL axis, and the
+                    // solar burn it always carried becomes a real slot instead
+                    // of a second setup turn. Priced under Turtle Duck's 152
+                    // because that one already sits near the top of comfort.
+        { name: 'Sunfall Judgment', power: 130, kind: 'crush' },
+        { name: 'Radiant Horn', power: 110, kind: 'damage' },
+        { name: 'Solar Flare', power: 96, kind: 'burn' },
+        { name: 'Supernova: Solar Communion', power: 300, kind: 'damage', signature: true },
+    ],
     'mythic-4': [   // Abyssal Oni Hound — Earth assassin, 85.2% and the only
                     // species over the hard band. Two heavy crushes on a mythic
                     // assassin frame was simply the best kit in the game; the
@@ -809,6 +828,20 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
         { name: 'Storm Coil', power: 80, kind: 'dot' },
         { name: 'Force Pulse', power: 89, kind: 'push' },
         { name: "Heaven's Sundering", power: 300, kind: 'damage', signature: true },
+    ],
+    'rare-21': [    // Frostbite Cub — Water tracker, 79.6% and the strongest
+                    // species in the bench format. It stacks three forms of
+                    // attrition (a wound haymaker on its better physical axis,
+                    // plus slow AND debuff) which compounds over a ~19-round
+                    // team fight in a way it never could in the old one-pet
+                    // shape. It keeps the identity — the freezing bite that
+                    // wears you down — with the haymaker priced back and one of
+                    // the two control slots given up for a live blade, so it
+                    // has to spend turns killing rather than only grinding.
+        { name: 'Riptide Rend', power: 108, kind: 'wound' },
+        { name: 'Frostbite Cub Strike', power: 92, kind: 'damage' },
+        { name: 'Hobbling Shot', power: 68, kind: 'slow' },
+        { name: 'Glacier Breaker', power: 240, kind: 'damage', signature: true },
     ],
 };
 
