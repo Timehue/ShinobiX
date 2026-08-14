@@ -2,9 +2,9 @@ import { useCallback } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
-import { runDoctrineDuel, parseDoctrine } from "../lib/pet-duel-doctrine";
-import { PetDuelReplayScreen, type PetDuelReplayView } from "../components/PetDuelReplayScreen";
-import { joinSectorPet, sectorPetState } from "../lib/village-war-map";
+import { PetDuelReplayScreen } from "../components/PetDuelReplayScreen";
+import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
+import { joinSectorPet, sectorPetState, sectorPetWatch } from "../lib/village-war-map";
 import { activeCarriedPets } from "../lib/entitlements";
 
 /*
@@ -54,18 +54,13 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                 submitErrorText: "Could not start the pet duel.",
                 fetchState: async () => ((await sectorPetState(character.name, sectorWarId)) as { session?: PetSession }).session ?? null,
                 submit: (petId) => joinSectorPet(character.name, sectorWarId, petId) as Promise<{ session?: PetSession; error?: string }>,
-                // MUST mirror api/village/sector-pet.ts exactly — both garrisons fight to
-                // their own standing orders (plan §11), and this replay has to reproduce
-                // the winner the server already recorded, byte for byte.
-                replay: (s): PetDuelReplayView | null => {
-                    if (s.status !== "done" || !s.p2 || s.seed == null) return null;
-                    const result = runDoctrineDuel(
-                        s.p1.pet, s.p2.pet, s.seed,
-                        parseDoctrine(s.p1.pet.doctrine),
-                        parseDoctrine(s.p2.pet.doctrine),
-                        { applyItems: false, accuracy: false, terrain: s.terrain ?? null },
-                    );
-                    return { playerPet: s.p1.pet, enemyPet: s.p2.pet, seed: s.seed, result };
+                // The server re-derives the decided fight into a script; this
+                // screen only plays it. The sector's terrain arrives as the
+                // arena's standing weather, so the home ground is on screen.
+                resolved: (s) => s.status === "done" && !!s.p2 && s.seed != null,
+                watch: async () => {
+                    const r = await sectorPetWatch(character.name, sectorWarId) as { script?: ShowdownReplayScript };
+                    return r.script ?? null;
                 },
                 banner: (s) => {
                     const mine = me === s.p1.name.toLowerCase() ? "p1"

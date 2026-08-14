@@ -9,7 +9,7 @@ import {
     normalizeClanWarPetSession,
     clanWarPetSessionKey,
     clanWarPetDeclineMessage,
-    CLAN_WAR_PET_DUEL,
+    clanWarPetDuelScript,
     type ClanWarPetSession,
 } from './_pet-duel.js';
 import type { Pet } from '../../_pet-sim/pet-types.js';
@@ -100,11 +100,33 @@ describe('resolveClanWarPetDuel — determinism (the whole point)', () => {
         assert.ok(['from-wins', 'to-wins', 'draw'].includes(r));
     });
 
-    it('pins the duel parameters the client replay must mirror', () => {
-        // Drift here silently desyncs the animated fight from the recorded result.
-        assert.deepEqual({ ...CLAN_WAR_PET_DUEL }, {
-            damageMult: 1, hpMult: 1, reviveOnce: false, applyItems: true, accuracy: true, terrain: null,
-        });
+    it('never returns a draw — the Showdown judge always decides', () => {
+        // The legacy sim could time out with both pets alive; Showdown's
+        // round-cap judge ranks pets left, HP, stamina, then speed, so every
+        // war duel produces a winner and the war record never has to carry a
+        // no-op result again. ('draw' stays in the type only for sessions the
+        // old engine recorded.)
+        for (const seed of [1, 7, 99, 4242, 987654, 31337]) {
+            const r = resolveClanWarPetDuel(session({ seed }));
+            assert.ok(r === 'from-wins' || r === 'to-wins', `seed ${seed} → ${r}`);
+        }
+    });
+
+    it('the watch script re-derives the SAME fight the resolver recorded', () => {
+        // The war record stores only the verdict; the watch endpoint re-derives
+        // the whole event log on demand. If the two ever disagreed, players
+        // would watch a battle whose winner contradicts the war screen.
+        const s = session({ seed: 777 });
+        const verdict = resolveClanWarPetDuel(s);
+        const script = clanWarPetDuelScript(s);
+        const end = [...script.events].reverse().find((e) => e.t === 'end') as { t: 'end'; outcome: 'win' | 'loss' } | undefined;
+        assert.ok(end, 'the script ends with a verdict event');
+        assert.equal(end.outcome === 'win' ? 'from-wins' : 'to-wins', verdict, 'script and record agree');
+        // And it is stable: the same session derives the identical log twice.
+        assert.deepEqual(clanWarPetDuelScript(s), script);
+        // The pre-fight snapshot is genuinely pre-fight.
+        const anyDown = script.initialState.player.some((pet) => pet.hp < pet.maxHp);
+        assert.equal(anyDown, false, 'initial state shows full health');
     });
 });
 
@@ -147,6 +169,11 @@ describe('normalizeClanWarPetSession', () => {
         assert.equal(n?.status, 'done');
         assert.equal(n?.winner, 'from-wins');
         assert.equal(n?.from.length, 1);
+        // The engine stamp survives storage — the watch endpoint keys on it —
+        // and cannot be forged onto a session that never carried it.
+        assert.equal(normalizeClanWarPetSession({ ...s, engine: 'showdown' })?.engine, 'showdown');
+        assert.equal(normalizeClanWarPetSession(s)?.engine, undefined);
+        assert.equal(normalizeClanWarPetSession({ ...s, engine: 'legacy' as never })?.engine, undefined);
     });
 
     it('rejects a session with no ids', () => {

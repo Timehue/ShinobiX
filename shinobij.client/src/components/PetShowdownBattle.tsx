@@ -1992,13 +1992,19 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch }: {
+export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, spectator = false }: {
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
     playerPets: Pet[];
     sharedImages: Record<string, string>;
     submitTurn: (commands: ShowdownCommand[]) => Promise<ShowdownTurnResult>;
     onForfeit: () => void;
+    /** WATCHING, not fighting: the command phase auto-submits empty orders and
+     *  the whole command deck stays hidden, so a server-scripted match (a war
+     *  duel, a stored replay) plays start to finish with no input. The driver
+     *  behind submitTurn supplies each round's events — spectator mode is only
+     *  the removal of the human from the loop, not a second playback path. */
+    spectator?: boolean;
     /** Fired once when the end event has played; settlement may carry rewards. */
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
     onExit: () => void;
@@ -2800,7 +2806,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // Rules live in lib/showdown-turn.ts so the EMPTY case is testable — see
     // the soft-lock guard below.
     const promptable = promptablePets(livingPlayer, livingBench.length);
-    const commander = phase === "command" ? promptable[draft.length] ?? null : null;
+    const commander = phase === "command" && !spectator ? promptable[draft.length] ?? null : null;
     const commanderMustSwitch = !!commander && commander.skipsNextAction;
     const commanderDisplay = commander ? display[commander.id] : null;
     // SOFT-LOCK GUARD. `promptable` can legitimately come back EMPTY — every
@@ -2883,6 +2889,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             }
         }
     }, [submitTurn, onFinished]);
+
+    // Spectator auto-advance: the moment the deck WOULD open, submit empty
+    // orders instead. The replay driver ignores the commands and returns the
+    // recorded script, so the match narrates itself.
+    //
+    // Deferred to a timeout rather than called inline: submitRound sets state,
+    // and doing that synchronously inside an effect cascades renders. A frame's
+    // delay is invisible here (the deck is hidden in spectator mode anyway) and
+    // it lets the render that opened the phase finish first.
+    useEffect(() => {
+        if (!spectator || phase !== "command") return;
+        const id = window.setTimeout(() => { void submitRound([]); }, 0);
+        return () => window.clearTimeout(id);
+    }, [spectator, phase, submitRound]);
 
     // Drive the soft-lock guard (see `roundStalled`). Deliberately on a short
     // delay rather than instantly: the player should SEE the "no orders" panel
@@ -3227,7 +3247,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                 {stateView.weather.roundsLeft}
                             </div>
                         )}
-                        {stateView.turnDeadline !== undefined && phase === "command" && (
+                        {stateView.turnDeadline !== undefined && phase === "command" && !spectator && (
                             <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
                         )}
                         <div className="showdown-vs">{stateView.enemyTeamName}</div>
@@ -3294,7 +3314,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         own slot — the failure is the loudest thing on screen,
                         and the orders it lists are the ones still held, so the
                         panel is also the receipt that nothing was lost. */}
-                    {failedOrders && phase === "command" && (
+                    {failedOrders && phase === "command" && !spectator && (
                         <div className="showdown-stalled" role="alert">
                             <div className="showdown-stalled-title">Orders not sent</div>
                             <div className="showdown-stalled-body">

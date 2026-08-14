@@ -9,7 +9,8 @@ import { sectorWarDamageMultiplier, defenderPointsMultiplier } from '../_war-str
 import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import { applyContestBattleByWinner, findSectorWarBattleReceipt, recordSectorWarBattleOutcome, sectorWarKey } from '../_sector-war.js';
 import { loadSectorWar, saveSectorWar } from '../_sector-war-store.js';
-import { runDoctrineDuel, parseDoctrine } from '../_pet-sim/pet-duel-doctrine.js';
+import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
+import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
@@ -49,6 +50,10 @@ type SectorPetSession = {
     status: 'awaiting-defender' | 'done';
     seed?: number;
     winner?: 'p1' | 'p2' | 'draw';
+    /** Which combat engine decided this session. Absent = the retired sim;
+     *  the watch action refuses those (a Showdown re-derivation could disagree
+     *  with the recorded winner). New resolutions always stamp 'showdown'. */
+    engine?: 'showdown';
     terrain?: string | null;   // defender sector terrain sealed at resolve → drives the home-ground element bonus in the (identical) client replay
     appliedToContest?: boolean;
     createdAt: number;
@@ -116,6 +121,26 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<void
     }, { failClosed: true });
 }
 
+/** One derivation of the war-duel input for BOTH the resolve and the watch, so
+ *  the fight a viewer watches is byte-for-byte the fight that was recorded. */
+function sectorWarInput(args: {
+    sectorWarId: string;
+    seed: number;
+    terrain: string | null;
+    p1: { name: string; pet: Pet };
+    p2: { name: string; pet: Pet };
+}): WarDuelInput {
+    return {
+        sessionId: `sectorwar:${args.sectorWarId}:${args.seed}`,
+        seed: args.seed,
+        fromName: args.p1.name,
+        toName: args.p2.name,
+        fromPets: [args.p1.pet],
+        toPets: [args.p2.pet],
+        terrain: args.terrain,
+    };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -137,6 +162,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const session = await kv.get<SectorPetSession>(sessionKey(sectorWarId));
             if (!session) return res.status(404).json({ error: 'No pet duel session yet.' });
             return res.status(200).json({ session });
+        }
+        if (action === 'watch') {
+            const session = await kv.get<SectorPetSession>(sessionKey(sectorWarId));
+            if (!session) return res.status(404).json({ error: 'No pet duel session yet.' });
+            if (session.status !== 'done' || !session.p2 || session.seed === undefined) {
+                return res.status(409).json({ error: 'This pet duel has not been decided yet.' });
+            }
+            if (session.engine !== 'showdown') {
+                return res.status(409).json({ error: 'This battle predates the new arena and cannot be replayed.' });
+            }
+            const script: ShowdownReplayScript = resolveWarDuel(sectorWarInput({
+                sectorWarId, seed: session.seed, terrain: session.terrain ?? null,
+                p1: session.p1, p2: session.p2,
+            })).script;
+            return res.status(200).json({ script });
         }
         if (action !== 'join') return res.status(400).json({ error: `Unknown action: ${action}` });
 
@@ -177,26 +217,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!isDefender) return { status: 409 as const, body: { error: 'A defender of this sector must answer the pet duel.' } };
 
             // Defender joins → resolve the deterministic duel SERVER-SIDE + apply it.
-            // Seal the defender sector's terrain so the pet whose element matches gets
-            // the +10% home-ground bonus (§17.3), and store it on the session so the
-            // client REPLAYS with the same terrain and stays byte-identical.
+            // The defender sector's terrain is sealed on the session and becomes the
+            // arena's STANDING WEATHER (§17.3's home-ground bonus in Showdown's native
+            // terms: the sector's climate boosts its own element and hangs visibly
+            // over the field). Neither owner is present, so both sides run the same
+            // AI over their own sealed kits — symmetric by construction. The old
+            // doctrine briefing was a legacy-sim concept and retires with it: a
+            // garrison's plan is now its KIT, not a side-channel order.
             const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
             const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            // A GARRISON IS BRIEFED, NOT ABANDONED (plan §11). Neither owner is
-            // present for a sector clash — the holder left their pet to hold
-            // ground, and the challenger's pet arrived while they travelled — so
-            // BOTH fight to their own standing orders. That keeps the exchange
-            // symmetric: contesting a sector is a contest of two plans, not a
-            // commanded pet beating an unattended one.
-            const duel = runDoctrineDuel(
-                existing.p1.pet, pet, seed,
-                parseDoctrine((existing.p1.pet as { doctrine?: unknown }).doctrine),
-                parseDoctrine((pet as { doctrine?: unknown }).doctrine),
-                { applyItems: false, accuracy: false, terrain },
-            );
-            const winner: 'p1' | 'p2' | 'draw' = duel.winner === 'player' ? 'p1' : duel.winner === 'enemy' ? 'p2' : 'draw';
-            const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, updatedAt: now };
+            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1: existing.p1, p2: { name: me, pet } }));
+            // Showdown's judge always decides — 'draw' survives in the type only
+            // for sessions the retired engine recorded.
+            const winner: 'p1' | 'p2' = duel.outcome === 'from' ? 'p1' : 'p2';
+            const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, engine: 'showdown', updatedAt: now };
             await applyPetOutcomeToContest(session);
             session.appliedToContest = true;
             await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
