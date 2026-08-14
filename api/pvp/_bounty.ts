@@ -15,6 +15,7 @@ export const BOUNTY_MIN_PLACE = 1_000;        // min ryo per placement
 export const BOUNTY_MAX_PLACE = 1_000_000;    // max ryo per single placement
 export const BOUNTY_MAX_PER_TARGET = 10_000_000; // cap on a single head's pool
 export const BOUNTY_BOARD_MAX = 50;           // most heads tracked at once
+export const BOUNTY_CONTRIBUTOR_MAX = 500;    // bounded public attribution / journal payload
 
 export type Bounty = {
     target: string;          // display name of the hunted player
@@ -42,7 +43,9 @@ export function normalizeBoard(raw: unknown): BountyBoard {
         .map((b) => ({
             target: b.target,
             amount: Math.max(0, Math.floor(Number(b.amount) || 0)),
-            contributors: Array.isArray(b.contributors) ? Array.from(new Set(b.contributors.map(lower).filter(Boolean))) : [],
+            contributors: Array.isArray(b.contributors)
+                ? Array.from(new Set(b.contributors.map(lower).filter(Boolean))).slice(-BOUNTY_CONTRIBUTOR_MAX)
+                : [],
             updatedAt: Math.floor(Number(b.updatedAt) || 0),
         }))
         .filter((b) => b.amount > 0)
@@ -88,13 +91,22 @@ export function placeBounty(input: PlaceInput, now: number): PlaceResult {
     }
 
     const placerSlug = lower(placerName);
+    // Target versions use updatedAt as one of their immutable authority fields.
+    // Keep it strictly monotonic even when two requests share a millisecond so
+    // a prepared PLACE transition can never compare equal to its predecessor.
+    const nextUpdatedAt = Math.max(1, Math.floor(Number(now) || 0), (existing?.updatedAt ?? 0) + 1);
     let bounties: Bounty[];
     if (existing) {
         bounties = board.bounties.map((b) => b === existing
-            ? { ...b, amount: b.amount + amount, contributors: Array.from(new Set([...b.contributors, placerSlug])), updatedAt: now }
+            ? {
+                ...b,
+                amount: b.amount + amount,
+                contributors: Array.from(new Set([...b.contributors, placerSlug])).slice(-BOUNTY_CONTRIBUTOR_MAX),
+                updatedAt: nextUpdatedAt,
+            }
             : b);
     } else {
-        bounties = [...board.bounties, { target: targetName, amount, contributors: [placerSlug], updatedAt: now }];
+        bounties = [...board.bounties, { target: targetName, amount, contributors: [placerSlug], updatedAt: nextUpdatedAt }];
     }
     return { ok: true, board: { bounties }, amount };
 }

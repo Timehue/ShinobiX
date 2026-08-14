@@ -1,60 +1,215 @@
-/**
- * Server-minted single-use "ranked match" token (audit item #10).
- *
- * The PvP `ranked` flag on a session was historically taken from the client
- * body, so a player could self-flag a casual win as ranked and move the ladder.
- * (The ratings, winner, and rating MAGNITUDE were already server-authoritative —
- * only the ranked-or-not assertion was trusted.) This couples `ranked` to a real
- * queue match: when the ranked queue (api/pvp/ranked-queue.ts) or pet ranked
- * queue (api/pvp/pet-ranked-queue.ts) pairs two players, it MINTS a token keyed
- * by the unordered fighter pair + ladder. api/pvp/session.ts then CONSUMES that
- * token when the client claims `ranked`, and only stamps the session ranked if a
- * token was present. A fabricated `ranked` claim finds no token → the session is
- * recorded as CASUAL (never errored — the battle still runs).
- *
- * Pair-keyed (not a random id threaded through the client) so the proof is
- * verified entirely server-side: the client needs no change, can't forge it, and
- * either fighter can be the one who creates the session. Single-use is the
- * farming bound — one ranked result per genuine queue match — so the TTL only
- * has to outlast the match → challenge → accept → session latency and can be
- * generous without widening any abuse window.
- *
- * Mirrors the established mint/consume pattern (expedition-start →
- * report-pet-event, raid-start → report-raid, pet ranked-start → battle-result).
- */
-import { kv } from './_storage.js';
+import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { kv, type KvLike } from './_storage.js';
 import { safeName } from './_utils.js';
+import {
+    getPlayerRankedAdmission,
+    isPlayerRankedMatchId,
+    makePlayerRankedAdmission,
+    PLAYER_RANKED_ADMISSION_TTL_MS,
+    readPetRankedSeasonGateFresh,
+    reservePlayerRankedAdmission,
+    type PlayerRankedAdmission,
+} from './pet/_ranked-preparation.js';
+import { playerRankedV2AdmissionsEnabled } from './pvp/_player-ranked-rollout.js';
 
 export type RankedLadder = 'player' | 'pet';
-
-// 30 min: comfortably outlasts the challenge + accept + prefight gap between the
-// queue match and session creation. Single-use deletion (below) is what prevents
-// replay/farming, NOT the TTL, so a long window cannot be abused.
+export const PLAYER_RANKED_TOKEN_VERSION = 'player-ranked-match-token-v2' as const;
 const RANKED_TOKEN_TTL_SECONDS = 30 * 60;
+const CURRENT_SEASON_KEY = 'ranked:season:current';
 
-/**
- * Key for the pair's ranked-match token. The two slugs are SORTED so the key is
- * identical regardless of which fighter queued first or which side ends up
- * creating the session. safeName is idempotent, so callers may pass raw names or
- * already-canonical slugs.
- */
+export type PlayerRankedMatchToken = {
+    version: typeof PLAYER_RANKED_TOKEN_VERSION;
+    matchId: string;
+    a: string;
+    b: string;
+    seasonId: number;
+    seasonEpoch: number;
+    createdAt: number;
+};
+
+type TokenStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'del'>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function isPlayerRankedMatchToken(value: unknown): value is PlayerRankedMatchToken {
+    if (!isRecord(value)) return false;
+    if (Object.keys(value).sort().join('|') !== [
+        'version', 'matchId', 'a', 'b', 'seasonId', 'seasonEpoch', 'createdAt',
+    ].sort().join('|')) return false;
+    return value.version === PLAYER_RANKED_TOKEN_VERSION
+        && isPlayerRankedMatchId(value.matchId)
+        && value.a === safeName(String(value.a))
+        && value.b === safeName(String(value.b))
+        && String(value.a) < String(value.b)
+        && Number.isSafeInteger(value.seasonId)
+        && Number(value.seasonId) > 0
+        && Number.isSafeInteger(value.seasonEpoch)
+        && Number(value.seasonEpoch) > 0
+        && Number.isSafeInteger(value.createdAt)
+        && Number(value.createdAt) > 0;
+}
+
 export function rankedMatchTokenKey(a: string, b: string, ladder: RankedLadder): string {
     const [lo, hi] = [safeName(a), safeName(b)].sort();
     return `pvp:ranked-match-token:${ladder}:${lo}:${hi}`;
 }
 
-/** Mint (or refresh) the pair's ranked-match token. Called by the queues on match. */
+/**
+ * V2 player proofs intentionally live outside the legacy pair namespace. A
+ * d76a worker blindly deletes any value at the old key before inspecting its
+ * shape; a match-id key makes that old consumer incapable of spending or
+ * reinterpreting a new season admission during a rolling deploy.
+ */
+export function playerRankedMatchTokenKey(matchId: string): string {
+    if (!isPlayerRankedMatchId(matchId)) throw new Error('player-ranked-match-id-invalid');
+    return `pvp:player-ranked-match-token-v2:${matchId}`;
+}
+
+function tokenFromAdmission(admission: PlayerRankedAdmission): PlayerRankedMatchToken {
+    return {
+        version: PLAYER_RANKED_TOKEN_VERSION,
+        matchId: admission.matchId,
+        a: admission.a,
+        b: admission.b,
+        seasonId: admission.seasonId,
+        seasonEpoch: admission.seasonEpoch,
+        createdAt: admission.createdAt,
+    };
+}
+
+async function exactRead<T>(store: Pick<KvLike, 'get' | 'compareSet'>, key: string): Promise<T | null> {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+        const value = await store.get<T>(key);
+        if (value === null) return null;
+        try {
+            if (await store.compareSet(key, value, value, { ex: RANKED_TOKEN_TTL_SECONDS })) return value;
+        } catch (error) {
+            const recovered = await store.get<T>(key).catch(() => null);
+            if (isDeepStrictEqual(recovered, value)) return value;
+            throw error;
+        }
+    }
+    throw new Error('player-ranked-token-busy');
+}
+
+async function materializePlayerToken(
+    store: TokenStore,
+    admission: PlayerRankedAdmission,
+): Promise<PlayerRankedMatchToken> {
+    const token = tokenFromAdmission(admission);
+    const key = playerRankedMatchTokenKey(admission.matchId);
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+        const current = await store.get<unknown>(key);
+        if (isDeepStrictEqual(current, token)) {
+            await store.compareSet(key, current, current, { ex: RANKED_TOKEN_TTL_SECONDS });
+            return token;
+        }
+        if (current !== null && !isPlayerRankedMatchToken(current)) {
+            throw new Error('player-ranked-token-live-conflict');
+        }
+        try {
+            if (await store.compareSet(key, current, token, { ex: RANKED_TOKEN_TTL_SECONDS })) return token;
+        } catch (error) {
+            const recovered = await store.get<unknown>(key).catch(() => null);
+            if (isDeepStrictEqual(recovered, token)) return token;
+            throw error;
+        }
+    }
+    throw new Error('player-ranked-token-busy');
+}
+
+export async function mintPlayerRankedMatchTokenWithStore(
+    store: TokenStore,
+    input: {
+        a: string;
+        b: string;
+        aLevel: number;
+        bLevel: number;
+        aRating: number;
+        bRating: number;
+        now?: number;
+        matchId?: string;
+    },
+): Promise<PlayerRankedMatchToken> {
+    const now = Math.max(1, Math.floor(input.now ?? Date.now()));
+    const [gate, season] = await Promise.all([
+        readPetRankedSeasonGateFresh(store),
+        store.get<{ id?: unknown }>(CURRENT_SEASON_KEY),
+    ]);
+    if (!gate
+        || gate.state !== 'open'
+        || gate.seasonId !== Number(season?.id)) {
+        throw new Error('player-ranked-season-admission-closed');
+    }
+    const admission = makePlayerRankedAdmission({
+        matchId: input.matchId ?? `player-ranked-${randomUUID()}`,
+        a: input.a,
+        b: input.b,
+        aLevel: input.aLevel,
+        bLevel: input.bLevel,
+        aRating: input.aRating,
+        bRating: input.bRating,
+        createdAt: now,
+        seasonId: gate.seasonId,
+        seasonEpoch: gate.epoch,
+    });
+    const admitted = await reservePlayerRankedAdmission(store, admission);
+    return materializePlayerToken(store, admitted);
+}
+
+export async function mintPlayerRankedMatchToken(
+    input: Parameters<typeof mintPlayerRankedMatchTokenWithStore>[1],
+): Promise<PlayerRankedMatchToken> {
+    if (!playerRankedV2AdmissionsEnabled()) throw new Error('player-ranked-v2-rollout-disabled');
+    return mintPlayerRankedMatchTokenWithStore(kv, input);
+}
+
+export async function provePlayerRankedMatchTokenWithStore(
+    store: TokenStore,
+    input: { a: string; b: string; matchId: string },
+): Promise<{ token: PlayerRankedMatchToken; admission: PlayerRankedAdmission } | null> {
+    const [a, b] = [safeName(input.a), safeName(input.b)].sort();
+    if (!a || !b || a === b || !isPlayerRankedMatchId(input.matchId)) return null;
+    const key = playerRankedMatchTokenKey(input.matchId);
+    const token = await exactRead<unknown>(store, key);
+    if (!isPlayerRankedMatchToken(token)
+        || token.matchId !== input.matchId
+        || token.a !== a
+        || token.b !== b) return null;
+    const [gate, season] = await Promise.all([
+        readPetRankedSeasonGateFresh(store),
+        store.get<{ id?: unknown }>(CURRENT_SEASON_KEY),
+    ]);
+    const admission = gate?.playerAdmissions.find((entry) => entry.matchId === token.matchId) ?? null;
+    if (!gate
+        || gate.state !== 'open'
+        || gate.seasonId !== Number(season?.id)
+        || gate.seasonId !== token.seasonId
+        || gate.epoch !== token.seasonEpoch
+        || !admission
+        || admission.phase !== 'queued'
+        || Date.now() - admission.createdAt > PLAYER_RANKED_ADMISSION_TTL_MS
+        || admission.a !== token.a
+        || admission.b !== token.b) return null;
+    return { token, admission };
+}
+
+export async function provePlayerRankedMatchToken(
+    input: Parameters<typeof provePlayerRankedMatchTokenWithStore>[1],
+): Promise<{ token: PlayerRankedMatchToken; admission: PlayerRankedAdmission } | null> {
+    return provePlayerRankedMatchTokenWithStore(kv, input);
+}
+
+/** Legacy pet-PvP session proof; private pet ranked uses its own authority. */
 export async function mintRankedMatchToken(a: string, b: string, ladder: RankedLadder): Promise<void> {
+    if (ladder === 'player') throw new Error('use-mintPlayerRankedMatchToken');
     await kv.set(rankedMatchTokenKey(a, b, ladder), { mintedAt: Date.now() }, { ex: RANKED_TOKEN_TTL_SECONDS });
 }
 
-/**
- * Atomically consume the pair's ranked-match token. Returns true iff a token was
- * present (and is now deleted). `kv.del` returns the number of rows actually
- * removed, so this check-and-delete is a single atomic DB op — no get-then-del
- * race, no lock needed. A `pvp:*` key routes to the base Postgres store (not the
- * cPanel disk overlay), so the row count reflects true shared state.
- */
 export async function consumeRankedMatchToken(a: string, b: string, ladder: RankedLadder): Promise<boolean> {
+    if (ladder === 'player') throw new Error('use-provePlayerRankedMatchToken');
     return (await kv.del(rankedMatchTokenKey(a, b, ladder))) > 0;
 }

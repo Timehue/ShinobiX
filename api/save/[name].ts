@@ -22,7 +22,6 @@ import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import {
     preserveEntitledStringArray,
     preserveOwnedItems,
-    isServerOwnedItemId,
 } from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, nextSaveVersion } from './_save-version.js';
 import {
@@ -61,7 +60,16 @@ import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { applyDerivedLevel, earnedForLevel, earnedStatPoints } from '../_xp-engine.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
-import { maxLoadout, maxPets, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference } from '../_entitlements.js';
+import {
+    activeCarriedPetIds,
+    activeStoredBloodlineIds,
+    maxLoadout,
+    maxPets,
+    maxStoredBloodlines,
+    isPatreonSubscriber,
+    isPresetAvatar,
+    isOwnAvatarReference,
+} from '../_entitlements.js';
 import {
     CHRONICLE_RULES_VERSION,
     countChronicleCardsWithStarter,
@@ -107,6 +115,24 @@ export function isAdminContentSlot(name: string): boolean {
     return ADMIN_CONTENT_SLOTS.has(name);
 }
 
+export function isReleaseSafeCreatorEvent(raw: unknown): boolean {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+    const event = raw as Record<string, unknown>;
+    if (event.eventKind !== 'visualNovel' || event.kageFinale === true) return false;
+    for (const field of ['xpReward', 'ryoReward', 'staminaReward']) {
+        if (Number(event[field] ?? 0) !== 0) return false;
+    }
+    if (event.currencyRewards && typeof event.currencyRewards === 'object') {
+        if (Object.values(event.currencyRewards as Record<string, unknown>).some((value) => Number(value ?? 0) !== 0)) return false;
+    }
+    if (Array.isArray(event.vnPages)) {
+        for (const page of event.vnPages as Array<Record<string, unknown>>) {
+            if (Array.isArray(page?.choices) && (page.choices as Array<Record<string, unknown>>).some((choice) => choice?.battle)) return false;
+        }
+    }
+    return true;
+}
+
 // Build the non-owner response: an explicit allowlist DTO. Nothing from the
 // stored save reaches a foreign reader unless it is named here — no top-level
 // spread, no internal metadata (_saveVersion / _saveAt), and future fields are
@@ -131,8 +157,17 @@ export function buildPublicSaveDTO(data: Record<string, unknown>, opts: { combat
     // Admin content slots only — see SHARED_ADMIN_CONTENT_FIELDS.
     if (opts.sharedContent) {
         for (const k of SHARED_ADMIN_CONTENT_FIELDS) {
+            // Creator missions and raids currently have no authoritative
+            // published-catalog settlement. Do not advertise claim/start
+            // buttons that the server must reject or whose authored rewards it
+            // ignores. Keep them editable on the owning admin slot.
+            if (k === 'creatorMissions' || k === 'creatorRaids') continue;
             if (k in data) out[k] = data[k];
         }
+        // Narrative-only events remain publishable. Any rewardful or
+        // battle-bearing creator event stays admin-preview-only until it has a
+        // receipt-backed settlement path.
+        if (Array.isArray(out.creatorEvents)) out.creatorEvents = out.creatorEvents.filter(isReleaseSafeCreatorEvent);
         // A player-forged item is NEVER shared game content. One that reaches an
         // admin slot (see stripForgedItems) would otherwise be handed to every
         // client, which merges shared content into its own `creatorItems` and
@@ -327,6 +362,9 @@ const STARTER_BLOODLINE_JUTSU_IDS: Record<string, readonly string[]> = {
 };
 
 function strictRawSaveLedgerEnabled(): boolean {
+    // This wider cutover is deliberately opt-in until every remaining legacy
+    // progression writer and the forged-item backfill have been certified.
+    // High-impact inventory/equipment minting is closed independently below.
     return process.env.STRICT_RAW_SAVE_LEDGER === '1';
 }
 
@@ -425,17 +463,15 @@ function addOwnedCount(counts: Map<string, number>, rawId: unknown, amount = 1):
  * (full Mythic armor → 0.48 raw DR honored by every server fight). This is the
  * structural half of the strict branch made unconditional: slot names
  * whitelisted, duplicate ids and canonical-slot aliases collapsed, and every
- * equipped id required to exist somewhere the player can actually hold it —
- * the STORED backpack/equipment (server-granted items + already-equipped gear,
- * so nothing legit is ever unequipped) or the incoming backpack (covers a
- * buy → equip landing in a single POST; forged named items enter `inventory`
- * at craft time, api/craft/named.ts).
+ * equipped id required to exist somewhere the player already holds it — the
+ * STORED backpack/equipment (server-granted items + already-equipped gear, so
+ * nothing legitimate is ever unequipped). Incoming inventory is intentionally
+ * not evidence of ownership: accepting it made a receiptless buy → equip POST
+ * a combat-power mint even though the later inventory sanitizer dropped it.
  *
- * Presence, not count-consumption: non-strict inventory is still client-
- * writable, so counting would add no security while risking legit states the
- * client represents differently. Closing inventory forgery itself remains the
- * STRICT_RAW_SAVE_LEDGER=1 flip; strict mode replaces this with the full
- * count-consuming version in enforceRawSaveLedgerBoundary.
+ * Presence, not count-consumption: the compatibility path still permits
+ * representation changes for already-owned items. Strict mode replaces this
+ * with the full count-consuming version in enforceRawSaveLedgerBoundary.
  *
  * Slot-kind: a BUILT-IN item may only occupy a slot its definition fits
  * (armor DR in _multipliers.ts sums per SLOT KEY, so a body plate parked in
@@ -455,15 +491,13 @@ function slotAcceptsItemKind(equipSlot: string, itemSlot: string): boolean {
 
 function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record<string, unknown>): void {
     const owned = new Set<string>();
-    for (const source of [stored, char]) {
-        for (const id of Array.isArray(source.inventory) ? source.inventory : []) {
-            if (typeof id === 'string' && id.trim()) owned.add(id.trim());
-        }
-        if (Array.isArray(source.itemStacks)) {
-            for (const raw of source.itemStacks as Array<Record<string, unknown>>) {
-                const itemId = raw && typeof raw === 'object' && typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
-                if (itemId && Math.floor(Number(raw.count) || 0) > 0) owned.add(itemId);
-            }
+    for (const id of Array.isArray(stored.inventory) ? stored.inventory : []) {
+        if (typeof id === 'string' && id.trim()) owned.add(id.trim());
+    }
+    if (Array.isArray(stored.itemStacks)) {
+        for (const raw of stored.itemStacks as Array<Record<string, unknown>>) {
+            const itemId = raw && typeof raw === 'object' && typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+            if (itemId && Math.floor(Number(raw.count) || 0) > 0) owned.add(itemId);
         }
     }
     const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
@@ -554,7 +588,17 @@ function enforceRawSaveLedgerBoundary(
     const exStats = stored.stats && typeof stored.stats === 'object'
         ? stored.stats as Record<string, unknown>
         : {};
-    const exUnspent = Math.max(0, Math.floor(Number(stored.unspentStats) || 0));
+    let exUnspent = Math.max(0, Math.floor(Number(stored.unspentStats) || 0));
+    // Complete the one-time XP-era -> stat-ledger migration inside the strict
+    // boundary. The earlier sanitizer pass computes the same top-up, but this
+    // function intentionally rebuilds stats/unspentStats from the stored
+    // entitlement and would otherwise discard it before the latch could stick.
+    if (stored.levelLedgerMigrated !== true) {
+        const storedLevel = Math.max(1, Math.min(LEVEL_CAP, Math.floor(Number(stored.level) || 1)));
+        const earnedNow = earnedStatPoints({ ...stored, unspentStats: exUnspent });
+        exUnspent += Math.max(0, earnedForLevel(storedLevel) - earnedNow);
+        char.levelLedgerMigrated = true;
+    }
     const requestedPool = Number(requestedUnspentStats);
     let allocationBudget = Number.isSafeInteger(requestedPool) && requestedPool >= 0
         ? Math.min(exUnspent, Math.max(0, exUnspent - requestedPool))
@@ -954,12 +998,14 @@ export function sanitizeCharacterSave(
         char.createdAt = exChar.createdAt;
     }
 
-    // Profession: lock the profession choice (server-side picker writes it
-    // via /api/profession/choose), reject client XP gains, and recompute rank
-    // from XP so a malicious client can't claim higher rank than its XP earns.
+    // Profession: lock the profession choice (the server-side picker and its
+    // one-time respec flow write it via /api/profession/choose), reject client
+    // XP gains, and recompute rank from XP so a malicious client can't claim a
+    // higher rank than its XP earns.
     //
     // Two-state lockdown:
-    //   • exChar HAS a profession  → preserve it (permanent choice).
+    //   • exChar HAS a profession  → preserve it (only the dedicated endpoint
+    //     may spend the one-time change and replace it).
     //   • exChar has NO profession → ALSO preserve `undefined`. The dedicated
     //     /api/profession/choose endpoint is the only path that may set the
     //     initial value. Without this branch a fresh-account save POST could
@@ -1204,21 +1250,21 @@ export function sanitizeCharacterSave(
     // Pet roster cap: a tampered client could POST a save with more pets than
     // allowed. Server truncates so we don't silently lose extras on next reload.
     // Preserve the active pet if it's in the cut. Subscriber-aware (Patreon
-    // perk): 3 for the base tier, 5 for subscribers. `char.patreon` is forced
-    // from stored later in this pipeline, but it is already the stored value on
-    // an autosave (the client can't set it), so reading it here is safe.
+    // perk): 4 for a Base account, 6 for a Shinobi Supporter. The authoritative
+    // entitlement comes from `exChar`: `char.patreon` is still client-supplied
+    // at this stage and is not pinned to the server ledger until later.
     //
     // NON-DESTRUCTIVE downgrade: never truncate BELOW the already-stored roster,
     // so a lapsed subscriber (or a legacy larger roster) keeps every pet — the
-    // cap only prevents GROWING past it. A legit base-tier roster is <=3, so a
-    // tampered save still can't grow the roster past 3.
+    // cap only prevents GROWING past it. A legit base-tier roster is <=4, so a
+    // tampered save still can't grow the roster past 4.
     const existingPets = Array.isArray(exChar.pets) ? exChar.pets as Array<Record<string, unknown>> : [];
-    const PET_CAP = Math.max(maxPets(char), existingPets.length);
+    const PET_CAP = Math.max(maxPets(exChar), existingPets.length);
     const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
     const submittedPets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
     // PET_IDENTITY_FIELDS derives from the ownership manifest ('pet-identity'):
-    // combat progression, timers, paid identity, and gear are all committed by
-    // dedicated pet endpoints. A generic save may remove a pet, but it cannot
+    // combat progression, timers, paid identity, gear, and ownership changes
+    // are committed by dedicated pet endpoints. A generic save cannot remove,
     // train, feed, rename, equip, or fabricate expedition state.
     // Once strict settlement is enabled, pet identity and progression must
     // come from dedicated endpoints. Compatibility mode retains bounded legacy
@@ -1244,10 +1290,10 @@ export function sanitizeCharacterSave(
             }
             return next;
         });
-    // A generic save may normally release a pet by omitting it, but a parent is
-    // server-locked until readyAt. Reinsert any omitted locked parent from the
-    // authoritative roster; dedicated pet/progress release returns the clearer
-    // pet-is-breeding error before it reaches this backstop.
+    // A breeding parent is server-locked until readyAt. This remains a defense
+    // in depth check even though the authoritative roster rebuild below now
+    // preserves every omitted stored pet; dedicated endpoints return the
+    // clearer pet-is-breeding error before reaching this backstop.
     const breedingLockedIds = activeBreedingParentIds(exChar, Date.now());
     if (breedingLockedIds.size > 0) {
         const keptIds = new Set((char.pets as Array<Record<string, unknown>>).map((pet) => String(pet.id ?? '')));
@@ -1262,6 +1308,20 @@ export function sanitizeCharacterSave(
             if (breedingLockedIds.has(String(char[field] ?? ''))) copyStoredField(char, exChar, field);
         }
     }
+    // Generic/partial/stale saves may neither remove nor reorder owned pets.
+    // Rebuild in the server's prior order and use the authoritative stored
+    // record whenever the payload omitted an id. Only a dedicated Sanctuary
+    // transfer/release endpoint may change roster membership/order.
+    if (existingPets.length > 0) {
+        const retainedById = new Map(
+            (char.pets as Array<Record<string, unknown>>)
+                .map((pet) => [String(pet?.id ?? ''), pet] as const)
+                .filter(([id]) => Boolean(id)),
+        );
+        char.pets = existingPets.map((storedPet) =>
+            retainedById.get(String(storedPet?.id ?? '')) ?? storedPet,
+        );
+    }
     const inPets = char.pets as Array<Record<string, unknown>>;
     if (inPets && inPets.length > PET_CAP) {
         const activeId = String(char.activePetId ?? '');
@@ -1269,6 +1329,23 @@ export function sanitizeCharacterSave(
         const others = inPets.filter(p => String(p?.id) !== activeId);
         const kept = active ? [active, ...others.slice(0, PET_CAP - 1)] : others.slice(0, PET_CAP);
         char.pets = kept;
+    }
+    // Existing lapse/legacy overflow stays owned above, but it cannot be rotated
+    // into combat by merely changing activePetId in a generic save. The current
+    // active/reserve choices are grandfathered into the stable 4/6 projection;
+    // dedicated Sanctuary transfers can then change roster membership safely.
+    const eligibleStoredPetIds = new Set(activeCarriedPetIds(exChar, existingPets));
+    const retainedPetIds = new Set(
+        (char.pets as Array<Record<string, unknown>>)
+            .map((pet) => String(pet?.id ?? ''))
+            .filter(Boolean),
+    );
+    for (const field of ['activePetId', 'activePetId2v2'] as const) {
+        const requestedId = String(char[field] ?? '');
+        if (requestedId && eligibleStoredPetIds.has(requestedId) && retainedPetIds.has(requestedId)) continue;
+        const previousId = String(exChar[field] ?? '');
+        if (previousId && eligibleStoredPetIds.has(previousId) && retainedPetIds.has(previousId)) char[field] = previousId;
+        else delete char[field];
     }
 
     // Pet stat ceiling: HP/ATK/DEF/SPD are uncapped client-side by design (training
@@ -1330,38 +1407,9 @@ export function sanitizeCharacterSave(
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
     }
-    const proposedInventory = Array.isArray(char.inventory) ? [...char.inventory] : [];
-    const proposedStacks = Array.isArray(char.itemStacks)
-        ? char.itemStacks as Array<{ itemId?: unknown; count?: unknown }>
-        : [];
     const ownedItems = preserveOwnedItems(char.inventory, char.itemStacks, exChar.inventory, exChar.itemStacks);
     char.inventory = ownedItems.inventory;
     char.itemStacks = ownedItems.itemStacks;
-    if (!strictLedger) {
-        const storedCounts = new Map<string, number>();
-        for (const raw of Array.isArray(exChar.inventory) ? exChar.inventory : []) addOwnedCount(storedCounts, raw);
-        for (const row of Array.isArray(exChar.itemStacks) ? exChar.itemStacks as Array<Record<string, unknown>> : []) {
-            addOwnedCount(storedCounts, row?.itemId, Math.max(0, Math.floor(Number(row?.count) || 0)));
-        }
-        const addedInventory = proposedInventory.filter((raw) => {
-            const id = typeof raw === 'string' ? raw : '';
-            const left = storedCounts.get(id) ?? 0;
-            if (left > 0) storedCounts.set(id, left - 1);
-            return Boolean(id) && left <= 0;
-        }) as string[];
-        const unownedStackClaim = proposedStacks.some((row) => {
-            const id = typeof row?.itemId === 'string' ? row.itemId : '';
-            return Math.max(0, Math.floor(Number(row?.count) || 0)) > (storedCounts.get(id) ?? 0);
-        });
-        // The single-item carve-out lets a legacy client-side pickup persist one
-        // net-new item per save, but NEVER a server-owned id (crates, keys, war
-        // caches, hunt materials) — those are minted only by their own
-        // server-authoritative endpoints, so a hand-crafted save can spend them
-        // but not conjure them.
-        if (addedInventory.length === 1 && !unownedStackClaim && !isServerOwnedItemId(addedInventory[0])) {
-            char.inventory = [...(char.inventory as string[]), addedInventory[0]];
-        }
-    }
     // All item ownership is server-issued. Conserve the combined inventory +
     // counted-stack entitlement so load-time array→stack migration remains
     // lossless while arbitrary additions in either representation are dropped.
@@ -1457,14 +1505,17 @@ export function sanitizeCharacterSave(
     // a forged save can POST bloodlines with jutsus { effectPower: 9999, ap: 0,
     // cooldown: 0 } that the equip path then makes usable in combat.
     // Rules:
-    //   - Cap savedBloodlines.length at 5 (client UI keeps 1, but be generous
-    //     for migration / multi-bloodline rosters)
+    //   - A Base account may grow/use 1 stored custom bloodline; a Shinobi
+    //     Supporter may grow/use 2.
+    //   - Never delete already-stored overflow on lapse or legacy migration.
+    //     Overflow is preserved read-only and cannot become the equipped custom
+    //     bloodline until an entitlement slot is available.
     //   - For each bloodline: cap jutsus at 15, clamp per-jutsu numerics
     //   - Strip inline data:image/svg URIs from the bloodline image (SVG can
     //     carry <script>; only the /api/images endpoint is supposed to enforce
     //     this and inline saves bypass it)
-    const BLOODLINE_CAP = 5;
     const JUTSU_PER_BLOODLINE_CAP = 15;
+    const ADMIN_BLOODLINE_CAP = 50;
     const RAW_BLOODLINE_IMAGE_MAX_BYTES = 250_000;  // 250 KB inline cap
     const KNOWN_BLOODLINE_RANKS = new Set(['B Rank', 'A Rank', 'S Rank']);
     const BLOODLINE_RANK_ORDER: Record<string, number> = { 'B Rank': 0, 'A Rank': 1, 'S Rank': 2 };
@@ -1482,29 +1533,88 @@ export function sanitizeCharacterSave(
     // is unchanged while forged extra tags are stripped deterministically.
     const normalizeBloodlineArray = (arr: unknown, existingArr: unknown, mayConsumeForge = false): unknown[] => {
         if (!Array.isArray(arr)) return arr as unknown[];
+        const storedEntries = Array.isArray(existingArr)
+            ? (existingArr as Array<Record<string, unknown>>).filter((entry) => entry && typeof entry === 'object')
+            : [];
+        const storedById = new Map<string, Record<string, unknown>>();
         const existingRankById = new Map<string, string>();
-        if (Array.isArray(existingArr)) {
-            for (const eb of existingArr as Array<Record<string, unknown>>) {
-                if (eb && typeof eb === 'object') {
-                    const eid = String(eb.id ?? '');
-                    const er = String(eb.rank ?? '');
-                    if (eid && KNOWN_BLOODLINE_RANKS.has(er)) existingRankById.set(eid, er);
-                }
-            }
+        for (const eb of storedEntries) {
+            const eid = String(eb.id ?? '');
+            const er = String(eb.rank ?? '');
+            if (eid && !storedById.has(eid)) storedById.set(eid, eb);
+            if (eid && KNOWN_BLOODLINE_RANKS.has(er)) existingRankById.set(eid, er);
         }
-        return (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
-            if (!bl || typeof bl !== 'object') return {};
-            const out: Record<string, unknown> = { ...bl };
+        const submitted = (arr as Array<Record<string, unknown>>).filter((entry) => entry && typeof entry === 'object');
+        // Admin content slots author the shared starter catalog and are not a
+        // player entitlement surface. Keep that workflow able to edit all of
+        // its existing entries (and add bounded payload entries); ordinary
+        // saves remain limited to Base 1 / Supporter 2 active slots.
+        const storageCap = opts.adminContentSlot
+            ? Math.max(
+                storedEntries.length,
+                Math.min(ADMIN_BLOODLINE_CAP, new Set(submitted.map((entry) => String(entry.id ?? '')).filter(Boolean)).size),
+            )
+            : maxStoredBloodlines(exChar);
+        const activeStoredIds = new Set(opts.adminContentSlot
+            ? storedEntries.map((entry) => String(entry.id ?? '')).filter(Boolean)
+            : activeStoredBloodlineIds(exChar, storedEntries));
+        const submittedActiveIds = new Set(
+            submitted
+                .map((entry) => String(entry.id ?? ''))
+                .filter((id) => activeStoredIds.has(id)),
+        );
+        let availableNewSlots = Math.max(0, storageCap - submittedActiveIds.size);
+
+        // Always carry omitted stored entries through normalization. Active
+        // entries may later be displaced by an entitled replacement; stored
+        // overflow is always appended back, so a client-side slice can never
+        // destroy it.
+        const boundedSubmitted = submitted.slice(0, storedEntries.length + storageCap);
+        const boundedSubmittedIds = new Set(
+            boundedSubmitted.map((entry) => String(entry.id ?? '')).filter(Boolean),
+        );
+        const candidates = [
+            ...boundedSubmitted,
+            ...(opts.adminContentSlot ? [] : storedEntries.filter((entry) => {
+                const id = String(entry.id ?? '');
+                // Compare against the ids that will actually be normalized, not
+                // the full untrusted payload. An existing id placed beyond the
+                // bounded window must still be appended from authoritative storage.
+                return id && !boundedSubmittedIds.has(id);
+            })),
+        ];
+        const seenCandidateIds = new Set<string>();
+        const acceptedNewIds = new Set<string>();
+        const normalized = candidates.map((candidate) => {
+            const candidateId = String(candidate.id ?? '');
+            if (!candidateId || seenCandidateIds.has(candidateId)) return null;
+            seenCandidateIds.add(candidateId);
+
+            const storedEntry = storedById.get(candidateId);
+            const isPreservedOverflow = Boolean(storedEntry) && !activeStoredIds.has(candidateId);
+            // Overflow is ownership data, not an active editing slot. Normalize
+            // the stored copy and ignore every submitted mutation to it.
+            const out: Record<string, unknown> = {
+                ...(isPreservedOverflow && storedEntry ? storedEntry : candidate),
+            };
+            const blId = String(out.id ?? '');
+            const storedRank = existingRankById.get(blId);
+            if (!storedEntry && availableNewSlots <= 0) {
+                return null;
+            }
             // Existing ids may retain or lower their stored rank. New ids and rank
             // upgrades must consume an exact-rank forge purchase. With no purchase,
             // a new entry is discarded rather than silently granting free B rank.
             const rawRank = String(out.rank ?? '');
             let rank = KNOWN_BLOODLINE_RANKS.has(rawRank) ? rawRank : 'B Rank';
-            const blId = String(out.id ?? '');
-            const storedRank = blId ? existingRankById.get(blId) : undefined;
             const isUpgrade = storedRank !== undefined
                 && (BLOODLINE_RANK_ORDER[rank] ?? 0) > (BLOODLINE_RANK_ORDER[storedRank] ?? 0);
-            if (!storedRank || isUpgrade) {
+            if (opts.adminContentSlot) {
+                if (!storedEntry) {
+                    acceptedNewIds.add(blId);
+                    availableNewSlots -= 1;
+                }
+            } else if (!storedRank || isUpgrade) {
                 const requestedRank = parseBloodlineForgeRank(rawRank);
                 const forge = mayConsumeForge && requestedRank
                     ? pendingBloodlineForges.find((entry) => entry.rank === requestedRank && !consumedBloodlineForgeIds.has(entry.id))
@@ -1512,6 +1622,10 @@ export function sanitizeCharacterSave(
                 if (forge) {
                     consumedBloodlineForgeIds.add(forge.id);
                     rank = forge.rank;
+                    if (!storedEntry) {
+                        acceptedNewIds.add(blId);
+                        availableNewSlots -= 1;
+                    }
                 } else if (!storedRank) {
                     return null;
                 } else {
@@ -1592,6 +1706,43 @@ export function sanitizeCharacterSave(
             }
             return out;
         }).filter((bl): bl is Record<string, unknown> => bl !== null);
+
+        const normalizedById = new Map(
+            normalized.map((bloodline) => [String(bloodline.id ?? ''), bloodline] as const),
+        );
+        const activeOutputIds: string[] = [];
+        // Submitted order is the player's slot preference. Only previously
+        // active ids or newly entitled replacements can occupy active slots.
+        for (const entry of submitted) {
+            const id = String(entry.id ?? '');
+            if (!id || activeOutputIds.includes(id)) continue;
+            if (activeStoredIds.has(id) || acceptedNewIds.has(id)) activeOutputIds.push(id);
+            if (activeOutputIds.length >= storageCap) break;
+        }
+        // Fill any unused active slots from the authoritative stored set. This
+        // makes omission/reordering unable to promote an overflow entry, while
+        // still letting a paid new id replace a full Base-account slot.
+        for (const id of activeStoredIds) {
+            if (activeOutputIds.length >= storageCap) break;
+            if (!activeOutputIds.includes(id)) activeOutputIds.push(id);
+        }
+
+        const activeOutput = activeOutputIds
+            .map((id) => normalizedById.get(id))
+            .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+        const overflowOutput = storedEntries
+            .filter((entry) => {
+                const id = String(entry.id ?? '');
+                return id && !activeStoredIds.has(id);
+            })
+            .map((entry) => normalizedById.get(String(entry.id ?? '')))
+            .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+
+        // Atomic replacement safety: if the client sent an unpaid/cap-blocked
+        // draft, the authoritative active roster above remains intact. Existing
+        // overflow is appended regardless, so no failed or successful
+        // replacement can erase preserved ownership.
+        return [...activeOutput, ...overflowOutput];
     };
     // The live client persists savedBloodlines at the TOP LEVEL of the save
     // record; older/admin shapes nest it under character. Normalize whichever is
@@ -1682,7 +1833,7 @@ export function sanitizeCharacterSave(
     // server-side in api/towers/settle.ts (NX receipts + recompute), so a forged
     // array can't actually claim rewards. Cap length so it can't bloat KV.
     const BATTLE_TOWER_ARRAY_CAP = 500;
-    for (const f of ['battleTowerClearedFloors', 'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed']) {
+    for (const f of ['battleTowerClearedFloors', 'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones']) {
         const arr = (char as Record<string, unknown>)[f];
         if (Array.isArray(arr) && arr.length > BATTLE_TOWER_ARRAY_CAP) {
             (char as Record<string, unknown>)[f] = arr.slice(0, BATTLE_TOWER_ARRAY_CAP);
@@ -2039,14 +2190,54 @@ export function sanitizeCharacterSave(
     //     read as a new custom upload and was deleted on EVERY save, so no
     //     non-subscriber's save ever carried an avatar and their own UI fell
     //     back to initials until the shared-image manifest happened to land.
-    // (Pet roster is capped above via PET_CAP = maxPets(char).)
+    // (Pet roster growth is capped above via maxPets(exChar), while an already-
+    // stored larger roster is preserved non-destructively.)
     {
         const fc = finalChar as Record<string, unknown>;
+        const storedLoadout = [...new Set(
+            (Array.isArray((exChar as Record<string, unknown>).equippedJutsuIds)
+                ? (exChar as Record<string, unknown>).equippedJutsuIds as unknown[]
+                : [])
+                .filter((id): id is string => typeof id === 'string' && id.length > 0),
+        )];
+        const activeLoadoutCap = maxLoadout(fc);
         if (Array.isArray(fc.equippedJutsuIds)) {
-            const cap = maxLoadout(fc);
-            fc.equippedJutsuIds = [...new Set(
+            // A lapse narrows combat use immediately, but does not rewrite the
+            // player's previously saved 15-slot preference. PvP/session code
+            // projects this list through maxLoadout at use time. A Base account
+            // with no grandfathered preference still cannot grow past 12.
+            const incomingLoadout = [...new Set(
                 (fc.equippedJutsuIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0),
-            )].slice(0, cap);
+            )];
+            const preservedOverflowCount = Math.max(0, storedLoadout.length - activeLoadoutCap);
+            if (!isPatreonSubscriber(fc) && preservedOverflowCount > 0) {
+                const active = incomingLoadout.slice(0, activeLoadoutCap);
+                const activeIds = new Set(active);
+                const overflow = storedLoadout
+                    .slice(activeLoadoutCap)
+                    .filter((id) => !activeIds.has(id));
+
+                // A stale Base client only knows about the 12 active slots. If it
+                // moves a formerly-dormant id into that window, rotate the
+                // displaced stored active preference into overflow instead of
+                // silently shrinking the paid 15-slot preference.
+                if (overflow.length < preservedOverflowCount) {
+                    for (const id of storedLoadout.slice(0, activeLoadoutCap)) {
+                        if (activeIds.has(id) || overflow.includes(id)) continue;
+                        overflow.push(id);
+                        if (overflow.length >= preservedOverflowCount) break;
+                    }
+                }
+                fc.equippedJutsuIds = [...active, ...overflow.slice(0, preservedOverflowCount)];
+            } else {
+                const cap = Math.max(activeLoadoutCap, storedLoadout.length);
+                fc.equippedJutsuIds = incomingLoadout.slice(0, cap);
+            }
+        } else if (!isPatreonSubscriber(fc) && storedLoadout.length > activeLoadoutCap) {
+            // Compatibility-mode partial saves can omit the field entirely. The
+            // stored dormant tail remains authoritative until an entitled client
+            // explicitly submits the complete preference list.
+            fc.equippedJutsuIds = storedLoadout;
         }
         if (!isPatreonSubscriber(fc)) {
             const incomingAvatar = fc.avatarImage;
@@ -2065,20 +2256,57 @@ export function sanitizeCharacterSave(
     // cannot forge, replace, or replay the top-level session descriptor.
     if (!isFirstSave) out.activeTraining = existing?.activeTraining ?? null;
     if (!isFirstSave) out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
-    if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
+    if (Array.isArray(incoming.savedBloodlines)) {
+        out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
+    } else if (Array.isArray(existing?.savedBloodlines)) {
+        // Partial saves still need an authoritative active/overflow projection.
+        // Otherwise mergePreservingImages carries the raw stored array later
+        // while an incoming character can point equippedBloodlineId at overflow.
+        out.savedBloodlines = normalizeBloodlineArray(existing.savedBloodlines, existing.savedBloodlines, false);
+    }
+    if (Array.isArray(out.savedBloodlines)) {
+        const storedCap = opts.adminContentSlot
+            ? (out.savedBloodlines as unknown[]).length
+            : maxStoredBloodlines(exChar);
+        const activeIds = new Set(
+            (out.savedBloodlines as Array<Record<string, unknown>>)
+                .slice(0, storedCap)
+                .map((bloodline) => String(bloodline.id ?? ''))
+                .filter(Boolean),
+        );
+        const allStoredIds = new Set(
+            (out.savedBloodlines as Array<Record<string, unknown>>)
+                .map((bloodline) => String(bloodline.id ?? ''))
+                .filter(Boolean),
+        );
+        const requestedEquippedId = String(finalChar.equippedBloodlineId ?? '');
+        if (requestedEquippedId && allStoredIds.has(requestedEquippedId) && !activeIds.has(requestedEquippedId)) {
+            const previousEquippedId = String((exChar as Record<string, unknown>).equippedBloodlineId ?? '');
+            if (previousEquippedId && activeIds.has(previousEquippedId)) finalChar.equippedBloodlineId = previousEquippedId;
+            else delete finalChar.equippedBloodlineId;
+        }
+    }
     grantOwnedBloodlineJutsuMastery(finalChar, out.savedBloodlines);
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
-    if (isFirstSave) out.creatorItems = [];
-    else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
     // On an admin content slot the rule inverts: strip forged gear instead of
     // preserving it, so the shared-content store can never accumulate (or
     // re-acquire) a personal item that would then be published to everyone.
-    else if (opts.adminContentSlot) out.creatorItems = stripForgedItems(sanitizedCreatorItems ?? existing?.creatorItems);
+    // Admin authoring remains writable in strict release mode; strict raw-save
+    // ownership applies to player economy, not the authenticated content store.
+    if (opts.adminContentSlot) out.creatorItems = stripForgedItems(sanitizedCreatorItems ?? existing?.creatorItems);
+    else if (isFirstSave) out.creatorItems = [];
+    else if (strictLedger) out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
     else if (sanitizedCreatorItems !== undefined) out.creatorItems = preserveForgedItems(sanitizedCreatorItems, existing?.creatorItems, CREATOR_ITEM_CAP);
     for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
+        if (opts.adminContentSlot && SHARED_ADMIN_CONTENT_FIELDS.includes(field)) continue;
         if (existing && Object.prototype.hasOwnProperty.call(existing, field)) out[field] = existing[field];
         else delete out[field];
+    }
+    if (!opts.adminContentSlot) {
+        delete out.creatorMissions;
+        delete out.creatorRaids;
+        if (Array.isArray(out.creatorEvents)) out.creatorEvents = out.creatorEvents.filter(isReleaseSafeCreatorEvent);
     }
     // World-geography version (the 2026-07 sector renumbering) is server-owned:
     // carry the stored stamp, and stamp brand-new saves current (they are born

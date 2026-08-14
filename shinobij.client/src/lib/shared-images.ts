@@ -120,7 +120,11 @@ function categoryFromImageKey(id: string): string {
     return CLIENT_KNOWN_PREFIXES[prefix] ?? 'misc';
 }
 
-export async function publishSharedImage(id: string, img: string): Promise<boolean> {
+export async function publishSharedImage(
+    id: string,
+    img: string,
+    onFailure?: (message: string, status?: number) => void,
+): Promise<boolean> {
     if (!id) return false;
     // Phase 2 (image-as-files): a "/api/img" value is the per-image REFERENCE URL
     // the client now hydrates into image fields — not image content. Some flows
@@ -135,7 +139,16 @@ export async function publishSharedImage(id: string, img: string): Promise<boole
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, image: img }),
         });
-        if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
+        if (!res.ok) {
+            let message = `Image publish failed (${res.status}).`;
+            try {
+                const body = await res.json() as { error?: unknown };
+                if (typeof body.error === "string" && body.error.trim()) message = body.error.trim();
+            } catch { /* non-JSON response; retain the status-specific fallback */ }
+            onFailure?.(message, res.status);
+            console.warn(`Could not save shared image ${id}: ${message}`);
+            return false;
+        }
         // Bust the per-category sessionStorage cache so a page reload fetches
         // fresh from KV instead of hydrating the pre-publish snapshot. Without
         // this, the 10-minute IMG_CACHE_TTL would mask new assignments for
@@ -147,6 +160,7 @@ export async function publishSharedImage(id: string, img: string): Promise<boole
         return true;
     } catch (error) {
         console.warn(`Could not save shared image ${id}:`, error);
+        onFailure?.("The image service could not be reached. Check your connection and try again.");
         return false;
     }
 }

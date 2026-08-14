@@ -51,9 +51,9 @@ test("shared combat HUD primitives preserve the shell class contract", () => {
     assert.match(html, /role="log" aria-live="polite" aria-label="Battle log"/);
 });
 
-test("plain combat log keeps every line, renders newest-first, and marks rounds", () => {
+test("plain combat log keeps every line, renders newest-first, and applies semantic formatting", () => {
     const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
-        lines: ["Battle started.", "First action", "--- Round 2 ---", "Newest action"],
+        lines: ["Battle started.", "Training Dummy takes 42 damage.", "--- Round 2 ---", "Newest action"],
         turnLabel: "Your Turn",
     }));
 
@@ -62,10 +62,13 @@ test("plain combat log keeps every line, renders newest-first, and marks rounds"
     assert.match(html, /aria-live="polite"/);
     assert.match(html, /aria-label="Battle log"/);
     assert.equal((html.match(/plain-combat-log-line/g) ?? []).length, 4);
-    assert.match(html, /plain-combat-log-line plain-combat-log-round/);
-    assert.ok(html.indexOf("Newest action") < html.indexOf("--- Round 2 ---"));
-    assert.ok(html.indexOf("--- Round 2 ---") < html.indexOf("First action"));
-    assert.ok(html.indexOf("First action") < html.indexOf("Battle started."));
+    assert.match(html, /battle-log-system combat-log-line plain-combat-log-line plain-combat-log-round/);
+    assert.match(html, /battle-log-damage combat-log-line plain-combat-log-line/);
+    assert.match(html, /class="bl-num">42<\/span>/, "numeric effects should use the shared emphasis renderer");
+    assert.match(html, /class="bl-glyph" aria-hidden="true"/, "each line should expose its semantic scan glyph");
+    assert.ok(html.indexOf("Newest action") < html.indexOf("plain-combat-log-round"));
+    assert.ok(html.indexOf("plain-combat-log-round") < html.indexOf("Training Dummy takes "));
+    assert.ok(html.indexOf("Training Dummy takes ") < html.indexOf("Battle started."));
 });
 
 test("plain combat log exposes an accessible empty state", () => {

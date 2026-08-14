@@ -5,6 +5,8 @@ export type PvpRewardRating = { field: string; value: number; delta: number };
 export type PvpRewardClaimConfirmed = {
     status: "confirmed";
     alreadyClaimed: boolean;
+    /** Server proof that this was a sanctioned, mutually joined match. */
+    rewardAuthorized: boolean;
     rating?: PvpRewardRating;
     base?: PvpWinBaseSummary;
 };
@@ -57,11 +59,16 @@ export async function postPvpRewardClaim(
                 message: serverError || `Reward verification failed (HTTP ${response.status}). Please retry.`,
             };
         }
+        const rating = cleanRating(payload.rating);
+        const base = payload.base && typeof payload.base === "object" ? payload.base as PvpWinBaseSummary : undefined;
         return {
             status: "confirmed",
             alreadyClaimed: payload.alreadyClaimed === true,
-            ...(cleanRating(payload.rating) ? { rating: cleanRating(payload.rating) } : {}),
-            ...(payload.base && typeof payload.base === "object" ? { base: payload.base as PvpWinBaseSummary } : {}),
+            // Older servers did not return the explicit bit; a signed base/rating
+            // settlement is itself authoritative during a rolling deployment.
+            rewardAuthorized: payload.rewardAuthorized === true || !!rating || !!base,
+            ...(rating ? { rating } : {}),
+            ...(base ? { base } : {}),
         };
     } catch {
         return {

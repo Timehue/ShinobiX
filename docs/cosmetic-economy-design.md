@@ -2,7 +2,7 @@
 
 **Status:** Plan / not built. Read-only survey + implementation-ready design.
 **Author target:** Lead Systems Designer + engineer.
-**Model:** Dota 2 / Path of Exile cosmetic economy — deep, lively, monetized, **zero pay-to-win**.
+**Model:** Dota 2 / a deep action RPG cosmetic economy — deep, lively, monetized, **zero pay-to-win**.
 
 ---
 
@@ -129,7 +129,7 @@ Three layers, all governed by one **Cosmetic Registry**:
                   ┌─────────────────────────────────────────────┐
                   │  WARDROBE (account-wide unlock ledger)       │
                   │  save:<name>.cosmetics = { owned[], equipped }│
-                  │  GW2 transmog model: unlock once, equip      │
+                  │  a major MMO transmog model: unlock once, equip      │
                   │  anywhere; ACCOUNT-BOUND on acquire           │
                   └─────────────────────────────────────────────┘
 ```
@@ -196,14 +196,14 @@ export function isTradeableCosmetic(id: unknown): boolean;   // auction gate
 through `getCosmetic()`. If it does not, the operation is rejected. This is the structural
 defense — see §9.
 
-### 3.3 Ownership / wardrobe model (GW2 transmog)
+### 3.3 Ownership / wardrobe model (a major MMO transmog)
 
 - **Unlock once, equip anywhere, account-bound on acquire.** When a player obtains a cosmetic
   (buy, crate, gift, commission), it is added to their **owned ledger** and is thereafter
   **soulbound** — it can never be re-traded (prevents RMT laundering; §9). The exception:
   cosmetics flagged `tradeable: true` can be **re-listed on the auction house** *before* first
-  equip (PoE "mirror-free" model). Once **equipped**, a tradeable cosmetic becomes account-bound
-  ("bind-on-equip"). This mirrors PoE/Dota: the marketplace stays liquid, but equipping ends
+  equip (a deep action RPG "mirror-free" model). Once **equipped**, a tradeable cosmetic becomes account-bound
+  ("bind-on-equip"). This mirrors a deep action RPG/Dota: the marketplace stays liquid, but equipping ends
   tradeability.
 - **Storage** — a new sub-object on the player save (NOT a new top-level KV key, so it rides the
   existing save lock + clamp pipeline):
@@ -227,7 +227,7 @@ defense — see §9.
   ```
 
 - **`owned` is the durable wallet of cosmetics; `equipped` is the active set.** Equipping is free
-  and reversible (own-once). Pet skins/collars key by petId since a player has up to 5 pets.
+  and reversible (own-once). Pet skins/collars key by petId across the 4/6 carried roster and unlimited Sanctuary ownership.
 
 ### 3.4 Storage keys (in the one-table KV)
 
@@ -313,7 +313,7 @@ Reuse the festival gacha tech wholesale — **cosmetics-only payout table**.
   `owned`** (NOT currency), bump the counter. Server-authoritative — the client renders only what
   is returned.
 - **Duplicate protection:** if the rolled cosmetic is already owned, convert to a small Fate-Shard
-  / "dust" refund (PoE-style) so crates never feel dead. The refund is a *cosmetic-currency*
+  / "dust" refund (a deep action RPG-style) so crates never feel dead. The refund is a *cosmetic-currency*
   refund, never power.
 - **No power in the table — ever.** Every entry is a registry id with `type ∈ CosmeticType`. The
   §9 test asserts the table ⊆ registry ∩ cosmetic.
@@ -323,7 +323,7 @@ Reuse the festival gacha tech wholesale — **cosmetics-only payout table**.
 
 ---
 
-## 6. Monetization (PoE model — large revenue, zero P2W)
+## 6. Monetization (a deep action RPG model — large revenue, zero P2W)
 
 ### 6.1 Premium cosmetic currency — "Shinobi Coins"
 
@@ -416,7 +416,7 @@ in their own modules** under `src/{screens,components,lib,data}/`, never in App.
 ### 9.1 Structural defenses (defense-in-depth)
 
 1. **Cosmetic-only = nothing valuable to launder.** Because the market/crate/gift can only move
-   registry cosmetics, and cosmetics confer no power, the *incentive* for RMT collapses (PoE's
+   registry cosmetics, and cosmetics confer no power, the *incentive* for RMT collapses (a deep action RPG's
    core insight). This is the strongest defense.
 2. **Account-bind on equip (bind-on-equip).** Tradeable until equipped, then soulbound. Caps how
    far any single cosmetic can circulate.

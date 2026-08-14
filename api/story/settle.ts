@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
+import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import { applyAcademySparSettlement, applyStoryBossSettlement } from './_settle.js';
 import { validateCompletedAcademySparSession } from './_academy-spar.js';
 import {
@@ -81,6 +82,9 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
     return withKvLock(bindingKey, async () => {
         const binding = await kv.get<StoryCombatBinding>(bindingKey);
         const session = await readSoloPveSession(runId);
+        const usage = session ? await settleSoloPveTerminalUsage(session, playerName) : null;
+        if (usage && !usage.ok) return usage;
+        const settlementSession = usage?.session ?? session;
         const result = await mutatePlayerSave(playerName, async ({ character }) => {
             const redeemed = Array.isArray(character.redeemedStoryBattles)
                 ? (character.redeemedStoryBattles as unknown[]).filter((entry): entry is StoryRedemption => (
@@ -92,20 +96,20 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
             if (prior) return { ok: true as const, character, value: { ...prior, replayed: true } };
 
             const validation = isSpar
-                ? validateCompletedAcademySparSession({ binding, session, playerName, character })
-                : validateCompletedStoryCombatSession({ binding, session, playerName, character });
+                ? validateCompletedAcademySparSession({ binding, session: settlementSession, playerName, character })
+                : validateCompletedStoryCombatSession({ binding, session: settlementSession, playerName, character });
             if (!validation.ok) {
                 const label = isSpar ? 'Sparring match' : 'Story battle';
                 return { ok: false as const, status: 409, error: `${label} could not be verified (${validation.reason}).` };
             }
 
-            const chargedCharacter = applySoloPveUsageCosts(character, session!);
+            const chargedCharacter = applySoloPveUsageCosts(character, settlementSession!);
             const settled = isSpar
                 ? applyAcademySparSettlement(chargedCharacter, { opponentId: validation.binding.opponentId })
                 : applyStoryBossSettlement(
                     chargedCharacter,
                     { opponentId: validation.binding.opponentId },
-                    storySessionSurvivingHp(session!, playerName),
+                    storySessionSurvivingHp(settlementSession!, playerName),
                 );
             if (!settled.ok) return settled;
             const redemption: StoryRedemption = {
@@ -131,9 +135,9 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
         // Finalize both authority records after the save mutation. On a retry,
         // the redemption row above prevents rewards and costs from being applied
         // twice and this block repairs an interrupted metadata write.
-        if (result.ok && binding && session && binding.playerName === playerName && session.ownerSlug === playerName) {
-            if (session.settlementState !== 'settled') {
-                await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
+        if (result.ok && binding && settlementSession && binding.playerName === playerName && settlementSession.ownerSlug === playerName) {
+            if (settlementSession.settlementState !== 'settled') {
+                await writeSoloPveSession(withSoloPveSettlementReceipt(settlementSession, {
                     kind: isSpar ? 'academy-spar' : 'story-boss',
                     id: runId,
                     settledAt: Date.now(),

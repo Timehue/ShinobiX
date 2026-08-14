@@ -4,6 +4,7 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 
 /*
  * /api/missions/raid-start  — POST only
@@ -63,6 +64,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own raids.' });
+        }
+        if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
+            return res.status(409).json(towerBattleActiveErrorBody());
         }
 
         // Every profession mints a token. Vanguards spend it on raid-mission

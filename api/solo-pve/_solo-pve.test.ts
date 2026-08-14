@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { isDeepStrictEqual } from 'node:util';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave } from '../pvp/session.js';
 import type { AdminCombatContent } from '../_admin-content.js';
@@ -16,6 +17,7 @@ import {
 import {
     readSoloPveSession,
     soloPveSessionKey,
+    compareWriteSoloPveSession,
     writeSoloPveSession,
     type SoloPveKv,
 } from './_store.js';
@@ -69,6 +71,12 @@ function fakeKv(): SoloPveKv & { data: Map<string, unknown> } {
         data,
         async get<T>(key: string) { return (data.get(key) ?? null) as T | null; },
         async set(key: string, value: unknown) { data.set(key, structuredClone(value)); return 'OK'; },
+        async compareSet(key: string, expected: unknown | null, value: unknown) {
+            const current = data.has(key) ? data.get(key)! : null;
+            if (!isDeepStrictEqual(current, expected)) return false;
+            data.set(key, structuredClone(value));
+            return true;
+        },
     };
 }
 
@@ -96,6 +104,51 @@ describe('solo-PvE session and store boundaries', () => {
         kv.data.set('solo-pve:tower-shaped', { runId: 'tower-shaped', status: 'active' });
         assert.equal(await readSoloPveSession('tower-shaped', { kv }), null);
         await assert.rejects(() => writeSoloPveSession({ runtime: 'tower' } as never, { kv }), /non-solo-pve/);
+    });
+
+    it('requires an acknowledged write or an exact durable readback', async () => {
+        const session = makeSession();
+        const absent = fakeKv();
+        absent.set = async () => null;
+        await assert.rejects(
+            () => writeSoloPveSession(session, { kv: absent }),
+            /solo-pve-session-write-unconfirmed/,
+        );
+
+        const committedNull = fakeKv();
+        committedNull.set = async (key, value) => {
+            committedNull.data.set(key, structuredClone(value));
+            return null;
+        };
+        await writeSoloPveSession(session, { kv: committedNull });
+
+        const committedThrow = fakeKv();
+        committedThrow.set = async (key, value) => {
+            committedThrow.data.set(key, structuredClone(value));
+            throw new Error('lost-session-write-ack');
+        };
+        await writeSoloPveSession(session, { kv: committedThrow });
+    });
+
+    it('atomically fences stale session writers and recovers a lost CAS acknowledgement', async () => {
+        const kv = fakeKv();
+        const expected = makeSession();
+        await kv.set(soloPveSessionKey(expected.sessionId), expected);
+        const winner = { ...expected, version: 2, recentMoveTokens: ['move-token-cas-win'] };
+        assert.equal(await compareWriteSoloPveSession(expected, winner, { kv }), true);
+
+        const stale = { ...expected, version: 2, recentMoveTokens: ['move-token-cas-stale'] };
+        assert.equal(await compareWriteSoloPveSession(expected, stale, { kv }), false);
+        assert.deepEqual(await kv.get(soloPveSessionKey(expected.sessionId)), winner);
+
+        const committed = { ...winner, version: 3, recentMoveTokens: ['move-token-cas-win', 'move-token-cas-ack'] };
+        const originalCompareSet = kv.compareSet.bind(kv);
+        kv.compareSet = async (key, predecessor, value) => {
+            assert.equal(await originalCompareSet(key, predecessor, value), true);
+            throw new Error('lost-session-cas-ack');
+        };
+        assert.equal(await compareWriteSoloPveSession(winner, committed, { kv }), true);
+        assert.deepEqual(await kv.get(soloPveSessionKey(expected.sessionId)), committed);
     });
 
     it('does not couple the foundation to Tower modules', async () => {
@@ -617,6 +670,8 @@ describe('solo-PvE engine', () => {
 });
 
 describe('solo-PvE action service', () => {
+    const noItemIntent = async () => null;
+
     it('commits one versioned move under a fail-closed lock', async () => {
         let stored = makeSession();
         let lockOptions: Parameters<SoloPveLock>[2];
@@ -632,6 +687,7 @@ describe('solo-PvE action service', () => {
             write: async (next) => { stored = structuredClone(next); },
             lock,
             now: () => NOW + 1_000,
+            readItemIntent: noItemIntent,
         });
         assert.equal(result.status, 200);
         assert.equal(result.body.applied, true);
@@ -654,6 +710,7 @@ describe('solo-PvE action service', () => {
             write: async () => { writes += 1; },
             lock: async (_target, fn) => fn(),
             now: () => NOW + 1_000,
+            readItemIntent: noItemIntent,
         });
         assert.equal(result.status, 200);
         assert.equal(result.body.duplicate, true);
@@ -673,6 +730,7 @@ describe('solo-PvE action service', () => {
             write: async (next: SoloPveSession) => { stored = structuredClone(next); },
             lock: serialLock,
             now: () => NOW + 1_000,
+            readItemIntent: noItemIntent,
         };
         const [first, second] = await Promise.all([
             executeSoloPveAction({ sessionId: stored.sessionId, ownerSlug: 'alice', expectedVersion: 1, moveToken: 'move-token-race-a', action: { type: 'basicAttack' } }, deps),
@@ -681,6 +739,52 @@ describe('solo-PvE action service', () => {
         assert.deepEqual([first.status, second.status].sort(), [200, 409]);
         assert.equal(stored.version, 2);
         assert.equal(stored.recentMoveTokens.length, 1);
+    });
+
+    it('fences a paused writer after the action lock expires', async () => {
+        let stored = makeSession();
+        let releasePaused!: () => void;
+        let markPaused!: () => void;
+        const paused = new Promise<void>((resolve) => { markPaused = resolve; });
+        const release = new Promise<void>((resolve) => { releasePaused = resolve; });
+        const commit = async (expected: SoloPveSession, next: SoloPveSession) => {
+            if (next.recentMoveTokens.includes('move-token-paused-a')) {
+                markPaused();
+                await release;
+            }
+            if (!isDeepStrictEqual(stored, expected)) return false;
+            stored = structuredClone(next);
+            return true;
+        };
+        const deps = {
+            read: async () => structuredClone(stored),
+            commit,
+            lock: (async (_target, fn) => fn()) as SoloPveLock,
+            now: () => NOW + 1_000,
+            readItemIntent: noItemIntent,
+        };
+        const first = executeSoloPveAction({
+            sessionId: stored.sessionId,
+            ownerSlug: 'alice',
+            expectedVersion: 1,
+            moveToken: 'move-token-paused-a',
+            action: { type: 'basicAttack' },
+        }, deps);
+        await paused;
+        const second = await executeSoloPveAction({
+            sessionId: stored.sessionId,
+            ownerSlug: 'alice',
+            expectedVersion: 1,
+            moveToken: 'move-token-winner-b',
+            action: { type: 'basicAttack' },
+        }, deps);
+        releasePaused();
+        const rejected = await first;
+        assert.equal(second.status, 200);
+        assert.equal(second.body.applied, true);
+        assert.equal(rejected.status, 409);
+        assert.equal(stored.version, 2);
+        assert.deepEqual(stored.recentMoveTokens, ['move-token-winner-b']);
     });
 
     it('ignores forged fighter and outcome fields attached to an action object', async () => {
@@ -697,6 +801,7 @@ describe('solo-PvE action service', () => {
             write: async (next) => { stored = structuredClone(next); },
             lock: async (_target, fn) => fn(),
             now: () => NOW + 1_000,
+            readItemIntent: noItemIntent,
         });
         assert.equal(result.status, 200);
         assert.equal(stored.player.maxHp, beforeMaxHp);
@@ -713,6 +818,7 @@ describe('solo-PvE action service', () => {
             write: async () => { writes += 1; },
             lock: (async (_target, fn) => fn()) as SoloPveLock,
             now: () => NOW + 1_000,
+            readItemIntent: noItemIntent,
         };
         const stale = await executeSoloPveAction({ sessionId: stored.sessionId, ownerSlug: 'alice', expectedVersion: 3, moveToken: 'move-token-stale', action: { type: 'wait' } }, deps);
         assert.equal(stale.status, 409);
@@ -737,6 +843,7 @@ describe('solo-PvE action service', () => {
             write: async (next) => { stored = structuredClone(next); },
             lock: async (_target, fn) => fn(),
             now: () => NOW + 5_000,
+            readItemIntent: noItemIntent,
         });
         assert.equal(result.body.applied, true);
         assert.equal(stored.status, 'done');
@@ -763,6 +870,7 @@ describe('solo-PvE action service', () => {
             write: async () => assert.fail('duplicate terminal retry must not write'),
             lock: async (_target, fn) => fn(),
             now: () => NOW + 6_000,
+            readItemIntent: noItemIntent,
         });
         assert.equal(retry.body.duplicate, true);
         assert.deepEqual(retry.body.session?.terminalEvidence, stored.terminalEvidence);

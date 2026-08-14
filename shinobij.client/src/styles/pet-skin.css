@@ -1235,3 +1235,12 @@
     .expedition-result-title { font-size: 1rem; }
     .expedition-result-story { font-size: 0.84rem; }
 }
+.wf-deployment-card {
+  color: inherit;
+  text-align: left;
+}
+
+.wf-deployment-card.active {
+  border-color: #67e8f9;
+  box-shadow: 0 0 0 2px #67e8f933;
+}

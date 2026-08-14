@@ -15,6 +15,9 @@
  */
 
 import { WF_BAKED_MASK, WF_BAKED_COLS, WF_BAKED_ROWS } from "./pet-warfront-mask-baked";
+import type { WfTheme } from "./pet-warfront-theme";
+export { wfThemeForVillage } from "./pet-warfront-theme";
+export type { WfTheme } from "./pet-warfront-theme";
 
 // World half-extents (world units == sim units; ~2.1× the tactical arena field).
 export const WF_X = 44;
@@ -251,7 +254,6 @@ export function wfLaneDistance(x: number, y: number): number {
 }
 
 // ── Per-village themes (visual ONLY — the mask/geometry never varies) ────────
-export type WfTheme = "central" | "forest" | "snow" | "volcano" | "shadow";
 export type WfThemeSpec = {
     id: WfTheme;
     label: string;
@@ -271,11 +273,3 @@ export const WF_THEMES: Readonly<Record<WfTheme, WfThemeSpec>> = Object.freeze({
 
 /** Resolve a character's home village to a battlefield theme. Matching is by
  * loose name inclusion so it tolerates story renames; unknown → central. */
-export function wfThemeForVillage(village?: string | null): WfTheme {
-    const v = String(village ?? "").toLowerCase();
-    if (/leaf|forest|green|grove|verdant/.test(v)) return "forest";
-    if (/snow|frost|ice|glacier|white/.test(v)) return "snow";
-    if (/fire|volcano|ember|cinder|ash|lava/.test(v)) return "volcano";
-    if (/shadow|umbra|night|dusk|dark/.test(v)) return "shadow";
-    return "central";
-}

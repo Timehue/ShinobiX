@@ -82,3 +82,32 @@ test("layers a minimal heartbeat character over the cached rich one (Nindo survi
   assert.equal(ch.level, 50);              // preserved (heartbeat character omits it)
   assert.equal(ch.avatarImage, "");        // light field the heartbeat DID carry applies
 });
+
+test("preserves a six-pet public projection across heartbeats and accepts the next rich refresh", () => {
+  const supporterPets = Array.from({ length: 6 }, (_, index) => ({ id: `supporter-${index + 1}` }));
+  const rich = {
+    name: "Supporter",
+    character: { name: "Supporter", level: 50 },
+    eligiblePets: supporterPets,
+  } as unknown as PlayerRecord;
+  const heartbeat = {
+    name: "Supporter",
+    character: { avatarImage: "" },
+  } as unknown as PlayerRecord;
+
+  const afterHeartbeat = mergePlayerRoster([rich], [heartbeat], idNorm);
+  assert.deepEqual(
+    (afterHeartbeat[0].eligiblePets as Array<{ id: string }>).map(({ id }) => id),
+    supporterPets.map(({ id }) => id),
+  );
+
+  const refreshedBasePets = supporterPets.slice(0, 4);
+  const afterRichRefresh = mergePlayerRoster(afterHeartbeat, [{
+    ...rich,
+    eligiblePets: refreshedBasePets,
+  } as unknown as PlayerRecord], idNorm);
+  assert.deepEqual(
+    (afterRichRefresh[0].eligiblePets as Array<{ id: string }>).map(({ id }) => id),
+    refreshedBasePets.map(({ id }) => id),
+  );
+});

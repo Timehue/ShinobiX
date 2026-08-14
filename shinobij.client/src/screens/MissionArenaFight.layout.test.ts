@@ -86,11 +86,87 @@ test("mission fight reserves a row for its action notice instead of displacing t
         `the notice pin is gated at max-width ${noticeBound}px but the sibling band pins it lines up with are gated at ${siblingPinBound}px — they must match`,
     );
 
+    const missionTabRule = missionCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout\.mission-arena-fight \.battle-tab\s*\{([^}]*)\}/,
+    );
+    assert.ok(missionTabRule, "mobile tab sizing must remain scoped to mission combat");
+    assert.match(
+        missionTabRule![1],
+        /min-height:\s*44px\s*!important/,
+        "mission mobile tabs must preserve the minimum accessible touch target",
+    );
+    const missionTabAnchor = missionCss.indexOf(
+        ".arena-fullscreen.pvp-battle-layout.mission-arena-fight .battle-tab",
+    );
+    const missionTabBounds = [
+        ...missionCss.slice(0, missionTabAnchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g),
+    ];
+    assert.equal(
+        missionTabBounds.at(-1)?.[1],
+        siblingPinBound,
+        "the mission touch-target correction must use the shared mobile boundary",
+    );
+
+    assert.match(
+        missionCss,
+        /@media \(max-width:\s*800px\) and \(max-height:\s*740px\)[\s\S]*?\.mission-arena-fight \.combat-layout > \.combat-side-hud\s*\{[^}]*padding-block:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line\s*\{[^}]*row-gap:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.hud-bar\s*\{[^}]*height:\s*4px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*12px\s*!important;/,
+        "short mission viewports must keep non-duplicate resources and effects inside the compact fighter dossier",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*801px\) and \(max-width:\s*1023px\) and \(max-height:\s*650px\)[\s\S]*?\.mission-arena-fight \.combat-layout > \.combat-side-hud\s*\{[^}]*padding-block:\s*0\s*!important;[^}]*row-gap:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.hud-bar\s*\{[^}]*height:\s*4px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*12px\s*!important;[^}]*margin-block:\s*0\s*!important;[^}]*padding-top:\s*0\s*!important;[\s\S]*?\.mission-arena-fight \.shinobi-command-bar\s*\{[^}]*grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.shinobi-command-bar button\s*\{[^}]*min-height:\s*44px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        "zoom-equivalent mission viewports must retain resources and contain their effects strip",
+    );
+    assert.match(
+        missionCss,
+        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.mission-arena-fight \.combat-layout\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-layout\.has-rookie-tip\s*\{[^}]*grid-template-rows:\s*auto auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        "the smallest mission tier must keep the first jutsu card centre tappable without collapsing the board",
+    );
+    assert.match(
+        missionCss,
+        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px auto minmax\(90px, 25dvh\)[\s\S]*?grid-template-rows:\s*32px 10px 8px\s*!important;[\s\S]*?row-gap:\s*1px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*8px\s*!important;[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        "short landscape mission combat must use its width for compact dossiers and a one-row command deck",
+    );
+
     // The fix is load-bearing on that class still reserving a track.
     assert.ok(
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
         "battle-skin must still reserve the extra tip row on desktop, mobile, and short-mobile",
     );
+});
+
+test("mission desktop restores the dossier-board-dossier composition and full-width battlefield", () => {
+    assert.match(
+        missionSource,
+        /<CombatInstance(?:\s|>)/,
+        "mission combat must use the viewport boundary without opting into the aspect-locked shared shell",
+    );
+    assert.doesNotMatch(missionSource, /<ShinobiCombatShell(?:\s|>)/);
+    assert.doesNotMatch(missionSource, /<CombatBoardStage(?:\s|>)/);
+
+    assert.match(
+        missionCss,
+        /html\[data-vp="xl"\][\s\S]*?html\[data-vp="lg"\][\s\S]*?\.combat-side-hud:first-child\s*\{[^}]*display:\s*flex\s*!important;/,
+        "the in-grid player dossier must remain visible on wide mission combat",
+    );
+    assert.match(
+        missionCss,
+        /grid-template-columns:\s*minmax\(140px, 210px\) minmax\(0, 1fr\) minmax\(140px, 210px\)\s*!important;/,
+        "wide mission combat must keep player, battlefield, and enemy columns",
+    );
+
+    const desktopBoardRule = battleSkinCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout \.hex-battlefield,[\s\S]*?\{([^}]*)\}/,
+    );
+    assert.ok(desktopBoardRule, "desktop combat must retain its battlefield sizing rule");
+    assert.match(desktopBoardRule![1], /height:\s*100%\s*!important/);
+    assert.match(desktopBoardRule![1], /width:\s*100%\s*!important/);
+
+    const desktopTabsRule = battleSkinCss.match(
+        /\.arena-fullscreen\.pvp-battle-layout \.battle-tabbar\s*\{([^}]*)\}/,
+    );
+    assert.ok(desktopTabsRule, "desktop combat must retain its tab-bar rule");
+    assert.match(desktopTabsRule![1], /display:\s*none\s*!important/);
 });
 
 test("every shinobi fight uses the shared viewport-level combat instance", () => {
@@ -112,9 +188,8 @@ test("every shinobi fight uses the shared viewport-level combat instance", () =>
         /<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/,
         "legacy Arena PvE must retain a viewport-level combat boundary",
     );
-    for (const [name, source] of [["mission PvE", missionSource], ["session PvP", pvpSource]] as const) {
-        assert.match(source, /<ShinobiCombatShell(?:\s|>)/, `${name} must render through ShinobiCombatShell`);
-    }
+    assert.match(missionSource, /<CombatInstance(?:\s|>)/, "mission PvE must render through CombatInstance");
+    assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 
     assert.ok(
         (pvpSource.match(/<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/g) ?? []).length >= 2,

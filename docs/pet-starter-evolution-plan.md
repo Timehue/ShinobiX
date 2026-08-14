@@ -559,7 +559,7 @@ first; art (Phase 4) backfills the visuals.
 
 ## Sources (research)
 
-- [Digivolution — DigimonWiki (Fandom)](https://digimon.fandom.com/wiki/Digivolution)
+- Digivolution — DigimonWiki (Fandom)
 - [Best Digimon Transformation Sequences, Ranked — CBR](https://www.cbr.com/digimon-best-digivolution-sequences/)
 - [Digimon Adventure's New Transformation Sequences — Gizmodo](https://gizmodo.com/digimon-adventure-s-new-transformation-sequences-are-go-1844217870)
 - [Hunyuan3D Image-to-3D API on fal.ai](https://fal.ai/models/fal-ai/hunyuan3d/v2/api)

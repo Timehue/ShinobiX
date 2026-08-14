@@ -508,7 +508,7 @@ test("subscriber capacity and expanded mobile drawers reflow safely", async ({ p
     await page.getByRole("button", { name: "Jutsu", exact: true }).click();
     await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(15);
     await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(0);
-    await expect(page.getByText("Subscriber Active", { exact: true })).toBeVisible();
+    await expect(page.getByText("Supporter Active", { exact: true })).toBeVisible();
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
 
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
@@ -643,6 +643,55 @@ test("capture adaptive shell and representative route evidence", async ({ page }
     await shot("after-mobile-menu-390x844.png");
     await page.keyboard.press("Escape");
     await shot("after-mobile-nav-390x844.png");
+});
+
+test("mobile world-map sectors inspect before an explicit travel commit", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
+    const api = await installAuthenticatedApi(page);
+    const travelRequests: string[] = [];
+    page.on("request", (request) => {
+        if (request.method() === "POST" && request.url().includes("/api/player/travel")) {
+            travelRequests.push(request.postData() ?? "");
+        }
+    });
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    await page.goto("/#/worldMap");
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    for (let guard = 0; guard < 3; guard += 1) {
+        const gotIt = page.getByRole("button", { name: /Got it/i }).last();
+        if (!(await gotIt.isVisible().catch(() => false))) break;
+        await gotIt.click();
+    }
+
+    // New accounts enter the atlas around Sector 40. Fly the mobile camera to
+    // Stormveil before targeting Sector 1 so the test uses the same visible,
+    // touch-accessible path as a player instead of reaching an off-canvas node.
+    await page.getByRole("button", { name: "Stormveil", exact: true }).click();
+    const marker = page.getByRole("button", { name: "Inspect Harbor Gates (Sector 1)" });
+    await marker.click();
+    const inspector = page.getByRole("dialog", { name: "Harbor Gates" });
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toBeFocused();
+    expect(await inspector.evaluate((node) => node.parentElement === document.body)).toBe(true);
+    await expect(inspector).toContainText("Weather");
+    await expect(inspector).toContainText("Danger");
+    await expect(inspector).toContainText("Control");
+    await expect(inspector).toContainText("Route");
+    expect(travelRequests).toHaveLength(0);
+    await expectViewportSafe(page, { overlays: [".world-map-sector-inspector"], logicalStages: [".world-map-scroll"] });
+
+    await page.keyboard.press("Escape");
+    await expect(inspector).toBeHidden();
+    await expect(marker).toBeFocused();
+    expect(travelRequests).toHaveLength(0);
+
+    await marker.click();
+    await inspector.getByRole("button", { name: "Travel to Sector 1" }).click();
+    await expect.poll(() => travelRequests.length).toBe(1);
 });
 
 test("world-map coordinate overlays stay aligned across device scale factors", async ({ page }, testInfo) => {

@@ -11,11 +11,12 @@
 import {
     createTowerSession,
     type TowerActor,
+    type TowerEnemyWave,
     type TowerSession,
     type TowerMap,
 } from './_tower-session.js';
 import { applyPartyScaling, towerNeighbors } from './_engine.js';
-import { getEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
+import { requireEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
 
 // A sealed squad member: the host's + allies' COMBAT-SANITIZED character (start.ts runs
@@ -26,6 +27,8 @@ export type SquadMemberInput = {
     name: string;
     /** controlling player's slug (the host or a borrowed ally) */
     ownerSlug: string;
+    /** Server-authored actors with no account/reward owner set this explicitly. */
+    ownerless?: boolean;
     /** AI-driven? false for the live human host; true for async/borrowed allies */
     ai: boolean;
     character: Record<string, unknown>;
@@ -227,7 +230,7 @@ function vitals(character: Record<string, unknown>, fallbackHp: number) {
 function squadActor(m: SquadMemberInput, pos: number): TowerActor {
     const { maxHp, maxChakra, maxStamina } = vitals(m.character, 1000);
     return {
-        id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerSlug, ai: m.ai,
+        id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerless ? null : m.ownerSlug, ai: m.ai,
         hp: maxHp, maxHp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
         shield: 0, statuses: [], cooldowns: {}, pos, character: m.character,
         itemCharges: m.itemCharges ? { ...m.itemCharges } : {},
@@ -249,6 +252,8 @@ function templateActor(
         // every tower enemy would clamp to the Academy ceiling. `visual`/`boss` are cosmetic.
         character: {
             level: tpl.level, specialty: tpl.specialty, stats: { ...tpl.stats }, visual: tpl.visual,
+            ...(tpl.role ? { combatRole: tpl.role } : {}),
+            ...(tpl.targetMode ? { aiTargetMode: tpl.targetMode } : {}),
             ...(tpl.boss ? { boss: true } : {}),
             // Endgame Spire bosses carry raw damage-reduction (read by computeDamage's armor pool).
             ...(tpl.armorRawDR != null ? { armorRawDR: tpl.armorRawDR } : {}),
@@ -285,6 +290,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         width: floor.map.width,
         height: floor.map.height,
         biome: floor.biome,
+        ...(floor.fieldRule.kind !== 'none' ? { fieldRule: structuredClone(floor.fieldRule) } : {}),
         blockedTiles: [],
         hazardTiles: [],
         objectiveTiles: typeof floor.goalTile === 'number' ? [floor.goalTile] : [],
@@ -372,6 +378,10 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     const spawnRnd = makeSpawnRng(p.seed);
     const spawnSquad = () => placeRandomInBand(spawnRnd, used, blocked, W, H, 0, mid - 1);
     const spawnEnemy = () => placeRandomInBand(spawnRnd, used, blocked, W, H, mid, W - 1);
+    // Reinforcements enter from the far edge instead of materializing beside a squad that
+    // advanced into the enemy half during round one. Their preferred tiles remain sealed now;
+    // the engine relocates only if a living actor later occupies one.
+    const spawnEnemyWave = () => placeRandomInBand(spawnRnd, used, blocked, W, H, Math.max(mid, W - 3), W - 1);
 
     squad.forEach(m => actors.push(squadActor(m, spawnSquad())));
 
@@ -379,10 +389,19 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     let bossPhases: number[] | undefined;
 
     let enemyIdx = 0;
+    const pendingEnemyWaves = new Map<number, TowerActor[]>();
     for (const pod of floor.enemies) {
-        const tpl = getEnemyTemplate(pod.aiId);
+        const tpl = requireEnemyTemplate(pod.aiId);
+        const spawnRound = Math.max(1, Math.floor(Number(pod.spawnRound ?? 1)));
         for (let k = 0; k < pod.count; k++) {
-            actors.push(templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnEnemy()));
+            const enemy = templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnRound > 1 ? spawnEnemyWave() : spawnEnemy());
+            if (spawnRound > 1) {
+                const wave = pendingEnemyWaves.get(spawnRound) ?? [];
+                wave.push(enemy);
+                pendingEnemyWaves.set(spawnRound, wave);
+            } else {
+                actors.push(enemy);
+            }
             enemyIdx++;
         }
     }
@@ -390,7 +409,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? getEnemyTemplate(floor.boss.aiId), spawnEnemy());
+        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? requireEnemyTemplate(floor.boss.aiId), spawnEnemy());
         // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
         // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
         if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
@@ -402,7 +421,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
             bossActor.character.mechanic = floor.boss.mechanic;
             if (floor.boss.mechanic === 'summon') {
                 // Pre-resolve the add template so the engine can clone it without a lookup.
-                bossActor.character.summonTemplate = getEnemyTemplate(floor.boss.summonAiId ?? 'grunt-bandit');
+                bossActor.character.summonTemplate = requireEnemyTemplate(floor.boss.summonAiId ?? 'grunt-bandit');
                 bossActor.character.summonCount = Math.max(1, Math.min(4, Number(floor.boss.summonCount ?? 2)));
             }
         }
@@ -420,7 +439,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.npc) {
         // The protected npc uses its authored tile (reserved above) or spawns on the SQUAD's side.
         const pos = npcTile !== undefined ? npcTile : spawnSquad();
-        actors.push(templateActor('npc-0', 'npc', getEnemyTemplate(floor.npc.aiId), pos));
+        actors.push(templateActor('npc-0', 'npc', requireEnemyTemplate(floor.npc.aiId), pos));
     }
 
     const session = createTowerSession({
@@ -439,6 +458,12 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         regenFlatCap: floor.boss?.regenFlatCap,
         now: p.now,
     });
+
+    if (pendingEnemyWaves.size > 0) {
+        session.pendingEnemyWaves = [...pendingEnemyWaves.entries()]
+            .sort(([a], [b]) => a - b)
+            .map(([round, waveActors]): TowerEnemyWave => ({ round, actors: waveActors }));
+    }
 
     // Story floors scale enemy HP/damage DOWN for a party smaller than the balance baseline.
     // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),

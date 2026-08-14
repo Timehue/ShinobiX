@@ -15,14 +15,22 @@ import { classifyBattleLogLine, tokenizeBattleLogLine, glyphForCategory } from "
 // Each line leads with a small category glyph (heal/damage/shield/…) so players
 // can scan WHAT happened by symbol + color before reading the words. Pass an
 // explicit `prefix` to override the glyph (e.g. a plain bullet).
-export const BattleLogLine = memo(function BattleLogLine({ line, prefix }: { line: string; prefix?: string }) {
+export const BattleLogLine = memo(function BattleLogLine({
+    line,
+    prefix,
+    className,
+}: {
+    line: string;
+    prefix?: string;
+    className?: string;
+}) {
     const trimmed = line.trim();
     if (!trimmed) return null;
     const category = classifyBattleLogLine(trimmed);
     const segments = tokenizeBattleLogLine(trimmed);
     const marker = prefix ?? glyphForCategory(category);
     return (
-        <p className={`timeline-fx battle-log-line battle-log-${category}`}>
+        <p className={`timeline-fx battle-log-line battle-log-${category}${className ? ` ${className}` : ""}`}>
             <span className="bl-glyph" aria-hidden="true">{marker}</span>
             {segments.map((seg, i) =>
                 seg.isNumber

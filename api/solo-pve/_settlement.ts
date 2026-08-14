@@ -4,6 +4,31 @@ import type {
     SoloPveSession,
     SoloPveSettlementReceipt,
 } from './_session.js';
+import {
+    hasSettledSoloPveCompanionCostAuthority,
+    soloPveOutcomeReceiptRequestId,
+    unsettledSoloPveItemUsage,
+    usesSoloPveUsageAuthorityV1,
+} from './_usage-receipts.js';
+
+function legacyUsageAlreadyCharged(
+    character: Record<string, unknown>,
+    session: SoloPveSession,
+): boolean {
+    if (usesSoloPveUsageAuthorityV1(session)) return false;
+    const requestId = soloPveOutcomeReceiptRequestId(session.sessionId);
+    return Array.isArray(character.serverSettlementReceipts)
+        && character.serverSettlementReceipts.some((raw) => {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+            const receipt = raw as Record<string, unknown>;
+            const value = receipt.value;
+            return receipt.requestId === requestId
+                && !!value
+                && typeof value === 'object'
+                && !Array.isArray(value)
+                && (value as Record<string, unknown>).legacyUsageCharged === true;
+        });
+}
 
 export function applyCompanionUsageCost<T extends Record<string, unknown>>(
     character: T,
@@ -38,10 +63,16 @@ export function applySoloPveUsageCosts<T extends Record<string, unknown>>(
     character: T,
     session: SoloPveSession,
 ): T {
-    const itemCharacter = Object.keys(session.itemsUsed).length > 0
-        ? deductUsedItems(character, session.itemsUsed) as T
+    if (legacyUsageAlreadyCharged(character, session)) return character;
+    const usesActionAuthority = usesSoloPveUsageAuthorityV1(session);
+    const unsettledItems = usesActionAuthority ? unsettledSoloPveItemUsage(session) : session.itemsUsed;
+    if (unsettledItems === null) throw new Error('invalid-solo-pve-item-cost-authority');
+    const itemCharacter = Object.keys(unsettledItems).length > 0
+        ? deductUsedItems(character, unsettledItems) as T
         : character;
-    return applyCompanionUsageCost(itemCharacter, session.companionUsage);
+    return usesActionAuthority && hasSettledSoloPveCompanionCostAuthority(session)
+        ? itemCharacter
+        : applyCompanionUsageCost(itemCharacter, session.companionUsage);
 }
 
 export function withSoloPveSettlementReceipt(

@@ -36,7 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!session) return res.status(404).json({ error: 'Run not found.' });
 
         // Only the caller's own LIVE squad actor (membership = ownership).
-        const myActor = session.actors.find(a => a.side === 'squad' && a.ownerSlug === playerName);
+        const myActor = session.actors.find(a => a.side === 'squad'
+            && a.ai === false
+            && a.ownerSlug === playerName);
         if (!myActor) return res.status(403).json({ error: 'Not a member of this run.' });
         return res.status(200).json({ session });
     } catch (err) {

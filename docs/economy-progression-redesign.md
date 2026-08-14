@@ -150,11 +150,11 @@ real faucet yet). (`_mission-catalog.ts:30`, `_economy.ts` draft type.)
 | Principle | Why it matters here | Source |
 |---|---|---|
 | **Fast-early/slow-late in *real time* needs requirement-growth > income-growth.** Same rate → flat time/level (WoW); requirement faster → slow late. | Today income grows ~linearly and requirement grows linearly → ~flat pace. Must steepen the requirement. | Aversa leveling-derivative; PavCreations |
-| **For a bounded level cap, use polynomial (B≈2–3), not exponential.** Exponential late-values "skyrocket… nearly impossible," and the coefficient is hard to find. | Pick quadratic-per-level (cubic cumulative) — Pokémon/WoW shape, not RuneScape's geometric. | Game Developer "XP thresholds"; Bulbapedia |
-| **Time-to-max = total requirement ÷ daily income.** Pace the daily caps to hit the target; make the last stretch deliberately slow. | This is exactly how we back-solve 90 days. | Fortnite/Valorant battle-pass math |
-| **Gate the no-lifer with capped daily resources; pay the absent player a catch-up multiplier.** Cap should be ≥ ~1 day's regen so once-daily play is near-optimal. | We already cap most faucets; need to cap the *uncapped* ones and consider a rested-XP-style catch-up. | Torn energy, Genshin resin, WoW rested XP |
+| **For a bounded level cap, use polynomial (B≈2–3), not exponential.** Exponential late-values "skyrocket… nearly impossible," and the coefficient is hard to find. | Pick quadratic-per-level (cubic cumulative) — the leading creature-battler/WoW shape, not a long-running MMO's geometric. | Game Developer "XP thresholds"; Bulbapedia |
+| **Time-to-max = total requirement ÷ daily income.** Pace the daily caps to hit the target; make the last stretch deliberately slow. | This is exactly how we back-solve 90 days. | a leading battle royale/Valorant battle-pass math |
+| **Gate the no-lifer with capped daily resources; pay the absent player a catch-up multiplier.** Cap should be ≥ ~1 day's regen so once-daily play is near-optimal. | We already cap most faucets; need to cap the *uncapped* ones and consider a rested-XP-style catch-up. | Torn energy, a leading open-world RPG resin, WoW rested XP |
 | **Faucet ≈ sink, kept "taut" (sinks marginally ahead); match math-class.** A balance-scaling faucet (interest) needs a balance-scaling sink. | Drives the bank-interest cut + wealth-scaling sinks. | Koster AGC; Cook (Lost Garden); EVE MER |
-| **Pity / bad-luck protection is now expected, not optional.** Every disclosed gacha has a hard floor + dup protection. | Add pity to black market and mythic-pet rolls. | Genshin 0.6%/90-pity; Hearthstone 40-pack; Overwatch |
+| **Pity / bad-luck protection is now expected, not optional.** Every disclosed gacha has a hard floor + dup protection. | Add pity to black market and mythic-pet rolls. | a leading open-world RPG 0.6%/90-pity; a leading digital card game 40-pack; Overwatch |
 | **Rarity split rule-of-thumb:** legendary ~0.5%, epic ~5%, plus a guaranteed floor. | Sanity-check our pet/drop odds against this. | WintermuteDigital; Overwatch disclosed |
 
 ---
@@ -571,7 +571,7 @@ casual-retention data demands it.
 - **Keep** trade burn (10%), black-market EV sink, hospital, jutsu costs.
 - **Add a wealth-scaling vanity sink** (cosmetic-only, no power): high-ryo cosmetic
   mounts/pet-skins/titles priced in the millions, to soak top-end ryo without
-  pay-to-win or mudflation (WoW Brutosaur / RuneScape Richie model). Pure sink,
+  pay-to-win or mudflation (a long-running MMO's luxury sink / a long-running MMO's status sink model). Pure sink,
   safe for balance.
 - **Match math-class:** the (now smaller) interest faucet scales with balance, so
   pair it with the wealth-scaling vanity sink, not just flat fees.
@@ -603,7 +603,7 @@ play, with bank interest a bonus not a salary. Validate with the telemetry layer
 Current 1%/explore split (Std .50/Rare .30/Leg .18/Myth .02) is reasonable and
 matches the "legendary ~0.5%, epic ~5%" rule loosely. Changes:
 - **Add mythic bad-luck protection:** a soft-pity counter so a player who has
-  explored heavily without a Mythic gets a rising Mythic chance (Genshin-style
+  explored heavily without a Mythic gets a rising Mythic chance (a leading open-world RPG-style
   ramp), or a guaranteed Rare+ every N encounters. Prevents the 1-in-5,000
   feel-bad with no floor.
 - **Yard cap 5** interacts with a ~1.5 rolls/day faucet — fine, but consider a

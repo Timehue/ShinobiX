@@ -53,34 +53,35 @@ describe('war-economy: structure maintenance', () => {
     });
 });
 
-describe('war-economy: tax tiers', () => {
-    it('anchors to the 0..8 range per §6.4', () => {
+describe('war-economy: occupation tax tiers', () => {
+    it('never taxes a village for losing home territory', () => {
         assert.equal(taxRateForSectors(8), 0);
-        assert.equal(taxRateForSectors(7), 0.01);
-        assert.equal(taxRateForSectors(6), 0.01);
-        assert.equal(taxRateForSectors(5), 0.02);
-        assert.equal(taxRateForSectors(4), 0.02);
-        assert.equal(taxRateForSectors(3), 0.035);
-        assert.equal(taxRateForSectors(2), 0.035);
-        assert.equal(taxRateForSectors(1), 0.05);
-        assert.equal(taxRateForSectors(0), 0.05);
+        assert.equal(taxRateForSectors(7), 0);
+        assert.equal(taxRateForSectors(4), 0);
+        assert.equal(taxRateForSectors(1), 0);
+        assert.equal(taxRateForSectors(0), 0);
     });
-    it('a conqueror holding >8 stays at the 0% reward', () => {
-        assert.equal(taxRateForSectors(12), 0);
+    it('puts bounded upkeep on occupied territory above eight sectors', () => {
+        assert.equal(taxRateForSectors(9), 0.01);
+        assert.equal(taxRateForSectors(10), 0.01);
+        assert.equal(taxRateForSectors(12), 0.015);
+        assert.equal(taxRateForSectors(20), 0.02);
     });
 });
 
 describe('war-economy: comeback discount', () => {
-    it('0 → free, 1 → 75% off, ≥2 → full price', () => {
+    it('fades the comeback discount gradually through four sectors', () => {
         assert.equal(comebackCostMultiplier(0), 0);
         assert.equal(comebackCostMultiplier(1), 0.25);
-        assert.equal(comebackCostMultiplier(2), 1);
+        assert.equal(comebackCostMultiplier(2), 0.5);
+        assert.equal(comebackCostMultiplier(3), 0.75);
+        assert.equal(comebackCostMultiplier(4), 1);
         assert.equal(comebackCostMultiplier(8), 1);
     });
     it('applies to a sector-war/merc WR cost', () => {
         assert.equal(discountedWrCost(250, 0), 0);    // free
         assert.equal(discountedWrCost(250, 1), 63);   // 75% off (round)
-        assert.equal(discountedWrCost(250, 2), 250);  // full
+        assert.equal(discountedWrCost(250, 2), 125);  // 50% off
         assert.equal(discountedWrCost(60, 1), 15);    // tier-1 merc at 1 sector
     });
 });
@@ -95,9 +96,8 @@ describe('war-economy: computeTax', () => {
         assert.equal(t.owed, 0);
         assert.equal(t.rate, 0);
     });
-    it('taxes wallet + bank, after the exemption, at the tier rate', () => {
-        // 6 sectors → 1%; base = (600k + 0) − 5k = 595k → 5,950/day · 1 day.
-        const t = computeTax({ ryo: 600_000, bankRyo: 0, sectors: 6, level: 50, daysOwed: 1 });
+    it('taxes wallet + bank only when the village occupies extra territory', () => {
+        const t = computeTax({ ryo: 600_000, bankRyo: 0, sectors: 9, level: 50, daysOwed: 1 });
         assert.equal(t.rate, 0.01);
         assert.equal(t.taxable, 600_000 - TAX_EXEMPTION_RYO);
         assert.equal(t.owed, Math.floor(595_000 * 0.01));
@@ -105,13 +105,12 @@ describe('war-economy: computeTax', () => {
         assert.equal(t.toBurn, Math.round(t.owed * 0.5));
     });
     it('banking is not a shelter — bank ryo is in the base', () => {
-        const wallet = computeTax({ ryo: 600_000, bankRyo: 0, sectors: 6, level: 50, daysOwed: 1 });
-        const banked = computeTax({ ryo: 0, bankRyo: 600_000, sectors: 6, level: 50, daysOwed: 1 });
+        const wallet = computeTax({ ryo: 600_000, bankRyo: 0, sectors: 9, level: 50, daysOwed: 1 });
+        const banked = computeTax({ ryo: 0, bankRyo: 600_000, sectors: 9, level: 50, daysOwed: 1 });
         assert.equal(wallet.owed, banked.owed);
     });
     it('the per-day cap bounds a whale, multiplied by catch-up days', () => {
-        // 50M at 5% = 2.5M/day, capped to 250k/day; 3 days catch-up → 750k.
-        const t = computeTax({ ryo: 50_000_000, bankRyo: 0, sectors: 0, level: 100, daysOwed: 9 });
+        const t = computeTax({ ryo: 50_000_000, bankRyo: 0, sectors: 20, level: 100, daysOwed: 9 });
         assert.equal(t.days, 3);                 // catch-up capped to 3
         assert.equal(t.owed, TAX_DAILY_CAP_RYO * 3);
     });

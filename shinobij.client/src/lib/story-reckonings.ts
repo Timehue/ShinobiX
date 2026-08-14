@@ -140,6 +140,7 @@ type StoryReckoningResponse = {
     progress?: number;
     target?: number;
     character?: Character;
+    _saveVersion?: number;
 };
 
 async function postStoryReckoning(body: Record<string, unknown>): Promise<StoryReckoningResponse> {

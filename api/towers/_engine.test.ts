@@ -20,6 +20,7 @@ import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { hexDistance } from '../pvp/_aoe.js';
 import { applyJutsu } from '../pvp/move.js';
 import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
+import { getEnemyTemplate } from './_enemy-templates.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 
@@ -31,6 +32,22 @@ function makeActor(id: string, side: TowerActor['side'], pos: number, over: Part
         character: { specialty: 'Taijutsu', stats: {} },
         ...over,
     };
+}
+function templateEnemy(templateId: string, pos: number, over: Partial<TowerActor> = {}): TowerActor {
+    const template = getEnemyTemplate(templateId);
+    return makeActor(templateId, 'enemy', pos, {
+        hp: template.hp,
+        maxHp: template.hp,
+        character: {
+            level: template.level,
+            specialty: template.specialty,
+            stats: { ...template.stats },
+            jutsu: template.jutsu?.map(jutsu => ({ ...jutsu })),
+            combatRole: template.role,
+            aiTargetMode: template.targetMode,
+        },
+        ...over,
+    });
 }
 // level: 100 so the per-rank stat cap (move.ts perRankStatCap, Special Jonin = 2500)
 // is a no-op for these fixtures — these engine tests exercise win/loss + scaling with
@@ -123,6 +140,47 @@ describe('Battle Towers engine (P1.A2)', () => {
         sPlain.activeAp = 100; sPlain.actionsThisTurn = 0;
         const plainAction = pickAiAction(sPlain, getActor(sPlain, 'boss')!, makeRng(1));
         assert.equal((plainAction as { targetId: string }).targetId, 'sq-a', 'nearest policy is unchanged when no mode is set');
+    });
+
+    it('role-authored AI uses ranged, ground-control, and conditional defense techniques', () => {
+        const target = () => makeActor('sq-1', 'squad', 0, { character: STRONG });
+
+        const archerSession = makeSession([templateEnemy('grunt-archer', 4), target()]);
+        archerSession.activeAp = 100;
+        const archerAction = pickAiAction(archerSession, getActor(archerSession, 'grunt-archer')!, makeRng(1));
+        assert.equal(archerAction.type, 'jutsu');
+        assert.equal((archerAction as { jutsuId: string }).jutsuId, 'archer-volley', 'artillery attacks from range instead of walking into melee');
+
+        const acolyteSession = makeSession([templateEnemy('grunt-acolyte', 3), target()]);
+        acolyteSession.activeAp = 100;
+        const acolyteAction = pickAiAction(acolyteSession, getActor(acolyteSession, 'grunt-acolyte')!, makeRng(1));
+        assert.equal(acolyteAction.type, 'jutsu');
+        assert.equal((acolyteAction as { jutsuId: string }).jutsuId, 'acolyte-mire');
+        assert.equal((acolyteAction as { tile: number }).tile, 0, 'controller aims its zone at the selected target tile');
+
+        const shieldman = templateEnemy('grunt-blocker', 1, { hp: 500 });
+        const shieldSession = makeSession([shieldman, target()]);
+        shieldSession.activeAp = 100;
+        const shieldAction = pickAiAction(shieldSession, shieldman, makeRng(1));
+        assert.equal(shieldAction.type, 'jutsu');
+        assert.equal((shieldAction as { jutsuId: string }).jutsuId, 'shieldman-brace', 'vanguard braces only after crossing its HP gate');
+    });
+
+    it('artillery centers a targeted AOE on the largest legal hostile cluster', () => {
+        const archer = templateEnemy('grunt-archer', 0);
+        const squad = [
+            makeActor('sq-lone', 'squad', 1, { character: { ...STRONG, stats: { ...STRONG.stats, taijutsuDefense: 0, bukijutsuDefense: 0, genjutsuDefense: 0, ninjutsuDefense: 0 } } }),
+            makeActor('sq-cluster-a', 'squad', 17, { character: STRONG }),
+            makeActor('sq-cluster-b', 'squad', 18, { character: STRONG }),
+            makeActor('sq-cluster-c', 'squad', 19, { character: STRONG }),
+        ];
+        const s = makeSession([archer, ...squad]);
+        s.activeAp = 100;
+        const action = pickAiAction(s, archer, makeRng(1));
+        assert.equal(action.type, 'jutsu');
+        assert.equal((action as { jutsuId: string }).jutsuId, 'archer-volley');
+        assert.equal((action as { targetId: string }).targetId, 'sq-cluster-b',
+            'AOE value outranks the squishiest lone victim while single-target focus remains unchanged');
     });
 
     it('AI seeks a contested shrine it can reach instead of only chasing the far target', () => {
@@ -574,6 +632,26 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.ok(s.objectiveState.failed);
     });
 
+    it('protect-npc is a timed hold while kill-escort still requires a full clear', () => {
+        const build = (objectiveKind: TowerFloor['objective']) => makeSession([
+            makeActor('sq-1', 'squad', 0, { character: STRONG }),
+            makeActor('npc-1', 'npc', 8, { character: STRONG }),
+            makeActor('en-1', 'enemy', 63, { hp: 1_000_000, maxHp: 1_000_000, character: WEAK }),
+        ], { objectiveKind });
+        const hold = build('protect-npc');
+        hold.objectiveState.roundsSurvived = 7;
+        checkTowerWinner(hold, makeFloor('protect-npc', { roundBudget: 8 }));
+        assert.equal(hold.status, 'active', 'the defense cannot clear a round early');
+        hold.objectiveState.roundsSurvived = 8;
+        checkTowerWinner(hold, makeFloor('protect-npc', { roundBudget: 8 }));
+        assert.equal(hold.winner, 'squad', 'living through the full hold clears with attackers still present');
+
+        const escort = build('kill-escort');
+        escort.objectiveState.roundsSurvived = 8;
+        checkTowerWinner(escort, makeFloor('kill-escort', { roundBudget: 8 }));
+        assert.equal(escort.status, 'active', 'the escort remains a kill-all objective');
+    });
+
     it('computeDamage scales with the offense/defense gap (pins statFactor / MAX_STAT)', () => {
         const j = { effectPower: 10, type: 'Taijutsu', ap: 60 }; // 60 AP = real damage jutsu (40 AP is the utility convention → 0 dmg)
         const att = makeActor('a', 'squad', 0, { character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 3000 } } });
@@ -650,10 +728,10 @@ describe('Battle Towers environmental features (pylons / wards / hazards)', () =
         stats: { ninjutsuOffense: 2500, ninjutsuDefense: 2500 },
         jutsu: [{ id: 'fireball', element: 'Fire', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 1 }],
     };
-    function fireballDamage(features: TowerMap['features']): number {
+    function fireballDamage(features: TowerMap['features'], fieldRule?: TowerMap['fieldRule']): number {
         const attacker = makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'me', character: FIRE_CASTER });
         const enemy = makeActor('en-1', 'enemy', 1, { character: WEAK, hp: 100000, maxHp: 100000 });
-        const session = makeSession([attacker, enemy], { map: { ...MAP8, features } });
+        const session = makeSession([attacker, enemy], { map: { ...MAP8, features, ...(fieldRule ? { fieldRule } : {}) } });
         startRound(session);
         const res = applyAction(session, makeFloor('defeat-all'),
             { actorId: 'sq-1', type: 'jutsu', jutsuId: 'fireball', targetId: 'en-1' }, makeRng(1));
@@ -699,6 +777,51 @@ describe('Battle Towers environmental features (pylons / wards / hazards)', () =
         const after = getActor(session, 'sq-1')!.hp;
         assert.equal(after, startHp - Math.floor(startHp * 0.1), 'lost 10% maxHp to the hazard at round end');
         assert.ok(getActor(session, 'sq-2')!.hp === startHp, 'a unit off the hazard is untouched');
+    });
+
+    it('floor-wide buff and debuff rules use the shared damage statuses', () => {
+        const base = fireballDamage([]);
+        const buffed = fireballDamage([], { kind: 'buff', tag: 'Increase Damage Given', percent: 15 });
+        // Shared amp tags use the canonical diminishing-returns pool (K_AMP=0.5),
+        // not a raw linear multiplier.
+        const amp = (raw: number) => 1 + raw / (raw + 0.5);
+        assert.ok(Math.abs(buffed - Math.floor(base * amp(0.15))) <= 1, `field buff uses the shared amp pool (base ${base}, got ${buffed})`);
+
+        const squad = makeActor('sq-1', 'squad', 1, { ai: false, ownerSlug: 'me', character: WEAK, hp: 100000, maxHp: 100000 });
+        const enemy = makeActor('en-1', 'enemy', 0, { character: FIRE_CASTER });
+        const exposedSession = makeSession([enemy, squad], {
+            map: { ...MAP8, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 } },
+        });
+        startRound(exposedSession);
+        exposedSession.activeIndex = exposedSession.turnQueue.indexOf('en-1');
+        const result = applyAction(exposedSession, makeFloor('defeat-all'),
+            { actorId: 'en-1', type: 'jutsu', jutsuId: 'fireball', targetId: 'sq-1' }, makeRng(1));
+        assert.ok(result.applied, 'enemy fireball applied');
+        const exposed = 100000 - getActor(exposedSession, 'sq-1')!.hp;
+        assert.ok(Math.abs(exposed - Math.floor(base * amp(0.10))) <= 1, `field debuff uses the shared amp pool (base ${base}, got ${exposed})`);
+        assert.equal(getActor(exposedSession, 'en-1')!.statuses.some(s => s.source === 'tower-field'), false,
+            'a player debuff is not also granted to enemies');
+    });
+
+    it('a Drain field rule reuses the shared HP+chakra tick each round', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { character: WEAK });
+        const enemy = makeActor('en-1', 'enemy', 63, { character: WEAK });
+        const session = makeSession([sq, enemy], {
+            map: { ...MAP8, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 } },
+        });
+        const floor = makeFloor('defeat-all');
+        startRound(session);
+        assert.equal(getActor(session, 'sq-1')!.statuses.find(s => s.source === 'tower-field')?.name, 'Drain');
+        assert.equal(getActor(session, 'en-1')!.statuses.some(s => s.source === 'tower-field'), false,
+            'the floor hazard challenges the squad rather than draining enemies for free');
+        const hp = getActor(session, 'sq-1')!.hp;
+        const round = session.round;
+        let guard = 0;
+        while (session.round === round && session.status === 'active' && guard++ < 20) endTurn(session, floor);
+        assert.equal(getActor(session, 'sq-1')!.hp, hp - 5);
+        // Chakra is subsequently refreshed by the next-round resource hook; the
+        // shared Drain log pins that the HP+chakra tick itself executed.
+        assert.ok(session.log.some(line => line.includes('drained 5 HP+chakra')));
     });
 
     it('features stay deterministic (settle recompute reproduces them byte-for-byte)', () => {
@@ -753,7 +876,15 @@ describe('Battle Towers boss mechanics (bulwark / regen / summon / enrage)', () 
     it('summon: crossing a phase gate spawns reinforcements', () => {
         const boss = makeActor('boss', 'enemy', 1, {
             hp: 610, maxHp: 1000,
-            character: { specialty: 'Taijutsu', stats: { taijutsuDefense: 200 }, mechanic: 'summon', summonCount: 2, summonTemplate: { name: 'Add', specialty: 'Taijutsu', hp: 200, stats: {}, visual: 'bandit' } },
+            character: {
+                specialty: 'Taijutsu', stats: { taijutsuDefense: 200 }, mechanic: 'summon', summonCount: 2,
+                summonTemplate: {
+                    name: 'Add', specialty: 'Ninjutsu', level: 80, hp: 200, stats: { ninjutsuOffense: 777 },
+                    visual: 'acolyte', role: 'controller', targetMode: 'support', armorRawDR: 0.2,
+                    maxChakra: 345, maxStamina: 234,
+                    jutsu: [{ id: 'add-bolt', name: 'Add Bolt', type: 'Ninjutsu', ap: 40, range: 3, effectPower: 20 }],
+                },
+            },
         });
         const s = makeSession([attacker(), boss], { objectiveKind: 'defeat-boss', bossId: 'boss', bossPhases: [60] });
         startRound(s);
@@ -761,6 +892,33 @@ describe('Battle Towers boss mechanics (bulwark / regen / summon / enrage)', () 
         assert.ok(getActor(s, 'boss')!.hp < 600, 'boss dropped past the 60% gate');
         const adds = s.actors.filter(a => a.id.startsWith('add-'));
         assert.ok(adds.length >= 1 && adds.every(a => a.side === 'enemy'), 'spawned enemy adds');
+        assert.ok(adds.every(a => a.character.combatRole === 'controller' && a.character.aiTargetMode === 'support'));
+        assert.ok(adds.every(a => Array.isArray(a.character.jutsu) && a.character.jutsu.length === 1), 'authored add kit survives phase spawning');
+        assert.ok(adds.every(a => a.maxChakra === 345 && a.maxStamina === 234 && a.character.armorRawDR === 0.2));
+    });
+
+    it('summon: surrounding the boss cannot suppress its phase reinforcements', () => {
+        const bossPos = 27;
+        const adjacent = towerNeighbors(bossPos, 8, 8);
+        const attackerPos = adjacent[0]!;
+        const boss = makeActor('boss', 'enemy', bossPos, {
+            hp: 610, maxHp: 1000,
+            character: {
+                specialty: 'Taijutsu', stats: { taijutsuDefense: 200 }, mechanic: 'summon', summonCount: 3,
+                summonTemplate: { name: 'Add', specialty: 'Taijutsu', level: 40, hp: 200, stats: {}, visual: 'bandit' },
+            },
+        });
+        const blockers = adjacent.slice(1).map((pos, index) => makeActor(`box-${index}`, 'enemy', pos));
+        const s = makeSession([
+            makeActor('sq-1', 'squad', attackerPos, { ai: false, character: STRONG }),
+            boss,
+            ...blockers,
+        ], { objectiveKind: 'defeat-boss', bossId: 'boss', bossPhases: [60] });
+        startRound(s);
+        assert.ok(applyAction(s, bossFloor, { actorId: 'sq-1', type: 'attack', targetId: 'boss' }, makeRng(1)).applied);
+        const adds = s.actors.filter(actor => actor.id.startsWith('add-'));
+        assert.equal(adds.length, 3, 'the full authored phase wave arrives');
+        assert.ok(adds.every(actor => hexDistance(actor.pos, bossPos, 8) >= 2), 'boxed portals expand to the nearest legal ring');
     });
 
     it('regen: the boss heals at round end', () => {
@@ -836,7 +994,7 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(getActor(s, 'sq-1')!.cooldowns['cdj'], 1, 'cooldown ticked down a turn');
     });
 
-    it('a 40-AP utility jutsu deals zero direct damage (tag layer deferred)', () => {
+    it('a 40-AP utility jutsu deals zero direct damage', () => {
         const sq = caster([{ id: 'buff', type: 'Ninjutsu', effectPower: 40, ap: 40, range: 2 }]);
         const s = makeSession([sq, bigEnemy()]);
         startRound(s);

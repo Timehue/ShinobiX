@@ -4,7 +4,8 @@
  * Which EXISTING world sectors each village owns at the start of the war-map
  * layer (plan §4). The neutral castle keep and special sectors (Hollow-Gate
  * shrine sectors, the Sunscar Festival, Death's Gate 99) are NOT war sectors.
- * All 8 home sectors per village are capturable (no protected core, no floor).
+ * Seven home sectors per village are capturable. Each village gate is a protected
+ * core so a faction can lose a war without being erased from the political map.
  * The canonical key is always the world-sector number; `AL-n`-style labels are
  * display aliases.
  *
@@ -34,6 +35,9 @@ export const HOME_SECTORS: Record<WarVillage, readonly number[]> = {
     'Ashen Leaf Village': [9, 10, 11, 12, 13, 14, 15, 16],
     'Frostfang Village': [26, 27, 28, 29, 30, 33, 31, 32],
 };
+
+/** The first home-sector entry is that village's gate and permanent foothold. */
+export const PROTECTED_HOME_SECTORS: readonly number[] = WAR_VILLAGES.map((village) => HOME_SECTORS[village][0]);
 
 // `AL-n`-style alias prefix per village.
 export const VILLAGE_ALIAS_PREFIX: Record<WarVillage, string> = {
@@ -85,6 +89,11 @@ export function homeVillageForSector(sector: number): WarVillage | undefined {
 /** True for the 32 home war sectors; false for central/special/wilderness. */
 export function isWarSector(sector: number): boolean {
     return SECTOR_TO_VILLAGE.has(asSector(sector));
+}
+
+/** A village gate can be configured and defended, but never conquered. */
+export function isProtectedWarSector(sector: number): boolean {
+    return PROTECTED_HOME_SECTORS.includes(asSector(sector));
 }
 
 export function isCentralSector(sector: number): boolean {

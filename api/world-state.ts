@@ -12,11 +12,13 @@ import { resolveClaimedWarSupply } from './_territory-supply.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
 // Village War Map (flag-gated, default OFF via ENABLE_VILLAGE_WAR). When enabled,
 // war declaration is funded from the village WR pool instead of the Kage's Honor
-// Seals, and a war win stamps a village-wide buff. When OFF, every path below is
-// byte-for-byte the legacy behavior.
+// Seals, and war settlement applies the comeback-morale/spoils rules. When OFF,
+// every path below is byte-for-byte the legacy behavior.
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
 import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
+import { territoryVillageOwnershipError } from './_territory-ownership.js';
+import { settlementMoralePatch } from './_war-morale.js';
 import { heldSectorsForVillage } from './_war-held-sectors.js';
 import { activeSectorWarsForVillage } from './_sector-war-store.js';
 import {
@@ -41,7 +43,7 @@ const TERRITORY_HP_MAX = 20000;
 // Minimum clan roster size to CAPTURE (take new ownership of) a sector.
 // Server-authoritative mirror of the client rule (shinobij.client/src/
 // constants/game.ts TERRITORY_CAPTURE_MIN_MEMBERS) — keep the two in sync.
-const TERRITORY_CAPTURE_MIN_MEMBERS = 20;
+const TERRITORY_CAPTURE_MIN_MEMBERS = 3;
 const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
@@ -431,6 +433,13 @@ export async function captureSectorForVillage(
     const key = `${TERRITORY_KEY_PREFIX}${s}`;
     return await withKvLock(key, async () => {
         const prev = await kv.get<SectorTerritory>(key);
+        const ownershipError = territoryVillageOwnershipError({
+            sector: s,
+            actorVillage: ownerVillage,
+            previousOwnerVillage: prev?.ownerVillage,
+            requestedOwnerVillage: ownerVillage,
+        });
+        if (ownershipError) throw new Error(ownershipError);
         const next = normalizeSectorTerritory({
             ...(prev ?? defaultSectorTerritory(s)),
             ownerVillage,
@@ -609,14 +618,8 @@ export async function applyMercVillageWarDamage(
 // retry-looping after a KV hiccup. Draws / 14-day timeouts have no winner → skip.
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const WAR_STANDING_PREFIX = 'village:war-standing:';
-// Demoralized debuff: the losing village suffers reduced training gains for 3
-// days. Stamped on the loser's village-state at settlement; the client applies
-// it in Training/PetYard. KEEP IN SYNC with shinobij.client/src/lib/war-debuff.ts.
-const WAR_LOSS_DEBUFF_MS = 3 * 24 * 60 * 60 * 1000;
-// Village War Map winner buff: the winning village enjoys a village-wide boost for
-// 3 days (mirrors the loser debuff window). Stamped on the winner's village-state
-// at settlement ONLY when the feature is enabled; the client applies the effect.
-const WAR_WIN_BUFF_MS = 3 * 24 * 60 * 60 * 1000;
+// Comeback morale uses the legacy loss-stamp field for storage compatibility;
+// settlementMoralePatch owns both starting it on a loss and ending it on a win.
 function villageStateKey(village: string): string {
     return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
@@ -654,11 +657,10 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
             const lt = (loserState.treasury ?? {}) as Record<string, unknown>;
             const wt = (winnerState.treasury ?? {}) as Record<string, unknown>;
             const spoils = computeSpoils({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
-            await kv.set(loserKey, { ...loserState, warLossDebuffUntil: now + WAR_LOSS_DEBUFF_MS, treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
-            // Winner buff (Village War Map): additive village-wide boost window,
-            // stamped only when the feature is enabled. Harmless field otherwise.
-            const winBuff = villageWarEnabled() ? { warWinBuffUntil: now + WAR_WIN_BUFF_MS } : {};
-            await kv.set(winnerKey, { ...winnerState, ...winBuff, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
+            await kv.set(loserKey, { ...loserState, ...settlementMoralePatch('loser', now), treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
+            // Winners already receive spoils, crates, standing, and map control;
+            // do not add a progression-speed buff on top of those advantages.
+            await kv.set(winnerKey, { ...winnerState, ...settlementMoralePatch('winner', now), treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
             await kv.set(`audit:village-war-settle:${war.id}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
             return true;
         }), { failClosed: true });
@@ -792,7 +794,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (body?.kind === 'territory') {
-                const incomingTerritory = normalizeSectorTerritory({ ...body.territory, updatedAt: Date.now() });
+                const rawTerritory = body?.territory && typeof body.territory === 'object'
+                    ? body.territory as Record<string, unknown>
+                    : {};
+                const ownerVillageProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'ownerVillage');
+                const ownerClanProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'ownerClan');
+                const incomingTerritory = normalizeSectorTerritory({ ...rawTerritory, updatedAt: Date.now() });
 
                 // Participation gate. Three valid writer cases:
                 //   1. Actor matches the claiming clan/village (defender / claimant)
@@ -808,14 +815,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
                         const actorClan = String(actorChar?.clan ?? '').trim();
                         const actorVillage = String(actorChar?.village ?? '').trim();
-                        const claimingClan = String(incomingTerritory.ownerClan ?? '').trim();
-                        const claimingVillage = String(incomingTerritory.ownerVillage ?? '').trim();
-                        const matchesClan = !!claimingClan && actorClan === claimingClan;
-                        const matchesVillage = !!claimingVillage && actorVillage === claimingVillage;
+                        let claimingClan = String(incomingTerritory.ownerClan ?? '').trim();
+                        let claimingVillage = String(incomingTerritory.ownerVillage ?? '').trim();
 
                         prev = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`);
+                        // PATCH-style clients may omit owner fields, and older raid
+                        // clients explicitly sent an empty owner when HP reached zero.
+                        // Preserve stored ownership in both cases; captures replace it
+                        // through the verified claimant/settlement paths below.
+                        if (prev && (!ownerVillageProvided || !claimingVillage)) {
+                            incomingTerritory.ownerVillage = prev.ownerVillage;
+                            claimingVillage = String(prev.ownerVillage ?? '').trim();
+                        }
+                        if (prev && (!ownerClanProvided || !claimingClan)) {
+                            incomingTerritory.ownerClan = prev.ownerClan;
+                            claimingClan = String(prev.ownerClan ?? '').trim();
+                        }
                         const prevClan = String(prev?.ownerClan ?? '').trim();
                         const prevVillage = String(prev?.ownerVillage ?? '').trim();
+                        const ownershipError = territoryVillageOwnershipError({
+                            sector: incomingTerritory.sector,
+                            actorVillage,
+                            previousOwnerVillage: prevVillage,
+                            requestedOwnerVillage: claimingVillage,
+                            claimingClanChanges: !!claimingClan && claimingClan !== prevClan,
+                        });
+                        if (ownershipError) {
+                            return res.status(403).json({ error: ownershipError });
+                        }
+                        const matchesClan = !!claimingClan && actorClan === claimingClan;
+                        const matchesVillage = !!claimingVillage && actorVillage === claimingVillage;
                         const actorOwnsPrev =
                             (prevClan && actorClan === prevClan) ||
                             (prevVillage && actorVillage === prevVillage);
@@ -924,8 +953,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const prevOwnerVillage = String(prev.ownerVillage ?? '').trim();
                             const prevOwnerClan = String(prev.ownerClan ?? '').trim();
                             const ownershipFlipping =
-                                (claimingVillage && claimingVillage !== prevOwnerVillage) ||
-                                (claimingClan && claimingClan !== prevOwnerClan);
+                                claimingVillage !== prevOwnerVillage ||
+                                claimingClan !== prevOwnerClan;
                             const prevHpZero = Number(prev.hp ?? 0) <= 0;
                             if (ownershipFlipping && !prevHpZero && (prevOwnerVillage || prevOwnerClan)) {
                                 return res.status(400).json({ error: 'Owner can only change after the sector reaches 0 HP.' });

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
@@ -18,6 +18,7 @@ const PetWarfrontMatch = lazy(() => import("../components/PetWarfrontMatch").the
 import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type WfStance, type WfDoctrine } from "../lib/pet-ladder-setup";
 import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { PetDuelLiveHost } from "../components/PetDuelLiveHost";
+import { activeCarriedPets } from "../lib/entitlements";
 import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
@@ -75,7 +76,7 @@ const summaryChips = (pets: PetLite[]) => (
 
 export function PetLadder({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
     const [mode, setMode] = useState<Mode>(() => (
-        sessionStorage.getItem("petLadder.mode") === "tactical" && canEnterTacticalArena(character.pets)
+        sessionStorage.getItem("petLadder.mode") === "tactical" && canEnterTacticalArena(activeCarriedPets(character))
             ? "tactical"
             : "coliseum"
     ));
@@ -105,14 +106,18 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
 
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
-    const available = useMemo(() => character.pets.filter((p) => !isPetOnExpedition(p)), [character.pets]);
+    // Supporter admin-comps can expire while this screen remains mounted. The
+    // roster is only 4/6 entries, so keep the projection live instead of caching
+    // a time-sensitive entitlement behind the Character object identity.
+    const carried = activeCarriedPets(character);
+    const available = carried.filter((p) => !isPetOnExpedition(p));
     // Queue with the pet you have picked to defend your rank; falling back to the
     // first available one keeps "Find a match" usable before a defense is set.
-    const ladderQueuePets = useMemo(() => {
-        const picked = character.pets.find((p) => p.id === picks[0]);
+    const ladderQueuePets = (() => {
+        const picked = carried.find((p) => p.id === picks[0]);
         const pet = picked ?? available[0];
         return pet ? [pet] : [];
-    }, [character.pets, picks, available]);
+    })();
     const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
 
     const refresh = useCallback(async () => {
