@@ -816,12 +816,17 @@ test('every known move kind has a KIND_FX entry and a stable stored status', () 
         assert.ok(KIND_FX[kind], `KIND_FX covers ${kind}`);
         assert.ok(moveEffectText(kind, 120).length > 0, `${kind} has effect text`);
     }
-    // The renames the AI must agree with.
+    // The renames the AI must agree with. These are FLAVOUR aliases: the
+    // catalog names one effect several ways and the engine normalizes them, so
+    // a "barrier" and an "absorb" really are the same shield.
     assert.equal(storedStatusKind('barrier'), 'shield');
     assert.equal(storedStatusKind('absorb'), 'shield');
     assert.equal(storedStatusKind('dot'), 'burn');
     assert.equal(storedStatusKind('move'), 'haste');
-    assert.equal(storedStatusKind('movelock'), 'slow');
+    // `movelock` is NOT one of them any more. It aliased to `slow` — identical
+    // power, duration and blurb — which made a root an unrecognizable duplicate
+    // of a move the game already had. It is now its own trap status.
+    assert.equal(storedStatusKind('movelock'), 'movelock');
     assert.equal(storedStatusKind('taunt', '2v2', 2), 'taunt');
     assert.equal(storedStatusKind('taunt', '1v1', 1), 'tauntGuard');
 });
@@ -1295,4 +1300,54 @@ test('push and pull are no longer the same move wearing two names', () => {
     assert.notEqual(KIND_FX.push.mult, KIND_FX.pull.mult, 'the two are priced differently');
     assert.ok(KIND_FX.push.mult < 0.85 && KIND_FX.pull.mult < 0.85, 'both priced under a plain strike — the rotation is the payload');
     assert.notEqual(KIND_FX.push.blurb, KIND_FX.pull.blurb, 'and the player is told which is which');
+});
+
+test('movelock traps the foe on the field instead of being a second slow', () => {
+    // It was an alias of `slow` — same power, same duration, same blurb — so
+    // twelve species carried a "movelock" the player could not tell apart from
+    // the move it copied. It now denies the bench, which only became worth
+    // having once push/pull made rotation a real resource.
+    const session = makeSession(
+        [makePet('att', {
+            jutsus: [
+                { name: 'Jab', power: 60, cooldown: 1, currentCooldown: 0, kind: 'damage' },
+                { name: 'Snare', power: 70, cooldown: 1, currentCooldown: 0, kind: 'movelock' },
+            ],
+        })],
+        [makePet('foe0'), makePet('foe1')],
+        606,
+        '1v1',
+    );
+    const victim = session.enemy[0];
+    const reserve = session.enemy[1];
+    resolveShowdownRound(session, [{ kind: 'move', petId: 'att', moveIndex: 2, targetId: victim.id }], []);
+    assert.ok(victim.statuses.some((s) => s.kind === 'movelock'), 'the trap landed as its OWN status, not as slow');
+
+    // Now the trapped pet tries to rotate out. It cannot.
+    resolveShowdownRound(
+        session,
+        [{ kind: 'guard', petId: 'att' }],
+        [{ kind: 'switch', petId: victim.id, benchPetId: reserve.id }],
+    );
+    assert.ok(!victim.benched, 'the trapped pet could not switch out');
+    assert.ok(reserve.benched, 'and the reserve stayed benched');
+});
+
+test('a trap stops a voluntary switch but not a forced rotation', () => {
+    // Being trapped means you cannot walk away — not that you cannot be thrown.
+    const session = makeSession(
+        [makePet('att', {
+            jutsus: [
+                { name: 'Jab', power: 60, cooldown: 1, currentCooldown: 0, kind: 'damage' },
+                { name: 'Force Pulse', power: 88, cooldown: 1, currentCooldown: 0, kind: 'push' },
+            ],
+        })],
+        [makePet('foe0'), makePet('foe1')],
+        707,
+        '1v1',
+    );
+    const victim = session.enemy[0];
+    addStatus(session, victim, 'movelock', 2, 1, []);
+    resolveShowdownRound(session, [{ kind: 'move', petId: 'att', moveIndex: 2, targetId: victim.id }], []);
+    assert.ok(victim.benched, 'a forced rotation still throws a trapped pet out');
 });

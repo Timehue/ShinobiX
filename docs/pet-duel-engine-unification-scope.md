@@ -92,10 +92,15 @@ Concretely, after Phase 5 the mirror still carries `pet-warfront-sim`,
 
 ## 4. Phase plan
 
-Each phase lands behind its own flag, default OFF until verified, then flipped ON
-with a kill-switch — so a bad port is one revert, not five. The numbering is a
-real dependency order: Phase 0 blocks everything, and Phase 5 cannot start until
-1–4 have soaked.
+**NO FLAGS. NO GATING.** (Owner ruling, 2026-08-14, overriding this document's
+first draft.) The old sim is being *removed*, not made optional — a flag would
+mean shipping both engines and calling that done, which is the split-brain state
+this work exists to end. Every phase rewires its entry directly, and Phase 5
+deletes the sim. The revert unit is the commit, not a runtime switch.
+
+The numbering is a real dependency order: Phase 0 blocks everything, and Phase 5
+cannot start until 1–4 are in. Phases 1–4 land together rather than trickling
+out (owner ruling: build 1–4, ship as one), so the mode changes once.
 
 ### Phase 0 — Foundations (blocking; no player-visible change)
 
@@ -109,7 +114,7 @@ real dependency order: Phase 0 blocks everything, and Phase 5 cannot start until
    win-rate deltas per element and role — the instrument that turns every later
    balance shift into a measured number.
 
-*Sizing: one focused session. No flag needed — nothing is wired.*
+*Sizing: one focused session. Nothing is wired yet, so nothing changes for players.*
 
 ### Phase 1 — Arena exhibition
 
@@ -118,7 +123,7 @@ Point `battle-start` / `battle-result` at a session on the new engine; delete th
 the reward spine, receipts and the daily cap, and Phase 0's harness quantifies
 the balance move before it ships.
 
-*Sizing: one session. Flag: `petArenaShowdown.v1`.*
+*Sizing: one session. The `runPetDuel` call is replaced, not bypassed.*
 
 ### Phase 2 — Pet Ladder (duel challenges only)
 
@@ -126,7 +131,7 @@ New challenges resolve on the new engine and store `kind: "showdown"`; existing
 rows keep playing through the coliseum reader. Warfront rows untouched.
 
 *Sizing: one to two sessions — the dual-read and the journal shape are the work.*
-*Flag: `petLadderShowdown.v1`.*
+*The legacy `kind: "coliseum"` reader stays for existing rows — that is history, not a fallback engine.*
 
 ### Phase 3 — Hollow Gate duels
 
@@ -135,18 +140,18 @@ Port the duel, preserve the run-bound receipt handshake exactly
 endpoint). That receipt is the anti-cheat boundary and must not be re-derived —
 only its producer changes.
 
-*Sizing: one session. Flag: `hollowGateShowdown.v1`.*
+*Sizing: one session.*
 
 ### Phase 4 — Clan War pet duels
 
 Uses Phase 0's headless resolve. The invariant to hold: the client passes no
 commands and the server re-derives the same verdict from `(pets, seed)`.
 
-*Sizing: one session. Flag: `clanWarShowdown.v1`.*
+*Sizing: one session.*
 
 ### Phase 5 — Deletion and collapse
 
-Only after 1–4 are ON and soaked:
+Only after 1–4 are in:
 
 - Remove the "Enter the Coliseum" card from `PetArena.tsx`. One mode, one entry,
   and it should probably stop being called two different things in the UI.
@@ -168,7 +173,7 @@ Only after 1–4 are ON and soaked:
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Balance shifts in four live entries | **High** | Phase 0 harness measures the delta before each flip; flags allow a per-entry revert |
+| Balance shifts in four live entries | **High** | Phase 0 harness measures the delta per entry BEFORE the change ships; the revert unit is the commit |
 | Hollow Gate receipt regression | **High** (anti-cheat) | Change the producer only; receipt shape, TTL and single-use semantics frozen |
 | Clan war determinism break | **High** | Headless resolve pure over `(pets, seed)`; regression test re-derives a known verdict |
 | Stored ladder replays unplayable | Medium | Dual-read; never migrate rows in place |
@@ -196,5 +201,4 @@ is a different decision with blast radius across every mode.
    current curve? (Tuning back roughly doubles each phase.)
 2. **Ladder history:** dual-read old replays (recommended), or accept that
    pre-port replays stop playing?
-3. **Order:** ship Phase 1 alone first and let it soak on live before committing
-   to 2–4?
+3. ~~**Order**~~ — SETTLED: build 1–4 and ship them together, no flags.
