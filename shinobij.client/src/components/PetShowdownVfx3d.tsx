@@ -28,11 +28,13 @@
 /* eslint-disable react-refresh/only-export-components -- the 3D FX layer
    exports its spawn types and the kind-family helper alongside the components,
    same as PetShowdownVfx; HMR granularity is irrelevant for visuals. */
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import { epicTexture, type SetPieceSpawn } from "./PetShowdownVfx";
+import { makeVolumeMaterial } from "../lib/showdown-volume-shaders";
+import { makeGpuCloud, type GpuParticleMode } from "../lib/showdown-gpu-particles";
 
 // ─── Deterministic helpers ───────────────────────────────────────────────────
 
@@ -78,104 +80,6 @@ function canvasTexture(key: string, w: number, h: number, draw: (ctx: CanvasRend
     t.wrapT = THREE.RepeatWrapping;
     canvasTexCache.set(key, t);
     return t;
-}
-
-/** Soft edge fade along the canvas Y axis — a hard texture edge on a curved
- *  mesh reads as a paper cut; a dissolve reads as the element thinning out. */
-function fadeEdgesY(ctx: CanvasRenderingContext2D, w: number, h: number, frac = 0.16) {
-    ctx.globalCompositeOperation = "destination-out";
-    const top = ctx.createLinearGradient(0, 0, 0, h * frac);
-    top.addColorStop(0, "rgba(0,0,0,1)");
-    top.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = top;
-    ctx.fillRect(0, 0, w, h * frac);
-    const bottom = ctx.createLinearGradient(0, h * (1 - frac), 0, h);
-    bottom.addColorStop(0, "rgba(0,0,0,0)");
-    bottom.addColorStop(1, "rgba(0,0,0,1)");
-    ctx.fillStyle = bottom;
-    ctx.fillRect(0, h * (1 - frac), w, h * frac);
-    ctx.globalCompositeOperation = "source-over";
-}
-
-/** Water shell: base→crest gradient along U with streaks and a foam crest. */
-function waterShellTexture(): THREE.CanvasTexture {
-    return canvasTexture("water-shell", 256, 256, (ctx, w, h) => {
-        const rand = seededRand(7);
-        const g = ctx.createLinearGradient(0, 0, w, 0);
-        g.addColorStop(0, "rgba(10,60,84,0.92)");
-        g.addColorStop(0.55, "rgba(23,110,140,0.95)");
-        g.addColorStop(0.82, "rgba(84,196,214,0.95)");
-        g.addColorStop(1, "rgba(228,250,255,0.98)");
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, w, h);
-        // Flow streaks along the climb.
-        for (let i = 0; i < 46; i++) {
-            const y = rand() * h;
-            const x = rand() * w;
-            const len = 30 + rand() * 90;
-            ctx.strokeStyle = `rgba(255,255,255,${0.05 + rand() * 0.12})`;
-            ctx.lineWidth = 1 + rand() * 2;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + len, y + (rand() - 0.5) * 8);
-            ctx.stroke();
-        }
-        // Foam boil at the crest edge.
-        for (let i = 0; i < 130; i++) {
-            const x = w - rand() * rand() * 70;
-            const y = rand() * h;
-            const r = 1.5 + rand() * 5;
-            ctx.fillStyle = `rgba(255,255,255,${0.25 + rand() * 0.55})`;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        // The shell's lane-width ends dissolve into spray instead of cutting.
-        fadeEdgesY(ctx, w, h, 0.14);
-        // And the arc's crest END feathers out too — the open cylinder's last
-        // texture column otherwise draws a hard straight line across the
-        // frame where the shell geometry stops.
-        ctx.globalCompositeOperation = "destination-out";
-        const crest = ctx.createLinearGradient(w * 0.9, 0, w, 0);
-        crest.addColorStop(0, "rgba(0,0,0,0)");
-        crest.addColorStop(1, "rgba(0,0,0,1)");
-        ctx.fillStyle = crest;
-        ctx.fillRect(w * 0.9, 0, w * 0.1, h);
-        const base = ctx.createLinearGradient(0, 0, w * 0.08, 0);
-        base.addColorStop(0, "rgba(0,0,0,1)");
-        base.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = base;
-        ctx.fillRect(0, 0, w * 0.08, h);
-        ctx.globalCompositeOperation = "source-over";
-    });
-}
-
-/** Vortex bands: slanted pale streaks on transparency — spiral when spun. */
-function vortexBandTexture(): THREE.CanvasTexture {
-    return canvasTexture("vortex-bands", 256, 256, (ctx, w, h) => {
-        const rand = seededRand(11);
-        ctx.clearRect(0, 0, w, h);
-        for (let i = 0; i < 26; i++) {
-            const y = rand() * h;
-            const slant = 26 + rand() * 20;
-            const thick = 3 + rand() * 9;
-            const grad = ctx.createLinearGradient(0, y, w, y - slant);
-            const a = 0.1 + rand() * 0.3;
-            grad.addColorStop(0, "rgba(214,255,240,0)");
-            grad.addColorStop(0.35, `rgba(214,255,240,${a})`);
-            grad.addColorStop(0.7, `rgba(255,255,255,${a * 1.25})`);
-            grad.addColorStop(1, "rgba(214,255,240,0)");
-            ctx.strokeStyle = grad as unknown as string;
-            ctx.lineWidth = thick;
-            ctx.beginPath();
-            ctx.moveTo(-20, y + slant * 0.5);
-            ctx.bezierCurveTo(w * 0.33, y - slant * 0.2, w * 0.66, y + slant * 0.2, w + 20, y - slant * 0.5);
-            ctx.stroke();
-        }
-        // The funnel's mouth and skirt dissolve — a hard cone rim reads as a
-        // lampshade, a fading one as wind thinning into air.
-        fadeEdgesY(ctx, w, h, 0.2);
-    });
 }
 
 /** Soft radial dot for point sprites (spray/embers/dust/sparks). */
@@ -337,19 +241,20 @@ function ParticleCloud({ spawn, spec }: { spawn: SetPieceSpawn; spec: ParticleSp
 
 function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
     const group = useRef<THREE.Group>(null);
-    const mat = useRef<THREE.MeshBasicMaterial>(null);
-    const mat2 = useRef<THREE.MeshBasicMaterial>(null);
-    const tex = useMemo(() => {
-        const t = waterShellTexture().clone();
-        t.needsUpdate = true;
-        t.wrapS = THREE.RepeatWrapping;
-        t.wrapT = THREE.RepeatWrapping;
-        return t;
-    }, []);
+    const shellA = useRef<THREE.Mesh>(null);
+    const shellB = useRef<THREE.Mesh>(null);
     const width = spawn.superCast ? 9.5 : 6.8;
     const radius = spawn.superCast ? 2.6 : 2.0;
+    // PROCEDURAL water: the fbm shell shader computes flow, foam and every
+    // edge feather analytically — no texture rectangle, no scroll seams. Two
+    // seeds so the crossed shells never mirror each other.
+    const materials = useMemo(() => [
+        makeVolumeMaterial("water", { seed: spawn.key % 97 }),
+        makeVolumeMaterial("water", { seed: (spawn.key % 97) + 41, tint: "#cfeeff" }),
+    ], [spawn.key]);
+    useEffect(() => () => { for (const m of materials) m.dispose(); }, [materials]);
     useFrame((state) => {
-        if (!group.current || !mat.current) return;
+        if (!group.current) return;
         const t = pieceT(spawn);
         if (t < 0 || t >= 1) {
             group.current.visible = false;
@@ -366,17 +271,16 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
         group.current.rotation.set(Math.sin(t * 7) * 0.025, yaw, 0);
         const s = (0.65 + ease * 0.5) * (1 + Math.sin(t * 9) * 0.02);
         group.current.scale.set(s, s, s);
-        // Water climbs the curl — the texture is reached through the material
-        // ref (mutating the useMemo binding trips react-hooks/immutability).
-        const shellMap = mat.current.map;
-        if (shellMap) shellMap.offset.x = -t * 2.2;
-        // Near-fade: a camera cut inside the shell must never see the arc's
-        // plane edge as a pane of glass — the shell dissolves as the lens
-        // closes in (same policy as the flat set-piece layers).
+        // Near-fade: a camera cut inside the shell must never see the arc
+        // edge-on as a pane of glass — dissolve as the lens closes in.
         const camD = state.camera.position.distanceTo(group.current.position);
         const nearFade = Math.min(1, Math.max(0, (camD - 2) / 2.6));
-        mat.current.opacity = (t < 0.12 ? t / 0.12 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 0.96) * nearFade;
-        if (mat2.current) mat2.current.opacity = mat.current.opacity * 0.55;
+        const env = (t < 0.12 ? t / 0.12 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 0.96) * nearFade;
+        // Uniforms reached through the mesh refs (react-compiler rule).
+        const a = shellA.current?.material as THREE.ShaderMaterial | undefined;
+        if (a) { a.uniforms.uTime.value = t * 2.4; a.uniforms.uOpacity.value = env; }
+        const b = shellB.current?.material as THREE.ShaderMaterial | undefined;
+        if (b) { b.uniforms.uTime.value = t * 2.1 + 3.7; b.uniforms.uOpacity.value = env * 0.55; }
     });
     return (
         <group ref={group} visible={false}>
@@ -384,13 +288,11 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
                 second shell crossed at a slight yaw keeps the wave a VOLUME
                 when the camera looks down the lane (one shell alone collapsed
                 to a thin fin edge-on). */}
-            <mesh rotation={[0, 0, Math.PI / 2]} position={[0, radius * 0.92, 0]}>
+            <mesh ref={shellA} rotation={[0, 0, Math.PI / 2]} position={[0, radius * 0.92, 0]} material={materials[0]}>
                 <cylinderGeometry args={[radius, radius, width, 30, 1, true, Math.PI * 0.92, Math.PI * 0.86]} />
-                <meshBasicMaterial ref={mat} map={tex} transparent opacity={0} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
             </mesh>
-            <mesh rotation={[0, 0.55, Math.PI / 2]} position={[0, radius * 0.8, 0.25]} scale={[0.82, 0.82, 0.82]}>
+            <mesh ref={shellB} rotation={[0, 0.55, Math.PI / 2]} position={[0, radius * 0.8, 0.25]} scale={[0.82, 0.82, 0.82]} material={materials[1]}>
                 <cylinderGeometry args={[radius, radius, width * 0.8, 26, 1, true, Math.PI * 0.95, Math.PI * 0.8]} />
-                <meshBasicMaterial ref={mat2} map={tex} color="#cfeeff" transparent opacity={0} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
             </mesh>
         </group>
     );
@@ -401,8 +303,6 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
 function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
     const group = useRef<THREE.Group>(null);
     const cardRefs = useRef<Array<THREE.Mesh | null>>([]);
-    const matRefs = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
-    const fireTex = useMemo(() => epicTexture("firewall"), []);
     const count = spawn.superCast ? 9 : 6;
     const ring = spawn.superCast ? 1.7 : 1.25;
     const cards = useMemo(() => {
@@ -412,18 +312,17 @@ function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
             h: 2.1 + rand() * 1.3 + (spawn.superCast ? 0.8 : 0),
             w: 1.5 + rand() * 0.9,
             phase: rand(),
-            slice: Math.floor(rand() * 5),
         }));
     }, [spawn.key, count, spawn.superCast]);
-    // Each card samples a different u-slice of the painted firewall so the
-    // crown doesn't read as nine clones.
-    const geos = useMemo(() => cards.map((c) => {
-        const g = new THREE.PlaneGeometry(1, 1);
-        const uv = g.attributes.uv.array as Float32Array;
-        const u0 = c.slice * 0.2, u1 = u0 + 0.2;
-        for (let i = 0; i < uv.length; i += 2) uv[i] = uv[i] === 0 ? u0 : u1;
-        return g;
-    }), [cards]);
+    // PROCEDURAL flames: each card runs the fbm flame shader with its own
+    // seed and heat tint — living fire that licks and erodes, not a painted
+    // slice or a frame-stepped flipbook. Materials are owned here and
+    // disposed on unmount.
+    const materials = useMemo(() => cards.map((c, i) => makeVolumeMaterial("flame", {
+        seed: c.phase * 9.7 + i,
+        tint: ["#ffffff", "#ffd9a0", "#ffb27a"][i % 3],
+    })), [cards]);
+    useEffect(() => () => { for (const m of materials) m.dispose(); }, [materials]);
     useFrame(() => {
         if (!group.current) return;
         const t = pieceT(spawn);
@@ -435,32 +334,23 @@ function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
         group.current.position.set(spawn.to[0], 0, spawn.to[2]);
         cards.forEach((c, i) => {
             const m = cardRefs.current[i];
-            const mm = matRefs.current[i];
-            if (!m || !mm) return;
+            if (!m) return;
             const rise = Math.min(1, t * 2.6 + c.phase * 0.2);
-            const flick = 1 + Math.sin(t * 40 + c.phase * 9) * 0.09;
+            const flick = 1 + Math.sin(t * 40 + c.phase * 9) * 0.06;
             m.position.set(Math.cos(c.angle) * ring, (c.h / 2) * rise - 0.15, Math.sin(c.angle) * ring);
             m.scale.set(c.w * flick, c.h * rise * flick, 1);
             m.rotation.y = c.angle + Math.PI / 2 + Math.sin(t * 7 + c.phase * 5) * 0.08;
-            mm.opacity = (t < 0.1 ? t / 0.1 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * 0.96;
+            // Uniforms reached through the MESH ref (react-compiler rule).
+            const sm = m.material as THREE.ShaderMaterial;
+            sm.uniforms.uTime.value = t * 1.9 + c.phase * 3.1;
+            sm.uniforms.uOpacity.value = (t < 0.1 ? t / 0.1 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * 0.96;
         });
     });
     return (
         <group ref={group} visible={false}>
             {cards.map((c, i) => (
-                <mesh key={i} ref={(el) => { cardRefs.current[i] = el; }} geometry={geos[i]}>
-                    <meshBasicMaterial
-                        ref={(el) => { matRefs.current[i] = el; }}
-                        map={fireTex ?? undefined}
-                        // Warm tint ladder — nine identical whites read as one
-                        // flat texture; staggered heat depths read as a blaze.
-                        color={fireTex ? ["#ffffff", "#ffd9a0", "#ffb27a"][i % 3] : "#ff7a35"}
-                        transparent
-                        opacity={0}
-                        depthWrite={false}
-                        toneMapped={false}
-                        side={THREE.DoubleSide}
-                    />
+                <mesh key={i} ref={(el) => { cardRefs.current[i] = el; }} material={materials[i]}>
+                    <planeGeometry args={[1, 1]} />
                 </mesh>
             ))}
         </group>
@@ -473,18 +363,17 @@ function VortexVolume({ spawn }: { spawn: SetPieceSpawn }) {
     const group = useRef<THREE.Group>(null);
     const outer = useRef<THREE.Mesh>(null);
     const inner = useRef<THREE.Mesh>(null);
-    const outerMat = useRef<THREE.MeshBasicMaterial>(null);
-    const innerMat = useRef<THREE.MeshBasicMaterial>(null);
-    const tex = useMemo(() => {
-        const t = vortexBandTexture().clone();
-        t.needsUpdate = true;
-        t.wrapS = THREE.RepeatWrapping;
-        t.repeat.set(2, 1);
-        return t;
-    }, []);
     const h = spawn.superCast ? 6.4 : 4.6;
+    // PROCEDURAL wind: the band shader spirals and shreds its own bands into
+    // turbulence — no wrapped texture, no seam where the repeat meets. The
+    // cones still physically counter-rotate for parallax.
+    const materials = useMemo(() => [
+        makeVolumeMaterial("vortex", { seed: spawn.key % 89, additive: true }),
+        makeVolumeMaterial("vortex", { seed: (spawn.key % 89) + 23, tint: "#d6fff0", additive: true }),
+    ], [spawn.key]);
+    useEffect(() => () => { for (const m of materials) m.dispose(); }, [materials]);
     useFrame(() => {
-        if (!group.current || !outer.current || !inner.current || !outerMat.current || !innerMat.current) return;
+        if (!group.current || !outer.current || !inner.current) return;
         const t = pieceT(spawn);
         if (t < 0 || t >= 1) {
             group.current.visible = false;
@@ -499,18 +388,20 @@ function VortexVolume({ spawn }: { spawn: SetPieceSpawn }) {
         outer.current.rotation.y = t * Math.PI * 9;
         inner.current.rotation.y = -t * Math.PI * 12;
         const env = t < 0.12 ? t / 0.12 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1;
-        outerMat.current.opacity = env * 0.85;
-        innerMat.current.opacity = env * 0.6;
+        const a = outer.current.material as THREE.ShaderMaterial;
+        a.uniforms.uTime.value = t * 1.6;
+        a.uniforms.uOpacity.value = env * 0.85;
+        const b = inner.current.material as THREE.ShaderMaterial;
+        b.uniforms.uTime.value = t * 1.9 + 1.3;
+        b.uniforms.uOpacity.value = env * 0.6;
     });
     return (
         <group ref={group} visible={false}>
-            <mesh ref={outer}>
+            <mesh ref={outer} material={materials[0]}>
                 <cylinderGeometry args={[0.55, 2.1, h, 26, 1, true]} />
-                <meshBasicMaterial ref={outerMat} map={tex} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
             </mesh>
-            <mesh ref={inner} scale={[0.62, 0.94, 0.62]}>
+            <mesh ref={inner} scale={[0.62, 0.94, 0.62]} material={materials[1]}>
                 <cylinderGeometry args={[0.4, 1.5, h, 22, 1, true]} />
-                <meshBasicMaterial ref={innerMat} map={tex} color="#d6fff0" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
             </mesh>
         </group>
     );
@@ -1161,10 +1052,13 @@ export function CastGlyphFx({ beatRef, posRef }: {
 // swelling toward the release. (The floor glyph spins below; the stage lights
 // dim around it — three layers of the same reference frame.)
 
-export function ChargeOrbFx({ beatRef, posRef }: {
+export function ChargeOrbFx({ beatRef, posRef, onSun }: {
     beatRef: React.MutableRefObject<{ event: { t: string; delivery?: string; moveKind?: string; actorId?: string; element?: string; super?: boolean } | null; startedAt: number; durationMs: number }>;
     posRef: React.MutableRefObject<ReadonlyMap<string, readonly [number, number, number]>>;
+    /** Hands the orb's core mesh up as the god-ray sun. */
+    onSun?: (mesh: THREE.Mesh | null) => void;
 }) {
+    const sunMesh = useRef<THREE.Mesh | null>(null);
     const core = useRef<THREE.Mesh>(null);
     const coreMat = useRef<THREE.MeshBasicMaterial>(null);
     const glowRef = useRef<THREE.Mesh>(null);
@@ -1212,6 +1106,18 @@ export function ChargeOrbFx({ beatRef, posRef }: {
         const pulse = 1 + Math.sin(frac * 46) * 0.08 * (0.4 + charge);
         set(core.current, coreMat.current, base * pulse, 0.95);
         set(glowRef.current, glowMat.current, base * 2.6 * pulse, 0.3);
+        // The god-ray sun rides the orb's core: real size while channeling so
+        // rays stream through the dimmed arena, ~zero otherwise (a zero-scale
+        // sun emits nothing and the pass idles).
+        if (sunMesh.current) {
+            if (show && pos) {
+                sunMesh.current.position.set(pos[0], y, pos[2]);
+                sunMesh.current.scale.setScalar(base * 0.7 * pulse);
+                (sunMesh.current.material as THREE.MeshBasicMaterial).color.set(tint);
+            } else {
+                sunMesh.current.scale.setScalar(0.0001);
+            }
+        }
         if (ringA.current && ringAMat.current) {
             set(ringA.current, ringAMat.current, base * 3.4, 0.75);
             ringA.current.rotation.set(0.5, frac * Math.PI * 3.2, 0.2);
@@ -1242,6 +1148,12 @@ export function ChargeOrbFx({ beatRef, posRef }: {
     });
     return (
         <group>
+            {/* The god-ray sun: a small solid core the post pass streams rays
+                from. Scaled to ~0 outside channels. */}
+            <mesh ref={(el) => { sunMesh.current = el; onSun?.(el); }} scale={0.0001}>
+                <sphereGeometry args={[0.22, 14, 10]} />
+                <meshBasicMaterial color="#ffffff" toneMapped={false} />
+            </mesh>
             <mesh ref={core} visible={false}>
                 <sphereGeometry args={[1, 18, 14]} />
                 <meshBasicMaterial ref={coreMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
@@ -1592,6 +1504,51 @@ export function ResidueFx({ spawn }: { spawn: ResidueSpawn }) {
     );
 }
 
+// ─── GPU density — the thousand-particle tier for signatures ─────────────────
+
+interface GpuCloudSpec {
+    mode: GpuParticleMode;
+    count: number;
+    tint: string;
+    radius: number;
+    height: number;
+    t0: number;
+    t1: number;
+    size?: number;
+}
+
+const GPU_SUPER_CLOUDS: Record<string, GpuCloudSpec> = {
+    Water: { mode: "spray", count: 900, tint: "#dff6ff", radius: 2.6, height: 2.9, t0: 0.4, t1: 1, size: 8 },
+    Fire: { mode: "embers", count: 700, tint: "#ffb066", radius: 2.2, height: 4.4, t0: 0.05, t1: 1, size: 8 },
+    Wind: { mode: "dust", count: 520, tint: "#d9ffe9", radius: 2.7, height: 3.6, t0: 0, t1: 1, size: 8 },
+    Earth: { mode: "dust", count: 620, tint: "#d8b083", radius: 2.9, height: 2.1, t0: 0, t1: 0.85, size: 9 },
+    Lightning: { mode: "sparks", count: 560, tint: "#f4f8ff", radius: 2.3, height: 2.5, t0: 0.05, t1: 0.9, size: 7 },
+};
+
+function GpuBurst({ spawn, spec }: { spawn: SetPieceSpawn; spec: GpuCloudSpec }) {
+    const cloud = useMemo(() => makeGpuCloud({
+        mode: spec.mode, count: spec.count, seed: spawn.key * 7919 + 3,
+        tint: spec.tint, radius: spec.radius, height: spec.height, size: spec.size,
+    }), [spawn.key, spec]);
+    useEffect(() => () => cloud.dispose(), [cloud]);
+    const points = useRef<THREE.Points>(null);
+    useFrame(() => {
+        if (!points.current) return;
+        const t = pieceT(spawn);
+        const k = (t - spec.t0) / Math.max(0.05, spec.t1 - spec.t0);
+        if (t < 0 || k < 0 || k >= 1) {
+            points.current.visible = false;
+            return;
+        }
+        points.current.visible = true;
+        points.current.position.set(spawn.to[0], 0, spawn.to[2]);
+        const sm = points.current.material as THREE.ShaderMaterial;
+        sm.uniforms.uTime.value = k;
+        sm.uniforms.uOpacity.value = (k < 0.12 ? k / 0.12 : k > 0.7 ? Math.max(0, (1 - k) / 0.3) : 1) * 0.9;
+    });
+    return <points ref={points} geometry={cloud.geometry} material={cloud.material} visible={false} />;
+}
+
 /** The 3D structure for one staged cast. Rendered alongside the floor
  *  takeover and the slimmed painted accents by SetPieceOnce. */
 export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
@@ -1609,6 +1566,12 @@ export function VolumetricSetPiece({ spawn }: { spawn: SetPieceSpawn }) {
             {spawn.element === "Earth" && <EruptionVolume spawn={spawn} />}
             {spawn.element === "Lightning" && <BoltVolume spawn={spawn} />}
             <ParticleCloud spawn={spawn} spec={spec} />
+            {/* Signatures get the GPU tier: hundreds of droplets/embers/sparks
+                computed entirely in the vertex shader — one uniform write per
+                frame regardless of count. */}
+            {spawn.superCast && GPU_SUPER_CLOUDS[spawn.element] && (
+                <GpuBurst spawn={spawn} spec={GPU_SUPER_CLOUDS[spawn.element]} />
+            )}
             <ShockRing spawn={spawn} color={glow} size={spawn.superCast ? 5.6 : 4.2} />
             <PieceLight spawn={spawn} color={glow} intensity={spawn.superCast ? 34 : 20} strobeWindows={strobe} />
         </group>

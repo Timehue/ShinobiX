@@ -1508,6 +1508,39 @@ NEAR-FADE everywhere — set-piece layers and wave shells dissolve as the
 camera closes inside 2-4 units, so an action cut landing inside a piece can
 never show a textured plane edge-on as a pane of glass.
 
+## Round 41 — the construction change (2026-08-13)
+
+Owner: "yes do all 4" (the VFX-ceiling tiers). Three of four landed:
+
+**Tier 1 — shader-driven volumes** (`lib/showdown-volume-shaders.ts`): the
+flame crown, wave shells and vortex cones now COMPUTE their surfaces — fbm
+flames that lick and erode per-card, water with analytic edge feathering
+(no rectangle can ever show) and living foam, wind bands that shred into
+turbulence. The painted-texture versions and their canvas helpers are gone.
+uTime is the piece clock; uniforms are driven through mesh refs only.
+
+**Tier 2 — GPU particle density** (`lib/showdown-gpu-particles.ts`): whole
+trajectories computed in the vertex shader from seed attributes — 900
+spray droplets on the water super, 700 embers on fire, 500+ sparks/dust on
+the others, at one uniform write per frame. Bounding spheres oversized so
+frustum culling can't blink a cloud out.
+
+**Tier 3 — the lens** (`lib/showdown-post.ts` + ShowdownPostStack): god
+rays streaming from the charge orb's core through the dimmed channel, a
+custom 8-tap radial ZoomBlur pulsed at strikes, chromatic fringe on the
+shake envelope — all resting at ~zero between contacts, desktop-gated with
+Bloom. ⚠Built on RAW `postprocessing` classes composed as primitives: the
+r3f wrapper components JSON-stringify props and CRASH on an Object3D sun
+(circular scene graph).
+
+**Tier 4 — Blender-baked sim atlases: BLOCKED.** The Blender MCP bridge is
+configured but Blender isn't running. Open Blender with the addon enabled
+and the fire-smoke and water-spray bakes can run.
+
+Verified on the bench: the zoom-blur strike rush (the whole frame streaks
+into the contact), the ferret engulfed in living shader flame over a
+magma-webbed floor, and the seamless shader wave arcing the flooded arena.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified
