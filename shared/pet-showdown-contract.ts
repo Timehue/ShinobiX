@@ -323,6 +323,40 @@ export const SHOWDOWN_STATUS_CANCELS: Readonly<Record<string, readonly string[]>
 export const SHOWDOWN_TURN_CAP = 25;
 export type ShowdownJudgeReason = "pets" | "hp" | "stamina" | "speed";
 
+/** A stored Showdown match, small enough to sit in a journal row.
+ *
+ *  It carries the INPUTS, not the fight: the engine is deterministic over
+ *  (pets, seed), so the whole event log is re-derivable on demand and never
+ *  has to be persisted. That matters because a log is thousands of events and
+ *  these rows live in KV under a TTL.
+ *
+ *  This is the Showdown twin of the ladder's existing
+ *  `{ kind: "coliseum", seed, player, enemy }` row, deliberately the same shape
+ *  so the two can sit side by side in one journal — the legacy rows keep their
+ *  own reader, forever, and nothing is ever migrated in place.
+ *
+ *  The ONE asymmetry worth knowing: a coliseum row is replayed by the CLIENT,
+ *  which owns a byte-identical mirror of that sim. Showdown has no client
+ *  mirror by design, so a showdown row is replayed by asking the server for the
+ *  log. The row is the request, not the answer. */
+export interface ShowdownReplayDescriptor {
+    kind: "showdown";
+    /** Bumped only if a stored descriptor's MEANING changes. Readers refuse a
+     *  version they do not know rather than silently replaying it wrong. */
+    version: 1;
+    seed: number;
+    format: ShowdownFormat;
+    tier: ShowdownTier;
+    enemyTeamName: string;
+    /** Unsealed pets, exactly as handed to createShowdownSession. Sealing is
+     *  part of the deterministic derivation, so storing sealed pets would
+     *  freeze today's seal rules into old rows. */
+    playerPets: unknown[];
+    enemyPets: unknown[];
+}
+
+export const SHOWDOWN_REPLAY_VERSION = 1;
+
 /** One command per living pet per round. Deliberately carries no execution
  *  input: the timing-needle grade that used to ride along here was removed in
  *  round 18, so a command is pure INTENT and the engine alone decides outcome. */
