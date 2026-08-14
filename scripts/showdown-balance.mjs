@@ -22,7 +22,10 @@ import {
     resolveShowdownRound,
 } from '../api/_pet-showdown/engine.ts';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.ts';
-const HARD_STOP = 400;  // sim-only guard; the engine has no round cap
+// Sim-only backstop. The engine judges every match at SHOWDOWN_TURN_CAP (25)
+// so this can only fire if the judge ever stopped firing — it is a bug tripwire,
+// not the round limit. (It predates the judge, when the engine had no cap.)
+const HARD_STOP = 400;
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -49,13 +52,12 @@ function scaled(tpl, slot) {
     };
 }
 
-/** Both sides run the SAME policy: the enemy-side picker over a flipped view. */
+/** Both sides run the SAME policy — the AI's own side parameter. This used to
+ *  flip a shallow session copy and copy `rng` back by hand; the picker now
+ *  takes the side directly, which is the identical draw sequence with none of
+ *  the aliasing risk. */
 function commandsFor(session, side) {
-    if (side === 'enemy') return chooseShowdownAiCommands(session);
-    const flipped = { ...session, player: session.enemy, enemy: session.player };
-    const commands = chooseShowdownAiCommands(flipped);
-    session.rng = flipped.rng;   // keep one shared deterministic stream
-    return commands;
+    return chooseShowdownAiCommands(session, side);
 }
 
 function fight(tplA, tplB, seed) {

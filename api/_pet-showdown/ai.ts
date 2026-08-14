@@ -167,19 +167,31 @@ function rngOf(session: ShowdownSession): () => number {
     return () => nextRand(session);
 }
 
-/** Pick this round's commands for every living AI FIELD pet. */
-export function chooseShowdownAiCommands(session: ShowdownSession): ShowdownCommand[] {
+/** Pick this round's commands for every living AI FIELD pet.
+ *
+ *  `side` names WHICH team the AI is commanding. It defaults to `'enemy'` —
+ *  the only thing a live match ever needs, and the value every existing caller
+ *  gets — so this stays byte-identical for real fights. The parameter exists
+ *  for headless resolution (`resolveShowdownHeadless`), where both teams are
+ *  machine-driven: clan-war pet duels auto-resolve with no player present, and
+ *  the engine-comparison harness needs to play whole matches offline. */
+export function chooseShowdownAiCommands(
+    session: ShowdownSession,
+    side: 'player' | 'enemy' = 'enemy',
+): ShowdownCommand[] {
     const rand = rngOf(session);
     const tier = session.tier;
-    const foes = session.player.filter((p) => !p.ko && !p.benched);
+    const mine = side === 'enemy' ? session.enemy : session.player;
+    const theirs = side === 'enemy' ? session.player : session.enemy;
+    const foes = theirs.filter((p) => !p.ko && !p.benched);
     const commands: ShowdownCommand[] = [];
     if (!foes.length) return commands;
 
     // At most one voluntary switch per round so the AI never cycles its whole
     // line in a single turn.
     let switchedThisRound = false;
-    const reserves = session.enemy.filter((p) => p.benched && !p.ko);
-    for (const pet of session.enemy) {
+    const reserves = mine.filter((p) => p.benched && !p.ko);
+    for (const pet of mine) {
         if (pet.ko || pet.benched) continue;
         // Switch reads (warrior sometimes, champion often). A full element
         // flip is rare — it held in only ~2% of pet-rounds — so the AI also
