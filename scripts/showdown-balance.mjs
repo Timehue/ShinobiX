@@ -317,7 +317,16 @@ for (const [role, s] of roleStats) if (pct(s) < 40 || pct(s) > 60) failures.push
 for (const [el, s] of elementStats) if (pct(s) < 40 || pct(s) > 60) failures.push(`element ${el} at ${pct(s).toFixed(1)}%`);
 for (const s of species) if (pct(s) < 25 || pct(s) > 75) failures.push(`species ${s.name} at ${pct(s).toFixed(1)}%`);
 const avgRounds = totalRounds / Math.max(1, totalGames);
-if (avgRounds < 5 || avgRounds > 12.5) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside 5-12.5`);
+// Pace bands depend on the SHAPE being simulated: one fighter per side is a
+// different game from a team with reserves, and three pets legitimately take
+// about three times as long to resolve.
+const [paceLo, paceHi] = BENCH > 0 ? [13, 26] : [5, 12.5];
+if (avgRounds < paceLo || avgRounds > paceHi) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside ${paceLo}-${paceHi}`);
+// A match should be WON, not awarded. Only meaningful with reserves in play:
+// a benchless fight cannot reach the cap.
+if (BENCH > 0 && judgedGames / Math.max(1, totalGames) > 0.2) {
+    failures.push(`${(100 * judgedGames / totalGames).toFixed(1)}% of matches decided by the round-cap judge`);
+}
 if (unresolvedGames / Math.max(1, totalGames) > 0.35) failures.push(`hard-stop leaves unresolved ${(100 * unresolvedGames / totalGames).toFixed(1)}% of games`);
 
 if (failures.length) {
