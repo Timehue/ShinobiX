@@ -2256,6 +2256,10 @@
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 140
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 774
           }
         ]
       },
@@ -2399,6 +2403,10 @@
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 158
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 702
           }
         ]
       },
@@ -2573,6 +2581,10 @@
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 140
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 774
           }
         ]
       },
@@ -2664,7 +2676,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 601
+            "line": 730
           }
         ]
       },
@@ -2784,12 +2796,12 @@
             "line": 2255
           },
           {
-            "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 4170
-          },
-          {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 80
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 687
           }
         ]
       },
@@ -2809,10 +2821,6 @@
         "axis": "width",
         "valuePx": 760,
         "occurrences": [
-          {
-            "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 4170
-          },
           {
             "source": "shinobij.client/src/styles/card-clash-tutorial.css",
             "line": 13
@@ -3277,6 +3285,18 @@
             "line": 331
           },
           {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 618
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 687
+          },
+          {
+            "source": "shinobij.client/src/styles/tower-tactical.css",
+            "line": 702
+          },
+          {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 874
           },
@@ -3402,7 +3422,7 @@
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
-            "line": 564
+            "line": 577
           }
         ]
       },
