@@ -37,7 +37,10 @@ import {
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
+import { BattlefieldActor } from "../components/BattlefieldActor";
 import { isImageAvatar } from "../lib/avatar";
+import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { resolveOwnAvatar } from "../lib/own-avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
 import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
 import { getAllJutsus } from "../App";
@@ -559,11 +562,12 @@ export function MissionArenaFight({
 
     // Avatar resolution — player's live avatar; enemy's sealed avatar or the
     // published AI portrait (ai:<id>), matching how the Mission Hall card resolves it.
-    const playerAvatar = character.avatarImage || me.slice(0, 2).toUpperCase();
+    const playerAvatar = resolveOwnAvatar(character, sharedImages) || me.slice(0, 2).toUpperCase();
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
     const enemyAvatar = enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
+    const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages);
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
     // Portrait-first (see petOrbPortrait) — `pet.image` alone misses published art.
@@ -752,11 +756,9 @@ export function MissionArenaFight({
                         })()}>
                             <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}>
                                 {/* Actor orbs + HP bars (overlay above the tiles) */}
-                                {isImageAvatar(playerAvatar) && myActor && (() => {
+                                {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
-                                    return <div key="player-orb" className="avatar-orb" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <img className="tiny-map-avatar" src={playerAvatar} alt={me} />
-                                    </div>;
+                                    return <BattlefieldActor key="player-orb" side="player" label={me} portrait={playerAvatar} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
                                 })()}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
@@ -772,12 +774,11 @@ export function MissionArenaFight({
                                     const { left, top } = towerHexPixel(companion.pos, w);
                                     return <FighterHpBadge key="pet-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16} width={ORB} hp={companion.hp} maxHp={companion.maxHp} side="pet" caption={`${companion.name} · ${companionRoundsLeft}⟳`} />;
                                 })()}
-                                {enemy && isImageAvatar(enemyAvatar) && (() => {
+                                {enemy && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
-                                    return <div key="enemy-orb" className={`avatar-orb enemy-orb${gateDirective ? ` hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <img className="tiny-map-avatar" src={enemyAvatar} alt={enemyName} />
+                                    return <BattlefieldActor key="enemy-orb" side="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
-                                    </div>;
+                                    </BattlefieldActor>;
                                 })()}
                                 {enemy && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
@@ -831,8 +832,8 @@ export function MissionArenaFight({
                                             style={{ left: `${left}px`, top: `${top}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                             onClick={() => onTileClick(i)}
                                         >
-                                            {i === myPos ? (isImageAvatar(playerAvatar) ? "" : playerAvatar)
-                                                : i === enemyPos ? (isImageAvatar(enemyAvatar) ? "" : enemyAvatar)
+                                            {i === myPos ? ""
+                                                : i === enemyPos ? ""
                                                     : (companion && i === companion.pos) ? (isImageAvatar(companionImage) ? "" : companion.name.slice(0, 2).toUpperCase())
                                                         : ""}
                                         </button>

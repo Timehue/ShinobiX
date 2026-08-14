@@ -55,3 +55,16 @@ test("targeting guidance is truthful and hides inert board controls from assisti
     assert.match(tacticalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tower-phase-banner/);
     assert.match(tacticalCss, /@media \(forced-colors: active\)/);
 });
+
+test("battlefield sprites remain presentation-only inside the authoritative actor button", () => {
+    assert.match(fight, /import \{ BattlefieldActor \} from "\.\.\/components\/BattlefieldActor"/);
+    assert.match(fight, /const battleSprite = a\.side === "enemy" && !isTeamPvp/);
+    assert.match(fight, /battlefieldAiSprite\(String\(a\.character\?\.visual \?\? ""\), sharedImages\)/);
+    assert.match(
+        fight,
+        /<button key=\{a\.id\}[^>]*onClick=\{\(\) => onTileClick\(a\.pos\)\}[\s\S]{0,1600}?<BattlefieldActor[\s\S]{0,500}?sprite=\{battleSprite\}/,
+        "the existing button must continue to own targeting while actor art stays inside it",
+    );
+    assert.match(fight, /<BattlefieldActor[\s\S]{0,1000}?outline: isActive/);
+    assert.match(fight, /<BattlefieldActor[\s\S]{0,1800}?<\/BattlefieldActor>/);
+});
