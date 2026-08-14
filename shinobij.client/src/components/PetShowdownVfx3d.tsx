@@ -741,6 +741,8 @@ const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "rings
     mark: "stars",
     push: "wave",
     pull: "wave",
+    // The third rotation. push/pull SHOVE (a wave); the pivot cuts and leaves.
+    pivot: "slash",
     shield: "dome",
     barrier: "dome",
     absorb: "dome",

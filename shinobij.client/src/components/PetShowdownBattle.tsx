@@ -154,16 +154,31 @@ const KIND_GLYPH: Record<string, ShowdownIconName> = {
     burn: "pyre", dot: "pyre",
     stun: "bind", freeze: "frost", confuse: "daze",
     slow: "drag", movelock: "drag", push: "drag", pull: "drag",
+    // These three fell through to the "strike" fallback, so the two headline
+    // variety techniques and the new rotation all wore the plain-attack mark:
+    // a weather-setter advertised itself as a hit. `pivot` takes the switch
+    // mark because that is literally what it does; `protect` braces.
+    pivot: "rotate", protect: "brace",
     mark: "mark", taunt: "provoke",
     heal: "mend", shield: "aegis", guard: "aegis", barrier: "veil", absorb: "veil",
     buff: "wax", debuff: "wane", haste: "haste", move: "haste", rest: "breath",
 };
+
+/** The mark a technique wears. Weather is the one kind whose identity IS its
+ *  element — it turns the arena to that sky — so it wears the element crest
+ *  instead of a fixed glyph. Everything else reads from the table, and an
+ *  unmapped kind still falls back to the plain strike. */
+function kindGlyph(kind: string, element?: string): ShowdownIconName {
+    if (kind === "weather" && element) return elementCrest(element);
+    return KIND_GLYPH[kind] ?? "strike";
+}
 
 /** Offense / control / support — the icon's own colour, never a background. */
 const KIND_FAMILY: Record<string, "off" | "ctl" | "sup"> = {
     damage: "off", crush: "off", lifesteal: "off", wound: "off", burn: "off", dot: "off",
     stun: "ctl", freeze: "ctl", confuse: "ctl", slow: "ctl", movelock: "ctl",
     push: "ctl", pull: "ctl", mark: "ctl", taunt: "ctl", debuff: "ctl",
+    pivot: "off", protect: "sup", weather: "sup",
     heal: "sup", shield: "sup", guard: "sup", barrier: "sup", absorb: "sup",
     buff: "sup", haste: "sup", move: "sup", rest: "sup",
 };
@@ -172,6 +187,7 @@ const STATUS_GLYPH: Record<string, ShowdownIconName> = {
     burn: "pyre", wound: "rend", stun: "bind", freeze: "frost", confuse: "daze",
     debuff: "wane", buff: "wax", shield: "aegis", mark: "mark", slow: "drag",
     haste: "haste", crush: "crush", taunt: "provoke", steadfast: "steadfast",
+    protect: "brace",
     // The bench is what a root denies, so the bench is what it wears.
     movelock: "bench",
 };
@@ -191,6 +207,7 @@ const STATUS_TITLE: Record<string, string> = {
     mark: "Marked — the next hit lands harder",
     slow: "Slowed — acts later in the round",
     movelock: "Trapped — cannot switch out",
+    protect: "Braced — blocks all damage this round",
     haste: "Hastened — acts earlier in the round",
     crush: "Crushed — defence lowered",
     taunt: "Taunting — draws single-target attacks",
@@ -1559,7 +1576,7 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
     const clsLabel = move.cls === "physical" ? "Physical" : move.cls === "special" ? "Special" : "Status";
     return {
         title: move.name,
-        glyph: move.signature ? "signature" : KIND_GLYPH[move.kind] ?? "strike",
+        glyph: move.signature ? "signature" : kindGlyph(move.kind, move.element),
         element,
         category: move.signature
             ? `Signature · ${clsLabel}`
@@ -1656,7 +1673,7 @@ function buildMenuRows({
     // stays selectable — only an unmet HOLD disables its pill.
     const rows: MenuRowSpec[] = moves.map((entry): MenuRowSpec => ({
         key: `move-${entry.index}`,
-        icon: KIND_GLYPH[entry.move.kind] ?? "strike",
+        icon: kindGlyph(entry.move.kind, entry.move.element),
         family: KIND_FAMILY[entry.move.kind],
         // The pill wears the TECHNIQUE's element, so the neutral basic reads
         // grey next to the pet's own colour — the wheel-dodge is visible
