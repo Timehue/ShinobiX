@@ -15,7 +15,6 @@ import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
-import { gameToast } from "../components/GameToast";
 import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
