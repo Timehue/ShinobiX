@@ -20,6 +20,12 @@ import type {
     ShowdownTurnResponse,
 } from "../../../shared/pet-showdown-contract";
 
+export {
+    SHOWDOWN_BENCH_SIZE,
+    SHOWDOWN_FORMAT_SIZE,
+    showdownTeamSize,
+} from "../../../shared/pet-showdown-contract";
+
 export type {
     ShowdownCommand,
     ShowdownEvent,

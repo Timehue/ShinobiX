@@ -27,6 +27,9 @@ import {
     submitShowdownTurn,
     forfeitShowdown,
     fetchShowdownState,
+    SHOWDOWN_BENCH_SIZE,
+    SHOWDOWN_FORMAT_SIZE,
+    showdownTeamSize,
     type ShowdownCommand,
     type ShowdownFormat,
     type ShowdownStateView,
@@ -74,12 +77,13 @@ function writeSessionBreadcrumb(value: SessionBreadcrumb | null): void {
     } catch { /* storage disabled — resume simply won't survive a refresh */ }
 }
 
-const MAX_TEAM = 3;
-
+// Field and bench sizes come from the shared contract — the server validates
+// against the same numbers, so the picker can never offer a team the start
+// endpoint will reject. Every format carries the same bench.
 const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string }[] = [
-    { id: "1v1", label: "1v1 Duel", size: 1, blurb: "One on the field, two in reserve — the switching mind game." },
-    { id: "2v2", label: "2v2 Showdown", size: 2, blurb: "The flagship — synergy, focus fire, a bench pivot." },
-    { id: "3v3", label: "3v3 Rumble", size: 3, blurb: "Full squad warfare, no reserves." },
+    { id: "1v1", label: "1v1 Duel", size: SHOWDOWN_FORMAT_SIZE["1v1"], blurb: "One on the field, two in reserve — the switching mind game." },
+    { id: "2v2", label: "2v2 Showdown", size: SHOWDOWN_FORMAT_SIZE["2v2"], blurb: "The flagship — synergy, focus fire, and two reserves to pivot through." },
+    { id: "3v3", label: "3v3 Rumble", size: SHOWDOWN_FORMAT_SIZE["3v3"], blurb: "Full squad warfare, with two held back." },
 ];
 
 // GameIcon is already on the entry path (MobileNav), so reusing it from this
@@ -115,6 +119,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const battleKey = useRef(1);
 
     const size = FORMATS.find((f) => f.id === format)?.size ?? 2;
+    const maxTeam = showdownTeamSize(format);
     const pets = useMemo(() => character.pets ?? [], [character.pets]);
 
     const busyReason = useCallback((pet: Pet): string | null => {
@@ -185,7 +190,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         setError(null);
         setSelected((ids) => ids.includes(pet.id)
             ? ids.filter((id) => id !== pet.id)
-            : ids.length < MAX_TEAM ? [...ids, pet.id] : ids);
+            : ids.length < maxTeam ? [...ids, pet.id] : ids);
     };
 
     const launch = useCallback(async () => {
@@ -329,8 +334,8 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
 
             <div className="showdown-roster-block">
                 <h3>
-                    Your team — pick {size}{MAX_TEAM > size ? ` (plus up to ${MAX_TEAM - size} bench)` : ""}
-                    {selected.length ? ` · ${selected.length}/${MAX_TEAM}` : ""}
+                    Your team — pick {size} (plus up to {SHOWDOWN_BENCH_SIZE} bench)
+                    {selected.length ? ` · ${selected.length}/${maxTeam}` : ""}
                 </h3>
                 {pets.length === 0 && (
                     <p className="showdown-empty">You have no companions yet. Befriend a wild pet out in the world first!</p>
