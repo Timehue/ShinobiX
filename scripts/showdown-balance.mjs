@@ -34,6 +34,16 @@ const flag = (name, fallback) => {
 };
 const LEVEL = flag('level', 50);
 const SEEDS = flag('seeds', 3);
+/** Reserves parked behind each fighter. Default 0 — the historic 1v1 shape the
+ *  ratchet is calibrated against.
+ *
+ *  Why this exists: several move kinds act on the BENCH (push and pull force a
+ *  rotation, movelock traps a pet on the field), and with no reserves they all
+ *  fall through to their degenerate no-bench path. This analyzer therefore
+ *  could not see those mechanics at all — it measured the fallback and reported
+ *  it as the kind's balance. `--bench 1` gives every fighter one reserve so
+ *  rotation and trapping are live and measurable. */
+const BENCH = flag('bench', 0);
 
 // Balanced-training growth: the same all-stat multiplier every species gets,
 // so the comparison isolates SPECIES identity (base spread + kit), not builds.
@@ -60,10 +70,23 @@ function commandsFor(session, side) {
     return chooseShowdownAiCommands(session, side);
 }
 
+/** A fixed neutral reserve, IDENTICAL on both sides so it cancels out of the
+ *  comparison. Picking the species under test as its own reserve would make the
+ *  bench a second copy of the thing being measured. */
+const benchFiller = Object.values(PET_CATALOG)
+    .filter((t) => t.wildSpawnable !== false && Array.isArray(t.jutsus) && t.rarity === 'standard')
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)))[0];
+
+function teamFor(tpl, slot) {
+    const team = [scaled(tpl, slot)];
+    for (let i = 0; i < BENCH; i++) team.push(scaled(benchFiller, `${slot}bench${i}`));
+    return team;
+}
+
 function fight(tplA, tplB, seed) {
     const session = createShowdownSession({
         sessionId: 'balance', playerName: 'A', format: '1v1', tier: 'warrior', seed,
-        playerPets: [scaled(tplA, 'a')], enemyPets: [scaled(tplB, 'b')], enemyTeamName: 'B',
+        playerPets: teamFor(tplA, 'a'), enemyPets: teamFor(tplB, 'b'), enemyTeamName: 'B',
     });
     let rounds = 0;
     while (!session.finished && rounds < HARD_STOP + 1) {
@@ -128,7 +151,7 @@ const fmtMap = (map) => [...map.entries()]
     .map(([k, s]) => `${k}: ${pct(s).toFixed(1)}% (${s.n})`)
     .join('  ·  ');
 
-console.log(`\n=== Pet Showdown balance @ level ${LEVEL}, ${SEEDS} seeds, ${totalGames} games ===`);
+console.log(`\n=== Pet Showdown balance @ level ${LEVEL}, ${SEEDS} seeds, ${BENCH} reserve(s), ${totalGames} games ===`);
 console.log(`pace: avg ${(totalRounds / Math.max(1, totalGames)).toFixed(1)} rounds; unresolved at hard-stop ${(100 * unresolvedGames / Math.max(1, totalGames)).toFixed(1)}%`);
 console.log(`element-advantage matchup win rate: ${(100 * elementEdge.advWins / Math.max(1, elementEdge.advGames)).toFixed(1)}% of ${elementEdge.advGames}`);
 console.log(`\nROLES     ${fmtMap(roleStats)}`);
