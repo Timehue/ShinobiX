@@ -58,7 +58,7 @@ A key with no folder here (e.g. the pet-only "chakra" tint, or "none"/neutral
 beats) falls back to the procedural element-tinted particle burst. Drop a
 matching folder here to give it a sprite too — no code change needed.
 
-plume/ + mist/ + burst/ — Blender-baked simulation flipbooks (owned output, no
+plume/ + mist/ + burst/ + surf/ — Blender-baked simulation flipbooks (owned output, no
 third-party license): Mantaflow fire-smoke and mist sims baked and rendered
 in-house (EEVEE, transparent film) and ingested as standard NNN.png frame
 sequences. Used as normal-blended body layers under the procedural shader
