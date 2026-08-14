@@ -1,224 +1,85 @@
-import { randomInt } from 'node:crypto';
-import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { authedPlayerOrAdmin } from '../_auth.js';
-import { withKvLock } from '../_lock.js';
-import { enforceRateLimitKv } from '../_ratelimit.js';
+import { randomUUID, randomInt } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
+import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
+import { LockContendedError, withKvLock } from '../_lock.js';
+import { activeBreedingParentIds } from './_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
 import {
-    chooseAuthoritativeRankedPet,
-    claimPetRankedStartingPair,
-    commitPetRankedStartingPair,
-    isPetRankedMatchId,
-    petRankedMatchIdFromStartingLease,
-    petRankedActiveKey,
+    PET_RANKED_ACTIVE_REGISTRY_KEY,
+    PET_RANKED_AUTHORITY,
+    PET_RANKED_QUEUE_KEY,
+    PET_RANKED_QUEUE_MATCH_TTL_SECONDS,
+    PET_RANKED_TOKEN_TTL_SECONDS,
+    isPetRankedQueueMatch,
+    isRankedPetStartClaim,
     petRankedQueueMatchKey,
-    resolveAuthoritativePetRankedMatch,
-    releasePetRankedStartingPair,
-    validateReciprocalPetRankedQueueMatch,
-    type PetRankedQueueMatch,
-    type ServerResolvedPetRankedToken,
-} from './_ranked-engine.js';
-import {
-    PET_RANKED_DISABLED_REASON,
-    petRankedStartsEnabled,
-    settlePetRankedMatchDurably,
-} from './_ranked-settlement.js';
-import {
-    loadPetRankedAuthorityToken,
-    getPetRankedJournal,
-    petRankedRecoveryKey,
-} from './_ranked-journal.js';
-import {
-    assertPetRankedPreparationAdmitted,
-    completePetRankedPreparation,
-    ensurePetRankedSeasonGate,
-    findPetRankedPreparationForPlayer,
-    loadPetRankedPreparation,
-    makePetRankedPreparation,
-    readPetRankedSeasonGateFresh,
-    reservePetRankedPreparation,
-    type PetRankedPreparation,
-} from './_ranked-preparation.js';
+    petRankedStartClaimKey,
+    pruneRankedPetActiveRegistry,
+    type RankedPetActivePointer,
+    type RankedPetMatchToken,
+    type RankedPetStartClaim,
+} from './_ranked-authority.js';
 
 /*
- * /api/pet/ranked-start — POST only.
+ * /api/pet/ranked-start - POST { opponentName, petId? }
  *
- * This is a PRIVATE, fail-closed ranked authority path. The authenticated
- * player must already own one half of a reciprocal pairing minted by the pet
- * ranked queue. Request-body opponent, pet, seed, rating, outcome, and reward
- * fields are deliberately ignored. The server selects both entitlement-eligible
- * pets, runs the deterministic duel, admits one immutable preparation in the
- * current season epoch, and settles both ratings before returning a replay
- * seed. A lost response resumes that same preparation; it can never mint a
- * second seed for the pairing.
+ * This is a queue-binding endpoint, not a direct-challenge endpoint. Both
+ * players must first opt into /api/pvp/pet-ranked-queue. Matchmaking writes two
+ * reciprocal records with the same private pair id and chooses one initiator;
+ * only that initiator can bind the pair to a server-seeded combat proof here.
+ *
+ * A single registry record reserves BOTH participants before the token is
+ * returned. That gives one-active-match protection without a half-reserved
+ * player if a process fails between two independent pointer writes.
  */
 
-type StartResult =
-    | { status: 200; token: ServerResolvedPetRankedToken; resumed: boolean }
-    | { status: 409 | 503; error: string };
+const ACTIVE_REGISTRY_TTL_SECONDS = 24 * 60 * 60;
 
-const lock = <T>(key: string, action: () => Promise<T>): Promise<T> =>
-    withKvLock(key, action, { failClosed: true });
-const RANKED_SEASON_CURRENT_KEY = 'ranked:season:current';
-
-function tokenNames(token: ServerResolvedPetRankedToken): [string, string] {
-    return [safeName(token.a), safeName(token.b)];
+function petRatingOf(save: Record<string, unknown> | null): number {
+    const character = (save?.character ?? null) as Record<string, unknown> | null;
+    const rating = Number(character?.petRankedRating);
+    return Number.isFinite(rating) ? rating : DEFAULT_RANKED_RATING;
 }
 
-function tokenMatchesPair(
-    token: ServerResolvedPetRankedToken | null,
-    matchId: string,
-    players: readonly [string, string],
-): token is ServerResolvedPetRankedToken {
-    if (!token || token.matchId !== matchId) return false;
-    const actual = tokenNames(token).sort();
-    const expected = [...players].map(safeName).sort();
-    return actual[0] === expected[0] && actual[1] === expected[1];
+function rankedPetUnavailable(character: Record<string, unknown>, pet: Record<string, unknown>): boolean {
+    const id = String(pet.id ?? '');
+    return !id
+        || activeBreedingParentIds(character).has(id)
+        || !!pet.training
+        || !!pet.expedition;
 }
 
-function publicStartBody(token: ServerResolvedPetRankedToken, playerName: string, resumed: boolean) {
-    const meIsA = safeName(token.a) === safeName(playerName);
+function selectRankedPet(character: Record<string, unknown>, requestedId = ''): Record<string, unknown> | null {
+    const pets = activeCarriedPets<Record<string, unknown>>(character);
+    const requested = requestedId ? pets.find((pet) => String(pet?.id ?? '') === requestedId) : undefined;
+    const active = pets.find((pet) => String(pet?.id ?? '') === String(character.activePetId ?? ''));
+    const selected = requested ?? active ?? pets.find((pet) => !rankedPetUnavailable(character, pet));
+    return selected && !rankedPetUnavailable(character, selected) ? selected : null;
+}
+
+function pointerFor(
+    claim: RankedPetStartClaim,
+    opponent: string,
+    initiator: boolean,
+): RankedPetActivePointer {
     return {
-        ok: true,
-        matchToken: token.matchId,
-        opponentName: meIsA ? token.b : token.a,
-        seed: token.seed,
-        playerPetId: meIsA ? token.aPetId : token.bPetId,
-        opponentPetId: meIsA ? token.bPetId : token.aPetId,
-        engineVersion: token.resolution.engineVersion,
-        settled: true,
-        ...(resumed ? { resumed: true } : {}),
-        // Outcome, digest, rating snapshots, and rating reward stay private.
+        matchToken: claim.matchToken,
+        pairId: claim.pairId,
+        opponent,
+        initiator,
+        createdAt: claim.token.createdAt,
+        expiresAt: claim.expiresAt,
     };
 }
 
-async function settleStoredToken(token: ServerResolvedPetRankedToken): Promise<void> {
-    await settlePetRankedMatchDurably(kv, {
-        matchToken: token.matchId,
-        token,
-        lock,
-    });
-}
-
-async function settlePreparation(preparation: PetRankedPreparation): Promise<StartResult> {
-    const journal = await getPetRankedJournal(kv, preparation.matchId);
-    if (journal?.state !== 'completed') {
-        // A stale starter may resume after rollover already completed and
-        // removed this admission. Only unresolved work is required to remain in
-        // the exact season gate; completed replay can finish compaction safely.
-        await assertPetRankedPreparationAdmitted(kv, preparation);
-        const claimed = await commitPetRankedStartingPair(
-            kv,
-            [preparation.a, preparation.b],
-            preparation.matchId,
-        );
-        if (!claimed.ok) {
-            return { status: 503, error: 'This admitted ranked match is waiting for a participant battle lease. Retry shortly.' };
-        }
-    }
-    await settleStoredToken(preparation.token);
-    await completePetRankedPreparation(kv, preparation);
-    await clearQueuePair([preparation.a, preparation.b], preparation.matchId);
-    return { status: 200, token: preparation.token, resumed: true };
-}
-
-/**
- * Legacy short tokens are recoverable, but may not open an unregistered
- * journal behind a closing season scan. Existing journals are already durable;
- * a token with no journal must first win admission in the current open epoch.
- */
-async function settleAuthorityToken(token: ServerResolvedPetRankedToken): Promise<StartResult> {
-    const journal = await getPetRankedJournal(kv, token.matchId);
-    if (journal) {
-        await settleStoredToken(token);
-        await clearQueuePair(tokenNames(token), token.matchId);
-        return { status: 200, token, resumed: true };
-    }
-    const [gate, season] = await Promise.all([
-        readPetRankedSeasonGateFresh(kv),
-        kv.get<{ id?: unknown }>(RANKED_SEASON_CURRENT_KEY),
-    ]);
-    if (!gate
-        || gate.state !== 'open'
-        || gate.seasonId !== Number(season?.id)) {
-        return { status: 409, error: 'The ranked season is closing; recovery will resume with the transition.' };
-    }
-    const preparation = await reservePetRankedPreparation(
-        kv,
-        makePetRankedPreparation(token, { seasonId: gate.seasonId, epoch: gate.epoch }),
-    );
-    return settlePreparation(preparation);
-}
-
-async function clearQueuePair(players: readonly [string, string], matchId: string): Promise<void> {
-    await Promise.all(players.map(async (name) => {
-        const key = petRankedQueueMatchKey(name);
-        const current = await kv.get<unknown>(key).catch(() => null);
-        if (!current || typeof current !== 'object' || Array.isArray(current)) return;
-        if ((current as { matchId?: unknown }).matchId !== matchId) return;
-        const tombstone = `pet-ranked-queue-cleared:${matchId}`;
-        try {
-            if (!await kv.compareSet(key, current, tombstone, { ex: 2 })) return;
-        } catch (error) {
-            if (await kv.get<string>(key).catch(() => null) !== tombstone) throw error;
-        }
-        // CAS already fenced the exact old pairing. Deletion is only cosmetic;
-        // if its acknowledgement is lost, the two-second tombstone self-clears.
-        await kv.delIfEqual(key, tombstone).catch(() => false);
-    }));
-}
-
-async function resumeActive(playerName: string): Promise<StartResult | null> {
-    const activeLease = await kv.get<string>(petRankedActiveKey(playerName));
-    const recovery = activeLease
-        ? null
-        : await kv.get<string>(petRankedRecoveryKey(playerName));
-    const prepared = await findPetRankedPreparationForPlayer(kv, playerName);
-    const startingMatchId = petRankedMatchIdFromStartingLease(activeLease);
-    const active = startingMatchId ?? activeLease ?? recovery ?? prepared?.matchId;
-    if (!active) return null;
-    if (isPetRankedMatchId(active)) {
-        return lock(`pet-ranked-start:${active}`, async (): Promise<StartResult | null> => {
-            const preparation = prepared?.matchId === active
-                ? prepared
-                : await loadPetRankedPreparation(kv, active);
-            if (preparation) {
-                if (preparation.a !== playerName && preparation.b !== playerName) {
-                    return { status: 409, error: 'The ranked preparation belongs to a different participant pair.' };
-                }
-                return settlePreparation(preparation);
-            }
-            if (startingMatchId === active) {
-                // The process died after reversible lease preflight but before
-                // economic admission. No outcome exists; release both exact
-                // sentinels and let the reciprocal pairing start cleanly.
-                const queueMine = await kv.get<PetRankedQueueMatch>(petRankedQueueMatchKey(playerName));
-                const opponent = safeName(queueMine?.opponent ?? '');
-                if (opponent) {
-                    await releasePetRankedStartingPair(kv, [playerName, opponent], active);
-                }
-                return null;
-            }
-            // Re-read authority only after acquiring the same match lock used by
-            // token minting. A concurrent start cannot have its first durable
-            // lease mistaken for an orphan and deleted before its token lands.
-            const current = await loadPetRankedAuthorityToken(kv, active);
-            if (current) {
-                if (!tokenNames(current).includes(playerName)) {
-                    return { status: 409, error: 'The active ranked match belongs to a different participant pair.' };
-                }
-                return settleAuthorityToken(current);
-            }
-
-            // Never guess that a shared ranked lease is orphaned merely because
-            // its later journal is absent. New starts always have a durable
-            // preparation; legacy/corrupt rows fail closed for operator repair.
-            return { status: 409, error: 'The ranked preparation is pending recovery.' };
-        });
-    }
-    return { status: 409, error: 'Finish or settle your active pet battle first.' };
+function claimNamesMatch(claim: RankedPetStartClaim, me: string, opponent: string): boolean {
+    return claim.token.a === me
+        && claim.token.b === opponent
+        && claim.token.authority === PET_RANKED_AUTHORITY;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -228,150 +89,149 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-    if (identity.admin) return res.status(400).json({ error: 'Ranked pet matches require a player identity.' });
+    if (identity.admin) {
+        return res.status(400).json({ error: 'Ranked pet matches require a player identity.' });
+    }
     if (!(await enforceRateLimitKv(req, res, 'pet-ranked-start', 12, 60_000, identity.name))) return;
 
     try {
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const me = identity.name;
-        const resumed = await resumeActive(me);
-        if (resumed) {
-            if (resumed.status !== 200) return res.status(resumed.status).json({ error: resumed.error });
-            return res.status(200).json(publicStartBody(resumed.token, me, true));
-        }
+        const opponent = safeName(typeof body.opponentName === 'string' ? body.opponentName : '');
+        const petId = typeof body.petId === 'string' ? body.petId.slice(0, 64) : '';
+        if (!opponent) return res.status(400).json({ error: 'Missing opponentName.' });
+        if (opponent === me) return res.status(400).json({ error: 'You cannot start a ranked match against yourself.' });
 
-        // The rollout switch blocks only fresh admission. Recovery is checked
-        // first so either authenticated participant can help a durable preclaim
-        // or partial settlement forward during an emergency disable/rollback.
-        if (!petRankedStartsEnabled()) {
-            return res.status(503).json({ error: PET_RANKED_DISABLED_REASON });
-        }
+        const result = await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
+            const now = Date.now();
+            const registry = pruneRankedPetActiveRegistry(
+                await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY),
+                now,
+            );
 
-        const season = await kv.get<{ id?: unknown }>(RANKED_SEASON_CURRENT_KEY);
-        const seasonId = Number(season?.id);
-        if (!Number.isSafeInteger(seasonId) || seasonId <= 0) {
-            return res.status(503).json({ error: 'A ranked season is not active.' });
-        }
-        await ensurePetRankedSeasonGate(kv, seasonId, Date.now());
-
-        const mine = await kv.get<PetRankedQueueMatch>(petRankedQueueMatchKey(me));
-        const opponent = safeName(mine?.opponent ?? '');
-        const theirs = opponent
-            ? await kv.get<PetRankedQueueMatch>(petRankedQueueMatchKey(opponent))
-            : null;
-        const pairing = validateReciprocalPetRankedQueueMatch(me, mine, theirs);
-        if (!pairing.ok) {
-            return res.status(409).json({ error: 'A fresh reciprocal server-ranked pairing is required.' });
-        }
-
-        const players = [me, pairing.opponent].sort() as [string, string];
-        const result = await lock(`pet-ranked-start:${pairing.matchId}`, async (): Promise<StartResult> => {
-            const existingPreparation = await loadPetRankedPreparation(kv, pairing.matchId);
-            if (existingPreparation) {
-                if (existingPreparation.a !== players[0] || existingPreparation.b !== players[1]) {
-                    return { status: 409, error: 'The ranked preparation does not match this pairing.' };
+            // Lost-response replay. The reciprocal queue records are consumed
+            // only after this shared registry and the proof are both durable.
+            const active = registry[me];
+            if (active) {
+                if (active.opponent !== opponent || active.initiator !== true) {
+                    return { status: 409, body: { error: 'You already have an active ranked pet match.' } };
                 }
-                return settlePreparation(existingPreparation);
-            }
-            // A concurrent caller may already have won the NX receipt. Reuse it
-            // only if it is bound to this exact server pairing.
-            const existing = await loadPetRankedAuthorityToken(kv, pairing.matchId);
-            if (existing) {
-                if (!tokenMatchesPair(existing, pairing.matchId, players)) {
-                    return { status: 409, error: 'The ranked match receipt does not match this pairing.' };
+                const claim = await kv.get<RankedPetStartClaim>(petRankedStartClaimKey(active.pairId));
+                if (!isRankedPetStartClaim(claim)
+                    || claim.matchToken !== active.matchToken
+                    || !claimNamesMatch(claim, me, opponent)) {
+                    return { status: 409, body: { error: 'Your active ranked match authority is incomplete. Wait for it to expire, then queue again.' } };
                 }
-                return settleAuthorityToken(existing);
+                if (await kv.get(`pet:ranked-result:${claim.matchToken}`)) {
+                    return { status: 409, body: { error: 'That ranked pet match is already settled.' } };
+                }
+                // Repair either half after a process/storage failure. Updating the
+                // registry is one write, so both names point at the same token.
+                registry[me] = pointerFor(claim, opponent, true);
+                registry[opponent] = pointerFor(claim, me, false);
+                await kv.set(PET_RANKED_ACTIVE_REGISTRY_KEY, registry, { ex: ACTIVE_REGISTRY_TTL_SECONDS });
+                const remainingTtl = Math.max(1, Math.ceil((claim.expiresAt - now) / 1000));
+                await kv.set(`pet:ranked-token:${claim.matchToken}`, claim.token, { ex: remainingTtl });
+                return {
+                    status: 200,
+                    body: { ok: true, replayed: true, matchToken: claim.matchToken, opponentName: opponent, seed: claim.token.seed },
+                };
             }
 
-            // Re-read both queue records inside the match lock so a stale browser
-            // cannot race a leave/requeue and resolve an obsolete opponent.
-            const [lockedMine, lockedTheirs] = await Promise.all([
-                kv.get<PetRankedQueueMatch>(petRankedQueueMatchKey(me)),
-                kv.get<PetRankedQueueMatch>(petRankedQueueMatchKey(pairing.opponent)),
+            const [myMatch, opponentMatch] = await Promise.all([
+                kv.get(petRankedQueueMatchKey(me)),
+                kv.get(petRankedQueueMatchKey(opponent)),
             ]);
-            const lockedPairing = validateReciprocalPetRankedQueueMatch(me, lockedMine, lockedTheirs);
-            if (!lockedPairing.ok || lockedPairing.matchId !== pairing.matchId) {
-                return { status: 409, error: 'The server-ranked pairing expired or changed.' };
+            if (!isPetRankedQueueMatch(myMatch)
+                || !isPetRankedQueueMatch(opponentMatch)
+                || myMatch.opponent !== opponent
+                || opponentMatch.opponent !== me
+                || myMatch.initiator !== true
+                || opponentMatch.initiator !== false
+                || myMatch.pairId !== opponentMatch.pairId
+                || Number(myMatch.createdAt) !== Number(opponentMatch.createdAt)) {
+                return { status: 409, body: { error: 'Both players must be paired by the ranked pet queue before a match can start.' } };
+            }
+            const age = now - Number(myMatch.createdAt);
+            if (age < -5_000 || age > PET_RANKED_QUEUE_MATCH_TTL_SECONDS * 1_000) {
+                return { status: 409, body: { error: 'That ranked pet queue match expired. Queue again.' } };
+            }
+            if (registry[opponent]) {
+                return { status: 409, body: { error: 'Your opponent already has an active ranked pet match.' } };
             }
 
-            try {
-                const gate = await readPetRankedSeasonGateFresh(kv);
-                const currentSeason = await kv.get<{ id?: unknown }>(RANKED_SEASON_CURRENT_KEY);
-                if (!gate
-                    || gate.state !== 'open'
-                    || gate.seasonId !== seasonId
-                    || Number(currentSeason?.id) !== seasonId) {
-                    return { status: 409, error: 'The ranked season is closing; wait for the next season.' };
-                }
-
-                // Reversible preflight comes before save snapshots, simulation,
-                // and season admission. A foreign/second-key conflict releases
-                // the first exact sentinel and returns 409 with no economic work.
-                const starting = await claimPetRankedStartingPair(kv, players, pairing.matchId);
-                if (!starting.ok) {
-                    return { status: 409, error: 'One participant is already committed to another pet battle.' };
-                }
-                let preparationCommitted = false;
-
-                try {
-
-                    const [aSave, bSave] = await Promise.all([
-                        kv.get<Record<string, unknown>>(`save:${players[0]}`),
-                        kv.get<Record<string, unknown>>(`save:${players[1]}`),
-                    ]);
-                    const aCharacter = aSave?.character as Record<string, unknown> | undefined;
-                    const bCharacter = bSave?.character as Record<string, unknown> | undefined;
-                    const now = Date.now();
-                    const aChoice = chooseAuthoritativeRankedPet(aCharacter, now);
-                    const bChoice = chooseAuthoritativeRankedPet(bCharacter, now);
-                    if (!aChoice.ok || !bChoice.ok) {
-                        const reason = !aChoice.ok
-                            ? aChoice.reason
-                            : !bChoice.ok
-                                ? bChoice.reason
-                                : 'no-entitled-pet';
-                        const error = reason === 'all-entitled-pets-busy'
-                            ? 'Both players need an entitlement-eligible pet that is not breeding, training, or on an expedition.'
-                            : 'Both players need an entitlement-eligible carried pet.';
-                        return { status: 409, error };
-                    }
-
-                // The body is not parsed: even a forged opponent/pet/seed/outcome
-                // is incapable of becoming an engine input.
-                    const candidate = resolveAuthoritativePetRankedMatch({
-                    matchId: pairing.matchId,
-                    a: players[0],
-                    b: players[1],
-                    aCharacter: aCharacter!,
-                    bCharacter: bCharacter!,
-                    aPet: aChoice.pet,
-                    bPet: bChoice.pet,
-                    seed: randomInt(1, 0x80000000),
-                    now,
-                });
-                    const proposed = makePetRankedPreparation(candidate, {
-                        seasonId: gate.seasonId,
-                        epoch: gate.epoch,
-                    });
-                    const preparation = await reservePetRankedPreparation(kv, proposed);
-                    preparationCommitted = true;
-                    const settled = await settlePreparation(preparation);
-                    return settled.status === 200
-                        ? { ...settled, resumed: preparation.tokenFingerprint !== proposed.tokenFingerprint }
-                        : settled;
-                } finally {
-                    if (!preparationCommitted) {
-                        await releasePetRankedStartingPair(kv, players, pairing.matchId);
-                    }
-                }
-            } catch (writeOrSettleError) {
-                throw writeOrSettleError;
+            const claimKey = petRankedStartClaimKey(myMatch.pairId);
+            let claim = await kv.get<RankedPetStartClaim>(claimKey);
+            if (claim && (!isRankedPetStartClaim(claim) || !claimNamesMatch(claim, me, opponent))) {
+                return { status: 409, body: { error: 'That queue pairing has conflicting match authority.' } };
             }
-        });
 
-        if (result.status !== 200) return res.status(result.status).json({ error: result.error });
-        return res.status(200).json(publicStartBody(result.token, me, result.resumed));
+            if (!claim) {
+                // Both fighters must have a save and an available pet. No request-
+                // body seed or opponent snapshot is ever accepted.
+                const [meSave, opponentSave] = await Promise.all([
+                    kv.get<Record<string, unknown>>(`save:${me}`),
+                    kv.get<Record<string, unknown>>(`save:${opponent}`),
+                ]);
+                if (!meSave?.character) return { status: 400, body: { error: 'Your character save was not found.' } };
+                if (!opponentSave?.character) return { status: 404, body: { error: 'Opponent save not found.' } };
+                const meCharacter = meSave.character as Record<string, unknown>;
+                const opponentCharacter = opponentSave.character as Record<string, unknown>;
+                const myPet = selectRankedPet(meCharacter, petId);
+                const opponentPet = selectRankedPet(opponentCharacter);
+                if (!myPet || !opponentPet) {
+                    return { status: 409, body: { error: 'Both players need a pet that is not training, breeding, or on an expedition.' } };
+                }
+
+                const matchToken = randomUUID();
+                const token: RankedPetMatchToken = {
+                    authority: PET_RANKED_AUTHORITY,
+                    pairId: myMatch.pairId,
+                    a: me,
+                    b: opponent,
+                    aRating: petRatingOf(meSave),
+                    bRating: petRatingOf(opponentSave),
+                    aPet: myPet,
+                    bPet: opponentPet,
+                    seed: randomInt(1, 2 ** 31),
+                    createdAt: now,
+                };
+                const candidate: RankedPetStartClaim = {
+                    version: 1,
+                    matchToken,
+                    pairId: myMatch.pairId,
+                    token,
+                    expiresAt: now + PET_RANKED_TOKEN_TTL_SECONDS * 1_000,
+                };
+                const placed = await kv.set(claimKey, candidate, { nx: true, ex: PET_RANKED_TOKEN_TTL_SECONDS });
+                claim = placed ? candidate : await kv.get<RankedPetStartClaim>(claimKey);
+                if (!isRankedPetStartClaim(claim) || !claimNamesMatch(claim, me, opponent)) {
+                    throw new Error('Could not establish one ranked pet start claim.');
+                }
+            }
+
+            // One atomic registry write reserves both participants before the
+            // proof can be returned or a second pairing can start.
+            registry[me] = pointerFor(claim, opponent, true);
+            registry[opponent] = pointerFor(claim, me, false);
+            await kv.set(PET_RANKED_ACTIVE_REGISTRY_KEY, registry, { ex: ACTIVE_REGISTRY_TTL_SECONDS });
+            await kv.set(`pet:ranked-token:${claim.matchToken}`, claim.token, { ex: PET_RANKED_TOKEN_TTL_SECONDS });
+            await Promise.allSettled([
+                kv.del(petRankedQueueMatchKey(me)),
+                kv.del(petRankedQueueMatchKey(opponent)),
+            ]);
+            return {
+                status: 200,
+                body: { ok: true, matchToken: claim.matchToken, opponentName: opponent, seed: claim.token.seed },
+            };
+        }, { failClosed: true });
+
+        return res.status(result.status).json(result.body);
     } catch (error) {
-        console.error('[pet/ranked-start]', safeLogValue(error));
-        return res.status(503).json({ error: 'Could not resolve the server-ranked pet match. Retry the same pairing.' });
+        console.error('[pet/ranked-start]', error);
+        if (error instanceof LockContendedError) {
+            return res.status(503).json({ error: 'Ranked pet matchmaking is busy. Please retry.' });
+        }
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

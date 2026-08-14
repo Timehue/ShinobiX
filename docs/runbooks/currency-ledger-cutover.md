@@ -43,22 +43,9 @@ server-owned or clamped. Adding a currency there adds it here.
 ## Verification loop (do this before any cutover)
 
 ```bash
-npm run ledger:audit -- --target=staging --confirm-storage=$STAGING_STORAGE_FINGERPRINT --json
-# Then, only in the staging service shell:
-ALLOW_STAGING_INTEGRITY_REPAIR=1 npm run ledger:backfill -- \
-  --target=staging --confirm-additive-repair=ADD_SIDE_CARS_ONLY \
-  --confirm-storage=$STAGING_STORAGE_FINGERPRINT
-npm run ledger:audit -- --target=staging --confirm-storage=$STAGING_STORAGE_FINGERPRINT --json
+npm run ledger:backfill   # once, to project pre-P0-5 saves
+npm run ledger:audit      # repeatedly; must exit 0
 ```
-
-Production targets are intentionally unsupported by the maintenance CLI. See
-`docs/runbooks/integrity-and-patreon-staging-certification.md` for the complete
-dry-run, repair, artifact, and rollback-safety procedure.
-
-`ledger:audit` and `ledger:backfill` remain stable operator command names. Both
-now route through the combined integrity scanner, and `ledger:backfill` invokes
-the same guarded additive `--repair` mode; it does not bypass the staging
-identity, deny-set, latch, or confirmation checks.
 
 Cutover is gated on: **zero divergent records across several days of normal
 play**, including at least one ranked-season rollover, one clan-boss weekly

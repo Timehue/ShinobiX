@@ -62,7 +62,7 @@ describe('player-ranked queue to session wiring', () => {
         const battle = source('../screens/PvpBattleScreen.tsx');
         assert.match(battle, /playerRankedV2ItemsDisabled = session\?\.playerRankedAuthorityVersion === 2/);
         assert.match(battle, /Consumables and thrown weapons are disabled in Player Ranked during the V2 rollout/);
-        assert.match(battle, /disabled=\{playerRankedV2ItemsDisabled \|\| submitting/);
+        assert.match(battle, /disabled=\{!isMyTurn \|\| playerRankedV2ItemsDisabled \|\| submitting/);
         assert.match(battle, /if \(onCooldown \|\| playerRankedV2ItemsDisabled\) return/);
     });
 });

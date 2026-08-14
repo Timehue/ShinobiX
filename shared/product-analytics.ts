@@ -15,13 +15,6 @@ export const PRODUCT_EVENT_NAMES = [
     'clan_boss_party_state_changed',
     'clan_boss_operation_started',
     'clan_boss_operation_settled',
-    'supporter_page_viewed',
-    'patreon_connection_started',
-    'patreon_connection_succeeded',
-    'patreon_connection_failed',
-    'locked_jutsu_slot_inspected',
-    'sanctuary_overflow_explanation_viewed',
-    'subscription_entitlement_refresh_failed',
 ] as const;
 
 export type ProductEventName = (typeof PRODUCT_EVENT_NAMES)[number];

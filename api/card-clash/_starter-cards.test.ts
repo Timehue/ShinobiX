@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { chronicleUnlocked, claimStarterCards, STARTER_CARDS_MIN_LEVEL } from './_starter-cards.js';
+import { chronicleUnlocked, claimStarterCards, starterCardTopUp, STARTER_CARDS_MIN_LEVEL } from './_starter-cards.js';
 import { CHRONICLE_STARTER_GRANT_IDS, countChronicleCards, getChronicleCard } from '../../shared/chronicle-duel.js';
+import { CARD_COLLECTION_CAP, countPackableChronicleCards } from './_collection-cap.js';
 
 describe('claimStarterCards', () => {
     it('grants the full traveler\'s codex (the existing starter floor) to an empty collection', () => {
@@ -34,12 +35,14 @@ describe('claimStarterCards', () => {
         assert.ok((owned.get(someId) ?? 0) >= someCount);
     });
 
-    it('rejects a second claim (one-time latch)', () => {
+    it('replays the authoritative codex without duplicating cards after a lost response', () => {
         const first = claimStarterCards({ level: 20, tileCards: [] });
         assert.ok(first.ok);
         const second = claimStarterCards(first.character);
-        assert.equal(second.ok, false);
-        assert.equal(!second.ok && second.reason, 'already-claimed');
+        assert.ok(second.ok);
+        assert.equal(second.replayed, true);
+        assert.deepEqual(second.granted, []);
+        assert.deepEqual(second.character.tileCards, first.character.tileCards);
     });
 
     it('rejects players below the scribe\'s level band', () => {
@@ -54,6 +57,38 @@ describe('claimStarterCards', () => {
         const owned = result.character.tileCards as string[];
         assert.ok(owned.includes('tc-142'), 'existing collection must survive the claim');
         assert.equal(owned.length, 1 + result.granted.length);
+    });
+
+    it('backfills completed story records during the Scribe claim without exposing Card Hall early', () => {
+        const result = claimStarterCards({
+            level: 20,
+            village: 'Stormveil Village',
+            storyProgress: 2,
+            tileCards: [],
+        });
+        assert.ok(result.ok);
+        assert.deepEqual(result.progressionGranted, [
+            'story-story-ai-stormveil-village-4',
+            'story-story-ai-stormveil-village-15',
+        ]);
+        assert.equal(result.starterGranted.length, CHRONICLE_STARTER_GRANT_IDS.length);
+        for (const id of result.progressionGranted) assert.ok((result.character.tileCards as string[]).includes(id));
+    });
+
+    it('reserves the complete onboarding floor outside the packable inventory cap', () => {
+        const full = Array.from({ length: CARD_COLLECTION_CAP }, () => 'tc-142');
+        const result = claimStarterCards({ level: 20, tileCards: full });
+        assert.ok(result.ok);
+        assert.deepEqual(result.starterGranted, CHRONICLE_STARTER_GRANT_IDS);
+        assert.equal(result.character.starterCardsClaimed, true);
+        assert.equal(countPackableChronicleCards(result.character.tileCards), CARD_COLLECTION_CAP);
+    });
+
+    it('does not make a nearly full legacy collection choose between its cards and a legal codex', () => {
+        const current = Array.from({ length: CARD_COLLECTION_CAP - 3 }, () => 'tc-142');
+        const toppedUp = starterCardTopUp(current);
+        assert.deepEqual(toppedUp.granted, CHRONICLE_STARTER_GRANT_IDS);
+        assert.equal(countPackableChronicleCards([...toppedUp.current, ...toppedUp.granted]), CARD_COLLECTION_CAP - 3);
     });
 });
 

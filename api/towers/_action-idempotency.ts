@@ -69,12 +69,16 @@ export function inspectTowerActionCommand(
     return { status: 'proceed', moveToken, expectedVersion, currentVersion };
 }
 
-/** Commit metadata only after the combat mutation has applied. */
-export function commitTowerActionMetadata(
+/**
+ * Bind a successful command token to its exact intent without advancing the
+ * combat revision. This is used by mutations (for example MPvP forfeit) whose
+ * authoritative reducer already advanced the revision itself.
+ */
+export function rememberTowerActionMetadata(
     session: TowerSession,
     moveToken?: string,
     commandFingerprint?: string,
-): number {
+): void {
     if (moveToken) {
         session.recentMoveTokens = [...(session.recentMoveTokens ?? []), moveToken]
             .slice(-TOWER_MOVE_TOKEN_HISTORY);
@@ -87,6 +91,15 @@ export function commitTowerActionMetadata(
             ].filter(receipt => retained.has(receipt.token)).slice(-TOWER_MOVE_TOKEN_HISTORY);
         }
     }
+}
+
+/** Commit metadata only after the combat mutation has applied. */
+export function commitTowerActionMetadata(
+    session: TowerSession,
+    moveToken?: string,
+    commandFingerprint?: string,
+): number {
+    rememberTowerActionMetadata(session, moveToken, commandFingerprint);
     const next = towerActionVersion(session) + 1;
     (session as VersionedTowerSession).actionVersion = next;
     return next;

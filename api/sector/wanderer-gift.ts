@@ -115,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     claimsLeft: Math.max(0, WANDERER_GIFTS_PER_DAY - countAfter),
                     cooldownUntil: used.cooldownUntil,
                     moveToSector: used.moveToSector,
+                    _saveVersion: Number(record._saveVersion ?? 0),
                 },
             };
         }, { failClosed: true });

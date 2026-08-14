@@ -127,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 try { if (await hasRecentIpOrFpOverlap(playerName, studentName)) return res.status(403).json({ error: 'Mentor reward voided: you and the student share a connection.' }); } catch { /* fail open */ }
             }
 
-            const out = await withKvLock<{ status: number; body: unknown; paid?: number }>(senseiKey(playerName), async () => {
+            const out = await withKvLock<{ status: number; body: unknown; paid?: number; character?: Record<string, unknown>; _saveVersion?: number }>(senseiKey(playerName), async () => {
                 const rec = loadRecord(await kv.get<MentorRecord>(senseiKey(playerName)));
                 const entry = rec.students.find((s) => s.studentSlug === studentName);
                 if (!entry) return { status: 404, body: { error: 'That player is not your student.' } };
@@ -153,10 +153,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(senseiKey(playerName), rec);
 
                 // Credit the sensei (Honor Seals + clan contribution) under their save lock.
-                await withKvLock<void>(`save:${playerName}`, async () => {
+                const senseiCredit = await withKvLock<{ character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`, async () => {
                     const r = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const c = (r?.character ?? null) as Record<string, unknown> | null;
-                    if (r && c) await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } }), r));
+                    if (!r || !c) return {};
+                    const character = { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib };
+                    const nextRecord = bumpSaveVersion({ ...r, character });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, r));
+                    return { character, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
                 }, { failClosed: true });
 
                 // Boost the student (ryo) under their save lock.
@@ -166,10 +170,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }), r));
                 }, { failClosed: true });
 
-                return { status: 200, body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable }, paid: claimable.length };
+                return {
+                    status: 200,
+                    body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable },
+                    paid: claimable.length,
+                    character: senseiCredit.character,
+                    _saveVersion: senseiCredit._saveVersion,
+                };
             }, { failClosed: true });
 
-            let awardedCharacter: Record<string, unknown> | undefined;
+            let awardedCharacter = out.character;
+            let awardedSaveVersion = out._saveVersion;
             if (out.paid) {
                 await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, sensei: playerName, student: studentName, milestones: out.paid }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
                 const award = await awardClanPointsToPlayerSave(playerName, 'mentorMilestone', Math.min(100, out.paid * 25), {
@@ -177,9 +188,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     student: studentName,
                     milestones: out.paid,
                 });
-                if (award.found) awardedCharacter = award.character;
+                if (award.found) {
+                    awardedCharacter = award.character;
+                    awardedSaveVersion = award._saveVersion;
+                }
             }
-            return res.status(out.status).json({ ...(out.body as Record<string, unknown>), character: awardedCharacter });
+            return res.status(out.status).json({
+                ...(out.body as Record<string, unknown>),
+                ...(awardedCharacter ? { character: awardedCharacter } : {}),
+                ...(awardedSaveVersion !== undefined ? { _saveVersion: awardedSaveVersion } : {}),
+            });
         }
 
         // ── RELEASE (end the pairing) ───────────────────────────────────────────

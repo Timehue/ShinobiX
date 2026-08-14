@@ -6,13 +6,14 @@ import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { gameToast } from "../components/GameToast";
+import type { VersionedCharacterCommit } from "../types/character";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
 // figure shown here matches the server's authoritative payout. Keep in lockstep.
 const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
 
-export function Bank({ character, updateCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onBack: () => void }) {
+export function Bank({ character, updateCharacter, onVersionedCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
     const [bankBusy, setBankBusy] = useState(false);
     const bankBusyRef = useRef(false);
@@ -78,9 +79,9 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ playerName: character.name, direction, amount: value }),
             });
-            const data = await response.json().catch(() => null) as { error?: string; character?: Character } | null;
+            const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
             if (!response.ok || !data?.character) throw new Error(data?.error || "Bank transfer failed.");
-            updateCharacter(data.character);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setAmount(0);
         } catch (error) {
             alert(error instanceof Error ? error.message : "Bank transfer failed.");

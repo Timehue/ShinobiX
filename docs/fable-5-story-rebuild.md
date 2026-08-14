@@ -566,7 +566,7 @@ new connective events. Functions kept, levels reassigned:
 | 26 | The Second Teacher | a foreign doctrine, then a test of whether it holds under raid |
 | 31 | Three Footprints, One Body | intent echo — the Gate copies desperation, not bodies |
 | 34 | What the Withheld Kept *(new)* | first Withheld contact: a sealed cache that opens only for a refusal |
-| 38 | The Shrine That Both Sides Own | two villages, one shrine, trapped pilgrims, a relic choice |
+| 38 | The Shrine That Both Sides Own | two villages, one shrine, trapped villagers, a relic choice |
 | 44 | A Legacy Without a Name | reconstruct one act from three conflicting accounts |
 | 48 | The Unsworn's Ledger *(new)* | Harrow met mid-job for a rival village — the rival thread on the road |
 | 52 | Hostages at Black Bridge | a prisoner exchange collapses; diplomacy under fire |

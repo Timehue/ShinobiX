@@ -8,13 +8,39 @@
 import { useId, useMemo, useState } from "react";
 import type { Character } from "../types/character";
 import { applyVnTextVars, vnTextVarsFor } from "../lib/vn";
-import { buildCompletedStoryArchive } from "../lib/story-archive";
+import { buildCompletedStoryArchive, storyArchiveGuidance } from "../lib/story-archive";
+import { isStoryContentVillage } from "../lib/story-content-contract";
+import { readStoryContent } from "../lib/story-content-loader";
+import "../styles/story-archive-guidance.css";
 
-export function StoryJourney({ character }: { character: Character }) {
+export function StoryJourney({ character, onReturnToVillage }: { character: Character; onReturnToVillage?: () => void }) {
+    const village = character.storyVillage || character.village;
+    if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
+    const content = readStoryContent(village);
     const [openId, setOpenId] = useState<string | null>(null);
     const archiveHeadingId = useId();
+    const guidanceHeadingId = useId();
     const textVars = useMemo(() => vnTextVarsFor(character), [character]);
-    const archive = useMemo(() => buildCompletedStoryArchive(character), [character]);
+    const archive = useMemo(() => buildCompletedStoryArchive(character, content), [character, content]);
+    const guidance = storyArchiveGuidance(character, content);
+
+    const guidancePanel = (
+        <aside className={`story-archive-guidance is-${guidance.state}`} aria-labelledby={guidanceHeadingId}>
+            <div>
+                <p className="story-archive-guidance__kicker">{guidance.kicker}</p>
+                <h3 id={guidanceHeadingId}>{guidance.title}</h3>
+                <p>{guidance.body}</p>
+                {guidance.state !== "complete" && (
+                    <p className="story-archive-guidance__recovery">
+                        Unfinished chapters are never consumed or archived. If a battle or reward seal was interrupted, reload and the current chapter can be offered again.
+                    </p>
+                )}
+            </div>
+            {guidance.actionLabel && onReturnToVillage ? (
+                <button type="button" onClick={onReturnToVillage}>{guidance.actionLabel}</button>
+            ) : null}
+        </aside>
+    );
 
     if (archive.length === 0) {
         return (
@@ -26,6 +52,7 @@ export function StoryJourney({ character }: { character: Character }) {
                     </div>
                     <span className="story-archive-count">0 archived</span>
                 </div>
+                {guidancePanel}
                 <p>Your first completed chapter will be preserved here. Unfinished and future storylines remain off the shelf.</p>
             </section>
         );
@@ -43,6 +70,7 @@ export function StoryJourney({ character }: { character: Character }) {
             <p className="story-archive-intro">
                 A permanent, read-only record of the chapters and choices you have finished.
             </p>
+            {guidancePanel}
             <div className="story-archive-list">
                 {archive.map((entry) => {
                     const open = openId === entry.id;

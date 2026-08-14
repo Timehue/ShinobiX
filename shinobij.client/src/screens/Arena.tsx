@@ -14,7 +14,7 @@ import {
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
-import type { Character, PlayerRecord, BattleHistoryEntry } from "../types/character";
+import type { Character, PlayerRecord, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
@@ -49,13 +49,13 @@ import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
-import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
-import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { battlefieldAiSprite, defaultAiRivalSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
@@ -83,6 +83,8 @@ import { getAllItems, getItemById } from "../lib/items";
 import { countItem, removeItem } from "../lib/inventory";
 import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { requestAiFight } from "../lib/ai-fight-request";
+import { publishedPracticeOpponentForLevel } from "../lib/creator-event-practice";
 import { useBoardScale } from "../lib/use-board-scale";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
@@ -93,26 +95,25 @@ import {
     petHappiness,
 } from "../lib/pet";
 import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
-import { clientPetCombatBusyMessage, clientPetCombatBusyReason } from "../lib/pet-combat-busy";
 import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
-import { postPlayerChallengeTerminal } from "../lib/player-api";
 import {
     playerRankedAuthorityFromChallenge,
     playerRankedAuthorityFromQueueMatch,
     type PlayerRankedAuthority,
 } from "../lib/player-ranked-authority";
+import { postPlayerChallengeNotice } from "../lib/player-api";
 import { boostAmount } from "../lib/village-upgrades";
 import { rankedDelta } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
-import { activeCarriedPets, activeJutsuLoadoutIds } from "../lib/entitlements";
+import { activeCarriedPets } from "../lib/entitlements";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import {
     getAllJutsus,
@@ -131,6 +132,7 @@ export function Arena({
     lobbyMode = "battleArena",
     character,
     updateCharacter,
+    onVersionedCharacter,
     savedBloodlines,
     creatorJutsus,
     creatorAis,
@@ -168,12 +170,12 @@ export function Arena({
     onBattleActiveChange,
     directCombat = false,
     onReturnFromCombat,
-    onQueueCombatClaim,
     onRecordBattle,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
     updateCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorAis: CreatorAi[];
@@ -218,11 +220,8 @@ export function Arena({
     // can block travelling out of any arena fight (AI, ranked, endless, story,
     // human). Fires false on resolve/unmount.
     onBattleActiveChange?: (active: boolean) => void;
-    // True when this is a "launched" fight — a mission / hunt / world-map encounter
-    // dropped straight into combat on the dedicated `arena` screen — as opposed to a
-    // Battle Arena lobby spar (`battleArena`). Launched fights drop the "Fight Again"
-    // loop (which re-ran the same fight for XP without re-crediting the mission) and
-    // instead send the player back to the screen they came from via onReturnFromCombat.
+    // Rolling-upgrade result-card affordance only. Current AI launchers use
+    // AiFightHost and never arm this reducer from the dedicated `arena` route.
     directCombat?: boolean;
     onReturnFromCombat?: () => void;
     // Queue a won combat-mission claim SERVER-SIDE (POST /api/missions/queue-combat-claim).
@@ -232,14 +231,12 @@ export function Arena({
     // a refresh, or a save-conflict refetch races and drops). The endpoint mints a
     // single-use claim token + writes the durable flag under the save lock; we
     // still set the local flag optimistically for instant UI + an autosave fallback.
-    onQueueCombatClaim?: (missionKey: string) => void;
     // Records this fight into the player's rolling battle-log history (Profile →
     // Battles) for later reflection. Display-only — carries no rewards.
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     type CombatStatus = {
         name: string;
-        source?: string;
         rounds: number;
         activeRound?: number;
         amount?: number;
@@ -327,11 +324,9 @@ export function Arena({
     // the server's sealed-loadout injection in api/pvp/session.ts. Element
     // "None" means it always passes the element gate.
     const playerLegacySignature = legacySignatureFor(character);
-    // Do not memoize this time-sensitive projection: admin-comps can expire while
-    // Arena stays mounted, and the roster is tiny (4/6), so recomputing is cheap.
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const equippedJutsus = [
-        ...activeJutsuLoadoutIds(character)
+        ...character.equippedJutsuIds
             .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
             .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines)),
         ...(playerLegacySignature ? [playerLegacySignature] : []),
@@ -594,7 +589,7 @@ export function Arena({
     }, []);
     useEffect(() => {
         let active = true;
-        fetch(`/api/pvp/ranked-queue?name=${encodeURIComponent(character.name)}`)
+        fetch(`/api/pvp/ranked-queue?name=${encodeURIComponent(character.name)}`, { cache: "no-store" })
             .then((response) => response.ok ? response.json() : null)
             .then((data: { enabled?: boolean; queueSize?: number } | null) => {
                 if (!active) return;
@@ -701,6 +696,7 @@ export function Arena({
     const opponentIsMerc = isMercAiId(pendingAiProfileId);
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : aiArmorFactorForProfile(pendingAiProfile ?? { level: opponentLevel });
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
+    const playerBattleAvatar = resolveOwnAvatar(character, sharedImages);
     const opponentAvatar = opponentCharacter?.avatarImage
         || (opponentCharacter ? (sharedImages['avatar:' + opponentCharacter.name.toLowerCase()] ?? '') : '')
         || pendingAiProfile?.image
@@ -715,10 +711,10 @@ export function Arena({
         || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
         || pendingAiProfile?.icon
         || "EN";
-    const playerBattleAvatar = resolveOwnAvatar(character, sharedImages);
     const opponentBattleSprite = opponentCharacter
         ? null
-        : battlefieldAiSprite(pendingAiProfile?.id ?? pendingAiProfileId, sharedImages);
+        : battlefieldAiSprite(pendingAiProfile?.id ?? pendingAiProfileId, sharedImages)
+            || (!pendingAiProfileId ? defaultAiRivalSprite() : null);
     // PvE difficulty curve — scale standard PvE AI enemy stats AND max HP by the
     // band for the ENCOUNTER's level (easy 1-30, medium 31-50, hard 51-90,
     // peer 91+). Excludes real PvP (opponentCharacter), the endless tower
@@ -1021,25 +1017,19 @@ export function Arena({
     const inspectedJutsu = equippedJutsus.find((jutsu) => jutsu.id === inspectedJutsuId);
     const inspectedCombatItem = combatEquippedItems.find((item) => item.id === inspectedCombatItemId);
     const activeBattlePet = combatEligiblePets.find((pet) => pet.id === character.activePetId);
-    const activeBattlePetBusyReason = activeBattlePet
-        ? clientPetCombatBusyReason(character, activeBattlePet)
-        : null;
-    const activeBattlePetBusyMessage = activeBattlePet && activeBattlePetBusyReason
-        ? clientPetCombatBusyMessage(activeBattlePetBusyReason, petDisplayName(activeBattlePet))
-        : "";
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
     // A summoned pet is a live on-field actor while it has HP and phases left.
     const isPetAlive = Boolean(summonedPet) && petHp > 0 && petTurnsRemaining > 0;
     const canSummonPet = Boolean(!opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
     const activeBattlePetCanSummon = Boolean(
         activeBattlePet &&
-        !activeBattlePetBusyReason &&
+        !isPetOnExpedition(activeBattlePet) &&
         (activeBattlePet.unlockedForPve || activeBattlePet.level >= 50),
     );
     const activeBattlePetSummonNote = !activeBattlePet
         ? "Choose an active pet in the Pet Yard"
-        : activeBattlePetBusyMessage
-            ? activeBattlePetBusyMessage
+        : isPetOnExpedition(activeBattlePet)
+            ? `${petDisplayName(activeBattlePet)} is on an expedition`
             : !activeBattlePet.unlockedForPve && activeBattlePet.level < 50
                 ? `Unlocks at pet level 50 (currently ${activeBattlePet.level})`
                 : `Summon ${petDisplayName(activeBattlePet)}`;
@@ -1321,23 +1311,10 @@ export function Arena({
     }, []);
 
     useEffect(() => {
-        // A pending AI is launch context for the dedicated direct-combat route
-        // (missions, hunts, story encounters). It can survive a route change or
-        // session restore, so never let it auto-start a fight from a casual hub.
-        // The Battle Arena lobby must require an explicit Start AI Battle tap.
-        if (!directCombat) return;
-        if (!pendingAiProfile || battleStarted) return;
-        const battleWeather = currentWeather;
-        setOpponentCharacter(null);
-        setAiLevel(pendingAiProfile.level);
-        // Start at the difficulty-SCALED full HP (enemyMaxHp), not the raw
-        // pendingAiProfile.hp: in standard PvE the bar's max applies the band HP
-        // multiplier, so seeding current HP from the unscaled value made an
-        // easy-band foe render as e.g. 3241/2430 (current > max). See
-        // lib/pve-difficulty.ts pveDifficultyHpMultiplier.
-        setEnemyHp(enemyMaxHp);
-        startPrefight(enemyMaxHp, `Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
-    }, [directCombat, pendingAiProfile?.id, battleStarted]);
+        // Retire pre-cutover browser snapshots. Every current AI launch enters
+        // AiFightHost; a catalog id alone can never arm the local reducer.
+        if (pendingAiProfileId) setPendingAiProfileId("");
+    }, [pendingAiProfileId]);
 
     useEffect(() => {
         if (lobbyMode === "arenaDistrict") return;
@@ -1369,19 +1346,12 @@ export function Arena({
     }
 
     function beginAiBattle() {
-        // Mirror enemyMaxHp's scaling for this path: a standard-PvE generic AI
-        // gets the band HP multiplier, so the starting current HP must be scaled
-        // too or the bar reads current > max (see the pendingAiProfile path).
-        const hpFactor = pveDifficultyHpMultiplier(aiLevel);
-        const hp = Math.max(1, Math.floor(maxHpForLevel(aiLevel) * hpFactor));
-        setPendingAiProfileId("");
-        setPendingPvpOpponent(null);
-        setRaidBattleKind("none");
-        setRankedBattleActive(false);
-        setClanWarPointsActive(0);
-        setOpponentCharacter(null);
-        setEnemyHp(hp);
-        startPrefight(hp, `AI battle started against a Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[currentWeather].name}.`);
+        if (!requestAiFight({
+            opponentId: publishedPracticeOpponentForLevel(aiLevel),
+            opponentLevel: aiLevel,
+            battleKind: "practice",
+            returnScreen: "arena",
+        })) alert("The sealed practice arena is unavailable. No fight was started.");
     }
 
     async function challengePlayer(
@@ -1414,8 +1384,7 @@ export function Arena({
         // pet ratings) so the rating swing is server-authoritative + exactly-once.
         // The SAME token rides the challenge to the responder and back via the
         // accepted notice, so both sides report it (the server NX-dedups per
-        // token, settling both accounts once). Mint failure is fail-closed; a
-        // client-only Elo fallback would make ranked settlement forgeable.
+        // token, settling both accounts once). Mint failure → local Elo fallback.
         let petRankedToken: string | undefined;
         const challengePet = isPetMode ? (combatEligiblePets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find(pet => !isPetOnExpedition(pet))) : undefined;
         const petBattleSeed = isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined;
@@ -1438,24 +1407,14 @@ export function Arena({
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ opponentName: opponent.name, petId: challengePet?.id, seed: petBattleSeed }),
                 });
-                const tokenData = await tokRes.json().catch(() => ({} as { matchToken?: string; error?: string }));
-                if (!tokRes.ok || typeof tokenData.matchToken !== "string") {
-                    alert(tokenData.error === "ranked-pet-server-authority-required"
-                        ? "Ranked pet battles are temporarily unavailable until server-authoritative matchmaking returns."
-                        : tokenData.error ?? "Ranked pet battles are temporarily unavailable.");
-                    return;
-                }
-                petRankedToken = tokenData.matchToken;
-            } catch {
-                alert("Ranked pet battles need the authoritative server. Reconnect and try again.");
-                return;
-            }
+                if (tokRes.ok) petRankedToken = ((await tokRes.json()) as { matchToken?: string }).matchToken;
+            } catch { /* fall back to local Elo estimate */ }
         }
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
             toName: opponent.name,
-            challenger: character,
+            challenger: { ...character, pets: combatEligiblePets },
             challengerJutsus: getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character),
             challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
             challengerPetId: challengePet?.id,
@@ -1500,21 +1459,21 @@ export function Arena({
         }
     }
 
-    async function declineChallenge(challenge: DuelChallenge) {
+    function declineChallenge(challenge: DuelChallenge) {
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-        const committed = await postPlayerChallengeTerminal(challenge, {
-            ...challenge,
-            accepted: false,
-            declined: true,
-            fromName: character.name,
-            toName: challenge.fromName,
-        });
-        if (!committed) {
-            setDuelChallenges(duelChallenges.some((candidate) => candidate.id === challenge.id)
-                ? duelChallenges
-                : [challenge, ...duelChallenges]);
-            alert("That challenge changed or expired before the decline could be authorized. It remains in your inbox.");
-        }
+        fetch('/api/player/challenge', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
+        }).catch(() => {});
+        fetch('/api/player/challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetName: challenge.fromName,
+                challenge: { ...challenge, declined: true, fromName: character.name, toName: challenge.fromName },
+            }),
+        }).catch(() => {});
     }
 
     async function acceptChallenge(challenge: DuelChallenge) {
@@ -1563,15 +1522,12 @@ export function Arena({
             const battleId = acceptData.battleId;
             if (acceptData.session) setPvpSeedSession?.(acceptData.session);
             // Push acceptance notification back so the original challenger gets routed to p1
-            const notified = await postPlayerChallengeTerminal(challenge, {
-                ...challenge, battleId, accepted: true, declined: false,
-                fromName: character.name, toName: challenge.fromName,
-            });
-            if (!notified) throw new Error("Challenge acceptance was not authorized.");
+            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId?.(battleId);
             setPvpRole?.("p2");
             setPvpBattleContext?.({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
             setScreen("pvpBattle");
+            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
             // Refuse to fall through to the local-sim arena. That fallback
             // used to grant ranked/clan-war wins from a CLIENT-decided
@@ -1580,7 +1536,8 @@ export function Arena({
             // transient session-create error clears.
             // (Arena's setDuelChallenges prop takes a DuelChallenge[] directly,
             // not the functional updater form — re-add by value.)
-            setDuelChallenges([challenge, ...duelChallenges.filter((candidate) => candidate.id !== challenge.id)]);
+            const stillPresent = duelChallenges.some(c => c.id === challenge.id);
+            if (!stillPresent) setDuelChallenges([challenge, ...duelChallenges]);
             alert("Couldn't reach the battle server to start the duel. The challenge is still in your inbox — try accepting again in a moment.");
         }
     }
@@ -1778,8 +1735,8 @@ export function Arena({
             setLog("No active pet selected. Choose one in the Pet Yard first.");
             return;
         }
-        if (activeBattlePetBusyReason) {
-            setLog(clientPetCombatBusyMessage(activeBattlePetBusyReason, petDisplayName(activeBattlePet)));
+        if (isPetOnExpedition(activeBattlePet)) {
+            setLog(`${petDisplayName(activeBattlePet)} is exploring and cannot join PvE battles.`);
             return;
         }
         if (!activeBattlePet.unlockedForPve && activeBattlePet.level < 50) {
@@ -2210,9 +2167,8 @@ export function Arena({
     function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">) {
         return !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT");
     }
-    function statusForJutsu(jutsu: Pick<Jutsu, "name" | "bloodlineRank" | "target" | "method">, status: CombatStatus): CombatStatus {
-        const sourced = { ...status, source: jutsu.name };
-        return bloodlineTagsResolveNextRound(jutsu) ? { ...sourced, rounds: status.rounds + 1, activeRound: turn + 1 } : sourced;
+    function statusForJutsu(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">, status: CombatStatus): CombatStatus {
+        return bloodlineTagsResolveNextRound(jutsu) ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 } : status;
     }
     // HUD display only: a deferred (not-yet-active) status carries an extra +1
     // round (statusForJutsu) so it survives the unconditional end-of-turn tick.
@@ -2636,29 +2592,28 @@ export function Arena({
         const finalDamage = Math.max(0, damage - blocked);
         const weaponLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
         const effectVal = item.weaponEffectValue ?? 0;
-        const weaponStatusSource = { source: item.name } as const;
 
         const effectLines: string[] = [];
         if (item.weaponEffect === "Absorb") {
-            setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Absorb", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Absorb: ${character.name} converts ${effectVal}% incoming damage into healing for 2 rounds.`);
         }
         if (item.weaponEffect === "Lifesteal") {
             // Match PvP/jutsu Lifesteal: apply a 2-round status that heals a % of
             // damage dealt on subsequent attacks (was a one-time instant heal).
-            setPlayerStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
+            setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
             effectLines.push(`Lifesteal: ${character.name} will heal ${effectVal}% of damage dealt for 2 rounds.`);
         }
         if (item.weaponEffect === "Reflect") {
-            setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Reflect: ${character.name} reflects ${effectVal}% damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Increase Damage Given") {
-            setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Increase Damage Given: ${character.name}'s next attacks deal ${effectVal}% more damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Decrease Damage Given") {
-            setEnemyStatuses((s) => [...s, { ...weaponStatusSource, name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "negative" }]);
             effectLines.push(`Decrease Damage Given: ${opponentName} deals ${effectVal}% less damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Shield") {
@@ -2666,11 +2621,11 @@ export function Arena({
             effectLines.push(`Shield: ${character.name} gains ${effectVal} shield.`);
         }
         if (item.weaponEffect === "Wound") {
-            setEnemyStatuses((s) => capWoundStacks([...s, { ...weaponStatusSource, name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]));
+            setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]));
             effectLines.push(`Wound: ${opponentName} takes ${effectVal} damage per round for 2 rounds.`);
         }
         if (item.weaponEffect === "Poison") {
-            setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }));
+            setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }));
             effectLines.push(COMBAT_RESOURCES_V2
                 ? `Poison: ${opponentName} is poisoned for 2 rounds — casting jutsu will hurt.`
                 : `Poison: ${opponentName} is poisoned — takes ${effectVal}% chakra as damage per round for 2 rounds.`);
@@ -2681,19 +2636,19 @@ export function Arena({
             for (const wt of item.weaponTags) {
                 const p = wt.percent;
                 if (wt.name === "Absorb") {
-                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Absorb", rounds: 2, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Absorb ${p}%`);
                 } else if (wt.name === "Lifesteal") {
                     // Match PvP/jutsu Lifesteal: 2-round status that heals a % of
                     // damage dealt on subsequent attacks (was a one-time instant heal).
-                    setPlayerStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
                     effectLines.push(`Lifesteal: ${character.name} will heal ${p}% of damage dealt for 2 rounds.`);
                 } else if (wt.name === "Siphon") {
                     // Siphon stays an instant one-time heal off this swing (per its tooltip).
                     const ls = Math.floor(cappedPostDamage(finalDamage, p));
                     if (ls > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + ls)); effectLines.push(`Siphon +${ls} HP`); }
                 } else if (wt.name === "Reflect") {
-                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Reflect ${p}%`);
                 } else if (wt.name === "Shield" || wt.name === "Barrier") {
                     // Use the same flat shield/heal magnitudes as jutsu (was a tiny
@@ -2704,48 +2659,48 @@ export function Arena({
                     setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
                     effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
                 } else if (wt.name === "Wound") {
-                    setEnemyStatuses((s) => capWoundStacks([...s, { ...weaponStatusSource, name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
+                    setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
                     effectLines.push(`Wound ${p}%`);
                 } else if (wt.name === "Poison") {
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Poison", rounds: 2, percent: p, kind: "negative" }));
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Poison ${p}%`);
                 } else if (tagMatchesName(wt.name, "Ignition")) {
-                    setEnemyStatuses((s) => [...s, { ...weaponStatusSource, name: "Ignition", rounds: 2, percent: p, kind: "negative" }]);
+                    setEnemyStatuses((s) => [...s, { name: "Ignition", rounds: 2, percent: p, kind: "negative" }]);
                     effectLines.push(`Ignition ${p}%`);
                 } else if (wt.name === "Drain") {
                     // Drain ticks read `amount` (fallback 250); store a real amount so
                     // the weapon's percent isn't silently flattened to 250.
                     const drainAmt = drainTickPVE(character.level);
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" }));
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" }));
                     effectLines.push(`Drain ${drainAmt}/round`);
                 } else if (wt.name === "Increase Damage Given") {
-                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% Damage Given`);
                 } else if (wt.name === "Increase Generals") {
                     // Self-buff: raises str/spd/int/wil (read by generalsBonusFromStatuses
                     // in calculateDamage). Mirrors the Increase Damage Given weapon branch.
-                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% General stats`);
                 } else if (wt.name === "Decrease Damage Taken") {
-                    setPlayerStatuses((s) => [...s, { ...weaponStatusSource, name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`-${p}% Damage Taken`);
                 } else if (wt.name === "Pierce") {
                     effectLines.push(`Pierce`);
                 } else if (wt.name === "Damage") {
                     effectLines.push(`+${p}% Damage`);
                 } else if (wt.name === "Recoil") {
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: "Recoil", rounds: 2, percent: p, kind: "negative" }));
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Recoil", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Recoil ${p}%`);
                 } else if (wt.name === "Stun Prevent" || wt.name === "Debuff Prevent") {
-                    setPlayerStatuses((s) => mergeCombatStatus(s, { ...weaponStatusSource, name: wt.name, rounds: 2, percent: p, kind: "positive" }));
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: wt.name, rounds: 2, percent: p, kind: "positive" }));
                     effectLines.push(`${wt.name}`);
                 } else if (wt.name === "Copy") {
                     const copied = activeStatuses(enemyStatuses).filter((st) => st.kind === "positive");
-                    if (copied.length) setPlayerStatuses((s) => copied.reduce((acc, c) => mergeCombatStatus(acc, { ...c, source: item.name, rounds: Math.min(2, c.rounds) }), s));
+                    if (copied.length) setPlayerStatuses((s) => copied.reduce((acc, c) => mergeCombatStatus(acc, { ...c, rounds: Math.min(2, c.rounds) }), s));
                     effectLines.push(`Copy ${copied.length} buff(s)`);
                 } else if (wt.name === "Mirror") {
                     const mirrored = activeStatuses(playerStatuses).filter((st) => st.kind === "negative" && st.name !== "Wound" && !statusMatchesName(st, "Ignition"));
-                    if (mirrored.length) setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, { ...m, source: item.name, rounds: Math.min(2, m.rounds) }), s));
+                    if (mirrored.length) setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, { ...m, rounds: Math.min(2, m.rounds) }), s));
                     effectLines.push(`Mirror ${mirrored.length} debuff(s)`);
                 }
             }
@@ -2849,22 +2804,22 @@ export function Arena({
         const isBothTarget = item.weaponEffectTarget === "both";
         const itemEffectLines: string[] = [];
         if (item.weaponEffect === "Increase Damage Given") {
-            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", source: item.name, rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             itemEffectLines.push(`boosts your damage by ${effectVal}% for 2 rounds`);
         }
         if (item.weaponEffect === "Decrease Damage Given") {
             // Always debuff enemy; if weaponEffectTarget === "both" also debuff self (Smoke Bomb)
             const smokeRounds = isBothTarget ? 1 : 2;
-            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", source: item.name, rounds: smokeRounds, percent: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: smokeRounds, percent: effectVal, kind: "negative" }]);
             if (isBothTarget) {
-                setPlayerStatuses((s) => [...s, { name: "Decrease Damage Given", source: item.name, rounds: 1, percent: effectVal, kind: "negative" }]);
+                setPlayerStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: 1, percent: effectVal, kind: "negative" }]);
                 itemEffectLines.push(`smoke fills the field — both you and ${opponentName} deal 0 damage for 1 round (Pierce bypasses)`);
             } else {
                 itemEffectLines.push(`reduces ${opponentName}'s damage by ${effectVal}% for 2 rounds`);
             }
         }
         if (item.weaponEffect === "Decrease Damage Taken") {
-            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", source: item.name, rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             itemEffectLines.push(`reduces damage you take by ${effectVal}% for 2 rounds`);
         }
         if (item.weaponEffect === "Shield") {
@@ -3066,21 +3021,14 @@ export function Arena({
             ? combatMissionByAiId(pendingAiProfile?.id ?? "")
             : undefined;
         if (combatMission) {
-            const queued = (base.pendingCombatMissionClaims ?? []).includes(combatMission.key)
-                ? (base.pendingCombatMissionClaims ?? [])
-                : [...(base.pendingCombatMissionClaims ?? []), combatMission.key];
-            const queuedChar = { ...base, hp: playerHp, pendingCombatMissionClaims: queued };
-            updateCharacter(queuedChar);
-            // Queue the claim SERVER-SIDE so it's durable and the Mission Hall claim
-            // can't be rejected `not-queued`. The endpoint mints a single-use claim
-            // token + writes the flag under the save lock; the local set above is
-            // just optimistic UI + an autosave fallback if this POST fails.
-            onQueueCombatClaim?.(combatMission.key);
+            // Ranked Mission Hall battles now start with a bound solo-PvE runId.
+            // A local Arena result has no server combat proof and must never mint
+            // a pending claim or enter the run-scoped outbox.
             setBattleEnded(true);
             setBattleResult("win");
             setRaidBattleKind("none");
             setClanWarPointsActive(0);
-            const claimNote = `${opponentName} defeated. Return to the Mission Hall to claim your ${combatMission.name} reward.`;
+            const claimNote = `${opponentName} defeated in an unverified legacy route. No mission reward was queued — restart ${combatMission.name} from the Mission Hall.`;
             setLog(claimNote);
             addCombatLog(claimNote);
             return;
@@ -3147,8 +3095,12 @@ export function Arena({
                     body: JSON.stringify({ ...rewardPayload, aiFightToken }),
                 }).then((r) => (r.ok ? r.json() : null));
             })
-            .then((data: { xp?: unknown; ryo?: unknown; character?: Partial<Character> } | null) => {
-                updateCharacter(buildWin(data?.character));
+            .then((data: { xp?: unknown; ryo?: unknown; character?: Partial<Character>; _saveVersion?: unknown } | null) => {
+                if (data?.character) {
+                    if (!onVersionedCharacter(buildWin(data.character), data._saveVersion)) return;
+                } else {
+                    updateCharacter(buildWin());
+                }
                 // Report what the server actually paid, not what we predicted.
                 // A null `data` means the token was missing or the report was
                 // refused — that grants nothing, and the banner must say so.
@@ -4135,8 +4087,8 @@ export function Arena({
         // Defer status effects to next round unless this is an INSTANT_EFFECT ground-zone jutsu.
         const deferEnemyStatus = (status: CombatStatus): CombatStatus =>
             !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
-                ? { ...status, source: jutsu.name, rounds: status.rounds + 1, activeRound: turn + 1 }
-                : { ...status, source: jutsu.name };
+                ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 }
+                : status;
         const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => capWoundStacks(mergeCombatStatus(s, deferEnemyStatus(status))));
         const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
 
@@ -5455,30 +5407,25 @@ export function Arena({
                                                     alert("Both players need a pet before this pet battle can start.");
                                                     return;
                                                 }
-                                                void (async () => {
-                                                    const committed = await postPlayerChallengeTerminal(challenge, {
-                                                        ...challenge,
-                                                        accepted: true,
-                                                        declined: false,
-                                                        fromName: character.name,
-                                                        toName: challenge.fromName,
-                                                        responderPetId: responderPet.id,
-                                                        responderPet,
-                                                    });
-                                                    if (!committed) {
-                                                        alert("That clan pet challenge changed or expired before acceptance. Nothing was started.");
-                                                        return;
-                                                    }
-                                                    savePendingClanPetBattle({
-                                                        clanName: character.clan,
-                                                        points: challenge.clanWarPoints ?? 25,
-                                                        opponentName: challenge.fromName,
-                                                        createdAt: Date.now(),
-                                                    });
-                                                    setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-                                                    setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
-                                                    setScreen("petArena");
-                                                })();
+                                                savePendingClanPetBattle({
+                                                    clanName: character.clan,
+                                                    points: challenge.clanWarPoints ?? 25,
+                                                    opponentName: challenge.fromName,
+                                                    createdAt: Date.now(),
+                                                });
+                                                setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+                                                fetch('/api/player/challenge', {
+                                                    method: 'DELETE',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
+                                                }).catch(() => {});
+                                                fetch('/api/player/challenge', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
+                                                }).catch(() => {});
+                                                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+                                                setScreen("petArena");
                                                 return;
                                             }
                                             acceptChallenge(challenge);
@@ -5639,16 +5586,8 @@ export function Arena({
                     enemyMaxHp={enemyMaxHp}
                 />
             )}
-            {/* Server battle-lock keeper — registers an un-skippable lock while a
-                live arena fight can ACTUALLY resume from disk, so a refresh can't
-                flee it. Limited to plain AI-profile fights: those rebuild from the
-                persisted pendingAiProfileId + ArenaBattlePersister. Story / weekly
-                boss / dungeon-AI / human-opponent (spar) fights carry
-                their enemy + context in React-only state that a refresh loses, so
-                the persister can't restore them — locking those would force re-
-                entry into an empty lobby and (after the persister TTL) a false
-                loss. They stay on the Phase-A safe-routing until each gets its own
-                context-persister. PvP/ranked have their own server session. */}
+            {/* Legacy safety net only. Current AI/PvP launches use server hosts;
+                App retires any pre-cutover local lock without paying or punishing. */}
             <BattleLockKeeper
                 active={battleStarted && !battleEnded
                     && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
@@ -5657,11 +5596,8 @@ export function Arena({
                 screen="arena"
                 playerName={character.name}
             />
-            {/* Story/boss/event arena fights (kind="arenaStory") — weekly boss,
-                dungeon-AI warden, arena story boss, triggered-event battle, hollow-
-                gate arena fight. All carry a pendingArenaStoryBattle, persisted by
-                the App-level arena-story context effect so they resume on refresh.
-                Mutually exclusive with the other two keepers. */}
+            {/* Pre-cutover story-lock guard. No current story, creator-event,
+                Academy, Dungeon, or Hollow Gate launch enters this reducer. */}
             <BattleLockKeeper
                 active={battleStarted && !battleEnded
                     && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
@@ -5670,8 +5606,8 @@ export function Arena({
                 screen="arena"
                 playerName={character.name}
             />
-            {/* Mid-battle state persistence — isolated in a child component
-                so Arena's hook count is unchanged. Renders nothing visible. */}
+            {/* Rolling-upgrade cleanup for old local snapshots; current combat
+                state is recovered from its server session by the canonical host. */}
             <ArenaBattlePersister
                 characterName={character.name}
                 battleStarted={battleStarted}
@@ -5762,7 +5698,7 @@ export function Arena({
                     <div className="battle-hud-sidebar">
                         <CombatSideHud
                             name={character.name}
-                            avatar={character.avatarImage || character.name.slice(0, 2).toUpperCase()}
+                            avatar={playerBattleAvatar || character.name.slice(0, 2).toUpperCase()}
                             hp={playerHp}
                             maxHp={character.maxHp}
                             chakra={character.chakra}
@@ -5782,7 +5718,7 @@ export function Arena({
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={character.name}
-                    avatar={character.avatarImage || character.name.slice(0, 2).toUpperCase()}
+                    avatar={playerBattleAvatar || character.name.slice(0, 2).toUpperCase()}
                     hp={playerHp}
                     maxHp={character.maxHp}
                     chakra={character.chakra}
@@ -5903,7 +5839,7 @@ export function Arena({
                             {/* Avatar overlay — sits above tiles, not clipped by hex clip-path */}
                             {(() => {
 
-                                const orbForPos = (pos: number, isEnemy: boolean, imgSrc: string, altText: string) => {
+                                const orbForPos = (pos: number, isEnemy: boolean, imgSrc: string, altText: string, spriteSrc?: string | null) => {
                                     const row = Math.floor(pos / gridWidth);
                                     const col = pos % gridWidth;
                                     const x = col * X_STEP + HEX_W / 2 - ORB / 2;
@@ -5918,7 +5854,7 @@ export function Arena({
                                             side={isEnemy ? "enemy" : "player"}
                                             label={altText}
                                             portrait={imgSrc}
-                                            sprite={isEnemy ? opponentBattleSprite : null}
+                                            sprite={spriteSrc}
                                             fallback={altText.slice(0, 2).toUpperCase()}
                                             style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}
                                         />
@@ -5988,7 +5924,7 @@ export function Arena({
                                         {hpBadgeFor(playerPos, "player-hp-badge", playerHp, character.maxHp, "player")}
                                         {isPetAlive && summonedPet && petActorOrb(petPos, summonedPet)}
                                         {isPetAlive && summonedPet && hpBadgeFor(petPos, "pet-hp-badge", petHp, petMaxHp, "pet", `${petDisplayName(summonedPet)} · ${petTurnsRemaining}⟳`)}
-                                        {orbForPos(enemyPos, true, opponentAvatar, opponentName)}
+                                        {orbForPos(enemyPos, true, opponentAvatar, opponentName, opponentBattleSprite)}
                                         {hpBadgeFor(enemyPos, "enemy-hp-badge", enemyHp, enemyMaxHp, "enemy")}
                                     </>
                                 );

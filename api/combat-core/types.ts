@@ -8,6 +8,7 @@ export type CombatStatusKind = 'positive' | 'negative';
 
 export type CombatStatus = {
     name: string;
+    /** Server-authored jutsu, weapon, or zone that created this effect. */
     source?: string;
     rounds: number;
     activeRound?: number;

@@ -84,8 +84,8 @@ export const hollowRifts: HollowRift[] = [
         reward: { weight: 5, fateShards: 1, boneCharms: 8 },
         intro: [
             {
-                title: "A Pilgrim on the Low Road",
-                scene: "Dusk on a low country road lined with small leaning gravestones. A hooded pilgrim kneels among them, brushing moss from a nameless marker, a walking staff resting across their knees.",
+                title: "The Grave Keeper on the Low Road",
+                scene: "Dusk on a low country road lined with small leaning gravestones. A hooded shrine keeper kneels among them, brushing moss from a nameless marker, a walking staff resting across her knees.",
                 speaker: "Senna Graveward",
                 dialogue: [
                     "I keep the graves that no one else remembers, and I have walked this low road longer than I can rightly say.",
@@ -95,22 +95,22 @@ export const hollowRifts: HollowRift[] = [
             },
             {
                 title: "What a Legacy Truly Is",
-                scene: "The pilgrim sits back on her heels among the leaning stones, resting her staff across her knees as if the question deserves her full attention.",
+                scene: "Senna sits back on her heels among the leaning stones, resting her staff across her knees as if the question deserves her full attention.",
                 speaker: "Senna Graveward",
                 dialogue: [
                     "You turned the word Legacy over just now, I saw it cross your face, so let me tell it true, since half the roads lie about it.",
                     "It is never bought, never gifted, and never carried in your blood. It is earned the slow way, by the fights you choose and the mercy you keep or spend, until your whole life has pressed one stubborn shape into the world.",
-                    "You are too young to hold one yet. Grow to near your fiftieth level of strength, and a quiet old traveler will find you, name the shape your deeds have made, and offer you the paths your living has opened. You take a single one, it is yours for good, and it deepens as you prove it.",
+                    "You are too early in your training to hold one yet. When your field record nears its fiftieth rank, a quiet old traveler will find you, name the shape your deeds have made, and offer you the paths your living has opened. You take a single one, it is yours for good, and it deepens as you prove it.",
                 ],
             },
             {
                 title: "The Cracked Shrine",
-                scene: "The pilgrim rises and points with a weathered hand toward a dark ridge on the horizon, where a faint violet shimmer bleeds up from a broken shrine among the far hills.",
+                scene: "Senna rises and points with a weathered hand toward a dark ridge on the horizon, where a faint violet shimmer bleeds up from a broken shrine among the far hills.",
                 speaker: "Senna Graveward",
                 dialogue: [
                     "There is a strange energy stirring in %sector, where an old shrine has leaned forgotten since before the first maps were drawn.",
-                    "It is the grave of one of the Withheld, a soul of the Sunken Court who refused to surrender one small, stubborn piece of themselves, and the years wore their name away to nothing.",
-                    "The Gate has cracked the stone and is trying to counterfeit that refusal and wear a legend it never earned, and I would ask you to go down and remember the true one, so that a name lost long ago might begin to be spoken again.",
+                    "It marks one of the Withheld, an ordinary person of the Sunken Court's age who refused to surrender one defining choice, and the years wore their name away to nothing.",
+                    "No soul waits in that stone. The Gate has cracked it and is trying to counterfeit the refusal recorded there, and I would ask you to go down and preserve the deed before the machine edits it away.",
                 ],
                 choices: [
                     { text: "I will go down and remember the true one.", accept: true },

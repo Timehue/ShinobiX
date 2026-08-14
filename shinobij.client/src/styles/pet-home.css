@@ -46,6 +46,7 @@
 }
 
 .pet-yard-screen > .pet-home-tabs { margin: .65rem auto 1rem; }
+.pet-arena-screen > .pet-home-tabs { position: relative; top: auto; margin: 0 auto 1rem; }
 .pet-home-tabs button { flex: 1; min-height: 44px; border: 0; border-radius: 999px; color: #aebfca; background: transparent; font-weight: 800; }
 .pet-home-tabs button[aria-current="page"] { color: #08111e; background: linear-gradient(135deg, #f0ce86, #75d9be); box-shadow: 0 4px 18px rgba(120, 217, 189, .22); }
 
@@ -261,8 +262,9 @@
 
 @media (max-width: 620px) {
     .pet-home-hero { min-height: 220px; }
-    .pet-home-tabs { position: relative; top: auto; border-radius: 16px; }
-    .pet-home-tabs button { font-size: .72rem; }
+    .pet-home-tabs { position: relative; top: auto; justify-content: flex-start; overflow-x: auto; border-radius: 16px; scrollbar-width: none; }
+    .pet-home-tabs::-webkit-scrollbar { display: none; }
+    .pet-home-tabs button { flex: 0 0 auto; padding: 0 .75rem; font-size: .72rem; white-space: nowrap; }
     .pet-collection, .breeding-barn { width: min(100% - 1rem, 1260px); }
     .pet-collection-filters { grid-template-columns: 1fr 1fr; padding: .7rem; }
     .pet-collection-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: .55rem; }
@@ -296,4 +298,57 @@
     .hatch-reveal--apex .hatch-aura, .hatch-reveal--apex .apex-trait-ribbon,
     .pet-sanctuary-loading span { animation: none; }
     .pet-sanctuary-card, .pet-sanctuary-portrait img { transition: none; }
+}
+
+/* Server settlement receipt — portaled so it remains visible above the 3D
+   Coliseum and Warfront result layers. It is deliberately compact and never
+   masks the fight; failed receipts remain keyboard-retryable until confirmed. */
+.pet-settlement-notice {
+    position: fixed;
+    /* Above the legacy side rails (999999), below the blocking GameAlert (1000001). */
+    z-index: 1000000;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    display: grid;
+    gap: .42rem;
+    width: min(390px, calc(100vw - 2rem));
+    border: 1px solid rgba(117,217,190,.52);
+    border-radius: 16px;
+    color: #eefbf7;
+    background: linear-gradient(145deg, rgba(8,26,31,.98), rgba(4,11,20,.99));
+    padding: .9rem 1rem;
+    box-shadow: 0 22px 70px rgba(0,0,0,.58), 0 0 0 1px rgba(255,255,255,.035) inset;
+    backdrop-filter: blur(14px);
+}
+.pet-settlement-notice[data-status="error"] { border-color: rgba(248,113,113,.72); }
+.pet-settlement-notice[data-status="settled"] { border-color: rgba(74,222,128,.68); }
+.pet-settlement-notice__eyebrow {
+    color: #8ddfc8;
+    font-size: .64rem;
+    font-weight: 900;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+}
+.pet-settlement-notice[data-status="error"] .pet-settlement-notice__eyebrow { color: #fca5a5; }
+.pet-settlement-notice strong { font-size: 1rem; }
+.pet-settlement-notice p { margin: 0; color: #b9cbd0; font-size: .78rem; line-height: 1.5; }
+.pet-settlement-notice button {
+    justify-self: start;
+    min-height: 42px;
+    margin-top: .2rem;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 10px;
+    color: #071316;
+    background: #8ddfc8;
+    padding: .55rem .85rem;
+    font-weight: 900;
+}
+.pet-settlement-notice[data-status="error"] button { color: #fff; background: #b91c1c; }
+
+@media (max-width: 620px) {
+    .pet-settlement-notice {
+        right: .65rem;
+        bottom: max(.65rem, env(safe-area-inset-bottom));
+        width: calc(100vw - 1.3rem);
+    }
 }

@@ -65,7 +65,6 @@ describe('wild-field endpoints enforce the gate', () => {
     // Every wild-field earner. Adding a new one that pays out for being in a
     // sector means adding it here too — otherwise it becomes the next hole.
     for (const rel of [
-        'world/explore.ts', 'world/open-chest.ts',
         'sector/wanderer-gift.ts', 'sector/wanderer-quest.ts', 'sector/wanderer-service.ts',
     ]) {
         it(`${rel} gates its payout on presence`, () => {
@@ -79,4 +78,22 @@ describe('wild-field endpoints enforce the gate', () => {
             assert.ok(gateAt > 0 && gateAt < payAt, 'the presence gate must precede the reward mutation');
         });
     }
+
+    it('world/explore gates each NEW reward before applying it, while exact replay remains recoverable', () => {
+        const src = readFileSync(join(process.cwd(), 'api', 'world/explore.ts'), 'utf8');
+        assert.match(src, /const presenceBlock = sectorPresenceBlock\(playerName, body\.sector\)/);
+        assert.match(src, /if \(prior \|\| durable\)/, 'an exact committed request must replay after movement or reconnect');
+        const gateAt = src.indexOf('const presenceBlock = sectorPresenceBlock(');
+        const rewardAt = src.indexOf('applySectorExploreReward(');
+        assert.ok(gateAt > 0 && gateAt < rewardAt, 'new exploration presence must be checked before its reward is applied');
+    });
+
+    it('world/open-chest consumes only a sector-bound sealed discovery, not live follow-up presence', () => {
+        const src = readFileSync(join(process.cwd(), 'api', 'world/open-chest.ts'), 'utf8');
+        assert.match(src, /worldExploreAuthorityKey\(playerName, worldExploreRequestId\)/);
+        assert.match(src, /durableDiscovery\.sector === Math\.floor\(Number\(body\.sector\)\)/);
+        assert.match(src, /durableDiscovery\.outcome\?\.kind === 'chest'/);
+        assert.match(src, /settleAncientChestLoot\(character, loot\)/);
+        assert.doesNotMatch(src, /sectorPresenceBlock\(/, 'a sealed chest must remain openable after movement, reconnect, or ACK loss');
+    });
 });

@@ -125,6 +125,9 @@ export type PvpSession = {
     // A client may still create an unsanctioned/casual session, but every reward
     // consumer fails closed unless this stamp exists AND both fighters joined.
     rewardAuthority?: 'challenge' | 'clan-war' | 'ranked' | 'world' | 'admin';
+    // World raids bind the authenticated session creator as the attacker.
+    // Fighter ordering is presentation input and cannot establish raid credit.
+    worldAttacker?: { side: 'p1' | 'p2'; name: string };
     challengeId?: string;
     clanWarId?: string;
     clanWarChallengeId?: string;
@@ -305,6 +308,17 @@ async function quarantineUnconfirmedPlayerRankedSession(
 
 export function pvpSessionMayReward(session: Pick<PvpSession, 'rewardAuthority' | 'joined'>): boolean {
     return !!session.rewardAuthority && session.joined?.p1 === true && session.joined?.p2 === true;
+}
+
+export function sealedWorldRaidAttacker(
+    session: Pick<PvpSession, 'rewardAuthority' | 'worldAttacker' | 'p1' | 'p2'>,
+): { side: 'p1' | 'p2'; name: string } | null {
+    if (session.rewardAuthority !== 'world') return null;
+    const side = session.worldAttacker?.side;
+    const name = safeName(String(session.worldAttacker?.name ?? ''));
+    if ((side !== 'p1' && side !== 'p2') || !name) return null;
+    const fighterName = safeName(String(side === 'p1' ? session.p1.name : session.p2.name));
+    return fighterName === name ? { side, name } : null;
 }
 
 /**
@@ -1772,6 +1786,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : worldAttackVerified
                             ? 'world'
                             : undefined;
+            const worldAttacker = rewardAuthority === 'world' && !identity.admin
+                ? identity.name === p1Norm
+                    ? { side: 'p1' as const, name: p1Norm }
+                    : identity.name === p2Norm
+                        ? { side: 'p2' as const, name: p2Norm }
+                        : null
+                : null;
 
             // ── Base-reward stamp (audit #7 / Stage 3 Phase 3; #1A hardening) ─
             // Opt this session into server crediting of the winner's base ryo +
@@ -1884,6 +1905,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 status: 'active',
                 winner: null,
                 ...(rewardAuthority ? { rewardAuthority } : {}),
+                ...(worldAttacker ? { worldAttacker } : {}),
                 ...(challengeReservation ? { challengeId: challengeReservation.id } : {}),
                 ...(clanWarReservation ? {
                     clanWarId: clanWarReservation.warId,

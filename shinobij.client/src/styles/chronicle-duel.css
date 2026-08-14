@@ -75,7 +75,7 @@
 button.chronicle-card {
   cursor: pointer;
 }
-.chronicle-tabs button[aria-selected="true"],
+.chronicle-tabs button[aria-pressed="true"],
 .chronicle-actions button:hover:not(:disabled) {
   border-color: #d0a85f;
   color: #f3d79f;

@@ -28,6 +28,7 @@ export type BlackMarketResult = {
     dailyCap?: number;
     balanceRyo?: number;
     character?: Character;
+    _saveVersion?: unknown;
 };
 
 export async function pullBlackMarket(playerName: string): Promise<BlackMarketResult> {

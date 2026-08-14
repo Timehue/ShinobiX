@@ -22,6 +22,10 @@ export type TrialKind = 'awaken' | 'bind' | 'prove' | 'mythic';
 export type TrialObjective = { stat: LegacyStatKey; delta: number };
 
 export type LegacyTrial = {
+    /** Server-issued attempt identity. Completion clients echo this so a stale
+     * tab can never settle a newer trial, and a lost response can replay the
+     * exact committed receipt after the active trial has been removed. */
+    id?: string;
     legacyId: string;
     kind: TrialKind;
     startedAt: number;
@@ -31,6 +35,28 @@ export type LegacyTrial = {
     /** Counter values sealed at start; progress = current - baseline. */
     baselines: Partial<Record<LegacyStatKey, number>>;
     objectives: TrialObjective[];
+};
+
+export type LegacyAcceptanceReceipt = {
+    id: string;
+    legacyId: string;
+    committedAt: number;
+    auraStones: number;
+    chronicleCards: string[];
+};
+
+export type LegacyTrialCompletionReceipt = {
+    id: string;
+    legacyId: string;
+    kind: TrialKind;
+    trialStartedAt: number;
+    attempt: number;
+    completedAt: number;
+    stage: 2 | 3 | 4 | 5;
+    title: string | null;
+    completion: string;
+    chronicleCards: string[];
+    signatureJutsu?: { id: string; name: string };
 };
 
 /** The server-owned save field. The save sanitizer re-injects this from the
@@ -50,6 +76,14 @@ export type CharacterLegacy = {
     eraBorn?: number;
     /** Titles granted by this legacy (also appended to earnedTitles). */
     titles: string[];
+    /** Written in the same save commit as the Aura Stone balance increase.
+     * This is the exact-once authority; external NX markers are legacy-only
+     * migration hints and are never created by the accept path. */
+    acceptanceReceipt?: LegacyAcceptanceReceipt;
+    /** Four lifetime stage receipts. They are intentionally permanent: the
+     * completion endpoint can replay a success after an arbitrarily lost
+     * response and resume its durable world-effect outbox. */
+    trialCompletionReceipts?: LegacyTrialCompletionReceipt[];
 };
 
 /** Prestige title variants granted at the later stages (handoff: Stage 4
@@ -64,6 +98,11 @@ export function mythicTitleFor(baseTitle: string): string {
 
 export const legacyTrialKey = (player: string) => `legacy:trial:${player}`;
 export const legacyAcceptedKey = (player: string) => `legacy:accepted:${player}`;
+
+export function legacyTrialReceiptId(trial: Pick<LegacyTrial, 'id' | 'legacyId' | 'kind' | 'startedAt' | 'attempt'>): string {
+    return trial.id?.trim()
+        || `${trial.legacyId}:${trial.kind}:${Math.max(0, Math.floor(trial.startedAt))}:${Math.max(1, Math.floor(trial.attempt))}`;
+}
 
 /** Per-category trial templates: the stat(s) a trial re-proves, with the delta
  *  a BASIC-rarity awaken trial demands. Rarity and stage scale from here. */

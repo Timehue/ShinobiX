@@ -1,26 +1,23 @@
 import { safeLogValue } from '../_safe-log.js';
-import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { LockContendedError } from '../_lock.js';
+import { randomUUID } from 'node:crypto';
 import {
-    petRankedActiveKey,
-    petRankedQueueMatchKey,
     PET_RANKED_QUEUE_KEY,
     PET_RANKED_QUEUE_MATCH_TTL_SECONDS,
-} from '../pet/_ranked-engine.js';
-import {
-    PET_RANKED_PUBLIC_PRESENTATION_DISABLED_REASON,
-    petRankedPublicPresentationEnabled,
-} from '../pet/_ranked-settlement.js';
+    PET_RANKED_ACTIVE_REGISTRY_KEY,
+    petRankedQueueMatchKey,
+    pruneRankedPetActiveRegistry,
+} from '../pet/_ranked-authority.js';
 // NOTE: pet ranked is NOT gated by the player-side ranked-match-token system.
-// The pet ladder settles via api/pet/battle-result.ts. This queue mints the
-// reciprocal match id; /api/pet/ranked-start atomically turns that id into the
-// private pet:ranked-token:<id> server-engine receipt. Do not use the player-PvP
-// ranked-match-token dialect here.
+// The pet ladder settles via api/pet/battle-result.ts, which requires its OWN
+// server-minted token from /api/pet/ranked-start (different keyspace:
+// pet:ranked-token:<id>). Don't import mintRankedMatchToken here.
 
 type QueueEntry = {
     name: string;
@@ -50,17 +47,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        if (!petRankedPublicPresentationEnabled()) {
-            res.setHeader('Cache-Control', 'no-store');
-            return res.status(200).json({ enabled: false, inQueue: false, queueSize: 0, match: null });
-        }
         // Return queue status for a specific player (don't expose other names)
         const name = typeof req.query.name === 'string' ? safeName(req.query.name) : '';
         const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
         const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
         const inQueue = active.some(e => e.name === name);
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json({ enabled: true, inQueue, queueSize: active.length });
+        return res.status(200).json({ inQueue, queueSize: active.length });
     }
 
     if (req.method === 'POST') {
@@ -73,9 +66,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 action?: 'join' | 'leave' | 'poll';
             };
             if (!name || !action) return res.status(400).json({ error: 'Missing name or action.' });
-            if (action !== 'leave' && !petRankedPublicPresentationEnabled()) {
-                return res.status(503).json({ error: PET_RANKED_PUBLIC_PRESENTATION_DISABLED_REASON });
-            }
 
             // Require auth, body name must match identity.
             const identity = await authedPlayerOrAdmin(req, name);
@@ -90,30 +80,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // matchmaking latency for everyone. ~60/min covers the ~2-3s poll cadence.
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-ranked-queue', 60, 60_000, identity.name))) return;
 
-            const queueName = identity.admin ? safeName(name) : identity.name;
-            if (action !== 'leave' && await kv.get<string>(petRankedActiveKey(queueName))) {
-                return res.status(409).json({ error: 'Finish or acknowledge your active pet battle before queueing again.' });
-            }
-
             // Pre-derive server-side level/elo for the join path before
-            // entering the lock so the lock body stays fast. Ranked
-            // matchmaking fails closed when the authoritative profile cannot
-            // be read; request-body level/elo are never fallback authority.
+            // entering the lock so the lock body stays fast.
             let serverLevel = 1;
             let serverElo = 1000;
-            if (action === 'join') {
+            if (action === 'join' && !identity.admin) {
                 try {
-                    const save = await kv.get<Record<string, unknown>>(`save:${queueName}`);
+                    const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                     const char = (save?.character ?? null) as Record<string, unknown> | null;
-                    if (!char) return res.status(404).json({ error: 'Character not found.' });
-                    const level = typeof char.level === 'number' && Number.isFinite(char.level) ? char.level : 1;
-                    const elo = typeof char.petRankedRating === 'number' && Number.isFinite(char.petRankedRating)
-                        ? char.petRankedRating
-                        : 1000;
-                    serverLevel = Math.max(1, Math.min(100, Math.floor(level)));
-                    serverElo = Math.max(0, Math.floor(elo));
+                    if (char) {
+                        if (typeof char.level === 'number') serverLevel = char.level;
+                        if (typeof char.petRankedRating === 'number') serverElo = char.petRankedRating;
+                    }
                 } catch {
-                    return res.status(503).json({ error: 'Ranked profile is temporarily unavailable.' });
+                    // best-effort; defaults apply
                 }
             }
 
@@ -125,6 +105,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
                 const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
 
+                if (action === 'join') {
+                    const activeMatches = pruneRankedPetActiveRegistry(
+                        await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY),
+                    );
+                    if (activeMatches[safeName(name)]) {
+                        return {
+                            status: 409,
+                            body: { error: 'Finish your active ranked pet match before joining the queue again.' },
+                        };
+                    }
+                }
+
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== safeName(name));
                     await Promise.all([
@@ -135,9 +127,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 if (action === 'join') {
-                    if (await kv.get<string>(petRankedActiveKey(safeName(name)))) {
-                        return { status: 409, body: { error: 'Finish or acknowledge your active pet battle before queueing again.' } };
-                    }
                     // Remove existing entry for this player, then add fresh
                     const filtered = active.filter(e => e.name !== safeName(name));
                     const entry: QueueEntry = {
@@ -155,11 +144,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 if (action === 'poll') {
-                    if (await kv.get<string>(petRankedActiveKey(safeName(name)))) {
-                        const filtered = active.filter(e => e.name !== safeName(name));
-                        await kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
-                        return { status: 409, body: { error: 'Finish or acknowledge your active pet battle before queueing again.' } };
-                    }
                     // #10: if a prior poll (mine OR the opponent's) already matched
                     // me, return that durable match instead of re-matching — so the
                     // side that didn't poll first still gets the match rather than a
@@ -172,10 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const me = active.find(e => e.name === safeName(name));
                     if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
 
-                    const others: QueueEntry[] = [];
-                    for (const candidate of active.filter(e => e.name !== me.name)) {
-                        if (!await kv.get<string>(petRankedActiveKey(candidate.name))) others.push(candidate);
-                    }
+                    const others = active.filter(e => e.name !== me.name);
                     if (others.length === 0) {
                         const refreshed = active.map(e => e.name === me.name ? { ...e, joinedAt: Date.now() } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
@@ -192,14 +173,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const opponent = candidates[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
                     // Deterministic initiator (lexicographically smaller slug) so
-                    // exactly one side starts the private ranked receipt/presentation
-                    // handshake. Both get a durable match record so neither vanishes
-                    // if a poll is missed.
+                    // exactly ONE side sends the ranked challenge and the other
+                    // waits for it — no double-challenge, no silent drop. Both get a
+                    // durable match record so neither vanishes if a poll is missed.
                     const initiatorName = me.name < opponent.name ? me.name : opponent.name;
                     const now = Date.now();
-                    const matchId = randomUUID().replace(/-/g, '');
-                    const matchForMe = { matchId, opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now };
-                    const matchForOpp = { matchId, opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now };
+                    const pairId = randomUUID();
+                    const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now, pairId };
+                    const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now, pairId };
                     // NOTE: no mintRankedMatchToken(..., 'pet') call here. The
                     // pet ladder is gated by /api/pet/ranked-start (own keyspace:
                     // pet:ranked-token:<id>) and settled by /api/pet/battle-result,
@@ -216,10 +197,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 return { status: 400, body: { error: 'Invalid action.' } };
-            });
+            }, { failClosed: true });
             return res.status(out.status).json(out.body);
         } catch (err) {
             console.error('[pvp/pet-ranked-queue]', safeLogValue(err));
+            if (err instanceof LockContendedError) {
+                return res.status(503).json({ error: 'Pet ranked matchmaking is busy. Please retry.' });
+            }
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }

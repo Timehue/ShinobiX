@@ -66,11 +66,11 @@ describe("battle resume state checks", () => {
         localStorage.clear();
     });
 
-    it("resumes arena locks only when the arena combat snapshot is live", () => {
+    it("never resumes retired local Arena locks, even when a legacy snapshot is live", () => {
         assert.equal(battleResumeStateExists(lock("arena"), "ResumeRisk", character()), false);
 
         writeArenaSnapshot();
-        assert.equal(battleResumeStateExists(lock("arena"), "ResumeRisk", character()), true);
+        assert.equal(battleResumeStateExists(lock("arena"), "ResumeRisk", character()), false);
 
         writeArenaSnapshot("ResumeRisk", ARENA_SAVE_TTL_MS + 1);
         assert.equal(battleResumeStateExists(lock("arena"), "ResumeRisk", character()), false);
@@ -110,7 +110,7 @@ describe("battle resume state checks", () => {
         assert.equal(battleResumeStateExists(lock("storyBoss"), "ResumeRisk", character()), false);
     });
 
-    it("never resumes retired local Endless locks and requires context for arena-story locks", () => {
+    it("never resumes retired local Endless or arena-story locks", () => {
         const fakeAi = { id: "scaled-ai", name: "Scaled AI" };
         assert.equal(battleResumeStateExists(lock("endless"), "ResumeRisk", character()), false);
         writeArenaSnapshot();
@@ -124,7 +124,7 @@ describe("battle resume state checks", () => {
             ai: fakeAi,
             savedAt: Date.now(),
         }));
-        assert.equal(battleResumeStateExists(lock("arenaStory"), "ResumeRisk", character()), true);
+        assert.equal(battleResumeStateExists(lock("arenaStory"), "ResumeRisk", character()), false);
 
         localStorage.removeItem(arenaStoryCtxKey("ResumeRisk"));
         assert.equal(battleResumeStateExists(lock("arenaStory"), "ResumeRisk", character()), false);

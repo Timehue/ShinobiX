@@ -1,6 +1,6 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect } from "react";
 import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { ActiveJutsuTraining } from "../types/combat";
 import { mutateJutsuRyoTraining } from "./jutsu-ryo-api";
 import { isServerSettlementReady } from "./server-settlement-gate";
@@ -66,7 +66,7 @@ export function useJutsuTrainingQueueRunner(
     playerName: string,
     activeJutsuTraining: ActiveJutsuTraining | null,
     setActiveJutsuTraining: (training: ActiveJutsuTraining | null) => void,
-    setCharacter: Dispatch<SetStateAction<Character | null>>,
+    commitCharacter: VersionedCharacterCommit,
 ): void {
     useEffect(() => {
         if (!isServerSettlementReady("timedJutsuTrainingQueue")) return;
@@ -81,7 +81,7 @@ export function useJutsuTrainingQueueRunner(
                 timer = window.setTimeout(() => { void reconcile(); }, 10_000);
                 return;
             }
-            setCharacter(result.character);
+            if (!commitCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
         };
         const delay = Math.max(250, activeJutsuTraining.endsAt - Date.now() + 250);
@@ -90,5 +90,5 @@ export function useJutsuTrainingQueueRunner(
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [playerName, activeJutsuTraining, setActiveJutsuTraining, setCharacter]);
+    }, [playerName, activeJutsuTraining, setActiveJutsuTraining, commitCharacter]);
 }

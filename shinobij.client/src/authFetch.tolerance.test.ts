@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
+import { buildSaveVersionEventDetail } from "./authFetch";
 
 /*
  * A brief storage blip must not eject a player from an active fight.
@@ -116,5 +117,21 @@ describe("transient 401 tolerance", () => {
         assert.match(setter, /_sessionExpiredNotified = false;/);
         assert.match(setter, /_consecutive401s = 0;/);
         assert.match(setter, /_first401At = 0;/);
+    });
+
+    it("tags save-version observations with the request account", () => {
+        assert.deepEqual(buildSaveVersionEventDetail({ _saveVersion: 19 }, "Kaya", "mutation"), {
+            version: 19, accountName: "Kaya", source: "mutation",
+        });
+        assert.equal(buildSaveVersionEventDetail({ _saveVersion: 20, character: { name: "Kaya" } }, "Kaya", "mutation"), null,
+            "a full character must travel through the atomic character+version commit instead of a split version event");
+        assert.equal(buildSaveVersionEventDetail({ _saveVersion: 20.5 }, "Kaya", "mutation"), null);
+        assert.equal(buildSaveVersionEventDetail({ _saveVersion: "20" }, "Kaya", "mutation"), null);
+        assert.match(source, /function observeSaveVersion\(response: Response, accountName: string \| null, input: RequestInfo \| URL\)/);
+        assert.match(source, /new CustomEvent\(SAVE_VERSION_EVENT, \{ detail \}\)/);
+        const captures = source.match(/const requestAccountName = newHeaders\.get\('x-player-name'\);/g) ?? [];
+        assert.equal(captures.length, 2, "manual and automatically attached player-auth branches both capture identity before awaiting");
+        assert.equal((source.match(/requestAccountName, input\)/g) ?? []).length, 2,
+            "both auth branches must bind late observations to the request account and URL");
     });
 });

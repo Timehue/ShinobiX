@@ -65,7 +65,7 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 50, x: 50, y: 59 }, { id: 51, x: 61, y: 45 },
     // Festival Grounds (52-54) — the southern desert outpost
     { id: 52, x: 57, y: 88 }, { id: 53, x: 33, y: 80 }, { id: 54, x: 47, y: 84.5 },
-    // The Hollow Road (55-57) — the pilgrim road past the obelisk. 57 sits
+    // The Hollow Road (55-57) — the lantern road past the obelisk. 57 sits
     // beside the shrine so the Hollow Gate landmark crest can own it visually.
     { id: 55, x: 59, y: 60 }, { id: 56, x: 57, y: 72 }, { id: 57, x: 67, y: 61 },
     // The Lavafront (58-60) + Death's Gate (99) — the northern ash and the cone
@@ -77,7 +77,7 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 61, x: 16, y: 45 },   // Westfurrow Fields  — west farmland
     { id: 62, x: 10, y: 52 },   // Greycliff Landing  — west coast road
     { id: 63, x: 67, y: 92 },   // Tallgrass Bend     — south of the outpost
-    { id: 64, x: 65, y: 75 },   // Lantern Vigil      — off the pilgrim road
+    { id: 64, x: 65, y: 75 },   // Lantern Vigil      — off the lantern road
     { id: 65, x: 92, y: 44 },   // Eastwind Cirque    — the far eastern snows
     { id: 66, x: 62, y: 8 },    // Emberspine Ridge   — deep in the ash
 ];
@@ -90,7 +90,7 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
 // NOTE (2026-07-29): sector 57 Hollow Temple was briefly taken off this graph
 // on the assumption that it WAS the Hollow Gate POI. It isn't — the Hollow Gate
 // is a landmark crest that opens the rift menu (already key-gated) and never
-// travels to a sector, while 57 is an ordinary wild sector on the pilgrim road.
+// travels to a sector, while 57 is an ordinary wild sector on the lantern road.
 // Its four roads were restored.
 export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     [1, 7], [1, 8], [2, 3], [2, 8], [3, 4], [3, 8], [4, 40], [5, 6], [5, 53], [6, 8], [7, 8],
@@ -108,7 +108,7 @@ export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     [16, 61], [40, 61],   // Westfurrow Fields — the deepwood edge and the terraces
     [61, 62], [2, 62],    // Greycliff Landing — the farmland and the north docks
     [52, 63], [25, 63],   // Tallgrass Bend    — the festival basin and Fallswood
-    [56, 64], [23, 64],   // Lantern Vigil     — the pilgrim road and Moongrotto
+    [56, 64], [23, 64],   // Lantern Vigil     — the lantern road and Moongrotto
     [27, 65], [31, 65],   // Eastwind Cirque   — the glacier shelves
     [60, 66], [33, 66],   // Emberspine Ridge  — the forecourt and Cinderfrost
 ];

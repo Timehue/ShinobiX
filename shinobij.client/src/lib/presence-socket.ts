@@ -64,8 +64,8 @@ const updateHandlers = new Set<PlayerHandler>();
 const moveHandlers = new Set<MoveHandler>();
 const goneHandlers = new Set<GoneHandler>();
 const kickHandlers = new Set<KickHandler>();
-const statusHandlers = new Set<StatusHandler>();
 const towerKickHandlers = new Set<TowerKickHandler>();
+const statusHandlers = new Set<StatusHandler>();
 
 // Keepalive cadence — the "15-30s client heartbeat" that keeps server presence
 // fresh inside the 45-60s offline window.

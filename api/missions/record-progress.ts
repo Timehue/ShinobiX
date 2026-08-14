@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -21,6 +20,9 @@ import {
     savedCurrentSector,
     type MissionProgressReceipt,
 } from './_mission-progress-receipt.js';
+import { serverFieldMissionRun } from './_field-trail.js';
+import { fieldExploreEvidenceId } from './_field-explore-progress.js';
+import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from '../world/_explore-authority.js';
 
 const PROGRESS_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -50,7 +52,7 @@ const PROGRESS_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
  */
 
 type RecordResult =
-    | { ok: true; receipt: MissionProgressReceipt }
+    | { ok: true; receipt: MissionProgressReceipt; replayed?: boolean }
     | { ok: false; status: number; body: Record<string, unknown> };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -67,6 +69,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const missionId = String(body.missionId ?? '').slice(0, 80);
         const kind = cleanMissionProgressEventKind(body.kind);
+        const worldExploreRequestId = typeof body.worldExploreRequestId === 'string'
+            && /^[A-Za-z0-9_-]{8,96}$/.test(body.worldExploreRequestId.trim())
+            ? body.worldExploreRequestId.trim()
+            : '';
+        const runId = typeof body.runId === 'string' && /^[A-Za-z0-9_-]{16,96}$/.test(body.runId.trim())
+            ? body.runId.trim()
+            : '';
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!missionId || !kind) return res.status(400).json({ error: 'Invalid mission progress event.' });
 
@@ -86,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Combat kinds are proven by the authoritative combat handlers, not a ping.
-        if (kind === 'field-raid' || kind === 'hunt-kill') {
+        if (kind === 'field-raid' || kind === 'hunt-kill' || kind === 'hunt-track') {
             return res.status(200).json({ ok: true, recorded: false, reason: 'combat-proof-required' });
         }
 
@@ -104,26 +113,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // producer refused every ping and no receipt was ever minted.
             const accepted = savedAcceptedMissionIds(record).includes(missionId);
             const existing = cleanMissionProgressReceipt(await kv.get(key));
+            const activeRun = missionType === 'field' ? serverFieldMissionRun(char, missionId) : null;
+            if (missionType === 'field' && (!activeRun || !runId || activeRun.runId !== runId)) {
+                return { ok: false, status: 200, body: { ok: true, recorded: false, reason: 'field-run-required' } };
+            }
+            const evidenceId = fieldExploreEvidenceId(worldExploreRequestId);
+            // Lost final ACK: exact evidence replay succeeds before the
+            // progress-complete guard, so the client outbox can drain.
+            if (kind === 'field-explore'
+                && existing
+                && existing.runId === activeRun?.runId
+                && existing.evidenceIds.includes(evidenceId)) {
+                return { ok: true, receipt: existing, replayed: true };
+            }
+            const targetSector = Math.floor(Number((mission as { targetSector?: unknown }).targetSector ?? 0));
+            const exploreReceipts = Array.isArray(char.redeemedSectorExplorations)
+                ? char.redeemedSectorExplorations as Array<Record<string, unknown>>
+                : [];
+            const saveProof = kind === 'field-explore' ? exploreReceipts.find((entry) => entry?.id === worldExploreRequestId
+                && Number(entry.sector) === targetSector
+                && Number(entry.at) >= Number(activeRun?.acceptedAt ?? Number.POSITIVE_INFINITY)) : undefined;
+            const durableProof = kind === 'field-explore' && worldExploreRequestId
+                ? cleanWorldExploreAuthorityReceipt(await kv.get(worldExploreAuthorityKey(playerName, worldExploreRequestId)))
+                : null;
+            const exactDurableProof = durableProof
+                && durableProof.playerName.toLowerCase() === playerName.toLowerCase()
+                && durableProof.sector === targetSector
+                && durableProof.at >= Number(activeRun?.acceptedAt ?? Number.POSITIVE_INFINITY)
+                ? durableProof
+                : null;
             const decision = interactionMissionProgressEvidenceDecision({
                 accepted,
                 kind,
                 missionType,
-                sector: savedCurrentSector(record),
-                targetSector: Math.floor(Number((mission as { targetSector?: unknown }).targetSector ?? 0)),
-                currentProgress: existing?.exploreCount ?? 0,
+                sector: saveProof || exactDurableProof ? targetSector : savedCurrentSector(record),
+                targetSector,
+                currentProgress: existing && existing.runId === activeRun?.runId ? existing.exploreCount : 0,
                 progressTarget: Math.floor(Number(mission.exploreCount ?? 0)),
             });
             if (!decision.ok) return { ok: false, status: 200, body: { ok: true, recorded: false, reason: decision.reason } };
 
+            if (kind === 'field-explore') {
+                if (!worldExploreRequestId) {
+                    return { ok: false, status: 200, body: { ok: true, recorded: false, reason: 'explore-proof-required' } };
+                }
+                if (!saveProof && !exactDurableProof) {
+                    return { ok: false, status: 200, body: { ok: true, recorded: false, reason: 'explore-proof-mismatch' } };
+                }
+            }
+
             // Self-authorized server-travel evidence: mint a single-use id and fold it
             // into the receipt (applyMissionProgressEvent caps hunt-track at target-1;
             // the kill/final track is stamped by the combat handler).
-            const evidenceId = randomUUID().replace(/-/g, '');
             const next = applyMissionProgressEvent(existing, {
                 playerName, missionId, missionType, kind,
                 exploreTarget: Math.floor(Number(mission.exploreCount ?? 0)),
                 raidTarget: Math.floor(Number(mission.raidCount ?? 0)),
                 evidenceId,
+                runId: activeRun?.runId,
             });
             await kv.set(key, next, { ex: PROGRESS_RECEIPT_TTL_SECONDS });
             return { ok: true, receipt: next };
@@ -133,6 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
             ok: true,
             recorded: true,
+            replayed: result.replayed === true,
+            ...(kind === 'field-explore' ? { evidenceId: fieldExploreEvidenceId(worldExploreRequestId) } : {}),
             progress: {
                 exploreCount: result.receipt.exploreCount,
                 raidCount: result.receipt.raidCount,

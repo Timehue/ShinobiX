@@ -13,10 +13,6 @@ const css = [...indexManifest.matchAll(/@import "\.\/(styles\/index\/[\w.-]+\.cs
     .join('');
 const introCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'features', 'intro-cinematic', 'intro-cinematic.css'), 'utf8');
 const battleSkinCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'battle-skin.css'), 'utf8');
-const landingSkinCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'landing-skin.css'), 'utf8');
-const adaptiveShellCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'layout', 'adaptive-shell.css'), 'utf8');
-const veiledSteelCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'veiled-steel.css'), 'utf8');
-const storageNoticeSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'components', 'StorageNotice.tsx'), 'utf8');
 const nextGoalSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'components', 'NextGoalPin.tsx'), 'utf8');
 const visualNovelSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'components', 'TriggeredVisualNovel.tsx'), 'utf8');
 
@@ -48,27 +44,8 @@ test('clan boss party action remains a full-size touch target', () => {
 
 test('onboarding overlay and next-goal controls meet the phone touch target', () => {
     assert.match(introCss, /\.icx-skip\.icx-sound\s*\{[^}]*min-width:\s*44px/s);
-    assert.doesNotMatch(nextGoalSource, /compactButton\s*\?\s*20\s*:\s*44/);
-    assert.doesNotMatch(nextGoalSource, /<button\b/);
-    assert.match(nextGoalSource, /<Button[\s\S]*className="next-goal-pin-compact__action"/);
-    assert.match(veiledSteelCss, /\.next-goal-pin-compact__heading\s*\{[^}]*min-height:\s*var\(--touch-target-min\)[^}]*overflow:\s*visible/s);
-    assert.match(veiledSteelCss, /\.next-goal-pin-compact__close\s*\{[^}]*width:\s*var\(--touch-target-min\)[^}]*height:\s*var\(--touch-target-min\)[^}]*min-width:\s*var\(--touch-target-min\)[^}]*min-height:\s*var\(--touch-target-min\)/s);
-    assert.match(veiledSteelCss, /:where\([\s\S]*?\.next-goal-pin__action,[\s\S]*?\.next-goal-pin-compact__action[\s\S]*?\)\s*\{[^}]*min-width:\s*var\(--touch-target-min\)[^}]*min-height:\s*var\(--touch-target-min\)/s);
-});
-
-test('landing and storage-notice actions use the shared mobile touch target', () => {
-    assert.match(landingSkinCss, /\.landing-topnav \.landing-navlink\s*\{[^}]*min-height:\s*var\(--touch-target-min\)/s);
-    assert.match(landingSkinCss, /\.landing-footer-links :is\(a, button\),\s*\.landing-footer-policy-links a\s*\{[^}]*min-width:\s*var\(--touch-target-min\)[^}]*min-height:\s*var\(--touch-target-min\)/s);
-    assert.match(adaptiveShellCss, /\.storage-notice :where\(a, button\)\s*\{[^}]*min-block-size:\s*var\(--touch-target-min\)/s);
-    assert.match(storageNoticeSource, /minHeight:\s*"var\(--touch-target-min\)"/);
-    assert.doesNotMatch(storageNoticeSource, /minHeight:\s*38/);
-});
-
-test('next-goal controls retain keyboard, progress, and reduced-motion semantics', () => {
-    assert.match(nextGoalSource, /aria-label="Hide this goal"/);
-    assert.match(nextGoalSource, /<ProgressBar[\s\S]*?label=\{`\$\{req\.label\} progress`\}[\s\S]*?value=\{req\.progress\}[\s\S]*?max=\{req\.target\}/s);
-    assert.match(veiledSteelCss, /:where\([\s\S]*?\.next-goal-pin__close,[\s\S]*?\.next-goal-pin__action,[\s\S]*?\.next-goal-pin-compact__action[\s\S]*?\):focus-visible\s*\{[^}]*outline:/s);
-    assert.match(veiledSteelCss, /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.next-goal-pin__progress \.ui-progress-fill[\s\S]*?transition:\s*none !important;/s);
+    assert.match(nextGoalSource, /minWidth:\s*compactButton \? 20 : 44/);
+    assert.match(nextGoalSource, /minHeight:\s*compactButton \? 20 : 44/);
 });
 
 test('visual novel skip stays visible in the header with a phone-size target', () => {

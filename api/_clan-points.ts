@@ -156,7 +156,7 @@ export async function awardClanPointsToPlayerSave(
     source: ClanPointSource,
     amount: number,
     metadata: Record<string, unknown> = {},
-): Promise<ClanPointAwardResult & { playerName: string; found: boolean }> {
+): Promise<ClanPointAwardResult & { playerName: string; found: boolean; _saveVersion?: number }> {
     const playerName = safeName(playerNameRaw);
     if (!playerName) {
         const weekKey = clanPointWeekKey();
@@ -171,11 +171,17 @@ export async function awardClanPointsToPlayerSave(
         }
         const result = awardClanPoints(character, source, amount, metadata);
         const changed = result.character !== character;
+        let saveVersion = Number(record._saveVersion ?? 0);
         if (changed) {
+            const nextRecord = bumpSaveVersion({ ...record, character: result.character });
             await kv.set(
                 `save:${playerName}`,
-                mergePreservingImages(bumpSaveVersion({ ...record, character: result.character }), record),
+                mergePreservingImages(nextRecord, record),
             );
+            // Return the stamp from the exact record written while this save lock
+            // is held. Callers must never re-read after releasing the lock to
+            // guess which concurrent version their response should acknowledge.
+            saveVersion = Number(nextRecord._saveVersion ?? 0);
         }
         if (result.awarded > 0) {
             await kv.set(`audit:clan-points:${playerName}:${Date.now()}`, {
@@ -187,6 +193,6 @@ export async function awardClanPointsToPlayerSave(
                 metadata,
             }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
         }
-        return { ...result, playerName, found: true };
+        return { ...result, playerName, found: true, _saveVersion: saveVersion };
     }, { failClosed: true });
 }

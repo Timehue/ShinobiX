@@ -38,7 +38,7 @@ import {
 } from './_companion.js';
 import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from '../combat-core/formulas.js';
 import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
-import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
+import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import {
     pveAiCompetence,
     pveAiMasteryForLevel,
@@ -99,17 +99,6 @@ export type TowerAction =
     | { actorId: string; type: 'clear'; targetId: string; token?: string }
     | { actorId: string; type: 'summon'; token?: string }
     | { actorId: string; type: 'wait'; token?: string };
-
-/** Canonical public command discriminants. Kept beside TowerAction so endpoint validation
- * cannot silently drift from the engine union when a new explicit action is added. */
-export const TOWER_ACTION_TYPES = [
-    'move', 'dash', 'attack', 'jutsu', 'weapon', 'item', 'heal', 'cleanse', 'clear', 'summon', 'wait',
-] as const satisfies readonly TowerAction['type'][];
-const TOWER_ACTION_TYPE_SET = new Set<string>(TOWER_ACTION_TYPES);
-
-export function isTowerActionType(value: unknown): value is TowerAction['type'] {
-    return typeof value === 'string' && TOWER_ACTION_TYPE_SET.has(value);
-}
 
 export type ActionResult = { applied: boolean; reason?: string };
 
@@ -1016,6 +1005,21 @@ function jutsuHasTag(jutsu: JutsuLike, name: string): boolean {
     return Array.isArray(jutsu.tags) && (jutsu.tags as Array<{ name?: unknown }>)
         .some(tag => canonicalTagName(String(tag?.name ?? '')) === name);
 }
+function towerJutsuAffectsOpponent(jutsu: JutsuLike): boolean {
+    return Number(jutsu.effectPower ?? 0) > 0
+        || (Array.isArray(jutsu.tags) && (jutsu.tags as Array<{ name?: unknown }>)
+            .some(tag => OPPONENT_AFFECTING_TAGS.has(canonicalTagName(String(tag?.name ?? '')))));
+}
+/**
+ * Mirrors canonical PvP targeting for legacy utility records: non-positional
+ * zero-damage techniques with no opponent-affecting tag resolve on the caster
+ * even when an old record says OPPONENT or omits target entirely.
+ */
+function towerJutsuTargetsSelf(jutsu: JutsuLike): boolean {
+    return !jutsuHasTag(jutsu, 'Move')
+        && String(jutsu.target ?? '') !== 'EMPTY_GROUND'
+        && (String(jutsu.target ?? '') === 'SELF' || !towerJutsuAffectsOpponent(jutsu));
+}
 function towerResolverLines(lines: readonly string[], jutsu: JutsuLike): string[] {
     // A shared Barrier line contains a PvP-grid coordinate. The Tower emits its
     // authoritative coordinate after its own deterministic placement below.
@@ -1354,8 +1358,10 @@ function towerGroundTags(tags: unknown): Array<{ name: string; percent?: number 
         .map(t => ({ ...t, name: canonicalTagName(t.name!) }))
         .filter(t => GROUND_EFFECT_TAGS.has(t.name));
 }
-function groundZoneTiles(center: number, w: number, h: number): number[] {
-    return [center, ...towerNeighbors(center, w, h)];
+function groundZoneTiles(center: number, w: number, h: number, method?: string): number[] {
+    return String(method ?? 'SINGLE') === 'AOE_SPIRAL'
+        ? filledDiskTiles(center, 2, w, h)
+        : [center, ...towerNeighbors(center, w, h)];
 }
 /** Living actors a zone affects — the HOSTILES of the side that cast it (squad→'p1'). */
 function groundZoneTargets(session: TowerSession, effect: PvpGroundEffect): TowerActor[] {
@@ -1381,7 +1387,7 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
         id: `gz-${session.round}-${actor.id}-${jutsuId}`,
         owner: actor.side === 'squad' ? 'p1' : 'p2',
         name: jutsu.name ?? 'Ground Effect',
-        tiles: groundZoneTiles(tile, session.map.width, session.map.height),
+        tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method),
         rounds: 2,
         tags,
     };
@@ -2005,6 +2011,9 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     if (action.type === 'move') {
         if (!canAct(session, MOVE_AP)) return { applied: false, reason: 'cannot-act' };
         const w = session.map.width;
+        if (!Number.isSafeInteger(action.tile) || action.tile < 0 || action.tile >= w * session.map.height) {
+            return { applied: false, reason: 'bad-tile' };
+        }
         if (hexDistance(actor.pos, action.tile, w) !== 1) return { applied: false, reason: 'not-adjacent' };
         if (isTileBlocked(session, action.tile, actor.id)) return { applied: false, reason: 'blocked' };
         actor.pos = action.tile;
@@ -2021,6 +2030,9 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     if (action.type === 'dash') {
         if (!canAct(session, DASH_AP)) return { applied: false, reason: 'cannot-act' };
         const w = session.map.width;
+        if (!Number.isSafeInteger(action.tile) || action.tile < 0 || action.tile >= w * session.map.height) {
+            return { applied: false, reason: 'bad-tile' };
+        }
         const d = hexDistance(actor.pos, action.tile, w);
         if (d < 1 || d > DASH_RANGE) return { applied: false, reason: 'out-of-range' };
         if (isTileBlocked(session, action.tile, actor.id)) return { applied: false, reason: 'blocked' };
@@ -2137,7 +2149,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     // ── self-cast jutsu (target: SELF) — heals/buffs resolve on the caster, no foe needed ──
     if (action.type === 'jutsu') {
         const jSelf = findJutsu(actor, action.jutsuId);
-        if (jSelf && String((jSelf as { target?: string }).target) === 'SELF') {
+        if (jSelf && towerJutsuTargetsSelf(jSelf)) {
             if (rejectElementallySealed(session, actor, jSelf)) return { applied: false, reason: 'elementally-sealed' };
             const cost = Number(jSelf.ap ?? 40);
             const ck = Math.max(0, Number(jSelf.chakraCost ?? 0));
@@ -2170,7 +2182,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             if (rejectElementallySealed(session, actor, jm)) return { applied: false, reason: 'elementally-sealed' };
             const tile = Math.floor(action.tile);
             const w = session.map.width;
-            if (tile < 0 || tile >= w * session.map.height) return { applied: false, reason: 'bad-tile' };
+            if (!Number.isSafeInteger(action.tile) || tile < 0 || tile >= w * session.map.height) return { applied: false, reason: 'bad-tile' };
             if (tile === actor.pos) return { applied: false, reason: 'bad-tile' };
             const range = Math.max(1, Number(jm.range ?? 5));
             if (hexDistance(actor.pos, tile, w) > range) return { applied: false, reason: 'out-of-range' };
@@ -2208,7 +2220,9 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         if (jg && String((jg as { target?: string }).target) === 'EMPTY_GROUND') {
             if (rejectElementallySealed(session, actor, jg)) return { applied: false, reason: 'elementally-sealed' };
             const tile = Math.floor(action.tile);
-            if (tile < 0 || tile >= session.map.width * session.map.height) return { applied: false, reason: 'bad-tile' };
+            if (!Number.isSafeInteger(action.tile) || tile < 0 || tile >= session.map.width * session.map.height) {
+                return { applied: false, reason: 'bad-tile' };
+            }
             // Tower ground strikes may intentionally target an occupied hostile tile,
             // but never static terrain or a live server-authored Barrier wall.
             if (session.map.blockedTiles.includes(tile) || towerBarrierTiles(session).has(tile)) {
@@ -2492,7 +2506,7 @@ function bestSelfUtilityJutsu(session: TowerSession, actor: TowerActor): JutsuLi
     if (!Array.isArray(list)) return undefined;
     const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 0;
     const useful = (list as JutsuLike[])
-        .filter(j => String(j.target ?? '') === 'SELF' && aiJutsuReady(session, actor, j))
+        .filter(j => towerJutsuTargetsSelf(j) && aiJutsuReady(session, actor, j))
         .filter(j => {
             const tags = aiTagNames(j);
             if (tags.has('Heal')) return hpFrac <= 0.65;

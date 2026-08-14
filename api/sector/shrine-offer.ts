@@ -78,6 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 body: {
                     ok: true,
                     ryo: debit.value,
+                    _saveVersion: debit._saveVersion,
                     shrine: {
                         id: def.id,
                         name: def.name,

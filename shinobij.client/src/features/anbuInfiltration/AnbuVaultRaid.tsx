@@ -20,7 +20,7 @@
  * The traversal is CLIENT-side flavor: rewards flow ONLY from the server-settled
  * fight win, so skipping the walk cheats nothing (docs plan §9).
  */
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildVaultInterior } from "./vault-interior";
 import { findHollowGatePath } from "../../lib/hollow-gate-path";
 import { computeHollowGateVisible } from "../../lib/hollow-gate-dungeon";
@@ -35,7 +35,7 @@ import {
 import { MissionArenaFight } from "../../screens/MissionArenaFight";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../../lib/solo-pve-arena-adapter";
 import type { SoloPveSession } from "../../lib/solo-pve-api";
-import type { BattleHistoryEntry, Character, HollowGateShrineRun } from "../../types/character";
+import type { BattleHistoryEntry, Character, HollowGateShrineRun, VersionedCharacterCommit } from "../../types/character";
 
 const STEP_MS = 170;
 const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48;
@@ -50,7 +50,7 @@ export function AnbuVaultRaid({
     sharedImages,
     sector,
     targetVillage,
-    updateCharacter,
+    onVersionedCharacter,
     onRecordBattle,
     onExit,
 }: {
@@ -58,8 +58,7 @@ export function AnbuVaultRaid({
     sharedImages: Record<string, string>;
     sector: number;
     targetVillage: string;
-    /** Install the full character returned by authoritative settlement. */
-    updateCharacter?: Dispatch<SetStateAction<Character | null>>;
+    onVersionedCharacter: VersionedCharacterCommit;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     onExit: () => void;
 }) {
@@ -212,10 +211,8 @@ export function AnbuVaultRaid({
     async function settleInfiltration(runId: string, _playerName: string): Promise<unknown> {
         const r = await reportInfiltration(runId, character.name);
         try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
+        if (r.ok && "character" in r && r.character && !onVersionedCharacter(r.character, r._saveVersion)) return r;
         setReport(r);
-        if (r.ok && "character" in r && r.character && updateCharacter) {
-            updateCharacter(r.character);
-        }
         setPhase("result");
         return r;
     }

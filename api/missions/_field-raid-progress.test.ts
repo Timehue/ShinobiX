@@ -12,12 +12,20 @@ import {
 } from './_mission-progress-receipt.js';
 
 function charAt(level: number, accepted: string[]): Record<string, unknown> {
-    return { level, acceptedMissionIds: accepted };
+    return {
+        level,
+        acceptedMissionIds: accepted,
+        serverFieldMissionRuns: Object.fromEntries(accepted.map((missionId) => [missionId, {
+            missionId,
+            runId: `fieldrun_${missionId}`,
+            acceptedAt: 1,
+        }])),
+    };
 }
 
 /** The live save shape: accepted ids top-level, level on the nested character. */
 function saveAt(level: number, accepted: string[]): Record<string, unknown> {
-    return { acceptedMissionIds: accepted, currentSector: 47, character: { level } };
+    return { acceptedMissionIds: accepted, currentSector: 47, character: charAt(level, accepted) };
 }
 
 describe('_field-raid-progress', () => {
@@ -26,8 +34,9 @@ describe('_field-raid-progress', () => {
         // report-raid afterward has no battleId or raid-start token, so it cannot
         // be the receipt producer for this route.
         const source = fs.readFileSync(path.join(process.cwd(), 'api/missions/report-ai-fight.ts'), 'utf8');
-        assert.match(source, /import \{ creditFieldRaidProgress \} from '\.\/_field-raid-progress\.js';/);
-        assert.match(source, /paysReward && sealedBattleKind === 'raidAi'/);
+        assert.match(source, /import \{ settleRaidProgression,/);
+        assert.match(source, /paysReward && sealedBattleKind === 'raidAi' && sealedRaidTokenId/);
+        assert.match(source, /const progression = await settleRaidProgression\(\{/);
         assert.match(source, /proofId: `ai-fight:\$\{aiFightToken\}`/);
     });
 
@@ -56,6 +65,13 @@ describe('_field-raid-progress', () => {
             charAt(80, ['fetch-d-supply-trail', 'fetch-s-shadow-front', 'hunt-wild-boar', 'not-a-mission']),
         ).map((m) => m.id);
         assert.deepEqual(ids, ['fetch-d-supply-trail', 'fetch-s-shadow-front']);
+    });
+
+    it('credits only the contract whose target matches the sealed raid sector', () => {
+        const save = saveAt(80, ['fetch-d-supply-trail', 'fetch-c-border-scout', 'fetch-b-enemy-cache']);
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 18).map((mission) => mission.id), ['fetch-d-supply-trail']);
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 32).map((mission) => mission.id), ['fetch-c-border-scout']);
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 60), []);
     });
 
     it('excludes hunts, unaccepted missions, and level-ineligible fetches', () => {

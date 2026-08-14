@@ -25,51 +25,19 @@ export async function postPlayerChallengeNotice(targetName: string, challenge: D
     return false;
 }
 
-/** Commits an accepted/declined response while the server's original outgoing
- * authorization still exists, then cleans up the responder's inbox. Reversing
- * these requests destroys the proof required by the terminal transition. */
-export async function postPlayerChallengeTerminal(
-    original: DuelChallenge,
-    terminal: DuelChallenge,
-): Promise<boolean> {
-    const normalize = (value: string) => value.trim().toLowerCase();
-    const accepted = terminal.accepted === true;
-    const declined = terminal.declined === true;
-    if (!original.id || terminal.id !== original.id || accepted === declined
-        || normalize(terminal.fromName) !== normalize(original.toName)
-        || normalize(terminal.toName) !== normalize(original.fromName)) return false;
-    const committed = await postPlayerChallengeNotice(original.fromName, terminal);
-    if (!committed) return false;
-    try {
-        await fetch("/api/player/challenge", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                targetName: original.toName,
-                fromName: original.fromName,
-                challengeId: original.id,
-            }),
-        });
-    } catch {
-        // The immutable terminal response is already committed. Heartbeat and
-        // the server TTL can safely retry/clean the responder's stale inbox.
-    }
-    return true;
-}
-
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.
-export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character } | null> {
+export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; _saveVersion?: number } | null> {
     try {
         const res = await fetch("/api/village/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, village, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; _saveVersion?: number };
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
-        return { treasury: data.treasury, character: data.character };
+        return { treasury: data.treasury, character: data.character, _saveVersion: data._saveVersion };
     } catch {
         alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
@@ -81,16 +49,16 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
 // the old "credit treasury without a matching debit" gap. Returns the
 // server-credited treasury (clan XP / clanEventContrib are still applied
 // client-side on top of it), or null on failure (alerts the player).
-export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number } | null> {
+export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number; _saveVersion?: number } | null> {
     try {
         const res = await fetch("/api/clan/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, clan, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number; _saveVersion?: number };
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
-        return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1 };
+        return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1, _saveVersion: data._saveVersion };
     } catch {
         alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
@@ -138,16 +106,16 @@ export async function postClanMissionClaim(
     playerName: string,
     clan: string,
     missionKey: string,
-): Promise<{ treasury: Record<string, unknown>; xp: number; level: number; claimed: string[]; character?: Character } | null> {
+): Promise<{ treasury: Record<string, unknown>; xp: number; level: number; claimed: string[]; character?: Character; _saveVersion?: number } | null> {
     try {
         const res = await fetch("/api/clan/mission/claim", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, clan, missionKey }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number; claimed?: string[]; character?: Character };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number; claimed?: string[]; character?: Character; _saveVersion?: number };
         if (!res.ok || !data.ok || !data.treasury) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
-        return { treasury: data.treasury, xp: data.xp ?? 0, level: data.level ?? 1, claimed: Array.isArray(data.claimed) ? data.claimed : [], character: data.character };
+        return { treasury: data.treasury, xp: data.xp ?? 0, level: data.level ?? 1, claimed: Array.isArray(data.claimed) ? data.claimed : [], character: data.character, _saveVersion: data._saveVersion };
     } catch {
         alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
@@ -160,6 +128,7 @@ export type ClanExchangePurchaseResponse = {
     item: Record<string, unknown>;
     purchaseCount: number;
     remaining: number;
+    _saveVersion?: number;
     reveal?: { kind: "item"; itemId: string; name: string; rarity: string; slot: string };
 };
 
@@ -185,6 +154,7 @@ export async function postClanExchangePurchase(
             item: data.item ?? {},
             purchaseCount: data.purchaseCount ?? 0,
             remaining: data.remaining ?? 0,
+            _saveVersion: data._saveVersion,
             reveal: data.reveal,
         };
     } catch {

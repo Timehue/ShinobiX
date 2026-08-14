@@ -5,7 +5,7 @@ import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "react
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
 import { WeeklyBossFight } from "./WeeklyBossFight";
@@ -17,14 +17,14 @@ import type { SoloPveSession } from "../lib/solo-pve-api";
 // distributes the weekly leaderboard rewards after the spawn expires.
 export function WeeklyBossArena({
     character,
-    updateCharacter,
+    onVersionedCharacter,
     creatorAis,
     setScreen,
     playerRoster,
     sharedImages = {},
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     creatorAis: CreatorAi[];
     setPendingAiProfileId?: (id: string) => void;
     setTemporaryStoryAi?: (ai: CreatorAi | null) => void;
@@ -70,12 +70,12 @@ export function WeeklyBossArena({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ kind: "startFight" }),
             });
-            const data = await response.json().catch(() => ({}));
+            const data = await response.json().catch(() => ({})) as { runId?: string; session?: SoloPveSession; character?: Character; _saveVersion?: number; error?: string };
             if (!response.ok || !data?.runId || !data?.session) {
                 setError(data?.error ?? "The Weekly Boss fight could not be started.");
                 return;
             }
-            if (data?.character) updateCharacter(data.character);
+            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
             setFight({ runId: data.runId, session: data.session });
         } catch (cause) {
             setError(String((cause as Error).message || cause));
@@ -90,10 +90,10 @@ export function WeeklyBossArena({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ kind: "logFight", runId }),
         });
-        const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({})) as { boss?: WeeklyBossState; character?: Character; _saveVersion?: number; error?: string };
         if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
         if (data?.boss) setBossState(data.boss);
-        if (data?.character) updateCharacter(data.character);
+        if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) throw new Error("A newer Weekly Boss result is already active.");
         return data;
     }
 

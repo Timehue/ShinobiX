@@ -39,6 +39,16 @@ test("pre-gift script is non-empty and hands off to the companion choice", () =>
     assert.ok(PRE_GIFT_LINES.some((l) => l.vision));
 });
 
+test("intro names the Gate as a human-built optimizer and the player as unclassifiable", () => {
+    const copy = [...PRE_GIFT_LINES, ...buildPostGiftLines(villages[0])].map((line) => line.text).join(" ");
+    assert.match(copy, /People of the Sunken Court built it/i);
+    assert.match(copy, /It does not hunger\. It measures\./i);
+    assert.match(copy, /lattice tried to name you and failed/i);
+    assert.match(copy, /That is not destiny/i);
+    assert.doesNotMatch(copy, /before your kind first drew breath|it hungers|held the seal/i);
+    assert.doesNotMatch(copy, /\bchosen\b/i);
+});
+
 test("post-gift script ends on the fading 'save this land' farewell", () => {
     for (const village of [...villages, "Unknown Test Village"]) {
         const lines = buildPostGiftLines(village);

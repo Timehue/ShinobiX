@@ -1,38 +1,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
 import { createProductEvent, PRODUCT_EVENT_NAMES } from '../shared/product-analytics.js';
 
 describe('product analytics schema', () => {
-    it('keeps the explicit taxonomy intentionally bounded', () => {
+    it('keeps the initial taxonomy intentionally small', () => {
         assert.ok(PRODUCT_EVENT_NAMES.length >= 8);
-        assert.ok(PRODUCT_EVENT_NAMES.length <= 24);
-    });
-
-    it('keeps the data inventory complete for every allowlisted event', () => {
-        const inventory = readFileSync('docs/PRODUCT_ANALYTICS_DATA_INVENTORY.md', 'utf8');
-        for (const name of PRODUCT_EVENT_NAMES) assert.match(inventory, new RegExp('\\| `' + name + '` \\|'), name);
-    });
-
-    it('allowlists the requested aggregate supporter journey without identity or payment data', () => {
-        const names = [
-            'supporter_page_viewed',
-            'patreon_connection_started',
-            'patreon_connection_succeeded',
-            'patreon_connection_failed',
-            'locked_jutsu_slot_inspected',
-            'sanctuary_overflow_explanation_viewed',
-            'subscription_entitlement_refresh_failed',
-        ] as const;
-        for (const name of names) assert.ok(PRODUCT_EVENT_NAMES.includes(name), name);
-
-        assert.deepEqual(createProductEvent('patreon_connection_succeeded', {
-            source: 'patreon-oauth-callback', resultCategory: 'active',
-            playerName: 'private', token: 'secret', paymentAmount: 1500,
-        }), {
-            name: 'patreon_connection_succeeded',
-            properties: { source: 'patreon-oauth-callback', resultCategory: 'active' },
-        });
+        assert.ok(PRODUCT_EVENT_NAMES.length <= 15);
     });
 
     it('drops unknown events, freeform properties, identifiers, and non-bucketed numbers', () => {

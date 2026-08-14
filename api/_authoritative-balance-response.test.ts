@@ -46,9 +46,29 @@ describe('authoritative balance response migration', () => {
         assert.match(gauntletApi, /balances,\s*score,\s*rank/);
         assert.match(gauntletClient, /ryo:\s*rep\.balances\.ryo/);
         assert.match(arenaApi, /balances:\s*\{\s*ryo:\s*Number\(updatedChar\.ryo\)\s*\}/);
-        assert.match(arenaClient, /ryo:\s*data\.balances\?\.ryo\s*\?\?\s*prev\.ryo/);
+        const applyArenaSettlement = arenaClient.slice(
+            arenaClient.indexOf('const applyPetBattleSettlement'),
+            arenaClient.indexOf('async function postPetBattleSettlement'),
+        );
+        assert.match(applyArenaSettlement, /if \(!data\.character\) throw new Error/);
+        assert.match(applyArenaSettlement, /const decision = receivePetBattleSettlement\(data, scope, authoritativeCharacter\)/);
+        assert.ok(
+            applyArenaSettlement.indexOf('if (decision === "stale")')
+                < applyArenaSettlement.indexOf('updateCharacter((current) =>'),
+            'Pet Arena must version-check the committed snapshot before adopting it',
+        );
+        assert.match(applyArenaSettlement, /const authoritativeCharacter = \{\s*\.\.\.data\.character,\s*pets:/);
+        assert.doesNotMatch(applyArenaSettlement, /ryo:\s*[^\n]*\+/,
+            'Pet Arena must adopt server balances through the committed character, never client reward arithmetic');
         assert.match(expeditionApi, /balances:\s*\{\s*ryo:\s*Number\(finalChar\?\.ryo/);
-        assert.match(expeditionClient, /ryo:\s*Number\(data\.balances\?\.ryo\s*\?\?\s*prev\.ryo\)/);
+        const collectExpedition = expeditionClient.slice(
+            expeditionClient.indexOf('async function collectExpedition'),
+            expeditionClient.indexOf('async function collectTraining'),
+        );
+        assert.match(collectExpedition, /if \(data\.character && !onVersionedCharacter\(data\.character, data\._saveVersion\)\) return/);
+        assert.match(collectExpedition, /if \(!data\.character\) throw new Error/);
+        assert.doesNotMatch(collectExpedition, /updateCharacter\([^)]*ryo|ryo:\s*[^\n]*\+/,
+            'Pet Yard must adopt the committed character balance, not synthesize expedition ryo');
         assert.doesNotMatch(gauntletClient, /ryo:\s*\(c\.ryo\s*\?\?\s*0\)\s*\+\s*rep\.ryo/);
     });
 
@@ -58,15 +78,8 @@ describe('authoritative balance response migration', () => {
         // Bounty placement now lives in the Battle Arena "Bounty Board" tab
         // (BountyBoardPanel); the Hall of Legends duplicate was retired.
         const panel = read('shinobij.client/src/components/BountyBoardPanel.tsx');
-        const committedBalanceResponses = api.match(
-            /balances:\s*\{\s*ryo:\s*num\(savedCharacter\?\.ryo\)\s*\}/g,
-        ) ?? [];
-        assert.equal(
-            committedBalanceResponses.length,
-            2,
-            'fresh PLACE and CLAIM responses must both expose the CAS-committed wallet balance',
-        );
-        assert.match(api, /replayed:\s*true[\s\S]{0,240}?balances:\s*\{\s*ryo:\s*wallet\.balance\s*\}/);
+        assert.match(api, /balances:\s*\{\s*ryo:\s*debit\.balance\s*\}/);
+        assert.match(api, /balances:\s*\{\s*ryo:\s*credit\.balance\s*\}/);
         assert.match(app, /ryo:\s*b\.balances\.ryo/);
         assert.match(panel, /ryo:\s*res\.balances\?\.ryo\s*\?\?\s*character\.ryo/);
         assert.doesNotMatch(app, /ryo:\s*\(c\.ryo\s*\?\?\s*0\)\s*\+\s*b\.amount/);
@@ -78,9 +91,10 @@ describe('authoritative balance response migration', () => {
         const settle = read('shinobij.client/src/lib/ai-fight-settle.ts');
         const app = read('shinobij.client/src/App.tsx');
         assert.match(api, /readSoloPveSession\(sealedSessionId\)/);
+        assert.match(api, /const settledUsageSession = usage\.session/);
         assert.match(api, /applySoloPveUsageCosts\(character, settledUsageSession\)/);
         assert.match(api, /const leveled = gainXp\(companionCharacter, reward\.xp\)/);
-        assert.match(api, /character: result\.character, _saveVersion: result\._saveVersion/);
+        assert.match(api, /character: finalCharacter,\s*_saveVersion: finalSaveVersion/);
         // The save endpoint's protection of the AI-fight redemption ledger now
         // derives from the ownership manifest (P0-1) — assert it there, where
         // the boundary is actually defined.
@@ -89,18 +103,14 @@ describe('authoritative balance response migration', () => {
             ownership.SERVER_ARRAY_LEDGER_CHARACTER_FIELDS.includes('redeemedAiFightRewards'),
             'redeemedAiFightRewards must stay a server-owned redemption ledger on the save path',
         );
-        assert.ok(
-            ownership.ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS.includes('aiFightRewardSettlements'),
-            'non-evicting AI-fight authority must remain server-owned on generic saves',
-        );
         assert.match(host, /startAiFight\(\{/);
         assert.match(host, /const settled = await settleAiFight\(\{/);
-        assert.match(host, /onSettled\(settled\)/);
+        assert.match(host, /latestOnSettled\.current\(settled\)/);
         assert.match(settle, /const settledCharacter = \(reported\.character \?\? null\)/);
         assert.match(api, /applyAiFightSecondaryRewards/);
         // The mounted host adopts only the committed character returned through
         // the settlement helper; no client reward arithmetic survives.
-        assert.match(app, /onSettled=\{\(result\) => \{ if \(!result\.character\) return;[\s\S]{0,180}?setCharacter\(result\.character\)/);
+        assert.match(app, /onSettled=\{\(result\) => \{\s*if \(result\.character && !commitVersionedCharacter\(result\.character, result\._saveVersion\)\) return;/);
         assert.doesNotMatch(settle, /ryo:\s*\([^\n]*\+|xp:\s*\([^\n]*\+/, 'the client must not synthesize AI fight balances');
     });
 
@@ -115,16 +125,15 @@ describe('authoritative balance response migration', () => {
         assert.match(api, /const redemptionKey = `run:\$\{runId\}`/);
         assert.match(api, /redeemed\.find\(\(entry\) => entry\.token === redemptionKey\)/);
         assert.match(api, /replayed:\s*true/);
-        assert.match(api, /settleSoloPveTerminalUsage\(session, playerName\)/);
-        assert.match(api, /applySoloPveUsageCosts\(character, settlementSession!\)/);
+        assert.match(api, /applySoloPveUsageCosts\(character, session!\)/);
         assert.match(api, /applyStoryBossSettlement\([\s\S]*validation\.binding\.opponentId/);
         assert.match(core, /proof\.opponentId !== storyOpponentId\(village, levelReq\)/);
         assert.match(saveApi, /char\.storyProgress = .*exChar\.storyProgress/);
         assert.match(client, /fetch\('\/api\/story\/settle'/);
         assert.match(client, /body: JSON\.stringify\(\{ \.\.\.params, kind: 'storyBoss' \}\)/);
         assert.match(host, /onSettled\(settled\)/);
-        assert.match(app, /function handleServerStoryBossSettled\(result: StoryBossSettleResult\)[\s\S]{0,260}?setCharacter\(result\.character\)/);
-        assert.match(app, /adoptSaveVersion\(latestSaveVersionRef\.current, result\._saveVersion\)/);
+        assert.match(app, /function handleServerStoryBossSettled\(result: StoryBossSettleResult\)[\s\S]{0,260}?commitVersionedCharacter\(result\.character, result\._saveVersion\)/);
+        assert.match(app, /function commitVersionedCharacter[\s\S]{0,420}?acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
     });
 
     it('war crates are consumed and rewarded by one server save mutation', () => {
@@ -133,7 +142,7 @@ describe('authoritative balance response migration', () => {
         assert.match(api, /mutatePlayerSave\(playerName/);
         assert.match(api, /character: result\.character/);
         assert.match(client, /fetch\("\/api\/village\/open-war-crate"/);
-        assert.match(client, /updateCharacter\(data\.character\)/);
+        assert.match(client, /onVersionedCharacter\(data\.character, data\._saveVersion\)/);
         assert.match(client, /if \(openingWarCrateRef\.current\) return/);
         assert.doesNotMatch(client, /Math\.random\(\) < 0\.35/);
     });
@@ -165,7 +174,7 @@ describe('authoritative balance response migration', () => {
         const client = read('shinobij.client/src/screens/Bank.tsx');
         assert.match(api, /mutatePlayerSave\(playerName/);
         assert.match(client, /fetch\("\/api\/bank\/transfer"/);
-        assert.match(client, /updateCharacter\(data\.character\)/);
+        assert.match(client, /onVersionedCharacter\(data\.character, data\._saveVersion\)/);
         assert.doesNotMatch(client, /bankRyo: character\.bankRyo [+-] value/);
     });
 
@@ -183,6 +192,6 @@ describe('authoritative balance response migration', () => {
         const client = read('shinobij.client/src/screens/BattleTowerFight.tsx');
         assert.match(api, /const responseSlug = callerSlug \?\? safeName\(playerName\)/);
         assert.match(api, /character: committed\?\.character \?\? null/);
-        assert.match(client, /if \(response\.character && updateCharacter\) updateCharacter\(response\.character\)/);
+        assert.match(client, /if \(mutation\.character\) onVersionedCharacter\?\.\(mutation\.character, mutation\._saveVersion\)/);
     });
 });

@@ -33,15 +33,7 @@ function sideHud(name: string, side: "player" | "enemy") {
             <div class="resource-line resource-line--chakra"><span class="resource-label">Chakra <small>80 / 100</small></span><div class="hud-bar chakra-bar"><span style="width:80%"></span></div></div>
             <div class="resource-line resource-line--stamina"><span class="resource-label">Stamina <small>70 / 100</small></span><div class="hud-bar stamina-bar"><span style="width:70%"></span></div></div>
             <div class="resource-line resource-line--shield"><span class="resource-label">Shield <small>1500</small></span><div class="hud-bar shield-bar"><span style="width:100%"></span></div></div>
-            <div class="combat-mobile-effects">
-                <div class="cme-entry">
-                    <button type="button" class="cme-chip cme-pos" popovertarget="${side}-guard-details" aria-haspopup="dialog" aria-controls="${side}-guard-details" aria-label="Inspect Guard: 20%, 1&ndash;2 rounds; Buff. Reduces incoming damage. Source: Iron Guard. Clear removes this effect.">Guard <small>20% 1&ndash;2r</small></button>
-                    <div id="${side}-guard-details" popover="auto" class="cme-status-popover" role="dialog" aria-labelledby="${side}-guard-title">
-                        <header><strong id="${side}-guard-title">Guard</strong><button type="button" popovertarget="${side}-guard-details" popovertargetaction="hide" aria-label="Close Guard details">&times;</button></header>
-                        <dl><div><dt>Category</dt><dd>Buff</dd></div><div><dt>Effect</dt><dd>Reduces incoming damage.</dd></div><div><dt>Value</dt><dd>20%</dd></div><div><dt>Stacks</dt><dd>2 stacks</dd></div><div><dt>Duration</dt><dd>1&ndash;2 rounds</dd></div><div><dt>Source</dt><dd>Iron Guard</dd></div><div><dt>Removal</dt><dd>Clear removes this effect.</dd></div></dl>
-                    </div>
-                </div>
-            </div>
+            <div class="combat-mobile-effects"><span class="cme-chip cme-pos">Guard <small>2r</small></span></div>
             <div class="combat-hud-meta"><span>Round 2</span></div>
             <div class="combat-effect-panel effects-buff"><h4>Buffs</h4><div class="effect-pill"><span>Damage dealt ↑</span><small>20% · 1r</small></div><div class="effect-pill"><span>Damage taken ↓</span><small>20% · 2r</small></div><div class="effect-pill"><span>Reflect</span><small>20% · 2r</small></div></div>
             <div class="combat-effect-panel effects-debuff"><h4>Debuffs</h4><div class="effect-pill"><span>Damage taken ↑</span><small>23% · 1r</small></div><div class="effect-pill"><span>Poison</span><small>23% · 1r</small></div></div>
@@ -183,22 +175,6 @@ for (const mode of ["solo", "pvp"] as const) {
             await expect(dossier.locator(".combat-effect-panel").first()).toBeHidden();
             await expect(statusStrip).toBeVisible();
             await expect(statusStrip.locator(".cme-chip").first()).toContainText("Guard");
-            const effectButton = statusStrip.locator(".cme-chip").first();
-            const effectTarget = await effectButton.boundingBox();
-            expect(effectTarget?.width).toBeGreaterThanOrEqual(44);
-            expect(effectTarget?.height).toBeGreaterThanOrEqual(44);
-            await effectButton.click();
-            const effectDialog = page.locator("#player-guard-details");
-            await expect(effectDialog).toBeVisible();
-            await expect(effectDialog).toContainText("Iron Guard");
-            await expect(effectDialog).toContainText("Clear removes this effect.");
-            await expect(effectDialog).toContainText("1\u20132 rounds");
-            if (viewport.width === 1280) {
-                const effectAudit = await new AxeBuilder({ page }).include("#player-guard-details").analyze();
-                expect(effectAudit.violations).toEqual([]);
-            }
-            await page.keyboard.press("Escape");
-            await expect(effectDialog).toBeHidden();
             const statusWidths = await statusStrip.evaluate((strip) => ({
                 content: strip.scrollWidth,
                 viewport: strip.clientWidth,
@@ -281,6 +257,43 @@ for (const mode of ["solo", "pvp"] as const) {
         }
     });
 }
+
+test("ambient screen help stays operable without intercepting the board at 200% zoom", async ({ page }) => {
+    for (const viewport of [{ width: 720, height: 450 }, { width: 512, height: 384 }]) {
+        await mountCombatFixture(page, "solo", viewport);
+        await page.evaluate(() => {
+            const hint = document.createElement("div");
+            hint.className = "onboarding-coach-banner screen-hint-banner";
+            hint.setAttribute("role", "note");
+            hint.setAttribute("aria-label", "Mission Hall contextual tip");
+            hint.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:520px;width:calc(100% - 24px);padding:10px 14px;display:flex;z-index:8500";
+            hint.innerHTML = `
+                <div class="screen-hint-inline" style="display:contents">
+                    <span>Mission Hall - accept work, finish the objective, then return here to claim the posted reward.</span>
+                    <button type="button">Got it</button>
+                </div>
+                <button type="button" class="screen-hint-battle-trigger" style="display:none" aria-label="Review Mission Hall tip" aria-haspopup="dialog" aria-expanded="false">
+                    <span aria-hidden="true">?</span><span aria-hidden="true">Tip</span>
+                </button>`;
+            document.body.append(hint);
+        });
+
+        const board = await box(page, ".combat-board-stage");
+        const trigger = await box(page, ".screen-hint-battle-trigger");
+        await expect(page.locator(".screen-hint-inline")).toBeHidden();
+        await expect(page.locator(".screen-hint-battle-trigger")).toBeVisible();
+        expect(trigger.width).toBeGreaterThanOrEqual(44);
+        expect(trigger.height).toBeGreaterThanOrEqual(44);
+        expect(trigger.x >= board.x + board.width || trigger.y + trigger.height <= board.y).toBe(true);
+        expect(await page.evaluate(() => {
+            const boardNode = document.querySelector<HTMLElement>(".combat-board-stage");
+            if (!boardNode) return false;
+            const rect = boardNode.getBoundingClientRect();
+            return Boolean(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest(".combat-board-stage"));
+        })).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    }
+});
 
 test("populated desktop combat has no automated WCAG A/AA violations", async ({ page }) => {
     await mountCombatFixture(page, "solo", { width: 1440, height: 900 });

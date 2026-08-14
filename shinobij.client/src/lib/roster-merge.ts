@@ -36,8 +36,6 @@ export function mergePlayerRoster(
             ...existingRecord,
             ...rec,
             character: mergedChar,
-            // Heartbeats intentionally omit the server-projected public roster.
-            // Preserve the last rich snapshot until a new projection arrives.
             eligiblePets: Array.isArray(rec.eligiblePets) ? rec.eligiblePets : existingRecord?.eligiblePets,
         });
     }

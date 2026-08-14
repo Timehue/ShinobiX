@@ -3,7 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
 import { randomUUID } from 'node:crypto';
 import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from './_starter-cards.js';
 
@@ -89,11 +89,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== slug);
+                    // Cancellation may race the poll that paired this player. Tear
+                    // down that still-pending handoff for BOTH sides so the opponent
+                    // cannot be sent into a match whose other player navigated away.
+                    // Only remove the opponent's handoff when it still names the same
+                    // match; they may already have canceled and joined a newer queue.
+                    const myMatch = await kv.get<Record<string, unknown>>(matchKey(slug));
+                    const pendingMatchId = typeof myMatch?.matchId === 'string' ? myMatch.matchId : '';
+                    const opponent = typeof myMatch?.opponent === 'string' ? safeName(myMatch.opponent) : '';
+                    const deleteKeys = [matchKey(slug)];
+                    if (pendingMatchId) deleteKeys.push(pairKey(pendingMatchId));
+                    if (pendingMatchId && opponent) {
+                        const opponentMatch = await kv.get<Record<string, unknown>>(matchKey(opponent));
+                        if (opponentMatch?.matchId === pendingMatchId) deleteKeys.push(matchKey(opponent));
+                    }
                     await Promise.all([
                         kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
-                        kv.del(matchKey(slug)),
+                        kv.del(...deleteKeys),
                     ]);
-                    return { status: 200, body: { inQueue: false, queueSize: filtered.length, match: null } };
+                    return {
+                        status: 200,
+                        body: {
+                            inQueue: false,
+                            queueSize: filtered.length,
+                            match: null,
+                            reason: 'left',
+                            ...(pendingMatchId ? { canceledMatchId: pendingMatchId } : {}),
+                        },
+                    };
                 }
 
                 if (action === 'join') {
@@ -104,23 +127,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
                         kv.del(matchKey(slug)),   // clear any stale prior pairing
                     ]);
-                    return { status: 200, body: { inQueue: true, queueSize: filtered.length, match: null } };
+                    return { status: 200, body: { inQueue: true, queueSize: filtered.length, match: null, reason: 'joined' } };
                 }
 
                 if (action === 'poll') {
                     // If a prior poll (mine OR the opponent's) already paired me, return
                     // that durable match so the side that didn't pair first still gets it.
                     const myMatch = await kv.get<Record<string, unknown>>(matchKey(slug));
-                    if (myMatch) return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
+                    if (myMatch) return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch, reason: 'matched' } };
 
                     const me = active.find(e => e.name === slug);
-                    if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
+                    if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null, reason: 'not-queued' } };
 
                     const others = active.filter(e => e.name !== me.name);
                     if (others.length === 0) {
                         const refreshed = active.map(e => e.name === me.name ? { ...e, lastSeen: Date.now() } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
-                        return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
+                        return { status: 200, body: { inQueue: true, queueSize: active.length, match: null, reason: 'waiting' } };
                     }
 
                     const waitMs = Math.max(0, Date.now() - me.joinedAt);
@@ -136,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return {
                             status: 200,
-                            body: { inQueue: true, queueSize: active.length, match: null, searchBand: band },
+                            body: { inQueue: true, queueSize: active.length, match: null, searchBand: band, reason: 'waiting' },
                         };
                     }
                     candidates.sort((a, b) => Math.abs(a.level - me.level) - Math.abs(b.level - me.level));
@@ -158,13 +181,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // Shared auth record the match handler reads to gate joins.
                         kv.set(pairKey(matchId), { matchId, p1Name, p2Name, createdAt: now }, { ex: PAIR_TTL_SECONDS }),
                     ]);
-                    return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
+                    return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe, reason: 'matched' } };
                 }
 
                 return { status: 400, body: { error: 'Invalid action.' } };
-            });
+            }, { failClosed: true });
             return res.status(out.status).json(out.body);
         } catch (err) {
+            if (err instanceof LockContendedError) {
+                // Pairing is one transaction across the queue, two player
+                // handoffs, and the shared participant proof. Never fall
+                // through unlocked: that can double-pair a player or strand an
+                // opponent with only half of the handoff. No mutation occurred,
+                // so the client can safely retry the same join/leave/poll.
+                return res.status(503).json({ error: 'Chronicle matchmaking is busy. Please retry.' });
+            }
             console.error('[card-clash/queue]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }

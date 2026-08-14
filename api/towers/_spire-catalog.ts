@@ -23,7 +23,7 @@ import { hexZone } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v2' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v3' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'
@@ -134,10 +134,12 @@ const BOSS_BY_FLOOR: SpireBossKey[] = [
 // real-engine release sim in scripts/spire-balance.test.ts. HP stays the per-encounter tuning
 // knob because each boss mechanic adds a very different TTK tax; global stat/damage changes
 // would also perturb the already-shipped story tower.
+// F15's 47,900 is the Spire-only calibration for Sovereign's canonical radius-2 AOE_SPIRAL;
+// shared PvE/PvP combat remains the source of truth and is intentionally not retuned here.
 const HP_BY_FLOOR: number[] = [
     17600, 13800, 25000, 21000, 36300,   // 1-5
     19300, 33300, 50000, 31000, 53010,   // 6-10
-    50400, 45500, 42000, 51000, 48000,   // 11-15
+    50400, 45500, 42000, 51000, 47900,   // 11-15
     38000, 31200, 40000, 28000, 28750,   // 16-20
 ];
 

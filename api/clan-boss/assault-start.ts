@@ -9,7 +9,6 @@ import { getFloor } from '../towers/_floor-catalog.js';
 import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../towers/_encounter.js';
-import type { TowerSession } from '../towers/_tower-session.js';
 import { startRound, runAiUntilHuman } from '../towers/_engine.js';
 import { makeRng } from '../towers/_sim.js';
 import { readSession, writeSession, setTowerInvite } from '../towers/_tower-store.js';
@@ -25,11 +24,6 @@ import {
 } from './_storage.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
-import {
-    bindClanBossBattleMarkers,
-    claimClanBossBattleMarkers,
-    releaseClanBossStartMarkers,
-} from '../towers/_battle-lease.js';
 
 /*
  * POST /api/clan-boss/assault-start — begin a co-op assault on THIS week's clan boss.
@@ -46,7 +40,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (process.env.ENABLE_CLAN_BOSS !== '1') return res.status(404).json({ error: 'Not found.' });
     if (req.method !== 'POST') return res.status(405).end();
     let preparedParty: { id: string; requestId: string } | null = null;
-    let clanMarker: { requestId: string; proposedRunId: string; members: string[]; published: boolean } | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const hostName = safeName(String(body.hostName ?? ''));
@@ -121,23 +114,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (squad.length === 0) return res.status(400).json({ error: 'No valid party members.' });
         const sealedPartySlugs = squad.map(s => s.ownerSlug);
-        const proposedRunId = `cboss-${randomUUID().replace(/-/g, '')}`;
-        const proposedSeed = randomInt(1, 0x7fffffff);
-
-        const marker = await claimClanBossBattleMarkers({ requestId, runId: proposedRunId, members: sealedPartySlugs });
-        if (!marker.ok) {
-            return res.status(409).json({
-                error: 'One or more operation members is already in another active battle.',
-                errorCode: marker.code,
-                members: marker.members,
-            });
-        }
-        clanMarker = { requestId, proposedRunId, members: marker.members, published: false };
 
         if (loadedParty) {
             if (sealedPartySlugs.length !== loadedParty.members.length || sealedPartySlugs.some((slug) => !loadedParty.members.some((member) => member.slug === slug))) {
-                await releaseClanBossStartMarkers(requestId, proposedRunId, clanMarker.members);
-                clanMarker = null;
                 return res.status(409).json({ error: 'A party member save is unavailable. Remove them or try again after they reconnect.' });
             }
             const prepared = await preparePartyStart({
@@ -146,17 +125,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 requestId,
                 expectedVersion: Number(body.expectedVersion),
             });
-            if (!prepared.ok) {
-                await releaseClanBossStartMarkers(requestId, proposedRunId, clanMarker.members);
-                clanMarker = null;
-                return res.status(prepared.status).json({ error: prepared.error, errorCode: prepared.code, party: prepared.party });
-            }
+            if (!prepared.ok) return res.status(prepared.status).json({ error: prepared.error, errorCode: prepared.code, party: prepared.party });
             preparedParty = { id: loadedParty.id, requestId };
         }
 
         // Bind one client request to one attempt/run under the progress lock.
         // Re-check attempts + not-already-killed only for a new request.
         const progressKey = clanBossProgressKey(weekId, clanName);
+        const proposedRunId = `cboss-${randomUUID().replace(/-/g, '')}`;
+        const proposedSeed = randomInt(1, 0x7fffffff);
         const fingerprint = createHash('sha256').update(JSON.stringify({ hostName, party: sealedPartySlugs, hostLoadout })).digest('hex');
         const reserved = await withKvLock(progressKey, async () => {
             const progress = (await loadClanBossProgress(weekId, clanName)) ?? newClanBossProgress(clanName, week, memberCount);
@@ -184,8 +161,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         if (!reserved.ok) {
             if (preparedParty) await reopenPartyStart(preparedParty.id, preparedParty.requestId);
-            if (clanMarker) await releaseClanBossStartMarkers(requestId, proposedRunId, clanMarker.members);
-            clanMarker = null;
             return res.status('conflict' in reserved ? 409 : 400).json({ error: reserved.error });
         }
 
@@ -210,24 +185,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             startRound(session);
             runAiUntilHuman(session, floor, makeRng(seed));
             stampTurnClock(session, reserved.receipt.at);
-            try {
-                await writeSession(session);
-            } catch (publishError) {
-                let published: TowerSession | null;
-                try {
-                    published = await readSession(runId);
-                } catch {
-                    // Publication is uncertain: keep the cross-mode markers and
-                    // prepared party so the same idempotent request can recover.
-                    clanMarker.published = true;
-                    throw publishError;
-                }
-                if (!published) throw publishError;
-                session = published;
-            }
+            await writeSession(session);
         }
-        clanMarker.published = true;
-        await bindClanBossBattleMarkers({ requestId, runId, members: clanMarker.members });
         // Invite EVERY party member — incl. the host — so anyone (incl. the host after
         // an accidental exit) can rediscover + rejoin an unfinished assault via
         // fetchMyRun, rather than losing the reserved attempt. Clan-boss runs use the
@@ -248,12 +207,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ runId, session, replayed: reserved.replayed, boss: { id: boss.id, name: boss.name, icon: boss.icon } });
     } catch (err) {
-        if (preparedParty && !clanMarker?.published) {
-            await reopenPartyStart(preparedParty.id, preparedParty.requestId).catch(() => undefined);
-        }
-        if (clanMarker && !clanMarker.published) {
-            await releaseClanBossStartMarkers(clanMarker.requestId, clanMarker.proposedRunId, clanMarker.members).catch(() => undefined);
-        }
+        if (preparedParty) await reopenPartyStart(preparedParty.id, preparedParty.requestId).catch(() => undefined);
         console.error('[clan-boss/assault-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

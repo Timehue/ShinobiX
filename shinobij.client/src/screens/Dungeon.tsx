@@ -13,11 +13,11 @@ import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
-import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
-import { activeCarriedPets } from "../lib/entitlements";
+import { defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
+import { activeCarriedPets } from "../lib/entitlements";
 import {
     petTamerPveMultiplier,
     type CreatorEvent,
@@ -64,6 +64,7 @@ export function DungeonEncounter({
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
     const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The dungeon waits.";
     const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
+    const hidePlayerPortrait = hidePlayerPortraitDuringNarration(speaker, "Player");
     // Admin-uploaded dungeon art (managed via the Relic Dungeons admin tab)
     // overlays the static event/page fallbacks. Each dungeon has 4 slots:
     // backdrop (VN scene), warden (boss portrait), tilescene (seal 2
@@ -99,15 +100,15 @@ export function DungeonEncounter({
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                     <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
-                    <div className="vn-character mentor-character">
+                    {hidePlayerPortrait ? null : <div className="vn-character mentor-character">
                         {character.avatarImage
                             ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                             : null}
                         <span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span>
-                    </div>
+                    </div>}
                     {(() => {
+                        if (speaker.trim().toLowerCase() === "narrator") return null;
                         const portrait = adminWarden || event.avatarImage || defaultVnPortrait(speaker);
-                        if (!portrait && speaker.trim().toLowerCase() === "narrator") return null;
                         return (
                             <div className="vn-character hero-character">
                                 {portrait
@@ -209,7 +210,7 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
                 {eligiblePets.length > 1 && (
                     <div className="menu" style={{ marginBottom: "0.75rem" }}>
                         <label style={{ fontWeight: 600, marginRight: "0.5rem" }}>Choose your pet:</label>
-                        <select value={selectedPet.id} onChange={e => setChosenPetId(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6 }}>
+                        <select value={chosenPetId} onChange={e => setChosenPetId(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6 }}>
                             {eligiblePets.map(p => (
                                 <option key={p.id} value={p.id}>{p.nickname ?? p.name} (Lv {p.level} · {p.rarity})</option>
                             ))}

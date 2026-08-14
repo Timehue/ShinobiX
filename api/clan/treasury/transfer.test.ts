@@ -56,10 +56,15 @@ async function post(body: Record<string, unknown>): Promise<ResponseOut> {
 describe('clan treasury transfer settlement', () => {
     it('debits and credits exactly once on replay', { concurrency: false }, async () => {
         const body = { clanName: 'Ashwind', recipientName: 'Recipient', currency: 'ryo', amount: 25, requestId: 'clan-transfer-replay-01' };
-        assert.equal((await post(body)).statusCode, 200);
-        assert.equal((await post(body)).statusCode, 200);
+        const first = await post(body);
+        const replay = await post(body);
+        assert.equal(first.statusCode, 200);
+        assert.equal(replay.statusCode, 200);
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(CLAN_KEY))?.treasury?.ryo, 75);
-        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 35);
+        const recipient = await kv.get<{ _saveVersion?: number; character?: { ryo?: number } }>(RECIPIENT_KEY);
+        assert.equal(recipient?.character?.ryo, 35);
+        assert.equal(first.body?._saveVersion, recipient?._saveVersion, 'fresh transfer must echo the exact recipient commit version');
+        assert.equal(replay.body?._saveVersion, recipient?._saveVersion, 'durable replay must preserve the original commit version');
     });
 
     it('retries after recipient persistence fails without duplicating the debit', { concurrency: false }, async () => {

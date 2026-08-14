@@ -88,6 +88,10 @@ describe('Tower MPvP session authority', () => {
     it('returns a viewer-relative combat frame without mutating stored authority', () => {
         const created = match();
         created.combat.groundEffects.push({ id: 'zone', owner: 'p1', name: 'zone', tiles: [4], rounds: 1, tags: [] });
+        created.combat.actors[0]!.statuses.push({
+            name: 'Barrier', source: 'tower-grid:test-barrier', rounds: 2,
+            amount: 26, kind: 'positive',
+        });
         created.combat.winner = 'enemy';
         const violet = projectTowerPvpMatchForViewer(created, 'bravo');
         assert.ok(violet);
@@ -95,6 +99,8 @@ describe('Tower MPvP session authority', () => {
         assert.equal(violet.combat.actors.find(actor => actor.ownerSlug === 'bravo')?.side, 'squad');
         assert.equal(violet.combat.actors.find(actor => actor.ownerSlug === 'alpha')?.side, 'enemy');
         assert.equal(violet.combat.groundEffects[0]?.owner, 'p2');
+        assert.equal(violet.combat.actors[0]?.statuses[0]?.source, 'tower-grid:test-barrier',
+            'response projection preserves the server-authored Barrier grid provenance');
         assert.equal(violet.combat.winner, 'squad');
         assert.equal(created.combat.actors.find(actor => actor.ownerSlug === 'bravo')?.side, 'enemy');
         assert.equal(created.combat.groundEffects[0]?.owner, 'p1');

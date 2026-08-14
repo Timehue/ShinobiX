@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyVnTextVars, vnTextVarsFor, isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
+import { applyVnTextVars, vnTextVarsFor, hidePlayerPortraitDuringNarration, isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
 import { addStoryTrait } from "./character-progress";
 import type { Character } from "../types/character";
 
@@ -32,6 +32,13 @@ test("isChoiceAvailable: require and forbid combine (need a, must not have b)", 
     assert.equal(isChoiceAvailable({ requireTrait: "a", forbidTrait: "b" }, ["a"]), true);
     assert.equal(isChoiceAvailable({ requireTrait: "a", forbidTrait: "b" }, ["a", "b"]), false);
     assert.equal(isChoiceAvailable({ requireTrait: "a", forbidTrait: "b" }, []), false);
+});
+
+test("narration hides generic Player portraits in either slot, not authored actors", () => {
+    assert.equal(hidePlayerPortraitDuringNarration("Narrator", "Player"), true);
+    assert.equal(hidePlayerPortraitDuringNarration("Narrator", "Player", "/portraits/player-scene.webp"), false);
+    assert.equal(hidePlayerPortraitDuringNarration("Narrator", "Sefa"), false);
+    assert.equal(hidePlayerPortraitDuringNarration("Sefa", "Player"), false);
 });
 
 test("addStoryTrait: appends, dedupes, and never mutates the input character", () => {

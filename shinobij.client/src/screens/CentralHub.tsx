@@ -21,7 +21,7 @@ const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 // Small inline glyph for currency/cost lines.
 const COST_ICON = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import { visiblePoll } from "../lib/poll";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
@@ -100,6 +100,7 @@ export function CentralHub({
     onStartEndlessBattle: _onStartEndlessBattle, // retained for backwards-compat with the prop site
     onStartDungeon,
     onOpenBloodlineMaker,
+    onVersionedCharacter,
     onServerVersion,
     creatorItems,
     setCreatorItems,
@@ -116,12 +117,19 @@ export function CentralHub({
     onStartEndlessBattle: () => void;
     onStartDungeon: (event: CreatorEvent) => void;
     onOpenBloodlineMaker: (rank: Rank, element?: string) => void;
+    onVersionedCharacter?: VersionedCharacterCommit;
     onServerVersion?: (version?: number) => void;
     creatorItems: GameItem[];
     setCreatorItems: (items: GameItem[]) => void;
     playableAis: CreatorAi[];
     sharedImages?: Record<string, string>;
 }) {
+    const commitServerCharacter = (nextCharacter: Character, version: unknown): boolean => {
+        if (onVersionedCharacter) return onVersionedCharacter(nextCharacter, version);
+        onServerVersion?.(typeof version === "number" ? version : undefined);
+        updateCharacter(nextCharacter);
+        return true;
+    };
     const [centralLog, setCentralLog] = useState(
         "Welcome to Central — the neutral heart of the shinobi world."
     );
@@ -256,8 +264,7 @@ export function CentralHub({
             if (!result.character || !result.item) return alert(result.error || "The named weapon forge failed.");
             const item: GameItem = { ...result.item, ...(namedWeaponImage ? { image: namedWeaponImage } : {}) };
             setCreatorItems([...creatorItems.filter((entry) => entry.id !== item.id), item]);
-            updateCharacter(result.character);
-            onServerVersion?.(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             if (namedWeaponImage) {
                 void publishSharedImage(`item:${item.id}`, namedWeaponImage).then((ok) => {
                     if (!ok) alert(`Heads up - ${item.name} was forged, but its image could not be saved.`);
@@ -336,8 +343,7 @@ export function CentralHub({
             if (!result.character || !result.item) return alert(result.error || "The named armor forge failed.");
             const item: GameItem = { ...result.item, ...(namedArmorImage ? { image: namedArmorImage } : {}) };
             setCreatorItems([...creatorItems.filter((entry) => entry.id !== item.id), item]);
-            updateCharacter(result.character);
-            onServerVersion?.(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             if (namedArmorImage) {
                 void publishSharedImage(`item:${item.id}`, namedArmorImage).then((ok) => {
                     if (!ok) alert(`Heads up - ${item.name} was forged, but its image could not be saved.`);
@@ -367,8 +373,7 @@ export function CentralHub({
         try {
             const previous = getCharacterElements(character);
             const result = await rollAwakeningServer(character.name, kind);
-            updateCharacter(result.character);
-            onServerVersion?.(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setTriggeredEvents((current) => Array.from(new Set([
                 ...current,
                 ...(result.character.claimedAwakenings ?? []),
@@ -408,8 +413,7 @@ export function CentralHub({
         try {
             const result = await purchaseBloodlineForge(character.name, rank);
             if (!result.ok || !result.character) throw new Error(result.error || "The bloodline forge rejected this purchase.");
-            updateCharacter(result.character);
-            onServerVersion?.(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setShowAwakening(false);
             setCentralLog(`${rank} bloodline forge purchased. Finish building it in the Bloodline Maker.`);
             onOpenBloodlineMaker(rank, getCharacterElements(result.character)[0] ?? "");
@@ -514,8 +518,7 @@ export function CentralHub({
         try {
             const result = await forgeServer(character.name, "weapon", item.id, 1);
             if (!result.character) return alert(result.error || "The weapon forge failed.");
-            updateCharacter(result.character);
-            onServerVersion?.(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             alert(`${item.name} forged and added to your inventory.`);
         } finally {
             endCraft();
@@ -527,8 +530,7 @@ export function CentralHub({
         try {
             const result = await forgeServer(character.name, "armor", item.id, 1);
             if (!result.character) return alert(result.error || "The armor forge failed.");
-            updateCharacter(result.character);
-            onServerVersion?.(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             alert(`${item.name} forged and added to your inventory.`);
         } finally {
             endCraft();
@@ -1022,8 +1024,7 @@ export function CentralHub({
                     try {
                         const result = await forgeServer(character.name, "supply", recipe.itemId, quantity);
                         if (!result.character) return alert(result.error || "The supply forge failed.");
-                        updateCharacter(result.character);
-                        onServerVersion?.(result._saveVersion);
+                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
                         gameToast(`Crafted ${quantity}x ${recipe.name}.`);
                     } finally {
                         endCraft();
@@ -1144,8 +1145,7 @@ export function CentralHub({
                                     try {
                                         const result = await forgeHollowGateKeyServer(character.name, "dungeonKeys");
                                         if (!result.character) return alert(result.error || "The Hollow Gate Key forge failed.");
-                                        updateCharacter(result.character);
-                                        onServerVersion?.(result._saveVersion);
+                                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
                                         alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
                                     } finally {
                                         endCraft();
@@ -1157,8 +1157,7 @@ export function CentralHub({
                                     try {
                                         const result = await forgeHollowGateKeyServer(character.name, "fateShards");
                                         if (!result.character) return alert(result.error || "The Hollow Gate Key forge failed.");
-                                        updateCharacter(result.character);
-                                        onServerVersion?.(result._saveVersion);
+                                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
                                         alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
                                     } finally {
                                         endCraft();
@@ -1196,8 +1195,7 @@ export function CentralHub({
                                     try {
                                         const result = await forgeServer(character.name, "relic", DUNGEON_LEGENDARY_RELIC_ID, 1);
                                         if (!result.character) return alert(result.error || "The relic forge failed.");
-                                        updateCharacter(result.character);
-                                        onServerVersion?.(result._saveVersion);
+                                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
                                         alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
                                     } finally {
                                         endCraft();
@@ -1239,8 +1237,7 @@ export function CentralHub({
                                             alert(data.error ?? 'Elemental Core could not be forged.');
                                             return;
                                         }
-                                        updateCharacter(data.character);
-                                        onServerVersion?.(data._saveVersion);
+                                        if (!commitServerCharacter(data.character, data._saveVersion)) return;
                                         alert(`Elemental Core forged. Consumed ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards.`);
                                     } catch {
                                         alert('The forge response was lost. Refresh before trying again.');

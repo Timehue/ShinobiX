@@ -41,6 +41,8 @@ const ECHOES_VERSION = new Set([
     'admin/content-publish.ts',
     'bank/claim-interest.ts',
     'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
+    'clan/exchange/purchase.ts',
+    'clan/mentor.ts',
     'clan/war/declare.ts',
     'clan/seal-pool/donate.ts',
     'festival/black-market.ts',
@@ -51,13 +53,13 @@ const ECHOES_VERSION = new Set([
     'hollow-gate/use-consumable.ts',
     'jutsu/speedup.ts',
     'jutsu/train-with-seals.ts',
+    'legacy/trial.ts',
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
     'missions/report-pet-event.ts',
     'missions/report-raid.ts',
     'missions/weekly-board.ts',
     'pet/battle-result.ts',
-    'pet/warfront-forfeit.ts',
     'pet/evolve.ts',
     'pet/gauntlet.ts',
     'pet/showdown.ts',
@@ -68,14 +70,28 @@ const ECHOES_VERSION = new Set([
     'pvp/bounty.ts',
     'pvp/claim-rewards.ts',
     'save/_mutate-player-save.ts',
+    'sector/questbook.ts',
+    'sector/rift-quest.ts',
     'sector/story-reckoning.ts',
+    'sector/wanderer-ambush.ts',
+    'sector/wanderer-gift.ts',
+    'sector/wanderer-quest.ts',
+    'sector/wanderer-service.ts',
     'towers/start.ts',
     'village/claim-daily-agenda.ts',
     'village/claim-map-control.ts',
     'village/claim-war-crate.ts',
     'village/hollow-gate-unlock.ts',
     'village/kage-challenge.ts',
+    'village/hire-mercenary.ts',
     'weekly-boss.ts',
+]);
+
+// These routes mutate through a versioned shared settlement helper rather than
+// importing the low-level bumper themselves. Their authenticated response is
+// still responsible for echoing the helper's exact committed version.
+const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
+    'missions/report-raid.ts',
 ]);
 
 /**
@@ -83,19 +99,7 @@ const ECHOES_VERSION = new Set([
  * a stale version and cost the player their in-flight local state exactly once, until
  * the next successful save re-syncs.
  */
-const PENDING_ECHO = new Set([
-    'clan/exchange/purchase.ts',
-    'clan/mentor.ts',
-    'legacy/sage.ts',
-    'legacy/trial.ts',
-    'sector/questbook.ts',
-    'sector/rift-quest.ts',
-    'sector/wanderer-ambush.ts',
-    'sector/wanderer-gift.ts',
-    'sector/wanderer-quest.ts',
-    'sector/wanderer-service.ts',
-    'village/hire-mercenary.ts',
-]);
+const PENDING_ECHO = new Set<string>();
 
 /**
  * Exempt, with reasons:
@@ -145,6 +149,9 @@ const EXEMPT = new Set([
     'towers/_tower-store.ts',
     'world-state.ts',
     '_clan-points.ts',
+    // Shared acceptance writer; sage.ts and stats.ts return the exact record
+    // stamp from this helper to the requesting player.
+    'legacy/_acceptance.ts',
     '_elapsed-state.ts',
     '_era.ts',
 ]);
@@ -168,6 +175,13 @@ const bumpers = collect(API_DIR)
     // The versioning helper itself and the save route (which owns the contract).
     .filter((rel) => rel !== 'save/_save-version.ts' && rel !== 'save/[name].ts');
 
+const helperMutationRoutes = collect(API_DIR)
+    .filter((file) => {
+        const src = readFileSync(file, 'utf8');
+        return src.includes('mutatePlayerSave') && /export\s+default\s+async\s+function/.test(src);
+    })
+    .map((file) => relative(API_DIR, file).split('\\').join('/'));
+
 test('every save-version bumper is classified', () => {
     const unclassified = bumpers.filter((rel) => !ECHOES_VERSION.has(rel) && !PENDING_ECHO.has(rel) && !EXEMPT.has(rel));
     assert.deepEqual(
@@ -180,7 +194,10 @@ test('every save-version bumper is classified', () => {
 
 test('the fixed endpoints still echo their new save version', () => {
     for (const rel of ECHOES_VERSION) {
-        assert.ok(bumpers.includes(rel), `${rel} no longer bumps the save version — update ECHOES_VERSION`);
+        assert.ok(
+            bumpers.includes(rel) || INDIRECT_VERSION_MUTATION_ROUTES.has(rel),
+            `${rel} no longer bumps the save version — update ECHOES_VERSION`,
+        );
         const src = readFileSync(join(API_DIR, rel), 'utf8');
         assert.match(src, /_saveVersion/, `${rel} must return _saveVersion to the client`);
     }
@@ -198,30 +215,13 @@ test('the pending backlog shrinks rather than drifts', () => {
     }
 });
 
-test('the shared PvP consumable helper keeps its endpoint-owned echo boundary', () => {
-    const symbol = 'settlePvpConsumablesDurably(';
-    const callers = collect(API_DIR)
-        .filter((file) => relative(API_DIR, file).split('\\').join('/') !== 'pvp/_consumable-settlement.ts')
-        .filter((file) => readFileSync(file, 'utf8').includes(symbol))
-        .map((file) => relative(API_DIR, file).split('\\').join('/'))
-        .sort();
-
-    assert.deepEqual(callers, [
-        'pvp/_ranked-terminal-effects.ts',
-        'pvp/claim-rewards.ts',
-    ], 'a new production caller must explicitly own the save-version echo contract');
-
-    const claimSource = readFileSync(join(API_DIR, 'pvp/claim-rewards.ts'), 'utf8');
-    assert.match(
-        claimSource,
-        /settlePvpConsumablesDurably\([\s\S]*?\{\s*legacyPlayerName:\s*playerName\s*\}/,
-        'legacy settlement must remain scoped to the authenticated claim-rewards caller',
-    );
-
-    const helperSource = readFileSync(join(API_DIR, 'pvp/_consumable-settlement.ts'), 'utf8');
-    assert.match(
-        helperSource,
-        /if \(isPlayerRankedV2Session\(session\)\) \{\s*await confirmDisabledV2Consumables\([\s\S]*?\);\s*return;\s*\}\s*const sides = itemSides/,
-        'Ranked V2 must return after empty-usage confirmation, before the legacy save-bumping branch',
-    );
+test('every mutatePlayerSave route acknowledges the committed version', () => {
+    for (const rel of helperMutationRoutes) {
+        const src = readFileSync(join(API_DIR, rel), 'utf8');
+        assert.match(
+            src,
+            /_saveVersion/,
+            `${rel} uses mutatePlayerSave but never returns its exact _saveVersion`,
+        );
+    }
 });

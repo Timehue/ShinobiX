@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, bumpSaveVersion, storedSaveVersion, nextSaveVersion, matchesStoredSaveVersion } from './_save-version.js';
 
 describe('parseBaseSaveVersion', () => {
@@ -26,7 +28,8 @@ describe('parseBaseSaveVersion', () => {
     });
 
     it('does not reinterpret a present version as missing (guard invariant)', () => {
-        // The 409 guard fires only when parse !== null AND version < stored.
+        // The 409 guard fires when parse !== null and the version is not the
+        // exact stored version.
         // A present version of 0 must stay 0 (not be treated as "missing").
         assert.notEqual(parseBaseSaveVersion(0), null);
     });
@@ -54,6 +57,37 @@ describe('matchesStoredSaveVersion', () => {
         assert.equal(matchesStoredSaveVersion(6, 7), false, 'stale');
         assert.equal(matchesStoredSaveVersion(8, 7), false, 'future');
         assert.equal(matchesStoredSaveVersion(null, 7), false, 'missing/invalid');
+    });
+
+    it('is the predicate used by the live player-save route', () => {
+        const handler = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
+        assert.match(
+            handler,
+            /baseVersion !== null\s*&&\s*!matchesStoredSaveVersion\(baseVersion, storedVersion\)/,
+            'the route must reject stale and future bases, not only bases below the stored version',
+        );
+        assert.doesNotMatch(
+            handler,
+            /baseVersion !== null\s*&&\s*baseVersion < storedVersion/,
+            'a future base must not bypass optimistic concurrency',
+        );
+    });
+
+    it('rejects conflicting versions before mutable validation side effects', () => {
+        const handler = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
+        const conflictGuard = handler.indexOf(
+            '!matchesStoredSaveVersion(baseVersion, storedVersion)',
+        );
+        const sanitize = handler.indexOf('safeIncoming = sanitizeCharacterSave(', conflictGuard);
+        const titleAudit = handler.indexOf('void appendCustomTitleLog(', conflictGuard);
+        const gainWindow = handler.indexOf('await readGainsWindow(', conflictGuard);
+        const successfulSaveRateLimit = handler.indexOf("'save-burst'", conflictGuard);
+
+        assert.ok(conflictGuard >= 0, 'live route must contain the exact-version conflict guard');
+        assert.ok(successfulSaveRateLimit > conflictGuard, 'a rejected conflict must not consume the successful-save burst slot');
+        assert.ok(sanitize > conflictGuard, 'stale payloads must be rejected before sanitization');
+        assert.ok(titleAudit > conflictGuard, 'stale payloads must not enqueue title audit records');
+        assert.ok(gainWindow > conflictGuard, 'stale payloads must not consume gain-window budget');
     });
 });
 

@@ -46,7 +46,7 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
             pets={activeCarriedPets(character)}
             config={{
                 title: "🐾 Clan War Pet Battle",
-                intro: "Send a pet to fight for your clan. The server resolves and replays the battle here. Equipped consumables stay unused and are not charged.",
+                intro: "Send a pet to fight for your clan. The battle is resolved by the server and replays here — no result is reported from your client.",
                 missingText: "No clan-war pet battle selected.",
                 backLabel: "← Back to Clan Hall",
                 onBack: back,

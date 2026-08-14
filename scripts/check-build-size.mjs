@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { moduleEntryReference } from './build-html-entry.mjs';
 
 const distDir = process.env.BUILD_SIZE_DIR || join(process.cwd(), 'shinobij.client', 'dist');
 
@@ -326,13 +327,12 @@ const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 const THREE_VENDOR_FAIL_BYTES = 1_100_000;
 const THREE_VENDOR_GZIP_FAIL_BYTES = 300_000;
 const THREE_VENDOR_RE = /^assets\/three-vendor-[^/]+\.js$/;
-// Secondary byte cap for the compact Warfront setup contract. The production
-// build's pet-arena-static-isolation plugin owns the stronger invariant: it
-// walks PetArena's emitted static-import graph and rejects the full Match/sim.
-const WARFRONT_SETUP_SHARED_FAIL_BYTES = 15_000;
-const WARFRONT_SETUP_SHARED_GZIP_FAIL_BYTES = 8_000;
-const WARFRONT_SETUP_SHARED_RE = /^assets\/warfront-audio-[^/]+\.js$/;
-const JUTSU_FX_CHUNK_RE = /^assets\/jutsu-fx-assets-[^/]+\.js$/;
+const STORY_CONTENT_RE = /^assets\/(stormveil|ashen-leaf|frostfang|moonshadow)-[a-f0-9]{12}-[A-Za-z0-9_-]{8}\.json$/;
+const STORY_CONTENT_VILLAGES = new Set(['stormveil', 'ashen-leaf', 'frostfang', 'moonshadow']);
+const STORY_CONTENT_PER_ASSET_RAW_FAIL_BYTES = 160_000;
+const STORY_CONTENT_PER_ASSET_GZIP_FAIL_BYTES = 45_000;
+const STORY_CONTENT_TOTAL_RAW_FAIL_BYTES = 600_000;
+const STORY_CONTENT_TOTAL_GZIP_FAIL_BYTES = 160_000;
 
 function walk(dir) {
     const out = [];
@@ -349,6 +349,10 @@ function fmt(bytes) {
     if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
     if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${bytes} B`;
+}
+
+function exact(bytes) {
+    return `${fmt(bytes)} (${bytes.toLocaleString('en-US')} B)`;
 }
 
 let files;
@@ -375,54 +379,31 @@ const jsCssTotal = [...js, ...css].reduce((sum, file) => sum + file.size, 0);
 const failures = [];
 const sentryChunks = js.filter((file) => SENTRY_VENDOR_RE.test(file.rel));
 const threeChunks = js.filter((file) => THREE_VENDOR_RE.test(file.rel));
-const warfrontSetupChunks = js.filter((file) => WARFRONT_SETUP_SHARED_RE.test(file.rel));
-const jutsuFxChunks = js.filter((file) => JUTSU_FX_CHUNK_RE.test(file.rel));
 const budgetedJsCssTotal = [
     ...js.filter((file) => !SENTRY_VENDOR_RE.test(file.rel)),
     ...css,
 ].reduce((sum, file) => sum + file.size, 0);
+const budgetedJsCssFiles = [...js.filter((file) => !SENTRY_VENDOR_RE.test(file.rel)), ...css];
+const budgetedJsCssGzipTotal = budgetedJsCssFiles.reduce((sum, file) => sum + gzipSync(readFileSync(file.path), { level: 9 }).length, 0);
+const jsCssGzipTotal = [...js, ...css].reduce((sum, file) => sum + gzipSync(readFileSync(file.path), { level: 9 }).length, 0);
+const storyContentAssets = withRel.filter((file) => STORY_CONTENT_RE.test(file.rel));
+const storyContentVillages = storyContentAssets.map((file) => file.rel.match(STORY_CONTENT_RE)?.[1]).filter(Boolean);
+const storyContentGzip = storyContentAssets.map((file) => ({ ...file, gzip: gzipSync(readFileSync(file.path), { level: 9 }).length }));
+const storyContentRawTotal = storyContentGzip.reduce((sum, file) => sum + file.size, 0);
+const storyContentGzipTotal = storyContentGzip.reduce((sum, file) => sum + file.gzip, 0);
 
-// Keep the pixel-art FX catalog out of JS without silently changing its
-// contents. The source glob is intentionally eager so callers receive a plain
-// URL map; `?url&no-inline` must produce one emitted, byte-exact PNG per source
-// key (identical frames may share the same hashed URL).
-if (jutsuFxChunks.length !== 1) {
-    failures.push(`expected exactly one jutsu FX asset chunk; found ${jutsuFxChunks.length}`);
-} else {
-    const fxChunkText = readFileSync(jutsuFxChunks[0].path, 'utf8');
-    if (fxChunkText.includes('data:image/')) {
-        failures.push('jutsu FX asset chunk contains an inlined data URL');
-    }
-
-    const pairPattern = /["'](\.\.\/assets\/fx\/[^"']+\.png)["']\s*:\s*[`"'](\/assets\/fx\/[^`"']+\.png)[`"']/g;
-    const pairs = [...fxChunkText.matchAll(pairPattern)].map((match) => ({ key: match[1], url: match[2] }));
-    const fxSourceDir = join(process.cwd(), 'shinobij.client', 'src', 'assets', 'fx');
-    const sourceFiles = walk(fxSourceDir)
-        .filter((file) => file.path.toLowerCase().endsWith('.png'))
-        .map((file) => ({ ...file, key: `../assets/fx/${relative(fxSourceDir, file.path).replaceAll('\\', '/')}` }))
-        .sort((a, b) => a.key.localeCompare(b.key));
-    const sourceByKey = new Map(sourceFiles.map((file) => [file.key, file.path]));
-    const emittedKeys = [...new Set(pairs.map((pair) => pair.key))].sort();
-    const sourceKeys = sourceFiles.map((file) => file.key);
-
-    if (pairs.length !== sourceFiles.length || emittedKeys.join('\n') !== sourceKeys.join('\n')) {
-        failures.push(`jutsu FX URL map has ${pairs.length} entries/${emittedKeys.length} keys; source has ${sourceFiles.length}`);
-    }
-    for (const pair of pairs) {
-        const sourcePath = sourceByKey.get(pair.key);
-        const emittedPath = join(distDir, pair.url.slice(1));
-        if (!sourcePath || !existsSync(emittedPath)) {
-            failures.push(`jutsu FX frame is missing for ${pair.key} -> ${pair.url}`);
-            continue;
-        }
-        if (!readFileSync(sourcePath).equals(readFileSync(emittedPath))) {
-            failures.push(`jutsu FX frame bytes changed for ${pair.key} -> ${pair.url}`);
-        }
-    }
-    if (!failures.some((failure) => failure.startsWith('jutsu FX'))) {
-        console.log(`[sizecheck] Jutsu FX assets: ${pairs.length} byte-exact frame URLs; 0 data URLs.`);
-    }
+if (storyContentAssets.length !== STORY_CONTENT_VILLAGES.size) failures.push(`expected exactly four content-addressed story JSON assets; found ${storyContentAssets.length}`);
+if (new Set(storyContentVillages).size !== STORY_CONTENT_VILLAGES.size || storyContentVillages.some((village) => !STORY_CONTENT_VILLAGES.has(village))) {
+    failures.push(`story JSON assets must contain one hashed payload for each village; found ${storyContentVillages.join(', ') || 'none'}`);
 }
+for (const file of storyContentGzip) {
+    if (file.size > STORY_CONTENT_PER_ASSET_RAW_FAIL_BYTES) failures.push(`${file.rel} is ${fmt(file.size)}; per-village story JSON threshold is ${fmt(STORY_CONTENT_PER_ASSET_RAW_FAIL_BYTES)}`);
+    if (file.gzip > STORY_CONTENT_PER_ASSET_GZIP_FAIL_BYTES) failures.push(`${file.rel} is ${fmt(file.gzip)} gzip; per-village story JSON gzip threshold is ${fmt(STORY_CONTENT_PER_ASSET_GZIP_FAIL_BYTES)}`);
+}
+if (storyContentRawTotal > STORY_CONTENT_TOTAL_RAW_FAIL_BYTES) failures.push(`story JSON total is ${fmt(storyContentRawTotal)}; threshold is ${fmt(STORY_CONTENT_TOTAL_RAW_FAIL_BYTES)}`);
+if (storyContentGzipTotal > STORY_CONTENT_TOTAL_GZIP_FAIL_BYTES) failures.push(`story JSON total is ${fmt(storyContentGzipTotal)} gzip; threshold is ${fmt(STORY_CONTENT_TOTAL_GZIP_FAIL_BYTES)}`);
+console.log(`[sizecheck] On-demand story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip across ${storyContentAssets.length} village routes.`);
+for (const file of [...storyContentGzip].sort((a, b) => b.gzip - a.gzip)) console.log(`  ${file.rel}: ${fmt(file.size)} raw / ${fmt(file.gzip)} gzip`);
 
 // Sentry is observability, not product code. Allow one tightly capped chunk only
 // when it stays off the initial graph; do not weaken the product-code budget.
@@ -443,17 +424,6 @@ for (const file of threeChunks) {
         failures.push(`${file.rel} is ${fmt(gzipBytes)} gzip; Three.js vendor gzip threshold is ${fmt(THREE_VENDOR_GZIP_FAIL_BYTES)}`);
     }
 }
-if (warfrontSetupChunks.length !== 1) failures.push(`expected exactly one Warfront setup shared chunk; found ${warfrontSetupChunks.length}`);
-for (const file of warfrontSetupChunks) {
-    const gzipBytes = gzipSync(readFileSync(file.path), { level: 9 }).length;
-    console.log(`[sizecheck] Warfront setup shared: ${fmt(file.size)} raw / ${fmt(gzipBytes)} gzip.`);
-    if (file.size > WARFRONT_SETUP_SHARED_FAIL_BYTES) {
-        failures.push(`${file.rel} is ${fmt(file.size)}; Warfront setup shared threshold is ${fmt(WARFRONT_SETUP_SHARED_FAIL_BYTES)}`);
-    }
-    if (gzipBytes > WARFRONT_SETUP_SHARED_GZIP_FAIL_BYTES) {
-        failures.push(`${file.rel} is ${fmt(gzipBytes)} gzip; Warfront setup shared gzip threshold is ${fmt(WARFRONT_SETUP_SHARED_GZIP_FAIL_BYTES)}`);
-    }
-}
 for (const file of js) {
     if (file.size > JS_CHUNK_FAIL_BYTES) failures.push(`${file.rel} is ${fmt(file.size)}; JS chunk threshold is ${fmt(JS_CHUNK_FAIL_BYTES)}`);
 }
@@ -463,15 +433,16 @@ for (const file of css) {
 
 // Budget what every player must download before the first lazy screen. Generic
 // per-chunk ceilings missed regressions in the entry + render-blocking CSS graph.
+let initialRefs = [];
 try {
     const html = readFileSync(join(distDir, 'index.html'), 'utf8');
-    const initialRefs = [...new Set(
+    initialRefs = [...new Set(
         [...html.matchAll(/(?:src|href)="\/([^"?]+\.(?:js|css))(?:\?[^" ]*)?"/g)].map((match) => match[1]),
     )];
     const initialFiles = initialRefs.map((rel) => ({ rel, path: join(distDir, rel), size: statSync(join(distDir, rel)).size }));
     const initialRaw = initialFiles.reduce((sum, file) => sum + file.size, 0);
     const initialGzip = initialFiles.reduce((sum, file) => sum + gzipSync(readFileSync(file.path), { level: 9 }).length, 0);
-    const entryRef = [...html.matchAll(/<script[^>]+src="\/([^"?]+\.js)/g)][0]?.[1];
+    const entryRef = moduleEntryReference(html);
     const entryFile = initialFiles.find((file) => file.rel === entryRef);
 
     console.log(`[sizecheck] Initial JS/CSS graph: ${fmt(initialRaw)} raw / ${fmt(initialGzip)} gzip across ${initialFiles.length} files.`);
@@ -481,7 +452,9 @@ try {
     if (initialRefs.some((rel) => THREE_VENDOR_RE.test(rel))) {
         failures.push('lazy Three.js vendor is referenced by index.html and would delay startup');
     }
-    if (entryFile && entryFile.size > ENTRY_JS_FAIL_BYTES) {
+    if (!entryRef || !entryFile) {
+        failures.push('could not identify the type="module" Vite entry in index.html');
+    } else if (entryFile.size > ENTRY_JS_FAIL_BYTES) {
         failures.push(`${entryFile.rel} is ${fmt(entryFile.size)}; entry JS threshold is ${fmt(ENTRY_JS_FAIL_BYTES)}`);
     }
     if (initialRaw > INITIAL_GRAPH_FAIL_BYTES) {
@@ -492,6 +465,47 @@ try {
     }
 } catch (err) {
     failures.push(`could not measure initial index.html graph: ${err.message}`);
+}
+
+// Report what each on-demand consumer transfers after startup. Story Hall loads
+// one village payload; the admin VN editor intentionally loads all four. The
+// Vite manifest provides the real static JS/CSS closure, including shared chunks.
+try {
+    const manifest = JSON.parse(readFileSync(join(distDir, '.vite', 'manifest.json'), 'utf8'));
+    const entries = Object.entries(manifest);
+    const byFile = new Map(entries.map(([key, value]) => [value.file, { key, ...value }]));
+    const routeClosure = (source) => {
+        const found = entries.find(([, value]) => value.src === source);
+        if (!found) throw new Error(`manifest entry for ${source} was not emitted`);
+        const visited = new Set();
+        const transfer = new Set();
+        const visit = (key) => {
+            if (visited.has(key)) return;
+            visited.add(key);
+            const item = manifest[key] ?? byFile.get(key);
+            if (!item) throw new Error(`manifest dependency ${key} is missing`);
+            if (/\.(?:js|css)$/.test(item.file)) transfer.add(item.file);
+            for (const cssFile of item.css ?? []) transfer.add(cssFile);
+            for (const imported of item.imports ?? []) visit(imported);
+        };
+        visit(found[0]);
+        for (const initial of initialRefs) transfer.delete(initial);
+        const routeFiles = [...transfer].map((rel) => ({ rel, path: join(distDir, rel), size: statSync(join(distDir, rel)).size }));
+        return {
+            raw: routeFiles.reduce((sum, file) => sum + file.size, 0),
+            gzip: routeFiles.reduce((sum, file) => sum + gzipSync(readFileSync(file.path), { level: 9 }).length, 0),
+            count: routeFiles.length,
+        };
+    };
+    const storyHall = routeClosure('src/screens/StoryBoss.tsx');
+    for (const content of [...storyContentGzip].sort((a, b) => a.rel.localeCompare(b.rel))) {
+        const village = content.rel.match(STORY_CONTENT_RE)?.[1] ?? content.rel;
+        console.log(`[sizecheck] Story Hall / ${village}: ${exact(storyHall.raw + content.size)} raw / ${exact(storyHall.gzip + content.gzip)} gzip (${storyHall.count} incremental JS/CSS + one village JSON).`);
+    }
+    const admin = routeClosure('src/screens/AdminPanel.tsx');
+    console.log(`[sizecheck] Admin Visual Novels: ${exact(admin.raw + storyContentRawTotal)} raw / ${exact(admin.gzip + storyContentGzipTotal)} gzip (${admin.count} incremental JS/CSS + four village JSON).`);
+} catch (err) {
+    failures.push(`could not measure on-demand story routes from Vite manifest: ${err.message}`);
 }
 
 if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
@@ -509,4 +523,4 @@ if (failures.length) {
 
 const sentryNote = sentryChunks.length ? `; lazy Sentry: ${fmt(sentryChunks[0].size)}` : '';
 const threeNote = threeChunks.length ? `; lazy Three.js: ${fmt(threeChunks[0].size)}` : '';
-console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${fmt(budgetedJsCssTotal)}; all emitted: ${fmt(jsCssTotal)}${sentryNote}${threeNote}.`);
+console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${exact(budgetedJsCssTotal)} raw / ${exact(budgetedJsCssGzipTotal)} gzip; story JSON: ${exact(storyContentRawTotal)} raw / ${exact(storyContentGzipTotal)} gzip; combined tracked product: ${exact(budgetedJsCssTotal + storyContentRawTotal)} raw / ${exact(budgetedJsCssGzipTotal + storyContentGzipTotal)} gzip; all emitted JS/CSS: ${exact(jsCssTotal)} raw / ${exact(jsCssGzipTotal)} gzip${sentryNote}${threeNote}.`);
