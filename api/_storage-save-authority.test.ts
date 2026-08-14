@@ -1,7 +1,5 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { matchesStoredSaveVersion } from './save/_save-version.js';
 
@@ -20,12 +18,11 @@ const selectCount = new Map<string, number>();
 const originalQuery = pg.Pool.prototype.query;
 const originalEnd = pg.Pool.prototype.end;
 let workerA: StorageModule;
-let workerB: StorageModule;
 
 before(async () => {
-    // Both storage module instances below construct their own Pool and their own
-    // process-local read cache. This query shim is the one shared Postgres row
-    // store those independent "processes" communicate through.
+    // This query shim is the shared Postgres row store. Remote writes below go
+    // straight to this Map so they cannot accidentally invalidate worker A's
+    // process-local cache through module-loader aliasing on another platform.
     pg.Pool.prototype.query = (async (sql: unknown, params?: unknown[]) => {
         const text = String(sql).replace(/\s+/g, ' ').trim();
         const key = String(params?.[0] ?? '');
@@ -54,20 +51,19 @@ before(async () => {
     }) as typeof pg.Pool.prototype.query;
     pg.Pool.prototype.end = (async () => undefined) as typeof pg.Pool.prototype.end;
 
-    const storageUrl = pathToFileURL(join(process.cwd(), 'api', '_storage.ts')).href;
     const nonce = `${Date.now()}-${Math.random()}`;
-    workerA = await import(`${storageUrl}?cache-worker=a-${nonce}`) as StorageModule;
-    workerB = await import(`${storageUrl}?cache-worker=b-${nonce}`) as StorageModule;
+    workerA = await import(`./_storage.ts?cache-worker=a-${nonce}`) as StorageModule;
 });
 
 after(async () => {
-    await Promise.all([
-        workerA?.closeStoragePool(),
-        workerB?.closeStoragePool(),
-    ]);
+    await workerA?.closeStoragePool();
     pg.Pool.prototype.query = originalQuery;
     pg.Pool.prototype.end = originalEnd;
 });
+
+function settleInOtherProcess(key: string, value: unknown): void {
+    database.set(key, structuredClone(value));
+}
 
 async function exactVersionWrite(
     storage: StorageModule,
@@ -88,7 +84,7 @@ test('independent pgKv process caches cannot admit a stale save guard or overwri
 
     await workerA._pgKvForTest.set(saveKey, v5);
     assert.deepEqual(await workerA._pgKvForTest.get(saveKey), v5, 'worker A primes its read path at v5');
-    await workerB._pgKvForTest.set(saveKey, v6);
+    settleInOtherProcess(saveKey, v6);
 
     const staleAccepted = await exactVersionWrite(workerA, saveKey, 5, {
         _saveVersion: 6,
@@ -110,7 +106,7 @@ test('batched pgKv save reads are authoritative across processes too', async () 
 
     await workerA._pgKvForTest.set(key, v8);
     assert.deepEqual(await workerA._pgKvForTest.mget(key), [v8]);
-    await workerB._pgKvForTest.set(key, v9);
+    settleInOtherProcess(key, v9);
 
     assert.deepEqual(
         await workerA._pgKvForTest.mget(key),
@@ -140,7 +136,7 @@ test('Chronicle settlement and all Legacy RMW keys bypass independent process ca
         await workerA._pgKvForTest.set(key, { revision: 1 });
         assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
         const readsBeforeRemoteWrite = selectCount.get(key) ?? 0;
-        await workerB._pgKvForTest.set(key, { revision: 2 });
+        settleInOtherProcess(key, { revision: 2 });
 
         assert.deepEqual(
             await workerA._pgKvForTest.get(key),
@@ -170,7 +166,7 @@ test('Legacy world-history outboxes cannot lose another worker\'s RMW update', a
         await workerA._pgKvForTest.set(key, { revision: 1 });
         assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
         const readsBeforeRemoteEffect = selectCount.get(key) ?? 0;
-        await workerB._pgKvForTest.set(key, { revision: 2 });
+        settleInOtherProcess(key, { revision: 2 });
 
         assert.deepEqual(
             await workerA._pgKvForTest.get(key),
@@ -199,7 +195,7 @@ test('solo-PvE versions, story bindings, and permanent choices stay authoritativ
             `${key} primes worker A's independent read path`,
         );
         const readsBeforeRemoteMove = selectCount.get(key) ?? 0;
-        await workerB._pgKvForTest.set(key, { version: 2, evidence: ['first', 'remote-move'] });
+        settleInOtherProcess(key, { version: 2, evidence: ['first', 'remote-move'] });
 
         assert.deepEqual(
             await workerA._pgKvForTest.get(key),
@@ -251,7 +247,7 @@ test('pet, PvP, and war proofs, results, queues, and shared sessions stay author
         await workerA._pgKvForTest.set(key, { revision: 1 });
         assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
         const readsBeforeRemoteSettlement = selectCount.get(key) ?? 0;
-        await workerB._pgKvForTest.set(key, { revision: 2 });
+        settleInOtherProcess(key, { revision: 2 });
 
         assert.deepEqual(
             await workerA._pgKvForTest.get(key),
@@ -269,7 +265,7 @@ test('the no-cache scope stays narrow: safe game and snapshot keys retain pgKv c
     for (const key of ['game:cache-probe', 'save-snapshot:cache-race:123']) {
         await workerA._pgKvForTest.set(key, { revision: 1 });
         assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
-        await workerB._pgKvForTest.set(key, { revision: 2 });
+        settleInOtherProcess(key, { revision: 2 });
 
         assert.deepEqual(
             await workerA._pgKvForTest.get(key),
