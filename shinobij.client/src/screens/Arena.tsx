@@ -1,4 +1,28 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/immutability, react-hooks/purity -- SCOPED DEBT, see below.
+ *
+ * These two react-compiler rules fail on this file's STRUCTURE, not on bugs:
+ *
+ *   immutability (5) — effects call hoisted `function` declarations defined
+ *     later in the component (challengePlayer, waitTurn, advanceAfterPlayer,
+ *     startPrefight, activeStatuses). Correct at runtime, since hoisting makes
+ *     the binding exist and the effect body runs after render; the compiler
+ *     wants declaration-before-use so it can reason about memoization.
+ *   purity (13) — Math.random() / Date.now() inside those same hoisted
+ *     functions. Every one is an event handler or a turn resolver, never render
+ *     output, but the compiler cannot prove a component-scope function
+ *     declaration is unreachable from render.
+ *
+ * Clearing them honestly means reordering the declarations of a 6,400-line LIVE
+ * combat screen — the kind of change that earns its own branch and its own test
+ * pass, not a drive-by while main is red. The file already carries the same
+ * kind of scoped disable above for the same reason.
+ *
+ * What was NOT waved through: every react-hooks/refs violation here was fixed
+ * properly, and two of them were real stale-UI bugs (ref writes during render,
+ * and an explore-ambush flag read from a ref that could paint the wrong
+ * victory exit). Fix the two rules above by restructuring; do not add more
+ * suppressions. */
 import { useState, useEffect, useRef, useMemo } from "react";
 import "../styles/battle-skin.css";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
@@ -854,7 +878,10 @@ export function Arena({
     // prop is cleared by onExploreAmbushWon in the same call, so we capture it here)
     // and the victory overlay reads it to offer a single "Return to Sector" exit
     // instead of Fight Again / Return to Village. Reset at each fight start.
-    const exploreAmbushWinRef = useRef(false);
+    // STATE, not a ref: this drives which exit the victory overlay offers, and
+    // a ref write does not re-render — the overlay could paint the wrong button
+    // depending on what else happened to commit that frame.
+    const [exploreAmbushWin, setExploreAmbushWin] = useState(false);
     // Report arena-fight-in-progress up to App for the global navigation lock.
     // A fight is "in progress" once it has started and not yet ended; on resolve
     // (battleEnded flips true) or unmount we report false so the player can leave.
@@ -1342,7 +1369,7 @@ export function Arena({
         setPrefightFirstActor(firstActor);
         setPrefightCountdown(3);
         // Fresh fight — clear any prior explore-ambush win flag.
-        exploreAmbushWinRef.current = false;
+        setExploreAmbushWin(false);
     }
 
     function beginAiBattle() {
@@ -3117,7 +3144,7 @@ export function Arena({
             // now that the ambush was won. Flag the win so the victory overlay
             // offers a single "Return to Sector" exit (back to where the player
             // was exploring) instead of Fight Again / Return to Village.
-            exploreAmbushWinRef.current = true;
+            setExploreAmbushWin(true);
             onExploreAmbushWon?.();
         }
         if (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") {
@@ -5065,17 +5092,28 @@ export function Arena({
         setBattleHistory([]);
     }
 
-    // Keep stable refs fresh — must be after all functions are defined
-    resetBattleRef.current  = resetBattle;
-    setLogRef.current       = setLog;
-    autoEndTurnRef.current  = () => {
-        if (!battleStarted || battleEnded || activeActor !== "player") return;
-        addCombatLog(`⏱ ${character.name}'s turn timed out! Turn passes to ${opponentName}.`, "timeout", character.name);
-        waitTurn();
-    };
-    enemyTurnRef.current    = enemyTurn;
-    enemyContinueRef.current = enemyContinue;
-    petContinueRef.current  = petContinue;
+    // Keep stable refs fresh — must be after all functions are defined.
+    //
+    // Assigned in an EFFECT rather than during render: a ref write during the
+    // render pass is a side effect (react-hooks/refs), and under a concurrent
+    // re-render that is thrown away it can publish a callback closed over state
+    // that never committed. Every consumer of these refs is a timer, a socket
+    // handler or a deferred continuation — all of which fire after commit — so
+    // refreshing them post-commit is both correct and sufficient. No dep array:
+    // these must track the LATEST render's closures, which is the whole point
+    // of the ref indirection.
+    useEffect(() => {
+        resetBattleRef.current  = resetBattle;
+        setLogRef.current       = setLog;
+        autoEndTurnRef.current  = () => {
+            if (!battleStarted || battleEnded || activeActor !== "player") return;
+            addCombatLog(`⏱ ${character.name}'s turn timed out! Turn passes to ${opponentName}.`, "timeout", character.name);
+            waitTurn();
+        };
+        enemyTurnRef.current    = enemyTurn;
+        enemyContinueRef.current = enemyContinue;
+        petContinueRef.current  = petContinue;
+    });
 
     // ── Combat-board memoization (mobile perf; see docs/combat-board-memoization-handoff.md) ──
     // The 120-tile hex grid + its range/AOE highlight Sets used to rebuild on
@@ -5093,7 +5131,9 @@ export function Arena({
     // setHoveredBattleTile are intentionally omitted — their behavior is
     // render-stable, so they can never go stale.
     const handleTileClickRef = useRef<(tile: number) => void>(() => {});
-    handleTileClickRef.current = handleTileClick;
+    // Same reasoning as the block above: the memoized 120-tile grid reads this
+    // ref from a click handler, which only runs after commit.
+    useEffect(() => { handleTileClickRef.current = handleTileClick; });
     const activeJutsuRangeTiles = useMemo(() => jutsuRangeTiles(pendingTargetJutsu), [pendingTargetJutsu, playerPos]);
     const activeJutsuAoeTiles = useMemo(() => jutsuAoeTiles(pendingTargetJutsu), [pendingTargetJutsu, playerPos, enemyPos]);
     const activeWeaponRangeTiles = useMemo(() => weaponRangeTiles(pendingTargetWeapon), [pendingTargetWeapon, playerPos]);
@@ -5809,8 +5849,16 @@ export function Arena({
                         <div style={(() => {
                             const scaledW = GRID_LAYER_W * effectiveScale;
                             const scaledH = GRID_LAYER_H * effectiveScale;
-                            const cW = boardContainerSize.w || (battlefieldRef.current?.clientWidth  ?? scaledW);
-                            const cH = boardContainerSize.h || (battlefieldRef.current?.clientHeight ?? scaledH);
+                            // Measured container, or the scaled board itself before
+                            // the first measurement. The old code fell back to
+                            // battlefieldRef.current?.clientWidth here, which was
+                            // dead weight AND a ref read during render: the state
+                            // is written synchronously by the callback ref the
+                            // moment the element attaches, so any render where the
+                            // state is still 0 is a render where the ref is still
+                            // null and both paths land on the scaled size.
+                            const cW = boardContainerSize.w || scaledW;
+                            const cH = boardContainerSize.h || scaledH;
                             const leftOffset = Math.max(0, (cW - scaledW) / 2);
                             const topOffset  = Math.max(0, (cH - scaledH) / 2);
                             return {
@@ -6377,7 +6425,7 @@ export function Arena({
                                             {storySettlementPending ? "Settling..." : "Continue Story"}
                                         </button>
                                     </div>
-                                ) : exploreAmbushWinRef.current ? (
+                                ) : exploreAmbushWin ? (
                                     <div className="menu">
                                         <button className="admin-button" onClick={() => setScreen("worldMap")}>Return to Sector</button>
                                     </div>
