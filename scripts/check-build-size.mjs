@@ -282,7 +282,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // and initial graph unchanged. Exact product graph 7,401,001 B, leaving
 // ~24 KB headroom. The scheduled drain remains the legacy coliseum-stack
 // deletion.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_425_000;
+// 2026-08-13: 7.425 -> 7.45 MB. Pet Showdown rounds 36-39 — the Champions
+// grammar: beat pacing, KO ceremony, species performance wiring, and the
+// reference-still port (casting glyph + charge orb, charge dim, element
+// climate, per-kind move accents, streak-throughs, debris). +28.5 KB across
+// four rounds, all on the lazy Showdown chunk; entry chunk and initial
+// graph unchanged. Exact product graph 7,429,548 B, leaving ~20 KB of
+// headroom. The scheduled drain remains the legacy coliseum-stack deletion.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_450_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
