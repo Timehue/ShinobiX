@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { isUnresolvedBattle, restoreScreenForSave, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+import { readFileSync } from "node:fs";
+import { isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+
+const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const navigationGuardSource = readFileSync(new URL("./use-battle-navigation-guard.ts", import.meta.url), "utf8");
 
 function signals(overrides: Partial<BattleGuardSignals>): BattleGuardSignals {
     return {
@@ -16,6 +20,7 @@ function signals(overrides: Partial<BattleGuardSignals>): BattleGuardSignals {
         pendingPetBattle: false,
         arenaBattleActive: false,
         petBattleActive: false,
+        missionBattleActive: false,
         ...overrides,
     };
 }
@@ -49,6 +54,12 @@ describe("screen navigation guards", () => {
         assert.equal(isUnresolvedBattle(signals({ screen: "petArena", petBattleActive: true })), true);
     });
 
+    it("blocks mission navigation only while the server-owned arena fight is unresolved", () => {
+        assert.equal(isUnresolvedBattle(signals({ screen: "missions" })), false);
+        assert.equal(isUnresolvedBattle(signals({ screen: "missions", missionBattleActive: true })), true);
+        assert.equal(isUnresolvedBattle(signals({ screen: "village", missionBattleActive: true })), false);
+    });
+
     it("does not treat passive boss lobby screens as active battles", () => {
         assert.equal(isUnresolvedBattle(signals({
             screen: "weeklyBoss",
@@ -77,8 +88,27 @@ describe("screen navigation guards", () => {
         assert.equal(shouldRedirectToHospital(false, "village", false), false);
     });
 
+    it("blocks only a character snapshot that is still admitted", () => {
+        assert.equal(isHospitalNavigationBlocked(true, "hospital", "village"), true);
+        assert.equal(isHospitalNavigationBlocked(false, "hospital", "village"), false);
+        assert.equal(isHospitalNavigationBlocked(true, "hospital", "hospital"), false);
+    });
+
     it("retains normal restorable screens and otherwise uses the village", () => {
         assert.equal(restoreScreenForSave("battleTowers", false), "battleTowers");
         assert.equal(restoreScreenForSave(null, false), "village");
+    });
+
+    it("refreshes the App navigation guard when a same-tab Tower lobby becomes a fight", () => {
+        assert.match(appSource, /useBattleNavigationGuard\(\{/,
+            "App must install the extracted battle-navigation guard");
+        const listener = navigationGuardSource.indexOf("window.addEventListener(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard)");
+        const cleanup = navigationGuardSource.indexOf("window.removeEventListener(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard)", listener);
+        assert.ok(listener >= 0, "the navigation hook must subscribe to the same-tab Tower fight-state event");
+        assert.ok(cleanup > listener, "the navigation hook must remove its Tower fight-state listener");
+
+        const block = navigationGuardSource.slice(Math.max(0, listener - 500), cleanup + 100);
+        assert.match(block, /screenRef\.current === "battleTowers"/);
+        assert.match(block, /inBattleRef\.current = hasActiveTowerFight\(\)/);
     });
 });

@@ -25,9 +25,10 @@ describe('generic AI fight standalone-runtime contract', () => {
 
     it('returns a mandatory sessionId and session', () => {
         const text = src();
-        assert.match(text, /return \{ record, session: sealed\.session \}/);
-        assert.match(text, /sessionId: session\.sessionId,\s*session,/);
-        assert.match(text, /if \(!authority\) return res\.status\(404\)/);
+        assert.match(text, /function genericStartBody\(/);
+        assert.match(text, /sessionId: recovered\.pointer\.sessionId,\s*session: recovered\.session/);
+        assert.match(text, /genericStartBody\(\{ pointer, token: record, session: sealed\.session \}, false\)/);
+        assert.match(text, /if \(!sealed\) return \{ status: 404, body: \{ error: 'AI opponent is not published on the server\.' \} \}/);
         assert.doesNotMatch(text, /return undefined|serverAiCombatEnabled|DISABLE_SERVER_AI_COMBAT/);
     });
 
@@ -41,7 +42,7 @@ describe('generic AI fight standalone-runtime contract', () => {
         const text = src();
         assert.doesNotMatch(text, /hostLoadout/);
         assert.match(text, /resolveAiFightScaling\(\{/);
-        const sealFn = text.slice(text.indexOf('async function sealAiFightEncounter'), text.indexOf('type SealedAiFightAuthority'));
+        const sealFn = text.slice(text.indexOf('async function sealAiFightEncounter'), text.indexOf('export default'));
         const code = sealFn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
         assert.doesNotMatch(code, /opponentLevel/);
     });

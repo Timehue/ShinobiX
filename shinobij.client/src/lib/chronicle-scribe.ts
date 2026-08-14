@@ -5,7 +5,7 @@
  * A wandering Chronicle scribe (Scribe Ihara) finds the player once they've
  * found their feet on the road (level 17+, the quiet band after the academy
  * arc), tells them where the cards come from — the Chronicle predates the
- * villages, begun when the Hollow Gate still stood above ground — and hands
+ * villages, begun during the Sunken Court's final age — and hands
  * over the traveler's codex: the old academy teaching set.
  *
  * Sibling of lib/hollow-rifts.ts (same roaming-giver pattern: client-derived
@@ -82,7 +82,7 @@ type ScribePage = { title: string; scene: string; dialogue: string[] };
 
 // The conversation. Voice: humanization contract v2 (docs/world-cohesion.md) —
 // spoken TO the player, plain words, gruff-warm. Canon carried: the Chronicle
-// predates the villages (begun while the Hollow Gate stood above ground); the
+// predates the villages (begun during the Sunken Court's final age); the
 // Hollow burns archives, so the record lives as cards; the Chronicle is a
 // LIVING record that changes as the world does.
 const SCRIBE_PAGES: ScribePage[] = [
@@ -99,15 +99,15 @@ const SCRIBE_PAGES: ScribePage[] = [
         scene: "She unbuckles the satchel. Cards — hundreds of them, sorted with string.",
         dialogue: [
             "You've seen the cards around. Kids trade them in the tavern. Gamblers fleece each other with them on the roads.",
-            "Don't let that fool you. Every card in here is real. A tyrant that fell. A beast that took the coliseum sand. A shinobi worth remembering. We don't invent. We record.",
+            "Don't let that fool you. Every card points to something real. A tyrant that fell. A beast that took the coliseum sand. A shinobi worth remembering. We don't trap them in paper. We record what witnesses saw.",
         ],
     },
     {
         title: "Older Than Your Village",
         scene: "She holds up a card so worn the art is only shadows.",
         dialogue: [
-            "The Chronicle is older than your village. Older than all four. It started back when the Hollow Gate still stood above ground — you could walk right up and touch the thing, if you were stupid.",
-            "The first scribes pressed cards of what came out of it. And of the ones who forced it back under. This one's from then. Don't breathe on it.",
+            "The Chronicle is older than your village. Older than all four. It started in the Sunken Court's last age, when the Hollow Gate was a civic engine people could walk right up and petition, if they were desperate.",
+            "The first scribes pressed records of choices the Court's ledgers kept erasing, and of the people, beasts, and places that witnessed them. This one's from then. Don't breathe on it.",
         ],
     },
     {
@@ -175,23 +175,35 @@ export function scribeIntroEvent(biome: Biome): CreatorEvent {
 
 export type CodexClaimResult = {
     ok: boolean;
+    _saveVersion?: number;
     granted?: string[];
+    starterGranted?: string[];
+    progressionGranted?: string[];
+    replayed?: boolean;
     tileCards?: string[];
     reason?: "already-claimed" | "level" | "offline" | "error";
 };
 
-export async function claimTravelersCodex(playerName: string): Promise<CodexClaimResult> {
+export async function claimTravelersCodex(playerName: string, fetchImpl: typeof fetch = fetch): Promise<CodexClaimResult> {
     try {
-        const res = await fetch("/api/card-clash/claim-starter", {
+        const res = await fetchImpl("/api/card-clash/claim-starter", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName }),
         });
         const data = await res.json().catch(() => null) as
-            | { ok?: boolean; granted?: string[]; character?: { tileCards?: string[] }; error?: string }
+            | { ok?: boolean; _saveVersion?: number; granted?: string[]; starterGranted?: string[]; progressionGranted?: string[]; replayed?: boolean; character?: { tileCards?: string[] }; error?: string }
             | null;
         if (res.ok && data?.ok) {
-            return { ok: true, granted: data.granted ?? [], tileCards: data.character?.tileCards };
+            return {
+                ok: true,
+                _saveVersion: data._saveVersion,
+                granted: data.granted ?? [],
+                starterGranted: data.starterGranted ?? [],
+                progressionGranted: data.progressionGranted ?? [],
+                replayed: data.replayed === true,
+                tileCards: data.character?.tileCards,
+            };
         }
         const reason = data?.error === "already-claimed" || data?.error === "level" ? data.error : "error";
         return { ok: false, reason };

@@ -22,6 +22,9 @@ export function applyAiFightSecondaryRewards(
     const battleKind = token.battleKind ?? 'practice';
     if (!rewardEligible || battleKind === 'practice') return character;
 
+    // `world` preserves the old WorldMap fight's generic payout (scroll,
+    // stamina, kill counters) but is not a village raid. No raid honor/aura,
+    // raid aggregate, or field-mission producer can leak through this adapter.
     const honorBase = battleKind === 'defense' ? 20 : battleKind === 'raidAi' ? 5 : 0;
     const auraDust = battleKind === 'defense' ? 8 : battleKind === 'raidAi' ? 4 : 0;
     const honorSeals = character.profession === 'vanguard' ? honorBase : 0;

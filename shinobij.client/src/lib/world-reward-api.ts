@@ -20,19 +20,48 @@ import { makeId } from './utils';
 // The receipt id both endpoints dedupe on. They accept /^[A-Za-z0-9_-]{8,96}$/,
 // and makeId()'s non-randomUUID fallback contains a '.', so strip and pad here
 // rather than let a fallback-path request 400.
-function requestId(): string {
+export function newWorldRewardRequestId(): string {
     const raw = makeId().replace(/[^A-Za-z0-9_-]/g, '');
     return (raw.length >= 8 ? raw : `${raw}0000000000`).slice(0, 96);
 }
 
 export type ExploreCredit = 'full' | 'tile';
+export type ExternalExploreProof = { kind: 'dungeon' | 'pet'; token: string };
+export type SectorExploreOutcome =
+    | { kind: 'chest' }
+    | { kind: 'battle' }
+    | { kind: 'none' }
+    | { kind: 'external'; source: 'dungeon' | 'pet' };
+
+export type FieldExploreProgress = {
+    missionId: string;
+    runId: string;
+    exploreCount: number;
+    replayed: boolean;
+};
 
 export type SectorExploreResult = {
     reward?: { sector: number; xp: number; ryo: number };
+    outcome?: SectorExploreOutcome;
+    replayed?: boolean;
     character?: Character;
+    fieldProgress?: FieldExploreProgress[];
     saveVersion?: number;
     error?: string;
+    status?: number;
+    retryable?: boolean;
 };
+
+function worldRewardFailure(error: string, status?: number): { error: string; status?: number; retryable: boolean } {
+    // Receipt replay happens before server presence/discovery validation. These
+    // definitive 4xx responses therefore prove no payout committed and can be
+    // retired; transport, auth-refresh, throttling, malformed success, and 5xx
+    // remain parked on the same operation id.
+    const pendingExternalDiscovery = error === "pending-pet-discovery" || error === "pending-dungeon-discovery";
+    const definitive = !pendingExternalDiscovery && (status === 400 || status === 403 || status === 404
+        || status === 409 || status === 410 || status === 422);
+    return { error, ...(typeof status === "number" ? { status } : {}), retryable: !definitive };
+}
 
 /**
  * Count an explored tile, and pay the explore ryo when the tile produced no
@@ -44,18 +73,41 @@ export async function recordSectorExplore(
     playerName: string,
     sector: number,
     credit: ExploreCredit,
+    operationId: string = newWorldRewardRequestId(),
+    options: { resolveOutcome?: boolean; externalOutcomeProof?: ExternalExploreProof } = {},
 ): Promise<SectorExploreResult> {
     try {
         const response = await fetch('/api/world/explore', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, sector, credit, requestId: requestId() }),
+            body: JSON.stringify({
+                playerName,
+                sector,
+                credit,
+                requestId: operationId,
+                ...(options.resolveOutcome ? { resolveOutcome: true } : {}),
+                ...(options.externalOutcomeProof ? { externalOutcomeProof: options.externalOutcomeProof } : {}),
+            }),
         });
         const data = await response.json().catch(() => null) as
-            { reward?: { sector: number; xp: number; ryo: number }; character?: Character; _saveVersion?: number; error?: string } | null;
-        if (!response.ok || !data?.character) return { error: data?.error || 'explore-failed' };
-        return { reward: data.reward, character: data.character, saveVersion: data._saveVersion };
+            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; error?: string } | null;
+        if (!response.ok || !data?.character) {
+            return worldRewardFailure(data?.error || 'explore-failed', response.ok ? undefined : response.status);
+        }
+        const fieldProgress = Array.isArray(data.fieldProgress)
+            ? data.fieldProgress.filter((entry): entry is FieldExploreProgress => Boolean(entry)
+                && typeof entry.missionId === 'string' && typeof entry.runId === 'string'
+                && Number.isFinite(entry.exploreCount) && typeof entry.replayed === 'boolean')
+            : undefined;
+        return {
+            reward: data.reward,
+            outcome: data.outcome,
+            replayed: data.replayed === true,
+            character: data.character,
+            fieldProgress,
+            saveVersion: data._saveVersion,
+        };
     } catch {
-        return { error: 'offline' };
+        return worldRewardFailure('offline');
     }
 }
 
@@ -69,6 +121,8 @@ export type AncientChestResult = {
     character?: Character;
     saveVersion?: number;
     error?: string;
+    status?: number;
+    retryable?: boolean;
 };
 
 /**
@@ -77,18 +131,25 @@ export type AncientChestResult = {
  * — the reveal panel then shows what the player already owns instead of a
  * promise the save was about to throw away.
  */
-export async function openAncientChest(playerName: string, sector: number): Promise<AncientChestResult> {
+export async function openAncientChest(
+    playerName: string,
+    sector: number,
+    operationId: string,
+    worldExploreRequestId: string,
+): Promise<AncientChestResult> {
     try {
         const response = await fetch('/api/world/open-chest', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, sector, requestId: requestId() }),
+            body: JSON.stringify({ playerName, sector, requestId: operationId, worldExploreRequestId }),
         });
         const data = await response.json().catch(() => null) as
             { loot?: AncientChestLoot; character?: Character; _saveVersion?: number; error?: string } | null;
-        if (!response.ok || !data?.loot || !data.character) return { error: data?.error || 'chest-failed' };
+        if (!response.ok || !data?.loot || !data.character) {
+            return worldRewardFailure(data?.error || 'chest-failed', response.ok ? undefined : response.status);
+        }
         return { loot: data.loot, character: data.character, saveVersion: data._saveVersion };
     } catch {
-        return { error: 'offline' };
+        return worldRewardFailure('offline');
     }
 }
 

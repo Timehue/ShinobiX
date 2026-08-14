@@ -34,6 +34,15 @@ const BANK_INT = read('api', '_bank-interest.ts');
 const BANK_SCREEN = read('shinobij.client', 'src', 'screens', 'Bank.tsx');
 const SERVER_ENTITLEMENTS = read('api', '_entitlements.ts');
 const CLIENT_ENTITLEMENTS = read('shinobij.client', 'src', 'lib', 'entitlements.ts');
+const CLIENT_PET = read('shinobij.client', 'src', 'lib', 'pet.ts');
+const CLIENT_APP = read('shinobij.client', 'src', 'App.tsx');
+const PET_POLICY_COPY = [
+    read('shinobij.client', 'src', 'screens', 'PetYard.tsx'),
+    read('shinobij.client', 'src', 'screens', 'PetArena.tsx'),
+    read('shinobij.client', 'src', 'components', 'PetSanctuary.tsx'),
+    read('shinobij.client', 'src', 'components', 'PatreonLink.tsx'),
+    read('shinobij.client', 'src', 'data', 'guides.ts'),
+].join('\n');
 
 // Extract a (possibly underscore-grouped) number captured by `pattern`.
 function numFrom(src: string, pattern: RegExp, label: string): number {
@@ -64,14 +73,33 @@ function annotatedNum(src: string, name: string): number {
     return Number(m![1]);
 }
 
-describe('parity: carried-pet entitlement caps', () => {
-    it('keeps both build roots on Base four and Supporter six', () => {
-        for (const [name, expected] of [['PET_CAP_BASE', 4], ['PET_CAP_SUB', 6]] as const) {
-            const server = singleNum(SERVER_ENTITLEMENTS, name);
-            const client = singleNum(CLIENT_ENTITLEMENTS, name);
-            assert.equal(server, client, `${name} drifted between server and client entitlement helpers`);
-            assert.equal(server, expected, `${name} must remain ${expected}`);
-        }
+describe('parity: carried-pet entitlements (server ⇄ client)', () => {
+    for (const name of ['PET_CAP_BASE', 'PET_CAP_SUB']) {
+        it(`${name} matches`, () => {
+            assert.equal(singleNum(SERVER_ENTITLEMENTS, name), singleNum(CLIENT_ENTITLEMENTS, name), `${name} drifted — sync both entitlement modules`);
+        });
+    }
+
+    it('the base carried roster can field a complete Tactical Arena team', () => {
+        assert.ok(
+            singleNum(CLIENT_ENTITLEMENTS, 'PET_CAP_BASE') >= singleNum(CLIENT_PET, 'TACTICAL_ARENA_PET_REQUIREMENT'),
+            'base pet capacity must not lock free players out of Tactical Arena',
+        );
+    });
+
+    it('the expedition launch burst covers every supporter carried slot', () => {
+        assert.match(EXPEDITION, /enforceRateLimit\(req, res, 'expedition-start', PET_CAP_SUB,/);
+    });
+
+    it('client hydration preserves every supporter carried slot', () => {
+        assert.match(CLIENT_APP, /pets:\s*\(parsed\.pets \?\? \[\]\)\.map\(normalizePet\)/);
+        assert.doesNotMatch(CLIENT_APP, /pets:\s*\(parsed\.pets \?\? \[\]\)\.slice\(/);
+    });
+
+    it('Pet Home and supporter copy never advertises the retired 3/5 policy', () => {
+        assert.doesNotMatch(PET_POLICY_COPY, /Base:\s*3 carried[^\n]*Supporter:\s*5/i);
+        assert.doesNotMatch(PET_POLICY_COPY, /5 Pet Companions[^\n]*up from 3/i);
+        assert.doesNotMatch(PET_POLICY_COPY, /carry 3 battle-ready companions[^\n]*5 for Shinobi Supporters/i);
     });
 });
 

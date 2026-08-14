@@ -11,6 +11,7 @@ import type { ServerArenaSession, ServerArenaTransport } from "./server-arena-ru
 export function towerSessionForArena(session: TowerSession): ServerArenaSession {
     return {
         sessionId: session.runId,
+        runtimeVersion: session.actionVersion,
         map: session.map,
         actors: session.actors,
         turnQueue: session.turnQueue,

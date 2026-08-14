@@ -42,6 +42,20 @@ describe('_ai-fight-secondary', () => {
         assert.equal(applyAiFightSecondaryRewards(base, mission, false), base);
     });
 
+    it('pays ordinary World encounter rewards without impersonating a village raid', () => {
+        const token = createAiFightTokenRecord('P', 't', 1, { battleKind: 'world', opponentId: 'world-foe' });
+        const next = applyAiFightSecondaryRewards(base, token, true);
+        assert.deepEqual(next.inventory, ['old', 'territory-control-scroll']);
+        assert.equal(next.stamina, 100);
+        assert.equal(next.totalAiKills, 6);
+        assert.equal(next.dailyAiKills, 7);
+        assert.equal(next.totalVillageRaids, 7);
+        assert.equal(next.honorSeals, 1);
+        assert.equal(next.auraDust, 2);
+        assert.equal(next.boneCharms, 3);
+        assert.deepEqual(next.aiKills, { 'world-foe': 1 });
+    });
+
     it('only grants the Ironclad roll to a valid capstone owner', () => {
         const token = createAiFightTokenRecord('P', 't', 1, { battleKind: 'mission' });
         const next = applyAiFightSecondaryRewards({ ...base, masterySpec: { ironclad: 1 } }, token, true, true);

@@ -20,6 +20,8 @@ export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat' | 'legacy';
 
 export interface AuditEntry {
     ts: number;
+    /** Stable settlement identity. When supplied, recordAudit is exact-once. */
+    receiptId?: string;
     actor: string;            // admin/player slug, or 'admin' for password auth
     domain: AuditDomain;
     action: string;           // e.g. 'jutsu.edit', 'image.delete', 'reward.grant'
@@ -67,7 +69,7 @@ export function appendCapped(existing: AuditEntry[], entry: AuditEntry, max: num
 
 // Record an audit entry. Best-effort: never throws into the calling handler, so
 // a logging hiccup can never fail a real admin action.
-export async function recordAudit(entry: Omit<AuditEntry, 'ts'> & { ts?: number }): Promise<void> {
+export async function recordAudit(entry: Omit<AuditEntry, 'ts'> & { ts?: number }): Promise<boolean> {
     try {
         const full: AuditEntry = {
             ...entry,
@@ -78,12 +80,15 @@ export async function recordAudit(entry: Omit<AuditEntry, 'ts'> & { ts?: number 
         const key = auditKey(entry.domain);
         await withKvLock(key, async () => {
             const existing = (await kv.get<AuditEntry[]>(key)) ?? [];
+            if (entry.receiptId && existing.some((item) => item.receiptId === entry.receiptId)) return;
             await kv.set(key, appendCapped(existing, full));
-        });
+        }, { failClosed: true });
+        return true;
     } catch (e) {
         // best-effort — never fail the calling action, but log: a swallowed
         // audit write means a content/reward change left no trail.
         console.error(`[audit] recordAudit failed (${entry.domain}/${entry.action}):`, e);
+        return false;
     }
 }
 

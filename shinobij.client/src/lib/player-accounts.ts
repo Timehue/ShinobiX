@@ -25,7 +25,8 @@ export type PlayerAccountSave = {
         acceptedMissionIds: string[];
         missionProgress: Record<string, number>;
         triggeredEvents: string[];
-        pendingAiProfileId: string;
+        /** @deprecated Read-only rolling-upgrade residue; never restored or saved. */
+        pendingAiProfileId?: string;
         currentSector?: number;
         pendingTravel?: PendingTravelSave | null;
     };

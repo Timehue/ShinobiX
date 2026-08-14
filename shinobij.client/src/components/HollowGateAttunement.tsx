@@ -4,7 +4,7 @@
  * pure lib/hollow-gate-attunement; this is the UI. Hosted by WorldMap.
  */
 import { useCallback, useRef, useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, keyForgeUnlocked, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
 import { forgeHollowGateKeyServer as forgeHollowGateKey } from "../lib/hollow-gate-forge-api";
 import { buyHollowGateAttunementServer } from "../lib/hollow-gate-attunement-api";
@@ -12,9 +12,9 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameConfirm } from "./GameAlert";
 import { Modal } from "./ui/Modal";
 
-type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void; onServerVersion?: (version: number) => void };
+type Props = { character: Character; onClose: () => void; onVersionedCharacter: VersionedCharacterCommit };
 
-export function HollowGateAttunement({ character, updateCharacter, onClose, onServerVersion }: Props) {
+export function HollowGateAttunement({ character, onClose, onVersionedCharacter }: Props) {
     const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
     const [forgeBusy, setForgeBusy] = useState(false);
     const [attuneBusy, setAttuneBusy] = useState(false);
@@ -32,8 +32,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                 setStatus({ text: result.error || "The attunement did not return an updated save.", ok: false });
                 return;
             }
-            if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setStatus({ text: "Attunement purchased.", ok: true });
         } finally {
             setAttuneBusy(false);
@@ -65,8 +64,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                 setStatus({ text: r.error || "The key forge did not return an updated save. Refresh before retrying.", ok: false });
                 return;
             }
-            if (typeof r._saveVersion === "number") onServerVersion?.(r._saveVersion);
-            updateCharacter(r.character);
+            if (!onVersionedCharacter(r.character, r._saveVersion)) return;
             setStatus({ text: "Forged 1 Hollow Gate Key.", ok: true });
         } catch {
             setStatus({ text: "The key forge response was lost. Refresh your save before retrying so you can confirm whether the key was forged.", ok: false });

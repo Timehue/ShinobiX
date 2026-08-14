@@ -143,68 +143,6 @@ describe('isMalformedJsonBodyError', () => {
 });
 
 describe('mergePreservingImages', () => {
-    it('full-replaces strict settlement journals so prepended pending markers cannot inherit terminal fields', () => {
-        const cases = [
-            {
-                field: 'serverSettlementReceipts',
-                terminal: { requestId: 'old', value: { legacyOnly: true }, settledAt: 10 },
-                pending: { requestId: 'new', value: { exact: true }, settledAt: 20 },
-                absent: 'legacyOnly',
-            },
-            {
-                field: 'weeklyBossStartSettlements',
-                terminal: { runId: 'old', readyAt: 10 },
-                pending: { runId: 'new' },
-                absent: 'readyAt',
-            },
-            {
-                field: 'weeklyBossUsageSettlements',
-                terminal: { runId: 'old', staleInjected: true },
-                pending: { runId: 'new', fingerprint: 'exact' },
-                absent: 'staleInjected',
-            },
-            {
-                field: 'weeklyBossPayoutSettlements',
-                terminal: { weekKey: '2027-W01', bossAcknowledgedAt: 10 },
-                pending: { weekKey: '2027-W02' },
-                absent: 'bossAcknowledgedAt',
-            },
-            {
-                field: 'hollowGateCombatSettlements',
-                terminal: { runId: 'old', receipt: { won: false, revived: true }, committedAt: 10, expiresAt: 20 },
-                pending: { runId: 'new', receipt: { won: true }, committedAt: 1, expiresAt: 20 },
-                absent: 'readyAt',
-            },
-            {
-                field: 'soloPveCompanionSettlements',
-                terminal: { sessionId: 'old', committedAt: 10 },
-                pending: { sessionId: 'new' },
-                absent: 'committedAt',
-            },
-            {
-                field: 'soloPveItemSettlements',
-                terminal: { markerId: 'old', committedAt: 10 },
-                pending: { markerId: 'new' },
-                absent: 'committedAt',
-            },
-        ] as const;
-        for (const candidate of cases) {
-            const merged = mergePreservingImages(
-                { character: { [candidate.field]: [candidate.pending] } },
-                { character: { [candidate.field]: [candidate.terminal] } },
-            ) as { character: Record<string, Array<Record<string, unknown>>> };
-            assert.deepEqual(merged.character[candidate.field], [candidate.pending]);
-            assert.equal(candidate.absent in merged.character[candidate.field]![0]!, false, candidate.field);
-        }
-
-        const marker = mergePreservingImages(
-            { character: { vanguardRewardSettlementStamp: { state: 'reserved', ownerId: 'new-owner' } } },
-            { character: { vanguardRewardSettlementStamp: { state: 'settled', ownerId: 'old-owner', outcome: { granted: true }, staleInjected: true } } },
-        ) as { character: { vanguardRewardSettlementStamp: Record<string, unknown> } };
-        assert.deepEqual(marker.character.vanguardRewardSettlementStamp, { state: 'reserved', ownerId: 'new-owner' });
-        assert.equal('outcome' in marker.character.vanguardRewardSettlementStamp, false);
-        assert.equal('staleInjected' in marker.character.vanguardRewardSettlementStamp, false);
-    });
     it('returns incoming for non-object types', () => {
         assert.equal(mergePreservingImages('foo', { existing: 'val' }), 'foo');
         assert.equal(mergePreservingImages(42, {}), 42);

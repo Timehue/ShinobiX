@@ -8,6 +8,7 @@ import {
     missionProgressEvidenceBundleKey,
     savedAcceptedMissionIds,
     savedCurrentSector,
+    savedMissionProgress,
     validateMissionProgressEvidence,
     validateMissionProgressReceipt,
     type MissionProgressReceipt,
@@ -46,17 +47,20 @@ describe('_mission-progress-receipt save readers', () => {
         assert.equal((record.character as Record<string, unknown>).acceptedMissionIds, undefined,
             'fixture must match the live shape: character carries NO accepted ids');
         assert.deepEqual(savedAcceptedMissionIds(record), ['fetch-b-enemy-cache', 'hunt-wild-boar']);
+        assert.deepEqual(savedMissionProgress(record), { 'fetch-b-enemy-cache': 7, 'fetch-b-enemy-cache:raids': 3 });
         assert.equal(savedCurrentSector(record), 47);
     });
 
     it('still reads a bare character, so a caller holding only that works', () => {
         assert.deepEqual(savedAcceptedMissionIds({ level: 39, acceptedMissionIds: ['fetch-d-supply-trail'] }), ['fetch-d-supply-trail']);
+        assert.deepEqual(savedMissionProgress({ level: 39, missionProgress: { 'fetch-d-supply-trail': 2 } }), { 'fetch-d-supply-trail': 2 });
         assert.equal(savedCurrentSector({ level: 39, currentSector: 12 }), 12);
     });
 
     it('prefers the record over a nested character when both carry the field', () => {
-        const record = liveSaveRecord({ character: { level: 39, acceptedMissionIds: ['stale-id'], currentSector: 3 } });
+        const record = liveSaveRecord({ character: { level: 39, acceptedMissionIds: ['stale-id'], missionProgress: { 'stale-id': 99 }, currentSector: 3 } });
         assert.deepEqual(savedAcceptedMissionIds(record), ['fetch-b-enemy-cache', 'hunt-wild-boar']);
+        assert.deepEqual(savedMissionProgress(record), { 'fetch-b-enemy-cache': 7, 'fetch-b-enemy-cache:raids': 3 });
         assert.equal(savedCurrentSector(record), 47);
     });
 
@@ -66,6 +70,8 @@ describe('_mission-progress-receipt save readers', () => {
         assert.deepEqual(savedAcceptedMissionIds({}), []);
         assert.deepEqual(savedAcceptedMissionIds({ acceptedMissionIds: 'not-an-array' }), []);
         assert.deepEqual(savedAcceptedMissionIds({ character: null }), []);
+        assert.deepEqual(savedMissionProgress(null), {});
+        assert.deepEqual(savedMissionProgress({ missionProgress: [] }), {});
         assert.equal(savedCurrentSector(null), 0);
         assert.equal(savedCurrentSector({}), 0);
         assert.equal(savedCurrentSector({ currentSector: 'nope' }), 0);

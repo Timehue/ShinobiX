@@ -82,7 +82,8 @@ test("Team PvP presentation keeps live-player art and hides disabled consumable 
 });
 
 test("mobile Tower combat wraps critical controls and permits page scroll at fit zoom", () => {
-    assert.match(fight, /className="tower-fight-statusbar"[\s\S]{0,120}?flexWrap:\s*"wrap"/);
+    assert.match(fight, /className="tower-fight-header tower-fight-statusbar"[\s\S]{0,120}?flexWrap:\s*"wrap"/,
+        "the header must retain both its compact-layout hook and semantic status-bar hook");
     assert.match(fight, /className="tower-fight-turn-pill"[\s\S]{0,160}?maxWidth:\s*"100%"/);
     assert.equal(fight.match(/className="tower-mechanic-chip"/g)?.length, 2);
     assert.match(tacticalCss, /\.tower-mechanic-chip\s*\{[\s\S]{0,140}?overflow-wrap:\s*anywhere[\s\S]{0,80}?white-space:\s*normal/);

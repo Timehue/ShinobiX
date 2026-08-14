@@ -26,25 +26,26 @@ function kageKey(village: string) {
  * best-effort: a failure here never blocks the unlock response, and the vault
  * write is idempotent (already-granted returns without side effects).
  */
-async function grantLiberatorReward(playerName: string, villageName: string, freshUnlock: boolean): Promise<void> {
+async function grantLiberatorReward(playerName: string, villageName: string, freshUnlock: boolean): Promise<{ character: Record<string, unknown>; _saveVersion: number } | undefined> {
     const title = KAGE_LIBERATOR_TITLES[villageName.trim().toLowerCase()];
-    if (!title || !playerName) return;
-    let granted = false;
+    if (!title || !playerName) return undefined;
+    let mutationResult: { character: Record<string, unknown>; _saveVersion: number; granted: boolean } | undefined;
     try {
-        await mutatePlayerSave(playerName, ({ character }) => {
+        const mutation = await mutatePlayerSave<boolean>(playerName, ({ character }) => {
             const vault = Array.isArray(character.serverTitles)
                 ? (character.serverTitles as unknown[]).filter((t): t is string => typeof t === 'string')
                 : [];
-            if (vault.includes(title)) return { ok: false, status: 200, error: 'already granted' };
-            granted = true;
+            if (vault.includes(title)) return { ok: true, character, value: false, write: false };
             return {
                 ok: true,
-                value: null,
+                value: true,
                 character: { ...character, serverTitles: [...vault, title], storyTitle: title, rankTitle: title },
             };
         });
+        if (mutation.ok) mutationResult = { character: mutation.character, _saveVersion: mutation._saveVersion, granted: mutation.value };
     } catch { /* best-effort — the next unlock call re-grants */ }
-    if (!granted) return;
+    if (!mutationResult) return undefined;
+    if (!mutationResult.granted) return { character: mutationResult.character, _saveVersion: mutationResult._saveVersion };
     try {
         await postVillageHerald(villageName, 'A Kage Falls', `${playerName} has broken the false Kage's hold over ${villageName}. The seat stands open.`);
     } catch { /* best-effort */ }
@@ -57,6 +58,7 @@ async function grantLiberatorReward(playerName: string, villageName: string, fre
             );
         } catch { /* best-effort */ }
     }
+    return { character: mutationResult.character, _saveVersion: mutationResult._saveVersion };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -230,11 +232,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Liberator consequences (rebuild §10): title into the server-owned
             // vault + world reactions. Best-effort AFTER the kage lock (separate
             // save-key lock inside mutatePlayerSave; never nested).
-            if (action === 'unlock' && liberatorVerified && result.status === 200) {
-                await grantLiberatorReward(safeName(playerName), v, freshUnlock);
-            }
+            const liberatorSave = action === 'unlock' && liberatorVerified && result.status === 200
+                ? await grantLiberatorReward(safeName(playerName), v, freshUnlock)
+                : undefined;
 
-            return res.status(result.status).json(result.body);
+            return res.status(result.status).json({
+                ...(result.body as Record<string, unknown>),
+                ...(liberatorSave ?? {}),
+            });
         } catch (err) {
             console.error('[village/kage]', err);
             return res.status(500).json({ error: 'Internal server error.' });

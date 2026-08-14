@@ -5,8 +5,10 @@ import test from "node:test";
 const missionSource = readFileSync(new URL("./MissionArenaFight.tsx", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
 const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
+const towerTacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.meta.url), "utf8");
 const combatRestoreCss = readFileSync(new URL("../styles/index/24-combat-mobile-restore.css", import.meta.url), "utf8");
 const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.tsx", import.meta.url), "utf8");
+const combatDetailPortalSource = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shinobiCombatShellSource = readFileSync(new URL("../components/ShinobiCombatShell.tsx", import.meta.url), "utf8");
 const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
@@ -25,8 +27,8 @@ const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.u
 test("mission fight reserves a row for its action notice instead of displacing the board", () => {
     assert.match(
         missionSource,
-        /<CombatHudLayout hasActionNotice=\{hasActionNotice\}>/,
-        "the combat grid must be marked whenever the action notice is rendered",
+        /<CombatHudLayout hasActionNotice>/,
+        "the combat grid must always reserve the persistent action-notice row",
     );
     assert.match(
         combatHudSource,
@@ -34,24 +36,17 @@ test("mission fight reserves a row for its action notice instead of displacing t
         "the shared layout must map the notice flag to the reserved-grid class",
     );
 
-    assert.match(
-        missionSource,
-        /const hasActionNotice = !!reject \|\| showTargetingHint;/,
-        "the marker must track BOTH conditional notices, not just one of them",
-    );
-
-    // Both notices must live inside the single wrapper. Two bare children would
-    // need two extra tracks, and `has-rookie-tip` only reserves one.
+    // Every transient message lives inside one persistent fixed-height wrapper.
     const wrapper = missionSource.match(
-        /<div className="combat-action-notice">([\s\S]*?)<\/div>\s*\)\}/,
+        /<div className="combat-action-notice">([\s\S]*?)<\/div>\s*<CombatCommandBar>/,
     );
     assert.ok(wrapper, "the notices must be wrapped in a single .combat-action-notice grid child");
-    assert.match(wrapper![1], /className="rookie-combat-tip"/, "the rejection alert belongs in the wrapper");
-    assert.match(wrapper![1], /className="combat-targeting-hint"/, "the targeting hint belongs in the wrapper");
+    assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
+    assert.match(wrapper![1], /actionNotice \|\| "\\u00a0"/, "the idle row must remain mounted");
 
     // Nothing may render either notice as a direct child of .combat-main-area.
     assert.equal(
-        (missionSource.match(/className="combat-targeting-hint"/g) ?? []).length,
+        (missionSource.match(/className=\{`combat-targeting-hint/g) ?? []).length,
         1,
         "exactly one targeting-hint element, and it must be the wrapped one",
     );
@@ -133,6 +128,82 @@ test("mission fight reserves a row for its action notice instead of displacing t
         (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
         "battle-skin must still reserve the extra tip row on desktop, mobile, and short-mobile",
     );
+});
+
+test("soft action rejections retain Solo and Tower targeting selection", () => {
+    const missionSend = missionSource.slice(
+        missionSource.indexOf("async function send("),
+        missionSource.indexOf("function onTileClick", missionSource.indexOf("async function send(")),
+    );
+    assert.match(missionSend, /if \(!res\.applied\)[\s\S]*?setReject\([\s\S]*?\}\s*else\s*\{\s*resetTargeting\(\);/);
+
+    const towerSend = towerSource.slice(
+        towerSource.indexOf("async function send("),
+        towerSource.indexOf("function onTileClick", towerSource.indexOf("async function send(")),
+    );
+    assert.match(towerSend, /if \(res\.applied\) \{[\s\S]*?clearTargeting\(\);[\s\S]*?\} else \{[\s\S]*?phase: "error"/);
+
+    for (const [name, sendSource] of [["mission", missionSend], ["tower", towerSend]] as const) {
+        const finallyBlock = sendSource.match(/finally\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
+        assert.doesNotMatch(finallyBlock, /setMode\("idle"\)|setSelJutsu\(null\)|setSelWeaponId\(""\)/,
+            `${name} finally block must not discard a softly rejected action`);
+    }
+});
+
+test("Solo and Tower mirror PvP's legacy self-buff targeting classifier", () => {
+    for (const source of [missionSource, towerSource]) {
+        assert.match(source, /!isMoveJutsu\(j\)/);
+        assert.match(source, /target !== "EMPTY_GROUND"/);
+        assert.match(source, /!pvpAffectsOpponent/);
+    }
+});
+
+test("Solo and Tower submit highlighted movement-jutsu tiles through the jutsu path", () => {
+    for (const [name, source, rangeSet] of [
+        ["mission", missionSource, "rangeTiles"],
+        ["tower", towerSource, "jutsuRangeTiles"],
+    ] as const) {
+        const moveNeedle = `if (mode === "jutsu" && selJutsu?.id && isMoveJutsu(selJutsu) && ${rangeSet}.has(tile))`;
+        const moveBranch = source.indexOf(moveNeedle);
+        const groundBranch = source.indexOf('if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND"');
+        assert.ok(moveBranch >= 0, `${name} must submit a highlighted movement-jutsu destination`);
+        assert.ok(groundBranch > moveBranch, `${name} must classify movement before generic ground targeting`);
+        assert.match(
+            source.slice(moveBranch, groundBranch),
+            /send\(\{ type: "jutsu", jutsuId: selJutsu\.id, tile \}\)/,
+            `${name} movement must retain its jutsu id and destination tile`,
+        );
+    }
+});
+
+test("Tower keeps target guidance geometry stable and disables off-turn actions semantically", () => {
+    assert.match(towerSource, /id="tower-action-guidance" className=\{`tower-action-state/, "Tower must render one persistent guidance row");
+    assert.match(towerSource, /: "Choose an action"/, "the idle guidance row must remain mounted");
+    assert.match(
+        towerTacticalCss,
+        /\.tower-action-state\s*\{[^}]*height:\s*58px;[^}]*min-height:\s*58px;[^}]*max-height:\s*58px;/,
+        "Tower guidance must reserve one fixed track so arming cannot resize the board",
+    );
+    assert.match(towerSource, /function armJutsuCard[\s\S]*?if \(busy \|\| !myTurn\) return;/,
+        "Tower's handler must reject keyboard/programmatic off-turn arming");
+    assert.ok((towerSource.match(/disabled=\{!myTurn \|\|/g) ?? []).length >= 9,
+        "Tower action buttons must be natively disabled off turn");
+    assert.ok((towerSource.match(/aria-pressed=\{/g) ?? []).length >= 6,
+        "Tower toggle actions must expose their armed state");
+    assert.match(towerSource, /const adjustedActionAp = \(base: number\) => adjustedCombatApCost/,
+        "Tower cards and commands must mirror canonical Lag/Overclock costs");
+    assert.doesNotMatch(towerSource, /session\.activeAp < (?:30|40|60)/,
+        "Tower controls must not gate paid actions with raw AP constants");
+    assert.match(towerSource, /isElementallySealedForDisplay/,
+        "Tower jutsu affordance must mirror the canonical Elemental Seal gate");
+});
+
+test("combat detail focus never scrolls the contained action tray", () => {
+    const focusCalls = combatDetailPortalSource.match(/\.focus\(([^)]*)\)/g) ?? [];
+    assert.ok(focusCalls.length >= 4, "the portal must still manage open, trap, and return focus");
+    for (const call of focusCalls) {
+        assert.match(call, /preventScroll:\s*true/, `${call} must opt out of browser scroll restoration`);
+    }
 });
 
 test("mission desktop restores the dossier-board-dossier composition and full-width battlefield", () => {

@@ -98,6 +98,7 @@ import {
     type CombatMissionClaimSettlement,
     type CombatMissionClaimToken,
 } from './_combat-claim-authority.js';
+import { serverFieldMissionRun, withoutServerFieldMissionRun } from './_field-trail.js';
 
 // Server-authoritative mission claim. Replaces the old client-side reward math
 // for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
@@ -957,6 +958,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } else if (missionType === 'field') {
                 const def = fieldMissionById(missionId);
                 if (!def) return { applied: false, reason: 'unknown-mission' };
+                const acceptedIds = Array.isArray(record.acceptedMissionIds) ? record.acceptedMissionIds.map(String) : [];
+                if (!acceptedIds.includes(missionId)) return { applied: false, reason: 'not-accepted' };
+                const fieldRun = serverFieldMissionRun(char, missionId);
+                if (!fieldRun) return { applied: false, reason: 'field-run-required' };
                 const eligibility = canPlayerClaimMission(char, def);
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
@@ -964,7 +969,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const receipt = cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null));
                 const progress = validateMissionProgressReceipt(
                     receipt,
-                    { playerName, missionId, missionType: 'field', mission: def },
+                    { playerName, missionId, missionType: 'field', mission: def, runId: fieldRun.runId },
                 );
                 if (!progress.ok) {
                     // Hand back the receipt's real state so the client can resync a
@@ -988,15 +993,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Creator-authored hunts aren't in the catalog and are not paid.
                 const def = huntMissionById(missionId);
                 if (!def) return { applied: false, reason: 'unknown-mission' };
+                const acceptedIds = Array.isArray(record.acceptedMissionIds) ? record.acceptedMissionIds.map(String) : [];
+                if (!acceptedIds.includes(missionId)) return { applied: false, reason: 'not-accepted' };
                 const eligibility = canPlayerClaimMission(char, def);
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyHuntSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 const progressKey = missionProgressReceiptKey(playerName, missionId);
-                const progress = validateMissionProgressReceipt(
-                    cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null)),
-                    { playerName, missionId, missionType: 'hunt', mission: def },
-                );
-                if (!progress.ok) return { applied: false, reason: progress.reason };
+                const trails = char.serverHuntTrails && typeof char.serverHuntTrails === 'object' && !Array.isArray(char.serverHuntTrails)
+                    ? char.serverHuntTrails as Record<string, unknown>
+                    : {};
+                const trail = trails[missionId] && typeof trails[missionId] === 'object' && !Array.isArray(trails[missionId])
+                    ? trails[missionId] as Record<string, unknown>
+                    : null;
+                if (!trail || trail.targetDefeated !== true
+                    || typeof trail.targetProofId !== 'string' || !trail.targetProofId) {
+                    return { applied: false, reason: 'missing-hunt-kill-receipt' };
+                }
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
@@ -1119,6 +1131,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (missionType === 'field' || missionType === 'hunt') {
                 next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
             }
+            if (missionType === 'hunt' && next.serverHuntTrails && typeof next.serverHuntTrails === 'object' && !Array.isArray(next.serverHuntTrails)) {
+                const trails = { ...(next.serverHuntTrails as Record<string, unknown>) };
+                delete trails[missionId];
+                next = { ...next, serverHuntTrails: trails };
+            }
             const rewardCurrency: Record<string, number> = {};
             for (const [currency, amount] of Object.entries(currencyBase ?? {})) {
                 const cleanAmount = Number(amount);
@@ -1172,11 +1189,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 combatTokenRaw = reservation;
             }
 
+            if (missionType === 'field') next = withoutServerFieldMissionRun(next, missionId) as SaveChar;
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,
             });
-            let persisted = updated;
+            let persisted: Record<string, unknown> = updated;
             if (combatSettlement) {
                 const intended = mergePreservingImages(updated, record) as Record<string, unknown>;
                 const intendedCharacter = intended.character as SaveChar;
@@ -1323,7 +1341,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : 'reward.claim_failed',
             source: `mission:${missionType}:${String(outcome.reason ?? 'unknown').slice(0, 40)}`,
         });
-        return res.status(200).json({ ok: true, ...outcome });
+        const recoveryRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
+        return res.status(200).json({
+            ok: true,
+            ...outcome,
+            character: recoveryRecord?.character ?? null,
+            _saveVersion: Number(recoveryRecord?._saveVersion ?? 0),
+        });
     } catch (err) {
         console.error('[missions/claim-mission]', err);
         return res.status(500).json({ error: 'Internal server error.' });

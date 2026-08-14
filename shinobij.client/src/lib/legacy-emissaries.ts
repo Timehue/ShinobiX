@@ -71,7 +71,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
     },
     {
-        slug: "iron-pilgrim-daigo", name: "Iron Pilgrim Daigo", categories: ["taijutsu"],
+        slug: "iron-pilgrim-daigo", name: "Iron Disciple Daigo", categories: ["taijutsu"],
         tellTint: "#f59e0b",
         greeting: "Every bead on this string is a fight I didn't need a weapon for.",
         lore: [
@@ -82,7 +82,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         trialLine: "Your trial is counted in bruises the record keeper never sees. I see them. Go on.",
         quests: [
             { id: "eq-iron-tally", label: "Break 10 foes — one bead counted for each", metric: "totalAiKills", target: 10 },
-            { id: "eq-iron-road", label: "Walk 20 tiles of the pilgrim road", metric: "totalTilesExplored", target: 20 },
+            { id: "eq-iron-road", label: "Walk 20 tiles of the lantern road", metric: "totalTilesExplored", target: 20 },
         ],
     },
     {

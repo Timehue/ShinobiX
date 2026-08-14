@@ -9,7 +9,7 @@ import {
     inspectTowerActionCommand,
     towerActionVersion,
 } from './_action-idempotency.js';
-import { isTowerActionType, TOWER_ACTION_TYPES } from './_engine.js';
+import { isTowerActionType, TOWER_ACTION_TYPES } from './_action-types.js';
 import type { TowerSession } from './_tower-session.js';
 
 const token = (n: number) => `tower-move-token-${String(n).padStart(4, '0')}`;

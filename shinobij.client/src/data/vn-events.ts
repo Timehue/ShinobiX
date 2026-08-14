@@ -45,7 +45,7 @@ export const awakeningLv2VnEvent: CreatorEvent = {
                 "Village Elder: Every shinobi carries a hidden elemental nature — Water, Wind, Earth, Lightning, or Fire.",
                 "Village Elder: The stone will awaken yours and align your chakra to its truest form.",
                 "Village Elder: Travel to Central Hub. Find the Awakening Stone. Discover your element.",
-                "Village Elder: At certain power thresholds — level 2 and level 20 — the stone will read you for free.",
+                "Village Elder: When your field record reaches the Second and Twentieth Ranks, the stone will read you again without charge.",
                 "Narrator: A new path opens before you. The Awakening Stone awaits in Central...",
             ],
         },
@@ -70,7 +70,7 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
             scene: "An elder waits beside a low lantern, holding a small sphere that drinks in the light around it.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: Level nine already. Your chakra is beginning to leave footprints in the air.",
+                "Village Elder: Ninth Rank already. Your chakra is beginning to leave footprints in the air.",
                 "Village Elder: That means you are ready to carry something older than our village walls.",
                 "Village Elder: This is an Aura Sphere. It does not make power for you. It remembers the power you earn.",
             ],
@@ -113,7 +113,7 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
             scene: "A masked shinobi steps from a hall of old torii gates.",
             speaker: "Dungeon Warden",
             dialogue: [
-                "Dungeon Warden: Only shinobi level 50 or higher may cross this seal.",
+                "Dungeon Warden: Only shinobi of the Fiftieth Rank or higher may cross this seal.",
                 "Dungeon Warden: Defeat the guardian chosen by the dungeon, or leave with your life.",
             ],
             leftName: "Player",
@@ -125,7 +125,7 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
             speaker: "Dungeon Warden",
             dialogue: [
                 "Dungeon Warden: Strength is not enough.",
-                "Dungeon Warden: Win the shinobi tile game. If you have no cards, you cannot complete this seal.",
+                "Dungeon Warden: Break the second seal in Shinobi Chronicle Showdown. Without a legal deck, you cannot complete this trial.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",

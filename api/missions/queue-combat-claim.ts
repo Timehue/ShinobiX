@@ -142,7 +142,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // versioned save as the decrement. This compatibility application
             // is therefore a no-op for the exact receipt and still supports
             // legacy sessions without the common authority fields.
-            const chargedChar = applySoloPveUsageCosts(char, terminalSession);
+            // The common physical-outcome receipt now owns mission usage in the
+            // same save write as HP. Only a migrated legacy KV marker predates
+            // that guarantee and needs this one compatibility charge.
+            const chargedChar = physicalOutcome.migratedLegacyReceipt
+                ? applySoloPveUsageCosts(char, terminalSession)
+                : char;
             const nextChar = { ...chargedChar, pendingCombatMissionClaims: nextPending };
             const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: nextChar });
             const persisted = mergePreservingImages(updated, record) as Record<string, unknown>;
@@ -259,6 +264,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (prior.status !== 'replay' || !prior.receipt.effects?.completedAt) {
                         return { queued: false, reason: 'combat-claim-already-pending' };
                     }
+                } else if (pending.includes(mission.key)) {
+                    // Both publication rows already agree on this run. A lost
+                    // HTTP response must replay the committed character/version
+                    // without rewriting HP, inventory costs, or the save clock.
+                    return {
+                        queued: true,
+                        replayed: true,
+                        saveVersion: Number(record._saveVersion ?? 0),
+                        character: char,
+                    };
                 }
             }
             const token = createCombatMissionClaimToken({

@@ -8,10 +8,11 @@
  */
 import { useEffect, useState } from "react";
 import {
-    fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete,
+    buildChronicleRecordReceipt, fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete,
     TRIAL_STAT_LABELS, type LegacyStatusView, type LegacyDefView,
 } from "../lib/legacy";
 import type { EmissaryDef } from "../lib/legacy-emissaries";
+import type { Character } from "../types/character";
 import { LegacyMoment, type LegacyMomentData } from "./LegacyMoment";
 
 const KIND_NAMES: Record<string, string> = {
@@ -22,11 +23,10 @@ const STAGE_NAMES: Record<number, string> = {
     1: "Path Accepted", 2: "Awakened", 3: "Bound", 4: "Proven", 5: "Mythic",
 };
 
-export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
+export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter }: {
     playerName: string;
     emissary: EmissaryDef;
-    /** Fired with the granted title (if any) when a trial completes here. */
-    onStageUp?: (newStage: number, grantedTitle: string | null) => void;
+    onVersionedCharacter: (character: Character, saveVersion: number) => boolean | void;
 }) {
     // undefined = fetch in flight, null = failed/flag-off (render nothing).
     const [status, setStatus] = useState<LegacyStatusView | null | undefined>(undefined);
@@ -88,13 +88,23 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
     }
     async function complete() {
         setBusy(true);
-        const r = await trialComplete(playerName);
+        const r = await trialComplete(playerName, trial?.id);
         setBusy(false);
         if (r?.ok && r.legacy) {
+            if (!r.character || typeof r._saveVersion !== "number") {
+                setNote("“Your trial is sealed, but its authoritative record did not arrive. Refresh before continuing.”");
+                return;
+            }
+            if (onVersionedCharacter(r.character, r._saveVersion) === false) {
+                setNote("“A newer record already carries your path. This older reply was set aside.”");
+                return;
+            }
             setStatus(s => s ? { ...s, legacy: r.legacy!, trial: null } : s);
+            const chronicleRecord = buildChronicleRecordReceipt(r.chronicleCards, "legacy-awakening", defView?.name);
             // The emissary's own voice — the Sage's completion passage plays in
             // the LegacyMoment, so this line must not echo it.
-            setNote(r.title ? `“Done, and witnessed. Wear it well: ${r.title}.”` : "“Done, and witnessed. The path remembers.”");
+            const witnessedNote = r.title ? `“Done, and witnessed. Wear it well: ${r.title}.”` : "“Done, and witnessed. The path remembers.”";
+            setNote(!defView && chronicleRecord ? `${witnessedNote} ${chronicleRecord.message}` : witnessedNote);
             if (defView) {
                 setMoment({
                     mode: "stage-up",
@@ -105,9 +115,9 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
                     badge: defView.badge,
                     grantedTitle: r.title ?? null,
                     text: r.completion ?? "Your legacy deepens.",
+                    ...(chronicleRecord ? { chronicleRecord } : {}),
                 });
             }
-            onStageUp?.(r.legacy.stage, r.title ?? null);
         } else if (r?.objectives) {
             setStatus(s => s?.trial ? { ...s, trial: { ...s.trial, objectives: r.objectives! } } : s);
             setNote("“Closer. But the trial is not finished with you.”");
@@ -143,7 +153,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
                     “Stage V. There is nothing left I can test in you — only things left to witness.”
                 </p>
             )}
-            {note && <p style={{ fontSize: ".74rem", color: "var(--gold)", margin: "8px 0 0", fontStyle: "italic" }}>{note}</p>}
+            {note && <p role="status" aria-live="polite" style={{ fontSize: ".74rem", color: "var(--gold)", margin: "8px 0 0", fontStyle: "italic" }}>{note}</p>}
             {moment && <LegacyMoment moment={moment} onClose={() => setMoment(null)} />}
         </div>
     );

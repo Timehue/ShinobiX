@@ -53,6 +53,7 @@ import {
 } from "../../shared/chronicle-duel-audit.js";
 import { CHRONICLE_LEGACY_SOURCES } from "../../shared/legacy-card-sources.js";
 import { CHRONICLE_STORY_SOURCES } from "../../shared/story-card-sources.js";
+import { CHRONICLE_PET_WITNESS_SOURCES } from "../../shared/pet-witness-card-sources.js";
 
 const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
 const fixedRandom = () => 0;
@@ -237,7 +238,7 @@ test("deck validation enforces the number of physical copies owned", () => {
 });
 
 test("all cards carry art while Smoke Bomb is the locked Trap", () => {
-  assert.equal(CHRONICLE_CARD_CATALOG.length, 387);
+  assert.equal(CHRONICLE_CARD_CATALOG.length, 392);
   for (const card of CHRONICLE_CARD_CATALOG) {
     assert.ok(
       card.image?.startsWith("/"),
@@ -272,7 +273,7 @@ test("Effect Monsters occupy the reviewed 20-25 percent band with complete typed
   );
   const share = effectMonsters.length / monsters.length;
 
-  assert.equal(monsters.length, 287);
+  assert.equal(monsters.length, 292);
   assert.equal(effectMonsters.length, 66);
   assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 66);
   assert.ok(share >= 0.2 && share <= 0.25, `Effect share was ${share}`);
@@ -340,11 +341,11 @@ test("the Monster pool uses exactly five nearly-even elements and no neutral Mon
     ]),
   );
   assert.deepEqual(counts, {
-    Fire: 57,
-    Water: 57,
-    Earth: 57,
-    Wind: 57,
-    Lightning: 59,
+    Fire: 58,
+    Water: 58,
+    Earth: 58,
+    Wind: 58,
+    Lightning: 60,
   });
   assert.equal(
     monsters.some((card) => !CHRONICLE_ELEMENTS.includes(card.element)),
@@ -708,7 +709,8 @@ test("all 100 Legacies map exactly once and obey their reviewed rarity bands", (
     const card = getChronicleCard(`legacy-${source.id}`);
     assert.equal(card?.cardClass, "monster");
     if (card?.cardClass !== "monster") continue;
-    assert.equal(card.family, "Legacy Incarnation");
+    assert.equal(card.family, "Legacy Pattern");
+    assert.doesNotMatch(card.lore, /\b(?:incarnation|reincarnation|bloodline|ancestor living|trapped soul)\b/i);
     if (source.rarity === "basic")
       assert.ok(card.level >= 2 && card.level <= 4);
     if (source.rarity === "rare") assert.ok(card.level >= 4 && card.level <= 5);
@@ -731,6 +733,22 @@ test("every reviewed story boss plus the Wandering Sage maps without narrator/pl
   const sage = getChronicleCard("story-wandering-sage");
   assert.equal(sage?.cardClass, "monster");
   assert.equal(sage?.image, "/portraits/wandering-sage.webp");
+});
+
+test("five Living Witness cards preserve fixed companion records outside packs", () => {
+  assert.equal(CHRONICLE_PET_WITNESS_SOURCES.length, 5);
+  assert.equal(new Set(CHRONICLE_PET_WITNESS_SOURCES.map((source) => source.element)).size, 5);
+  for (const source of CHRONICLE_PET_WITNESS_SOURCES) {
+    const card = getChronicleCard(source.id);
+    assert.equal(card?.cardClass, "monster");
+    if (card?.cardClass !== "monster") continue;
+    assert.equal(card.monsterType, "normal");
+    assert.equal(card.family, "Bonded Beast / Living Witness");
+    assert.equal(card.rarity, "rare");
+    assert.equal(card.level, 4);
+    assert.equal(card.attack, source.attack);
+    assert.equal(card.defense, source.defense);
+  }
 });
 
 test("Normal Summon/Set uses exact distinct Tributes and sends them to Graveyard", () => {

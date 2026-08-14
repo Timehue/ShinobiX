@@ -77,6 +77,12 @@ export async function postClaimMission(
     }
 }
 
+/**
+ * Commit the full character returned by a modern mission-claim response through
+ * the App's monotonic save-version gate. `null` means the rolling-deploy legacy
+ * response omitted a character, so the caller may use its reward-mirroring
+ * fallback (after separately accepting any echoed save version).
+ */
 // Apply the SERVER-computed reward onto the local character.
 export function applyServerMissionReward(
     character: Character,

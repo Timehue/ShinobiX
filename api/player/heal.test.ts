@@ -84,6 +84,11 @@ test('concurrent paid discharge debits exactly once', { concurrency: false }, as
     assert.equal(stored?.character?.hospitalized, false);
     assert.equal(a.out.body?._saveVersion, 2);
     assert.equal(b.out.body?._saveVersion, 2);
+    for (const result of [a.out.body, b.out.body]) {
+        const character = result?.character as { ryo?: number; hospitalized?: boolean };
+        assert.equal(character.ryo, 7_500);
+        assert.equal(character.hospitalized, false);
+    }
 });
 
 test('self top-up returns the version that was actually persisted', { concurrency: false }, async () => {

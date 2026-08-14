@@ -62,7 +62,7 @@ const FLOORS = {
     },
     64: {
         name: 'Lantern Vigil',
-        body: 'A dark scorched pilgrim road route through shadowed ground. Cracked flagstone paths wind across the whole map and link every area; a long double row of cold stone lanterns lines the main road, each with a faint ember glow in its mouth, violet mist pooling low in the hollows between them. Points of interest along the paths: a bare offering table of plain stone, a grove of dead trees with bare sculpted crowns, a low cracked flagstone circle, and a toppled lantern half sunk in ash. Dim violet dusk ground-light, the whole place silent, still and empty.',
+        body: 'A dark scorched lantern road through shadowed ground. Cracked flagstone paths wind across the whole map and link every area; a long double row of cold stone lanterns lines the main road, each with a faint ember glow in its mouth, violet mist pooling low in the hollows between them. Points of interest along the paths: a bare offering table of plain stone, a grove of dead trees with bare sculpted crowns, a low cracked flagstone circle, and a toppled lantern half sunk in ash. Dim violet dusk ground-light, the whole place silent, still and empty.',
     },
     65: {
         name: 'Eastwind Cirque',

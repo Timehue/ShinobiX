@@ -14,6 +14,7 @@ import {
     missionCombatBindingKey,
     MISSION_COMBAT_SESSION_TTL_SECONDS,
     resumableMissionCombatSession,
+    retryableTerminalMissionCombatSession,
     type MissionCombatActivePointer,
     type MissionCombatBinding,
 } from './_authoritative-combat-session.js';
@@ -24,6 +25,7 @@ import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../s
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
+import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 
 /** Start or recover a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -46,8 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const mission = combatMissionByKey(missionId);
         if (!mission) return res.status(404).json({ error: 'Unknown combat mission.' });
-        const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
-        const char = save?.character as Record<string, unknown> | undefined;
+        let save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+        let char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
         const eligibility = canPlayerReceiveMission(char, mission);
         if (!eligibility.ok) return res.status(403).json(missionEligibilityFailureBody(eligibility));
@@ -63,16 +65,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ]);
                 const resumed = resumableMissionCombatSession({ active, binding, session, playerName, mission });
                 if (resumed) return { ok: true as const, runId: active.runId, session: resumed, resumed: true };
+                const retryable = retryableTerminalMissionCombatSession({ active, binding, session, playerName, mission });
+                if (retryable) {
+                    // Help a crash between terminal session persistence and the
+                    // automatic outcome response forward. HP, items and the
+                    // outcome receipt commit together before this lease retires.
+                    const reconciled = await reconcileTerminalSoloPveOutcome(retryable, playerName);
+                    if (!reconciled?.ok) throw new Error('The prior mission outcome could not be reconciled safely.');
+                    await kv.del(activeKey, missionCombatBindingKey(active.runId));
+                    save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+                    char = save?.character as Record<string, unknown> | undefined;
+                    if (!save || !char) throw new Error('Player save vanished during mission retry recovery.');
+                }
             }
 
             const runId = `mission-${randomUUID().replace(/-/g, '')}`;
             const now = Date.now();
             const env = missionEnvironment(mission.key);
             const enemy = missionEnemyTemplate(mission);
+            const authoritativeSave = save;
+            if (!authoritativeSave) throw new Error('Player save vanished before mission combat could be sealed.');
             const session = buildSoloPveAiEncounter({
                 sessionId: runId,
                 playerName,
-                save,
+                save: authoritativeSave,
                 profile: { ...enemy, id: mission.aiProfileId },
                 now,
                 admin,

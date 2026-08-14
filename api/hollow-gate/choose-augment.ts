@@ -53,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const chosenAugmentId = typeof result.body === 'object' && result.body && 'chosenAugmentId' in result.body
             ? String((result.body as { chosenAugmentId?: unknown }).chosenAugmentId ?? '')
             : '';
+        let projectionSaveVersion: number | undefined;
         if (result.status === 200 && chosenAugmentId && AUGMENT_CATALOG[chosenAugmentId]) {
             // Keep the refresh projection aligned with the sealed choice. A
             // failed projection write is recoverable: replaying this endpoint
@@ -62,7 +63,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? character.hollowGateRun as Record<string, unknown>
                     : null;
                 if (!savedRun || savedRun.runToken !== token) {
-                    return { ok: true as const, character, value: null };
+                    return { ok: true as const, character, value: null, write: false };
+                }
+                const chosenAugment = augmentDisplay(AUGMENT_CATALOG[chosenAugmentId]);
+                if (JSON.stringify(savedRun.chosenAugment ?? null) === JSON.stringify(chosenAugment)) {
+                    return { ok: true as const, character, value: null, write: false };
                 }
                 return {
                     ok: true as const,
@@ -70,15 +75,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ...character,
                         hollowGateRun: {
                             ...savedRun,
-                            chosenAugment: augmentDisplay(AUGMENT_CATALOG[chosenAugmentId]),
+                            chosenAugment,
                         },
                     },
                     value: null,
                 };
             });
             if (!projection.ok) return res.status(503).json({ error: 'The augment was sealed; retry to synchronize the saved run.' });
+            projectionSaveVersion = projection._saveVersion;
         }
-        return res.status(result.status).json(result.body);
+        return res.status(result.status).json({
+            ...(result.body as Record<string, unknown>),
+            ...(projectionSaveVersion !== undefined ? { _saveVersion: projectionSaveVersion } : {}),
+        });
     } catch (err) {
         console.error('[hollow-gate/choose-augment]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import type { VersionedCharacterCommit } from "../types/character";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { HealerInjuredList } from "../components/HealerInjuredList";
 import { clearSectorReopen } from "../lib/sector-return";
@@ -11,9 +12,10 @@ import {
     getHospitalDiscountPercent,
 } from "../App";
 import { gameToast } from "../components/GameToast";
+import { adoptHospitalDischarge, type HospitalDischargeResponse } from "../lib/hospital-discharge";
 
 export
-function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; onServerVersion?: (version: number | undefined) => void }) {
+function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
@@ -64,26 +66,14 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // Mirror a successful (or already-applied) discharge into local state and
     // leave for the village. Clears the hospital stamps too so a later re-open
     // can't read a stale timer.
-    function applyDischargeAndLeave(chargedRyo: number) {
-        // Functional updater: this runs after an await in discharge()/freeCheckout(),
-        // so merge the discharge delta onto the latest state to avoid clobbering a
-        // concurrent setState (regen tick, image hydration) that landed mid-await.
-        updateCharacter(prev => prev ? ({
-            ...prev,
-            ryo: Math.max(0, prev.ryo - chargedRyo),
-            hp: prev.maxHp,
-            chakra: prev.maxChakra,
-            stamina: prev.maxStamina,
-            hospitalized: false,
-            hospitalizedUntil: 0,
-            hospitalizedAt: 0,
-        }) : prev);
+    function applyDischargeAndLeave(data: HospitalDischargeResponse, chargedRyo: number) {
+        if (!adoptHospitalDischarge(data, onVersionedCharacter, (screen, authoritativeCharacter) => setScreen(screen, authoritativeCharacter))) return false;
         // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
         // self-discharges (chargedRyo === 0) leave silently as before.
         if (chargedRyo > 0) {
             gameToast(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — fully healed and discharged.`);
         }
-        setScreen("village");
+        return true;
     }
 
     async function discharge() {
@@ -107,8 +97,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                 });
                 const data = await res.json().catch(() => ({}));
                 if (res.ok) {
-                    onServerVersion?.(typeof data._saveVersion === "number" ? data._saveVersion : undefined);
-                    applyDischargeAndLeave(Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)));
+                    if (!applyDischargeAndLeave(data, Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)))) {
+                        alert("The server did not return an accepted discharge state. Refresh and try again.");
+                    }
                     return;
                 }
                 if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
@@ -116,8 +107,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                         await new Promise(resolve => setTimeout(resolve, 700)); // let the KO admission save land
                         continue;
                     }
-                    applyDischargeAndLeave(0);
-                    return;
+                    alert("The server did not return the authoritative discharge state. Refresh and try again."); return;
                 }
                 alert(data.error ?? 'Failed to discharge.');
                 return;
@@ -150,15 +140,18 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
             if (!res.ok) {
                 // Already discharged server-side → leave instead of trapping them.
                 if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
-                    applyDischargeAndLeave(0);
+                    if (automatic) autoCheckoutStartedRef.current = false;
+                    else alert("Your discharge state changed. Refresh to load the server record.");
                     return;
                 }
                 if (automatic) autoCheckoutStartedRef.current = false;
                 else alert(data.error ?? 'Failed to check out.');
                 return;
             }
-            onServerVersion?.(typeof data._saveVersion === "number" ? data._saveVersion : undefined);
-            applyDischargeAndLeave(0);
+            if (!applyDischargeAndLeave(data, 0)) {
+                if (automatic) autoCheckoutStartedRef.current = false;
+                else alert("The server did not return an accepted discharge state. Refresh and try again.");
+            }
         } catch {
             if (automatic) autoCheckoutStartedRef.current = false;
             else alert('Network error — check-out failed.');
@@ -196,9 +189,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                 alert(data.error ?? 'Failed to heal.');
                 return;
             }
-            onServerVersion?.(data._saveVersion);
+            if (!onServerVersion(data._saveVersion)) return;
             const chargedRyo = Number(data.chargedRyo ?? topUpCost);
-            updateCharacter(prev => prev ? ({
+            updateCharacter(prev => prev && prev.name.trim().toLowerCase() === character.name.trim().toLowerCase() ? ({
                 ...prev,
                 ryo: Math.max(0, prev.ryo - chargedRyo),
                 hp: Number(data.hp ?? prev.maxHp),

@@ -13,6 +13,7 @@ import path from "node:path";
 import { storylines } from "./storylines";
 import { storyInterludesByVillage } from "./story-interludes";
 import { storyRoadEvents } from "./story-road-events";
+import { hollowRifts } from "./hollow-rifts";
 import { splitDialogueLine } from "../lib/vn";
 import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
 
@@ -24,7 +25,7 @@ const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 // Speakers that intentionally render as initials (no portrait file).
 const NO_PORTRAIT_OK = new Set(["narrator", "player", "unknown-voice"]);
 
-type AnyPage = { title: string; scene: string; speaker: string; dialogue: string[]; image?: string; rightImage?: string; choices?: { text: string; nextPage: number; requireTrait?: string; forbidTrait?: string; trait?: string; battle?: unknown }[] };
+type AnyPage = { title: string; scene: string; speaker: string; dialogue: string[]; image?: string; rightImage?: string; choices?: { text: string; nextPage: number; requireTrait?: string; forbidTrait?: string; trait?: string; battle?: unknown; conclusion?: string }[] };
 
 function collectSpeakers(pages: AnyPage[], into: Map<string, string>) {
     for (const page of pages) {
@@ -163,6 +164,34 @@ test("zero em/en dashes anywhere in story copy (owner hard rule)", () => {
         }
     }
     assert.deepEqual(offenders, [], `em/en dashes found:\n${offenders.join("\n")}`);
+});
+
+test("Legacy canon is witnessed action, never heredity, reincarnation, or a preserved soul", () => {
+    const slugs = new Set(["withheld-cache", "legacy-without-a-name", "unsworn-ledger", "fifth-anchor", "four-seals-one-gate"]);
+    const copy = storyRoadEvents
+        .filter((event) => slugs.has(event.slug))
+        .flatMap((event) => event.pages)
+        .flatMap((page) => [page.title, page.scene, ...page.dialogue, ...(page.choices ?? []).flatMap((choice) => [choice.text, choice.conclusion ?? ""])])
+        .join(" ");
+
+    assert.match(copy, /Ancients, people from the Sunken Court's age/i);
+    assert.match(copy, /\bWithheld\b/i);
+    assert.match(copy, /refused cession/i);
+    assert.match(copy, /hundred recognizable action patterns/i);
+    assert.match(copy, /Bloodline has nothing to do with it/i);
+    assert.match(copy, /lattice cannot classify you/i);
+    assert.match(copy, /under witness/i);
+    assert.doesNotMatch(copy, /pass through a family|LEGACY-BEARING|dormant Legacy|passing from parent to child|preserve one part of a person/i);
+
+    const riftCopy = hollowRifts
+        .filter((rift) => rift.slug === "legacy-echo")
+        .flatMap((rift) => [...rift.intro, ...rift.descent])
+        .flatMap((page) => [page.title, page.scene, ...page.dialogue, ...(page.choices ?? []).flatMap((choice) => [choice.text, choice.conclusion ?? ""])])
+        .join(" ");
+    assert.match(riftCopy, /ordinary person of the Sunken Court's age/i);
+    assert.match(riftCopy, /No soul waits in that stone/i);
+    assert.match(riftCopy, /preserve the deed/i);
+    assert.doesNotMatch(riftCopy, /a soul of the Sunken Court|ancestor living|reincarnat/i);
 });
 
 test("the player's avatar always holds the left portrait slot", () => {

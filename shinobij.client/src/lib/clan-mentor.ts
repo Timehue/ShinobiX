@@ -40,10 +40,10 @@ export async function assignStudent(playerName: string, studentName: string): Pr
     return ok && data.ok ? { ok: true } : { ok: false, error: (data.error as string) || "Could not take on that student." };
 }
 
-export async function claimMentor(playerName: string, studentName: string): Promise<{ ok: boolean; error?: string; claimed: number; seals: number; contrib: number; milestones: string[]; character?: Character }> {
+export async function claimMentor(playerName: string, studentName: string): Promise<{ ok: boolean; error?: string; claimed: number; seals: number; contrib: number; milestones: string[]; character?: Character; _saveVersion?: number }> {
     const { ok, data } = await postMentor("claim", playerName, studentName);
     if (!ok || !data.ok) return { ok: false, error: (data.error as string) || "Could not claim mentor rewards.", claimed: 0, seals: 0, contrib: 0, milestones: [] };
-    return { ok: true, claimed: Number(data.claimed ?? 0), seals: Number(data.seals ?? 0), contrib: Number(data.contrib ?? 0), milestones: (data.milestones as string[]) ?? [], character: data.character as Character | undefined };
+    return { ok: true, claimed: Number(data.claimed ?? 0), seals: Number(data.seals ?? 0), contrib: Number(data.contrib ?? 0), milestones: (data.milestones as string[]) ?? [], character: data.character as Character | undefined, _saveVersion: data._saveVersion as number | undefined };
 }
 
 export async function releaseStudent(playerName: string, studentName: string): Promise<boolean> {

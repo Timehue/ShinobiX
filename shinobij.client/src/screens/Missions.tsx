@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
@@ -21,24 +21,25 @@ import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
+import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 import { gainXp } from "../App";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
-import { enqueueClaim, removeClaim } from "../lib/claim-outbox";
-import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
+import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
 import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
 import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
-import { requestAiFight } from "../lib/ai-fight-request";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { sectorPhrase } from "../lib/hollow-rifts";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 import type { GameItem, SavedBloodline, Jutsu } from "../types/combat";
+import { enqueueClaim, removeClaim } from "../lib/claim-outbox";
+import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
+import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
 const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -46,6 +47,7 @@ const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 export function Missions({
     character,
     updateCharacter,
+    onVersionedCharacter,
     onServerVersion,
     creatorAis,
     creatorMissions,
@@ -56,7 +58,7 @@ export function Missions({
     setScreen,
     onBack,
     onMissionBattleStart,
-    onMissionBattleResolved,
+    onMissionBattleEnd,
     sharedImages,
     creatorItems,
     savedBloodlines,
@@ -64,6 +66,7 @@ export function Missions({
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    onVersionedCharacter: VersionedCharacterCommit;
     onServerVersion?: (version?: number) => boolean | void;
     creatorAis: CreatorAi[];
     creatorMissions: CreatorMission[];
@@ -71,11 +74,10 @@ export function Missions({
     setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-    setPendingAiProfileId: (id: string) => void;
     setScreen: (screen: Screen) => void;
     onBack: () => void;
     onMissionBattleStart?: () => void;
-    onMissionBattleResolved?: () => void;
+    onMissionBattleEnd?: () => void;
     sharedImages?: Record<string, string>;
     creatorItems?: GameItem[];
     savedBloodlines?: SavedBloodline[];
@@ -83,7 +85,11 @@ export function Missions({
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: SoloPveSession } | null>(null);
+    const onMissionBattleEndRef = useRef(onMissionBattleEnd);
+    useEffect(() => { onMissionBattleEndRef.current = onMissionBattleEnd; }, [onMissionBattleEnd]);
+    useEffect(() => () => { onMissionBattleEndRef.current?.(); }, []);
     const [startingCombat, setStartingCombat] = useState(false);
+    const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
     const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
@@ -122,6 +128,16 @@ export function Missions({
             setClaimingKey(null);
         }
     }, []);
+    const adoptFieldTrail = useCallback((result: FieldTrailResult): boolean => {
+        if (!result.character || !onVersionedCharacter(result.character, result._saveVersion)) return false;
+        if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
+        if (result.missionProgress) setMissionProgress(result.missionProgress);
+        return true;
+    }, [onVersionedCharacter, setAcceptedMissionIds, setMissionProgress]);
+    const acceptedFieldMissionKey = acceptedMissionIds
+        .filter((id) => builtinFetchMissions.some((mission) => mission.id === id))
+        .sort()
+        .join("|");
 
     async function startMissionBattle(mission: CombatMission) {
         if (character.level < mission.min) return alert(`Requires level ${mission.min}.`);
@@ -129,7 +145,7 @@ export function Missions({
         if (startingCombat) return;
         onMissionBattleStart?.();
         setStartingCombat(true);
-        let opened = false;
+        let fightMounted = false;
         try {
             const response = await fetch("/api/missions/combat-start", {
                 method: "POST",
@@ -141,11 +157,11 @@ export function Missions({
                 alert(data?.error ?? "The mission fight could not be started.");
                 return;
             }
-            opened = true;
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
+            fightMounted = true;
         } finally {
             setStartingCombat(false);
-            if (!opened) onMissionBattleResolved?.();
+            if (!fightMounted) onMissionBattleEnd?.();
         }
     }
 
@@ -155,22 +171,14 @@ export function Missions({
         enqueueClaim(playerName, missionId, runId);
         const data = await queueCombatMissionClaim(playerName, missionId, runId, 1);
         if (data.disposition === "retryable") {
-            throw new Error("Mission settlement is waiting for the server.");
+            throw new Error("Mission settlement is saved for reconnect and will retry automatically.");
         }
         removeClaim(playerName, missionId, runId);
-        if (data.disposition !== "accepted" || data.queued !== true) {
+        if (data.disposition !== "accepted" || data.queued !== true || !data.character || typeof data.saveVersion !== "number") {
             throw new Error(data.reason ?? "Mission settlement failed.");
         }
-        const responseAccepted = onServerVersion?.(data?._saveVersion) !== false;
-        if (data?.character && responseAccepted) {
-            updateCharacter(data.character);
-        } else if (!data?.character) {
-            updateCharacter((current) => current ? {
-                ...current,
-                pendingCombatMissionClaims: (current.pendingCombatMissionClaims ?? []).includes(authoritativeFight.mission.key)
-                    ? current.pendingCombatMissionClaims
-                    : [...(current.pendingCombatMissionClaims ?? []), authoritativeFight.mission.key],
-            } : current);
+        if (!onVersionedCharacter(data.character, data.saveVersion)) {
+            throw new Error("A newer save was already loaded. The mission result will reconcile from the server.");
         }
         return data;
     }
@@ -179,10 +187,27 @@ export function Missions({
      *  a defeat or a forfeit. Pays nothing; the reward stays on the claim step. */
     async function reportMissionFightOutcome(runId: string, playerName: string) {
         const applied = await reportPveFightOutcome(runId, playerName);
-        const responseAccepted = onServerVersion?.(applied._saveVersion) !== false;
-        if (applied?.character && responseAccepted) updateCharacter(applied.character);
+        if (applied?.character) {
+            if (!onVersionedCharacter(applied.character, applied._saveVersion)) return;
+        }
         return applied;
     }
+
+    useEffect(() => {
+        const owner = character.name;
+        const ids = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
+        if (ids.length === 0) return;
+        let cancelled = false;
+        void (async () => {
+            for (const missionId of ids) {
+                const result = await postFieldTrail({ playerName: owner, missionId, action: "state" });
+                if (cancelled) return;
+                if (!adoptFieldTrail(result)) continue;
+                if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [acceptedFieldMissionKey, adoptFieldTrail, character.name]);
 
     if (authoritativeFight) {
         return (
@@ -197,25 +222,31 @@ export function Missions({
                 creatorJutsus={creatorJutsus}
                 creatorItems={creatorItems}
                 settleFn={settleAuthoritativeMission}
+                onBattleResolved={onMissionBattleEnd}
                 // A failed mission has to cost something. settleAuthoritativeMission
                 // only runs on a win, so without this a defeat left the player at
                 // full HP and free to re-enter immediately.
                 outcomeFn={reportMissionFightOutcome}
-                onExit={() => {
-                    setAuthoritativeFight(null);
-                    onMissionBattleResolved?.();
-                }}
+                onExit={() => { onMissionBattleEnd?.(); setAuthoritativeFight(null); }}
             />
         );
     }
-    // Combat missions are won in the sealed inline arena (which only queues the
-    // claim on the character) and paid out HERE. Mirrors the field/hunt claim
+    // Combat missions are won in the Arena (which only queues the claim on the
+    // character) and paid out HERE. Mirrors the field-mission / hunt claim
     // pattern: per-rank XP + ryo (matching the card), +1 Territory Scroll, and
     // the kill-counter / daily-mission bookkeeping that used to run on the win.
     // No stamina — stamina is not part of any mission reward.
     // Server-authoritative: the win only queued the claim (pendingCombatMissionClaims);
     // the SERVER recomputes + pays the reward (so the client can't inflate it), then
     // we mirror the returned amounts onto the local character.
+    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): boolean {
+        const authoritativeCommit = commitAuthoritativeMissionClaim(result, onVersionedCharacter);
+        if (authoritativeCommit !== null) return authoritativeCommit;
+        if (onServerVersion?.(result._saveVersion) === false) return false;
+        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+        return true;
+    }
+
     async function claimCombatMission(mission: CombatMission) {
         if (!(character.pendingCombatMissionClaims ?? []).includes(mission.key)) return;
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
@@ -234,7 +265,7 @@ export function Missions({
             }
             return alert(claimReasonMessage(result.reason));
         }
-        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+        if (!applySuccessfulMissionClaim(result)) return;
         alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
@@ -244,12 +275,56 @@ export function Missions({
         const result = await postClaimMission(character.name, "academy-trial", "academy-trial");
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
-        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+        if (!applySuccessfulMissionClaim(result)) return;
         alert(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`);
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
-    function startCreatorMissionBattle(mission: CreatorMission) { if (!requireServerSettlement("fieldHuntMissions")) return; if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); requestAiFight({ opponentId: ai.id, opponentLevel: ai.level ?? character.level, battleKind: "mission", opponentName: ai.name, enemyAvatar: ai.image }); }
-    function acceptFetchMission(mission: CreatorMission) { if (!requireServerSettlement("fieldHuntMissions")) return; if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds((prev) => [...prev, mission.id]); setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 })); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}, then return to the Mission Hall to claim the posted reward.`); }
+    function startCreatorMissionBattle(_mission: CreatorMission) {
+        // Creator-authored field missions do not yet have a server-sealed mission
+        // run/claim receipt. A generic AI token would pay an ordinary fight while
+        // leaving the field card locally claimable, so fail closed until publish
+        // produces the same run-bound contract as built-in Combat Missions.
+        alert("This creator mission battle is awaiting a sealed Mission Hall contract. No attempt or reward was consumed.");
+    }
+    async function acceptFetchMission(mission: CreatorMission) {
+        if (!requireServerSettlement("fieldHuntMissions")) return;
+        if (!builtinFetchMissions.some((entry) => entry.id === mission.id)) {
+            return alert("This creator field mission is awaiting a published server contract. Nothing was accepted.");
+        }
+        if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
+        if (fieldTrailPending || acceptedMissionIds.includes(mission.id)) return;
+        setFieldTrailPending(mission.id);
+        try {
+            const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
+            const adopted = adoptFieldTrail(result);
+            if (!result.ok) return alert(result.error ?? "The Mission Hall could not accept this contract.");
+            if (!adopted) return alert("The Mission Hall accepted this contract, but its ledger is still syncing. Reopen the board to recover it.");
+            if (result.reason === "already-claimed-today") {
+                return alert("That contract was already claimed today. The Mission Hall refreshed your ledger instead of accepting it again.");
+            }
+            if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
+            const raidReq = missionRaidRequirement(mission);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}, then return to the Mission Hall to claim the posted reward.`);
+        } finally {
+            setFieldTrailPending(null);
+        }
+    }
+    async function abandonFetchMission(mission: CreatorMission) {
+        if (fieldTrailPending) return;
+        if (!builtinFetchMissions.some((entry) => entry.id === mission.id)) {
+            return alert("This unpublished mission cannot alter the server contract ledger.");
+        }
+        setFieldTrailPending(mission.id);
+        try {
+            const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "abandon" });
+            const adopted = adoptFieldTrail(result);
+            if (!result.ok) return alert(result.error ?? "The Mission Hall could not abandon this contract.");
+            if (!adopted) return alert("The Mission Hall is still syncing this contract. Reopen the board to recover it.");
+        } finally {
+            setFieldTrailPending(null);
+        }
+    }
+
     // Server-authoritative field claims. Unknown/creator-authored mission ids are
     // rejected by the server instead of paid locally.
     async function claimFetchMission(mission: CreatorMission) {
@@ -263,18 +338,24 @@ export function Missions({
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
-            updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+            if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
             alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
         if (result.applied === false) {
-            if (result.reason === "already-claimed-today" || result.reason === "already-claimed") {
-                // Server already paid this today — clear the card so a desynced
-                // client stops offering a dead Claim button on a finished mission.
-                setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
-                setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
+            if (result.reason === "already-claimed-today"
+                || result.reason === "already-claimed"
+                || result.reason === "not-accepted") {
+                // A dropped claim ACK can replay after the server already paid
+                // and cleared this exact run. Re-read the durable field ledger
+                // so the paid character/version and cleared card arrive together;
+                // never manufacture that reconciliation from local counters.
+                const state = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "state" });
+                if (!adoptFieldTrail(state)) {
+                    return alert("The reward status is still syncing with the Mission Hall. Try Claim again to reconcile it safely.");
+                }
                 return alert(claimReasonMessage(result.reason, result));
             }
             if (result.serverProgress) {
@@ -525,7 +606,7 @@ export function Missions({
                                             )}
                                             <div className="mh-fetch-actions">
                                                 {!accepted
-                                                    ? <button onClick={() => acceptFetchMission(mission)}>Accept Mission</button>
+                                                    ? <button disabled={fieldTrailPending !== null} onClick={() => { void acceptFetchMission(mission); }}>Accept Mission</button>
                                                     : complete
                                                         ? <button
                                                             className="mh-claim-btn"
@@ -536,6 +617,7 @@ export function Missions({
                                                             {claimingKey === `field:${mission.id}` ? "Claiming…" : "✅ Claim Reward"}
                                                         </button>
                                                         : <button onClick={() => setScreen("worldMap")}><GiTreasureMap style={MH_ICON} />Go to Sector {mission.targetSector}</button>}
+                                                {accepted && <button className="danger-button" disabled={fieldTrailPending !== null} onClick={() => { void abandonFetchMission(mission); }}>Abandon</button>}
                                                 {mission.aiProfileId && (
                                                     <button onClick={() => startCreatorMissionBattle(mission)}><GiCrossedSwords style={MH_ICON} />Battle AI</button>
                                                 )}

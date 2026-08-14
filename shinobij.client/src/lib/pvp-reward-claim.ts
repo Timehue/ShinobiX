@@ -1,6 +1,17 @@
 import type { PvpWinBaseSummary } from "./progression";
+import type { Character } from "../types/character";
 
 export type PvpRewardRating = { field: string; value: number; delta: number };
+export type PvpRaidProgression = {
+    fetchMissionsCredited: string[];
+    missionsCompleted: Array<{ id: string; name: string; xpReward: number }>;
+    xpAwarded: number;
+    bonusRyo: number;
+    bonusSeals: number;
+    territoryDamage: number;
+    sector: number | null;
+    replayed: boolean;
+};
 
 export type PvpRewardClaimConfirmed = {
     status: "confirmed";
@@ -9,6 +20,9 @@ export type PvpRewardClaimConfirmed = {
     rewardAuthorized: boolean;
     rating?: PvpRewardRating;
     base?: PvpWinBaseSummary;
+    character?: Character;
+    _saveVersion?: number;
+    raidProgression?: PvpRaidProgression;
 };
 
 export type PvpRewardClaimRetry = {
@@ -33,6 +47,33 @@ function cleanRating(raw: unknown): PvpRewardRating | undefined {
         || !Number.isFinite(Number(value.value))
         || !Number.isFinite(Number(value.delta))) return undefined;
     return { field: value.field, value: Number(value.value), delta: Number(value.delta) };
+}
+
+function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const fetchMissionsCredited = Array.isArray(value.fetchMissionsCredited)
+        ? Array.from(new Set(value.fetchMissionsCredited.filter((id): id is string => typeof id === "string").map((id) => id.trim()).filter(Boolean)))
+        : [];
+    const missionsCompleted = Array.isArray(value.missionsCompleted)
+        ? value.missionsCompleted.filter((mission): mission is { id: string; name: string; xpReward: number } => !!mission
+            && typeof mission === "object"
+            && typeof (mission as Record<string, unknown>).id === "string"
+            && typeof (mission as Record<string, unknown>).name === "string"
+            && Number.isFinite(Number((mission as Record<string, unknown>).xpReward)))
+            .map((mission) => ({ ...mission, xpReward: Number(mission.xpReward) }))
+        : [];
+    const sectorValue = Number(value.sector);
+    return {
+        fetchMissionsCredited,
+        missionsCompleted,
+        xpAwarded: Math.max(0, Number(value.xpAwarded) || 0),
+        bonusRyo: Math.max(0, Number(value.bonusRyo) || 0),
+        bonusSeals: Math.max(0, Number(value.bonusSeals) || 0),
+        territoryDamage: Math.max(0, Number(value.territoryDamage) || 0),
+        sector: Number.isSafeInteger(sectorValue) ? Math.floor(sectorValue) : null,
+        replayed: value.replayed === true,
+    };
 }
 
 /**
@@ -61,6 +102,11 @@ export async function postPvpRewardClaim(
         }
         const rating = cleanRating(payload.rating);
         const base = payload.base && typeof payload.base === "object" ? payload.base as PvpWinBaseSummary : undefined;
+        const character = payload.character && typeof payload.character === "object"
+            ? payload.character as Character
+            : undefined;
+        const saveVersion = Number(payload._saveVersion);
+        const raidProgression = cleanRaidProgression(payload.raidProgression);
         return {
             status: "confirmed",
             alreadyClaimed: payload.alreadyClaimed === true,
@@ -69,6 +115,9 @@ export async function postPvpRewardClaim(
             rewardAuthorized: payload.rewardAuthorized === true || !!rating || !!base,
             ...(rating ? { rating } : {}),
             ...(base ? { base } : {}),
+            ...(character ? { character } : {}),
+            ...(Number.isFinite(saveVersion) ? { _saveVersion: saveVersion } : {}),
+            ...(raidProgression ? { raidProgression } : {}),
         };
     } catch {
         return {

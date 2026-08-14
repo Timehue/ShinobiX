@@ -31,6 +31,21 @@ test('story settlement requires the exact next opponent and grants the canonical
     assert.equal(settled.character.auraDust, 15);
     assert.equal(settled.character.storyProgress, 1);
     assert.equal(settled.character.hp, 65);
+    assert.deepEqual(settled.chronicleCards, [], 'pre-Scribe story clears remain recorded but do not expose Card Hall early');
+});
+
+test('an unlocked Chronicle receives the exact story record in the authoritative settlement', () => {
+    const opponentId = storyOpponentId('Stormveil Village', 4);
+    const settled = applyStoryBossSettlement(
+        character({ starterCardsClaimed: true, tileCards: ['tc-01'] }),
+        token(opponentId),
+        100,
+    );
+    assert.equal(settled.ok, true);
+    if (!settled.ok) return;
+    const expected = `story-${opponentId}`;
+    assert.deepEqual(settled.chronicleCards, [expected]);
+    assert.deepEqual(settled.character.tileCards, ['tc-01', expected]);
 });
 
 test('story settlement rejects skipped, mismatched, under-level, and completed milestones', () => {

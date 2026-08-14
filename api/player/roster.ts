@@ -93,8 +93,7 @@ function projectPet(p: unknown): unknown {
     return out;
 }
 
-/** Public, server-authoritative combat roster. The count reflects the current
- * Base/Supporter entitlement without exposing the Patreon ledger itself. */
+/** Public, server-authoritative combat roster without exposing Patreon state. */
 export function projectEligibleRosterPets(character: unknown): unknown[] {
     return activeCarriedPets<Record<string, unknown>>(character).map(projectPet);
 }
@@ -353,8 +352,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 specialty: (rawCharacter.specialty as string) ?? '',
                 online: true,
                 character,
-                // A presence-only player has no persisted server-owned roster
-                // yet, so fail closed instead of trusting the socket payload.
+                // Presence is client-originated and omits authoritative Patreon
+                // state. Fail closed until a persisted save exists.
                 eligiblePets: [],
                 currentSector: normalizeSector(entry.sector, 40),
                 lastSeenAt: entry.lastSeenAt ?? 0,

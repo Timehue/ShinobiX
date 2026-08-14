@@ -14,6 +14,10 @@ import {
   CHRONICLE_STORY_SOURCES,
   type ChronicleStorySource,
 } from "./story-card-sources.js";
+import {
+  CHRONICLE_PET_WITNESS_SOURCES,
+  type ChroniclePetWitnessSource,
+} from "./pet-witness-card-sources.js";
 
 export const CHRONICLE_RULES_VERSION = 10 as const;
 export const STARTING_LIFE_POINTS = 8_000;
@@ -481,11 +485,16 @@ function finishSentence(value: string): string {
   return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
 }
 
+const MECHANICAL_SOURCE_DESCRIPTION = /\b(?:card|starter|beginner|coverage|attack|attacker|defender|stats?|power|pressure|control|combo|flip(?:per|s)?|lane|support-style|top|bottom|left|right|corner|row|direction|vertical|all-direction|rare|epic)\b/i;
+
 function monsterLoreFromSource(
   source: TileCard,
   element: ChronicleElement,
 ): string {
-  return `${finishSentence(source.description)} In the world of Shinobi Journey, ${ELEMENT_LORE[element]}.`;
+  const fieldRecord = MECHANICAL_SOURCE_DESCRIPTION.test(source.description)
+    ? `Chronicle scribes first recorded ${source.name} in the field.`
+    : finishSentence(source.description);
+  return `${fieldRecord} Witnesses say ${ELEMENT_LORE[element]}.`;
 }
 
 /** Per-card exact stat overrides — hand-tuned numbers that bypass the tier +
@@ -598,8 +607,9 @@ const LEGACY_PROFILE = {
   },
 } as const;
 
-/** Every canonical Legacy is an embodied bearer/incarnation, not its jutsu or
- * badge as an item. Rarity bands are the explicitly reviewed Legacy ladder. */
+/** Every canonical Legacy card records a known bearer repeating the pattern,
+ * never an incarnation, soul, jutsu, or badge as an item. Rarity bands are the
+ * explicitly reviewed Legacy ladder. */
 function monsterFromLegacy(
   source: ChronicleLegacySource,
 ): ChronicleMonsterCard {
@@ -625,7 +635,7 @@ function monsterFromLegacy(
     rarity: profile.rarity,
     cardClass: "monster",
     monsterType: "normal",
-    family: "Legacy Incarnation",
+    family: "Legacy Pattern",
     level: profile.level,
     attack: profile.attack,
     defense: profile.defense,
@@ -725,6 +735,24 @@ function monsterFromStory(source: ChronicleStorySource): ChronicleMonsterCard {
     attack: profile.attack,
     defense: profile.defense,
     powerTier: profile.powerTier as MonsterPowerTier,
+  };
+}
+
+function monsterFromPetWitness(source: ChroniclePetWitnessSource): ChronicleMonsterCard {
+  return {
+    id: source.id,
+    name: source.name,
+    image: source.image,
+    lore: source.lore,
+    element: source.element,
+    rarity: "rare",
+    cardClass: "monster",
+    monsterType: "normal",
+    family: "Bonded Beast / Living Witness",
+    level: 4,
+    attack: source.attack,
+    defense: source.defense,
+    powerTier: "standard",
   };
 }
 
@@ -3404,6 +3432,9 @@ const LEGACY_MONSTER_CARDS = CHRONICLE_LEGACY_SOURCES.map(
 const STORY_MONSTER_CARDS = CHRONICLE_STORY_SOURCES.map(monsterFromStory).map(
   applyReviewedMonsterEffect,
 );
+const PET_WITNESS_MONSTER_CARDS = CHRONICLE_PET_WITNESS_SOURCES.map(monsterFromPetWitness).map(
+  applyReviewedMonsterEffect,
+);
 function ensureChronicleArt(card: ChronicleCard): ChronicleCard {
   return card.image
     ? card
@@ -3414,6 +3445,7 @@ export const CHRONICLE_CARD_CATALOG: readonly ChronicleCard[] = Object.freeze(
     ...MONSTER_CARDS,
     ...LEGACY_MONSTER_CARDS,
     ...STORY_MONSTER_CARDS,
+    ...PET_WITNESS_MONSTER_CARDS,
     applyReviewedMonsterEffect(WANDERING_SAGE_CARD),
     ...SUPPORT_CARDS,
   ].map(ensureChronicleArt),

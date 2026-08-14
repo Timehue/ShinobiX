@@ -1,5 +1,5 @@
 /*
- * Battle Towers — Endless Spire Ascension modifiers.
+ * Battle Towers — Endless Spire Ascension modifiers (Wave 1).
  *
  * The Endless Spire is a dedicated boss-gauntlet mode layered on the four tower bosses:
  * floor N === ascension tier N (1..SPIRE_MAX_TIER). Difficulty escalates through a THIN,
@@ -12,18 +12,18 @@
  * session.roundCap, session.enrageCap, session.modifierStack), never recomputing them. No
  * kv / clock / RNG here → the seal is deterministic and refresh-safe.
  *
- * The modifier union covers the shipped number chassis, affix hazards/debuffs, objectives,
- * and capstones. The engine consumes the sealed stack cumulatively, so later tiers preserve
- * every earlier keystone without recomputing mutable catalog state.
+ * The full TowerModifier union declares the W2/W3 kinds too, but Wave 1 only EMITS (and the
+ * engine only CONSUMES) the number/mechanic kinds; the affix-hazard / objective / capstone
+ * kinds are frozen shapes with no consumer yet (Waves 2/3 add them without re-shaping this).
  */
 
-// ── Stable type surface shared by the resolver, engine, and manifest UI ─────────
+// ── Frozen type surface (define once; Waves 2/3 add consumers, never re-shape) ──
 export type TowerModifierKind =
-    // Number chassis + boss-mechanic levers
+    // Wave 1 — number chassis + boss-mechanic levers (consumed by the engine now)
     | 'hp' | 'dmg' | 'roundCap' | 'summon' | 'regen' | 'enrageCap'
-    // Affix keystones
+    // Wave 2 — affix keystones (frozen; no consumer until Wave 2)
     | 'hazard' | 'debuff' | 'healcut'
-    // Objectives + capstones
+    // Wave 3 — objectives + capstones (frozen; no consumer until Wave 3)
     | 'objective' | 'extraPhase' | 'dualAugment';
 
 export type TowerModifier = {
@@ -32,7 +32,7 @@ export type TowerModifier = {
     value: number;
     /** short human label rendered in the pre-fight modifier manifest */
     label: string;
-    /** Hazard/debuff behavior discriminant consumed by the Tower engine. */
+    /** Wave-2 hazard variant discriminant (unused in Wave 1) */
     variant?: 'static' | 'rotating' | 'proximity' | 'escalating' | 'flat' | 'positional';
 };
 
@@ -47,7 +47,7 @@ export type AscensionSeal = {
     roundCap: number;
     /** max enrage stacks the boss may reach (spire-only; story leaves this unset → uncapped) */
     enrageCap: number;
-    /** Sealed modifier list rendered as manifest chips and consumed by the Tower engine. */
+    /** sealed modifier list, rendered as manifest chips + (Waves 2/3) consumed by the engine */
     modifierStack: TowerModifier[];
 };
 
@@ -140,9 +140,9 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 /**
  * PURE. Resolve a spire (tier, bossId, roundBudget, weekAffix?) into the sealed AscensionSeal.
  * The engine reads the sealed values; it never calls this again. `roundBudget` is the floor's
- * authored budget (already carries headroom over the target kill time) as the hard cap.
- * `weekAffix`, if given, is layered onto the manifest and its numeric effect is folded into
- * the effective multipliers or round cap before the immutable seal is returned.
+ * authored budget (already carries headroom over the target kill time); Wave 1 uses it verbatim
+ * as the hard cap (Waves 2/3 add the round-tightening keystones). `weekAffix`, if given, is
+ * layered onto the manifest and (for number-kind affixes) folded into the effective mults.
  */
 export function resolveAscensionModifiers(
     tier: number,
@@ -162,7 +162,7 @@ export function resolveAscensionModifiers(
         { kind: 'enrageCap', value: SPIRE_ENRAGE_CAP, label: `Enrage cap ${SPIRE_ENRAGE_CAP}` },
     ];
 
-    // Affix keystones — cumulative by tier. Values are percentages (hazard/debuff = % of
+    // Wave 2 keystones — cumulative by tier. Values are percentages (hazard/debuff = % of
     // squad maxHp / % extra damage-taken; healcut = % healing removed) and stay modest +
     // playtest-tunable; the engine caps the combined debuff at DEBUFF_TAKEN_CAP. The engine
     // owns hazard tile geometry — the modifier carries only its variant + percent.
@@ -176,7 +176,7 @@ export function resolveAscensionModifiers(
         stack.push({ kind: 'hazard', variant: 'proximity', value: 5, label: 'Chain Lightning — 5% HP where allies cluster' });
     if (t >= DEBUFF_POSITIONAL_TIER)
         stack.push({ kind: 'debuff', variant: 'positional', value: 12, label: 'Exposed — +12% damage taken off-ward' });
-    // Capstones (floors 15-20).
+    // Wave 3 capstones (floors 15-20).
     if (t >= EXTRA_PHASE_TIER)
         stack.push({ kind: 'extraPhase', value: EXTRA_PHASE_THRESHOLD, label: `Second Wind — a desperation blast at ${EXTRA_PHASE_THRESHOLD}% HP` });
     if (t >= SUDDEN_DEATH_TIER)
@@ -186,8 +186,8 @@ export function resolveAscensionModifiers(
     if (t >= HAZARD_ESCALATING_TIER)
         stack.push({ kind: 'hazard', variant: 'escalating', value: 3, label: 'Rising Inferno — a central blaze that grows each round' });
 
-    // Weekly blessing — a single numeric modifier layered on every floor this week and
-    // reflected both in the effective seal and its player-facing manifest chip.
+    // Weekly affix — a single extra modifier layered on every floor this week. Only the
+    // Wave-1 number kinds actually bite; the rest render as a chip until their wave lands.
     if (weekAffix) {
         stack.push(weekAffix);
         if (weekAffix.kind === 'hp') hpMult = Math.min(HP_MULT_CAP, round2(hpMult + weekAffix.value));

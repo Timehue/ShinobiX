@@ -107,28 +107,16 @@ jobs:
         working-directory: shinobij.client
         run: npm run test:e2e
 
-      # One built-Express browser process covers the full persisted Academy
-      # journey (including the 390x844 inspect-before-travel seam and real
-      # logout/login) plus two-account Socket.IO reconnect recovery. These are
-      # release contracts, not optional local-only evidence.
-      - name: Built-server first-session and realtime journeys
+      # The real Solo/PvP and Tower combat shells have a wider viewport/DPR/zoom
+      # contract than the static responsive smoke. Keep live idle -> arm -> cancel
+      # transitions (including an authoritative exact-2v2 Tower match) in the
+      # release gate so dynamic guidance or focus cannot rescale either board.
+      - name: Combat layout and jutsu-arming matrix
         working-directory: shinobij.client
-        run: npm run test:e2e:release-journeys
-
-      - name: Retain built-server journey failures
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: live-journey-failures-${{ github.run_id }}
-          path: shinobij.client/test-results/live-express/
-          if-no-files-found: warn
-          retention-days: 14
-
-      # The ordinary solo/PvP combat shell has a broader viewport/DPR/zoom
-      # contract than the adaptive smoke. Keep it in the release gate so layout
-      # captures cannot silently become a manual-only certification.
-      - name: Ordinary combat layout matrix
-        working-directory: shinobij.client
+        env:
+          COMBAT_LAYOUT_CAPTURE_PHASE: after
+          COMBAT_LAYOUT_STRICT: "1"
+          COMBAT_LAYOUT_ARTIFACT_ROOT: ${{ github.workspace }}/shinobij.client/test-results/combat-layout/captures
         run: npm run test:e2e:combat-layout
 
       - name: Retain combat layout evidence

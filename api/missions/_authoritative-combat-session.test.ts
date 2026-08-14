@@ -7,6 +7,7 @@ import {
     createMissionCombatBinding,
     missionCombatRewardFingerprint,
     resumableMissionCombatSession,
+    retryableTerminalMissionCombatSession,
     settleMissionCombatBinding,
     validateCompletedMissionCombatSession,
     validateSettledMissionCombatSession,
@@ -99,11 +100,17 @@ test('mission start recovery reuses only a coherent active unsettled session', (
     }
 });
 
-test('mission start recovery also returns terminal evidence pending settlement', () => {
+test('mission start recovery keeps a terminal win but releases a reconciled non-win for retry', () => {
     const terminal = { ...session, expiresAt: now + 60_000 } as SoloPveSession;
     const binding = createMissionCombatBinding({ runId, playerName: 'beta-cert-player', mission, now });
     const active = createMissionCombatActivePointer({ runId, playerName: 'beta-cert-player', mission, now });
     assert.equal(resumableMissionCombatSession({ active, binding, session: terminal, playerName: 'beta-cert-player', mission, now }), terminal);
+    const loss = { ...terminal, winner: 'enemy' as const, outcome: 'loss' as const };
+    assert.equal(resumableMissionCombatSession({ active, binding, session: loss, playerName: 'beta-cert-player', mission, now }), null);
+    assert.equal(retryableTerminalMissionCombatSession({ active, binding, session: loss, playerName: 'beta-cert-player', mission, now }), loss);
+    const draw = { ...terminal, winner: 'draw' as const, outcome: 'draw' as const };
+    assert.equal(retryableTerminalMissionCombatSession({ active, binding, session: draw, playerName: 'beta-cert-player', mission, now }), draw);
+    assert.equal(retryableTerminalMissionCombatSession({ active, binding, session: terminal, playerName: 'beta-cert-player', mission, now }), null);
 });
 
 test('a settled mission validates as durable proof for lost-response replay only', () => {

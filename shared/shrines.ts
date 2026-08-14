@@ -3,12 +3,13 @@
  *
  * Six themed communal shrines: one raised by each of the four villages (standing
  * in that village's stretch of the world), one warding the road to the Hollow
- * Gate, and one older than all of them that speaks of the Ancients — the hundred
- * legacies. Each is a pure ryo SINK players can offer to for prestige (weekly
+ * Gate, and one from the Sunken Court's age that records the Ancients, the
+ * Withheld, and their hundred action-pattern Legacies. Each is a pure ryo SINK
+ * players can offer to for prestige (weekly
  * top-offerer board + a cosmetic shrine tier everyone visiting the sector sees).
  * No rewards are paid out — the server only ever debits, so there is nothing to
  * exploit. All sit mid-route (never a village-gate sector) so visiting is a
- * small pilgrimage.
+ * short detour.
  *
  * Ids are stable KV key components (`world:shrine:<id>`) — never rename one.
  * Sector numbers follow the 2026-07 region-block renumbering (shared/sector-geo.ts);
@@ -72,19 +73,19 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     // ——— The Hollow Gate ward ———
     {
         id: 'hollowgate', sector: 56, name: 'Hollow Gate Shrine', theme: 'hollow-gate',
-        region: 'the Pilgrim’s Approach',
-        lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
+        region: 'the Lantern Approach',
+        lore: 'Shinobi wardens raised it where the lantern road fails, a seal on the path down to the Gate. Every offering keeps that seal intact a little longer.',
         blessing: 'May the Gate stay shut behind you.',
         // Re-tuned against the 2026-07 keyart-style floor (grid-picked): the
-        // wide pale pilgrim road — the old spot perched on a rock outcrop.
+        // wide pale lantern road — the old spot perched on a rock outcrop.
         left: 58, top: 70,
     },
     // ——— The Ancients (the hundred legacies) ———
     {
         id: 'ancients', sector: 44, name: 'Shrine of the Ancients', theme: 'ancients',
         region: 'the Watchruin Ridge',
-        lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.',
-        blessing: 'May the Ancients find their path in you.',
+        lore: 'Raised in the Sunken Court’s age. A hundred worn glyphs circle its base, one for each action-pattern Legacy traced to the Ancients who refused cession, the people later called the Withheld.',
+        blessing: 'May your next deed be freely chosen and faithfully witnessed.',
         left: 48, top: 45,
     },
 ];

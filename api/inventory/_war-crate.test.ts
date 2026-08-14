@@ -78,5 +78,6 @@ test('route and client use authenticated locked settlement with no client random
     assert.match(route, /strict: true/);
     assert.match(client, /fetch\('\/api\/inventory\/open-war-crate'/);
     assert.doesNotMatch(screen, /Math\.random\(\)/);
-    assert.match(screen, /updateCharacter\(result\.character\)/);
+    assert.match(screen, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
+        'the authoritative crate snapshot must be accepted before closing the item action');
 });

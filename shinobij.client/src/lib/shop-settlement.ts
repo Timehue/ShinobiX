@@ -4,7 +4,7 @@ import type { EquipmentSlot } from '../types/combat';
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 
 type SettlementResponse<T> =
-    | { ok: true; character: Character; settlement: T }
+    | { ok: true; character: Character; settlement: T; _saveVersion?: number }
     | { ok: false; error: string };
 
 const pendingRequestIds = new Map<string, string>();
@@ -36,6 +36,7 @@ async function postSettlement<T>(path: string, body: Record<string, unknown>, fa
             error?: string;
             character?: Character;
             settlement?: T;
+            _saveVersion?: number;
         };
         if (!response.ok || !data.ok || !data.character || !data.settlement) {
             // Retain the same ID for ambiguous server/network failures. A later
@@ -44,7 +45,7 @@ async function postSettlement<T>(path: string, body: Record<string, unknown>, fa
             return { ok: false, error: data.error || fallback };
         }
         clearPendingRequest(pendingKey);
-        return { ok: true, character: data.character, settlement: data.settlement };
+        return { ok: true, character: data.character, settlement: data.settlement, _saveVersion: data._saveVersion };
     } catch {
         return { ok: false, error: fallback };
     }

@@ -144,6 +144,27 @@ describe('Tower MPvP authoritative action and settlement', () => {
         assert.equal(result.match?.combat.actors.find(actor => actor.id === 'amber-1')?.hp, 1_000);
     });
 
+    it('rejects malformed tile intents before mutating the exact-2v2 board', async () => {
+        for (const [index, tile] of [33.5, Number.NaN, Number.POSITIVE_INFINITY].entries()) {
+            const deps = setup();
+            const match = await publish(deps);
+            const actor = match.combat.actors.find(candidate => candidate.id === 'amber-0')!;
+            const before = actor.pos;
+            const result = await applyTowerPvpCommand({
+                matchId: MATCH_ID,
+                slug: 'alpha',
+                type: 'move',
+                tile,
+                moveToken: token(`bad-tile-${index}`),
+                expectedVersion: 1,
+            }, deps);
+            assert.equal(result.applied, false, `tile ${String(tile)} must not apply`);
+            assert.equal(result.reason, 'bad-tile');
+            assert.equal(result.match?.combat.actors.find(candidate => candidate.id === 'amber-0')?.pos, before);
+            assert.equal(result.match?.version, 1);
+        }
+    });
+
     it('acknowledges a lost action response without applying it twice', async () => {
         const deps = setup();
         await publish(deps);
@@ -160,6 +181,40 @@ describe('Tower MPvP authoritative action and settlement', () => {
         assert.equal(replay.replayed, true);
         assert.equal(replay.match?.combat.activeIndex, 1);
         assert.equal(replay.match?.version, 2);
+    });
+
+    it('rejects a move token reused for a different command intent', async () => {
+        const deps = setup();
+        await publish(deps);
+        const moveToken = token('intent-bound');
+        const first = await applyTowerPvpCommand({
+            matchId: MATCH_ID, slug: 'alpha', type: 'wait', moveToken, expectedVersion: 1,
+        }, deps);
+        assert.equal(first.applied, true);
+        const conflict = await applyTowerPvpCommand({
+            matchId: MATCH_ID, slug: 'alpha', type: 'forfeit', moveToken, expectedVersion: 2,
+        }, deps);
+        assert.equal(conflict.status, 409);
+        assert.equal(conflict.reason, 'move-token-conflict');
+        assert.equal(conflict.match?.combat.actors.find(actor => actor.ownerSlug === 'alpha')?.hp, 1_000);
+        assert.equal(conflict.match?.version, 2);
+    });
+
+    it('binds forfeit receipts without advancing the match revision twice', async () => {
+        const deps = setup();
+        await publish(deps);
+        const moveToken = token('forfeit-bound');
+        const first = await applyTowerPvpCommand({
+            matchId: MATCH_ID, slug: 'alpha', type: 'forfeit', moveToken, expectedVersion: 1,
+        }, deps);
+        assert.equal(first.applied, true);
+        assert.equal(first.match?.version, 2);
+        const conflict = await applyTowerPvpCommand({
+            matchId: MATCH_ID, slug: 'alpha', type: 'wait', moveToken, expectedVersion: 2,
+        }, deps);
+        assert.equal(conflict.status, 409);
+        assert.equal(conflict.reason, 'move-token-conflict');
+        assert.equal(conflict.match?.version, 2);
     });
 
     it('lets a teammate continue after one forfeit and resolves after the second', async () => {

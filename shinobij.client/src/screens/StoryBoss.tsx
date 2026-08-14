@@ -12,18 +12,19 @@ import { boostAmount } from "../lib/village-upgrades";
 import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { gameConfirm } from "../components/GameAlert";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
+import { activeCarriedPets } from "../lib/entitlements";
 import { getOffenseStat } from "../lib/combat-math";
-import { petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
-import { clientPetCombatBusyMessage, clientPetCombatBusyReason } from "../lib/pet-combat-busy";
+import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { spendPetSummonCost } from "../lib/pet-acquisition-api";
-import { storylines, getCurrentStory } from "../data/storylines";
+import { isStoryContentVillage } from "../lib/story-content-contract";
+import { readStoryContent } from "../lib/story-content-loader";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
-import { activeCarriedPets } from "../lib/entitlements";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "../lib/story-fight-theme";
 import { StoryJourney } from "../components/StoryJourney";
+import { StoryContentBoundary } from "../components/StoryContentBoundary";
 import {
     type CreatorEvent,
     type StoryStep,
@@ -36,31 +37,48 @@ export function StoryArchiveHall({
     character: Character;
     setScreen: (screen: Screen) => void;
 }) {
+    const village = character.storyVillage || character.village;
+    if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
     return (
         <div className="card cinematic-card story-hall-archive">
             <BackToVillageButton onClick={() => setScreen("village")} />
-            <StoryJourney character={character} />
+            <StoryContentBoundary village={village} onReturn={() => setScreen("village")}>
+                <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} />
+            </StoryContentBoundary>
         </div>
     );
 }
 
 /** @deprecated The live chapter/boss launcher is retained only for old save
  * recovery. The player-facing Story Hall now renders StoryArchiveHall. */
-export function StoryHall({
-    character,
-    setScreen,
-    creatorEvents,
-    sharedImages,
-    onStartVisualNovel,
-}: {
+type StoryHallProps = {
     character: Character;
     setScreen: (screen: Screen) => void;
     creatorEvents: CreatorEvent[];
     sharedImages: Record<string, string>;
     onStartVisualNovel: (event: CreatorEvent) => void;
-}) {
-    const storyLine = storylines[character.storyVillage || character.village] || [];
-    const current = getCurrentStory(character);
+};
+
+export function StoryHall(props: StoryHallProps) {
+    const storyVillage = props.character.storyVillage || props.character.village;
+    if (!isStoryContentVillage(storyVillage)) throw new Error(`No story content is published for ${storyVillage || "this village"}.`);
+    return (
+        <StoryContentBoundary village={storyVillage} onReturn={() => props.setScreen("village")}>
+            <StoryHallContent {...props} storyVillage={storyVillage} />
+        </StoryContentBoundary>
+    );
+}
+
+function StoryHallContent({
+    character,
+    setScreen,
+    creatorEvents,
+    sharedImages,
+    onStartVisualNovel,
+    storyVillage,
+}: StoryHallProps & { storyVillage: import("../lib/story-content-contract").StoryContentVillage }) {
+    const storyLine = readStoryContent(storyVillage).chapters;
+    const current = storyLine[character.storyProgress] ?? null;
     const [lineIndex, setLineIndex] = useState(0);
     // Gate the village story behind tutorial completion (matches the auto-trigger
     // gate in App.tsx). Story Hall is no longer part of the Academy tutorial.
@@ -119,7 +137,6 @@ export function StoryHall({
         : "central");
     // Match the eventId format used by the trigger flow at App.tsx:6881 so
     // admin-uploaded images stored under the same KV keys are visible here too.
-    const storyVillage = character.storyVillage || character.village;
     const chapterIndex = storyLine.findIndex(s => s.levelReq === current.levelReq);
     const chapterId = `story-${storyVillage.toLowerCase().replace(/\W+/g, "-")}-${current.levelReq}-${Math.max(0, chapterIndex)}`;
     // KV lookup first (admin-uploaded via VN editor), then the on-disk
@@ -195,8 +212,20 @@ function StoryBossPersister(props: {
     return null;
 }
 
-export function StoryBoss({ character, updateCharacter, setScreen }: { character: Character; updateCharacter: (next: Character | ((prev: Character | null) => Character)) => void; setScreen: (screen: Screen) => void }) {
-    const storyStep = getCurrentStory(character);
+type StoryBossProps = { character: Character; updateCharacter: (next: Character | ((prev: Character | null) => Character)) => void; setScreen: (screen: Screen) => void };
+
+export function StoryBoss(props: StoryBossProps) {
+    const storyVillage = props.character.storyVillage || props.character.village;
+    if (!isStoryContentVillage(storyVillage)) throw new Error(`No story content is published for ${storyVillage || "this village"}.`);
+    return (
+        <StoryContentBoundary village={storyVillage}>
+            <StoryBossContent {...props} storyVillage={storyVillage} />
+        </StoryContentBoundary>
+    );
+}
+
+function StoryBossContent({ character, updateCharacter, setScreen, storyVillage }: StoryBossProps & { storyVillage: import("../lib/story-content-contract").StoryContentVillage }) {
+    const storyStep = readStoryContent(storyVillage).chapters[character.storyProgress] ?? null;
     const [bossHp, setBossHp] = useState(storyStep?.bossHp ?? 100);
     const [playerHp, setPlayerHp] = useState(character.hp);
     const [ap, setAp] = useState(100);
@@ -207,12 +236,6 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
     if (!storyStep) return <div className="card"><h2>No Boss Available</h2><button onClick={() => setScreen("storyHall")}>Back to Story</button></div>;
     const activeAuraBonuses = getActiveAuraSphereBonuses(character);
     const activeBattlePet = activeCarriedPets<Pet>(character).find((pet) => pet.id === character.activePetId);
-    const activeBattlePetBusyReason = activeBattlePet
-        ? clientPetCombatBusyReason(character, activeBattlePet)
-        : null;
-    const activeBattlePetBusyMessage = activeBattlePet && activeBattlePetBusyReason
-        ? clientPetCombatBusyMessage(activeBattlePetBusyReason, petDisplayName(activeBattlePet))
-        : "";
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
     const basicAttackDamage = boostAmount(Math.floor(35 + getOffenseStat(character.stats, character.specialty) * 0.08), activeAuraBonuses.pveDamagePercent);
     const chakraStrikeDamage = boostAmount(Math.floor(65 + getOffenseStat(character.stats, character.specialty) * 0.12), activeAuraBonuses.pveDamagePercent);
@@ -232,7 +255,7 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
     }
     function summonBossPet() {
         if (!activeBattlePet) return setLog("No active pet selected. Choose one in the Pet Yard first.");
-        if (activeBattlePetBusyReason) return setLog(activeBattlePetBusyMessage);
+        if (isPetOnExpedition(activeBattlePet)) return setLog(`${petDisplayName(activeBattlePet)} is exploring and cannot join PvE battles.`);
         if (!activeBattlePet.unlockedForPve && activeBattlePet.level < 50) return setLog(`${petDisplayName(activeBattlePet)} must reach level 50 before it can join PvE battles.`);
         if (summonedPet) return setLog(`${petDisplayName(summonedPet)} is already fighting beside you.`);
         setSummonedPetId(activeBattlePet.id);
@@ -316,7 +339,7 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
     function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("strike"); const postSpendChakra = Math.max(0, character.chakra - 20); updateCharacter({ ...character, chakra: postSpendChakra }); if (newBossHp <= 0) return winBossFight(playerHp, postSpendChakra); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
     function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("guard"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
     function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("strike"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
-    return <div className="card cinematic-card"><StoryBossPersister characterName={character.name} storyProgress={character.storyProgress} active={bossHp > 0 && playerHp > 0} bossHp={bossHp} playerHp={playerHp} ap={ap} turn={turn} summonedPetId={summonedPetId} log={log} onRestore={(saved) => { setBossHp(saved.bossHp); setPlayerHp(saved.playerHp); setAp(saved.ap); setTurn(saved.turn); setSummonedPetId(saved.summonedPetId); setLog("Battle resumed — the fight continues where you left off."); }} /><BattleLockKeeper active={bossHp > 0 && playerHp > 0} kind="storyBoss" screen="storyBoss" playerName={character.name} /><div className="boss-stage">{effect && <div className="combat-effect">{effect === "guard" ? <GiShield aria-hidden="true" /> : <GiCrossedSwords aria-hidden="true" />}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2><GiCrownedSkull aria-hidden="true" /> {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon"><GiCrossedSwords aria-hidden="true" /></span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon"><GiSpiralThrust aria-hidden="true" /></span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon"><GiShield aria-hidden="true" /></span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon"><GiHealthIncrease aria-hidden="true" /></span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(activeBattlePetBusyReason) || Boolean(summonedPet)}><span className="jutsu-icon"><GiPawPrint aria-hidden="true" /></span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePetBusyMessage || (activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet")}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={async () => { if (bossHp > 0 && playerHp > 0) { if (!(await gameConfirm("Forfeit this boss fight? You'll be downed and make no story progress.", { danger: true, confirmLabel: "Forfeit" }))) return; updateCharacter({ ...character, hp: 0 }); } setScreen("storyHall"); }}>{bossHp > 0 && playerHp > 0 ? "Forfeit (take the loss)" : "Back to Story"}</button></div><div className="log">{log}</div></div></div>;
+    return <div className="card cinematic-card"><StoryBossPersister characterName={character.name} storyProgress={character.storyProgress} active={bossHp > 0 && playerHp > 0} bossHp={bossHp} playerHp={playerHp} ap={ap} turn={turn} summonedPetId={summonedPetId} log={log} onRestore={(saved) => { setBossHp(saved.bossHp); setPlayerHp(saved.playerHp); setAp(saved.ap); setTurn(saved.turn); setSummonedPetId(saved.summonedPetId); setLog("Battle resumed — the fight continues where you left off."); }} /><BattleLockKeeper active={bossHp > 0 && playerHp > 0} kind="storyBoss" screen="storyBoss" playerName={character.name} /><div className="boss-stage">{effect && <div className="combat-effect">{effect === "guard" ? <GiShield aria-hidden="true" /> : <GiCrossedSwords aria-hidden="true" />}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2><GiCrownedSkull aria-hidden="true" /> {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon"><GiCrossedSwords aria-hidden="true" /></span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon"><GiSpiralThrust aria-hidden="true" /></span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon"><GiShield aria-hidden="true" /></span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon"><GiHealthIncrease aria-hidden="true" /></span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon"><GiPawPrint aria-hidden="true" /></span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={async () => { if (bossHp > 0 && playerHp > 0) { if (!(await gameConfirm("Forfeit this boss fight? You'll be downed and make no story progress.", { danger: true, confirmLabel: "Forfeit" }))) return; updateCharacter({ ...character, hp: 0 }); } setScreen("storyHall"); }}>{bossHp > 0 && playerHp > 0 ? "Forfeit (take the loss)" : "Back to Story"}</button></div><div className="log">{log}</div></div></div>;
 }
 
 // Training screens (stat training, jutsu seal/paid training) moved to ./screens/Training.

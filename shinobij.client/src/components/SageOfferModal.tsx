@@ -11,21 +11,25 @@
  * player at Profile → Legacy — the system's most prestigious moment must not
  * land as a native alert() (polish-audit finding).
  */
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { gameConfirm } from "./GameAlert";
 import {
-    sageAccept, sageDecline,
-    type SageOfferView, type CharacterLegacy,
+    buildChronicleRecordReceipt, sageAccept, sageDecline,
+    type SageOfferView,
 } from "../lib/legacy";
+import type { Character } from "../types/character";
 import { LegacyMoment, type LegacyMomentData } from "./LegacyMoment";
 import wanderingSagePortrait from "../assets/wanderers/legacy/wandering-sage.webp";
 import { Modal } from "./ui/Modal";
 
-export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDeclined, onDismissed }: {
+export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersionedCharacter, onDeclined, onDismissed }: {
     offer: SageOfferView;
     playerName: string;
     onClose: () => void;
-    onAccepted: (legacy: CharacterLegacy) => void;
+    onAccepted: () => void;
+    /** Adopts the server's full save mutation before the ceremony can leave an
+     * autosave running on the pre-accept version. False rejects a stale reply. */
+    onVersionedCharacter: (character: Character, saveVersion: number) => boolean | void;
     /** Fired after a server-confirmed decline so the caller can despawn the
      *  Sage and play the departure beat. */
     onDeclined: () => void;
@@ -36,18 +40,40 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
 }) {
     const [busy, setBusy] = useState(false);
     const busyRef = useRef(false);
-    const [selected, setSelected] = useState<string | null>(null);
+    const mountedRef = useRef(false);
+    const requestRef = useRef(0);
+    const departureTimerRef = useRef<number | null>(null);
+    const [selected, setSelected] = useState<string | null>(() => offer.offers.length === 1 ? offer.offers[0].legacyId : null);
     const [note, setNote] = useState<string | null>(null);
     // The acceptance ceremony; while set, the modal waits behind it and closes
     // when the player continues.
-    const [moment, setMoment] = useState<(LegacyMomentData & { legacy: CharacterLegacy }) | null>(null);
+    const [moment, setMoment] = useState<LegacyMomentData | null>(null);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            requestRef.current += 1;
+            if (departureTimerRef.current !== null) window.clearTimeout(departureTimerRef.current);
+        };
+    }, []);
+
+    function scheduleDeparture(callback: () => void) {
+        if (departureTimerRef.current !== null) window.clearTimeout(departureTimerRef.current);
+        departureTimerRef.current = window.setTimeout(() => {
+            departureTimerRef.current = null;
+            if (mountedRef.current) callback();
+        }, 3500);
+    }
 
     async function handleDecline() {
         if (busyRef.current) return;
+        const request = ++requestRef.current;
         busyRef.current = true;
         setBusy(true);
         try {
             const result = await sageDecline(playerName);
+            if (!mountedRef.current || request !== requestRef.current) return;
             if (!result?.ok) {
                 setNote("The Sage could not confirm your answer. Check your connection and try again.");
                 return;
@@ -56,7 +82,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
             onClose();
         } finally {
             busyRef.current = false;
-            setBusy(false);
+            if (mountedRef.current && request === requestRef.current) setBusy(false);
         }
     }
 
@@ -64,6 +90,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
         if (busyRef.current) return;
         const picked = offer.offers.find((o) => o.legacyId === legacyId);
         if (!picked) return;
+        const request = ++requestRef.current;
         busyRef.current = true;
         setBusy(true);
         try {
@@ -71,31 +98,41 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                 `You may only ever have ONE Legacy. This cannot be changed later — no respec, no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
                 { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
             );
-            if (!sure) return;
+            if (!mountedRef.current || request !== requestRef.current || !sure) return;
             const result = await sageAccept(playerName, legacyId);
+            if (!mountedRef.current || request !== requestRef.current) return;
             if (result?.ok && result.legacy) {
+                if (!result.character || typeof result._saveVersion !== "number") {
+                    setNote("The Sage sealed your path, but the Hall's record did not arrive. Refresh before continuing.");
+                    return;
+                }
+                if (onVersionedCharacter(result.character, result._saveVersion) === false) {
+                    setNote("A newer character record is already active. The Sage's older reply was safely ignored.");
+                    return;
+                }
+                const chronicleRecord = buildChronicleRecordReceipt(result.chronicleCards, "sage-acceptance");
                 setMoment({
                     mode: "trial-start",
                     kindName: "Trial of Awakening",
                     legacyName: picked.name,
                     rarity: picked.rarity,
-                    text: (result as { intro?: string }).intro
+                    text: result.intro
                         ?? "Then walk forward. Your first trial has already begun — the path is watching.",
                     hint: "Your trial is already underway — track it anytime in Profile → 🌠 Legacy.",
-                    legacy: result.legacy,
+                    ...(chronicleRecord ? { chronicleRecord } : {}),
                 });
             } else if (result?.reason === "no-offer") {
                 setNote("“Ah… the moment has passed, shinobi. Do not mourn it — I found you once, and I will find you again.”");
-                setTimeout(() => { (onDismissed ?? onDeclined)(); onClose(); }, 3500);
+                scheduleDeparture(() => { (onDismissed ?? onDeclined)(); onClose(); });
             } else if (result?.reason === "sealed") {
                 setNote("Your path was already sealed to another Legacy. The Sage bows and departs.");
-                setTimeout(() => { (onDismissed ?? onDeclined)(); onClose(); }, 3500);
+                scheduleDeparture(() => { (onDismissed ?? onDeclined)(); onClose(); });
             } else {
                 setNote("The Sage could not confirm your permanent choice. Refresh your character before choosing again.");
             }
         } finally {
             busyRef.current = false;
-            setBusy(false);
+            if (mountedRef.current && request === requestRef.current) setBusy(false);
         }
     }
 
@@ -146,55 +183,63 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                 )}
 
                 {offer.offers.map((o) => (
-                    <div
+                    <article
                         key={o.legacyId}
                         id={`offer-card-${o.legacyId}`}
-                        onClick={() => setSelected(selected === o.legacyId ? null : o.legacyId)}
                         style={{
                             border: `1px solid ${selected === o.legacyId ? "var(--purple-400)" : "rgba(148,163,184,.25)"}`,
-                            borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: "pointer",
+                            borderRadius: 10, padding: "10px 12px", marginBottom: 8,
                             background: selected === o.legacyId ? "rgba(148,163,184,.08)" : "transparent",
                         }}
                     >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                {o.badge && (
-                                    <img
-                                        src={`/badges/legacy-${o.badge}.png`} alt=""
-                                        style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0 }}
-                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                    />
-                                )}
-                                <b style={{ color: "var(--purple-400)" }}>{o.name}</b>
+                        <button
+                            type="button"
+                            aria-label={`Select ${o.name}`}
+                            aria-pressed={selected === o.legacyId}
+                            onClick={() => setSelected(o.legacyId)}
+                            style={{ display: "block", width: "100%", border: 0, padding: 0, background: "transparent", color: "inherit", textAlign: "left", cursor: "pointer" }}
+                        >
+                            <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                    {o.badge && (
+                                        <img
+                                            src={`/badges/legacy-${o.badge}.png`} alt=""
+                                            style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0 }}
+                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                        />
+                                    )}
+                                    <b style={{ color: "var(--purple-400)" }}>{o.name}</b>
+                                </span>
                             </span>
-                        </div>
-                        <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "var(--slate-300)", fontStyle: "italic" }}>{o.flavor}</p>
-                        <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
-                            Title on awakening: <b style={{ color: "var(--slate-200)" }}>{o.title}</b>
-                            {o.villageAffinity ? ` · Favored by ${o.villageAffinity}` : ""}
-                        </p>
-                        {o.signature && (
-                            // Rank-free power preview — what the signature DOES, no numbers
-                            // that would reveal the hidden rank.
-                            <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
-                                ◆ Signature: <b>{o.signature.name}</b> — {o.signature.shape}
-                                {o.signature.effects.length ? ` · ${o.signature.effects.join(", ")}` : ""}. Unlocks at Stage III.
-                            </p>
-                        )}
+                            <span style={{ display: "block", margin: "4px 0 0", fontSize: ".78rem", color: "var(--slate-300)", fontStyle: "italic" }}>{o.flavor}</span>
+                            <span style={{ display: "block", margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
+                                Title on awakening: <b style={{ color: "var(--slate-200)" }}>{o.title}</b>
+                                {o.villageAffinity ? ` · Favored by ${o.villageAffinity}` : ""}
+                            </span>
+                            {o.signature && (
+                                // Rank-free power preview — what the signature DOES, no numbers
+                                // that would reveal the hidden rank.
+                                <span style={{ display: "block", margin: "4px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
+                                    ◆ Signature: <b>{o.signature.name}</b> — {o.signature.shape}
+                                    {o.signature.effects.length ? ` · ${o.signature.effects.join(", ")}` : ""}. Unlocks at Stage III.
+                                </span>
+                            )}
+                        </button>
                         {selected === o.legacyId && (
                             <button
+                                type="button"
                                 disabled={busy}
-                                onClick={(e) => { e.stopPropagation(); void handleAccept(o.legacyId); }}
+                                onClick={() => { void handleAccept(o.legacyId); }}
                                 style={{ marginTop: 8, width: "100%", background: "var(--purple-400)", color: "#0b1020", fontWeight: 700 }}
                             >
                                 Accept This Path
                             </button>
                         )}
-                    </div>
+                    </article>
                 ))}
 
                 {note && (
-                    <p style={{ margin: "10px 0 0", fontSize: ".78rem", color: "#fbbf24", fontStyle: "italic" }}>{note}</p>
+                    <p role="alert" aria-live="assertive" aria-atomic="true" style={{ margin: "10px 0 0", fontSize: ".78rem", color: "#fbbf24", fontStyle: "italic" }}>{note}</p>
                 )}
 
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -216,9 +261,8 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                 <LegacyMoment
                     moment={moment}
                     onClose={() => {
-                        const legacy = moment.legacy;
                         setMoment(null);
-                        onAccepted(legacy);
+                        onAccepted();
                         onClose();
                     }}
                 />

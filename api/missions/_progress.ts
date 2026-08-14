@@ -40,6 +40,16 @@ export type DailyMissionsState = {
     profession: Profession;
     missions: DailyMission[];
     replacements?: DailyMissionReplacement[];
+    /** Exact event receipts for crash-recoverable cross-handler producers. */
+    eventReceipts?: DailyMissionEventReceipt[];
+};
+
+export type DailyMissionEventReceipt = {
+    id: string;
+    kind: MissionKind;
+    xpAwarded: number;
+    missionsCompleted: CompletedMissionInfo[];
+    appliedAt: number;
 };
 
 // Healer uses a 1.5× XP curve; baseline used by Vanguard. Keep in sync with
@@ -99,6 +109,20 @@ function xpMultiplierFor(profession: Profession, currentRank: number): number {
     return 1;
 }
 
+export function professionXpAfterAward(
+    profession: Profession,
+    currentXpRaw: unknown,
+    currentRankRaw: unknown,
+    amountRaw: unknown,
+): { xp: number; rank: number; granted: number } {
+    const currentXp = Math.max(0, Math.floor(Number(currentXpRaw) || 0));
+    const currentRank = Math.max(1, Math.floor(Number(currentRankRaw) || 1));
+    const amount = Math.max(0, Math.floor(Number(amountRaw) || 0));
+    const granted = Math.floor(amount * xpMultiplierFor(profession, currentRank));
+    const xp = currentXp + granted;
+    return { xp, rank: rankFor(profession, xp), granted };
+}
+
 // Award profession XP directly to the player's character record. Returns
 // {xp, rank} after the credit. Used by both per-action XP grants and
 // mission-completion rewards.
@@ -118,20 +142,17 @@ export async function awardProfessionXp(
         const record = await kv.get<Record<string, unknown>>(saveKey);
         const char = record?.character as Record<string, unknown> | undefined;
         if (!char || char.profession !== profession) return null;
-        const currentRank = Number(char.professionRank ?? 1);
-        const boosted = Math.floor(amount * xpMultiplierFor(profession, currentRank));
-        const nextXp = Number(char.professionXp ?? 0) + boosted;
-        const nextRank = rankFor(profession, nextXp);
+        const awarded = professionXpAfterAward(profession, char.professionXp, char.professionRank, amount);
         const updated = {
             ...record,
             character: {
                 ...char,
-                professionXp: nextXp,
-                professionRank: nextRank,
+                professionXp: awarded.xp,
+                professionRank: awarded.rank,
             },
         };
         await kv.set(saveKey, bumpSaveVersion(updated));
-        return { xp: nextXp, rank: nextRank };
+        return { xp: awarded.xp, rank: awarded.rank };
     }, { failClosed: true });
 }
 
@@ -279,7 +300,11 @@ export async function reportMissionEvent(opts: {
     /** For unique-target missions — must be lowercased. */
     targetName?: string;
     now?: Date;
-}): Promise<{ xpAwarded: number; missionsCompleted: CompletedMissionInfo[] }> {
+    /** Stable server proof. Identical retries return the stored event result. */
+    receiptId?: string;
+    /** Caller commits XP in its own exact-once save settlement. */
+    deferXpAward?: boolean;
+}): Promise<{ xpAwarded: number; missionsCompleted: CompletedMissionInfo[]; replayed?: boolean }> {
     const { playerName, profession, kind, targetName } = opts;
     const now = opts.now ?? new Date();
     const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -291,6 +316,17 @@ export async function reportMissionEvent(opts: {
     const result = await withKvLock(dKey, async () => {
         const state = await loadOrIssueDailyMissions(playerName, profession, now, char);
         if (!state) return { xpAwarded: 0, missionsCompleted: [] as CompletedMissionInfo[] };
+
+        const receiptId = typeof opts.receiptId === 'string' ? opts.receiptId.trim().slice(0, 160) : '';
+        const eventReceipts = Array.isArray(state.eventReceipts)
+            ? state.eventReceipts.filter((entry) => entry && typeof entry.id === 'string').slice(-127)
+            : [];
+        const prior = receiptId ? eventReceipts.find((entry) => entry.id === receiptId && entry.kind === kind) : undefined;
+        if (prior) return {
+            xpAwarded: Math.max(0, Math.floor(Number(prior.xpAwarded) || 0)),
+            missionsCompleted: Array.isArray(prior.missionsCompleted) ? prior.missionsCompleted : [],
+            replayed: true,
+        };
 
         let xpAwarded = 0;
         const completed: CompletedMissionInfo[] = [];
@@ -320,15 +356,26 @@ export async function reportMissionEvent(opts: {
             return { ...m, progress: nextProgress, uniqueTargets: nextUnique };
         });
 
-        if (changed) {
-            await kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
+        if (changed || receiptId) {
+            const eventReceipt: DailyMissionEventReceipt | null = receiptId ? {
+                id: receiptId,
+                kind,
+                xpAwarded,
+                missionsCompleted: completed,
+                appliedAt: Date.now(),
+            } : null;
+            await kv.set(dKey, {
+                ...state,
+                missions: next,
+                ...(eventReceipt ? { eventReceipts: [...eventReceipts, eventReceipt] } : {}),
+            }, { ex: 36 * 60 * 60 });
         }
         return { xpAwarded, missionsCompleted: completed };
     }, { failClosed: true });
 
     // Auto-grant mission XP onto the player's character. awardProfessionXp
     // takes its own lock on save:<player> so we don't nest locks here.
-    if (result.xpAwarded > 0) {
+    if (result.xpAwarded > 0 && opts.deferXpAward !== true) {
         await awardProfessionXp(playerName, profession, result.xpAwarded);
     }
 
@@ -406,8 +453,6 @@ function retainedNewbieCombatEffects(
     return [...pending, ...settled];
 }
 
-// An unresolved cross-row effect marker must outlive the ordinary daily cache
-// TTL. Once every marker is acknowledged, the row returns to its normal TTL.
 function newbieDailyWriteOptions(state: NewbieDailyState): { ex: number } | undefined {
     return newbieCombatEffects(state).some((entry) => entry.acknowledgedAt === undefined)
         ? undefined
@@ -517,12 +562,7 @@ export async function reportNewbieEvent(opts: {
     return result;
 }
 
-/**
- * Apply both new-shinobi combat signals once for an authoritative combat run.
- * The progress mutation and its run marker share one CAS row. The caller then
- * credits `ryoAwarded` in the combat settlement's save receipt and acknowledges
- * this marker, closing both crash orders without trusting a short lock lease.
- */
+/** Apply both mission-combat newbie signals exactly once for a sealed run. */
 export async function reportNewbieCombatRunOnce(opts: {
     playerName: string;
     runId: string;
@@ -533,18 +573,11 @@ export async function reportNewbieCombatRunOnce(opts: {
         const eventDate = new Date(opts.settledAt);
         const eventDateKey = utcDateKey(eventDate);
         const beforeIssue = await kv.get<NewbieDailyState>(dKey);
-        // A run marker pins the earned amount. Replay it before consulting the
-        // player's current profession: choosing a profession after the target
-        // row committed must not erase Ryo that still awaits its save receipt.
-        const priorEffect = newbieCombatEffects(beforeIssue)
-            .find((entry) => entry.runId === opts.runId);
+        const priorEffect = newbieCombatEffects(beforeIssue).find((entry) => entry.runId === opts.runId);
         if (priorEffect) return { applied: false, ryoAwarded: priorEffect.ryoAwarded };
         const save = await kv.get<Record<string, unknown>>(`save:${opts.playerName}`);
         const char = save?.character as Record<string, unknown> | undefined;
         if (!char || char.profession) return { applied: false, ryoAwarded: 0 };
-        // Never roll a newer daily board backwards while helping an older run
-        // forward. If today's board already replaced the settlement-day board,
-        // the still-unapplied event advances today's board exactly once.
         const targetDate = beforeIssue && beforeIssue.date > eventDateKey
             ? new Date(`${beforeIssue.date}T00:00:00.000Z`)
             : eventDate;
@@ -556,31 +589,32 @@ export async function reportNewbieCombatRunOnce(opts: {
         const effects = retainedNewbieCombatEffects(expected);
         const replay = effects.find((entry) => entry.runId === opts.runId);
         if (replay) return { applied: false, ryoAwarded: replay.ryoAwarded };
-        if (effects.filter((entry) => entry.acknowledgedAt === undefined).length
-            >= MAX_PENDING_NEWBIE_COMBAT_EFFECTS) {
+        if (effects.filter((entry) => entry.acknowledgedAt === undefined).length >= MAX_PENDING_NEWBIE_COMBAT_EFFECTS) {
             throw new Error('newbie-combat-effect-pending-overflow');
         }
-
         const kinds: NewbieMissionKind[] = ['newbie-missions', 'newbie-battle-wins'];
         let ryoAwarded = 0;
-        const now = Date.now();
+        const appliedAt = Date.now();
         const missions = expected.missions.map((mission) => {
             if (!kinds.includes(mission.kind) || mission.completedAt) return mission;
-            const nextProgress = mission.progress + 1;
-            if (nextProgress >= mission.target) {
+            const progress = mission.progress + 1;
+            if (progress >= mission.target) {
                 ryoAwarded += mission.ryoReward;
-                return { ...mission, progress: mission.target, completedAt: now };
+                return { ...mission, progress: mission.target, completedAt: appliedAt };
             }
-            return { ...mission, progress: nextProgress };
+            return { ...mission, progress };
         });
-        const effect: NewbieCombatMissionEffect = {
-            version: 1,
-            runId: opts.runId,
-            kinds,
-            ryoAwarded,
-            appliedAt: now,
+        const next: NewbieDailyState = {
+            ...expected,
+            missions,
+            combatMissionEffects: [...effects, {
+                version: 1,
+                runId: opts.runId,
+                kinds,
+                ryoAwarded,
+                appliedAt,
+            }],
         };
-        const next = { ...expected, missions, combatMissionEffects: [...effects, effect] };
         let writeError: unknown;
         let swapped = false;
         try {
@@ -588,8 +622,8 @@ export async function reportNewbieCombatRunOnce(opts: {
         } catch (error) {
             writeError = error;
         }
-        const readback = await kv.get<NewbieDailyState>(dKey);
-        const confirmed = newbieCombatEffects(readback).find((entry) => entry.runId === opts.runId);
+        const confirmed = newbieCombatEffects(await kv.get<NewbieDailyState>(dKey))
+            .find((entry) => entry.runId === opts.runId);
         if (swapped || (confirmed && confirmed.ryoAwarded === ryoAwarded)) {
             return { applied: true, ryoAwarded };
         }
@@ -598,7 +632,7 @@ export async function reportNewbieCombatRunOnce(opts: {
     }, { failClosed: true });
 }
 
-/** Remove only the exact run marker after the save receipt proves its Ryo. */
+/** Mark the cross-row newbie effect recoverably complete after save credit. */
 export async function acknowledgeNewbieCombatRun(playerName: string, runId: string): Promise<void> {
     const dKey = newbieDailyKey(playerName);
     await withKvLock(dKey, async () => {
@@ -607,13 +641,15 @@ export async function acknowledgeNewbieCombatRun(playerName: string, runId: stri
         const effects = retainedNewbieCombatEffects(expected);
         const target = effects.find((entry) => entry.runId === runId);
         if (!target || target.acknowledgedAt !== undefined) return;
-        const nextEffects = retainedNewbieCombatEffects({
+        const next: NewbieDailyState = {
             ...expected,
-            combatMissionEffects: effects.map((entry) => entry.runId === runId
-                ? { ...entry, acknowledgedAt: Date.now() }
-                : entry),
-        });
-        const next = { ...expected, combatMissionEffects: nextEffects };
+            combatMissionEffects: retainedNewbieCombatEffects({
+                ...expected,
+                combatMissionEffects: effects.map((entry) => entry.runId === runId
+                    ? { ...entry, acknowledgedAt: Date.now() }
+                    : entry),
+            }),
+        };
         const swapped = await kv.compareSet(dKey, expected, next, newbieDailyWriteOptions(next));
         if (swapped) return;
         const readback = await kv.get<NewbieDailyState>(dKey);

@@ -4,7 +4,13 @@ import { cors, safeName } from "../_utils.js";
 import { authedPlayerOrAdmin } from "../_auth.js";
 import { enforceRateLimitKv } from "../_ratelimit.js";
 import { withKvLock } from "../_lock.js";
-import { legacyEnabled, bumpLegacyStats } from "../_legacy-track.js";
+import {
+  ensureFreePlayLegacyCredit,
+  recordFreePlayParticipation,
+  repairFreePlayLegacyCredit,
+  type FreePlayLegacyCredit,
+  type FreePlayParticipation,
+} from "./_freeplay-legacy.js";
 import {
   resolveChronicleDeckWithSave,
   type ChronicleDeckResolution,
@@ -55,6 +61,8 @@ type FreePlaySession = {
   p1Deck?: string[];
   p2Deck?: string[];
   state?: ChronicleMatch;
+  participation?: FreePlayParticipation;
+  legacyCredit?: FreePlayLegacyCredit;
   status: "awaiting-opponent" | "active" | "done";
   createdAt: number;
   updatedAt: number;
@@ -77,21 +85,15 @@ async function serverDeck(
   return resolveChronicleDeckWithSave(playerName, requested, admin);
 }
 
-async function finalize(session: FreePlaySession): Promise<void> {
-  if (
-    !legacyEnabled() ||
-    session.status !== "done" ||
-    !session.state ||
-    !session.state.winner ||
-    session.state.winner === "draw"
-  )
-    return;
-  const name = session.state.winner === "p1" ? session.p1Name : session.p2Name;
-  const marked = await kv.set(`legacy:cc-tracked:${session.matchId}`, true, {
-    nx: true,
-    ex: 24 * 60 * 60,
-  });
-  if (marked) await bumpLegacyStats(name, { cardClashWins: 1 });
+async function persistTerminalAndRepair(
+  session: FreePlaySession,
+  terminalStateChanged = false,
+): Promise<void> {
+  const creditPrepared = ensureFreePlayLegacyCredit(session);
+  // The pending/skipped outbox is persisted with terminal state before the
+  // best-effort Legacy write. A later state poll repairs pending delivery.
+  if (terminalStateChanged || creditPrepared) await saveSession(session);
+  if (await repairFreePlayLegacyCredit(session)) await saveSession(session);
 }
 
 function autoAdvance(session: FreePlaySession, now: number): boolean {
@@ -121,6 +123,7 @@ function autoAdvance(session: FreePlaySession, now: number): boolean {
   if (state === originalState) return false;
   session.state = state;
   session.status = state.status === "complete" ? "done" : "active";
+  if (session.status === "done" && session.participation) session.participation.endedBy = "timeout";
   session.updatedAt = now;
   return true;
 }
@@ -242,8 +245,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // State polls are read-only unless they create the short-lived pair
           // handoff or resolve an expired response/turn. This avoids a KV write
           // every few seconds for a turn-based game.
-          if (createdSession || autoAdvanced) await saveSession(session);
-          if (autoAdvanced) await finalize(session);
+          if (session.status === "done") await persistTerminalAndRepair(session, autoAdvanced);
+          else if (createdSession || autoAdvanced) await saveSession(session);
           return {
             status: 200 as const,
             body: {
@@ -284,6 +287,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               now,
             );
             session.status = "active";
+            session.participation = { startedAt: now, p1Actions: 0, p2Actions: 0 };
           }
           session.updatedAt = now;
           await saveSession(session);
@@ -314,10 +318,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 400 as const,
             body: { error: `Unknown action: ${action}` },
           };
+        const requestedIntent = intent(body, action);
         const applied = applyAction(
           session.state,
           side,
-          intent(body, action),
+          requestedIntent,
           now,
         );
         if (!applied.ok)
@@ -325,9 +330,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         session.state = applied.state;
         session.status =
           applied.state.status === "complete" ? "done" : "active";
+        session.participation = recordFreePlayParticipation(
+          session.participation ?? { startedAt: now, p1Actions: 0, p2Actions: 0 },
+          side,
+          requestedIntent.action,
+          session.status === "done",
+        );
         session.updatedAt = now;
-        await saveSession(session);
-        await finalize(session);
+        if (session.status === "done") await persistTerminalAndRepair(session, true);
+        else await saveSession(session);
         return {
           status: 200 as const,
           body: { session: projectMatchForViewer(session.state, side) },

@@ -12,6 +12,8 @@
  */
 import { CHRONICLE_STARTER_GRANT_IDS, countChronicleCards } from '../../shared/chronicle-duel.js';
 import { kv } from '../_storage.js';
+import { takeChronicleCardsWithinPackableCap } from './_collection-cap.js';
+import { backfillChronicleProgressionCards } from './_progression-cards.js';
 
 /** Error string the locked card surfaces return; the client keys off it. */
 export const CHRONICLE_LOCKED_ERROR = 'chronicle-locked';
@@ -45,27 +47,39 @@ export async function chronicleUnlockedFor(playerName: string): Promise<boolean>
  *  shinobij.client/src/lib/chronicle-scribe.ts. */
 export const STARTER_CARDS_MIN_LEVEL = 17;
 
-export function claimStarterCards(character: Record<string, unknown>) {
-    if (character.starterCardsClaimed === true) {
-        return { ok: false as const, reason: 'already-claimed' as const };
-    }
-    if ((Number(character.level) || 0) < STARTER_CARDS_MIN_LEVEL) {
-        return { ok: false as const, reason: 'level' as const };
-    }
-    const current = Array.isArray(character.tileCards)
-        ? (character.tileCards as unknown[]).filter((id): id is string => typeof id === 'string')
+/** Quantity-aware starter floor constrained by the same packable collection
+ * budget as every other card source. A legacy account at the ceiling still
+ * unlocks the Chronicle and keeps its existing collection; it is never
+ * destructively trimmed or pushed beyond the cap. */
+export function starterCardTopUp(cardIds: unknown): { current: string[]; granted: string[] } {
+    const current = Array.isArray(cardIds)
+        ? cardIds.filter((id): id is string => typeof id === 'string')
         : [];
     const currentCounts = countChronicleCards(current);
     const starterCounts = countChronicleCards(CHRONICLE_STARTER_GRANT_IDS);
-    const granted = [...starterCounts].flatMap(([id, required]) =>
+    const missing = [...starterCounts].flatMap(([id, required]) =>
         Array.from({ length: Math.max(0, required - (currentCounts.get(id) ?? 0)) }, () => id));
+    return { current, granted: takeChronicleCardsWithinPackableCap(current, missing) };
+}
+
+export function claimStarterCards(character: Record<string, unknown>) {
+    const replayed = character.starterCardsClaimed === true;
+    if (!replayed && (Number(character.level) || 0) < STARTER_CARDS_MIN_LEVEL) {
+        return { ok: false as const, reason: 'level' as const };
+    }
+    const { current, granted } = starterCardTopUp(character.tileCards);
+    const starterCharacter = {
+        ...character,
+        tileCards: [...current, ...granted],
+        starterCardsClaimed: true,
+    };
+    const storyBackfill = backfillChronicleProgressionCards(starterCharacter);
     return {
         ok: true as const,
-        granted,
-        character: {
-            ...character,
-            tileCards: [...current, ...granted],
-            starterCardsClaimed: true,
-        },
+        granted: [...granted, ...storyBackfill.granted],
+        starterGranted: granted,
+        progressionGranted: storyBackfill.granted,
+        replayed,
+        character: storyBackfill.character,
     };
 }

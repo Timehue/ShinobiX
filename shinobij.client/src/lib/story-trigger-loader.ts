@@ -1,19 +1,13 @@
 /*
- * Lazy boundary for the story-trigger graph.
+ * Lazy boundary for the story-trigger rules graph.
  *
- * lib/story-trigger statically reaches the full story prose — data/storylines
- * via its own import, data/story-interludes (~200 KB) and lib/story-epilogue →
- * data/story-epilogues (~60 KB) — so a static import from App.tsx forced all
- * of it into the boot-critical entry chunk. Routing every App call site
- * through this cached dynamic import moves the interlude/epilogue prose and
- * the trigger logic into their own async chunk instead.
+ * Main chapter/interlude prose is compiled into content-addressed per-village
+ * payloads by scripts/generate-story-content.mts. The trigger module requests
+ * only the active village after this small rules chunk resolves, so story data
+ * remains off startup and no player downloads another village speculatively.
  *
- * The cache is cleared on a failed fetch so a transient network blip retries
- * on the next story beat instead of wedging story triggers for the session
- * (same policy as lib/lazyWithRetry for screens). The idle prefetch warms the
- * chunk shortly after boot — off the critical path — so by the time a beat
- * can actually fire the module is already local and `.then` resolves in a
- * microtask.
+ * A failed module import clears the cache so the next story beat retries. Idle
+ * prefetch warms only these rules, never a narrative payload.
  */
 
 type StoryTriggerModule = typeof import("./story-trigger");
