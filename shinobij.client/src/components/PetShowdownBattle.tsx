@@ -20,9 +20,11 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { EffectComposer } from "@react-three/postprocessing";
+import { BloomEffect, ChromaticAberrationEffect, GodRaysEffect } from "postprocessing";
+import { ZoomBlurEffect } from "../lib/showdown-post";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
@@ -575,6 +577,45 @@ function StageAmbient({ stage }: { stage: StageKey }) {
             </bufferGeometry>
             <pointsMaterial color={color} size={kind === "leaves" ? 0.22 : 0.16} transparent opacity={0.75} depthWrite={false} sizeAttenuation />
         </points>
+    );
+}
+
+/** The full lens stack, built on the RAW postprocessing classes — the r3f
+ *  wrapper components JSON-stringify their props for memoization and choke on
+ *  an Object3D sun (circular scene graph). God rays stream from the charge
+ *  orb's core (arena-dimmed channels make them carry the frame); bloom lifts
+ *  the additive volumetrics; chromatic fringe and the radial zoom rush pulse
+ *  on the SAME shake envelope as the camera, resting at ~zero between
+ *  contacts. */
+function ShowdownPostStack({ sun, fxRef }: { sun: THREE.Mesh; fxRef: React.MutableRefObject<SceneFx> }) {
+    const camera = useThree((s) => s.camera);
+    const effects = useMemo(() => {
+        const rays = new GodRaysEffect(camera, sun, {
+            samples: 36, density: 0.92, decay: 0.94, weight: 0.35, exposure: 0.3, clampMax: 0.95, blur: true,
+        });
+        const bloom = new BloomEffect({ intensity: 0.85, luminanceThreshold: 0.52, luminanceSmoothing: 0.32, mipmapBlur: true });
+        const ca = new ChromaticAberrationEffect({ offset: new THREE.Vector2(0.0003, 0.0002), radialModulation: false, modulationOffset: 0 });
+        const zoom = new ZoomBlurEffect();
+        return { rays, bloom, ca, zoom, list: [rays, bloom, ca, zoom] };
+    }, [camera, sun]);
+    useEffect(() => () => { for (const e of effects.list) e.dispose(); }, [effects]);
+    const fxHandle = useRef(effects);
+    useFrame(() => {
+        fxHandle.current = effects;
+        const fx = fxRef.current;
+        const now = performance.now();
+        let punch = 0;
+        if (now < fx.shakeUntil) {
+            const k = (fx.shakeUntil - now) / 320;
+            punch = Math.min(1, fx.shakeAmp * k * k * 4);
+        }
+        fxHandle.current.ca.offset.set(0.0003 + punch * 0.0034, 0.0002 + punch * 0.002);
+        fxHandle.current.zoom.setStrength(punch * 0.085);
+    });
+    return (
+        <EffectComposer>
+            {effects.list.map((e, i) => <primitive key={i} object={e} />)}
+        </EffectComposer>
     );
 }
 
@@ -1849,6 +1890,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [koImpact, setKoImpact] = useState(0);
     /** Super-strike vignette breath — edges clamp and release. */
     const [vignette, setVignette] = useState(0);
+    /** God-ray source (the charge orb's core) — the post stack mounts once
+     *  the sun mesh exists. */
+    const [godRaySun, setGodRaySun] = useState<THREE.Mesh | null>(null);
     const [endOutcome, setEndOutcome] = useState<"win" | "loss" | null>(null);
     /** Snapshotted from the tally when the battle ends (never read in render). */
     const [recap, setRecap] = useState<{ pet: ShowdownPetView; dmg: number; kos: number; supers: number; mvp: boolean }[]>([]);
@@ -2924,17 +2968,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 {/* The moveset READS: casting glyph + charge orb during ranged
                     channels, per-kind accents, streak-throughs and debris. */}
                 <CastGlyphFx beatRef={beatRef} posRef={posRef} />
-                <ChargeOrbFx beatRef={beatRef} posRef={posRef} />
+                <ChargeOrbFx beatRef={beatRef} posRef={posRef} onSun={setGodRaySun} />
                 {kindFx.map((k) => <KindAccentFx key={k.key} spawn={k} />)}
                 {streakFx.map((s) => <StreakBurstFx key={s.key} spawn={s} />)}
                 {debrisFx.map((d) => <DebrisFx key={d.key} spawn={d} />)}
-                {petBloomEnabled() && !reducedMotion && (
-                    <EffectComposer>
-                        {/* Punchier glow: the volumetric layer is built on
-                            additive light (bolts, piece lights, shock rings)
-                            and the old threshold let most of it pass unbloomed. */}
-                        <Bloom intensity={0.85} luminanceThreshold={0.52} luminanceSmoothing={0.32} mipmapBlur />
-                    </EffectComposer>
+                {petBloomEnabled() && !reducedMotion && godRaySun && (
+                    <ShowdownPostStack sun={godRaySun} fxRef={fxRef} />
                 )}
                 {[...slots.values()].map((info) => (
                     <ShowdownFighter
