@@ -1117,6 +1117,19 @@
     from { opacity: 0.85; }
     to { opacity: 0; }
 }
+/* The signature's ELEMENT flash holds longer than the old white pop — the
+   whole frame takes the move's color and releases (background is inlined
+   per element as a soft radial). */
+.showdown-flash.element {
+    background: #fff;
+    animation: showdown-flash-element-out 0.55s ease-out both;
+}
+@keyframes showdown-flash-element-out {
+    0% { opacity: 0; }
+    12% { opacity: 0.95; }
+    55% { opacity: 0.55; }
+    100% { opacity: 0; }
+}
 
 /* ── Super-strike vignette breath ──────────────────────────────────────────
    The frame clamps dark at the edges with the detonation and releases —

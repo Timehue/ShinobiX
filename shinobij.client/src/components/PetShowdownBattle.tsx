@@ -29,7 +29,10 @@ import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetMo
 import { PetModelBoundary } from "./PetModelBoundary";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petHeroMoveStyle, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
-import { ScarLayer, ResidueFx, type BattleScar, type ResidueSpawn } from "./PetShowdownVfx3d";
+import {
+    ScarLayer, ResidueFx, ClimateLayer, KindAccentFx, CastGlyphFx, ChargeOrbFx, StreakBurstFx, DebrisFx, kindAccentFamily,
+    type BattleScar, type ResidueSpawn, type ClimateState, type KindAccentSpawn, type StreakBurstSpawn,
+} from "./PetShowdownVfx3d";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
@@ -431,7 +434,8 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
     const ambient = useRef<THREE.AmbientLight>(null);
     const sun = useRef<THREE.DirectionalLight>(null);
     const ember = useRef<THREE.PointLight>(null);
-    useFrame((state) => {
+    const dim = useRef(1);
+    useFrame((state, delta) => {
         const t = state.clock.elapsedTime;
         // The arena reacts to contact: reuse the CAMERA's own shake envelope so
         // the light punch and the screen shake can never drift apart.
@@ -442,8 +446,19 @@ function StageEnvironment({ stage, beatRef, fxRef }: { stage: StageKey; beatRef:
             const k = (fx.shakeUntil - now) / 320;
             punch = Math.min(1, fx.shakeAmp * k * k * 4);
         }
-        if (ambient.current) ambient.current.intensity = 0.5 + Math.sin(t * 7.3) * 0.02 + Math.sin(t * 12.7) * 0.014 + punch * 0.9;
-        if (sun.current) sun.current.intensity = 1.15 + Math.sin(t * 9.1) * 0.035;
+        // The CHARGE DIM: while a signature (or heavy) channels, the stage
+        // lights fall away so the charge orb and glyph carry the frame — the
+        // reference grammar where the whole arena goes dark blue around the
+        // caster's glow. Eases in and releases AT the strike.
+        const beat = beatRef.current;
+        let dimTarget = 1;
+        if (beat.event?.t === "action" && (beat.event.super || beat.event.weight === "heavy")) {
+            const frac = (now - beat.startedAt) / beat.durationMs;
+            if (frac > 0.08 && frac < 0.53) dimTarget = beat.event.super ? 0.4 : 0.7;
+        }
+        dim.current = THREE.MathUtils.lerp(dim.current, dimTarget, Math.min(1, delta * (dimTarget < dim.current ? 3.2 : 9)));
+        if (ambient.current) ambient.current.intensity = (0.5 + Math.sin(t * 7.3) * 0.02 + Math.sin(t * 12.7) * 0.014) * dim.current + punch * 0.9;
+        if (sun.current) sun.current.intensity = (1.15 + Math.sin(t * 9.1) * 0.035) * dim.current;
         if (ember.current) {
             ember.current.intensity = 12 + punch * 26;
             // Tint the EMBER only — the key and hemi lights carry each painted
@@ -1828,6 +1843,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [expired, setExpired] = useState(false);
     const [letterbox, setLetterbox] = useState(false);
     const [flash, setFlash] = useState(0);
+    /** Element tint for the super flash — the full-frame color takeover. */
+    const [flashTint, setFlashTint] = useState("#ffffff");
     /** The killing blow's manga impact frame (radial lines + desaturation). */
     const [koImpact, setKoImpact] = useState(0);
     /** Super-strike vignette breath — edges clamp and release. */
@@ -1854,6 +1871,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** Persistent strike scars (capped; oldest evicted) + fading residues. */
     const [scars, setScars] = useState<BattleScar[]>([]);
     const [residues, setResidues] = useState<ResidueSpawn[]>([]);
+    /** The arena's CLIMATE: the last landed signature's element holds the
+     *  field (faint sheen + motes + tinted light) until another replaces it. */
+    const [climate, setClimate] = useState<ClimateState | null>(null);
+    /** Per-kind move accents + impact streak-throughs + debris chunks. */
+    const [kindFx, setKindFx] = useState<KindAccentSpawn[]>([]);
+    const [streakFx, setStreakFx] = useState<StreakBurstSpawn[]>([]);
+    const [debrisFx, setDebrisFx] = useState<StreakBurstSpawn[]>([]);
     const [settlement, setSettlement] = useState<ShowdownTurnResponse | null>(null);
 
     // Command drafting.
@@ -2355,6 +2379,40 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                 }
                             }
                         }
+                        // A landed signature CLAIMS the arena: its element holds
+                        // the field as the standing climate until another does.
+                        if (!reducedMotion && event.super && !target.splash && target.id !== event.actorId) {
+                            setClimate({ element: event.element, since: performance.now() });
+                        }
+                        // The moveset reads: every kind family stages its
+                        // identity on the victim (or the caster for self
+                        // kinds); big contacts also throw frame-crossing
+                        // streaks, and crushes kick real debris.
+                        if (!reducedMotion && !target.splash) {
+                            const at = posRef.current.get(target.id);
+                            const from = posRef.current.get(event.actorId);
+                            if (at) {
+                                const [kx, , kz] = at;
+                                const len = from ? Math.hypot(kx - from[0], kz - from[2]) || 1 : 1;
+                                const dirX = from ? (kx - from[0]) / len : 0;
+                                const dirZ = from ? (kz - from[2]) / len : 1;
+                                if (kindAccentFamily(event.moveKind)) {
+                                    const kKey = popupKey.current++;
+                                    setKindFx((list) => [...list.slice(-7), { key: kKey, kind: event.moveKind, element: event.element, x: kx, z: kz, dirX, dirZ, startedAt: performance.now(), durationMs: 1000 / speed }]);
+                                    window.setTimeout(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
+                                }
+                                if (target.damage > 0 && (event.super || event.weight === "heavy" || target.ko)) {
+                                    const sKey = popupKey.current++;
+                                    setStreakFx((list) => [...list.slice(-5), { key: sKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 750 / speed, heavy: event.super || target.ko }]);
+                                    window.setTimeout(() => setStreakFx((list) => list.filter((s) => s.key !== sKey)), 1100 / speed);
+                                }
+                                if (target.damage > 0 && (event.moveKind === "crush" || (event.element === "Earth" && (event.super || event.weight === "heavy")))) {
+                                    const dKey = popupKey.current++;
+                                    setDebrisFx((list) => [...list.slice(-4), { key: dKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 1300 / speed, heavy: event.super || event.weight === "heavy" }]);
+                                    window.setTimeout(() => setDebrisFx((list) => list.filter((d) => d.key !== dKey)), 1700 / speed);
+                                }
+                            }
+                        }
                         // ONE impact, not two systems: a staged cast fuses its
                         // on-pet detonation with the hero art — bigger, and
                         // timed to the moment the piece ARRIVES (the wave
@@ -2473,8 +2531,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             };
                         }
                         if (!reducedMotion) {
+                            setFlashTint(ELEMENT_TINT[event.element] ?? "#ffffff");
                             setFlash(popupKey.current++);
-                            later(() => setFlash(0), 260);
+                            later(() => setFlash(0), 560);
                             // The frame BREATHES with the detonation: a dark
                             // vignette clamps the edges and releases.
                             setVignette(popupKey.current++);
@@ -2506,7 +2565,18 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     later(() => addPopup(event.actorId, firedProcs[0], "proc"), 180);
                 }
                 if (anySynergy && event.actorSide === "player") showBanner("SYNERGY", "effective", 850 / speed);
-                else if (bestEffect === "super") { showBanner("Super effective!", "effective", 900 / speed); playPetSfx("superEffective"); }
+                else if (bestEffect === "super") {
+                    showBanner("Super effective!", "effective", 900 / speed);
+                    playPetSfx("superEffective");
+                    // "The screen practically vibrates with that classic
+                    // super-effective energy" — the type win is a physical
+                    // event, not a caption: a harder, longer shake on top of
+                    // the contact one.
+                    if (!reducedMotion) {
+                        fxRef.current.shakeUntil = Math.max(fxRef.current.shakeUntil, performance.now() + 430);
+                        fxRef.current.shakeAmp = Math.max(fxRef.current.shakeAmp, 0.3);
+                    }
+                }
                 else if (bestEffect === "weak") showBanner("Not very effective…", "weak", 900 / speed);
                 if (anyKo) later(() => { showBanner("KO!", "ko", 900 / speed); playPetSfx("ko"); }, 220);
                 if (event.overexerted) later(() => addPopup(event.actorId, "OVEREXERTED!", "overexert"), 300);
@@ -2844,10 +2914,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
                 <ShowdownSetPieceLayer spawns={setPieces} />
-                {/* The arena remembers: persistent strike scars, and the
-                    element residue that lingers after each signature. */}
+                {/* The arena remembers: persistent strike scars, the element
+                    residue after each signature, and the CLIMATE the last
+                    signature left holding the field. */}
                 <ScarLayer scars={scars} />
                 {residues.map((r) => <ResidueFx key={r.key} spawn={r} />)}
+                <ClimateLayer climate={climate} reduced={reducedMotion} />
+                {/* The moveset READS: casting glyph + charge orb during ranged
+                    channels, per-kind accents, streak-throughs and debris. */}
+                <CastGlyphFx beatRef={beatRef} posRef={posRef} />
+                <ChargeOrbFx beatRef={beatRef} posRef={posRef} />
+                {kindFx.map((k) => <KindAccentFx key={k.key} spawn={k} />)}
+                {streakFx.map((s) => <StreakBurstFx key={s.key} spawn={s} />)}
+                {debrisFx.map((d) => <DebrisFx key={d.key} spawn={d} />)}
                 {petBloomEnabled() && !reducedMotion && (
                     <EffectComposer>
                         {/* Punchier glow: the volumetric layer is built on
@@ -2890,8 +2969,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     <div className="bar bottom" />
                 </div>
             )}
-            {/* Full-screen white flash on the signature detonation. */}
-            {flash !== 0 && <div key={flash} className="showdown-flash" />}
+            {/* Full-frame ELEMENT flash on the signature detonation — the
+                whole arena goes the move's color for a beat (the reference
+                whiteout/orange-out), soft radial so the victim stays read. */}
+            {flash !== 0 && (
+                <div
+                    key={flash}
+                    className="showdown-flash element"
+                    style={{ background: `radial-gradient(circle at 50% 45%, ${flashTint}e8 0%, ${flashTint}88 48%, ${flashTint}2e 100%)` }}
+                />
+            )}
             {/* The killing blow's impact frame: white core, manga radial
                 lines bursting from the edges, the world briefly drained of
                 color. Reduced-motion never mounts it. */}
