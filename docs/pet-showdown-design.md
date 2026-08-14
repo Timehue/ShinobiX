@@ -1567,6 +1567,173 @@ to Surface); Principled Volume attribute names are STRING INPUTS
 `fluid.free_all` with noise enabled segfaulted the process — rebuild the
 rig instead of mutating a baked domain.
 
+## Round 44 — the variety pass: weather, Protect, and a kit for every pet (2026-08-14)
+
+Owner: research Temtem and Champions movepools, then rebalance every pet with
+more variety — buffs/debuffs, Protect, weather that actually boosts its
+element.
+
+**Research** ([Champions weather guides], [Temtem technique wiki]): Champions
+runs full VGC weather — sun boosts Fire and weakens Water, rain the mirror,
+each set by a move, fixed duration, *the newest setter overwrites*; Protect
+blocks the turn and gets less reliable when chained. Temtem contributes the
+class split (status techniques that only change board state) and the
+two-condition rule, both of which we already run.
+
+**Why a variety pass was needed, measured**: across all 145 species the
+authored kits are 159 damage techniques against 25 debuffs, 10 DoTs and a
+single absorb — and most pets field only one or two kit moves at all.
+
+**The derived-utility rule.** The standing rule is DERIVE AT SEAL (those same
+jutsus drive the arena, Hollow Gate and the war modes), so no catalog kit was
+edited. Instead every pet is handed one derived utility keyed to its role,
+named for its element, graduating with rarity:
+
+| role | standard/rare | legendary/mythic |
+|---|---|---|
+| defender | protect (Stonewall, Tidewall…) | same |
+| sage | weather (Downpour, Heat Haze…) | same |
+| assassin | buff (Kindle, Swell…) | mark (Cinder Mark…) |
+| tracker | debuff (Undertow, Sandblind…) | slow (Mire, Ashfall…) |
+
+The authored kit keeps its first three techniques, so the deck is exactly the
+size it was. Result: 136 of 140 sealed species gained a tactical option, and
+the kind spread went from damage-dominant to protect 36 / weather 33 /
+debuff 65 / mark 27 / slow 25 / buff 31 / heal 31 / barrier 28.
+
+**Weather** (`SHOWDOWN_WEATHER_*`): a setter turns the arena to the caster's
+element for 4 rounds, boosting that element ×1.18 and dampening the element
+that counters it ×0.88 — deliberately under Pokémon's ±50% because our wheel
+already swings 1.5/0.75 and STAB adds 1.15 on top. The neutral basic is
+weather-proof, the newest setter overwrites, and the standing weather drives
+the HUD chip *and* the arena's visual climate — the system built in round 39
+finally has a mechanic behind it.
+
+**Protect**: a full block of the round in the guard priority bracket, priced
+like control. Chaining fails outright (a `protectSpent` marker), and last
+round's block is cleared at the top of the next — a protect that outlived its
+round would keep blocking through the very round its re-cast was denied.
+
+**Balance.** Handing everyone a utility turn re-weighted the elements (Earth
+fell to 40.7%, Wind rose to 56.2%), so ELEMENT_DAMAGE_MULT was re-centred
+(Fire 1.11→1.07, Wind 1.11→1.04, Earth 0.84→0.95). Exempting the four
+override kits also measured as a straight power bump — Armored Polar Bear and
+Abyssal Oni Hound cleared the 85% hard band — so the rule is uniform, no
+exceptions. Final: elements 48.5–51.5, roles 46.4–53.9, pace 8.8 rounds, 0%
+unresolved, training relevance 91–98%, rarity ladder 87.5/82.5/85, CI ratchet
+green.
+
+**Regression fixed in the same round**: round 38's "living idle" (breaking the
+idle loop with the rig's `idle_2` take every ~9s) visibly deformed models —
+owner-reported on Forest Hawk. `idle_2` is not a universal alternate idle; on
+several rigs it is a rear-up/wings-out pose authored for another context,
+which is the same reason `combatClip` already refuses it for quadruped
+casting. Removed. Species personality still comes from the procedural
+hero-pose layer, which is rig-safe.
+
+Bench: `?lineup=a,b,c,d,e` picks pool indices so any role — and therefore any
+derived utility — is reachable.
+
+**The authored kits, re-cut to the new rule.** The eight hand-authored
+`SHOWDOWN_KIT_OVERRIDES` species pre-date the variety pass and were still
+written as four techniques plus a signature — so the slice-to-three was
+silently dropping their fourth, and several now duplicated the very utility
+their role receives. Each is re-cut to three non-overlapping techniques:
+
+| species | before | after | what changed |
+|---|---|---|---|
+| Abyssal Oni Hound | 85.2% | 51.9% | two heavy crushes → one crush, a plain hit and sustain |
+| Worldstorm Dragon | 29.6% | 59.3% | its dropped 168-power stun restored; redundant mark retired |
+| Stormgod Raijin | 37.0% | 59.3% | same repair, priced *below* the Dragon (its statline does more) |
+| Tempest Pegasus | 63.2% | 51.7% | Death Mark retired (assassins derive a mark); Lacerate returns |
+| Storm Wyvern | 62.1% | 64.4% | Arc Fang trimmed |
+| Armored Polar Bear | 62.1% | 62.1% | list trimmed to three; numbers held |
+| Storm Lion | 54.0% | 55.2% | list trimmed to three; numbers held |
+| Storm Roc | 52.9% | 54.0% | list trimmed to three; numbers held |
+
+Every override species now sits inside the 25–75% comfort band. Aggregates
+after the surgery: elements 48.3–52.0, roles 46.5–53.8, pace 8.8 rounds, 0%
+unresolved, CI ratchet green. The five remaining comfort outliers are all
+LOW-side non-override species (Umbra Fox 19.5, Ironback Turtle and Bristle
+Boar 21.8, Turtle Duck 22.2, Ember Mole 23.1), inside the 15–85 hard band and
+within the outlier budget — the next kit-surgery candidates.
+
+Analyzer gained `--focus "Name,Name"`: kit surgery needs the exact number for
+the species being edited, not just the top and bottom ten.
+
+## Round 46 — the structural audit: every kit, every kind, every effect (2026-08-14)
+
+Owner: fix the outliers, then check the balance AND the moveset of every pet
+so they're properly done like Temtem/Champions, make sure every move has a
+real visual effect, and use Blender again.
+
+**The audit tool** (`scripts/showdown-kit-audit.mjs`). The win-rate analyzer
+says *whether* a species is off; it cannot say *why*, so every surgery so far
+began with a manual autopsy. This does that autopsy for all 140 species at
+once, flagging violations of design invariants both reference games hold:
+a pet must be able to threaten damage on round one; a kit needs distinct
+tools, not two of one; control costs real stamina; a kit must have three real
+options; STAB must be reachable.
+
+**First run: 123 of 140 species carried a structural fault.** Three systemic
+faults, not 140 individual ones:
+
+1. **`noLiveDamage` — 119 species.** Most catalog kits carry exactly one
+   damaging technique, and `promoteHeavy` was promoting it to a *held*
+   haymaker — so 85% of the roster opened every fight with nothing but the
+   neutral jab. That was diagnosed once as "the Tempest Pegasus disease" and
+   was never recognised as roster-wide. The haymaker is now only promoted
+   when something else can still swing this round.
+2. **`freeControl` — 51 species.** Techniques the catalog authored at power 0
+   price at the 10-EN stamina floor: persistent disruption for the cost of a
+   breath. This was the exact engine behind the four HIGH legendaries removed
+   by hand in round 28 — it was still live on a third of the roster. Unpriced
+   utility now takes `SHOWDOWN_UTILITY_POWER_FLOOR`.
+3. **`dupKind` — 25 species.** The derived utility duplicating an authored
+   kind. `derivedUtilityFor` now takes the authored kinds and falls through to
+   the next family in its role.
+
+After the three fixes: **0 of 140 species carry a structural flag.**
+
+**Outliers, and what they really were.** With the systemic fixes the five
+low outliers lifted on their own (Umbra Fox 19.5→32.2, Bristle Boar
+21.8→37.4, Ironback Turtle 21.8→34.7, Turtle Duck 22.2, Ember Mole 23.1→25.2)
+and violations fell 5 → 1. The remainder needed real diagnosis:
+
+- **Eclipse Kitsune 14.8%** — the only mythic the catalog never gave an
+  authored kit: one 92-power attack behind three setup slots. Given a proper
+  mythic kit… which made it **worse (3.7%)**, because the second blade was a
+  `wound` — a PHYSICAL kind on a special attacker (spAtk 80 vs atk 69), so it
+  rolled the wrong stat at a 0.82 multiplier. Both blades made `damage`:
+  **33.3%**. Kind chooses class; class chooses the stat.
+- That autopsy also exposed a roster-wide trap: **cost scales with power
+  while the stamina pool scales with BULK**, so a glass caster can be handed
+  a technique it can never afford (Kitsune: pool 66, haymaker 78 — every cast
+  an overdraft into HP chip and a winded round). `SHOWDOWN_COST_MAX` assumed
+  the smallest pool was 88, which the pool-scale pass made stale. Nothing may
+  now cost more than `SHOWDOWN_COST_POOL_FRACTION` of a full pool.
+- **Turtle Duck 22.2%** — a mythic with legendary stats *and* a weaker kit
+  than the legendary it mirrors (132 power against Storm Roc's 149). Authored
+  from its own catalog list, whose tempest crush was never being fielded:
+  **44.4%**.
+
+**Final: ZERO band violations** — the best the mode has measured. Elements
+48.5–52.6, roles 46.6–53.8, pace 7.8 rounds, 0% unresolved, ratchet green.
+
+**Visual coverage.** Censused every kind that appears in any sealed kit (23)
+against the accent table: `burn` and `freeze` had none. Burn sheds embers
+(drip, fire-tinted), freeze encases (dome). Every kind in the game now has an
+accent.
+
+**Blender, second pass**: the KO detonation (`fx/burst/`, 27 frames, 82 KB) —
+a Mantaflow fire-smoke burst, fuel keyframed off after 8 frames so it blooms
+and dies instead of chimneying. Two lessons cost real time: EEVEE's default
+volumetric tile size averages a dense fireball into a pale smudge (tile 2 +
+128 samples fixed it), and Blackbody Intensity renders nothing without the
+**Temperature** input (~3400K). Wired under the KO flash — and `spawnFlipbook`
+gained `normalBlend`, because additive erases a smoke body (round 42's lesson,
+re-learned on a different layer).
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified

@@ -54,6 +54,14 @@ import {
     SHOWDOWN_SYNERGY_MULT,
     SHOWDOWN_STAB_MULT,
     SHOWDOWN_MAX_STATUSES,
+    SHOWDOWN_WEATHER_ROUNDS,
+    SHOWDOWN_WEATHER_BOOST,
+    SHOWDOWN_WEATHER_DAMPEN,
+    SHOWDOWN_PROTECT_ROUNDS,
+    SHOWDOWN_UTILITY_POWER_FLOOR,
+    SHOWDOWN_COST_POOL_FRACTION,
+    SHOWDOWN_COST_MIN,
+    type ShowdownWeather,
     SHOWDOWN_STATUS_CANCELS,
     SHOWDOWN_TURN_CAP,
     type ShowdownJudgeReason,
@@ -210,6 +218,9 @@ export interface ShowdownSession {
     /** Endpoint-maintained epoch-ms deadline for the CURRENT round's orders.
      *  Only meaningful while `pvp`; the engine ignores it entirely. */
     turnDeadlineAt?: number;
+    /** Standing arena weather — set by a weather technique, overwritten by
+     *  the next one, expired at the top of the round after . */
+    weather?: ShowdownWeather;
     enemyTeamName: string;
     player: ShowdownPet[];
     enemy: ShowdownPet[];
@@ -285,6 +296,8 @@ export function moveStaminaCost(power: number, kind = 'damage'): number {
     // power — a stolen turn or an undone round of damage outvalues most hits.
     if (CONTROL_KINDS.has(kind)) return Math.max(base, SHOWDOWN_COST_CONTROL_FLOOR);
     if (SUSTAIN_KINDS.has(kind)) return Math.max(base, SHOWDOWN_COST_SUSTAIN_FLOOR);
+    // A blocked round is a round of damage undone — priced with control.
+    if (kind === 'protect') return Math.max(base, SHOWDOWN_COST_CONTROL_FLOOR);
     return base;
 }
 
@@ -300,6 +313,8 @@ const KNOWN_KINDS = new Set([
     'damage', 'buff', 'heal', 'debuff', 'dot', 'move', 'barrier', 'movelock', 'lifesteal',
     'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark',
     'slow', 'haste', 'taunt', 'push', 'pull',
+    // The variety pass: the arena-state setter and the hard block.
+    'weather', 'protect',
 ]);
 
 /*
@@ -338,6 +353,11 @@ export const KIND_FX: Record<string, KindFx> = {
     absorb:    { mult: 0,    rounds: 2, store: 'shield', blurb: 'Absorbs incoming damage' },
     taunt:     { mult: 0,    rounds: 1, blurb: 'Draws the foes\' attacks to you' },
     heal:      { mult: 0,    rounds: 0, blurb: 'Restores HP' },
+    // Arena-state setter: no damage, no condition — it rewrites the board.
+    weather:   { mult: 0,    rounds: 0, blurb: 'Turns the arena to your element' },
+    // The hard block. Its 'protect' condition is consumed by the first hit it
+    // eats; leaning on it two rounds running simply fails.
+    protect:   { mult: 0,    rounds: 1, blurb: 'Blocks all damage this round' },
 };
 
 /**
@@ -503,6 +523,10 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
 export function movePriority(power: number, kind: string): number {
     if (kind === 'guard') return SHOWDOWN_PRIORITY_GUARD;
     if (kind === 'rest') return SHOWDOWN_PRIORITY_REST;
+    // A block that resolved AFTER the hit it was meant to eat would be a
+    // dead turn — Protect takes the guard bracket, like every game that has
+    // one. Weather is ordinary setup tempo and takes no bracket at all.
+    if (kind === 'protect') return SHOWDOWN_PRIORITY_GUARD;
     if (power > 220) return SHOWDOWN_PRIORITY_HEAVY;
     if (power > 0 && power <= 80) return SHOWDOWN_PRIORITY_LIGHT;
     return SHOWDOWN_PRIORITY_NORMAL;
@@ -526,12 +550,22 @@ export function promoteHeavy(moves: ShowdownMove[], rarity: string): ShowdownMov
     // starter line) carry kits of barrier + heal only, so they have no eligible
     // kit move — before this guard their basic was promoted and they opened
     // every battle with no attack available at all.
+    let eligible = 0;
     for (let i = 1; i < moves.length; i++) {
         const m = moves[i];
         if (!HEAVY_ELIGIBLE_KINDS.has(m.kind) || m.power <= 0) continue;
+        eligible += 1;
         if (bestIdx < 0 || m.power > moves[bestIdx].power) bestIdx = i;
     }
     if (bestIdx < 0) return moves;
+    // A kit needs a LIVE attack, not only a held one. Most catalog species
+    // carry exactly one damaging technique, and promoting it left 119 of 140
+    // species opening every fight with nothing but the neutral jab — the
+    // Tempest Pegasus disease, at roster scale. Champions and Temtem both give
+    // a mon several live attacking options and reserve the charge for one of
+    // them; the haymaker is only promoted when something else can still swing
+    // this round.
+    if (eligible < 2) return moves;
     const top = moves[bestIdx];
     const power = Math.min(
         petJutsuPowerCeil(rarity),
@@ -644,72 +678,125 @@ function synthesizedSignature(pet: { element?: string; name?: string }, rarity: 
  * setups, and a lifesteal sustain valve.
  */
 const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number; kind: string; signature?: boolean }>> = {
-    'mythic-1': [   // Worldstorm Dragon — Lightning assassin
+    /*
+     * Authored kits, re-cut for the round-44 variety rule (2026-08-14).
+     *
+     * Two structural facts drove this pass. First, every pet — override kits
+     * included — is now handed one DERIVED utility and the authored list is
+     * sliced to THREE, so a fourth authored technique was being silently
+     * dropped: both Lightning mythics were quietly losing their 168-172 power
+     * stun finisher, which is exactly why they measured 29.6% and 37.0%.
+     * Second, several kits now duplicated their own derived utility (a
+     * legendary/mythic assassin already gets `mark`, so an authored mark was a
+     * wasted slot). Each kit is therefore cut to three techniques that do not
+     * overlap the utility its role receives.
+     *
+     * Measured before this pass: Worldstorm Dragon 29.6 · Stormgod Raijin 37.0
+     * · Storm Roc 52.9 · Storm Lion 54.0 · Armored Polar Bear 62.1 · Storm
+     * Wyvern 62.1 · Tempest Pegasus 63.2 · Abyssal Oni Hound 85.2.
+     */
+    'mythic-0': [   // Eclipse Kitsune — Wind sage, the flagship kitsune and the
+                    // only mythic the catalog never gave an authored kit. It
+                    // fielded ONE 92-power attack behind three setup slots
+                    // (buff, barrier, derived weather) on the thinnest stamina
+                    // pool of its tier and measured 14.8% — under the hard
+                    // band. It keeps its identity (the aegis, the sage's sky)
+                    // and gains a second live blade so it can actually close.
+        // Both blades are `damage` ON PURPOSE: the kind decides the class, and
+        // this is a SPECIAL attacker (spAtk 80 vs atk 69). A `wound` second
+        // blade read thematically but rolled the physical axis at a 0.82
+        // multiplier — the wrong stat and a penalty on top, which is how a
+        // 148/126 kit measured WORSE (3.7%) than the 92-power kit it replaced.
+        { name: 'Eclipse Fang', power: 132, kind: 'damage' },
+        { name: 'Moonfire Lash', power: 104, kind: 'damage' },
+        { name: 'Lunar Aegis', power: 96, kind: 'barrier' },
+        { name: 'Lunar Eclipse: Ninetail Requiem', power: 300, kind: 'damage', signature: true },
+    ],
+    'mythic-1': [   // Worldstorm Dragon — Lightning assassin. Its stun is the
+                    // finisher the tier is built around; the authored mark was
+                    // dropped because the derived assassin utility IS a mark.
         { name: 'Stormfang Dive', power: 138, kind: 'crush' },
-        { name: 'Static Brand', power: 96, kind: 'mark' },
         { name: 'Skybreaker Bolt', power: 168, kind: 'stun' },
+        { name: 'Thunderhead Rake', power: 124, kind: 'damage' },
         { name: 'Worldstorm Requiem', power: 300, kind: 'damage', signature: true },
     ],
-    'mythic-4': [   // Abyssal Oni Hound — Earth assassin
-        { name: 'Abyssal Rend', power: 142, kind: 'crush' },
-        { name: 'Graveearth Jaws', power: 150, kind: 'crush' },
-        { name: 'Hungering Maw', power: 128, kind: 'lifesteal' },
-        { name: 'Oni Gate Requiem', power: 300, kind: 'lifesteal', signature: true },
+    'mythic-4': [   // Abyssal Oni Hound — Earth assassin, 85.2% and the only
+                    // species over the hard band. Two heavy crushes on a mythic
+                    // assassin frame was simply the best kit in the game; the
+                    // pair comes down and the third slot becomes sustain rather
+                    // than a third way to hit.
+        { name: 'Abyssal Rend', power: 118, kind: 'crush' },
+        { name: 'Graveearth Jaws', power: 112, kind: 'damage' },
+        { name: 'Hungering Maw', power: 104, kind: 'lifesteal' },
+        { name: 'Oni Gate Requiem', power: 300, kind: 'damage', signature: true },
     ],
-    'mythic-8': [   // Stormgod Raijin — Lightning assassin
-        { name: 'Raijin Claw', power: 140, kind: 'crush' },
-        { name: 'Thundergod Brand', power: 98, kind: 'mark' },
-        { name: 'Heavenly Piercer', power: 172, kind: 'stun' },
+    'mythic-7': [   // Turtle Duck — Wind tracker. A mythic carrying legendary
+                    // stats (698 hp / 86 atk against Storm Roc's 715 / 87) AND
+                    // a weaker kit than that legendary: its best technique was
+                    // 132 power to the Roc's 149, so in a bracket of mythics it
+                    // measured 22.2%. Its catalog list is deep and thematic —
+                    // the tempest crush at the bottom of it is the technique
+                    // this species should have been fielding all along.
+        { name: 'Heavenfall: Crow Tempest', power: 152, kind: 'crush' },
+        { name: 'Gale Slash', power: 118, kind: 'damage' },
+        { name: "Heaven's Vortex", power: 96, kind: 'confuse' },
+        { name: 'Tengu Sky Requiem', power: 300, kind: 'damage', signature: true },
+    ],
+    'mythic-8': [   // Stormgod Raijin — Lightning assassin, same repair as its
+                    // sibling, priced DOWN from it: restoring the piercer at
+                    // its authored 172/140 took Raijin to 74.1% against
+                    // Worldstorm Dragon's 55.6% on a near-identical kit, so the
+                    // statline underneath is doing more work. Its numbers sit
+                    // below the Dragon's to land the pair together.
+        { name: 'Raijin Claw', power: 126, kind: 'crush' },
+        { name: 'Heavenly Piercer', power: 152, kind: 'stun' },
+        { name: 'Thundergod Arc', power: 112, kind: 'damage' },
         { name: 'Stormgod Judgement', power: 300, kind: 'damage', signature: true },
     ],
 
     /*
-     * The legendary comfort-band outliers (measured 2026-08-12, 3-seed sweep).
-     * The four HIGH species shared one engine: a power-0 `slow` that prices at
-     * the 10-EN cost floor — a persistent control effect at jab price — spammed
-     * from a 480-511 HP statline. Their surgery trades the free disruption for
-     * honestly-priced tools and keeps each species' identity. The one LOW
-     * species (Tempest Pegasus, 19.5%) had the opposite disease: BOTH of its
-     * damage techniques carried holds, so an assassin statline spent round one
-     * poking with the neutral jab; it gets a live blade and a real mark price.
+     * The legendary comfort-band outliers (first surgery 2026-08-12). The four
+     * HIGH species shared one engine: a power-0 `slow` that priced at the 10-EN
+     * cost floor — persistent control at jab price — spammed from a 480-511 HP
+     * statline. That surgery held; these kits are only re-cut to three so the
+     * derived utility no longer displaces an authored technique.
      */
-    'legendary-8': [    // Storm Lion — Lightning defender, 77.0% → the bulwark keeps its wall, loses the spam
+    'legendary-8': [    // Storm Lion — Lightning defender. Keeps wall + lash;
+                        // the derived utility is Protect, so the barrier stays
+                        // as its cheap between-rounds cover.
         { name: 'Storm Lion Maul', power: 118, kind: 'crush' },
         { name: 'Static Lash', power: 96, kind: 'damage' },
         { name: 'Roaring Bulwark', power: 90, kind: 'barrier' },
-        { name: 'Thunderbreak', power: 77, kind: 'stun' },
         { name: "Heaven's Sundering", power: 300, kind: 'damage', signature: true },
     ],
-    'legendary-13': [   // Armored Polar Bear — Fire tracker, 83.9% → armor reads as SHIELD, not free slows
-        // Second pass: at shield 85 the Bear just traded one crutch for
-        // another (a defender-grade absorb on a 498-HP frame held it at
-        // 82.8%). The plate stays for identity, sized as a moment of cover
-        // rather than a second health bar, and the claw comes down a notch.
+    'legendary-13': [   // Armored Polar Bear — Fire tracker. The plate is a
+                        // moment of cover, not a second health bar (second-pass
+                        // finding); the derived tracker utility is the slow.
         { name: 'Ember Claw', power: 96, kind: 'damage' },
         { name: 'Pyre Burst', power: 68, kind: 'burn' },
         { name: 'Glacier Guard', power: 58, kind: 'shield' },
-        { name: 'Force Pulse', power: 84, kind: 'push' },
         { name: 'Inferno Communion', power: 300, kind: 'damage', signature: true },
     ],
-    'legendary-21': [   // Storm Roc — Wind tracker, 80.5% → talons over shackles
+    'legendary-21': [   // Storm Roc — Wind tracker, talons over shackles.
         { name: 'Gale Talons', power: 110, kind: 'damage' },
         { name: 'Skyshear', power: 85, kind: 'wound' },
         { name: 'Roc Screech', power: 70, kind: 'debuff' },
-        { name: 'Force Pulse', power: 85, kind: 'push' },
         { name: 'Skytalon: Tempest Dive', power: 300, kind: 'damage', signature: true },
     ],
-    'legendary-22': [   // Tempest Pegasus — Wind assassin, 19.5% → a blade it can actually draw on round one
+    'legendary-22': [   // Tempest Pegasus — Wind assassin. Death Mark retired:
+                        // a legendary assassin's derived utility is already a
+                        // mark, so the slot goes back to the blade that fixed
+                        // its round-one problem in the first place.
         { name: 'Wind Slash', power: 96, kind: 'damage' },
         { name: 'Skydance Blades', power: 118, kind: 'damage' },
-        { name: 'Death Mark', power: 60, kind: 'mark' },
         { name: 'Lacerate', power: 87, kind: 'wound' },
-        { name: 'Tempest Sundering', power: 300, kind: 'damage', signature: true },
+        { name: 'Skydancer: Gale Requiem', power: 300, kind: 'damage', signature: true },
     ],
-    'legendary-25': [   // Storm Wyvern — Lightning tracker, 82.8% → the storm burns, it does not stall
-        { name: 'Arc Fang', power: 112, kind: 'damage' },
+    'legendary-25': [   // Storm Wyvern — Lightning tracker: the storm burns, it
+                        // does not stall.
+        { name: 'Arc Fang', power: 104, kind: 'damage' },
         { name: 'Storm Coil', power: 80, kind: 'dot' },
         { name: 'Force Pulse', power: 89, kind: 'push' },
-        { name: 'Thunderbreak', power: 74, kind: 'stun' },
         { name: "Heaven's Sundering", power: 300, kind: 'damage', signature: true },
     ],
 };
@@ -748,8 +835,17 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const powerCeil = petJutsuPowerCeil(rarity);
 
     const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }): ShowdownMove => {
-        const power = clampInt(Math.round((Number(j.power) || 0) * kitNorm), 0, powerCeil, 0);
-        const kind = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
+        const kindRaw = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
+        const authored = Number(j.power) || 0;
+        // A control/utility technique authored at power 0 prices at the 10-EN
+        // stamina floor — persistent disruption for the cost of a breath. That
+        // was the engine behind the four HIGH legendaries (round 28) and it is
+        // still live on 51 species; on a fragile frame the same slot is simply
+        // dead weight. Temtem prices control at real stamina, so an unpriced
+        // utility gets a floor before anything else is derived from it.
+        const powerIn = authored <= 0 && kindRaw !== 'damage' ? SHOWDOWN_UTILITY_POWER_FLOOR : authored;
+        const power = clampInt(Math.round(powerIn * kitNorm), 0, powerCeil, 0);
+        const kind = kindRaw;
         const cls = moveClass(kind);
         // Kit techniques are the pet's own element (catalog jutsus carry
         // none of their own) — which is what makes STAB and the synergy
@@ -778,10 +874,27 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const sigRaw = named.find((j) => j.signature === true);
     // The 'move' filter MUST run before the slice, or every rare/legendary
     // loses a kit slot (and its element move) to a mobility entry.
+    // The authored kit keeps its first THREE techniques and every pet is
+    // handed one derived utility (see derivedUtilityFor) — the deck stays the
+    // size it was while every species gains a tactical option the catalog
+    // never gave it.
+    //
+    // Override kits take the utility TOO. Exempting them (they are authored
+    // deliberately, so it looked respectful) measured as a straight power
+    // bump: every other species now spends a turn on utility while the four
+    // override species kept four pure combat slots, and Armored Polar Bear
+    // and Abyssal Oni Hound promptly cleared the 85% hard band. Uniform rule,
+    // no exceptions.
+    const authoredKinds = named
+        .filter((j) => j !== sigRaw && String(j.kind) !== 'move')
+        .slice(0, 3)
+        .map((j) => String(j.kind));
+    const utility = derivedUtilityFor(String(raw.role ?? 'tracker'), rarity, element, authoredKinds);
     const kit = named
         .filter((j) => j !== sigRaw && String(j.kind) !== 'move')
-        .slice(0, 4)
+        .slice(0, utility ? 3 : 4)
         .map(sealMove);
+    if (utility) kit.push(sealMove({ name: utility.name, power: utility.power, kind: utility.kind, signature: false }));
 
     const synth = synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
     const signatureMove: ShowdownMove = sigRaw
@@ -861,9 +974,23 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
             consumable: { id: consumableDef.id, name: consumableDef.name, ...petConsumableCharges(raw) },
         } : {}),
         statuses: [],
-        moves: promoteHeavy([basicStrike(), ...kit], rarity),
+        // Costs are clamped against THIS pet's own pool. Cost scales with
+        // power while the stamina pool scales with BULK, so a glass caster can
+        // be handed a technique it can never afford: Eclipse Kitsune (pool 66)
+        // carried a promoted haymaker costing 78 — unusable except by
+        // overdrafting into the HP chip and a winded round, every single time.
+        // It measured 3.7%. SHOWDOWN_COST_MAX assumed the smallest pool in the
+        // catalog was 88, which the pool-scale pass made stale. Nothing in a
+        // kit may cost more than SHOWDOWN_COST_POOL_FRACTION of a full pool.
+        moves: affordable(promoteHeavy([basicStrike(), ...kit], rarity), maxStamina),
         signatureMove: { ...signatureMove, cost: 0 },
     };
+}
+
+/** Clamp every technique's cost so a full pool can pay for it. */
+function affordable(moves: ShowdownMove[], maxStamina: number): ShowdownMove[] {
+    const ceiling = Math.max(SHOWDOWN_COST_MIN, Math.round(maxStamina * SHOWDOWN_COST_POOL_FRACTION));
+    return moves.map((m) => (m.cost > ceiling ? { ...m, cost: ceiling } : m));
 }
 
 export function createShowdownSession(input: {
@@ -998,6 +1125,104 @@ function elementMult(attacker: string, defender: string): number {
     if (SHOWDOWN_ELEMENT_BEATS[attacker] === defender) return SHOWDOWN_ELEMENT_ADVANTAGE;
     if (SHOWDOWN_ELEMENT_BEATS[defender] === attacker) return SHOWDOWN_ELEMENT_DISADVANTAGE;
     return 1;
+}
+
+/** The element that COUNTERS this one (the K where K beats E) — the wheel run
+ *  backwards. Sun boosts Fire and weakens Water because Water counters Fire;
+ *  our weather uses the same relationship. */
+export function elementCounteredBy(element: string): string | undefined {
+    for (const [beater, beaten] of Object.entries(SHOWDOWN_ELEMENT_BEATS)) {
+        if (beaten === element) return beater;
+    }
+    return undefined;
+}
+
+/** Weather's damage multiplier for a move of `offenseElement`. Neutral moves
+ *  (the basic jab) are deliberately weather-proof — the same safe out they are
+ *  against the wheel. */
+export function weatherDamageMult(weather: ShowdownWeather | undefined, offenseElement: string): number {
+    if (!weather || offenseElement === 'None') return 1;
+    if (offenseElement === weather.element) return SHOWDOWN_WEATHER_BOOST;
+    if (offenseElement === elementCounteredBy(weather.element)) return SHOWDOWN_WEATHER_DAMPEN;
+    return 1;
+}
+
+/** Per-element weather names — the flavour the banner and the deck show. */
+export const WEATHER_NAME: Readonly<Record<string, string>> = Object.freeze({
+    Fire: 'Heat Haze',
+    Water: 'Downpour',
+    Wind: 'Gale Front',
+    Earth: 'Duststorm',
+    Lightning: 'Thunderhead',
+});
+
+/*
+ * ── The variety pass ────────────────────────────────────────────────────────
+ * The catalog is damage-heavy by construction: across all 145 species the
+ * authored kits are 159 damage moves against 25 debuffs, 10 DoTs and a single
+ * absorb, and most pets field only one or two kit techniques at all. Fights
+ * therefore collapsed into trading hits with an occasional shield.
+ *
+ * Rather than rewrite 145 catalog kits — the standing rule is DERIVE AT SEAL,
+ * because those same jutsus drive the arena, Hollow Gate and the war modes —
+ * every pet is handed ONE derived utility technique keyed to its role, named
+ * for its element, and priced by its rarity. The authored kit keeps its first
+ * three techniques, so the deck is exactly the size it was.
+ *
+ * Role reading: defenders block, sages command the sky, assassins sharpen,
+ * trackers cripple. Legendary and mythic tiers graduate to the harder version
+ * of their family (mark instead of buff, slow instead of debuff), so rarity
+ * shows up as a tactical upgrade rather than only a bigger number.
+ */
+const UTILITY_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.freeze({
+    protect: { Fire: 'Ember Bulwark', Water: 'Tidewall', Wind: 'Gale Bulwark', Earth: 'Stonewall', Lightning: 'Storm Bulwark' },
+    buff: { Fire: 'Kindle', Water: 'Swell', Wind: 'Updraft', Earth: 'Bedrock Stance', Lightning: 'Overcharge' },
+    mark: { Fire: 'Cinder Mark', Water: 'Deepmark', Wind: 'Windmark', Earth: 'Fault Line', Lightning: 'Arc Mark' },
+    debuff: { Fire: 'Searing Glare', Water: 'Undertow', Wind: 'Windshear', Earth: 'Sandblind', Lightning: 'Static Snare' },
+    slow: { Fire: 'Ashfall', Water: 'Mire', Wind: 'Dead Air', Earth: 'Quagmire', Lightning: 'Grounding Field' },
+    barrier: { Fire: 'Ember Ward', Water: 'Tide Ward', Wind: 'Gale Ward', Earth: 'Stone Ward', Lightning: 'Storm Ward' },
+    heal: { Fire: 'Warm Mend', Water: 'Tidal Mend', Wind: 'Zephyr Mend', Earth: 'Deeproot Mend', Lightning: 'Charge Mend' },
+    haste: { Fire: 'Emberstep', Water: 'Tidestep', Wind: 'Windstep', Earth: 'Stonestep', Lightning: 'Arcstep' },
+    wound: { Fire: 'Scorch Rend', Water: 'Riptide Rend', Wind: 'Galecut', Earth: 'Gravel Rend', Lightning: 'Arc Rend' },
+});
+
+const HIGH_TIERS: ReadonlySet<string> = new Set(['legendary', 'mythic']);
+
+/** The derived utility for a pet: its kind, its flavour name and its power. */
+export function derivedUtilityFor(role: string, rarity: string, element: string, authoredKinds: readonly string[] = []): { name: string; kind: string; power: number } | null {
+    if (element === 'None' || !hasOwn(WEATHER_NAME, element)) return null;
+    const high = HIGH_TIERS.has(rarity);
+    let kind = role === 'defender' ? 'protect'
+        : role === 'sage' ? 'weather'
+        : role === 'assassin' ? (high ? 'mark' : 'buff')
+        : (high ? 'slow' : 'debuff');
+    // Never hand a pet a second copy of something it already carries: an
+    // authored mark plus a derived mark is a wasted slot (25 species did
+    // exactly this). Fall back through the same role's other family, then to
+    // the universally useful ones.
+    if (authoredKinds.includes(kind)) {
+        const alternates = role === 'defender' ? ['barrier', 'protect', 'buff']
+            : role === 'sage' ? ['heal', 'weather', 'buff']
+            : role === 'assassin' ? (high ? ['buff', 'mark', 'haste'] : ['mark', 'buff', 'haste'])
+            : (high ? ['debuff', 'slow', 'wound'] : ['slow', 'debuff', 'wound']);
+        kind = alternates.find((k) => !authoredKinds.includes(k)) ?? kind;
+    }
+    const name = kind === 'weather'
+        ? WEATHER_NAME[element]
+        : (UTILITY_NAMES[kind]?.[element] ?? 'Focus');
+    // Power on a status technique buys its stamina cost and its magnitude, not
+    // a hit. Kept modest so a utility turn is a real tempo trade.
+    const power = kind === 'protect' ? 90
+        : kind === 'weather' ? 70
+        : kind === 'mark' ? 95
+        : kind === 'slow' ? 105
+        : kind === 'buff' ? 120
+        : kind === 'barrier' ? 100
+        : kind === 'heal' ? 110
+        : kind === 'haste' ? 105
+        : kind === 'wound' ? 100
+        : 110;
+    return { name, kind, power };
 }
 
 // ─── Round resolution ────────────────────────────────────────────────────────
@@ -1256,10 +1481,16 @@ const RARITY_DAMAGE_TIER: Record<string, number> = {
  * multiplier AND the lowest damage taken, so it hit hardest and was hit least.
  * Result: elements now span 47.6-53.4% (was 44.0-60.6%). */
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    Fire: 1.11,
+    // Re-centred for the variety pass (round 44). Handing every species a
+    // derived utility turn re-weighted the elements: the extra setup round
+    // rewards elements that already hit hard and punishes the one that does
+    // not, so Earth fell to 40.7% while Wind climbed to 56.2% (measured, 3
+    // seeds). Earth is lifted and the two leaders trimmed; the wheel itself
+    // (1.5/0.75) and the weather numbers are untouched.
+    Fire: 1.07,
     Water: 1.11,
-    Wind: 1.11,
-    Earth: 0.84,
+    Wind: 1.04,
+    Earth: 0.95,
     Lightning: 0.97,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
@@ -1290,7 +1521,14 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     const offenseElement = move?.element ?? attacker.element;
     const stab = offenseElement !== 'None' && offenseElement === attacker.element ? SHOWDOWN_STAB_MULT : 1;
     if (stab !== 1) procs?.push('STAB');
-    let mult = elementMult(offenseElement, defender.element) * stab * variance * extraMult
+    // WEATHER: the standing arena state favours its own element and dampens
+    // the element that counters it (sun boosts Fire, weakens Water). Keys off
+    // the MOVE's element like the wheel and STAB, so a neutral basic is
+    // weather-proof — the same "safe out" the jab already is.
+    const weatherMult = weatherDamageMult(session.weather, offenseElement);
+    if (weatherMult > 1) procs?.push('WEATHER');
+    else if (weatherMult < 1) procs?.push('WEATHERED');
+    let mult = elementMult(offenseElement, defender.element) * stab * weatherMult * variance * extraMult
         * tableMult(ROLE_DAMAGE_MULT, attacker.role)
         * tableMult(ELEMENT_DAMAGE_MULT, attacker.element)
         * tableMult(ELEMENT_TAKEN_MULT, defender.element)
@@ -1362,6 +1600,11 @@ const ALLY_KINDS = new Set(['heal']);
  *  and the one nuance on top is the pet's own NEUTRAL jab, which is always a
  *  quick dash-in regardless of who throws it. */
 function deliveryFor(move: Pick<ShowdownMove, 'kind' | 'cls' | 'element'>): 'melee' | 'ranged' | 'self' {
+    // Weather and Protect land on the caster and the board, never across the
+    // lane — they stage in place like every other self cast. (The fighter also
+    // refuses to dash at a target that is itself, so this is the wire being
+    // honest rather than a bug fix.)
+    if (move.kind === 'weather' || move.kind === 'protect') return 'self';
     if (SELF_KINDS.has(move.kind) || ALLY_KINDS.has(move.kind)) return 'self';
     if (move.cls === 'physical' || move.element === 'None') return 'melee';
     return 'ranged';
@@ -1438,6 +1681,19 @@ function executeMove(
             pushConsumableEvent(session, target, 'dodge', reactions);
             return false;
         }
+        // PROTECT: the block eats the hit whole — no damage, no rider, and the
+        // shield holds for the rest of the round (it is a turn-long block, not
+        // a one-hit parry, so a 2v2 focus cannot burn through it with the
+        // first attacker). Reported as a guarded zero so the client narrates
+        // the block instead of silently swallowing the beat.
+        if (target.statuses.some((s) => s.kind === 'protect')) {
+            targets.push({
+                id: target.id, damage: 0, heal: 0, effectiveness: 'neutral',
+                guarded: true, ko: false, applied: 'protect',
+                ...(splash ? { splash: true } : {}),
+            });
+            return false;
+        }
         const guarded = target.guarding;
         // Temtem Synergy, the real thing: the TECHNIQUE declares its partner
         // element (sealed at derivation — the element it beats; wind fans the
@@ -1504,7 +1760,24 @@ function executeMove(
         return true;
     };
 
-    if (SELF_KINDS.has(kind)) {
+    if (kind === 'weather') {
+        // The board-state setter: the arena takes the caster's element for the
+        // next few rounds, overwriting whatever stood before (VGC's rule — the
+        // most recent setter wins). No damage, no condition; the whole value is
+        // the standing multiplier it leaves behind.
+        session.weather = { element: actor.element, until: session.round + SHOWDOWN_WEATHER_ROUNDS - 1 };
+        targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'weather' });
+    } else if (kind === 'protect') {
+        // The hard block. Leaning on it fails: a pet that protected LAST round
+        // gets nothing this round, so it can't be chained into a stall.
+        const chained = actor.statuses.some((s) => s.kind === 'protectSpent');
+        if (!chained) {
+            addStatus(session, actor, 'protect', SHOWDOWN_PROTECT_ROUNDS, 1);
+            targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'protect' });
+        } else {
+            targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'failed' });
+        }
+    } else if (SELF_KINDS.has(kind)) {
         // Self moves: apply the status to the actor. The stored kind comes
         // from storedStatusKind so the engine and the AI cannot disagree.
         const foes = livingOf(session, actorSide === 'player' ? 'enemy' : 'player');
@@ -1661,6 +1934,23 @@ export function resolveShowdownRound(
     if (session.finished) return events;
     session.round += 1;
     events.push({ t: 'roundStart', round: session.round });
+
+    // Weather runs out at the top of the round after its last one. A setter
+    // buys a fixed window, never a permanent board.
+    if (session.weather && session.round > session.weather.until) session.weather = undefined;
+    // The protect chain-break: anyone who held a block LAST round carries a
+    // spent marker into this one, which fails a second consecutive Protect.
+    // Stamped before commands resolve and cleared the round after, so the
+    // window is exactly one round wide.
+    for (const pet of [...session.player, ...session.enemy]) {
+        const hadProtect = pet.statuses.some((s) => s.kind === 'protect');
+        // Last round's block is cleared HERE, not left to the status tick: a
+        // protect that outlived its round would keep blocking through the very
+        // round its own re-cast was denied — a free stall, which is exactly
+        // what the chain rule exists to prevent.
+        pet.statuses = pet.statuses.filter((s) => s.kind !== 'protectSpent' && s.kind !== 'protect');
+        if (hadProtect) pet.statuses.push({ kind: 'protectSpent', rounds: 1, magnitude: 1, bornRound: session.round });
+    }
 
     const commandFor = (pet: ShowdownPet, side: Side): ShowdownCommand => {
         const list = side === 'player' ? playerCommands : enemyCommands;
@@ -1984,6 +2274,11 @@ export function showdownStateView(session: ShowdownSession): ShowdownStateView {
         player: session.player.map(petView),
         enemy: session.enemy.map(petView),
         enemyTeamName: session.enemyTeamName,
+        // The standing board state both sides are fighting over — the HUD chip
+        // and the arena's visual climate read from this.
+        ...(session.weather
+            ? { weather: { element: session.weather.element, roundsLeft: Math.max(0, session.weather.until - session.round + 1) } }
+            : {}),
         // NO turn-order projection rides the wire. Who acts first is learned
         // by WATCHING a round — the read on the opponent's tempo is part of
         // the game, and it is what a speed-trained pet buys. Owner ruling.

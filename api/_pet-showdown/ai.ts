@@ -294,6 +294,23 @@ function choosePetCommand(
                 // The engine never stores a 'heal' status, so a lookup is dead
                 // here — gate on whether anyone actually needs the healing.
                 score = m.power * 0.8 + (worstAllyHp < 0.85 ? 45 : -60);
+            } else if (m.kind === 'weather') {
+                // Setting the sky is an OPENING play: the window has to be
+                // long enough to pay back the lost turn, and re-setting your
+                // own standing weather is pure waste. Worth most when the
+                // caster's own element gets the boost (it always does) and the
+                // fight is young.
+                const standing = session.weather;
+                const mine = standing?.element === pet.element;
+                score = mine ? -120 : 60 + (session.round <= 3 ? 45 : 0) - (session.round >= 10 ? 60 : 0);
+            } else if (m.kind === 'protect') {
+                // A block is worth a turn only against an incoming hit worth
+                // eating: low HP, or a foe sitting on a charged signature.
+                // Chaining it fails outright, so never ask twice.
+                const spent = pet.statuses.some((s) => s.kind === 'protectSpent');
+                const hurt = pet.hp / pet.maxHp;
+                const foeCharged = foes.some((f) => f.meter >= 100);
+                score = spent ? -200 : (hurt < 0.5 ? 70 : -30) + (foeCharged ? 80 : 0);
             } else if (m.kind !== 'damage' && m.kind !== 'crush' && m.kind !== 'lifesteal') {
                 const stored = storedStatusKind(m.kind, session.format, foes.length);
                 const onSelf = SELF_KINDS.has(m.kind);

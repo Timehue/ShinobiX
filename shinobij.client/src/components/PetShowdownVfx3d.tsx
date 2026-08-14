@@ -606,7 +606,13 @@ export interface ClimateState {
     since: number;
 }
 
-export function ClimateLayer({ climate, reduced }: { climate: ClimateState | null; reduced: boolean }) {
+export function ClimateLayer({ element, reduced }: { element: string | null; reduced: boolean }) {
+    // The layer owns its OWN ramp clock: the parent used to hand down a
+    //  timestamp, which meant either a setState inside an effect
+    // (cascading renders) or reading a clock during render (impure). Here the
+    // element is the only input and the fade-in starts when it changes.
+    const sinceRef = useRef(0);
+    const lastElement = useRef<string | null>(null);
     const floorMesh = useRef<THREE.Mesh>(null);
     const floorMat = useRef<THREE.MeshBasicMaterial>(null);
     const light = useRef<THREE.PointLight>(null);
@@ -615,20 +621,24 @@ export function ClimateLayer({ climate, reduced }: { climate: ClimateState | nul
     const COUNT = 12;
     const dot = useMemo(() => dotTexture(), []);
     const params = useMemo(() => {
-        const rand = seededRand((climate?.element.length ?? 1) * 131 + 7);
+        const rand = seededRand((element?.length ?? 1) * 131 + 7);
         return Array.from({ length: COUNT }, () => ({
             angle: rand() * Math.PI * 2,
             r: 2 + rand() * 8,
             speed: 0.15 + rand() * 0.3,
             phase: rand(),
         }));
-    }, [climate?.element]);
-    const style = climate ? RESIDUE_STYLE[climate.element] : undefined;
+    }, [element]);
+    const style = element ? RESIDUE_STYLE[element] : undefined;
     const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
     useFrame((state) => {
         const t = state.clock.elapsedTime;
-        const on = !!climate && !!style;
-        const grow = on ? Math.min(1, (performance.now() - climate.since) / 1400) : 0;
+        if (lastElement.current !== element) {
+            lastElement.current = element;
+            sinceRef.current = performance.now();
+        }
+        const on = !!element && !!style;
+        const grow = on ? Math.min(1, (performance.now() - sinceRef.current) / 1400) : 0;
         if (floorMesh.current && floorMat.current) {
             floorMesh.current.visible = on && !!floorTex;
             if (on && floorTex) {
@@ -642,7 +652,7 @@ export function ClimateLayer({ climate, reduced }: { climate: ClimateState | nul
         }
         if (light.current) {
             light.current.intensity = on ? 2.4 * grow : 0;
-            if (on) light.current.color.set(ELEMENT_GLOW[climate.element] ?? "#ffffff");
+            if (on) light.current.color.set(ELEMENT_GLOW[element] ?? "#ffffff");
         }
         if (points.current && mat.current) {
             const show = on && !reduced;
@@ -708,6 +718,9 @@ const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "rings
     // `movelock` (48 authored) reads as a SNARE: rings clamping inward at the
     // legs with the dust drawn in behind them.
     movelock: "bind",
+    // The sky-setter calls rings UP around the caster; the block domes.
+    weather: "ringsUp",
+    protect: "dome",
     crush: "slam",
     wound: "slash",
     lacerate: "slash",
@@ -718,6 +731,11 @@ const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "rings
     heal: "ringsUp",
     lifesteal: "drip",
     dot: "drip",
+    // Burn lingers like a DoT (embers shedding off the victim) and freeze
+    // encases it — the two kinds the coverage audit found with no accent at
+    // all, both in live use across the roster.
+    burn: "drip",
+    freeze: "dome",
     stun: "stars",
     confuse: "stars",
     mark: "stars",
@@ -948,7 +966,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: stri
                     }
                 }
                 attr.needsUpdate = true;
-                ptsMat.current.color.set(family === "drip" ? "#c084fc" : family === "stars" ? "#ffe86b" : family === "bind" ? "#a5b4fc" : family === "burst" ? glow : "#d8b083");
+                ptsMat.current.color.set(spawn.kind === "burn" ? "#ff9a55" : family === "drip" ? "#c084fc" : family === "stars" ? "#ffe86b" : family === "bind" ? "#a5b4fc" : family === "burst" ? glow : "#d8b083");
                 ptsMat.current.opacity = 0.85 * (t < 0.15 ? t / 0.15 : Math.max(0, (1 - t) / 0.4));
             }
         }
