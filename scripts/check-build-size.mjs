@@ -289,7 +289,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // four rounds, all on the lazy Showdown chunk; entry chunk and initial
 // graph unchanged. Exact product graph 7,429,548 B, leaving ~20 KB of
 // headroom. The scheduled drain remains the legacy coliseum-stack deletion.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_450_000;
+// 2026-08-14: 7.45 -> 7.59 MB. Pet Showdown round 42 — the Blender bake:
+// 84 Mantaflow simulation frames (fx/plume 48, fx/mist 36) at 1-4 KB each
+// after palette compression. Vite inlines assets under 4 KB as data URIs,
+// so these ART bytes land inside the JS metric — exactly as every existing
+// flipbook frame always has. ~130 KB of frames + ~10 KB of wiring, all on
+// the lazy Showdown chunk; entry chunk and initial graph unchanged. Exact
+// product graph 7,569,121 B, leaving ~21 KB of headroom. The scheduled
+// drain remains the legacy coliseum-stack deletion.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_590_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

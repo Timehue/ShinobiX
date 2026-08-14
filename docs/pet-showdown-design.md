@@ -1541,6 +1541,32 @@ Verified on the bench: the zoom-blur strike rush (the whole frame streaks
 into the contact), the ferret engulfed in living shader flame over a
 magma-webbed floor, and the seamless shader wave arcing the flooded arena.
 
+## Round 42 — the Blender bake (2026-08-14)
+
+Tier 4 of the ceiling plan, unblocked by standing up our own Blender-side
+MCP server (the Claude extension ships only the bridge; the addon protocol
+is null-delimited JSON execute/reply, replicated in ~100 lines and launched
+with `blender.exe --python`; the accept loop must swallow Windows socket
+resets or one bad handshake kills the listener).
+
+Two Mantaflow bakes, rendered in EEVEE with transparent film and ingested
+as standard `NNN.png` flipbooks (the loader picks up new folders with no
+code change): `fx/plume/` — 48 frames of simulated fire-smoke (res-112
+domain, flame blackbody at 3400K) at 176 KB total; `fx/mist/` — 36 frames
+of white mist burst at 37 KB. The honest division of labor: sims render
+the SOFT elements (smoke body, mist) where their realism helps; flames and
+water stay procedural where crisp stylization wins. Wired as
+normal-blended SUPER accents — a new `normalBlend` layer flag, because the
+flipbook layers were additive-only and additive erases dark smoke.
+
+Blender gotchas recorded: `bpy.ops` need `temp_override(window/area/
+region)` from timer context; 4.5 names the modifier `FLUID`; a volume-only
+material renders an opaque black surface in EEVEE (link a Transparent BSDF
+to Surface); Principled Volume attribute names are STRING INPUTS
+(`inputs["Temperature Attribute"]`), and the flame grid is `flame`;
+`fluid.free_all` with noise enabled segfaulted the process — rebuild the
+rig instead of mutating a baked domain.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified
