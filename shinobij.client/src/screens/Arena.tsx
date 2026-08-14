@@ -50,11 +50,13 @@ import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
+import { BattlefieldActor } from "../components/BattlefieldActor";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
-import { isImageAvatar } from "../lib/avatar";
+import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { resolveOwnAvatar } from "../lib/own-avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
@@ -713,6 +715,10 @@ export function Arena({
         || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
         || pendingAiProfile?.icon
         || "EN";
+    const playerBattleAvatar = resolveOwnAvatar(character, sharedImages);
+    const opponentBattleSprite = opponentCharacter
+        ? null
+        : battlefieldAiSprite(pendingAiProfile?.id ?? pendingAiProfileId, sharedImages);
     // PvE difficulty curve — scale standard PvE AI enemy stats AND max HP by the
     // band for the ENCOUNTER's level (easy 1-30, medium 31-50, hard 51-90,
     // peer 91+). Excludes real PvP (opponentCharacter), the endless tower
@@ -5907,20 +5913,15 @@ export function Arena({
                                         // ground relocation) so units read as walking, not teleporting. The
                                         // stable key keeps the same DOM node, so CSS transitions a position
                                         // change but never the initial mount.
-                                        <div
+                                        <BattlefieldActor
                                             key={isEnemy ? "enemy-orb" : "player-orb"}
-                                            className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}`}
+                                            side={isEnemy ? "enemy" : "player"}
+                                            label={altText}
+                                            portrait={imgSrc}
+                                            sprite={isEnemy ? opponentBattleSprite : null}
+                                            fallback={altText.slice(0, 2).toUpperCase()}
                                             style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}
-                                        >
-                                            {/* The orb ALWAYS renders so both fighters get the same token
-                                                and standing base. The portrait is what's conditional: with
-                                                no usable art the styled initials fallback shows through
-                                                instead, rather than the fighter dropping to bare text on
-                                                the hex tile (which is what made an art-less AI look
-                                                unstyled next to the player). */}
-                                            <span className="avatar-orb-fallback" aria-hidden="true">{altText.slice(0, 2).toUpperCase()}</span>
-                                            {isImageAvatar(imgSrc) && <img className="tiny-map-avatar" src={imgSrc} alt={altText} fetchPriority="high" />}
-                                        </div>
+                                        />
                                     );
                                 };
                                 // Summoned pet — now a FULL-SIZE actor on its own tile (was a
@@ -5979,7 +5980,7 @@ export function Arena({
                                 };
                                 return (
                                     <>
-                                        {orbForPos(playerPos, false, character.avatarImage ?? "", character.name)}
+                                        {orbForPos(playerPos, false, playerBattleAvatar, character.name)}
                                         {/* Player + enemy HP bars use the same x/y math as orbForPos so
                                             each bar rides its own token. Both are unconditional, like the
                                             orbs themselves — every fighter gets a token, a standing base

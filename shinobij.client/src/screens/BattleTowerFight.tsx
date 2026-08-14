@@ -25,6 +25,9 @@ import {
 } from "../lib/tower-art-manifest";
 import { gameConfirm } from "../components/GameAlert";
 import { CombatInstance } from "../components/CombatInstance";
+import { BattlefieldActor } from "../components/BattlefieldActor";
+import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { resolveOwnAvatar } from "../lib/own-avatar";
 import { visiblePoll } from "../lib/poll";
 import { isRealtimeConnected, onStatus, onTowerKick } from "../lib/presence-socket";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
@@ -1117,7 +1120,10 @@ export function BattleTowerFight({
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // PvP rivals are live players, so prefer their server-sealed avatar before
         // interpreting an enemy-side actor as a Tower NPC sprite.
-        if (ownedByMe(a.ownerSlug) && character.avatarImage) return character.avatarImage;
+        if (ownedByMe(a.ownerSlug)) {
+            const ownAvatar = resolveOwnAvatar(character, sharedImages);
+            if (ownAvatar) return ownAvatar;
+        }
         const sealed = a.character?.avatarImage;
         if (isTeamPvp && typeof sealed === "string" && sealed) return sealed;
         if (a.side === "enemy") {
@@ -1614,6 +1620,9 @@ export function BattleTowerFight({
                                     const selfTargetable = mode === "jutsu" && !!selJutsu && isSelfCastJutsu(selJutsu) && myActor != null && a.id === myActor.id;
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
+                                    const battleSprite = a.side === "enemy" && !isTeamPvp
+                                        ? battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages)
+                                        : null;
                                     const unknownCombatant = isUnknownCombatant(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "var(--gold)" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
@@ -1628,19 +1637,21 @@ export function BattleTowerFight({
                                             onMouseEnter={a.side === "enemy" ? () => setHoverEnemyPos(a.pos) : undefined}
                                             onMouseLeave={a.side === "enemy" ? () => setHoverEnemyPos(null) : undefined}
                                             style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: targetable || selfTargetable ? "pointer" : "default" }}>
-                                            <span className={`avatar-orb${a.side === "enemy" ? " enemy-orb" : ""}`}
+                                            <BattlefieldActor
+                                                side={a.side === "enemy" ? "enemy" : "player"}
+                                                label={a.name}
+                                                portrait={img}
+                                                sprite={battleSprite}
+                                                fallback={emojiFor(a)}
                                                 style={{
                                                     width: size, height: size,
                                                     outline: isActive ? "3px solid #fde047" : targetable ? "3px solid var(--red-300)" : selfTargetable ? "3px solid #67e8f9" : "none",
                                                     outlineOffset: 2,
                                                     boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : selfTargetable ? "0 0 16px 4px rgba(34,211,238,0.85)" : undefined,
                                                 }}>
-                                                 {img
-                                                    ? <img className="tiny-map-avatar" src={img} alt="" aria-hidden="true" />
-                                                    : <span className={unknownCombatant ? "tower-unknown-combatant" : undefined} style={{ fontSize: size * 0.52, lineHeight: 1 }} aria-hidden="true">{emojiFor(a)}</span>}
                                                 {isBoss && <span aria-hidden="true" style={{ position: "absolute", top: -2, right: -2, fontSize: 16, filter: "drop-shadow(0 1px 2px #000)" }}>👑</span>}
                                                 {unknownCombatant && <span className="tower-unknown-combatant-badge" aria-hidden="true">Unknown</span>}
-                                            </span>
+                                            </BattlefieldActor>
                                             {/* name + hp bar */}
                                             <span style={{ display: "block", marginTop: 3, textAlign: "center", pointerEvents: "none" }}>
                                                 <span style={{ display: "block", height: 4, width: size, borderRadius: 2, background: "rgba(2,6,18,0.85)", border: "1px solid rgba(0,0,0,0.5)" }}>
