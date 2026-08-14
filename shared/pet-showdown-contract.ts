@@ -399,6 +399,17 @@ export interface ShowdownReplayDescriptor {
 
 export const SHOWDOWN_REPLAY_VERSION = 1;
 
+/** A watchable, fully-derived match: the pre-fight view, the event log, and the
+ *  post-fight view. This is what a "watch" endpoint returns after re-deriving a
+ *  stored descriptor (or a war session's stored inputs) — the client plays it
+ *  through the normal battle component in spectator mode and never resolves
+ *  anything itself. */
+export interface ShowdownReplayScript {
+    initialState: ShowdownStateView;
+    finalState: ShowdownStateView;
+    events: ShowdownEvent[];
+}
+
 /** One command per living pet per round. Deliberately carries no execution
  *  input: the timing-needle grade that used to ride along here was removed in
  *  round 18, so a command is pure INTENT and the engine alone decides outcome. */
