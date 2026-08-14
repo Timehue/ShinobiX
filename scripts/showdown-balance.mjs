@@ -22,6 +22,7 @@ import {
     resolveShowdownRound,
 } from '../api/_pet-showdown/engine.ts';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.ts';
+import { SHOWDOWN_TURN_CAP } from '../shared/pet-showdown-contract.ts';
 // Sim-only backstop. The engine judges every match at SHOWDOWN_TURN_CAP (25)
 // so this can only fire if the judge ever stopped firing — it is a bug tripwire,
 // not the round limit. (It predates the judge, when the engine had no cap.)
@@ -89,13 +90,32 @@ function fight(tplA, tplB, seed) {
         playerPets: teamFor(tplA, 'a'), enemyPets: teamFor(tplB, 'b'), enemyTeamName: 'B',
     });
     let rounds = 0;
+    // Round COMPOSITION: what the AI actually spends its turns on. A long match
+    // can mean slow kills or it can mean nobody committing; these separate the
+    // two.
+    let cmds = 0, switches = 0, rests = 0, guards = 0;
     while (!session.finished && rounds < HARD_STOP + 1) {
         rounds += 1;
         const playerCommands = commandsFor(session, 'player');
         const enemyCommands = commandsFor(session, 'enemy');
+        for (const c of [...playerCommands, ...enemyCommands]) {
+            cmds += 1;
+            if (c.kind === 'switch') switches += 1;
+            else if (c.kind === 'rest') rests += 1;
+            else if (c.kind === 'guard') guards += 1;
+        }
         resolveShowdownRound(session, playerCommands, enemyCommands);
     }
-    return { outcome: session.outcome, rounds: session.round, hitHardStop: session.round >= HARD_STOP };
+    return {
+        outcome: session.outcome,
+        rounds: session.round,
+        hitHardStop: session.round >= HARD_STOP,
+        // Decided by the ROUND-CAP JUDGE rather than by a knockout. This is the
+        // number that separates "matches are longer" from "nobody actually
+        // wins" — a judged match ends on a tiebreak, not on a finish.
+        judged: session.round >= SHOWDOWN_TURN_CAP,
+        cmds, switches, rests, guards,
+    };
 }
 
 const byRarity = new Map();
@@ -111,7 +131,8 @@ const speciesStats = new Map();  // id -> {w, n, name, role, element, rarity}
 const roleStats = new Map();
 const elementStats = new Map();
 const elementEdge = { advWins: 0, advGames: 0 };
-let totalRounds = 0, totalGames = 0, unresolvedGames = 0;
+let totalRounds = 0, totalGames = 0, unresolvedGames = 0, judgedGames = 0;
+let totalCmds = 0, totalSwitches = 0, totalRests = 0, totalGuards = 0;
 
 const bump = (map, key, won) => {
     const s = map.get(key) ?? { w: 0, n: 0 };
@@ -122,16 +143,32 @@ const bump = (map, key, won) => {
 
 const BEATS = { Fire: 'Wind', Wind: 'Lightning', Lightning: 'Earth', Earth: 'Water', Water: 'Fire' };
 
+/* Seeds are scaled UP for small pools so every species gets a comparable
+ * sample. The pools are wildly uneven — standard and rare hold 50 species each,
+ * mythic holds 10 — so a flat seed count gave a mythic species 18 games while a
+ * standard got 98. At 18 games the reportable win rates are quantised to 5.6%
+ * steps with a ~+/-23 point confidence interval, which manufactured "outliers"
+ * out of pure noise: Eclipse Kitsune read 22.2% and 83.3% either side of a
+ * single 15% element tweak. Tuning a kit against that is fitting to a coin
+ * flip. */
+const MIN_GAMES_PER_SPECIES = 60;
+// Each species meets (poolSize - 1) opponents once per seed, so that product
+// IS its game count — no factor of two.
+const seedsFor = (poolSize) => Math.max(SEEDS, Math.ceil(MIN_GAMES_PER_SPECIES / Math.max(1, poolSize - 1)));
+
 for (const [rarity, list] of byRarity) {
+    const seedsHere = seedsFor(list.length);
     for (let i = 0; i < list.length; i++) {
         for (let j = i + 1; j < list.length; j++) {
-            for (let s = 0; s < SEEDS; s++) {
+            for (let s = 0; s < seedsHere; s++) {
                 const seed = 1_000_003 * (i * 251 + j) + s * 7919 + rarity.length;
                 // Alternate who sits on which side so side bias cancels out.
                 const [A, B] = s % 2 === 0 ? [list[i], list[j]] : [list[j], list[i]];
-                const { outcome, rounds, hitHardStop } = fight(A, B, seed);
+                const { outcome, rounds, hitHardStop, judged, cmds, switches, rests, guards } = fight(A, B, seed);
+                totalCmds += cmds; totalSwitches += switches; totalRests += rests; totalGuards += guards;
                 const aWon = outcome === 'win';
                 totalRounds += rounds; totalGames += 1; unresolvedGames += hitHardStop ? 1 : 0;
+                judgedGames += judged ? 1 : 0;
                 for (const [tpl, won] of [[A, aWon], [B, !aWon]]) {
                     bump(speciesStats, tpl.id, won);
                     const sp = speciesStats.get(tpl.id);
@@ -153,6 +190,12 @@ const fmtMap = (map) => [...map.entries()]
 
 console.log(`\n=== Pet Showdown balance @ level ${LEVEL}, ${SEEDS} seeds, ${BENCH} reserve(s), ${totalGames} games ===`);
 console.log(`pace: avg ${(totalRounds / Math.max(1, totalGames)).toFixed(1)} rounds; unresolved at hard-stop ${(100 * unresolvedGames / Math.max(1, totalGames)).toFixed(1)}%`);
+console.log(`decided by the round-cap JUDGE (no knockout): ${(100 * judgedGames / Math.max(1, totalGames)).toFixed(1)}%`);
+{
+    const pc = (n) => `${(100 * n / Math.max(1, totalCmds)).toFixed(1)}%`;
+    const committed = totalCmds - totalSwitches - totalRests - totalGuards;
+    console.log(`turn spend: attacks ${pc(committed)} · switches ${pc(totalSwitches)} · rests ${pc(totalRests)} · guards ${pc(totalGuards)}`);
+}
 console.log(`element-advantage matchup win rate: ${(100 * elementEdge.advWins / Math.max(1, elementEdge.advGames)).toFixed(1)}% of ${elementEdge.advGames}`);
 console.log(`\nROLES     ${fmtMap(roleStats)}`);
 console.log(`ELEMENTS  ${fmtMap(elementStats)}`);
@@ -252,7 +295,7 @@ for (let r = 0; r < rarityOrder.length - 1; r++) {
 
 const species = [...speciesStats.values()].sort((a, b) => pct(a) - pct(b));
 console.log('\nWeakest 10:');
-for (const s of species.slice(0, 10)) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
+for (const s of species.slice(0, 10)) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role}) n=${s.n}`);
 // --focus "Name,Name" — print these species' exact win rates (kit surgery
 // needs the number for the species being edited, not just the top/bottom ten).
 const focusArg = process.argv.includes('--focus') ? process.argv[process.argv.indexOf('--focus') + 1] : '';
@@ -266,7 +309,7 @@ if (focusArg) {
     }
 }
 console.log('Strongest 10:');
-for (const s of species.slice(-10).reverse()) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
+for (const s of species.slice(-10).reverse()) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role}) n=${s.n}`);
 
 // Bands (mirrored by the ratchet test once tuned).
 const failures = [];

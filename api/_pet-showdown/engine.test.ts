@@ -1131,7 +1131,13 @@ test('every sealed pet fields a derived utility technique', () => {
     for (const [role, wanted] of [
         ['defender', 'protect'],
         ['sage', 'weather'],
-        ['assassin', 'buff'],
+        // The assassin derives a PIVOT — hit and withdraw behind a reserve.
+        // It used to take a buff (or a mark at high rarity), which did nothing
+        // for the problem the role actually has: in a three-pet format the
+        // glass cannon kills one thing and dies, and it measured 37.9% against
+        // a tracker's 62.4%. The pivot is the Pokemon/Temtem answer, and it is
+        // what closed that gap.
+        ['assassin', 'pivot'],
         ['tracker', 'debuff'],
     ] as const) {
         const sealed = sealShowdownPet(makePet('u', { role, rarity: 'standard' }));
@@ -1140,9 +1146,16 @@ test('every sealed pet fields a derived utility technique', () => {
             `a standard ${role} should field a ${wanted} technique`,
         );
     }
-    // Rarity graduates the family rather than only inflating numbers.
+    // Rarity graduates the family rather than only inflating numbers — a
+    // legendary assassin still pivots, and falls back through mark before buff
+    // when its own kit already authored one.
     const legendaryAssassin = sealShowdownPet(makePet('v', { role: 'assassin', rarity: 'legendary' }));
-    assert.ok(legendaryAssassin.moves.some((m) => m.kind === 'mark'), 'a legendary assassin marks instead of buffing');
+    assert.ok(legendaryAssassin.moves.some((m) => m.kind === 'pivot'), 'a legendary assassin pivots too');
+    // No dup-avoidance case to test for the pivot: `pivot` is DERIVED at seal
+    // and is deliberately absent from the shared catalog's kind union
+    // (api/_pet-sim/pet-types.ts), which the positional board modes also read.
+    // A catalog kit can therefore never author one, so the fallback chain is
+    // unreachable for this role by construction.
 });
 
 test('weather boosts its own element, dampens its counter, and leaves the neutral jab alone', () => {
