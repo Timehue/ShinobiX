@@ -12,19 +12,58 @@ describe('Battle Towers floor catalog', () => {
     // Drift detector: a hand-maintained replica of catalog invariants, so an
     // accidental edit to the catalog data trips this test (mirrors _mission-catalog).
     it('matches the expected shape (drift detector)', () => {
-        assert.equal(TOWER_FLOOR_COUNT, 10, 'ships 10 floors');
-        assert.deepEqual(FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        assert.equal(TOWER_FLOOR_COUNT, 15, 'ships two complete chapters / 15 floors');
+        assert.deepEqual(FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
         assert.deepEqual(
             FLOOR_CATALOG.map(f => f.objective),
-            ['defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss', 'defeat-all', 'defeat-boss', 'kill-escort', 'defeat-boss', 'defeat-boss'],
+            [
+                'defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss',
+                'defeat-all', 'defeat-all-then-boss', 'kill-escort', 'kill-adds-first', 'defeat-boss',
+                'defeat-all', 'break-objective', 'protect-npc', 'defeat-all', 'kill-adds-first',
+            ],
         );
         assert.equal(getFloor(5)?.firstClearReward.milestone, 'tower-floor-5');
         assert.equal(getFloor(10)?.firstClearReward.milestone, 'tower-floor-10');
+        assert.equal(getFloor(15)?.firstClearReward.milestone, 'tower-floor-15');
         // No reach-tile floor (too easy in this format).
         assert.ok(!FLOOR_CATALOG.some(f => f.objective === 'reach-tile'), 'no reach-tile floors');
-        // Each of the 4 boss floors has a DISTINCT signature mechanic.
-        const mechs = FLOOR_CATALOG.filter(f => f.boss).map(f => f.boss!.mechanic);
-        assert.deepEqual(mechs, ['bulwark', 'regen', 'summon', 'enrage']);
+        // Chapter 1 teaches every signature mechanic once; Chapter 2 recombines those
+        // primitives into staged-break and re-locking-add encounters.
+        const chapterOneMechs = FLOOR_CATALOG.filter(f => f.id <= 10 && f.boss).map(f => f.boss!.mechanic);
+        assert.deepEqual(chapterOneMechs, ['bulwark', 'regen', 'summon', 'enrage']);
+        assert.deepEqual(FLOOR_CATALOG.filter(f => f.id > 10 && f.boss).map(f => f.boss!.mechanic), ['bulwark', 'summon']);
+    });
+
+    it('ships Chapter 2 as one cohesive, fully briefed Stormglass arc', () => {
+        const chapter = FLOOR_CATALOG.filter(f => f.chapter === 2);
+        assert.deepEqual(chapter.map(f => f.id), [11, 12, 13, 14, 15]);
+        assert.ok(chapter.every(f => f.chapterTitle === 'The Stormglass Rebellion'));
+        assert.equal(new Set(chapter.map(f => f.artKey)).size, 5, 'every floor has distinct key art');
+        for (const floor of chapter) {
+            assert.ok(floor.briefing?.situation, `floor ${floor.id} has a situation brief`);
+            assert.ok((floor.briefing?.tactics.length ?? 0) >= 2, `floor ${floor.id} teaches tactics`);
+            assert.ok((floor.briefing?.warnings.length ?? 0) >= 1, `floor ${floor.id} previews hazards`);
+        }
+    });
+
+    it('ships every Story floor with unique authored art and mechanically truthful briefings', () => {
+        assert.equal(new Set(FLOOR_CATALOG.map(floor => floor.artKey)).size, TOWER_FLOOR_COUNT, 'every Story floor owns distinct key art');
+        for (const floor of FLOOR_CATALOG) {
+            assert.match(floor.artKey ?? '', /^[a-z0-9]+(?:-[a-z0-9]+)*$/, `floor ${floor.id} has a valid art key`);
+            assert.ok(floor.chapterTitle?.trim(), `floor ${floor.id} has a chapter title`);
+            assert.ok(floor.chapterSubtitle?.trim(), `floor ${floor.id} has a chapter subtitle`);
+            assert.ok(floor.chapterSummary?.trim(), `floor ${floor.id} has a chapter summary`);
+            assert.ok(floor.briefing?.situation.trim(), `floor ${floor.id} has a situation brief`);
+            assert.ok((floor.briefing?.tactics.length ?? 0) >= 2, `floor ${floor.id} teaches at least two tactics`);
+            assert.ok((floor.briefing?.warnings.length ?? 0) >= 1, `floor ${floor.id} exposes at least one warning`);
+        }
+
+        assert.match(getFloor(4)?.briefing?.warnings.join(' ') ?? '', /8 completed rounds/);
+        assert.match(getFloor(5)?.briefing?.tactics.join(' ') ?? '', /60% and 30%/);
+        assert.match(getFloor(7)?.briefing?.warnings.join(' ') ?? '', /650 health every round/);
+        assert.match(getFloor(9)?.briefing?.warnings.join(' ') ?? '', /66% and 33%/);
+        assert.match(getFloor(9)?.briefing?.warnings.join(' ') ?? '', /Three Bandits/);
+        assert.match(getFloor(10)?.briefing?.warnings.join(' ') ?? '', /round 12/);
     });
 
     it('every map fits the board bounds and boss/npc/goal cross-fields hold', () => {
@@ -97,6 +136,29 @@ describe('Battle Towers floor catalog', () => {
         assert.ok(validateFloor(badCadence).some(e => e.includes('everyRounds')), 'an every-round geyser is rejected');
         const badCount: TowerFloor = { ...FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 99, pct: 5, everyRounds: 3 }] };
         assert.ok(validateFloor(badCount).some(e => e.includes('count')), 'a 99-vent floor is rejected');
+    });
+
+    it('validates staged objectives and player-facing chapter briefings', () => {
+        const noGates: TowerFloor = {
+            ...baseFloor(), objective: 'break-objective', boss: { aiId: 'boss-warden' },
+        };
+        assert.ok(validateFloor(noGates).some(e => e.includes('requires at least one boss phase')));
+
+        const ascendingGates: TowerFloor = {
+            ...baseFloor(), objective: 'break-objective', boss: { aiId: 'boss-warden', phases: [25, 75] },
+        };
+        assert.ok(validateFloor(ascendingGates).some(e => e.includes('strictly descending')));
+
+        const malformedBrief: TowerFloor = {
+            ...baseFloor(), chapter: 2, chapterTitle: '', artKey: 'Not Valid',
+            briefing: { situation: '', tactics: [], warnings: [''] },
+        };
+        const errors = validateFloor(malformedBrief);
+        assert.ok(errors.some(e => e.includes('chapterTitle')));
+        assert.ok(errors.some(e => e.includes('artKey')));
+        assert.ok(errors.some(e => e.includes('briefing.situation')));
+        assert.ok(errors.some(e => e.includes('briefing.tactics')));
+        assert.ok(errors.some(e => e.includes('briefing.warnings')));
     });
 });
 

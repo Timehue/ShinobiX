@@ -12,14 +12,20 @@ const combatHud = readFileSync(new URL("../components/CombatHudLayout.tsx", impo
 const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 
-test("PvP and PvE adopt one HUD layout and aspect-locked board stage", () => {
-    for (const source of [legacySolo, solo, pvp]) {
+test("combat modes share HUD primitives while mission PvE retains its desktop battlefield composition", () => {
+    for (const source of [legacySolo, pvp]) {
         assert.match(source, /<ShinobiCombatShell/);
         assert.match(source, /<CombatHudLayout/);
         assert.match(source, /<CombatHudMain/);
         assert.match(source, /<CombatBoardStage/);
         assert.match(source, /<CombatCommandBar/);
     }
+    assert.match(solo, /<CombatInstance/);
+    assert.doesNotMatch(solo, /<ShinobiCombatShell/);
+    assert.match(solo, /<CombatHudLayout/);
+    assert.match(solo, /<CombatHudMain/);
+    assert.doesNotMatch(solo, /<CombatBoardStage/);
+    assert.match(solo, /<CombatCommandBar/);
     assert.match(legacySolo, /<CombatBattleLogPanel/);
     assert.match(solo, /<PlainCombatBattleLog/);
     assert.match(pvp, /<PlainCombatBattleLog/);
@@ -59,12 +65,15 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
     assert.match(legacySolo, /<span>Summon Pet<\/span>/, "legacy PvE must label the summon explicitly");
 });
 
-test("side dossiers require both usable width and height and remain symmetric", () => {
+test("shared-shell dossiers remain symmetric and mission PvE restores its desktop columns", () => {
     assert.match(css, /@container shinobi-combat \(min-width: 1360px\) and \(min-height: 820px\)/);
     assert.match(css, /grid-template-columns: clamp\(210px, 14cqw, 260px\) minmax\(0, 1fr\) clamp\(210px, 14cqw, 260px\)/);
     assert.match(shellCss, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) !important/);
     assert.doesNotMatch(shellCss, /minmax\(235px[^}]*minmax\(620px/);
-    assert.doesNotMatch(missionCss, /grid-template-columns/);
+    assert.match(
+        missionCss,
+        /grid-template-columns:\s*minmax\(140px, 210px\) minmax\(0, 1fr\) minmax\(140px, 210px\)/,
+    );
 });
 
 test("shell pins optional notices and accessible controls without hard battlefield heights", () => {

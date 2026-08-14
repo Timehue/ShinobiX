@@ -17,7 +17,7 @@ type ArenaBattlePersisterProps = {
     actionsThisTurn: number;
     playerStatuses: unknown[]; enemyStatuses: unknown[];
     barrierTiles: { tile: number; rounds: number }[];
-    groundZones: { id: string; tiles: number[]; rounds: number; tags: { name: string; percent?: number }[] }[];
+    groundZones: { id: string; owner: "player" | "enemy"; tiles: number[]; rounds: number; tags: { name: string; percent?: number }[] }[];
     cooldowns: Record<string, number>;
     jutsuCooldowns: Record<string, number>;
     enemyJutsuCooldowns: Record<string, number>;
@@ -46,7 +46,7 @@ type SavedArenaBattle = {
     actionsThisTurn: number;
     playerStatuses: unknown[]; enemyStatuses: unknown[];
     barrierTiles: { tile: number; rounds: number }[];
-    groundZones: { id: string; tiles: number[]; rounds: number; tags: { name: string; percent?: number }[] }[];
+    groundZones: { id: string; owner?: "player" | "enemy"; tiles: number[]; rounds: number; tags: { name: string; percent?: number }[] }[];
     cooldowns: Record<string, number>;
     jutsuCooldowns: Record<string, number>;
     enemyJutsuCooldowns: Record<string, number>;

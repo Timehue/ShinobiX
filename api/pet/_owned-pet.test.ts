@@ -68,11 +68,11 @@ describe('owned pet identity and breeding-use migration', () => {
 
     it('assigns stable deterministic counters to legacy pets exactly once', () => {
         const legacy = { id: 'standard-0-1700000000000', name: 'Fox', element: 'Fire', rarity: 'standard' };
-        const first = migrateCharacterOwnedPets('Kakashi', { pets: [legacy] });
-        const second = migrateCharacterOwnedPets('Kakashi', first.character);
+        const first = migrateCharacterOwnedPets('Raiko', { pets: [legacy] });
+        const second = migrateCharacterOwnedPets('Raiko', first.character);
         const pet = (first.character.pets as Array<Record<string, unknown>>)[0];
         assert.equal(pet.templateId, 'standard-0');
-        assert.equal(pet.breedingUsesMax, deterministicLegacyBreedingUses('Kakashi', String(legacy.id)));
+        assert.equal(pet.breedingUsesMax, deterministicLegacyBreedingUses('Raiko', String(legacy.id)));
         assert.equal(pet.breedingUsesRemaining, pet.breedingUsesMax);
         assert.equal(first.changed, true);
         assert.equal(second.changed, false);

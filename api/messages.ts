@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from './_ratelimit.js';
 import { getActiveSilence } from './admin/moderation.js';
 import { withKvLock } from './_lock.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
+import { blockRelationship, blockedPlayersFor } from './player/_blocks.js';
 
 /*
  * /api/messages — player-to-player direct messages (mail).
@@ -67,7 +68,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!withName) {
             const inbox = (await kv.get<InboxEntry[]>(inboxKey(me))) ?? [];
-            return res.status(200).json(inbox);
+            const blocked = new Set(await blockedPlayersFor(me));
+            return res.status(200).json(inbox.filter((entry) => !blocked.has(norm(entry.with))));
         }
 
         // Reading a thread clears its unread badge in MY inbox.
@@ -108,6 +110,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Recipient must be a real player (avoids junk threads / typos).
             const recipientSave = await kv.get<Record<string, unknown>>(`save:${recipient}`);
             if (!recipientSave) return res.status(404).json({ error: 'No such player.' });
+
+            // Blocking is mutual for contact: a player cannot keep sending to
+            // someone they chose to ignore, and the ignored player cannot DM
+            // around that boundary. Keep the response deliberately symmetric.
+            const relationship = await blockRelationship(from, recipient);
+            if (relationship.aBlockedB || relationship.bBlockedA) {
+                return res.status(403).json({ error: 'Messaging is unavailable between these players.' });
+            }
 
             if (!isCleanText(text)) return res.status(400).json({ error: 'Message contains blocked content.' });
             const safeText = sanitizeUserText(text, TEXT_LIMITS.chatMessage);

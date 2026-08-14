@@ -51,18 +51,18 @@ describe('ranked rollover durable retry', { concurrency: false }, () => {
         await kv.set(`save:${runnerUp}`, save(runnerUp, 1_200));
         await startRankedSeason(1_000);
 
-        const originalSet = kv.set.bind(kv);
+        const originalCompareSet = kv.compareSet.bind(kv);
         let injected = false;
-        kv.set = (async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        kv.compareSet = (async (key: string, expected: unknown | null, value: unknown, options?: { ex?: number }) => {
             if (key === `save:${runnerUp}` && !injected) {
                 injected = true;
                 throw new Error('injected player save failure');
             }
-            return originalSet(key, value, options);
-        }) as typeof kv.set;
+            return originalCompareSet(key, expected, value, options);
+        }) as typeof kv.compareSet;
 
         const partial = await forceRankedSeasonRollover(2_000);
-        kv.set = originalSet as typeof kv.set;
+        kv.compareSet = originalCompareSet as typeof kv.compareSet;
 
         assert.equal(partial.ok, false);
         assert.equal(partial.action, 'skipped');

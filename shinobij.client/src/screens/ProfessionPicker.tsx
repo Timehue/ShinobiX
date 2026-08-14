@@ -260,7 +260,7 @@ export function ProfessionPicker({
                         <div className="pp-warn-band">
                             <p className="pp-warn">
                                 <span className="pp-warn-mark" aria-hidden="true" />
-                                This is a permanent decision
+                                Your first choice includes one free path change later
                             </p>
                         </div>
                     </header>
@@ -349,8 +349,8 @@ export function ProfessionPicker({
                     <p className="pp-kicker">Confirm your path</p>
                     <h2 className="pp-confirm-title">Become a {info.name}?</h2>
                     <p className="pp-confirm-copy">
-                        This is your <span className="pp-permanent">permanent</span> profession.
-                        You cannot change it later.
+                        This becomes your profession now. You may change paths once for free from your Profession Hub;
+                        doing so resets profession rank, XP, and mastery, and that second choice is permanent.
                     </p>
                     {error && (
                         <p className="pp-error" role="alert">

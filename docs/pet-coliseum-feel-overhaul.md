@@ -1,4 +1,4 @@
-# Pet Coliseum feel overhaul — "make it read like a Pokémon battle"
+# Pet Coliseum feel overhaul — "make it read like a the leading creature-battler battle"
 
 Goal: the live Pet Coliseum duel looked like the pets *"ran in place and dashed for
 no reason."* This pass makes casual pet fights read as a **planted, legible,

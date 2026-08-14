@@ -22,6 +22,7 @@ import {
     useState,
     type CSSProperties,
     type ErrorInfo,
+    type KeyboardEvent,
     type MutableRefObject,
     type ReactNode,
 } from "react";
@@ -31,18 +32,29 @@ import { Billboard, Html, Sparkles, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Pet } from "../types/pet";
-import type { ArenaSlot } from "../lib/pet-arena-sim";
+import type { ArenaRole, ArenaSlot } from "../lib/pet-arena-sim";
 import {
-    startWarfrontMatch, wfVerdictScore, WARFRONT_TPS, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
-    type WarfrontChoice, type WarfrontResult, type WfBuyPolicy, type WfSnapshot, type WfStance, type WfDoctrine,
+    startWarfrontMatch, wfVerdictScore, WARFRONT_TPS, WF_CAMP_REWARDS, WF_DOCTRINES, WF_MAX_SECONDS, WF_PHASE_SKIRMISH, WF_PHASE_SUDDEN, WF_PHASE_WAR, WF_POWERUPS, WF_STANCES,
+    type WarfrontChoice, type WarfrontRoundChoice, type WarfrontRoundDecision, type WarfrontResult,
+    type WfBuildPackage, type WfBuyPolicy, type WfCoachOrder, type WfCounterstrike,
+    type WfDoctrine, type WfEvent, type WfObjectiveTechnique, type WfOpeningDeployment,
+    type WfSnapshot, type WfStance,
 } from "../lib/pet-warfront-sim";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_BUSHES, WF_CELL_X, WF_CELL_Y, WF_LAIR, WF_LANES, WF_MINI_NAMES, WF_PADS, WF_SPAWNS, WF_THEMES,
-    wfCellWalkable, wfInsideField, wfLaneDistance,
+    wfCellWalkable, wfInsideField, wfWalkable,
     type WfTheme,
 } from "../lib/pet-warfront-map";
+import { councilCartCost, councilPackageChoices, visiblePackageActivationLabel, type WfCouncilBuyState } from "../lib/pet-warfront-council";
+import {
+    firstViableWarfrontChoice,
+    hasWarfrontRole,
+    WARFRONT_PACKAGE_ROLE,
+    WARFRONT_ROLE_LABEL,
+    WARFRONT_TECHNIQUE_ROLE,
+} from "../lib/warfront-council-roles";
 import { walkTilesFromMask, arenaCameraDist, arenaModelHeight, arenaModelMotion, A3D_FOV } from "../lib/pet-arena-3d";
-import { radialTexture3d, Fx3D, Shot3D, Floater3D } from "./PetArena3DStage";
+import { radialTexture3d, TransientFx3DLayer, type TransientFx3DLayerApi } from "./PetArena3DStage";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import {
@@ -51,24 +63,48 @@ import {
     savePetVisualQuality,
     type PetVisualQuality,
 } from "../lib/pet-visual-quality";
-import { projectileVisual, type ProjectileVisual } from "../lib/pet-projectile-vfx";
+import { projectileVisual } from "../lib/pet-projectile-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
+import { preloadTransientFxTextures } from "../lib/transient-fx-textures";
 import { elementVfxKey } from "../lib/pet-battle-anim";
 import { lerp } from "../lib/pet-coliseum-scene";
 import { HOLLOW_HOUND_SURFACE, WARFRONT_MINION_SURFACES } from "../lib/pet-model-surface";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { isPetSfxMuted, playPetSfx, primePetSfx, setPetSfxMuted } from "../lib/pet-sfx";
+import { setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
+import {
+    playWarfrontEventAudio,
+    primeWarfrontAudio,
+    seekWarfrontAudio,
+    startWarfrontAudioBed,
+    stopWarfrontAudioBed,
+} from "../lib/warfront-audio";
 import {
     advanceWarfrontMotionFilter,
     adaptWarfrontPresentationBudget,
     createWarfrontMotionFilter,
     reconcileWarfrontMobSlots,
     shouldRenderWarfrontHoundRig,
+    warfrontEventCursorThroughTick,
+    warfrontEventSalience,
+    warfrontHitStopSeconds,
+    warfrontJudgmentState,
+    warfrontLatestTickAtOrBefore,
     warfrontMotionFilterSpeed,
     warfrontMvpId,
+    warfrontPaceForMotion,
+    warfrontPipHealthColor,
     warfrontPresentationBudget,
+    warfrontSmartPaceIsQuiet,
+    warfrontSealBreakPresentation,
+    warfrontSnapshotAtTick,
+    warfrontSnapshotBoundsAtTick,
+    warfrontSnapshotFrontier,
+    warfrontTurningPoints,
+    warfrontWardSealInstruction,
     type WarfrontAdaptivePressure,
     type WarfrontMotionFilterState,
+    type WarfrontPaceMode,
     type WarfrontPresentationBudget,
 } from "../lib/pet-warfront-presentation";
 
@@ -84,6 +120,9 @@ function groundTexture(): THREE.Texture {
     return t;
 }
 const GATE_WARDEN_GLB = "/pet-models/gate-warden-rigged.glb?v=20260729-rig-v2";
+const WARFRONT_COMMON_FX = ["none", "spark", "power", "heal", "shadow", "fire", "water", "wind", "lightning", "earth"]
+    .map((key) => bundledJutsuFxFrames(key))
+    .filter((frames): frames is string[] => frames !== null);
 // Hand-painted foliage atlas (fal flux → birefnet cutouts): 2×2 tiles —
 // 0 ancient pine · 1 tall autumn pine · 2 jade spirit tree · 3 broadleaf.
 const FOLIAGE_URL = new URL("../assets/warfront/foliage-atlas.png", import.meta.url).href;
@@ -141,19 +180,28 @@ function cliffTexture(): THREE.Texture {
     return t;
 }
 
-type Vec3 = [number, number, number];
 type Team = "blue" | "red";
 // slow = seconds of remaining hit-stop (playback runs at quarter speed while
 // it drains — pure presentation, the sim ticks underneath are untouched).
 type WfClockState = { t: number; playing: boolean; slow: number; rate: number };
 type WfClockRef = MutableRefObject<WfClockState>;
+type WfDirectorSeek = { generation: number; tick: number };
 // A director-ordered camera target: the broadcast cuts here until match-tick
 // untilT (priority arbitrates simultaneous stories; kills < objectives).
-type WfStoryCam = { x: number; z: number; untilT: number; span: number; prio: number };
+type WfStoryCam = {
+    x: number;
+    z: number;
+    fromT: number;
+    untilT: number;
+    span: number;
+    prio: number;
+    subject?: { kind: "mini"; padIdx: number; team: Team; startDowns: number };
+};
 // Spectator camera modes: broadcast = the auto-director with story cuts;
 // calm = wide and steady, only the big objective cuts; team = locked to the
 // player's squad. Dragging always enters free-cam on top of any of them.
 type WfCamMode = "broadcast" | "calm" | "team";
+type WfUiScale = "standard" | "large";
 
 const WF_PHASES = [
     { id: "opening", label: "LANING", starts: 0, ends: WF_PHASE_SKIRMISH, color: "#93c5fd" },
@@ -161,37 +209,46 @@ const WF_PHASES = [
     { id: "war", label: "WAR", starts: WF_PHASE_WAR, ends: WF_PHASE_SUDDEN, color: "#c084fc" },
     { id: "collapse", label: "HOLLOW COLLAPSE", starts: WF_PHASE_SUDDEN, ends: WF_MAX_SECONDS, color: "#fb7185" },
 ] as const;
-const MINI_BOONS = [
-    { icon: "🛡", label: "Stone Ward", desc: "shields nearby allies" },
-    { icon: "✚", label: "Crystal Renewal", desc: "heals the escorted push" },
-    { icon: "👁", label: "Void Hunt", desc: "reveals and marks enemies" },
-    { icon: "🔥", label: "Rift Siege", desc: "empowers elite waves" },
-] as const;
 const phaseAtSeconds = (seconds: number) =>
     WF_PHASES.find((phase) => seconds >= phase.starts && seconds < phase.ends) ?? WF_PHASES[WF_PHASES.length - 1];
 const mmss = (seconds: number) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, Math.floor(seconds)) % 60).padStart(2, "0")}`;
 function objectiveEventLabel(event: WarfrontResult["events"][number]): string | null {
+    if (event.type === "coredown") return warfrontSealBreakPresentation(event).label;
+    const team = "team" in event ? event.team : "by" in event ? event.by : null;
+    const who = team ? team === "blue" ? "Blue" : "Red" : "";
+    if (event.type === "opening") return event.winner ? `${event.winner === "blue" ? "Blue" : "Red"} won the opening counter` : "Even opening";
+    if (event.type === "readreserve") return `${who} converted the opening read into +${event.coins} reserve`;
+    if (event.type === "shutdown") return `Shutdown bounty +${event.bounty}`;
+    if (event.type === "mercy") return `${who} triggered Mercy acceleration`;
     if (event.type === "phase") return event.name;
-    if (event.type === "minikill") return `${event.team === "blue" ? "Blue" : "Red"} recruited ${WF_MINI_NAMES[event.padIdx] ?? "a Lesser Warden"}`;
-    if (event.type === "wardenphase") return `Gate Warden entered Phase ${event.phase === 3 ? "III" : "II"}`;
-    if (event.type === "wardenkill") return `${event.team === "blue" ? "Blue" : "Red"} felled the Gate Warden${event.stolen ? " (stolen)" : ""}`;
-    if (event.type === "guardianrally") return `${event.team === "blue" ? "Blue" : "Red"} sentinels answered the War Council`;
-    if (event.type === "guardiandown") return `${event.team === "blue" ? "Blue" : "Red"} sentinel fell`;
-    if (event.type === "statuedown") return `${event.team === "blue" ? "Blue" : "Red"} Guardian Totem shattered`;
-    if (event.type === "coreexposed") return `${event.team === "blue" ? "Blue" : "Red"} Ward Seal exposed`;
-    if (event.type === "coredown") return `${event.by === "blue" ? "Blue" : "Red"} shattered the Ward Seal`;
+    if (event.type === "verdict") return event.winner === "draw" ? "Judgment ended level" : `${event.winner === "blue" ? "Blue" : "Red"} won the Judgment`;
+    if (event.type === "minikill") return `${who} ${event.stolen ? "stole" : "recruited"} ${WF_MINI_NAMES[event.padIdx]}${event.reward ? ` · ${WF_CAMP_REWARDS[event.reward].label}` : ""}`;
+    if (event.type === "sigilawake") return `${WF_MINI_NAMES[event.padIdx]} awakened`;
+    if (event.type === "sigilpip") return `${who} claimed Sigil ${event.count}`;
+    if (event.type === "ascendance") return `${who} reached Ascendance`;
+    if (event.type === "minimarch") return `${WF_MINI_NAMES[event.padIdx]} marched for ${who}`;
+    if (event.type === "siegeescort") return `${who} ${event.escorted ? "linked" : "lost"} escort`;
+    if (event.type === "siegebreak") return `${who} broke the siege`;
+    if (event.type === "wardenphase") return `Warden Phase ${event.phase}`;
+    if (event.type === "wardenkill") return `${who} ${event.stolen ? "stole" : "felled"} the Warden`;
+    if (event.type === "statuedown" || event.type === "guardiandown") return `${who} lost a ${event.type === "statuedown" ? "Totem" : "Sentinel"}`;
+    if (event.type === "coreexposed") return `${who} Seal exposed`;
+    if (event.type === "techniqueused") return `${who} fired ${objectiveTechniqueSpec(event.choice)?.label ?? event.choice}`;
+    if (event.type === "counterstrike") return `${who} triggered ${counterstrikeSpec(event.choice)?.label ?? event.choice}`;
+    if (event.type === "counterstrikeclaim") return `${who} claimed a +${event.bounty} comeback bounty`;
     return null;
 }
 function objectiveEventColor(event: WarfrontResult["events"][number]): string {
-    if (event.type === "minikill" || event.type === "wardenkill" || event.type === "guardianrally") return event.team === "blue" ? "#60a5fa" : "#f87171";
-    if (event.type === "statuedown" || event.type === "coredown") return event.by === "blue" ? "#60a5fa" : "#f87171";
-    if (event.type === "guardiandown" || event.type === "coreexposed") return event.team === "blue" ? "#f87171" : "#60a5fa";
-    if (event.type === "phase") return event.name === "HOLLOW COLLAPSE" ? "#fb7185" : "#a78bfa";
-    return "#a78bfa";
+    if (event.type === "coredown") return warfrontSealBreakPresentation(event).color;
+    if (event.type === "sigilawake" || event.type === "shutdown" || ("stolen" in event && event.stolen)) return "#fde047";
+    const team = (event.type === "opening" ? event.winner : event.type === "verdict" && event.winner !== "draw" ? event.winner : "team" in event ? event.team : "by" in event ? event.by : null) as Team | null;
+    return team ? TEAM_SOFT[team] : "#a78bfa";
 }
 
 const TEAM_COLOR: Record<Team, string> = { blue: "#3b82f6", red: "#ef4444" };
 const TEAM_SOFT: Record<Team, string> = { blue: "#93c5fd", red: "#fca5a5" };
+const WF_DEFAULT_DEPLOYMENT: WfOpeningDeployment = ["top", "mid", "bottom", "flex"];
+const WF_DEPLOYMENT_LABEL: Record<WfOpeningDeployment[number], string> = { top: "TOP", mid: "MID", bottom: "BOT", flex: "FLEX" };
 const WF_CAMERA_PITCH = 1.04;
 const ROLE_TAG: Record<string, string> = { defender: "DEF", tracker: "TRK", assassin: "ASN", sage: "SGE" };
 const ELEMENT_TINT: Record<string, string> = { fire: "#fb923c", water: "#38bdf8", wind: "#86efac", lightning: "#fde047", earth: "#d3a05f" };
@@ -207,6 +264,36 @@ const intentLabel = (intent: string) => {
     if (goal.startsWith("push")) return `${laneLabel} · PUSH`;
     return `${laneLabel} · CLEAR`;
 };
+
+const doctrineSpec = (doctrine: WfDoctrine) => WF_DOCTRINES.find((item) => item.id === doctrine)
+    ?? { id: "none" as const, icon: "◇", label: "No Doctrine", desc: "No opening doctrine" };
+
+function broadcastIntent(snap: WfSnapshot, team: Team): string {
+    const convoy = snap.minis.find((mini) => mini.alive && mini.ally === team && mini.siegeDowns === 0);
+    if (convoy?.escorted) return "ESCORT";
+    if (snap.structures[team].core.exposed) return "DEFEND";
+    const intents = snap.actors.filter((actor) => actor.team === team && actor.state !== "respawning").map((actor) => actor.intent);
+    const atScheduledCamp = snap.sigil.state !== "idle" && intents.some((intent) => intent.includes(`mini-${snap.sigil.padIdx}`));
+    if (atScheduledCamp || (snap.warden.active && intents.some((intent) => intent.endsWith(":warden")))) return "CONTEST";
+    if (intents.some((intent) => intent.includes(":defend"))) return "DEFEND";
+    if ((snap.sigil.state !== "idle" || snap.warden.active) && intents.some((intent) => intent.includes(":push"))) return "TRADE";
+    if (intents.some((intent) => intent.includes(":push"))) return "PUSH";
+    if (intents.some((intent) => intent.includes("mini-"))) return "HUNT";
+    return "FARM";
+}
+
+function broadcastStakes(snap: WfSnapshot): string {
+    if (snap.opening.active && snap.opening.winner) return `OPENING COUNTER · ${snap.opening.winner.toUpperCase()} +${snap.opening.attackPct}% ATK · +${snap.opening.speedPct}% SPEED · ${Math.ceil(snap.opening.secs)}s`;
+    const pointTeam = (["blue", "red"] as const).find((team) => snap.sigilPips[team] === 2 && !snap.ascendant);
+    if (pointTeam && snap.sigil.state !== "idle") return `ASCENDANCE POINT · ${pointTeam.toUpperCase()}`;
+    const convoy = snap.minis.find((mini) => mini.alive && mini.ally && mini.siegeDowns === 0);
+    if (convoy?.ally) return `${convoy.ally.toUpperCase()} CONVOY · ${convoy.escorted ? "FULL SIEGE" : "ESCORT NEEDED"}`;
+    if (snap.structures.blue.core.exposed || snap.structures.red.core.exposed) return "WARD SEAL AT RISK · NEXT BREAK ENDS IT";
+    if (snap.sigil.state === "awake") return "DOUBLE BOUNTY · SIGIL IN PLAY";
+    if (snap.warden.active && snap.warden.alive) return "GATE'S WRATH · LAST HIT CLAIMS IT";
+    if (!snap.warden.active && snap.t / WARFRONT_TPS >= WF_PHASE_WAR - 20) return "GATE WARDEN AWAKENS AT WAR";
+    return "BREAK SENTINELS · OPEN THE WARD SEAL";
+}
 
 let wfSeq = 0;   // cosmetic FX keys — module-scoped so spawn closures stay ref-free
 
@@ -240,24 +327,21 @@ function wardenTex(f: WardenFrameKey): THREE.Texture {
 const snapAt = (result: WarfrontResult, clock: WfClockRef): WfSnapshot => {
     const snaps = result.snapshots;
     const tick = Number.isFinite(clock.current.t) ? clock.current.t : 0;
-    return snaps[Math.max(0, Math.min(snaps.length - 1, Math.floor(tick)))];
+    return warfrontSnapshotAtTick(snaps, Math.floor(tick)) ?? snaps.at(0)!;
 };
 
-// The sim ticks at 30Hz but the playback clock advances a FRACTION of a tick per
-// rendered frame (t += delta * rate * TPS). snapAt() floors to the current tick —
-// correct for discrete state (hp, alive, statuses), but any actor that positions
-// itself off snapAt() then jumps at 30Hz while the smooth 60/144Hz display begs to
-// glide. lerpFrameAt() hands back the two bracketing snapshots + the blend so
-// movement can be interpolated the way the hero pets already are — the whole field
-// glides instead of only the four featured pets.
+// The sim stays at 30 TPS while the replay stores sparse presentation keyframes.
+// Discrete state resolves to the last known keyframe; positions blend by each
+// keyframe's real simulation tick for smooth 60/144 Hz display motion.
 interface WfLerpFrame { s0: WfSnapshot; s1: WfSnapshot; f: number }
 const lerpFrameAt = (result: WarfrontResult, clock: WfClockRef): WfLerpFrame => {
     const snaps = result.snapshots;
     const tick = Number.isFinite(clock.current.t) ? clock.current.t : 0;
-    const tf = Math.max(0, Math.min(snaps.length - 1, tick));
-    const i0 = Math.floor(tf);
-    const i1 = Math.min(snaps.length - 1, i0 + 1);
-    return { s0: snaps[i0], s1: snaps[i1], f: tf - i0 };
+    const bounds = warfrontSnapshotBoundsAtTick(snaps, tick);
+    const fallback = snaps.at(0)!;
+    return bounds
+        ? { s0: bounds.lower, s1: bounds.upper, f: bounds.alpha }
+        : { s0: fallback, s1: fallback, f: 0 };
 };
 
 type WfMobSnap = WfSnapshot["mobs"][number];
@@ -268,14 +352,33 @@ type WfSnapshotIndex = {
     hollowMobs: WfMobSnap[];
     laneMobs: WfMobSnap[];
 };
-const wfSnapshotIndexes = new Map<WfSnapshot, WfSnapshotIndex>();
+const wfSnapshotIndexes = new WeakMap<WfSnapshot, WfSnapshotIndex>();
+type WfPetStrikeIndex = { scanned: number; byActor: Map<string, number[]> };
+const wfPetStrikeIndexes = new WeakMap<WarfrontResult, WfPetStrikeIndex>();
+
+function wfPetStrikeTicks(result: WarfrontResult, actorId: string): readonly number[] {
+    let index = wfPetStrikeIndexes.get(result);
+    if (!index) {
+        index = { scanned: 0, byActor: new Map() };
+        wfPetStrikeIndexes.set(result, index);
+    }
+    for (let i = index.scanned; i < result.events.length; i++) {
+        const event = result.events[i];
+        if (event.type !== "petstrike") continue;
+        const ticks = index.byActor.get(event.actorId) ?? [];
+        ticks.push(event.t);
+        index.byActor.set(event.actorId, ticks);
+    }
+    index.scanned = result.events.length;
+    return index.byActor.get(actorId) ?? [];
+}
 type WfMobSlotBindings = {
     snapshot: WfSnapshot | null;
     hollow: Array<number | null>;
     lane: Array<number | null>;
 };
 
-/** Build the per-tick lookup once, then share it across every rendered actor.
+/** Build each keyframe lookup once, then share it across every rendered actor.
  * This replaces thirty separate filter/find passes on every display frame. */
 function wfSnapshotIndex(snapshot: WfSnapshot): WfSnapshotIndex {
     const cached = wfSnapshotIndexes.get(snapshot);
@@ -292,10 +395,6 @@ function wfSnapshotIndex(snapshot: WfSnapshot): WfSnapshotIndex {
     }
     const index = { actorsById, mobsById, hollowMobs, laneMobs };
     wfSnapshotIndexes.set(snapshot, index);
-    if (wfSnapshotIndexes.size > 12) {
-        const oldest = wfSnapshotIndexes.keys().next().value as WfSnapshot | undefined;
-        if (oldest) wfSnapshotIndexes.delete(oldest);
-    }
     return index;
 }
 
@@ -336,17 +435,17 @@ const wfClockSeconds = (clock: WfClockRef): number =>
     wfClockTick(clock) / WARFRONT_TPS;
 
 // ── Floor + set dressing ─────────────────────────────────────────────────────
-function WfHollowGate({ glow }: { glow: string }) {
+function WfHollowGate({ glow, reducedMotion }: { glow: string; reducedMotion: boolean }) {
     const outer = useRef<THREE.Mesh>(null);
     const inner = useRef<THREE.Mesh>(null);
     const outerMat = useRef<THREE.MeshBasicMaterial>(null);
     const innerMat = useRef<THREE.MeshBasicMaterial>(null);
     useFrame((state) => {
-        const now = state.clock.elapsedTime;
+        const now = reducedMotion ? 0 : state.clock.elapsedTime;
         if (outer.current) outer.current.rotation.z = now * 0.16;
         if (inner.current) inner.current.rotation.z = -now * 0.24;
-        if (outerMat.current) outerMat.current.opacity = 0.42 + Math.sin(now * 1.8) * 0.12;
-        if (innerMat.current) innerMat.current.opacity = 0.28 + Math.sin(now * 2.5 + 1.2) * 0.1;
+        if (outerMat.current) outerMat.current.opacity = reducedMotion ? 0.42 : 0.42 + Math.sin(now * 1.8) * 0.12;
+        if (innerMat.current) innerMat.current.opacity = reducedMotion ? 0.28 : 0.28 + Math.sin(now * 2.5 + 1.2) * 0.1;
     });
     return (
         <group position={[WF_LAIR.x, 0, WF_LAIR.y]}>
@@ -371,12 +470,12 @@ function WfHollowGate({ glow }: { glow: string }) {
                     </mesh>
                 );
             })}
-            <Sparkles count={26} scale={[3.4, 2.6, 3.4]} position={[0, 1.2, 0]} size={2.4} speed={0.35} opacity={0.5} color={glow} noise={2} />
+            {!reducedMotion && <Sparkles count={26} scale={[3.4, 2.6, 3.4]} position={[0, 1.2, 0]} size={2.4} speed={0.35} opacity={0.5} color={glow} noise={2} />}
         </group>
     );
 }
 
-function WfFloor({ theme }: { theme: WfTheme }) {
+function WfFloor({ theme, reducedMotion }: { theme: WfTheme; reducedMotion: boolean }) {
     const spec = WF_THEMES[theme];
     const tiles = useMemo(() => walkTilesFromMask(WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y), []);
     const laneGuides = useMemo(() => (Object.entries(WF_LANES) as Array<
@@ -551,8 +650,12 @@ function WfFloor({ theme }: { theme: WfTheme }) {
     useEffect(() => () => {
         wallMesh.geometry.dispose(); (wallMesh.material as THREE.Material).dispose(); wallMesh.dispose();
         canopyMesh.traverse((o) => {
-            const mesh = o as THREE.Mesh;
-            if (mesh.isMesh) { mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); }
+            const mesh = o as THREE.InstancedMesh;
+            if (mesh.isInstancedMesh) {
+                mesh.dispose();
+                mesh.geometry.dispose();
+                (mesh.material as THREE.Material).dispose();
+            }
         });
     }, [wallMesh, canopyMesh]);
     return (
@@ -566,7 +669,7 @@ function WfFloor({ theme }: { theme: WfTheme }) {
             <primitive object={wallMesh} />
             <primitive object={canopyMesh} />
             {laneGuides.map((line, lane) => <primitive key={lane} object={line} />)}
-            <WfHollowGate glow={spec.breachGlow} />
+            <WfHollowGate glow={spec.breachGlow} reducedMotion={reducedMotion} />
             {/* Lesser-Warden shrine pads + team spawn rings. */}
             {WF_PADS.map(([x, y], i) => (
                 <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, y]}>
@@ -623,11 +726,21 @@ function WfPropInstances({ url, items, targetH, lift = 0.34 }: { url: string; it
         inst.instanceMatrix.needsUpdate = true;
         return inst;
     }, [gltf, items, targetH, lift]);
+    useEffect(() => () => {
+        if (!mesh) return;
+        // Geometry and textures belong to useGLTF's shared cache. This instance
+        // owns only its cloned material and GPU instance buffers.
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of materials) material.dispose();
+        mesh.dispose();
+    }, [mesh]);
     if (!mesh) return null;
     return <primitive object={mesh} />;
 }
 useGLTF.preload("/pet-models/wf-boulder.glb");
 useGLTF.preload("/pet-models/wf-lantern.glb");
+useGLTF.preload("/pet-models/ward-totem.glb");
+useGLTF.preload(GATE_WARDEN_GLB);
 
 // ── Set dressing — rim rocks, lane lanterns, breach crystals, base banners ───
 // All deterministic (hash-sampled from the mask) and instanced: a handful of
@@ -808,8 +921,6 @@ function WfFighter3D({ result, clock, id, pet, config }: {
     const smSpd = useRef(0);
     const lastTick = useRef(-1);
     const wasMoving = useRef(false);
-    const prevState = useRef("");
-    const strikeAt = useRef(-10);
     const flash = useRef(0);
     const prevHp = useRef(Number.POSITIVE_INFINITY);
     const faceSm = useRef<[number, number]>([id.startsWith("blue") ? 1 : -1, 0]);
@@ -822,23 +933,35 @@ function WfFighter3D({ result, clock, id, pet, config }: {
     const h = arenaModelHeight(targetH) * 1.15;   // the Warfront field is huge — pets read a touch bigger
     const s = config ? h / Math.max(0.001, targetH) : 1;
     const tint = useMemo(() => tintOf(pet.element), [pet.element]);
-    const role = useMemo(() => result.snapshots[0]?.actors.find((a) => a.id === id)?.role ?? "tracker", [result, id]);
+    const role = useMemo(() => result.snapshots.at(0)?.actors.find((a) => a.id === id)?.role ?? "tracker", [result, id]);
 
     useFrame((state, delta) => {
         const g = root.current; if (!g) return;
         const snaps = result.snapshots;
-        const tf = Math.max(0, Math.min(snaps.length - 1, wfClockTick(clock)));
-        const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
-        const a0 = wfSnapshotIndex(snaps[i0]).actorsById.get(id); if (!a0) return;
-        const a1 = wfSnapshotIndex(snaps[i1]).actorsById.get(id) ?? a0;
+        const bounds = warfrontSnapshotBoundsAtTick(snaps, wfClockTick(clock));
+        if (!bounds) return;
+        const { lower, upper, tick: tf, alpha: f } = bounds;
+        const a0 = wfSnapshotIndex(lower).actorsById.get(id); if (!a0) return;
+        const a1 = wfSnapshotIndex(upper).actorsById.get(id) ?? a0;
         const down = a0.state === "respawning";
         const tdx = a1.x - a0.x, tdz = a1.y - a0.y;
         const teleport = tdx * tdx + tdz * tdz > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
-        const px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
+        let px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
+        // Sparse keyframes can sit on opposite sides of a tight corner. A raw
+        // straight interpolation then draws the rig through stone even though
+        // both authoritative positions are legal. Hold the nearest legal frame
+        // for that brief corner crossing; the motion filter blends the handoff.
+        if (!wfWalkable(px, pz)) {
+            const legal = ff < 0.5 ? a0 : a1;
+            px = legal.x; pz = legal.y;
+        }
         const rewound = tf < lastTick.current;
         lastTick.current = tf;
         const motion = advanceWarfrontMotionFilter(renderMotion.current, px, pz, delta, teleport || rewound);
+        if (!wfWalkable(motion.x, motion.z)) {
+            motion.x = px; motion.z = pz; motion.vx = 0; motion.vz = 0;
+        }
         const filteredSpeed = warfrontMotionFilterSpeed(motion);
         smSpd.current = approach(smSpd.current, down ? 0 : filteredSpeed, 0.22, delta);
         const moving = !down && (wasMoving.current ? smSpd.current > 0.28 : smSpd.current > 0.72);
@@ -847,9 +970,8 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         if (body.current) body.current.visible = !down;
 
         const now = wfClockSeconds(clock);
-        if (a0.state === "attack" && prevState.current !== "attack") strikeAt.current = now;
-        prevState.current = a0.state;
-        const striking = now - strikeAt.current < 0.3;
+        const strikeTick = warfrontLatestTickAtOrBefore(wfPetStrikeTicks(result, id), tf);
+        const striking = strikeTick !== null && tf >= strikeTick && tf - strikeTick < WARFRONT_TPS * 0.3;
 
         // While MOVING, face where you are going (sim facing is for combat) —
         // mismatched face/travel made pets moonwalk sideways.
@@ -867,7 +989,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         const frac = a0.hp / Math.max(1, a0.maxHp);
 
         const mf = modelFrame.current;
-        mf.motion = arenaModelMotion(a0.state === "respawning" ? "respawning" : a0.state === "dash" ? "dash" : a0.state === "attack" ? "attack" : "idle", moving, striking);
+        mf.motion = arenaModelMotion(a0.state === "respawning" ? "respawning" : a0.state === "dash" ? "dash" : striking ? "attack" : "idle", moving, striking);
         mf.moving = moving;
         mf.speed = Math.min(6, smSpd.current);   // real units/second — the rigs gallop at >= 2.65
         mf.moveX = travel.current[0];
@@ -889,7 +1011,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
         if (nameWrap.current) {
             const camDistance = Math.hypot(state.camera.position.x - px, state.camera.position.z - pz);
-            const important = down || frac < 0.985 || a0.state === "attack" || a0.statuses.length > 0;
+            const important = down || frac < 0.985 || striking || a0.statuses.length > 0;
             const opacity = important || camDistance < 22 ? (down ? 0.55 : 1) : camDistance < 29 ? 0.48 : 0.16;
             nameWrap.current.style.opacity = String(opacity);
             nameWrap.current.style.visibility = !important && camDistance > 35 ? "hidden" : "visible";
@@ -1004,6 +1126,9 @@ const WF_HOUND_LOD = {
     boxGeometry: new THREE.BoxGeometry(1, 1, 1),
     headGeometry: new THREE.DodecahedronGeometry(0.23, 0),
     earGeometry: new THREE.TetrahedronGeometry(0.17, 0),
+    eyeGeometry: new THREE.SphereGeometry(0.032, 6, 5),
+    fangGeometry: new THREE.ConeGeometry(0.026, 0.13, 5),
+    crestGeometry: new THREE.OctahedronGeometry(0.13, 0),
     tailGeometry: new THREE.ConeGeometry(0.085, 0.5, 5),
     materials: Object.freeze({
         blue: wfHoundMaterials("#082f49", "#0c4a6e", "#075985", "#0284c7", "#e0f2fe", "#0369a1", "#38bdf8"),
@@ -1026,14 +1151,25 @@ function WfHollowHoundImpostor({ bodyRef, side = "hollow" }: { bodyRef: MutableR
             {([-0.11, 0.11] as const).map((x) => (
                 <mesh key={x} geometry={WF_HOUND_LOD.earGeometry} material={material.ear} position={[x, 0.61, 0.37]} rotation={[0.18, x < 0 ? -0.3 : 0.3, x < 0 ? 0.18 : -0.18]} scale={[0.66, 0.96, 0.58]} />
             ))}
+            {([-0.075, 0.075] as const).map((x) => (
+                <mesh key={`eye:${x}`} geometry={WF_HOUND_LOD.eyeGeometry} material={material.muzzle} position={[x, 0.46, 0.61]} />
+            ))}
             <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.39, 0.65]} scale={[0.18, 0.075, 0.2]} />
+            {([-0.055, 0.055] as const).map((x) => (
+                <mesh key={`fang:${x}`} geometry={WF_HOUND_LOD.fangGeometry} material={material.muzzle} position={[x, 0.34, 0.74]} rotation={[Math.PI, 0, 0]} />
+            ))}
+            <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.ear} position={[0, 0.5, 0.02]} scale={[0.48, 0.12, 0.34]} rotation={[0, 0, Math.PI / 4]} />
             {side === "hollow" ? (
                 <>
-                    <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[-0.15, 0.53, -0.1]} rotation={[0, 0, 0.5]} scale={[0.48, 1.05, 0.48]} />
-                    <mesh geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[0.15, 0.53, -0.1]} rotation={[0, 0, -0.5]} scale={[0.48, 1.05, 0.48]} />
+                    {([-0.2, 0, 0.2] as const).map((z, index) => (
+                        <mesh key={z} geometry={WF_HOUND_LOD.earGeometry} material={material.muzzle} position={[0, 0.61 + (index === 1 ? 0.08 : 0), z]} rotation={[0.35, 0, Math.PI]} scale={[0.52, 1.15, 0.52]} />
+                    ))}
                 </>
             ) : (
-                <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.51, -0.04]} scale={[0.31, 0.055, 0.3]} />
+                <>
+                    <mesh geometry={WF_HOUND_LOD.boxGeometry} material={material.muzzle} position={[0, 0.51, -0.04]} scale={[0.31, 0.055, 0.3]} />
+                    <mesh geometry={WF_HOUND_LOD.crestGeometry} material={material.muzzle} position={[0, 0.7, -0.03]} scale={[0.62, 0.92, 0.62]} />
+                </>
             )}
             <mesh geometry={WF_HOUND_LOD.tailGeometry} material={material.tail} position={[0, 0.39, -0.5]} rotation={[-Math.PI / 2.6, 0, 0]} />
         </group>
@@ -1055,6 +1191,11 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
     const isLane = kind === "lane";
     const group = useRef<THREE.Group>(null);
     const impostor = useRef<THREE.Group>(null);
+    const moveTrail = useRef<THREE.Group>(null);
+    const moveTrailMat = useRef<THREE.MeshBasicMaterial>(null);
+    const strikeRing = useRef<THREE.Mesh>(null);
+    const strikeRingMat = useRef<THREE.MeshBasicMaterial>(null);
+    const eliteCrown = useRef<THREE.Group>(null);
     const hpBar = useRef<THREE.Group>(null);
     const hpFill = useRef<THREE.Mesh>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
@@ -1130,6 +1271,24 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
         f.timeline = seconds;
         const lunge = strikePulse * (isLane ? 0.12 : 0.13);
         g.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
+        const targetYaw = Math.atan2(f.faceX, f.faceZ);
+        if (moveTrail.current) {
+            moveTrail.current.rotation.y = approachAngle(moveTrail.current.rotation.y, targetYaw, 0.24, delta);
+            moveTrail.current.visible = moving && smSpd.current > 0.35;
+            moveTrail.current.scale.z = approach(moveTrail.current.scale.z, 0.7 + Math.min(1.5, smSpd.current * 0.22), 0.18, delta);
+        }
+        if (moveTrailMat.current) moveTrailMat.current.opacity = moving ? Math.min(0.38, 0.1 + smSpd.current * 0.06) : 0;
+        if (strikeRing.current) {
+            strikeRing.current.visible = striking;
+            strikeRing.current.scale.setScalar(0.65 + strikePulse * 1.25);
+            strikeRing.current.rotation.z = seconds * (isLane ? 2.2 : -2.8);
+        }
+        if (strikeRingMat.current) strikeRingMat.current.opacity = striking ? strikePulse * 0.72 : 0;
+        if (eliteCrown.current) {
+            eliteCrown.current.visible = isLane && m1.elite;
+            eliteCrown.current.rotation.y = seconds * 1.8 + index;
+            eliteCrown.current.position.y = 0.9 + Math.sin(seconds * 3 + index) * 0.045;
+        }
         const health = Math.max(0, Math.min(1, m1.hp / Math.max(1, m1.maxHp)));
         f.desperate = health < 0.35;
         if (hpBar.current) {
@@ -1141,15 +1300,21 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
             hpFill.current.position.x = -0.3 * (1 - health);
         }
         if (impostor.current) {
-            const targetYaw = Math.atan2(f.faceX, f.faceZ);
             impostor.current.rotation.y = approachAngle(impostor.current.rotation.y, targetYaw, 0.28, delta);
             const gait = seconds * (isLane ? 9 : 9.5) + index;
             impostor.current.position.y = moving ? Math.abs(Math.sin(gait)) * (isLane ? 0.035 : 0.04) : 0;
+            impostor.current.rotation.x = approach(impostor.current.rotation.x, striking ? -strikePulse * 0.12 : 0, 0.22, delta);
             impostor.current.rotation.z = moving ? Math.sin(gait) * (isLane ? 0.025 : 0.028) : 0;
         }
     });
     return (
         <group ref={group} visible={false}>
+            <group ref={moveTrail} visible={false} position={[0, 0.065, -0.42]}>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[0.7, 1.8, 1]} renderOrder={1}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial ref={moveTrailMat} map={radialTexture3d()} color={isLane ? (side === "blue" ? "#38bdf8" : "#fb7185") : "#a855f7"} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
             {/* Ground-glow keeps lane and Hollow hounds readable in deep jungle. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
                 <planeGeometry args={isLane ? [1.05, 1.05] : [1.15, 1.15]} />
@@ -1162,6 +1327,20 @@ function WfHoundSlot({ result, clock, index, config, rigBudget, rigDistance, bin
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
+            <mesh ref={strikeRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.075, 0]} renderOrder={3}>
+                <ringGeometry args={[0.34, 0.48, 28]} />
+                <meshBasicMaterial ref={strikeRingMat} color={isLane ? (side === "blue" ? "#7dd3fc" : "#fda4af") : "#e879f9"} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <group ref={eliteCrown} visible={false}>
+                <mesh>
+                    <octahedronGeometry args={[0.16, 0]} />
+                    <meshBasicMaterial color="#fde047" toneMapped={false} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[0.24, 0.3, 20]} />
+                    <meshBasicMaterial color="#f59e0b" transparent opacity={0.72} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
             <group ref={hpBar} position={[0, 0.86, 0]} visible={false} renderOrder={8}>
                 <mesh position={[0, 0, -0.01]}>
                     <planeGeometry args={[0.68, 0.1]} />
@@ -1246,7 +1425,7 @@ function WfStatue({ result, clock, team, idx }: { result: WarfrontResult; clock:
     const rubble = useRef<THREE.Group>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const wrap = useRef<HTMLDivElement>(null);
-    const first = result.snapshots[0].structures[team].statues[idx];
+    const first = result.snapshots.at(0)!.structures[team].statues[idx];
     useFrame(() => {
         const s = snapAt(result, clock).structures[team].statues[idx];
         if (grp.current) grp.current.visible = s.alive;
@@ -1302,19 +1481,19 @@ function WfStatue({ result, clock, team, idx }: { result: WarfrontResult; clock:
     );
 }
 
-function WfCore({ result, clock, team }: { result: WarfrontResult; clock: WfClockRef; team: Team }) {
+function WfCore({ result, clock, team, reducedMotion }: { result: WarfrontResult; clock: WfClockRef; team: Team; reducedMotion: boolean }) {
     const gem = useRef<THREE.Mesh>(null);
     const shield = useRef<THREE.Mesh>(null);
     const grp = useRef<THREE.Group>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const label = useRef<HTMLDivElement>(null);
-    const first = result.snapshots[0].structures[team].core;
+    const first = result.snapshots.at(0)!.structures[team].core;
     useFrame((state) => {
         const c = snapAt(result, clock).structures[team].core;
         if (grp.current) grp.current.visible = c.alive;
         if (gem.current) {
-            gem.current.rotation.y = state.clock.elapsedTime * 0.8;
-            gem.current.position.y = 1.15 + Math.sin(state.clock.elapsedTime * 1.6) * 0.1;
+            gem.current.rotation.y = reducedMotion ? 0 : state.clock.elapsedTime * 0.8;
+            gem.current.position.y = reducedMotion ? 1.15 : 1.15 + Math.sin(state.clock.elapsedTime * 1.6) * 0.1;
         }
         if (shield.current) shield.current.visible = c.alive && !c.exposed;
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (c.hp / c.maxHp) * 100))}%`;
@@ -1400,6 +1579,16 @@ function WfArtGlb({ url, targetH, color = "#ffffff", emissive = "#9a9a9a", emiss
         holder.add(c);
         return holder;
     }, [scene, targetH, color, emissive, emissiveIntensity]);
+    useEffect(() => () => {
+        prepared.traverse((node) => {
+            const mesh = node as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            // The cloned scene shares cached geometry/albedo textures, but each
+            // WfArtGlb creates its own lifted presentation material.
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            for (const material of materials) material.dispose();
+        });
+    }, [prepared]);
     return <primitive object={prepared} />;
 }
 
@@ -1440,30 +1629,6 @@ function WfWardenModelOrFallback({ motionRef, targetH }: {
     motionRef: MutableRefObject<WardenRigMotion>;
     targetH: number;
 }) {
-    const [rigAvailable, setRigAvailable] = useState<boolean | null>(null);
-    useEffect(() => {
-        const controller = new AbortController();
-        void fetch(GATE_WARDEN_GLB, {
-            method: "HEAD",
-            cache: "force-cache",
-            signal: controller.signal,
-        }).then((response) => {
-            setRigAvailable(response.ok);
-            if (!response.ok) {
-                console.warn(`[Warfront] Gate Warden rig returned HTTP ${response.status}; using the safe fallback.`);
-            }
-        }).catch((error: unknown) => {
-            if (controller.signal.aborted) return;
-            setRigAvailable(false);
-            console.warn(
-                "[Warfront] Gate Warden rig could not be reached; using the safe fallback.",
-                error instanceof Error ? error.message : String(error),
-            );
-        });
-        return () => controller.abort();
-    }, []);
-
-    if (rigAvailable !== true) return <WfWardenBillboard height={targetH} />;
     return (
         <WfAssetErrorBoundary
             label="Gate Warden rig"
@@ -1578,6 +1743,11 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
     const aura = useRef<THREE.MeshBasicMaterial>(null);
     const slamTelegraph = useRef<THREE.Mesh>(null);
     const slamTelegraphMat = useRef<THREE.MeshBasicMaterial>(null);
+    const riftHalo = useRef<THREE.Group>(null);
+    const riftHaloMat = useRef<THREE.MeshBasicMaterial>(null);
+    const phaseCrown = useRef<THREE.Group>(null);
+    const phaseCrownMat = useRef<THREE.MeshBasicMaterial>(null);
+    const bossLight = useRef<THREE.PointLight>(null);
     const smX = useRef(0), smZ = useRef(0);
     const heading = useRef(0);
     const gait = useRef(0);
@@ -1602,7 +1772,7 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
             const vz = jump ? 0 : w.y - w0.y;
             const travel = Math.hypot(vx, vz);
             const ups = travel * WARFRONT_TPS;
-            const moving = ups > 0.18;
+            const moving = w.active && ups > 0.18;
             if (moving && travel > 1e-5) {
                 heading.current = approachAngle(heading.current, Math.atan2(vx, vz), 0.16, delta);
             } else if (Math.abs(w.faceX) > 0.1) {
@@ -1619,7 +1789,7 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
             const bob = moving && w.alive ? Math.abs(Math.sin(gait.current)) * 0.028 : Math.sin(now * 1.7) * 0.008;
             root.current.position.set(smX.current, Math.max(-0.12, bob - slamArc * 0.11), smZ.current);
             let rigClip: WardenRigClip = moving ? "GW_Walk" : "GW_Idle";
-            if (w.winding) rigClip = "GW_Windup";
+            if (w.active && w.winding) rigClip = "GW_Windup";
             if (slamP < 1) rigClip = "GW_Slam";
             else if (hitP < 1) rigClip = "GW_Hit";
             if (rigMotion.current.clip !== rigClip) {
@@ -1648,8 +1818,10 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
                 );
             }
             if (aura.current) {
-                aura.current.opacity = 0.32 + Math.abs(Math.sin(now * 2.4)) * 0.12 + (w.winding ? 0.18 : 0) + slamArc * 0.24;
-                aura.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#c084fc" : "#9333ea");
+                aura.current.opacity = w.active
+                    ? 0.32 + Math.abs(Math.sin(now * 2.4)) * 0.12 + (w.winding ? 0.18 : 0) + slamArc * 0.24
+                    : 0.09 + Math.abs(Math.sin(now * 0.8)) * 0.025;
+                aura.current.color.set(w.active ? (w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#c084fc" : "#9333ea") : "#64748b");
             }
             if (slamTelegraph.current) {
                 slamTelegraph.current.visible = w.winding;
@@ -1660,13 +1832,36 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
                 slamTelegraphMat.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#e879f9" : "#c084fc");
                 slamTelegraphMat.current.opacity = w.winding ? 0.22 + Math.abs(Math.sin(now * 9)) * 0.22 : 0;
             }
+            if (riftHalo.current) {
+                riftHalo.current.rotation.y = now * (w.phase === 3 ? -1.7 : 1.15);
+                riftHalo.current.rotation.z = Math.sin(now * 0.8) * 0.18;
+                riftHalo.current.scale.setScalar(1 + Math.sin(now * 2.6) * 0.045 + (w.winding ? 0.14 : 0));
+            }
+            if (riftHaloMat.current) {
+                riftHaloMat.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#e879f9" : "#a78bfa");
+                riftHaloMat.current.opacity = w.alive ? 0.42 + w.phase * 0.08 + (w.winding ? 0.18 : 0) : 0;
+            }
+            if (phaseCrown.current) {
+                phaseCrown.current.visible = w.alive && w.phase >= 2;
+                phaseCrown.current.rotation.y = -now * (w.phase === 3 ? 2.5 : 1.55);
+                phaseCrown.current.position.y = H * 0.72 + Math.sin(now * 3.2) * 0.07;
+                phaseCrown.current.scale.setScalar(w.phase === 3 ? 1.2 : 1);
+            }
+            if (phaseCrownMat.current) {
+                phaseCrownMat.current.color.set(w.phase === 3 ? "#fecdd3" : "#f5d0fe");
+                phaseCrownMat.current.opacity = 0.68 + Math.sin(now * 5) * 0.18;
+            }
+            if (bossLight.current) {
+                bossLight.current.color.set(w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#d946ef" : "#8b5cf6");
+                bossLight.current.intensity = w.alive ? 1.7 + w.phase * 0.55 + (w.winding ? 2.2 : 0) : 0;
+            }
         }
-        if (hpWrap.current) hpWrap.current.style.opacity = w.alive ? "1" : "0";
+        if (hpWrap.current) hpWrap.current.style.opacity = w.alive ? (w.active ? "1" : "0.7") : "0";
         if (hpFill.current) {
             hpFill.current.style.width = `${Math.max(0, Math.min(100, (w.hp / w.maxHp) * 100))}%`;
             hpFill.current.style.background = w.phase === 3 ? "#fb7185" : w.phase === 2 ? "#e879f9" : "#a78bfa";
         }
-        if (phaseLabel.current) phaseLabel.current.textContent = `PHASE ${["I", "II", "III"][w.phase - 1]}`;
+        if (phaseLabel.current) phaseLabel.current.textContent = w.active ? `PHASE ${["I", "II", "III"][w.phase - 1]}` : "DORMANT · SEALED UNTIL WAR";
     });
     return (
         <group ref={root} visible={false}>
@@ -1695,6 +1890,28 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
+            <group ref={riftHalo} position={[0, H * 0.55, 0]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[1.18, 0.035, 7, 48]} />
+                    <meshBasicMaterial ref={riftHaloMat} color="#a78bfa" transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh rotation={[0.45, 0, 0.72]}>
+                    <torusGeometry args={[0.92, 0.022, 6, 40]} />
+                    <meshBasicMaterial color="#e879f9" transparent opacity={0.36} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
+            <group ref={phaseCrown} visible={false}>
+                {Array.from({ length: 6 }, (_, index) => {
+                    const angle = (index / 6) * Math.PI * 2;
+                    return (
+                        <mesh key={index} position={[Math.cos(angle) * 1.05, (index % 2) * 0.14, Math.sin(angle) * 1.05]} rotation={[angle, -angle, angle * 0.5]}>
+                            <octahedronGeometry args={[0.13, 0]} />
+                            <meshBasicMaterial ref={index === 0 ? phaseCrownMat : undefined} color="#f5d0fe" transparent opacity={0.76} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    );
+                })}
+            </group>
+            <pointLight ref={bossLight} position={[0, 1.45, 0]} color="#8b5cf6" intensity={2.2} distance={7.5} decay={2} />
             <group ref={body}>
                 <WfWardenModelOrFallback motionRef={rigMotion} targetH={H} />
             </group>
@@ -1714,10 +1931,15 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
 
 function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; clock: WfClockRef; idx: number; name: string; glow: string }) {
     const root = useRef<THREE.Group>(null);
+    const body = useRef<THREE.Group>(null);
     const hpWrap = useRef<HTMLDivElement>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const allyRing = useRef<THREE.Mesh>(null);
     const allyMat = useRef<THREE.MeshBasicMaterial>(null);
+    const awakeRing = useRef<THREE.Mesh>(null);
+    const campSigil = useRef<THREE.Group>(null);
+    const sigilMat = useRef<THREE.MeshBasicMaterial>(null);
+    const crown = useRef<THREE.Group>(null);
     // Each camp keeps a distinct LEGENDARY body with an element recolor:
     // Ancient Golem/Earth, Crystal Behemoth/Water, Void Stalker/Shadow, Rift Devourer/Fire.
     const CAMP_BOSS: ReadonlyArray<{ id: string; el: string }> = [
@@ -1734,6 +1956,8 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     const lastTick = useRef(-1);
     const wasMoving = useRef(false);
     const wasAlive = useRef(false);
+    const prevHp = useRef(Number.POSITIVE_INFINITY);
+    const hitAt = useRef(-10);
     const [aliveUi, setAliveUi] = useState(false);
     useFrame((_state, delta) => {
         const { s0, s1, f: bf } = lerpFrameAt(result, clock);
@@ -1774,26 +1998,76 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         else { f.faceX = m.faceX; f.faceZ = 0.001; f.moveX = m.faceX; f.moveZ = 0.001; }
         f.timeline = seconds;
         const lunge = strikePulse * 0.14;
+        if (m.hp < prevHp.current - 0.5) hitAt.current = seconds;
+        prevHp.current = m.hp;
+        const hitAge = Math.max(0, seconds - hitAt.current);
+        const hitPulse = hitAge < 0.3 ? Math.sin((hitAge / 0.3) * Math.PI) : 0;
         if (root.current) {
             root.current.visible = m.alive;
             root.current.position.set(motion.x + f.faceX * lunge, 0, motion.z + f.faceZ * lunge);
+        }
+        if (body.current) {
+            const breathe = Math.sin(seconds * 2.1 + idx) * 0.012;
+            body.current.scale.x = approach(body.current.scale.x, scale * (1 + strikePulse * 0.055 - hitPulse * 0.035 - breathe), 0.19, delta);
+            body.current.scale.y = approach(body.current.scale.y, scale * (1 - strikePulse * 0.08 + hitPulse * 0.045 + breathe), 0.19, delta);
+            body.current.scale.z = approach(body.current.scale.z, scale * (1 + strikePulse * 0.055 - hitPulse * 0.035 - breathe), 0.19, delta);
+        }
+        if (campSigil.current) {
+            campSigil.current.rotation.z = seconds * (m.ally ? -0.85 : 0.55) + idx;
+            campSigil.current.scale.setScalar(1 + Math.sin(seconds * 2.7 + idx) * 0.06 + strikePulse * 0.12);
+        }
+        if (sigilMat.current) {
+            sigilMat.current.color.set(m.ally ? TEAM_COLOR[m.ally] : glow);
+            sigilMat.current.opacity = m.alive ? 0.32 + strikePulse * 0.28 : 0;
+        }
+        if (crown.current) {
+            crown.current.visible = m.alive;
+            crown.current.rotation.y = seconds * (m.ally ? 2.1 : -1.35) + idx;
+            crown.current.position.y = H + 0.13 + Math.sin(seconds * 3 + idx) * 0.06;
         }
         f.desperate = m.alive && m.hp / Math.max(1, m.maxHp) < 0.4;
         if (hpWrap.current) hpWrap.current.style.opacity = m.alive ? "1" : "0";
         if (hpFill.current) { hpFill.current.style.width = `${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%`; hpFill.current.style.background = m.ally ? TEAM_COLOR[m.ally] : "#c084fc"; }
         // Recruited → a team-colored ground ring marks it as fighting for a side.
         if (allyRing.current) { allyRing.current.visible = m.alive && !!m.ally; if (m.ally && allyMat.current) allyMat.current.color.set(TEAM_COLOR[m.ally]); }
+        // AWAKENED (the Sigil appointment) → a pulsing gold ring under the boss.
+        if (awakeRing.current) {
+            const on = m.alive && !m.ally && m.awake;
+            awakeRing.current.visible = on;
+            if (on) awakeRing.current.scale.setScalar(1 + 0.12 * Math.sin(seconds * 5));
+        }
     });
     if (!config) return null;
     return (
         <group ref={root} visible={false}>
+            <group ref={campSigil} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={1}>
+                <mesh>
+                    <ringGeometry args={[0.88, 1.18, 6]} />
+                    <meshBasicMaterial ref={sigilMat} color={glow} transparent opacity={0.34} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh rotation={[0, 0, Math.PI / 6]}>
+                    <ringGeometry args={[0.58, 0.63, 6]} />
+                    <meshBasicMaterial color={glow} transparent opacity={0.28} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
+            <group ref={crown} visible={false}>
+                {Array.from({ length: 4 }, (_, index) => {
+                    const angle = (index / 4) * Math.PI * 2;
+                    return (
+                        <mesh key={index} position={[Math.cos(angle) * 0.52, 0, Math.sin(angle) * 0.52]} rotation={[angle, angle, 0]}>
+                            <octahedronGeometry args={[0.085, 0]} />
+                            <meshBasicMaterial color={glow} toneMapped={false} />
+                        </mesh>
+                    );
+                })}
+            </group>
             {aliveUi && <Suspense fallback={(
                 <mesh position={[0, 0.9, 0]}>
                     <sphereGeometry args={[0.8, 12, 10]} />
                     <meshStandardMaterial color="#171126" emissive={glow} emissiveIntensity={0.5} roughness={0.6} />
                 </mesh>
             )}>
-                <group scale={scale}>
+                <group ref={body} scale={scale}>
                     <PetModel3D config={config} frame={frameRef} element={camp.el} />
                 </group>
             </Suspense>}
@@ -1808,6 +2082,10 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
             <mesh ref={allyRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} renderOrder={-1}>
                 <ringGeometry args={[1.15, 1.6, 28]} />
                 <meshBasicMaterial ref={allyMat} transparent opacity={0.5} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <mesh ref={awakeRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} renderOrder={-1}>
+                <ringGeometry args={[1.35, 1.85, 28]} />
+                <meshBasicMaterial color="#fde047" transparent opacity={0.55} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
             </mesh>
         </group>
     );
@@ -1828,7 +2106,7 @@ function WfGuardian({ result, clock, team, idx }: { result: WarfrontResult; cloc
     const hitAt = useRef(-10);
     // Two distinct mythic bodies per team (top / bottom lane) with team recolors.
     const config = useMemo(() => petCombatModel({ id: idx === 0 ? "mythic-0" : "mythic-2" } as Pet), [idx]);
-    const first = result.snapshots[0].guardians[team][idx];
+    const first = result.snapshots.at(0)!.guardians[team][idx];
     const H = 1.75;
     const scale = config ? H / Math.max(0.001, config.targetHeight) : 1;
     useFrame((_state, delta) => {
@@ -1932,7 +2210,7 @@ const WF_ROAD_PTS: ReadonlyArray<readonly [number, number]> = [...WF_LANES.n, ..
  * far-apart fights used to aim the camera at the empty jungle between them
  * with both fights clipped at the frame edges. `px/pz` = current camera focus,
  * used as a tie-break so near-equal clusters do not flip-flop the shot. */
-function wfCameraFocus(snap: WfSnapshot, px = 0, pz = 0): { fx: number; fz: number; span: number } {
+function wfCameraFocus(snap: WfSnapshot, px = 0, pz = 0, preferredTeam: Team = "blue"): { fx: number; fz: number; span: number } {
     const frame = (pts: Array<[number, number]>, wts?: number[]): { fx: number; fz: number; span: number } => {
         let bi = 0, bs = -1;
         for (let i = 0; i < pts.length; i++) {
@@ -2001,6 +2279,18 @@ function wfCameraFocus(snap: WfSnapshot, px = 0, pz = 0): { fx: number; fz: numb
         if (working) busy.push([a.x, a.y]);
     }
     if (busy.length) return frame(busy);
+    // A recruited boss becomes a broadcast subject once its escort meets
+    // resistance or reaches a structure. Quiet travel remains in the tactical
+    // convoy PiP so this does not monopolize the main camera for 50 seconds.
+    for (const mini of snap.minis) {
+        if (!mini.alive || !mini.ally || mini.siegeDowns > 0) continue;
+        const foe: Team = mini.ally === "blue" ? "red" : "blue";
+        const contested = snap.actors.some((actor) => actor.team === foe && actor.state !== "respawning" && Math.hypot(actor.x - mini.x, actor.y - mini.y) < 6);
+        const atStructure = snap.guardians[foe].some((guard) => guard.alive && Math.hypot(guard.x - mini.x, guard.y - mini.y) < 7)
+            || snap.structures[foe].statues.some((statue) => statue.alive && Math.hypot(statue.x - mini.x, statue.y - mini.y) < 7)
+            || (snap.structures[foe].core.alive && Math.hypot(snap.structures[foe].core.x - mini.x, snap.structures[foe].core.y - mini.y) < 7);
+        if (contested || atStructure) return { fx: mini.x, fz: mini.y, span: 14 };
+    }
     // 3) The biggest minion clash.
     const clashes: Array<[number, number]> = [];
     for (const m of snap.mobs) {
@@ -2013,7 +2303,7 @@ function wfCameraFocus(snap: WfSnapshot, px = 0, pz = 0): { fx: number; fz: numb
     if (clashes.length) return frame(clashes);
     // 4) Truly quiet → ride with YOUR squad, leaned toward the nearest road.
     let n = 0, mx = 0, mz = 0;
-    for (const a of snap.actors) { if (a.team === "blue" && a.state !== "respawning") { mx += a.x; mz += a.y; n++; } }
+    for (const a of snap.actors) { if (a.team === preferredTeam && a.state !== "respawning") { mx += a.x; mz += a.y; n++; } }
     if (!n) for (const a of snap.actors) { if (a.state !== "respawning") { mx += a.x; mz += a.y; n++; } }
     if (!n) return { fx: 0, fz: 0, span: 16 };
     mx /= n; mz /= n;
@@ -2024,47 +2314,56 @@ function wfCameraFocus(snap: WfSnapshot, px = 0, pz = 0): { fx: number; fz: numb
 
 export type WfCamCtl = { mode: "follow" | "free"; fx: number; fz: number; dist: number };
 
-function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, modeRef, focusPetRef }: {
+function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, modeRef, focusPetRef, focusMiniRef, localTeam, reducedMotion }: {
     result: WarfrontResult; clock: WfClockRef; shake: MutableRefObject<number>;
     camViewRef: MutableRefObject<{ x: number; z: number; half: number }>;
     camCtlRef: MutableRefObject<WfCamCtl>;
     storyRef: MutableRefObject<WfStoryCam | null>;
     modeRef: MutableRefObject<WfCamMode>;
     focusPetRef: MutableRefObject<string | null>;
+    focusMiniRef: MutableRefObject<number | null>;
+    localTeam: Team;
+    reducedMotion: boolean;
 }) {
     const sm = useRef({ fx: 0, fz: 0, d: 18, init: true });
     useFrame((state, delta) => {
         const s = sm.current;
         const ctl = camCtlRef.current;
-        if (ctl.mode === "free") {
+        const replayStory = storyRef.current;
+        const replayTick = wfClockTick(clock);
+        const replayLocked = replayStory?.prio === 10 && replayTick >= replayStory.fromT && replayTick <= replayStory.untilT;
+        if (ctl.mode === "free" && !replayLocked) {
             // Player-driven spectator cam — glide toward the requested view.
             const k = s.init ? 1 : 0.22;
             s.fx = approach(s.fx, ctl.fx, k, delta);
             s.fz = approach(s.fz, ctl.fz, k, delta);
             s.d = approach(s.d, ctl.dist, k, delta);
         } else {
-            // A FEATURED PET (clicked mini-screen) owns the main camera
-            // outright; otherwise mode-aware focus — broadcast chases the
-            // director's story cuts, calm rides wide, team locks to the squad.
             const mode = modeRef.current;
             let focus: { fx: number; fz: number; span: number } | null = null;
             let k0: number | null = null;
-            const lockedPet = focusPetRef.current;
+            const lockedPet = replayLocked ? null : focusPetRef.current;
             if (lockedPet) {
+                const actor = snapAt(result, clock).actors.find((a) => a.id === lockedPet);
+                if (actor) { focus = { fx: actor.x, fz: actor.y, span: 13 }; k0 = s.init ? 1 : 0.09; }
+            }
+            const lockedMini = replayLocked ? null : focusMiniRef.current;
+            if (!lockedPet && lockedMini !== null) {
                 const snap = snapAt(result, clock);
-                const a = snap.actors.find((x) => x.id === lockedPet);
-                if (a) { focus = { fx: a.x, fz: a.y, span: 13 }; k0 = s.init ? 1 : 0.09; }
+                const mini = snap.minis.find((candidate) => candidate.padIdx === lockedMini && candidate.alive && !!candidate.ally && candidate.siegeDowns === 0);
+                if (mini) { focus = { fx: mini.x, fz: mini.y, span: 13 }; k0 = s.init ? 1 : 0.09; }
+                else focusMiniRef.current = null;
             }
             if (focus === null) focus = ((): { fx: number; fz: number; span: number } => {
                 if (mode === "team") {
                     const snap = snapAt(result, clock);
                     let n = 0, mx = 0, mz = 0;
-                    for (const a of snap.actors) if (a.team === "blue" && a.state !== "respawning") { mx += a.x; mz += a.y; n++; }
-                    if (!n) return wfCameraFocus(snap, s.fx, s.fz);
+                    for (const a of snap.actors) if (a.team === localTeam && a.state !== "respawning") { mx += a.x; mz += a.y; n++; }
+                    if (!n) return wfCameraFocus(snap, s.fx, s.fz, localTeam);
                     mx /= n; mz /= n;
                     let spread = 0;
                     for (const a of snap.actors) {
-                        if (a.team !== "blue" || a.state === "respawning") continue;
+                        if (a.team !== localTeam || a.state === "respawning") continue;
                         const d = Math.hypot(a.x - mx, a.y - mz);
                         if (d > spread) spread = d;
                     }
@@ -2072,19 +2371,24 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
                     // everyone instead of an empty centroid.
                     return { fx: mx, fz: mz, span: Math.min(26, Math.max(15, spread * 2 + 7)) };
                 }
-                const f0 = wfCameraFocus(snapAt(result, clock), s.fx, s.fz);
+                const f0 = wfCameraFocus(snapAt(result, clock), s.fx, s.fz, localTeam);
                 return mode === "calm" ? { fx: f0.fx, fz: f0.fz, span: Math.min(26, f0.span + 6) } : f0;
             })();
             let k = k0 ?? (s.init ? 1 : mode === "calm" ? 0.03 : 0.045);
             const story = storyRef.current;
             if (story) {
                 const t = wfClockTick(clock);
-                if (t <= story.untilT && t >= story.untilT - WARFRONT_TPS * 4) {
-                    if (!lockedPet && (mode === "broadcast" || (mode === "calm" && story.prio >= 4))) {
-                        focus = { fx: story.x, fz: story.z, span: mode === "calm" ? story.span + 4 : story.span };
+                if (story.subject) {
+                    const mini = snapAt(result, clock).minis.find((candidate) => candidate.padIdx === story.subject!.padIdx);
+                    if (!mini || !mini.alive || mini.ally !== story.subject.team || mini.siegeDowns > story.subject.startDowns) storyRef.current = null;
+                    else { story.x = mini.x; story.z = mini.y; }
+                }
+                if (storyRef.current && t <= story.untilT && t >= story.fromT) {
+                    if (story.prio === 10 || (!lockedPet && lockedMini === null && (mode === "broadcast" || (mode === "calm" && story.prio >= 4)))) {
+                        focus = { fx: story.x, fz: story.z, span: mode === "calm" && story.prio !== 10 ? story.span + 4 : story.span };
                         k = s.init ? 1 : 0.11;   // cut faster than the ambient drift
                     }
-                } else storyRef.current = null;   // expired (or the clock rewound)
+                } else if (t > story.untilT) storyRef.current = null;
             }
             // Keep the frame FULL of battlefield: bias edge fights toward the
             // map so the void beyond the rim never eats a third of the screen.
@@ -2108,7 +2412,7 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
         s.init = false;
         camViewRef.current = { x: s.fx, z: s.fz, half: s.d * 0.62 };
         let ox = 0, oy = 0;
-        const amp = shake.current;
+        const amp = reducedMotion ? 0 : shake.current;
         if (amp > 0.01) { ox = Math.sin(state.clock.elapsedTime * 92) * amp * 0.18; oy = Math.cos(state.clock.elapsedTime * 77) * amp * 0.13; }
         state.camera.position.set(s.fx + ox, Math.sin(WF_CAMERA_PITCH) * s.d + oy, s.fz + Math.cos(WF_CAMERA_PITCH) * s.d);
         state.camera.lookAt(s.fx + ox, 0, s.fz);
@@ -2188,19 +2492,22 @@ function WfCameraControls({ camCtlRef, onModeChange }: {
     return null;
 }
 
-function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRate }: {
+function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRate, paceMode, replay }: {
     result: WarfrontResult; clockRef: WfClockRef; shakeRef: MutableRefObject<number>;
     onFrontier: MutableRefObject<() => void>;
     pumpRef: MutableRefObject<() => void>;
     playbackRate: number;
+    paceMode: WarfrontPaceMode;
+    replay: boolean;
 }) {
+    const smartCursor = useRef(0), smartLast = useRef(-1);
     useFrame((_s, delta) => {
         if (shakeRef.current > 0.01) shakeRef.current *= 0.85;
         // STREAM the sim: a couple of ms of ticks per frame keeps the frontier
         // ahead of the clock — the old synchronous 90 s chunk froze the main
         // thread for ~1 s at every council boundary.
         pumpRef.current();
-        const frontier = result.snapshots.length - 1;
+        const frontier = warfrontSnapshotFrontier(result.snapshots);
         const c = clockRef.current;
         // Fast Refresh can preserve the pre-rate clock shape for one frame.
         // Recover defensively so a poisoned playback clock cannot fan out into
@@ -2210,7 +2517,20 @@ function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRat
         if (!c.playing) return;
         // Hit-stop: kills briefly drop playback to quarter speed (pure
         // presentation — the recorded sim underneath is untouched).
-        const targetRate = (c.slow > 0 ? 0.28 : 1) * playbackRate;
+        const now = Math.floor(c.t);
+        if (now < smartLast.current) smartCursor.current = 0;
+        smartLast.current = now;
+        while (result.events[smartCursor.current]?.t < now - WARFRONT_TPS * 2) smartCursor.current++;
+        let majorNearby = false;
+        for (let i = smartCursor.current; i < result.events.length && result.events[i].t <= now + WARFRONT_TPS * 4; i++) {
+            if (warfrontEventSalience(result.events[i]) >= 5) { majorNearby = true; break; }
+        }
+        const smartSnapshot = warfrontSnapshotAtTick(result.snapshots, now) ?? result.snapshots.at(0)!;
+        const smartQuiet = !replay && paceMode === "smart" && warfrontSmartPaceIsQuiet(smartSnapshot, majorNearby);
+        const selectedRate = replay ? 1 : paceMode === "smart" ? (smartQuiet ? 1.35 : 1) : Number(paceMode);
+        const baseRate = replay ? 1 : playbackRate;
+        const targetRate = (c.slow > 0 ? 0.28 : 1) * baseRate * selectedRate;
+        if (!replay && paceMode === "smart" && majorNearby && c.slow <= 0) c.rate = Math.min(c.rate, baseRate);
         c.rate = approach(c.rate, targetRate, targetRate < c.rate ? 0.42 : 0.12, delta);
         if (c.slow > 0) c.slow = Math.max(0, c.slow - delta);
         c.t = Math.min(frontier, c.t + delta * c.rate * WARFRONT_TPS);
@@ -2219,665 +2539,667 @@ function WfTicker({ result, clockRef, shakeRef, onFrontier, pumpRef, playbackRat
     return null;
 }
 
-// ── PiP chase cam (render takeover, same pattern as the arena stage) ─────────
-function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, renderEvery, statusRefs, hpRefs, tileRefs, selectedRef, camViewRef }: {
+// One story-aware chase feed replaces the old four-target camera wall. It uses
+// one quarter of the render-target memory and updates a single coherent shot at
+// broadcast cadence instead of four hard-to-read feeds at roughly 5 FPS each.
+// Retained as an optional broadcast experiment, but deliberately not mounted:
+// its second WebGL render target was the dominant Tactical Arena frame spike.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function WfStoryPip({ result, clock, petIds, selectedRef, storyRef, subjectRef, width, height, renderEvery, nameOf, labelRef, statusRef, hpRef }: {
     result: WarfrontResult; clock: WfClockRef; petIds: string[];
-    tileW: number; tileH: number; margin: number; gap: number;
-    renderEvery: number;
-    statusRefs: MutableRefObject<Array<HTMLSpanElement | null>>;
-    hpRefs: MutableRefObject<Array<HTMLDivElement | null>>;
-    tileRefs: MutableRefObject<Array<HTMLDivElement | null>>;
-    selectedRef: MutableRefObject<string | null>;
-    camViewRef: MutableRefObject<{ x: number; z: number; half: number }>;
+    selectedRef: MutableRefObject<string | null>; storyRef: MutableRefObject<WfStoryCam | null>; subjectRef: MutableRefObject<string | null>;
+    width: number; height: number; renderEvery: number; nameOf: (id: string) => string;
+    labelRef: MutableRefObject<HTMLSpanElement | null>; statusRef: MutableRefObject<HTMLSpanElement | null>; hpRef: MutableRefObject<HTMLElement | null>;
 }) {
-    const cams = useRef<THREE.PerspectiveCamera[]>([]);
-    const sm = useRef<Array<{ x: number; z: number; init: boolean }>>([]);
-    // STAGGERED WALL: High quality renders one tile every other frame into a
-    // cached texture (~7.5 fps per tile at 60 fps). Average cost is 1.5 world
-    // renders per frame instead of the old 2 or the original 5.
-    const rig = useRef<{ rts: THREE.WebGLRenderTarget[]; scene: THREE.Scene; cam: THREE.OrthographicCamera; quads: THREE.Mesh[]; width: number; height: number; dpr: number } | null>(null);
-    const frameNo = useRef(0);
-    const disposeRig = () => {
-        const r = rig.current;
-        if (!r) return;
-        for (const rt of r.rts) rt.dispose();
-        for (const q of r.quads) { q.geometry.dispose(); (q.material as THREE.Material).dispose(); }
-        rig.current = null;
-    };
-    useEffect(() => () => disposeRig(), []);
-    useFrame((state, delta) => {
-        const { gl, scene, camera, size } = state;
-        // Shadow maps refresh at 30 Hz — invisible for a fixed sun, and it
-        // halves the priciest fixed cost of the frame.
-        gl.shadowMap.autoUpdate = false;
-        const renderFrame = frameNo.current++;
-        if (renderFrame % 2 === 0) gl.shadowMap.needsUpdate = true;
-        gl.setScissorTest(false);
-        gl.setViewport(0, 0, size.width, size.height);
-        gl.autoClear = true;
-        gl.render(scene, camera);
-        const snap = snapAt(result, clock);
-        const snapIndex = wfSnapshotIndex(snap);
-        const selected = selectedRef.current;
-        const view = camViewRef.current;
-        const dpr = gl.getPixelRatio();
-        if (rig.current && (
-            rig.current.width !== tileW
-            || rig.current.height !== tileH
-            || rig.current.dpr !== dpr
-            || rig.current.rts.length !== petIds.length
-        )) disposeRig();
-        if (!rig.current) {
-            const cscene = new THREE.Scene();
-            const ccam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
-            const rts: THREE.WebGLRenderTarget[] = [];
-            const quads: THREE.Mesh[] = [];
-            for (let i = 0; i < petIds.length; i++) {
-                const rt = new THREE.WebGLRenderTarget(Math.max(2, Math.round(tileW * dpr)), Math.max(2, Math.round(tileH * dpr)));
-                rts.push(rt);
-                const q = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: rt.texture }));
-                quads.push(q);
-                cscene.add(q);
-            }
-            rig.current = { rts, scene: cscene, cam: ccam, quads, width: tileW, height: tileH, dpr };
+    type Rig = { target: THREE.WebGLRenderTarget; feed: THREE.PerspectiveCamera; scene: THREE.Scene; cam: THREE.OrthographicCamera; quad: THREE.Mesh; key: string };
+    const rig = useRef<Rig | null>(null), frame = useRef(0), storySeen = useRef(-1), lastSnap = useRef<WfSnapshot | null>(null);
+    const dispose = () => { const current = rig.current; if (!current) return; current.target.dispose(); current.quad.geometry.dispose(); (current.quad.material as THREE.Material).dispose(); rig.current = null; };
+    useEffect(() => () => dispose(), []);
+    useFrame(({ gl, scene, camera, size }) => {
+        const n = frame.current++, dpr = gl.getPixelRatio(), key = `${width}/${height}/${dpr}`;
+        gl.setScissorTest(false); gl.setViewport(0, 0, size.width, size.height); gl.autoClear = true; gl.render(scene, camera);
+        if (rig.current?.key !== key) {
+            dispose();
+            const target = new THREE.WebGLRenderTarget(width * dpr, height * dpr), feed = new THREE.PerspectiveCamera(46, width / height, .4, 80);
+            const overlay = new THREE.Scene(), cam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1), quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: target.texture }));
+            overlay.add(quad); rig.current = { target, feed, scene: overlay, cam, quad, key };
         }
-        const r = rig.current;
-        // Render exactly one tile's world this frame (round-robin).
-        const shouldRefreshTile = renderFrame % Math.max(1, renderEvery) === 0;
-        const i = Math.floor(renderFrame / Math.max(1, renderEvery)) % Math.max(1, petIds.length);
-        const id = petIds[i];
-        const a = snapIndex.actorsById.get(id);
-        if (shouldRefreshTile && a) {
-            if (!cams.current[i]) cams.current[i] = new THREE.PerspectiveCamera(46, tileW / Math.max(1, tileH), 0.4, 80);
-            const cam = cams.current[i];
-            cam.aspect = tileW / Math.max(1, tileH);
-            cam.updateProjectionMatrix();
-            if (selected === id) {
-                // SWAPPED: this pet owns the MAIN screen — its tile carries the
-                // broadcast so the director's view is never lost.
-                const f = wfCameraFocus(snap, view.x, view.z);
-                const d2 = Math.min(20, arenaCameraDist(f.span, tileW / Math.max(1, tileH)));
-                cam.position.set(f.fx, Math.sin(WF_CAMERA_PITCH) * d2, f.fz + Math.cos(WF_CAMERA_PITCH) * d2);
-                cam.lookAt(f.fx, 0, f.fz);
-            } else {
-                if (!sm.current[i]) sm.current[i] = { x: a.x, z: a.y, init: true };
-                const s = sm.current[i];
-                const jump = Math.hypot(a.x - s.x, a.y - s.z) > 5;
-                if (s.init || jump) { s.x = a.x; s.z = a.y; s.init = false; }
-                else { s.x = approach(s.x, a.x, 0.5, delta); s.z = approach(s.z, a.y, 0.5, delta); }
-                // Same terrain-clearing drone framing as the old chase cam.
-                cam.position.set(s.x, 6.8, s.z + 4.6);
-                cam.lookAt(s.x, 0.6, s.z);
-            }
-            // Tiles reuse the shadow map the MAIN render just produced — no
-            // second shadow pass for the monitor wall.
-            const shadowAuto = gl.shadowMap.autoUpdate;
-            gl.shadowMap.autoUpdate = false;
-            gl.setRenderTarget(r.rts[i]);
-            gl.setClearColor("#05070f", 1);
-            gl.clear(true, true);
-            gl.render(scene, cam);
-            gl.setRenderTarget(null);
-            gl.shadowMap.autoUpdate = shadowAuto;
+        const current = rig.current!, snap = snapAt(result, clock), index = wfSnapshotIndex(snap), selected = selectedRef.current;
+        let actor = selected ? index.actorsById.get(selected) : undefined;
+        const story = storyRef.current, storyActive = story && wfClockTick(clock) >= story.fromT && wfClockTick(clock) <= story.untilT;
+        if (!actor && storyActive && storySeen.current !== story.fromT) {
+            actor = petIds.map((id) => index.actorsById.get(id)).filter((item): item is WfActorSnap => !!item && item.state !== "respawning")
+                .sort((a, b) => Math.hypot(a.x - story.x, a.y - story.z) - Math.hypot(b.x - story.x, b.y - story.z))[0];
+            storySeen.current = story.fromT;
         }
-        // Composite all four cached tiles (one trivial quad pass).
-        r.cam.right = size.width;
-        r.cam.top = size.height;
-        r.cam.updateProjectionMatrix();
-        petIds.forEach((pid, j) => {
-            const q = r.quads[j];
-            const x0 = margin + j * (tileW + gap);
-            q.position.set(x0 + tileW / 2, margin + tileH / 2, 0);
-            q.scale.set(tileW, tileH, 1);
-        });
-        gl.autoClear = false;
-        gl.render(r.scene, r.cam);
-        gl.autoClear = true;
-        // Tile chrome updates EVERY frame for every pet (DOM writes are cheap).
-        petIds.forEach((pid, j) => {
-            const aj = snapIndex.actorsById.get(pid);
-            if (!aj) return;
-            const el = statusRefs.current[j];
-            if (el) {
-                const t = aj.state === "respawning" && aj.respawnSecs > 0 ? `↻ ${aj.respawnSecs}s` : "";
-                if (el.textContent !== t) el.textContent = t;
-            }
-            const hp = hpRefs.current[j];
-            if (hp) {
-                const frac = Math.max(0, Math.min(1, aj.hp / Math.max(1, aj.maxHp)));
-                hp.style.width = `${Math.round(frac * 100)}%`;
-                hp.style.background = frac < 0.35 ? "#f87171" : "#60a5fa";
-            }
-            const tile = tileRefs.current[j];
-            if (tile) {
-                const offscreen = Math.abs(aj.x - view.x) > view.half * 1.45 || Math.abs(aj.y - view.z) > view.half;
-                const inFight = aj.state !== "respawning" && snap.actors.some((b) => b.team !== aj.team && b.state !== "respawning" && Math.hypot(b.x - aj.x, b.y - aj.y) < 6);
-                const hurt = aj.state !== "respawning" && aj.hp / Math.max(1, aj.maxHp) < 0.35;
-                const pulse = selected !== pid && offscreen && (inFight || hurt) ? "wfTilePulse 0.9s ease-in-out infinite" : "";
-                if (tile.style.animation !== pulse) tile.style.animation = pulse;
-            }
-        });
+        actor ??= subjectRef.current ? index.actorsById.get(subjectRef.current) : undefined;
+        actor ??= petIds.map((id) => index.actorsById.get(id)).find((item) => item?.state !== "respawning") ?? index.actorsById.get(petIds[0]);
+        if (actor) subjectRef.current = actor.id;
+        if (actor && n % Math.max(1, renderEvery) === 0) {
+            current.feed.position.set(actor.x, 6.8, actor.y + 4.6); current.feed.lookAt(actor.x, .6, actor.y);
+            gl.setRenderTarget(current.target); gl.setClearColor("#05070f", 1); gl.clear(); gl.render(scene, current.feed); gl.setRenderTarget(null);
+        }
+        current.cam.right = size.width; current.cam.top = size.height; current.cam.updateProjectionMatrix();
+        current.quad.position.set(10 + width / 2, 10 + height / 2, 0); current.quad.scale.set(width, height, 1);
+        gl.autoClear = false; gl.render(current.scene, current.cam); gl.autoClear = true;
+        if (actor && snap !== lastSnap.current) {
+            lastSnap.current = snap;
+            if (labelRef.current) labelRef.current.textContent = nameOf(actor.id);
+            if (statusRef.current) statusRef.current.textContent = actor.state === "respawning" ? `↻ ${actor.respawnSecs}s` : actor.intent.split(":").at(-1)?.toUpperCase() ?? "";
+            if (hpRef.current) { const share = actor.hp / actor.maxHp; hpRef.current.style.width = `${100 * share}%`; hpRef.current.style.background = warfrontPipHealthColor(actor.team, share); }
+        }
     }, 1);
     return null;
 }
 
-// ── The broadcast director (events → FX/feed/banners) ────────────────────────
-type WfFxItem = { id: number; frames: string[]; pos: Vec3; scale: number; dur: number };
-type WfShotItem = { id: number; from: Vec3; to: Vec3; visual: ProjectileVisual; dur: number; arc: number };
-type WfFloatItem = { id: number; pos: Vec3; text: string; color: string; big: boolean };
-
-// Broadcast colors for the elemental signature moves.
-const WF_EL_COLORS: Record<string, string> = {
-    Fire: "#fb923c", Water: "#38bdf8", Earth: "#d3a44a", Wind: "#6ee7b7", Lightning: "#fde047",
+type WfVec3 = [number, number, number];
+type WfImpactKind = "hit" | "heal" | "shadow" | "power" | "element";
+type WfWakeVisual = ReturnType<typeof projectileVisual>;
+type WfImpactItem = {
+    id: number;
+    pos: WfVec3;
+    scale: number;
+    durationMs: number;
+    kind: WfImpactKind;
+    color: string;
+    accent: string;
+};
+type WfWakeItem = { id: number; from: WfVec3; to: WfVec3; visual: WfWakeVisual; durationMs: number; arc: number };
+type WfImpactLayerApi = {
+    spawnImpact: (item: { pos: WfVec3; scale: number; durationMs: number; key: string | null; element: string | null | undefined }) => void;
+    spawnWake: (item: Omit<WfWakeItem, "id">) => void;
+    clear: () => void;
 };
 
-function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFlash, shakeRef, spawnFx, spawnShot, spawnFloater, storyRef, camViewRef, onEnd }: {
-    result: WarfrontResult; clockRef: WfClockRef;
-    nameOf: (id: string) => string;
+const WF_IMPACT_RING_GEOMETRY = new THREE.RingGeometry(0.22, 0.34, 36);
+const WF_IMPACT_CORE_GEOMETRY = new THREE.IcosahedronGeometry(0.18, 1);
+const WF_IMPACT_SHARD_GEOMETRY = new THREE.TetrahedronGeometry(0.075, 0);
+const WF_IMPACT_COLORS: Record<string, readonly [string, string]> = {
+    Fire: ["#fb7185", "#fde68a"],
+    Water: ["#38bdf8", "#dbeafe"],
+    Earth: ["#d6a85f", "#fef3c7"],
+    Wind: ["#6ee7b7", "#ecfdf5"],
+    Lightning: ["#fde047", "#ffffff"],
+    Shadow: ["#c084fc", "#f5d0fe"],
+};
+
+function warfrontImpactStyle(key: string | null, element: string | null | undefined): Pick<WfImpactItem, "kind" | "color" | "accent"> {
+    if (key === "heal") return { kind: "heal", color: "#4ade80", accent: "#dcfce7" };
+    if (key === "shadow") return { kind: "shadow", color: "#a855f7", accent: "#f5d0fe" };
+    if (key === "power") return { kind: "power", color: "#f59e0b", accent: "#fff7cc" };
+    const palette = element ? WF_IMPACT_COLORS[element] : undefined;
+    if (palette) return { kind: "element", color: palette[0], accent: palette[1] };
+    return { kind: "hit", color: "#f8fafc", accent: "#fbbf24" };
+}
+
+/** Two shockwaves, a light core, and eight instanced shards give sprite hits
+ * real ground contact and direction without another texture fetch. */
+function WfImpact3D({ item, onDone }: { item: WfImpactItem; onDone: () => void }) {
+    const outer = useRef<THREE.Mesh>(null);
+    const inner = useRef<THREE.Mesh>(null);
+    const core = useRef<THREE.Mesh>(null);
+    const shards = useRef<THREE.InstancedMesh>(null);
+    const outerMat = useRef<THREE.MeshBasicMaterial>(null);
+    const innerMat = useRef<THREE.MeshBasicMaterial>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const shardMat = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    const finished = useRef(false);
+    useEffect(() => {
+        if (!shards.current) return;
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+        const rotation = new THREE.Euler();
+        const quaternion = new THREE.Quaternion();
+        const unit = new THREE.Vector3(1, 1, 1);
+        for (let index = 0; index < 8; index++) {
+            const angle = (index / 8) * Math.PI * 2;
+            position.set(Math.cos(angle) * 0.34, 0.1 + (index % 2) * 0.08, Math.sin(angle) * 0.34);
+            rotation.set(angle * 0.35, angle, angle * 0.6);
+            quaternion.setFromEuler(rotation);
+            matrix.compose(position, quaternion, unit);
+            shards.current.setMatrixAt(index, matrix);
+        }
+        shards.current.instanceMatrix.needsUpdate = true;
+    }, []);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, ((state.clock.elapsedTime - start.current) * 1000) / Math.max(1, item.durationMs));
+        if (p >= 1 && !finished.current) { finished.current = true; onDone(); return; }
+        const burst = 1 - (1 - p) ** 3;
+        const fade = (1 - p) ** 2;
+        const lift = item.kind === "heal" ? p * 1.05 : p * 0.42;
+        if (outer.current) outer.current.scale.setScalar(item.scale * (0.45 + burst * (item.kind === "power" ? 3.2 : 2.5)));
+        if (inner.current) {
+            inner.current.scale.setScalar(item.scale * (0.3 + burst * 1.75));
+            inner.current.rotation.z = item.id * 0.37 - p * (item.kind === "shadow" ? 3.4 : 1.7);
+        }
+        if (core.current) {
+            core.current.position.y = 0.16 + lift;
+            core.current.scale.setScalar(item.scale * Math.sin(Math.PI * p) * (item.kind === "power" ? 1.25 : 0.82));
+            core.current.rotation.y = item.id + p * 4;
+        }
+        if (shards.current) {
+            shards.current.position.y = lift;
+            shards.current.rotation.y = item.id * 0.61 + p * (item.kind === "shadow" ? -3.8 : 2.4);
+            shards.current.scale.setScalar(item.scale * (0.4 + burst * (item.kind === "power" ? 3.4 : 2.45)));
+        }
+        if (outerMat.current) outerMat.current.opacity = fade * (item.kind === "heal" ? 0.58 : 0.82);
+        if (innerMat.current) innerMat.current.opacity = fade * 0.72;
+        if (coreMat.current) coreMat.current.opacity = fade * 0.9;
+        if (shardMat.current) shardMat.current.opacity = fade * (item.kind === "hit" ? 0.9 : 0.68);
+    });
+    return (
+        <group position={[item.pos[0], 0.055, item.pos[2]]}>
+            <mesh ref={outer} geometry={WF_IMPACT_RING_GEOMETRY} rotation={[-Math.PI / 2, 0, 0]} renderOrder={5}>
+                <meshBasicMaterial ref={outerMat} color={item.color} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={inner} geometry={WF_IMPACT_RING_GEOMETRY} rotation={[-Math.PI / 2, 0, 0]} renderOrder={5}>
+                <meshBasicMaterial ref={innerMat} color={item.accent} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={core} geometry={WF_IMPACT_CORE_GEOMETRY} renderOrder={6}>
+                <meshBasicMaterial ref={coreMat} color={item.accent} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <instancedMesh ref={shards} args={[WF_IMPACT_SHARD_GEOMETRY, undefined, 8]}>
+                <meshBasicMaterial ref={shardMat} color={item.color} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </instancedMesh>
+        </group>
+    );
+}
+
+function WfShotWake3D({ item, onDone }: { item: WfWakeItem; onDone: () => void }) {
+    const wake = useRef<THREE.Mesh>(null);
+    const material = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    const finished = useRef(false);
+    const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+    const head = useMemo(() => new THREE.Vector3(), []);
+    const tail = useMemo(() => new THREE.Vector3(), []);
+    const direction = useMemo(() => new THREE.Vector3(), []);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, ((state.clock.elapsedTime - start.current) * 1000) / Math.max(1, item.durationMs));
+        if (p >= 1 && !finished.current) { finished.current = true; onDone(); return; }
+        const point = (q: number, out: THREE.Vector3) => {
+            const t = Math.max(0, Math.min(1, q));
+            return out.set(
+                lerp(item.from[0], item.to[0], t),
+                lerp(item.from[1], item.to[1], t) + item.arc * Math.sin(Math.PI * t),
+                lerp(item.from[2], item.to[2], t),
+            );
+        };
+        point(p, head); point(p - 0.16, tail);
+        direction.copy(head).sub(tail);
+        const length = direction.length();
+        if (wake.current && length > 1e-5) {
+            wake.current.visible = p > 0.02 && p < 1;
+            wake.current.position.copy(head).add(tail).multiplyScalar(0.5);
+            wake.current.quaternion.setFromUnitVectors(up, direction.normalize());
+            const width = item.visual.size * 0.16;
+            wake.current.scale.set(width, length, width);
+        }
+        if (material.current) material.current.opacity = Math.sin(Math.PI * p) * 0.72;
+    });
+    return (
+        <mesh ref={wake} visible={false}>
+            <cylinderGeometry args={[1, 1, 1, 8, 1, true]} />
+            <meshBasicMaterial ref={material} color={item.visual.glow} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+        </mesh>
+    );
+}
+
+/** Isolates procedural VFX state below the Canvas root so combat bursts never
+ * rerender fighters, cameras, the HUD, or the deterministic simulation shell. */
+function WfImpactLayer({ apiRef }: { apiRef: MutableRefObject<WfImpactLayerApi | null> }) {
+    const [impacts, setImpacts] = useState<WfImpactItem[]>([]);
+    const [wakes, setWakes] = useState<WfWakeItem[]>([]);
+    const clear = useCallback(() => { setImpacts([]); setWakes([]); }, []);
+    const api = useMemo<WfImpactLayerApi>(() => ({
+        spawnImpact: (item) => {
+            const style = warfrontImpactStyle(item.key, item.element);
+            setImpacts((current) => [...current, { ...item, ...style, id: wfSeq++ }].slice(-18));
+        },
+        spawnWake: (item) => {
+            setWakes((current) => [...current, { ...item, id: wfSeq++ }].slice(-12));
+        },
+        clear,
+    }), [clear]);
+    useLayoutEffect(() => {
+        apiRef.current = api;
+        return () => { if (apiRef.current === api) apiRef.current = null; };
+    }, [api, apiRef]);
+    return (
+        <>
+            {impacts.map((item) => <WfImpact3D key={item.id} item={item} onDone={() => setImpacts((current) => current.filter((entry) => entry.id !== item.id))} />)}
+            {wakes.map((item) => <WfShotWake3D key={item.id} item={item} onDone={() => setWakes((current) => current.filter((entry) => entry.id !== item.id))} />)}
+        </>
+    );
+}
+
+// Broadcast colors for the elemental signature moves.
+function WfDirector({ result, clockRef, seekRef, reducedMotion, nameOf, pushFeed, pushBanner, triggerFlash, shakeRef, spawnFx, spawnShot, spawnFloater, storyRef, onEnd }: {
+    result: WarfrontResult; clockRef: WfClockRef; nameOf: (id: string) => string;
+    seekRef: MutableRefObject<WfDirectorSeek>; reducedMotion: boolean;
     pushFeed: (text: string, color: string) => void;
     pushBanner: (text: string, color: string, big?: boolean) => void;
-    triggerFlash: (color: string) => void;
-    shakeRef: MutableRefObject<number>;
+    triggerFlash: (color: string) => void; shakeRef: MutableRefObject<number>;
     spawnFx: (x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number) => void;
     spawnShot: (fromX: number, fromY: number, toX: number, toY: number, element: string | null | undefined, charged: boolean) => void;
     spawnFloater: (x: number, z: number, text: string, color: string, big: boolean) => void;
-    storyRef: MutableRefObject<WfStoryCam | null>;
-    camViewRef: MutableRefObject<{ x: number; z: number; half: number }>;
-    onEnd: () => void;
+    storyRef: MutableRefObject<WfStoryCam | null>; onEnd: () => void;
 }) {
-    const lastTick = useRef(-1);
-    const evCursor = useRef(0);   // forward-only index into result.events (tick-sorted)
-    const ended = useRef(false);
-    // Announcer memory: first blood fired, each pet's current kill spree, and
-    // which structures already raised their under-siege alarm.
-    const firstBlood = useRef(false);
-    const sprees = useRef(new Map<string, number>());
-    const siegeWarned = useRef(new Set<string>());
-    const hollowWaves = useRef(0);
-    const isPet = (id: string) => id.startsWith("blue-") || id.startsWith("red-");
-    useFrame(() => {
-        const cur = Math.floor(wfClockTick(clockRef));
-        // Rewind (replay) resets ALL director-local memory — including `ended`,
-        // which otherwise stayed true and stopped onEnd() from firing on replay.
-        if (cur < lastTick.current) { lastTick.current = -1; evCursor.current = 0; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); hollowWaves.current = 0; ended.current = false; }
-        // The director orders a camera cut to a story beat; higher priority (or
-        // an expired story) always wins the slot.
-        const cut = (t: number, x: number, z: number, span: number, prio: number, secs: number) => {
-            const s = storyRef.current;
-            if (!s || wfClockTick(clockRef) > s.untilT || prio >= s.prio) storyRef.current = { x, z, untilT: t + WARFRONT_TPS * secs, span, prio };
-        };
-        if (cur > lastTick.current) {
-            const snaps = result.snapshots;
-            // Forward-only cursor: events are tick-sorted, so resume where the last
-            // advance stopped instead of rescanning the whole (ever-growing) list
-            // every tick — O(events) across the match, not O(events × ticks).
-            const events = result.events;
-            let ei = evCursor.current;
-            for (; ei < events.length; ei++) {
-                const e = events[ei];
-                if (e.t <= lastTick.current) continue;   // defensive; cursor is normally already past these
-                if (e.t > cur) break;                     // sorted → nothing more belongs to this advance
-                const snap = snaps[Math.min(snaps.length - 1, e.t)];
-                const actorPos = (id: string) => snap.actors.find((a) => a.id === id);
-                if (e.type === "hit") {
-                    const tgt = actorPos(e.targetId);
-                    if (tgt) {
-                        spawnFx(tgt.x, tgt.y, null, e.element, e.crit ? 1.35 : 0.8, 260);
-                        spawnFloater(tgt.x, tgt.y, `${e.dmg}`, e.crit ? "#fde047" : "#fecaca", e.crit);
-                        const src = actorPos(e.actorId);
-                        if (src && Math.hypot(src.x - tgt.x, src.y - tgt.y) >= 1.8) spawnShot(src.x, src.y, tgt.x, tgt.y, e.element, e.crit);
-                        else if (e.actorId.startsWith("guard-")) {
-                            // Sentinel fire now reads: a bolt to the target + a muzzle
-                            // flash at the post, and its charged shots (crit) fire big.
-                            const [, gTeam, gIdx] = e.actorId.split("-");
-                            const gg = snap.guardians[gTeam as Team]?.[Number(gIdx)];
-                            if (gg) { spawnShot(gg.x, gg.y, tgt.x, tgt.y, gTeam === "blue" ? "Water" : "Fire", e.crit); spawnFx(gg.x, gg.y, "spark", null, e.crit ? 1.1 : 0.55, 200); }
-                        }
-                        if (e.crit) shakeRef.current = Math.max(shakeRef.current, 0.5);
-                        // A pet in danger is the story — nudge the camera there.
-                        if (tgt.hp / Math.max(1, tgt.maxHp) < 0.35) cut(e.t, tgt.x, tgt.y, 14, 1, 1.2);
-                    }
-                } else if (e.type === "heal") {
-                    const tgt = actorPos(e.targetId);
-                    if (tgt) { spawnFx(tgt.x, tgt.y, "heal", null, 1.3, 420); spawnFloater(tgt.x, tgt.y, `+${e.amount}`, "#86efac", false); }
-                } else if (e.type === "kill") {
-                    const tgt = actorPos(e.targetId);
-                    if (tgt) {
-                        spawnFx(tgt.x, tgt.y, "spark", null, 2.6, 560);
-                        spawnFloater(tgt.x, tgt.y, "☠", "#f8fafc", true);
-                        cut(e.t, tgt.x, tgt.y, 12, 3, 2.2);   // the broadcast cuts to the takedown
-                    }
-                    pushFeed(`☠ ${nameOf(e.targetId)} — slain by ${nameOf(e.actorId)}`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                    shakeRef.current = Math.max(shakeRef.current, 1.3);
-                    clockRef.current.slow = Math.max(clockRef.current.slow, 0.3);   // hit-stop
-                    // Announcer: first blood, sprees, shutdowns (pet kills only).
-                    if (isPet(e.actorId)) {
-                        if (!firstBlood.current) {
-                            firstBlood.current = true;
-                            pushBanner(`🩸 FIRST BLOOD — ${nameOf(e.actorId)}`, e.team === "blue" ? "#93c5fd" : "#fca5a5", true);
-                        }
-                        const streak = (sprees.current.get(e.actorId) ?? 0) + 1;
-                        sprees.current.set(e.actorId, streak);
-                        if (streak === 3) { pushBanner(`🔥 ${nameOf(e.actorId).toUpperCase()} IS RAMPAGING`, "#fb923c"); }
-                        else if (streak === 5) { pushBanner(`⚡ ${nameOf(e.actorId).toUpperCase()} IS UNSTOPPABLE`, "#fde047", true); }
-                    }
-                    const victimStreak = sprees.current.get(e.targetId) ?? 0;
-                    if (victimStreak >= 3) pushFeed(`🛑 SHUTDOWN — ${nameOf(e.targetId)}'s rampage ends`, "#fbbf24");
-                    sprees.current.set(e.targetId, 0);
-                } else if (e.type === "gank") {
-                    pushBanner(`🗡 GANK — ${nameOf(e.actorId)} springs the ambush!`, "#c084fc");
-                    pushFeed(`🗡 ${nameOf(e.actorId)} ambushes ${nameOf(e.targetId)} from the tall grass`, "#c084fc");
-                    spawnFx(e.x, e.y, "shadow", null, 2.0, 500);
-                    cut(e.t, e.x, e.y, 12, 3, 2.4);
-                } else if (e.type === "mobhit") {
-                    spawnFx(e.x, e.y, "spark", null, 0.7, 200);
-                    // A sentinel or camp boss shooting a minion gets a visible bolt
-                    // from the shooter — their most common attack was invisible.
-                    if (e.targetId?.startsWith("guard-")) {
-                        const [, gTeam, gIdx] = e.targetId.split("-");
-                        const gg = snap.guardians[gTeam as Team]?.[Number(gIdx)];
-                        if (gg) { spawnShot(gg.x, gg.y, e.x, e.y, gTeam === "blue" ? "Water" : "Fire", false); spawnFx(gg.x, gg.y, "spark", null, 0.5, 150); }
-                    } else if (e.targetId?.startsWith("mini-")) {
-                        const m = snap.minis.find((z) => z.padIdx === Number(e.targetId!.split("-")[1]));
-                        if (m) spawnFx(m.x, m.y, null, "Shadow", 0.5, 170);
-                    }
-                } else if (e.type === "mobstrike") {
-                    // Small elemental puff — minion attacks now READ (Water=blue
-                    // wave, Fire=red wave, Shadow=hollow-spawn).
-                    spawnFx(e.x, e.y, null, e.el, 0.4, 170);
-                } else if (e.type === "mobkill") {
-                    spawnFloater(e.x, e.y, "+25 🪙", "#fde047", false);
-                } else if (e.type === "mobwave") {
-                    // The simulation's Hollow-wave beat now reaches the gate:
-                    // a portal pulse makes new raiders feel spawned, not popped in.
-                    spawnFx(WF_LAIR.x, WF_LAIR.y, "shadow", null, 1.65, 420);
-                    hollowWaves.current++;
-                    if (hollowWaves.current === 1 || hollowWaves.current % 3 === 0) {
-                        pushFeed(`☾ Hollow hounds breach the ${hollowWaves.current % 2 ? "outer" : "inner"} lanes`, "#d8b4fe");
-                    }
-                } else if (e.type === "structhit") {
-                    spawnFx(e.x, e.y, "spark", null, e.core ? 1.4 : 1.0, 240);
-                    if (e.core) shakeRef.current = Math.max(shakeRef.current, 0.5);
-                    // First warning per structure: it just fell under 60% —
-                    // siege pressure must be a story BEFORE the point lands.
-                    // (Resolve the target by position: guardian structhits
-                    // reuse the `statue` field for their own index.)
-                    let key = "", label = "", frac = 1;
-                    const gg2 = snap.guardians[e.team].find((g) => g.alive && Math.hypot(g.x - e.x, g.y - e.y) < 2);
-                    const ss2 = snap.structures[e.team].statues.find((s) => s.alive && Math.hypot(s.x - e.x, s.y - e.y) < 2);
-                    if (gg2) { key = `g-${e.team}-${snap.guardians[e.team].indexOf(gg2)}`; label = "sentinel"; frac = gg2.hp / gg2.maxHp; }
-                    else if (ss2) { key = `s-${e.team}-${snap.structures[e.team].statues.indexOf(ss2)}`; label = "totem"; frac = ss2.hp / ss2.maxHp; }
-                    else if (e.core) { key = `c-${e.team}`; label = "Ward Seal"; frac = snap.structures[e.team].core.hp / snap.structures[e.team].core.maxHp; }
-                    if (key && frac < 0.6 && !siegeWarned.current.has(key)) {
-                        siegeWarned.current.add(key);
-                        pushFeed(`🚨 ${e.team === "blue" ? "Blue" : "Red"}'s ${label} is under siege!`, "#fbbf24");
-                        cut(e.t, e.x, e.y, 13, 2, 1.8);
-                    }
-                } else if (e.type === "statuedown") {
-                    const fallen = snap.structures[e.team].statues[e.statue];
-                    pushBanner("⛩ GUARDIAN TOTEM SHATTERED", e.by === "blue" ? "#93c5fd" : "#fca5a5");
-                    pushFeed(`⛩ ${e.team === "blue" ? "Blue" : "Red"} totem down (+${200} 🪙)`, e.by === "blue" ? "#60a5fa" : "#f87171");
-                    triggerFlash(e.by === "blue" ? "rgba(59,130,246,0.3)" : "rgba(239,68,68,0.3)");
-                    shakeRef.current = Math.max(shakeRef.current, 1.8);
-                    if (fallen) {
-                        spawnFx(fallen.x, fallen.y, "power", null, 2.8, 650);
-                        spawnFx(fallen.x, fallen.y, "spark", null, 2.0, 500);
-                        cut(e.t, fallen.x, fallen.y, 13, 4, 2.4);
-                    }
-                    clockRef.current.slow = Math.max(clockRef.current.slow, 0.25);
-                } else if (e.type === "coreexposed") {
-                    pushBanner(`🛡 ${e.team === "blue" ? "BLUE" : "RED"} SEAL EXPOSED — LAST STAND!`, e.team === "blue" ? "#60a5fa" : "#f87171", true);
-                    pushFeed(`🛡 ${e.team === "blue" ? "Blue" : "Red"}'s Ward Seal lies bare — a desperate LAST STAND (they hit +20% for 45s)`, "#fde047");
-                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.22)" : "rgba(239,68,68,0.22)");
-                    playPetSfx("shield");
-                } else if (e.type === "shutdown") {
-                    pushBanner(`🎯 SHUTDOWN — ${nameOf(e.actorId)} cashes in! +${e.bounty}🪙`, "#fbbf24", true);
-                    pushFeed(`🎯 ${nameOf(e.actorId)} SHUTS DOWN ${nameOf(e.targetId)}'s ${e.streak}-streak for a ${e.bounty}🪙 bounty`, "#fbbf24");
-                    const av = actorPos(e.targetId);
-                    if (av) spawnFloater(av.x, av.y, `+${e.bounty}🪙`, "#fde047", true);
-                } else if (e.type === "coredown") {
-                    const core = snap.structures[e.team].core;
-                    pushBanner(`${e.by === "blue" ? "BLUE" : "RED"} SHATTERS THE WARD SEAL!`, e.by === "blue" ? "#60a5fa" : "#f87171", true);
-                    playPetSfx("victory");
-                    triggerFlash(e.by === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
-                    shakeRef.current = Math.max(shakeRef.current, 2.2);
-                    spawnFx(core.x, core.y, "power", null, 3.4, 900);
-                    spawnFx(core.x, core.y, "spark", null, 2.6, 700);
-                    cut(e.t, core.x, core.y, 14, 6, 3.5);
-                    clockRef.current.slow = Math.max(clockRef.current.slow, 0.5);
-                } else if (e.type === "minispawn") {
-                    pushFeed(`👹 The ${WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden"} has awakened at its shrine`, "#d8b4fe");
-                } else if (e.type === "minikill") {
-                    const boss = WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden";
-                    const boon = MINI_BOONS[e.padIdx] ?? MINI_BOONS[0];
-                    pushBanner(`🤝 ${boss.toUpperCase()} RECRUITED — fights for ${e.team === "blue" ? "BLUE" : "RED"}!`, e.team === "blue" ? "#93c5fd" : "#fca5a5", true);
-                    pushFeed(`${boon.icon} ${e.team === "blue" ? "Blue" : "Red"} recruits the ${boss}: ${boon.label} ${boon.desc} (+${350} 🪙)`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                    playPetSfx("buff");
-                    const mm = snap.minis.find((z) => z.padIdx === e.padIdx);
-                    if (mm) { spawnFx(mm.x, mm.y, "power", null, 2.2, 520); cut(e.t, mm.x, mm.y, 13, 3, 2); }
-                } else if (e.type === "miniboon") {
-                    const boon = MINI_BOONS[e.padIdx] ?? MINI_BOONS[0];
-                    const color = e.team === "blue" ? "#93c5fd" : "#fca5a5";
-                    spawnFloater(e.x, e.y, `${boon.icon} ${boon.label.toUpperCase()}`, color, false);
-                    spawnFx(e.x, e.y, e.kind === "hunt" ? "shadow" : e.kind === "siege" ? "power" : e.kind === "heal" ? "heal" : "spark", null, 1.25, 340);
-                } else if (e.type === "wardenwindup") {
-                    spawnFx(e.x, e.y, "shadow", null, 2.2, 420);
-                    spawnFloater(e.x, e.y, "SLAM — MOVE!", "#f0abfc", true);
-                    playPetSfx("debuff");
-                    shakeRef.current = Math.max(shakeRef.current, 0.4);
-                } else if (e.type === "wardenslam") {
-                    spawnFx(e.x, e.y, "power", null, 2.8, 500);
-                    playPetSfx("crit");
-                    shakeRef.current = Math.max(shakeRef.current, 1.4);
-                } else if (e.type === "wardenphase") {
-                    const phase = e.phase === 3 ? "PHASE III — HOLLOW RAGE" : "PHASE II — VOID RUPTURE";
-                    const color = e.phase === 3 ? "#fb7185" : "#e879f9";
-                    pushBanner(`⛰ GATE WARDEN: ${phase}`, color, true);
-                    pushFeed(`⛰ The Gate Warden enters ${phase}; its attacks quicken and the slam grows.`, color);
-                    playPetSfx("ko");
-                    triggerFlash(e.phase === 3 ? "rgba(244,63,94,0.3)" : "rgba(192,38,211,0.25)");
-                    shakeRef.current = Math.max(shakeRef.current, e.phase === 3 ? 1.8 : 1.2);
-                    cut(e.t, WF_LAIR.x, WF_LAIR.y, 15, 5, 2.5);
-                } else if (e.type === "wardenkill") {
-                    if (e.stolen) {
-                        pushBanner(`😱 THE WARDEN IS STOLEN BY ${e.team === "blue" ? "BLUE" : "RED"}!`, "#fde047", true);
-                        pushFeed(`😱 ${e.team === "blue" ? "Blue" : "Red"} STEALS the Gate Warden — daylight robbery! +${1200} 🪙`, "#fde047");
-                    } else {
-                        pushBanner(`⛰ ${e.team === "blue" ? "BLUE" : "RED"} FELLS THE GATE WARDEN! +${1200} 🪙`, e.team === "blue" ? "#60a5fa" : "#f87171", true);
-                        pushFeed("⛰ The Hollow Gate falls silent…", "#c084fc");
-                    }
-                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.45)" : "rgba(239,68,68,0.45)");
-                    playPetSfx("victory");
-                    shakeRef.current = Math.max(shakeRef.current, 1.8);
-                    cut(e.t, WF_LAIR.x, WF_LAIR.y, 15, 5, 3);
-                    clockRef.current.slow = Math.max(clockRef.current.slow, 0.35);
-                } else if (e.type === "phase") {
-                    const sudden = e.name === "SUDDEN DEATH";
-                    const label = e.name === "SKIRMISH" ? "⚔ SKIRMISH — camps unlock" : e.name === "WAR" ? "⛰ WAR — MARCH ON THE WARDEN" : "💀 THE HOLLOW COLLAPSES — bases crumble, end it now";
-                    pushBanner(label, sudden ? "#f87171" : "#fde047", true);
-                    pushFeed(label, sudden ? "#f87171" : "#fde047");
-                    shakeRef.current = Math.max(shakeRef.current, sudden ? 1.4 : 0.8);
-                    playPetSfx(sudden ? "ko" : "buff");
-                    if (sudden) triggerFlash("rgba(239,68,68,0.32)");
-                } else if (e.type === "guardiandown") {
-                    const post = snap.guardians[e.team]?.[e.idx];
-                    pushBanner("🛡 SENTINEL FALLS — THE GATE LIES UNWARDED", e.by === "blue" ? "#93c5fd" : "#fca5a5");
-                    pushFeed(`🛡 ${e.team === "blue" ? "Blue" : "Red"}'s sentinel is slain (+${250} 🪙)`, e.by === "blue" ? "#60a5fa" : "#f87171");
-                    triggerFlash(e.by === "blue" ? "rgba(59,130,246,0.28)" : "rgba(239,68,68,0.28)");
-                    shakeRef.current = Math.max(shakeRef.current, 1.6);
-                    if (post) {
-                        spawnFx(post.x, post.y, "power", null, 2.6, 600);
-                        spawnFx(post.x, post.y, "spark", null, 1.8, 480);
-                        cut(e.t, post.x, post.y, 13, 4, 2.2);
-                    }
-                } else if (e.type === "guardianrally") {
-                    const color = e.team === "blue" ? "#93c5fd" : "#fca5a5";
-                    const boss = WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden";
-                    pushFeed(`⚡ ${boss}'s capture overcharges ${e.team === "blue" ? "Blue" : "Red"} lane sentinels for ${e.secs}s`, color);
-                    for (const guardian of snap.guardians[e.team]) {
-                        if (guardian.alive) spawnFx(guardian.x, guardian.y, "power", null, 1.8, 500);
-                    }
-                    playPetSfx("buff");
-                } else if (e.type === "guardianward") {
-                    const target = actorPos(e.targetId);
-                    if (target) {
-                        spawnShot(e.x, e.y, target.x, target.y, e.team === "blue" ? "Water" : "Fire", false);
-                        spawnFx(target.x, target.y, "spark", null, 1.0, 300);
-                        spawnFloater(target.x, target.y, `🛡 WARD +${e.amount}`, e.team === "blue" ? "#93c5fd" : "#fca5a5", false);
-                    }
-                } else if (e.type === "ability") {
-                    if (e.kind === "shield") spawnFx(e.x, e.y, null, "Water", 1.15, 320);
-                    else if (e.kind === "dash") spawnFx(e.x, e.y, "shadow", null, 0.9, 260);
-                    else if (e.kind === "mark") { spawnFx(e.x, e.y, "spark", null, 0.8, 240); spawnFloater(e.x, e.y, "🎯 MARKED", "#f87171", false); }
-                } else if (e.type === "focus") {
-                    // The squad collapses on one target — a single clean cue.
-                    spawnFloater(e.x, e.y, "⚔ FOCUS FIRE", "#fbbf24", false);
-                } else if (e.type === "elemsig") {
-                    const col = WF_EL_COLORS[e.el] ?? "#c4b5fd";
-                    spawnShot(e.px, e.py, e.x, e.y, e.el || null, false);
-                    spawnFx(e.x, e.y, null, e.el || null, 1.5, 380);
-                    spawnFloater(e.x, e.y, e.name, col, true);
-                } else if (e.type === "bosssig") {
-                    const bossN = WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden";
-                    if (e.kind === "quake") {
-                        spawnFx(e.x, e.y, "shadow", null, 2.4, 620);
-                        spawnFloater(e.x, e.y, "⛰ QUAKE!", "#fbbf24", true);
-                        pushFeed(`⛰ The ${bossN} coils — QUAKE incoming!`, "#fbbf24");
-                        shakeRef.current = Math.max(shakeRef.current, 0.5);
-                        cut(e.t, e.x, e.y, 12, 2, 1.6);
-                    } else if (e.kind === "quakeland") {
-                        spawnFx(e.x, e.y, "power", null, 2.6, 520);
-                        shakeRef.current = Math.max(shakeRef.current, 1.3);
-                    } else if (e.kind === "shell") {
-                        spawnFx(e.x, e.y, null, "Water", 2.0, 600);
-                        spawnFloater(e.x, e.y, "💠 CRYSTAL SHELL", "#7dd3fc", false);
-                        pushFeed(`💠 The ${bossN} hardens — attackers bleed back!`, "#7dd3fc");
-                    } else if (e.kind === "blink") {
-                        spawnFx(e.x, e.y, "shadow", null, 1.4, 360);
-                        spawnFloater(e.x, e.y, "👁 BLINK", "#c084fc", false);
-                    } else if (e.kind === "flame") {
-                        spawnFx(e.x, e.y, null, "Fire", 2.2, 480);
-                        shakeRef.current = Math.max(shakeRef.current, 0.5);
-                    } else if (e.kind === "roar") {
-                        // Idle menace — an uncontested camp boss pulses so it reads
-                        // as a living threat, not a statue. No banner/feed spam.
-                        spawnFx(e.x, e.y, "shadow", null, 1.7, 420);
-                        spawnFloater(e.x, e.y, `${bossN} stirs…`, "#c4b5fd", false);
-                    }
-                } else if (e.type === "wardenshock") {
-                    // The paired wardenphase event owns the announcement. Keep the
-                    // shockwave itself physical and readable without a duplicate banner.
-                    triggerFlash("rgba(147,51,234,0.32)");
-                    spawnFx(e.x, e.y, "power", null, 3.2, 800);
-                    spawnFx(e.x, e.y, "shadow", null, 2.6, 700);
-                    shakeRef.current = Math.max(shakeRef.current, 2.0);
-                    clockRef.current.slow = Math.max(clockRef.current.slow, 0.4);
-                    cut(e.t, e.x, e.y, 15, 5, 2.6);
-                } else if (e.type === "ultimate") {
-                    // Each ultimate reads DIFFERENTLY — a signature, not a generic flash.
-                    // The world FX + name floater ALWAYS play (visible if you're
-                    // looking there or on the multi-cam wall) — but the disruptive
-                    // broadcast beat (shake + hard cut) only fires when the caster
-                    // is the pet you're actually watching. With ~50 ults a match,
-                    // cutting to every one off-screen turned them into wallpaper;
-                    // now each on-screen ult is a real moment and the rest just
-                    // happen where they happen.
-                    if (e.kind === "Shadow Execution") spawnFx(e.x, e.y, "shadow", null, 2.8, 650);
-                    else if (e.kind === "Sanctuary") spawnFx(e.x, e.y, "heal", null, 3.0, 700);
-                    else if (e.kind === "Bulwark Aegis") spawnFx(e.x, e.y, null, "Water", 2.6, 600);
-                    else spawnFx(e.x, e.y, "power", null, 2.6, 600);
-                    spawnFloater(e.x, e.y, e.kind.toUpperCase() + "!", "#c4b5fd", true);
-                    pushFeed(`✨ ${nameOf(e.petId)} unleashes ${e.kind}!`, "#c4b5fd");
-                    const cv = camViewRef.current;
-                    const onScreen = Math.abs(e.x - cv.x) < cv.half && Math.abs(e.y - cv.z) < cv.half;
-                    if (onScreen) {
-                        shakeRef.current = Math.max(shakeRef.current, 0.9);
-                        cut(e.t, e.x, e.y, 13, 2, 1.6);
-                    }
-                } else if (e.type === "petlevel") {
-                    const a = actorPos(e.petId);
-                    if (a) { spawnFx(a.x, a.y, "power", null, 1.8, 480); spawnFloater(a.x, a.y, `LEVEL ${e.level}!`, "#6ee7b7", true); }
-                    pushFeed(`★ ${nameOf(e.petId)} reached level ${e.level}`, "#6ee7b7");
-                } else if (e.type === "stance") {
-                    const spec2 = WF_STANCES.find((s) => s.id === e.stance);
-                    const who = e.team === "blue" ? "BLUE" : "RED";
-                    pushBanner(`${spec2?.icon ?? "📜"} ${who} ${e.answer ? "ANSWERS" : "ADOPTS"}: ${(spec2?.label ?? e.stance).toUpperCase()}`, e.team === "blue" ? "#93c5fd" : "#fca5a5", true);
-                    pushFeed(`📜 ${who[0]}${who.slice(1).toLowerCase()} ${e.answer ? "answers with" : "adopts"} ${spec2?.label ?? e.stance}`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                } else if (e.type === "buy") {
-                    const spec = WF_POWERUPS.find((p) => p.kind === e.kind);
-                    pushFeed(`${spec?.icon ?? "▲"} ${nameOf(e.petId)} gains ${spec?.label ?? e.kind}`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+    const last = useRef(-1), cursor = useRef(0), ended = useRef(false), activeResult = useRef(result), seenSeek = useRef(seekRef.current.generation);
+    const preRolled = useRef(new Set<number>()), convoyImpact = useRef(new Set<number>());
+    const featured = useRef(new Map<string, number>()), councilTicks = useRef(new Set<number>());
+    const snapshotAtTick = (tick: number) => warfrontSnapshotAtTick(result.snapshots, tick) ?? result.snapshots.at(0)!;
+    type CouncilPlan = { items: Array<{ petId: string; kind: Extract<WfEvent, { type: "buy" }>["kind"] }>; stance: WfStance; paid: boolean };
+    const councilPlans = useRef<Record<Team, CouncilPlan | null>>({ blue: null, red: null });
+    const hydrateCouncilPlans = (through: number): Record<Team, CouncilPlan | null> => {
+        const plans: Record<Team, CouncilPlan | null> = { blue: null, red: null };
+        for (let i = 0; i < result.events.length; i++) {
+            const event = result.events[i];
+            if (event.t > through) break;
+            if (event.type === "round") {
+                const buys: Record<Team, Array<Extract<WfEvent, { type: "buy" }>>> = { blue: [], red: [] };
+                const stances: Partial<Record<Team, WfStance>> = {};
+                for (let j = i + 1; j < result.events.length && result.events[j].t === event.t; j++) {
+                    const order = result.events[j];
+                    if (order.type === "buy") buys[order.team].push(order);
+                    else if (order.type === "stance") stances[order.team] = order.stance;
                 }
+                const snap = snapshotAtTick(event.t);
+                for (const team of ["blue", "red"] as const) plans[team] = {
+                    items: buys[team].map((buy) => ({ petId: buy.petId, kind: buy.kind })),
+                    stance: stances[team] ?? snap.stances[team],
+                    paid: false,
+                };
+                continue;
             }
-            evCursor.current = ei;
-            lastTick.current = cur;
+            let team: Team | null = null, actorId: string | null = null;
+            if (event.type === "kill") { team = event.team; actorId = event.actorId; }
+            else if (event.type === "shutdown") {
+                actorId = event.actorId;
+                team = snapshotAtTick(event.t).actors.find((actor) => actor.id === actorId)?.team ?? null;
+            } else if (event.type === "statuedown" || event.type === "guardiandown" || event.type === "coredown") team = event.by;
+            else if (event.type === "minikill" || event.type === "siegebreak" || event.type === "wardenkill") team = event.team;
+            if (!team) continue;
+            const plan = plans[team];
+            if (plan && (!actorId || plan.items.some((item) => item.petId === actorId))) plan.paid = true;
         }
-        if (!ended.current && result.winner !== null && wfClockTick(clockRef) >= result.snapshots.length - 1) {
-            ended.current = true;
-            onEnd();
+        return plans;
+    };
+    useFrame(() => {
+        const now = Math.floor(wfClockTick(clockRef));
+        if (activeResult.current !== result) {
+            activeResult.current = result; cursor.current = 0; last.current = -1; ended.current = false;
+            preRolled.current.clear(); convoyImpact.current.clear(); featured.current.clear(); councilTicks.current.clear(); councilPlans.current = { blue: null, red: null }; storyRef.current = null;
+            seenSeek.current = seekRef.current.generation;
         }
+        const seek = seekRef.current;
+        if (seenSeek.current !== seek.generation) {
+            seenSeek.current = seek.generation;
+            cursor.current = result.events.findIndex((event) => event.t > seek.tick);
+            if (cursor.current < 0) cursor.current = result.events.length;
+            last.current = seek.tick;
+            preRolled.current.clear(); convoyImpact.current.clear(); featured.current.clear(); councilTicks.current.clear();
+            councilPlans.current = hydrateCouncilPlans(seek.tick);
+            ended.current = false;
+        }
+        if (now < last.current) {
+            const replayFocus = storyRef.current?.prio === 10 && now >= storyRef.current.fromT && now <= storyRef.current.untilT;
+            cursor.current = result.events.findIndex((event) => event.t >= now);
+            if (cursor.current < 0) cursor.current = result.events.length;
+            last.current = now - 1; preRolled.current.clear(); convoyImpact.current.clear();
+            featured.current.clear(); councilTicks.current.clear(); councilPlans.current = hydrateCouncilPlans(now - 1);
+            if (!replayFocus) storyRef.current = null;
+            ended.current = false;
+        }
+        const cut = (t: number, x: number, z: number, span: number, prio: number, secs: number, subject?: WfStoryCam["subject"], pre = 0) => {
+            const active = storyRef.current;
+            const replayLocked = active?.prio === 10 && now <= active.untilT;
+            if (!replayLocked && (!active || now > active.untilT || prio > active.prio || (prio === active.prio && now - active.fromT > WARFRONT_TPS * 1.25))) storyRef.current = { x, z, span, prio, subject, fromT: t - pre * WARFRONT_TPS, untilT: t + secs * WARFRONT_TPS };
+        };
+        const feature = (key: string, t: number, cooldown: number) => {
+            const previous = featured.current.get(key) ?? -Infinity;
+            if (t - previous < cooldown * WARFRONT_TPS) return false;
+            featured.current.set(key, t);
+            return true;
+        };
+        const councilPayoff = (team: Team, actorId: string | null, moment: string) => {
+            const plan = councilPlans.current[team];
+            if (!plan || plan.paid) return;
+            plan.paid = true;
+            if (actorId) {
+                const item = plan.items.find((buy) => buy.petId === actorId);
+                if (!item) { plan.paid = false; return; }
+                pushFeed(`COUNCIL PAYOFF · ${nameOf(item.petId)} +${item.kind.toUpperCase()} · ${moment}`, TEAM_SOFT[team]);
+                return;
+            }
+            const stance = WF_STANCES.find((item) => item.id === plan.stance);
+            pushFeed(`COUNCIL PAYOFF · ${stance?.icon ?? ""} ${stance?.label ?? "BALANCED"} PLAN · ${plan.items.length} UPGRADE${plan.items.length === 1 ? "" : "S"} · ${moment}`, TEAM_SOFT[team]);
+        };
+        const horizon = now + 4 * WARFRONT_TPS;
+        for (let i = cursor.current; i < result.events.length; i++) {
+            const event = result.events[i];
+            if (event.t <= now) continue;
+            if (event.t > horizon) break;
+            if (preRolled.current.has(i)) continue;
+            let focus: { x: number; y: number; span: number } | null = null;
+            if (event.type === "sigilawake" || event.type === "siegebreak") focus = { x: event.x, y: event.y, span: 14 };
+            else if (event.type === "wardenphase" || event.type === "wardenkill") focus = { x: WF_LAIR.x, y: WF_LAIR.y, span: 15 };
+            else if (event.type === "gank" || event.type === "ultimate") focus = { x: event.x, y: event.y, span: 12 };
+            else if (event.type === "techniqueused") {
+                const mini = snapshotAtTick(event.t).minis.find((item) => item.padIdx === event.padIdx);
+                if (mini) focus = { x: mini.x, y: mini.y, span: 12 };
+            } else if (event.type === "counterstrikeclaim") {
+                const target = snapshotAtTick(event.t).actors.find((item) => item.id === event.targetId);
+                if (target) focus = { x: target.x, y: target.y, span: 12 };
+            } else if (event.type === "counterstrike") {
+                const eventSnap = snapshotAtTick(event.t);
+                const target = event.targetId ? eventSnap?.actors.find((item) => item.id === event.targetId) : null;
+                const statue = eventSnap?.structures[event.team].statues[event.statue];
+                if (target ?? statue) focus = { x: (target ?? statue)!.x, y: (target ?? statue)!.y, span: 12 };
+            }
+            else if (event.type === "structhit" && event.mini !== undefined && !convoyImpact.current.has(event.mini)) {
+                convoyImpact.current.add(event.mini); focus = { x: event.x, y: event.y, span: 13 };
+            } else if (event.type === "minikill") {
+                const mini = snapshotAtTick(event.t).minis.find((m) => m.padIdx === event.padIdx);
+                if (mini) focus = { x: mini.x, y: mini.y, span: 13 };
+            }
+            if (focus) { preRolled.current.add(i); const salience = warfrontEventSalience(event); cut(event.t, focus.x, focus.y, focus.span, salience, 2.5, undefined, salience >= 5 ? 4 : 1.5); }
+        }
+        if (now > last.current) {
+            let i = cursor.current;
+            const through = warfrontEventCursorThroughTick(result.events, i, now);
+            for (; i < through; i++) {
+                const event = result.events[i];
+                if (event.t <= last.current) continue;
+                playWarfrontEventAudio(event);
+                const snap = snapshotAtTick(event.t);
+                const actor = (id: string) => snap.actors.find((item) => item.id === id);
+                const color = (team: Team) => TEAM_SOFT[team];
+                const salience = warfrontEventSalience(event);
+                const hitStop = warfrontHitStopSeconds(event, reducedMotion);
+                if (hitStop) clockRef.current.slow = Math.max(clockRef.current.slow, hitStop);
+                const earnsKill = (petId: string) => {
+                    for (let j = Math.max(0, i - 12); j < result.events.length; j++) {
+                        const nearby = result.events[j];
+                        if (nearby.t > event.t + WARFRONT_TPS) break;
+                        if (nearby.t >= event.t - WARFRONT_TPS && nearby.type === "kill" && nearby.actorId === petId) return true;
+                    }
+                    return false;
+                };
+                if (event.type === "round") {
+                    const buysBy: Record<Team, Array<Extract<WfEvent, { type: "buy" }>>> = { blue: [], red: [] };
+                    const stanceBy: Partial<Record<Team, WfStance>> = {};
+                    const packageBy: Partial<Record<Team, WfBuildPackage>> = {};
+                    const orderBy: Partial<Record<Team, WfCoachOrder>> = {};
+                    for (let j = i + 1; j < result.events.length && result.events[j].t === event.t; j++) {
+                        const order = result.events[j];
+                        if (order.type === "buy") buysBy[order.team].push(order);
+                        else if (order.type === "stance") stanceBy[order.team] = order.stance;
+                        else if (order.type === "buildpackage") packageBy[order.team] = order.choice;
+                        else if (order.type === "coachorder") orderBy[order.team] = order.order;
+                    }
+                    councilTicks.current.add(event.t);
+                    pushBanner(`WAR COUNCIL ${event.round} · ORDERS LOCKED`, "#c4b5fd");
+                    for (const team of ["blue", "red"] as const) {
+                        const buys = buysBy[team];
+                        const stance = WF_STANCES.find((item) => item.id === (stanceBy[team] ?? snap.stances[team]));
+                        const buildPackage = buildPackageSpec(packageBy[team]);
+                        const coachOrder = coachOrderSpec(orderBy[team]);
+                        councilPlans.current[team] = { items: buys.map((buy) => ({ petId: buy.petId, kind: buy.kind })), stance: stance?.id ?? "balanced", paid: false };
+                        const build = buys.length ? buys.slice(0, 4).map((buy) => `${nameOf(buy.petId)} +${buy.kind.toUpperCase()}`).join(" / ") : "BANKED COINS";
+                        const call = [buildPackage ? `${buildPackage.icon} ${buildPackage.label}` : null, coachOrder ? `${coachOrder.icon} ${coachOrder.label}` : null].filter(Boolean).join(" + ");
+                        pushFeed(`COUNCIL ${event.round} · ${team.toUpperCase()} ${stance?.icon ?? ""} ${stance?.label ?? "BALANCED"}${call ? ` · ${call}` : ""} · ${build}`, color(team));
+                    }
+                } else if (event.type === "opening") {
+                    const blue = doctrineSpec(event.doctrines.blue), red = doctrineSpec(event.doctrines.red);
+                    pushFeed(`${blue.icon} ${blue.label} vs ${red.icon} ${red.label} · ${event.winner ? `${event.winner.toUpperCase()} wins ${event.secs}s` : "even"}`, event.winner ? color(event.winner) : "#c4b5fd");
+                } else if (event.type === "readreserve") {
+                    pushBanner(`ADAPTATION READ · ${event.team.toUpperCase()} +${event.coins}`, color(event.team));
+                    pushFeed(`SCOUTING RESERVE · +${event.coins} coins for the counter-plan`, color(event.team));
+                } else if (event.type === "deployment") {
+                    pushFeed(`${event.team.toUpperCase()} DEPLOYMENT · ${event.slots.map((lane) => WF_DEPLOYMENT_LABEL[lane]).join(" / ")} · ${event.lockSecs}s LOCK`, color(event.team));
+                } else if ((event.type === "buildpackage" || event.type === "coachorder") && !councilTicks.current.has(event.t)) {
+                    const item = event.type === "buildpackage" ? buildPackageSpec(event.choice) : coachOrderSpec(event.order);
+                    pushFeed(`${event.team.toUpperCase()} PLAN · ${item?.icon ?? ""} ${item?.label ?? (event.type === "buildpackage" ? event.choice : event.order)}`, color(event.team));
+                } else if (event.type === "objectivetechnique") {
+                    const technique = objectiveTechniqueSpec(event.choice);
+                    pushFeed(`${event.team.toUpperCase()} TACTIC ARMED · ${technique?.icon ?? ""} ${technique?.label ?? event.choice}`, color(event.team));
+                } else if (event.type === "packageproc") {
+                    if (feature(`package:${event.team}:${event.choice}`, event.t, 12)) {
+                        const item = buildPackageSpec(event.choice);
+                        const target = actor(event.targetId);
+                        pushFeed(`${item?.icon ?? ""} ${item?.label ?? event.choice} PROC · ${nameOf(event.actorId)} → ${nameOf(event.targetId)}`, color(event.team));
+                        if (target) spawnFloater(target.x, target.y, item?.label.toUpperCase() ?? "PACKAGE PROC", color(event.team), false);
+                    }
+                } else if (event.type === "techniqueused") {
+                    const item = objectiveTechniqueSpec(event.choice);
+                    const boss = WF_MINI_NAMES[event.padIdx] ?? "Sigil";
+                    const mini = snap.minis.find((candidate) => candidate.padIdx === event.padIdx);
+                    const detail = event.choice === "secure" ? "threshold burst set up a safer claim" : event.choice === "hijack" ? "low-health execute landed" : "Defender delayed the contest";
+                    pushBanner(`${item?.label.toUpperCase() ?? "OBJECTIVE TECHNIQUE"} · ${event.team.toUpperCase()}`, color(event.team), true);
+                    pushFeed(`${boss} · ${detail}`, color(event.team));
+                    if (mini) { spawnFx(mini.x, mini.y, event.choice === "zone" ? "power" : "spark", null, 2.4, 600); cut(event.t, mini.x, mini.y, 12, salience, 2.7); }
+                    triggerFlash(event.team === "blue" ? "#3b82f644" : "#ef444444"); shakeRef.current = Math.max(shakeRef.current, 1.1);
+                } else if (event.type === "counterstrike") {
+                    const item = counterstrikeSpec(event.choice);
+                    const target = event.targetId ? actor(event.targetId) : null;
+                    const statue = snap.structures[event.team].statues[event.statue];
+                    const detail = event.choice === "fortify" ? `next threatened route fortified for ${event.secs ?? 45}s` : event.choice === "cross-map" ? "elite wave launched on the opposite route" : `${event.targetId ? nameOf(event.targetId) : "enemy carry"} marked for +${event.bounty ?? 0}`;
+                    pushBanner(`${item?.label.toUpperCase() ?? "COUNTERSTRIKE"} · ${event.team.toUpperCase()}`, color(event.team), true);
+                    pushFeed(`COMEBACK ROUTE · ${detail}`, color(event.team));
+                    if (target ?? statue) cut(event.t, (target ?? statue)!.x, (target ?? statue)!.y, 12, salience, 2.6);
+                } else if (event.type === "counterstrikeclaim") {
+                    const target = actor(event.targetId);
+                    pushBanner(`BOUNTY CLAIMED · ${event.team.toUpperCase()} +${event.bounty}`, "#fde047", true);
+                    pushFeed(`${nameOf(event.actorId)} completed the comeback hunt on ${nameOf(event.targetId)}`, "#fde047");
+                    if (target) { spawnFloater(target.x, target.y, `+${event.bounty}`, "#fde047", true); cut(event.t, target.x, target.y, 11, salience, 2.8); }
+                    triggerFlash("#fde04755"); shakeRef.current = Math.max(shakeRef.current, 1.3);
+                } else if (event.type === "hit") {
+                    const target = actor(event.targetId), source = actor(event.actorId);
+                    if (target) {
+                        spawnFx(target.x, target.y, null, event.element, event.crit ? 1.3 : 0.8, 260);
+                        spawnFloater(target.x, target.y, String(event.dmg), event.crit ? "#fde047" : "#fecaca", event.crit);
+                        if (source && Math.hypot(source.x - target.x, source.y - target.y) > 1.8) spawnShot(source.x, source.y, target.x, target.y, event.element, event.crit);
+                    }
+                } else if (event.type === "heal") {
+                    const target = actor(event.targetId); if (target) spawnFx(target.x, target.y, "heal", null, 1.2, 400);
+                } else if (event.type === "kill") {
+                    const target = actor(event.targetId);
+                    if (target) { spawnFx(target.x, target.y, "spark", null, 2.3, 520); cut(event.t, target.x, target.y, 12, salience, 2); }
+                    pushFeed(`☠ ${nameOf(event.targetId)} · ${nameOf(event.actorId)}`, color(event.team)); shakeRef.current = Math.max(shakeRef.current, 1.1);
+                    const shutdownFollows = result.events.slice(i + 1, i + 3).some((next) => next.t === event.t && next.type === "shutdown" && next.actorId === event.actorId);
+                    if (!shutdownFollows) councilPayoff(event.team, event.actorId, "TAKEDOWN");
+                } else if (event.type === "shutdown") {
+                    const target = actor(event.targetId);
+                    pushBanner(`SHUTDOWN · +${event.bounty} BOUNTY`, "#fde047", event.streak >= 5);
+                    pushFeed(`${nameOf(event.actorId)} ends ${nameOf(event.targetId)}'s ${event.streak}-KO streak`, "#fde047");
+                    if (target) { spawnFloater(target.x, target.y, `+${event.bounty}`, "#fde047", true); cut(event.t, target.x, target.y, 12, salience, 2.5); }
+                    councilPayoff(actor(event.actorId)?.team ?? (actor(event.targetId)?.team === "blue" ? "red" : "blue"), event.actorId, "SHUTDOWN");
+                } else if (event.type === "gank") {
+                    if (feature(`gank:${event.actorId}`, event.t, 18)) {
+                        pushFeed(`GANK ARRIVAL · ${nameOf(event.actorId)} hunts ${nameOf(event.targetId)}`, color(actor(event.actorId)?.team ?? "blue"));
+                        cut(event.t, event.x, event.y, 11, salience, 1.8);
+                    }
+                } else if (event.type === "mercy") {
+                    pushBanner(`MERCY ACCELERATION · ${event.team.toUpperCase()} COMMANDS THE FIELD`, color(event.team), true);
+                    pushFeed("TRIPLE SIEGE PRESSURE · the war enters its finish", "#fde047");
+                } else if (event.type === "bosssig") {
+                    spawnFx(event.x, event.y, event.kind === "blink" ? "shadow" : "power", null, 1.9, 520);
+                    if (salience && feature(`boss:${event.padIdx}:${event.kind}`, event.t, 24)) {
+                        const move = event.kind === "quake" ? "EARTHSHATTER" : event.kind === "shell" ? "TIDAL SHELL" : event.kind === "blink" ? "VOID BLINK" : "INFERNO BREATH";
+                        pushFeed(`${WF_MINI_NAMES[event.padIdx]} · ${move}`, "#d8b4fe");
+                        cut(event.t, event.x, event.y, 12, salience, 1.5);
+                    }
+                } else if (event.type === "elemsig") {
+                    spawnFx(event.x, event.y, null, event.el, 1.7, 480);
+                    const decisive = earnsKill(event.petId);
+                    if (decisive || feature(`element:${event.petId}`, event.t, 36)) {
+                        pushFeed(`${nameOf(event.petId)} · ${event.name}${decisive ? " · FINISH" : ""}`, tintOf(event.el));
+                        spawnFloater(event.x, event.y, event.name, tintOf(event.el), decisive);
+                        cut(event.t, event.x, event.y, 11, decisive ? 5 : salience, decisive ? 2 : 1.2);
+                    }
+                } else if (event.type === "structhit") {
+                    spawnFx(event.x, event.y, "spark", null, event.core ? 1.4 : 0.9, 220);
+                    if (event.mini !== undefined && !convoyImpact.current.has(event.mini)) { convoyImpact.current.add(event.mini); cut(event.t, event.x, event.y, 13, 5, 2.5); }
+                } else if (event.type === "statuedown" || event.type === "guardiandown") {
+                    const object = event.type === "statuedown" ? snap.structures[event.team].statues[event.statue] : snap.guardians[event.team][event.idx];
+                    pushBanner(event.type === "statuedown" ? "GUARDIAN TOTEM SHATTERED" : "SENTINEL FALLS", color(event.by));
+                    pushFeed(`${event.by.toUpperCase()} opens the route to the Ward Seal`, color(event.by));
+                    if (object) { spawnFx(object.x, object.y, "power", null, 2.6, 600); cut(event.t, object.x, object.y, 13, salience, 2.5); }
+                    shakeRef.current = 1.7;
+                    councilPayoff(event.by, null, "BREACH");
+                } else if (event.type === "coreexposed") {
+                    pushBanner(`${event.team.toUpperCase()} SEAL EXPOSED · LAST STAND`, color(event.team), true); pushFeed("Next break ends the war", "#fde047");
+                } else if (event.type === "coredown") {
+                    const core = snap.structures[event.team].core;
+                    pushBanner(`${event.by.toUpperCase()} SHATTERS THE WARD SEAL`, color(event.by), true); pushFeed(`MATCH POINT · ${event.by.toUpperCase()} broke the Seal`, color(event.by));
+                    spawnFx(core.x, core.y, "power", null, 3.4, 900); cut(event.t, core.x, core.y, 14, salience, 3.5); triggerFlash(event.by === "blue" ? "#3b82f666" : "#ef444466");
+                    councilPayoff(event.by, null, "WARD SEAL");
+                } else if (event.type === "minikill") {
+                    const boss = WF_MINI_NAMES[event.padIdx] ?? "Lesser Warden";
+                    const reward = event.reward ? WF_CAMP_REWARDS[event.reward].label : null;
+                    pushBanner(event.stolen ? `SIGIL STOLEN · ${event.team.toUpperCase()}` : `${boss.toUpperCase()} RECRUITED · ${event.team.toUpperCase()}`, event.stolen || event.awakened ? "#fde047" : color(event.team), true);
+                    pushFeed(`${event.stolen ? "OBJECTIVE STEAL" : "CONVOY"} · ${boss}${reward ? ` · ${reward}` : ""}${event.awakened ? " · +1 SIGIL" : ""}`, event.stolen ? "#fde047" : color(event.team));
+                    convoyImpact.current.delete(event.padIdx);
+                    const mini = snap.minis.find((item) => item.padIdx === event.padIdx);
+                    if (mini) { spawnFx(mini.x, mini.y, "power", null, 2.5, 560); cut(event.t, mini.x, mini.y, 13, salience, 2.5); }
+                    councilPayoff(event.team, null, event.stolen ? "SIGIL STEAL" : "CONVOY");
+                } else if (event.type === "sigilsoon" || event.type === "sigilawake") {
+                    const boss = WF_MINI_NAMES[event.padIdx] ?? "Lesser Warden", awake = event.type === "sigilawake";
+                    pushBanner(`${boss.toUpperCase()} ${awake ? "AWAKENS · DOUBLE BOUNTY" : "STIRS · SIGIL SOON"}`, awake ? "#fde047" : "#fbbf24", awake);
+                    pushFeed(awake ? "CONTEST · Sigil in play" : "Rotate to the coming Sigil", "#fde047"); cut(event.t, event.x, event.y, 14, 4, 2.5);
+                } else if (event.type === "sigilpip") {
+                    pushFeed(`${event.team.toUpperCase()} · ${event.count} SIGIL${event.count === 2 ? "S · ASCENDANCE POINT" : ""}`, event.count === 2 ? "#fde047" : color(event.team));
+                } else if (event.type === "ascendance") {
+                    pushBanner(`HOLLOW ASCENDANCE · ${event.team.toUpperCase()}`, "#fde047", true); pushFeed("PERMANENT POWER · ELITE WAVES · +30% SIEGE", "#fde047");
+                } else if (event.type === "minimarch") {
+                    const mini = snap.minis.find((item) => item.padIdx === event.padIdx);
+                    pushFeed(`ESCORT · ${WF_MINI_NAMES[event.padIdx]} marches for ${event.team.toUpperCase()}`, color(event.team));
+                    cut(event.t, event.x, event.y, 13, 4, 8, { kind: "mini", padIdx: event.padIdx, team: event.team, startDowns: mini?.siegeDowns ?? 0 });
+                } else if (event.type === "siegeescort") {
+                    pushFeed(event.escorted ? "ESCORT LINKED · FULL SIEGE" : "ESCORT BROKEN · REDUCED SIEGE", event.escorted ? color(event.team) : "#fbbf24");
+                } else if (event.type === "siegebreak") {
+                    pushBanner(`BREAK THE SIEGE · ${event.team.toUpperCase()}`, color(event.team), true); pushFeed(`Structure saved · +${event.bounty} coins`, color(event.team));
+                    spawnFx(event.x, event.y, "power", null, 2.5, 620); cut(event.t, event.x, event.y, 13, salience, 3);
+                    councilPayoff(event.team, null, "SIEGE DEFENSE");
+                } else if (event.type === "wardensoon") {
+                    pushFeed("Gate Warden awakens at WAR", "#d8b4fe"); cut(event.t, event.x, event.y, 15, 4, 2);
+                } else if (event.type === "wardenphase") {
+                    pushBanner(`GATE WARDEN · PHASE ${event.phase}`, event.phase === 3 ? "#fb7185" : "#e879f9", true); cut(event.t, WF_LAIR.x, WF_LAIR.y, 15, salience, 2.5);
+                } else if (event.type === "wardenkill") {
+                    pushBanner(`${event.stolen ? "WARDEN STOLEN" : "GATE WARDEN FALLS"} · ${event.team.toUpperCase()}`, event.stolen ? "#fde047" : color(event.team), true);
+                    pushFeed(`${event.team.toUpperCase()} claims Gate's Wrath`, event.stolen ? "#fde047" : color(event.team)); cut(event.t, WF_LAIR.x, WF_LAIR.y, 15, salience, 3); triggerFlash(event.team === "blue" ? "#3b82f666" : "#ef444466");
+                    councilPayoff(event.team, null, event.stolen ? "WARDEN STEAL" : "WARDEN");
+                } else if (event.type === "phase") {
+                    pushBanner(event.name, event.name === "SUDDEN DEATH" ? "#fb7185" : "#fde047", true);
+                } else if (event.type === "verdict") {
+                    const winner = event.winner === "draw" ? null : event.winner;
+                    pushBanner(winner ? `${winner.toUpperCase()} WINS THE JUDGMENT` : "JUDGMENT / STALEMATE", winner ? color(winner) : "#c4b5fd", true);
+                    pushFeed(`FINAL VERDICT / ${event.blueScore}-${event.redScore} / ${event.blueCoins}-${event.redCoins} COINS`, winner ? color(winner) : "#c4b5fd");
+                } else if (event.type === "ultimate") {
+                    const decisive = earnsKill(event.petId);
+                    spawnFx(event.x, event.y, event.kind === "Sanctuary" ? "heal" : event.kind === "Shadow Execution" ? "shadow" : "power", null, 2.6, 650); spawnFloater(event.x, event.y, event.kind.toUpperCase(), "#c4b5fd", true);
+                    if (decisive || feature(`ultimate:${actor(event.petId)?.team ?? "team"}`, event.t, 14)) {
+                        pushFeed(`ULTIMATE · ${nameOf(event.petId)} · ${event.kind}${decisive ? " · FINISH" : ""}`, "#e9d5ff");
+                        cut(event.t, event.x, event.y, 12, decisive ? 6 : salience, 2);
+                    }
+                } else if (event.type === "petlevel") {
+                    const pet = actor(event.petId); if (pet) spawnFloater(pet.x, pet.y, `LEVEL ${event.level}`, "#6ee7b7", true);
+                } else if (event.type === "stance" && !councilTicks.current.has(event.t)) pushFeed(`${event.team.toUpperCase()} · ${event.stance.toUpperCase()}`, color(event.team));
+            }
+            cursor.current = i; last.current = now;
+        }
+        if (!ended.current && result.winner !== null && now >= warfrontSnapshotFrontier(result.snapshots)) { ended.current = true; onEnd(); }
     });
     return null;
 }
 
-// ── Minimap (DOM canvas — mask + live dots) ──────────────────────────────────
-function WfMinimap({ result, clock, theme, camViewRef, camCtlRef, onModeChange }: {
+function WfMinimap({ result, clock, theme, camViewRef, camCtlRef, onModeChange, disabled }: {
     result: WarfrontResult; clock: WfClockRef; theme: WfTheme;
     camViewRef: MutableRefObject<{ x: number; z: number; half: number }>;
-    camCtlRef: MutableRefObject<WfCamCtl>; onModeChange: (m: "follow" | "free") => void;
+    camCtlRef: MutableRefObject<WfCamCtl>; onModeChange: (m: "follow" | "free") => void; disabled: boolean;
 }) {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const spec = WF_THEMES[theme];
-    const bg = useMemo(() => {
-        const c = document.createElement("canvas");
-        c.width = WF_COLS; c.height = WF_ROWS;
-        const ctx = c.getContext("2d")!;
-        ctx.fillStyle = spec.voidColor;
-        ctx.fillRect(0, 0, WF_COLS, WF_ROWS);
-        // Four-tone read, like a real MOBA minimap: gold ROADS, mid GROUND,
-        // dark jungle WALLS inside the field, void beyond the rim.
-        const h = Math.round(spec.tileHue * 360), sPct = Math.round(spec.tileSat * 100);
-        const roadCol = `hsl(${h}, ${Math.min(70, sPct + 22)}%, 46%)`;
-        const groundCol = `hsl(${h}, ${sPct}%, 27%)`;
-        const wallCol = `hsl(${h}, ${sPct}%, 12%)`;
-        for (let r = 0; r < WF_ROWS; r++) for (let cc = 0; cc < WF_COLS; cc++) {
-            const x = (cc + 0.5) * (WF_X * 2 / WF_COLS) - WF_X, y = (r + 0.5) * (WF_Y * 2 / WF_ROWS) - WF_Y;
-            const walk = WF_MASK.charCodeAt(r * WF_COLS + cc) === 49;
-            if (walk) ctx.fillStyle = wfLaneDistance(x, y) < 1.8 ? roadCol : groundCol;
-            else if (wfInsideField(x, y)) ctx.fillStyle = wallCol;
-            else continue;
-            ctx.fillRect(cc, r, 1, 1);
-        }
-        return c;
-    }, [spec]);
+    const canvas = useRef<HTMLCanvasElement>(null), spec = WF_THEMES[theme];
     useEffect(() => {
-        let live = true;
+        let frame = 0, live = true, paintedSnap: WfSnapshot | null = null;
+        const base = document.createElement("canvas"), field = document.createElement("canvas");
+        base.width = field.width = 224; base.height = field.height = 105;
+        const baseCtx = base.getContext("2d")!, fieldCtx = field.getContext("2d")!;
+        const px = (x: number) => (x + WF_X) / (2 * WF_X) * base.width, py = (y: number) => (y + WF_Y) / (2 * WF_Y) * base.height;
+        const dot = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(px(x), py(y), size, 0, 7); ctx.fill(); };
+        baseCtx.fillStyle = spec.voidColor; baseCtx.fillRect(0, 0, base.width, base.height);
+        baseCtx.strokeStyle = "#94a3b833"; baseCtx.lineWidth = 5;
+        for (const lane of Object.values(WF_LANES)) { baseCtx.beginPath(); lane.forEach(([x, y], i) => i ? baseCtx.lineTo(px(x), py(y)) : baseCtx.moveTo(px(x), py(y))); baseCtx.stroke(); }
         const draw = () => {
             if (!live) return;
-            const cv = canvasRef.current;
-            if (cv) {
-                const ctx = cv.getContext("2d");
-                if (ctx) {
-                    ctx.clearRect(0, 0, cv.width, cv.height);
-                    ctx.drawImage(bg, 0, 0, cv.width, cv.height);
-                    const snap = snapAt(result, clock);
-                    const px = (x: number) => ((x + WF_X) / (WF_X * 2)) * cv.width;
-                    const py = (y: number) => ((y + WF_Y) / (WF_Y * 2)) * cv.height;
-                    const dot = (x: number, y: number, r: number, color: string) => {
-                        ctx.fillStyle = color;
-                        ctx.beginPath();
-                        ctx.arc(px(x), py(y), r, 0, Math.PI * 2);
-                        ctx.fill();
-                    };
-                    // Damaged structures pulse an amber alarm ring — siege
-                    // pressure reads from the minimap at a glance.
-                    const now2 = performance.now() / 1000;
-                    const alarm = (x: number, y: number) => {
-                        ctx.strokeStyle = `rgba(251,191,36,${(0.5 + 0.4 * Math.sin(now2 * 6.5)).toFixed(3)})`;
-                        ctx.lineWidth = 1.4;
-                        ctx.beginPath();
-                        ctx.arc(px(x), py(y), 5.4 + Math.sin(now2 * 6.5) * 1.2, 0, Math.PI * 2);
-                        ctx.stroke();
-                    };
+            const cv = canvas.current, ctx = cv?.getContext("2d");
+            if (cv && ctx) {
+                const snap = snapAt(result, clock);
+                if (snap !== paintedSnap) {
+                    paintedSnap = snap; fieldCtx.clearRect(0, 0, field.width, field.height); fieldCtx.drawImage(base, 0, 0);
                     for (const team of ["blue", "red"] as const) {
-                        const st = snap.structures[team];
-                        for (const s of st.statues) {
-                            if (!s.alive) continue;
-                            dot(s.x, s.y, 2.6, team === "blue" ? "#1d4ed8" : "#b91c1c");
-                            if (s.hp / s.maxHp < 0.6) alarm(s.x, s.y);
-                        }
-                        if (st.core.alive) {
-                            dot(st.core.x, st.core.y, 3.6, TEAM_COLOR[team]);
-                            const exposed = st.core.exposed;
-                            if (exposed) {
-                                ctx.strokeStyle = "#fef08a";
-                                ctx.lineWidth = 1.5;
-                                ctx.beginPath();
-                                ctx.arc(px(st.core.x), py(st.core.y), 6.2 + Math.sin(now2 * 5.5), 0, Math.PI * 2);
-                                ctx.stroke();
-                            }
-                            if (st.core.hp / st.core.maxHp < 0.6) alarm(st.core.x, st.core.y);
-                        }
-                        for (const g of snap.guardians[team]) {
-                            if (!g.alive) continue;
-                            dot(g.x, g.y, 2.1, team === "blue" ? "#2563eb" : "#dc2626");
-                            if (g.hp / g.maxHp < 0.6) alarm(g.x, g.y);
-                        }
+                        const color = TEAM_COLOR[team], structures = snap.structures[team];
+                        for (const item of [...snap.guardians[team], ...structures.statues, structures.core]) if (item.alive) dot(fieldCtx, item.x, item.y, item === structures.core ? 4 : 2.5, color);
                     }
-                    if (snap.warden.alive) {
-                        const wColor = snap.warden.phase === 3 ? "#fb7185" : snap.warden.phase === 2 ? "#e879f9" : "#a78bfa";
-                        dot(snap.warden.x, snap.warden.y, 3.4, wColor);
-                        ctx.strokeStyle = wColor;
-                        ctx.lineWidth = 1.2;
-                        ctx.beginPath();
-                        ctx.arc(px(snap.warden.x), py(snap.warden.y), 5.3 + Math.sin(now2 * 4) * 0.6, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-                    for (const m of snap.minis) {
-                        if (m.alive) {
-                            dot(m.x, m.y, 2.5, m.ally ? TEAM_COLOR[m.ally] : "#c084fc");
-                            ctx.fillStyle = "#ffffff";
-                            ctx.font = "700 6px Inter, sans-serif";
-                            ctx.textAlign = "center";
-                            ctx.fillText(["S", "C", "V", "R"][m.padIdx] ?? "L", px(m.x), py(m.y) - 4);
-                        } else {
-                            const [mx, my] = WF_PADS[m.padIdx] ?? [m.x, m.y];
-                            ctx.fillStyle = "rgba(216,180,254,0.75)";
-                            ctx.font = "700 6px Inter, sans-serif";
-                            ctx.textAlign = "center";
-                            ctx.fillText(`${Math.ceil(m.spawnSecs)}s`, px(mx), py(my) + 2);
-                        }
-                    }
-                    for (const m of snap.mobs) dot(m.x, m.y, 1.5, m.side === "hollow" ? "#8b7bb8" : m.side === "blue" ? "#3b82f6" : "#ef4444");
-                    for (const a of snap.actors) if (a.state !== "respawning") dot(a.x, a.y, 2.4, a.team === "blue" ? "#60a5fa" : "#f87171");
-                    // The broadcast camera's current view window.
-                    const v = camViewRef.current;
-                    const halfW = (v.half / (WF_X * 2)) * cv.width;
-                    const halfH = (v.half * 0.62 / (WF_Y * 2)) * cv.height;
-                    ctx.strokeStyle = "rgba(255,255,255,0.75)";
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(px(v.x) - halfW, py(v.z) - halfH, halfW * 2, halfH * 2);
+                    if (snap.warden.alive) dot(fieldCtx, snap.warden.x, snap.warden.y, 4, snap.warden.active ? "#c084fc" : "#64748b");
+                    for (const mini of snap.minis) if (mini.alive) dot(fieldCtx, mini.x, mini.y, 3, mini.ally ? TEAM_COLOR[mini.ally] : mini.awake ? "#fde047" : "#a78bfa");
+                    for (const actor of snap.actors) if (actor.state !== "respawning") dot(fieldCtx, actor.x, actor.y, 2.5, TEAM_SOFT[actor.team]);
                 }
+                ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(field, 0, 0);
+                const view = camViewRef.current, w = view.half / (2 * WF_X) * cv.width, h = view.half * .62 / (2 * WF_Y) * cv.height;
+                ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.strokeRect(px(view.x) - w, py(view.z) - h, 2 * w, 2 * h);
             }
-            requestAnimationFrame(draw);
+            frame = requestAnimationFrame(draw);
         };
-        const id = requestAnimationFrame(draw);
-        return () => { live = false; cancelAnimationFrame(id); };
-    }, [result, clock, bg, camViewRef]);
+        frame = requestAnimationFrame(draw);
+        return () => { live = false; cancelAnimationFrame(frame); };
+    }, [camViewRef, clock, result, spec]);
+    return <canvas className="wf-minimap" ref={canvas} width={224} height={105} role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-label="Warfront tactical map; click or use arrow keys to move the camera" onClick={(event) => {
+        if (disabled) return;
+        const rect = event.currentTarget.getBoundingClientRect(), ctl = camCtlRef.current;
+        ctl.mode = "free"; ctl.fx = (event.clientX - rect.left) / rect.width * 2 * WF_X - WF_X; ctl.fz = (event.clientY - rect.top) / rect.height * 2 * WF_Y - WF_Y; onModeChange("free");
+    }} onKeyDown={(event) => {
+        if (disabled) return;
+        const ctl = camCtlRef.current, step = event.shiftKey ? 8 : 4, dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0, dz = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+        if (!dx && !dz && event.key !== "Home") return;
+        event.preventDefault(); ctl.mode = "free"; ctl.fx = event.key === "Home" ? 0 : Math.max(-WF_X, Math.min(WF_X, ctl.fx + dx)); ctl.fz = event.key === "Home" ? 0 : Math.max(-WF_Y, Math.min(WF_Y, ctl.fz + dz)); onModeChange("free");
+    }} style={{ width: 224, height: 105, border: "1px solid #94a3b880", borderRadius: 8, background: spec.voidColor, cursor: disabled ? "default" : "pointer", pointerEvents: disabled ? "none" : "auto" }} />;
+}
+
+
+function WfConvoyFollow({ result, clock, onFollow, disabled }: { result: WarfrontResult; clock: WfClockRef; onFollow: (pad: number) => void; disabled: boolean }) {
+    const box = useRef<HTMLButtonElement>(null), label = useRef<HTMLSpanElement>(null), hp = useRef<HTMLSpanElement>(null), pad = useRef<number | null>(null);
+    useEffect(() => {
+        let frame = 0, live = true, writtenSnap: WfSnapshot | null = null;
+        const tick = () => {
+            if (!live) return;
+            const snap = snapAt(result, clock);
+            if (snap === writtenSnap) { frame = requestAnimationFrame(tick); return; }
+            writtenSnap = snap;
+            const mini = snap.minis.find((m) => m.alive && m.ally && m.siegeDowns === 0);
+            pad.current = mini?.padIdx ?? null;
+            if (box.current) {
+                box.current.style.display = mini ? "flex" : "none";
+                box.current.setAttribute("aria-label", mini ? `Follow ${mini.ally} ${WF_MINI_NAMES[mini.padIdx]} convoy` : "No active convoy");
+            }
+            if (mini && label.current && hp.current) {
+                label.current.textContent = `${mini.ally!.toUpperCase()} · ${mini.escorted ? "ESCORTED · FULL SIEGE" : "ESCORT NEEDED · 35% SIEGE"}`;
+                hp.current.style.width = `${Math.round(100 * mini.hp / mini.maxHp)}%`;
+                hp.current.style.background = TEAM_COLOR[mini.ally!];
+            }
+            frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+        return () => { live = false; cancelAnimationFrame(frame); };
+    }, [clock, result]);
     return (
-        <canvas
-            className="wf-minimap"
-            ref={canvasRef} width={224} height={105}
-            role="button"
-            tabIndex={0}
-            aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home Enter Space"
-            aria-label="Warfront tactical minimap camera control. Click a location, use arrow keys to move, or press Home to center."
-            onClick={(e) => {
-                // Tap the map → jump the spectator camera there (free-cam).
-                const rect = e.currentTarget.getBoundingClientRect();
-                const c = camCtlRef.current;
-                c.mode = "free";
-                c.fx = ((e.clientX - rect.left) / rect.width) * WF_X * 2 - WF_X;
-                c.fz = ((e.clientY - rect.top) / rect.height) * WF_Y * 2 - WF_Y;
-                onModeChange("free");
-            }}
-            onKeyDown={(e) => {
-                const c = camCtlRef.current;
-                const stepX = WF_X * 0.12;
-                const stepZ = WF_Y * 0.12;
-                let handled = true;
-                if (e.key === "ArrowLeft") c.fx = Math.max(-WF_X, c.fx - stepX);
-                else if (e.key === "ArrowRight") c.fx = Math.min(WF_X, c.fx + stepX);
-                else if (e.key === "ArrowUp") c.fz = Math.max(-WF_Y, c.fz - stepZ);
-                else if (e.key === "ArrowDown") c.fz = Math.min(WF_Y, c.fz + stepZ);
-                else if (e.key === "Home") { c.fx = 0; c.fz = 0; }
-                else if (e.key !== "Enter" && e.key !== " ") handled = false;
-                if (!handled) return;
-                e.preventDefault();
-                c.mode = "free";
-                onModeChange("free");
-            }}
-            style={{ width: 224, height: 105, borderRadius: 8, border: "1px solid rgba(148,163,184,0.5)", background: spec.voidColor, boxShadow: "0 3px 14px rgba(0,0,0,0.45)", cursor: "pointer", pointerEvents: "auto" }}
-        />
+        <button className="wf-convoy-follow" ref={box} type="button" disabled={disabled} onClick={() => !disabled && pad.current !== null && onFollow(pad.current)} style={{ display: "none", width: 224, minHeight: 44, alignItems: "center", gap: 8, padding: 6, border: "1px solid #7c3aed", borderRadius: 8, background: "#080c18ee", color: "#e2e8f0", cursor: disabled ? "default" : "pointer", pointerEvents: disabled ? "none" : "auto" }}>
+            <span aria-hidden="true" style={{ fontSize: 24 }}>🗿</span>
+            <span style={{ flex: 1, display: "grid", gap: 3, textAlign: "left", font: "800 12px/1.2 Inter, sans-serif" }}><b>CONVOY PiP · TAP TO FOLLOW</b><span ref={label} /><i style={{ height: 3, background: "#1e293b" }}><span ref={hp} style={{ display: "block", height: "100%" }} /></i></span>
+        </button>
     );
 }
 
@@ -2885,372 +3207,409 @@ function WfMinimap({ result, clock, theme, camViewRef, camCtlRef, onModeChange }
  * Simulation fidelity never changes; only cameras, distant rigs and particles do.
  * Detail resets between matches instead of remounting rigs during live combat. */
 function WfFrameGovernor({ value, onPressure }: { value: WarfrontAdaptivePressure; onPressure: (pressure: WarfrontAdaptivePressure) => void }) {
-    const averageMs = useRef(16.7);
-    const slowFor = useRef(0);
-    const pressure = useRef<WarfrontAdaptivePressure>(value);
-    useEffect(() => {
-        pressure.current = value;
-        slowFor.current = 0;
-    }, [value]);
-    useEffect(() => {
-        if (typeof PerformanceObserver === "undefined") return;
-        const recent: number[] = [];
-        let observer: PerformanceObserver | null = null;
-        try {
-            observer = new PerformanceObserver((list) => {
-                const now = performance.now();
-                if (now < 5000) return; // shader/model warm-up is finite, not sustained pressure
-                let emergency = false;
-                for (const entry of list.getEntries()) {
-                    if (entry.duration < 120) continue;
-                    recent.push(now);
-                    if (entry.duration >= 900) emergency = true;
-                }
-                while (recent.length && recent[0] < now - 8000) recent.shift();
-                if (!emergency && recent.length < 2) return;
-                const next = emergency ? 2 : Math.min(2, pressure.current + 1) as WarfrontAdaptivePressure;
-                if (next > pressure.current) {
-                    pressure.current = next;
-                    recent.length = 0;
-                    onPressure(next);
-                }
-            });
-            observer.observe({ type: "longtask" });
-        } catch {
-            observer?.disconnect();
-        }
-        return () => observer?.disconnect();
-    }, [onPressure]);
+    const averageMs = useRef(17), slowFor = useRef(0), pressure = useRef(value);
+    useEffect(() => { pressure.current = value; slowFor.current = 0; }, [value]);
     useFrame((_state, delta) => {
-        const dt = Math.min(0.1, Math.max(0.001, delta));
-        const ms = dt * 1000;
-        averageMs.current += (ms - averageMs.current) * 0.035;
-        if (averageMs.current > 27) {
-            slowFor.current += dt;
-        } else {
-            slowFor.current = Math.max(0, slowFor.current - dt * 0.5);
-        }
-        if (slowFor.current >= 2.5 && pressure.current < 2) {
+        const dt = Math.min(.1, delta);
+        averageMs.current += (dt * 1000 - averageMs.current) * .035;
+        slowFor.current = averageMs.current > 27 ? slowFor.current + dt : Math.max(0, slowFor.current - dt / 2);
+        if (slowFor.current > 2.5 && pressure.current < 2) {
             pressure.current = (pressure.current + 1) as WarfrontAdaptivePressure;
-            slowFor.current = 0;
-            onPressure(pressure.current);
+            slowFor.current = 0; onPressure(pressure.current);
         }
     });
     return null;
 }
 
 // ── HUD frame-writers (refs only, no re-render) ──────────────────────────────
-function WfHudWriter({ result, clock, timerRef, coinBlueRef, coinRedRef, scoreBlueRef, scoreRedRef, killBlueRef, killRedRef, momentumRef, structsBlueRef, structsRedRef, stanceBlueRef, stanceRedRef, phaseRef, phaseClockRef, objectiveRef, wardenWrapRef, wardenHpRef, wardenStatusRef, wardenDamageRef, buffRef, campsRef, phaseOverlayRef }: {
-    result: WarfrontResult; clock: WfClockRef;
-    timerRef: MutableRefObject<HTMLSpanElement | null>;
-    coinBlueRef: MutableRefObject<HTMLSpanElement | null>;
-    coinRedRef: MutableRefObject<HTMLSpanElement | null>;
-    scoreBlueRef: MutableRefObject<HTMLSpanElement | null>;
-    scoreRedRef: MutableRefObject<HTMLSpanElement | null>;
-    killBlueRef: MutableRefObject<HTMLSpanElement | null>;
-    killRedRef: MutableRefObject<HTMLSpanElement | null>;
-    momentumRef: MutableRefObject<HTMLDivElement | null>;
-    structsBlueRef: MutableRefObject<HTMLSpanElement | null>;
-    structsRedRef: MutableRefObject<HTMLSpanElement | null>;
-    stanceBlueRef: MutableRefObject<HTMLSpanElement | null>;
-    stanceRedRef: MutableRefObject<HTMLSpanElement | null>;
-    phaseRef: MutableRefObject<HTMLSpanElement | null>;
-    phaseClockRef: MutableRefObject<HTMLSpanElement | null>;
-    objectiveRef: MutableRefObject<HTMLSpanElement | null>;
-    wardenWrapRef: MutableRefObject<HTMLDivElement | null>;
-    wardenHpRef: MutableRefObject<HTMLDivElement | null>;
-    wardenStatusRef: MutableRefObject<HTMLSpanElement | null>;
-    wardenDamageRef: MutableRefObject<HTMLSpanElement | null>;
-    buffRef: MutableRefObject<HTMLSpanElement | null>;
-    campsRef: MutableRefObject<HTMLSpanElement | null>;
-    phaseOverlayRef: MutableRefObject<HTMLDivElement | null>;
+function WfHudWriter({ result, clock, localTeam, timerRef, coinBlueRef, coinRedRef, scoreBlueRef, scoreRedRef, killBlueRef, killRedRef, structsBlueRef, structsRedRef, sigilPipsBlueRef, sigilPipsRedRef, judgmentRef, stanceBlueRef, stanceRedRef, phaseRef, phaseClockRef, objectiveRef, stakesRef, blueIntentRef, redIntentRef, wardenWrapRef, wardenHpRef, wardenStatusRef, wardenDamageRef, sigilRef, phaseOverlayRef }: {
+    result: WarfrontResult; clock: WfClockRef; localTeam: Team;
+    timerRef: MutableRefObject<HTMLSpanElement | null>; coinBlueRef: MutableRefObject<HTMLSpanElement | null>; coinRedRef: MutableRefObject<HTMLSpanElement | null>;
+    scoreBlueRef: MutableRefObject<HTMLSpanElement | null>; scoreRedRef: MutableRefObject<HTMLSpanElement | null>; killBlueRef: MutableRefObject<HTMLSpanElement | null>; killRedRef: MutableRefObject<HTMLSpanElement | null>;
+    structsBlueRef: MutableRefObject<HTMLSpanElement | null>; structsRedRef: MutableRefObject<HTMLSpanElement | null>; sigilPipsBlueRef: MutableRefObject<HTMLSpanElement | null>; sigilPipsRedRef: MutableRefObject<HTMLSpanElement | null>;
+    judgmentRef: MutableRefObject<HTMLSpanElement | null>;
+    stanceBlueRef: MutableRefObject<HTMLSpanElement | null>; stanceRedRef: MutableRefObject<HTMLSpanElement | null>; phaseRef: MutableRefObject<HTMLSpanElement | null>; phaseClockRef: MutableRefObject<HTMLSpanElement | null>;
+    objectiveRef: MutableRefObject<HTMLSpanElement | null>; stakesRef: MutableRefObject<HTMLSpanElement | null>; blueIntentRef: MutableRefObject<HTMLSpanElement | null>; redIntentRef: MutableRefObject<HTMLSpanElement | null>;
+    wardenWrapRef: MutableRefObject<HTMLDivElement | null>; wardenHpRef: MutableRefObject<HTMLDivElement | null>; wardenStatusRef: MutableRefObject<HTMLSpanElement | null>; wardenDamageRef: MutableRefObject<HTMLSpanElement | null>;
+    sigilRef: MutableRefObject<HTMLSpanElement | null>; phaseOverlayRef: MutableRefObject<HTMLDivElement | null>;
 }) {
-    // Running kill tally advanced by a forward cursor — the old code recounted
-    // from event zero EVERY frame (O(events) × 60fps, growing all match). Now it
-    // consumes only newly-passed events; a rewind resets both.
-    const evCursor = useRef(0);
-    const kills = useRef<[number, number]>([0, 0]);
-    const lastT = useRef(-1);
+    const eventCursor = useRef(0), kills = useRef([0, 0]), last = useRef(-1), writtenSnap = useRef<WfSnapshot | null>(null);
     useFrame(() => {
         const snap = snapAt(result, clock);
-        const seconds = Math.floor(snap.t / WARFRONT_TPS);
-        const phase = phaseAtSeconds(seconds);
-        if (timerRef.current) {
-            const remain = Math.max(0, WF_MAX_SECONDS - seconds);
-            const mm = Math.floor(remain / 60), ss = remain % 60;
-            timerRef.current.textContent = `${mm}:${ss < 10 ? "0" : ""}${ss}`;
-        }
-        if (phaseRef.current) {
-            phaseRef.current.textContent = phase.label;
-            phaseRef.current.style.color = phase.color;
-        }
-        if (phaseClockRef.current) {
-            phaseClockRef.current.textContent = phase.id === "collapse"
-                ? `JUDGMENT ${mmss(WF_MAX_SECONDS - seconds)}`
-                : `NEXT ${mmss(phase.ends - seconds)}`;
-        }
-        const blueExposed = snap.structures.blue.core.exposed;
-        const redExposed = snap.structures.red.core.exposed;
-        if (objectiveRef.current) {
-            objectiveRef.current.textContent = blueExposed && redExposed ? "WARD SEALS EXPOSED — END THE WAR"
-                : redExposed ? "BREAK RED'S WARD SEAL"
-                    : blueExposed ? "DEFEND BLUE'S WARD SEAL"
-                        : phase.id === "collapse" ? "HOLLOW COLLAPSE — STRUCTURES ARE CRUMBLING"
-                            : phase.id === "war" ? "CONTEST THE GATE WARDEN"
-                                : phase.id === "skirmish" ? "RECRUIT LESSER WARDENS · PRESS THREE LANES"
-                                    : "FARM COINS · SECURE THE LANES";
-        }
-        if (phaseOverlayRef.current) {
-            phaseOverlayRef.current.style.opacity = phase.id === "collapse" ? "0.22" : phase.id === "war" ? "0.07" : "0";
-            phaseOverlayRef.current.style.background = phase.id === "collapse"
-                ? "radial-gradient(ellipse at center, transparent 35%, rgba(190,18,60,0.58) 100%)"
-                : "radial-gradient(ellipse at center, transparent 55%, rgba(126,34,206,0.36) 100%)";
-        }
-        if (wardenWrapRef.current) wardenWrapRef.current.style.display = seconds >= WF_PHASE_SKIRMISH || snap.warden.hp < snap.warden.maxHp ? "grid" : "none";
-        if (wardenHpRef.current) {
-            wardenHpRef.current.style.width = `${Math.max(0, Math.min(100, snap.warden.hp / Math.max(1, snap.warden.maxHp) * 100))}%`;
-            wardenHpRef.current.style.background = snap.warden.phase === 3 ? "#fb7185" : snap.warden.phase === 2 ? "#e879f9" : "#a78bfa";
-        }
-        if (wardenStatusRef.current) {
-            wardenStatusRef.current.textContent = snap.warden.resetting ? "RESETTING · RECOVERING"
-                : snap.warden.resetSecs > 0 ? `DISENGAGED · RECOVERS IN ${Math.ceil(snap.warden.resetSecs)}s`
-                    : snap.warden.winding ? `SLAM ${snap.warden.windupSecs.toFixed(1)}s · R${snap.warden.slamRadius.toFixed(1)}`
-                    : snap.warden.alive ? `PHASE ${["I", "II", "III"][snap.warden.phase - 1]} · ${Math.ceil(snap.warden.hp)}/${snap.warden.maxHp}`
-                        : "DEFEATED";
-        }
+        if (snap === writtenSnap.current) return;
+        writtenSnap.current = snap;
+        const seconds = Math.floor(snap.t / WARFRONT_TPS), phase = phaseAtSeconds(seconds);
+        if (timerRef.current) timerRef.current.textContent = mmss(WF_MAX_SECONDS - seconds);
+        if (phaseRef.current) { phaseRef.current.textContent = phase.label; phaseRef.current.style.color = phase.color; }
+        if (phaseClockRef.current) phaseClockRef.current.textContent = `${phase.id === "collapse" ? "JUDGMENT" : "NEXT"} ${mmss(phase.ends - seconds)}`;
+        const blueOpen = snap.structures.blue.core.exposed, redOpen = snap.structures.red.core.exposed;
+        const exposedTeam: Team | null = blueOpen ? "blue" : redOpen ? "red" : null;
+        if (objectiveRef.current) objectiveRef.current.textContent = warfrontWardSealInstruction(exposedTeam, localTeam) ?? (snap.warden.active ? "CONTEST THE GATE WARDEN" : phase.id === "skirmish" ? "RECRUIT LESSER WARDENS" : "SECURE THE LANES");
+        if (stakesRef.current) stakesRef.current.textContent = broadcastStakes(snap);
+        if (blueIntentRef.current) blueIntentRef.current.textContent = `BLUE · ${broadcastIntent(snap, "blue")}`;
+        if (redIntentRef.current) redIntentRef.current.textContent = `RED · ${broadcastIntent(snap, "red")}`;
+        if (phaseOverlayRef.current) { phaseOverlayRef.current.style.opacity = phase.id === "collapse" ? ".22" : phase.id === "war" ? ".07" : "0"; phaseOverlayRef.current.style.background = phase.id === "collapse" ? "#9f123955" : "#6b21a833"; }
+        const warden = snap.warden;
+        if (wardenWrapRef.current) wardenWrapRef.current.style.display = seconds >= WF_PHASE_WAR - 20 || warden.active ? "grid" : "none";
+        if (wardenHpRef.current) { wardenHpRef.current.style.width = `${100 * warden.hp / warden.maxHp}%`; wardenHpRef.current.style.background = warden.active ? warden.phase === 3 ? "#fb7185" : "#a78bfa" : "#475569"; }
+        if (wardenStatusRef.current) wardenStatusRef.current.textContent = !warden.active ? `DORMANT · WAR IN ${mmss(WF_PHASE_WAR - seconds)}` : !warden.alive ? "DEFEATED" : warden.winding ? `SLAM ${warden.windupSecs.toFixed(1)}s` : `PHASE ${warden.phase} · ${Math.ceil(warden.hp)}/${warden.maxHp}`;
         if (wardenDamageRef.current) {
-            const total = snap.warden.damage.blue + snap.warden.damage.red;
-            const bluePct = total > 0 ? Math.round(snap.warden.damage.blue / total * 100) : 50;
-            wardenDamageRef.current.textContent = `BLUE ${bluePct}% · ${100 - bluePct}% RED`;
+            const total = warden.damage.blue + warden.damage.red, blue = total ? Math.round(100 * warden.damage.blue / total) : 50;
+            wardenDamageRef.current.textContent = warden.active ? `BLUE ${blue}% · ${100 - blue}% RED` : "SEALED · CANNOT BE DAMAGED";
         }
-        if (buffRef.current) {
-            const buffs: string[] = [];
-            if (snap.wardenBuff.team) buffs.push(`⚡ ${snap.wardenBuff.team.toUpperCase()} GATE'S WRATH ${Math.ceil(snap.wardenBuff.secs)}s`);
-            if (snap.atkBuff.blue > 0) buffs.push(`⚔ BLUE CAMP FURY ${Math.ceil(snap.atkBuff.blue)}s`);
-            if (snap.atkBuff.red > 0) buffs.push(`⚔ RED CAMP FURY ${Math.ceil(snap.atkBuff.red)}s`);
-            buffRef.current.textContent = buffs.join(" · ") || "⚡ Gate's Wrath unclaimed";
-            buffRef.current.style.color = snap.wardenBuff.team ? TEAM_SOFT[snap.wardenBuff.team] : snap.atkBuff.blue > snap.atkBuff.red ? TEAM_SOFT.blue : snap.atkBuff.red > 0 ? TEAM_SOFT.red : "#64748b";
-        }
-        if (campsRef.current) {
-            campsRef.current.textContent = snap.minis.map((m) => {
-                const boon = MINI_BOONS[m.padIdx] ?? MINI_BOONS[0];
-                if (m.alive && m.ally) return `${boon.icon} ${m.ally[0].toUpperCase()} ${Math.ceil(m.allySecs)}s`;
-                if (m.alive) return `${boon.icon} READY`;
-                return `${boon.icon} ${Math.ceil(m.spawnSecs)}s`;
-            }).join("  ·  ");
+        if (sigilRef.current) {
+            const sigil = snap.sigil, boss = (WF_MINI_NAMES[sigil.padIdx] ?? "SIGIL").toUpperCase();
+            sigilRef.current.textContent = sigil.state === "awake" ? `🗿 ${boss} AWAKE` : sigil.state === "soon" ? `🗿 ${boss} ${mmss(sigil.secs)}` : sigil.scheduled ? `🗿 SIGIL ${mmss(sigil.secs)}` : "";
         }
         if (coinBlueRef.current) coinBlueRef.current.textContent = String(snap.coins.blue);
         if (coinRedRef.current) coinRedRef.current.textContent = String(snap.coins.red);
-        // SCORE = the actual win condition (wfVerdictScore: enemy statues +
-        // core broken; the same formula the timer verdict rules on).
         const score = wfVerdictScore(snap);
-        if (snap.t < lastT.current) { evCursor.current = 0; kills.current[0] = 0; kills.current[1] = 0; }   // rewound
-        lastT.current = snap.t;
-        const events = result.events;
-        let ei = evCursor.current;
-        for (; ei < events.length && events[ei].t <= snap.t; ei++) {
-            const e = events[ei];
-            if (e.type === "kill") kills.current[e.team === "blue" ? 0 : 1]++;
-        }
-        evCursor.current = ei;
-        const kb = kills.current[0], kr = kills.current[1];
         if (scoreBlueRef.current) scoreBlueRef.current.textContent = String(score.blue);
         if (scoreRedRef.current) scoreRedRef.current.textContent = String(score.red);
-        if (killBlueRef.current) killBlueRef.current.textContent = String(kb);
-        if (killRedRef.current) killRedRef.current.textContent = String(kr);
-        // Structure pips: each team's REMAINING sentinels/totems/seal — siege
-        // pressure is glanceable before a point ever lands.
-        if (structsBlueRef.current) {
-            const s = `${snap.guardians.blue.map((g) => (g.alive ? "🛡" : "·")).join("")}${snap.structures.blue.statues.map((x) => (x.alive ? "⛩" : "·")).join("")}${snap.structures.blue.core.alive ? "🔮" : "·"}`;
-            if (structsBlueRef.current.textContent !== s) structsBlueRef.current.textContent = s;
+        if (judgmentRef.current) {
+            const judgment = warfrontJudgmentState(score, snap.coins), split = judgment.blueShare;
+            judgmentRef.current.style.background = `linear-gradient(90deg,#3b82f6 0 ${split - 1}%,#475569 ${split - 1}% ${split + 1}%,#ef4444 ${split + 1}% 100%)`;
+            judgmentRef.current.dataset.wfJudgment = judgment.leader ?? "tied";
+            judgmentRef.current.setAttribute("aria-label", judgment.label);
+            judgmentRef.current.title = judgment.label;
         }
-        if (structsRedRef.current) {
-            const s = `${snap.structures.red.core.alive ? "🔮" : "·"}${snap.structures.red.statues.map((x) => (x.alive ? "⛩" : "·")).join("")}${snap.guardians.red.map((g) => (g.alive ? "🛡" : "·")).join("")}`;
-            if (structsRedRef.current.textContent !== s) structsRedRef.current.textContent = s;
+        if (snap.t < last.current) { eventCursor.current = 0; kills.current = [0, 0]; }
+        last.current = snap.t;
+        const eventFrontier = warfrontEventCursorThroughTick(result.events, eventCursor.current, snap.t);
+        while (eventCursor.current < eventFrontier) {
+            const event = result.events[eventCursor.current++]; if (event.type === "kill") kills.current[event.team === "blue" ? 0 : 1]++;
         }
-        // Stance chips: each team's declared formation, at a glance.
-        for (const [ref, tm] of [[stanceBlueRef, "blue"], [stanceRedRef, "red"]] as const) {
-            if (!ref.current) continue;
-            const spec2 = WF_STANCES.find((s) => s.id === snap.stances[tm]);
-            if (spec2 && ref.current.textContent !== spec2.icon) { ref.current.textContent = spec2.icon; ref.current.title = `${tm === "blue" ? "Blue" : "Red"} formation: ${spec2.label}`; }
-        }
-        // Momentum: structure damage dealt + points + kills + gold, squashed to
-        // a 0..100% fill — the one-glance "who is winning" broadcast bar.
-        if (momentumRef.current) {
-            const dmgTo = (tm: Team) => {
-                const st2 = snap.structures[tm];
-                let d = st2.statues.reduce((a, s) => a + (s.maxHp - Math.max(0, s.hp)), 0) + (st2.core.maxHp - Math.max(0, st2.core.hp));
-                for (const g of snap.guardians[tm]) d += (g.maxHp - Math.max(0, g.hp)) * 0.6;
-                return d;
-            };
-            const lead = (dmgTo("red") - dmgTo("blue")) + (score.blue - score.red) * 900 + (kb - kr) * 220 + (snap.coins.blue - snap.coins.red) * 0.25;
-            const pct = 50 + Math.max(-46, Math.min(46, lead / 60));
-            momentumRef.current.style.width = `${pct}%`;
-        }
+        if (killBlueRef.current) killBlueRef.current.textContent = String(kills.current[0]);
+        if (killRedRef.current) killRedRef.current.textContent = String(kills.current[1]);
+        const pips = (team: Team) => `${snap.guardians[team].filter((item) => item.alive).length}🛡 ${snap.structures[team].statues.filter((item) => item.alive).length}⛩ ${snap.structures[team].core.alive ? "🔮" : "·"}`;
+        if (structsBlueRef.current) structsBlueRef.current.textContent = pips("blue");
+        if (structsRedRef.current) structsRedRef.current.textContent = pips("red");
+        for (const [ref, team] of [[sigilPipsBlueRef, "blue"], [sigilPipsRedRef, "red"]] as const) if (ref.current) { const n = snap.sigilPips[team]; ref.current.textContent = "◆".repeat(n) + "◇".repeat(3 - n); ref.current.style.color = snap.ascendant === team ? "#fde047" : "#d8b4fe"; }
+        for (const [ref, team] of [[stanceBlueRef, "blue"], [stanceRedRef, "red"]] as const) if (ref.current) ref.current.textContent = WF_STANCES.find((item) => item.id === snap.stances[team])?.icon ?? "";
     });
     return null;
 }
 
-// ── The match shell ──────────────────────────────────────────────────────────
-type WfCouncilBuyState = Array<{
-    petId: string;
-    petName: string;
-    stacks: Record<(typeof WF_POWERUPS)[number]["kind"], number>;
-    costs: Record<(typeof WF_POWERUPS)[number]["kind"], number>;
-}>;
+type WfCouncilContext = {
+    snapshot: WfSnapshot;
+    decisions: readonly WarfrontRoundChoice[];
+    events: readonly WfEvent[];
+    setupDecision: WarfrontRoundDecision;
+};
+
+type CouncilChoiceMeta<T extends string> = { id: T; icon: string; label: string; desc: string };
+const WF_COACH_ORDER_META: readonly CouncilChoiceMeta<WfCoachOrder>[] = [
+    { id: "contest", icon: "◆", label: "Contest", desc: "Group for the next Sigil. Strong objective control; yields side-lane tempo." },
+    { id: "trade", icon: "⇄", label: "Cross-map Trade", desc: "Pressure the opposite route. Gains structure tempo; may concede the objective." },
+    { id: "ambush", icon: "◈", label: "Ambush", desc: "Send the assassin after the backline. High pick pressure; weaker in a full brawl." },
+] as const;
+const WF_BUILD_PACKAGE_META: readonly (CouncilChoiceMeta<WfBuildPackage> & { forecast: string })[] = [
+    { id: "hold-line", icon: "🛡", label: "Hold the Line", desc: "Turn your anchor into a team shield.", forecast: "Guard + Vitality; non-defenders near your Defender take less damage." },
+    { id: "blood-hunt", icon: "🗡", label: "Blood Hunt", desc: "Convert one pick into chase momentum.", forecast: "Strike + Swift; Assassin takedowns trigger a short pursuit surge." },
+    { id: "escort-rite", icon: "🌿", label: "Escort Rite", desc: "Keep the push alive around captured bosses.", forecast: "Mend + Vitality; Sage support strengthens escorted allies." },
+] as const;
+const WF_OBJECTIVE_TECHNIQUE_META: readonly CouncilChoiceMeta<WfObjectiveTechnique>[] = [
+    { id: "secure", icon: "🎯", label: "Secure", desc: "Tracker fires a threshold burst to set up a safer Sigil claim." },
+    { id: "hijack", icon: "🥷", label: "Hijack", desc: "Assassin attempts a high-risk execute during the claim window." },
+    { id: "zone", icon: "🛡", label: "Zone", desc: "Defender delays enemies around the Sigil so allies can finish it." },
+] as const;
+const WF_COUNTERSTRIKE_META: readonly CouncilChoiceMeta<WfCounterstrike>[] = [
+    { id: "fortify", icon: "🏯", label: "Fortify", desc: "Reduce pressure on the next threatened route for 45 seconds." },
+    { id: "cross-map", icon: "⚔", label: "Cross-map", desc: "Answer the loss with an elite wave on the opposite route." },
+    { id: "bounty-hunt", icon: "🎯", label: "Bounty Hunt", desc: "Mark the enemy carry; defeating it pays a comeback bounty." },
+] as const;
+const buildPackageSpec = (choice: WfBuildPackage | undefined) => WF_BUILD_PACKAGE_META.find((item) => item.id === choice);
+const coachOrderSpec = (choice: WfCoachOrder | undefined) => WF_COACH_ORDER_META.find((item) => item.id === choice);
+const objectiveTechniqueSpec = (choice: WfObjectiveTechnique | undefined) => WF_OBJECTIVE_TECHNIQUE_META.find((item) => item.id === choice);
+const counterstrikeSpec = (choice: WfCounterstrike | undefined) => WF_COUNTERSTRIKE_META.find((item) => item.id === choice);
+const WF_POWERUP_BY_KIND = new Map(WF_POWERUPS.map((powerup) => [powerup.kind, powerup]));
+
+function latestCouncilValue<K extends keyof WarfrontRoundChoice>(decisions: readonly WarfrontRoundChoice[], key: K): WarfrontRoundChoice[K] | undefined {
+    for (let index = decisions.length - 1; index >= 0; index--) {
+        const value = decisions[index][key];
+        if (value !== undefined) return value;
+    }
+    return undefined;
+}
 
 function WfWarCouncil({
     round,
     buyState,
     coins,
     initialStance,
+    adaptationReserve = 0,
+    context,
     onResume,
+    onRequestExit,
+    forfeitRequired,
 }: {
     round: number;
     buyState: WfCouncilBuyState;
     coins: number;
     initialStance: WfStance;
-    onResume: (choices: WarfrontChoice[], stance: WfStance) => void;
+    adaptationReserve?: number;
+    context: WfCouncilContext;
+    onResume: (decision: WarfrontRoundDecision) => Promise<void> | void;
+    onRequestExit: () => void;
+    forfeitRequired: boolean;
 }) {
-    const [cart, setCart] = useState<WarfrontChoice[]>([]);
+    const score = wfVerdictScore(context.snapshot);
+    const ownLost = context.snapshot.structures.blue.statues.filter((item) => !item.alive).length;
+    const foeLost = context.snapshot.structures.red.statues.filter((item) => !item.alive).length;
+    const enemyStance = WF_STANCES.find((item) => item.id === context.snapshot.stances.red) ?? WF_STANCES[0];
+    const objectiveUrgent = context.snapshot.sigil.scheduled && (context.snapshot.sigil.state !== "idle" || context.snapshot.sigil.secs <= 30);
+    const roles = useMemo(() => new Set<ArenaRole>(buyState.map((pet) => pet.role)), [buyState]);
+    const preferredPackage: WfBuildPackage = score.blue < score.red ? "hold-line" : objectiveUrgent ? "escort-rite" : "blood-hunt";
+    const recommendedPackage = firstViableWarfrontChoice(
+        preferredPackage,
+        WF_BUILD_PACKAGE_META.map((item) => item.id),
+        WARFRONT_PACKAGE_ROLE,
+        roles,
+    );
+    const preferredOrder: WfCoachOrder = objectiveUrgent ? "contest" : score.blue < score.red ? "trade" : "ambush";
+    const recommendedOrder: WfCoachOrder = preferredOrder === "ambush" && !hasWarfrontRole(roles, "assassin") ? "trade" : preferredOrder;
+    const preferredTechnique: WfObjectiveTechnique = objectiveUrgent ? "secure" : score.blue < score.red ? "zone" : "hijack";
+    const recommendedTechnique = firstViableWarfrontChoice(
+        preferredTechnique,
+        WF_OBJECTIVE_TECHNIQUE_META.map((item) => item.id),
+        WARFRONT_TECHNIQUE_ROLE,
+        roles,
+    );
+    const previousPackage = (latestCouncilValue(context.decisions, "buildPackage") ?? context.setupDecision.buildPackage) as WfBuildPackage | undefined;
+    const previousOrder = (latestCouncilValue(context.decisions, "coachOrder") ?? context.setupDecision.coachOrder) as WfCoachOrder | undefined;
+    const previousTechnique = (latestCouncilValue(context.decisions, "objectiveTechnique") ?? context.setupDecision.objectiveTechnique) as WfObjectiveTechnique | undefined;
+    const previousCounterstrike = (latestCouncilValue(context.decisions, "counterstrike") ?? context.setupDecision.counterstrike) as WfCounterstrike | undefined;
+    const techniqueUse = context.events.find((event): event is Extract<WfEvent, { type: "techniqueused" }> => event.type === "techniqueused" && event.team === "blue");
+    const counterstrikeUse = context.events.find((event): event is Extract<WfEvent, { type: "counterstrike" }> => event.type === "counterstrike" && event.team === "blue");
+    const initialPackage = previousPackage && hasWarfrontRole(roles, WARFRONT_PACKAGE_ROLE[previousPackage]) ? previousPackage : recommendedPackage;
+    const [selectedPackage, setSelectedPackage] = useState<WfBuildPackage | undefined>(initialPackage);
+    const [cart, setCart] = useState<WarfrontChoice[]>(() => initialPackage ? councilPackageChoices(buyState, initialPackage, coins) : []);
+    const initialOrder = previousOrder === "ambush" && !hasWarfrontRole(roles, "assassin") ? recommendedOrder : previousOrder ?? recommendedOrder;
+    const [coachOrder, setCoachOrder] = useState<WfCoachOrder>(initialOrder);
+    const [objectiveTechnique, setObjectiveTechnique] = useState<WfObjectiveTechnique | undefined>(undefined);
+    const [counterstrike, setCounterstrike] = useState<WfCounterstrike | undefined>(ownLost > 0 && !previousCounterstrike && !counterstrikeUse ? "fortify" : undefined);
     const [councilStance, setCouncilStance] = useState<WfStance>(initialStance);
-    const [councilLeft, setCouncilLeft] = useState(15);
-    const cartRef = useRef(cart);
-    const stanceRef = useRef(councilStance);
+    const [councilLeft, setCouncilLeft] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(max-width: 600px)").matches ? 45 : 30);
+    const [timerHeld, setTimerHeld] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState("");
+    const [ordersLocked, setOrdersLocked] = useState(false);
+    const decisionRef = useRef<WarfrontRoundDecision>({});
     const resumeRef = useRef(onResume);
+    const resumedRef = useRef(false);
+    const submittingRef = useRef(false);
+    const deadlineCommitQueuedRef = useRef(false);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const titleRef = useRef<HTMLHeadingElement>(null);
     useEffect(() => {
-        cartRef.current = cart;
-        stanceRef.current = councilStance;
+        decisionRef.current = {
+            choices: cart,
+            stance: councilStance,
+            coachOrder,
+            ...(selectedPackage ? { buildPackage: selectedPackage } : {}),
+            ...(objectiveTechnique ? { objectiveTechnique } : {}),
+            ...(counterstrike ? { counterstrike } : {}),
+        };
         resumeRef.current = onResume;
-    }, [cart, councilStance, onResume]);
+    }, [cart, coachOrder, councilStance, counterstrike, objectiveTechnique, onResume, selectedPackage]);
 
-    // The countdown belongs to this lightweight overlay. Keeping it here avoids
-    // reconciling the entire 3D scene once per second while the battle is paused.
-    useEffect(() => {
-        const id = window.setTimeout(() => {
-            if (councilLeft <= 1) resumeRef.current(cartRef.current, stanceRef.current);
-            else setCouncilLeft((seconds) => seconds - 1);
-        }, 1000);
-        return () => window.clearTimeout(id);
-    }, [councilLeft]);
-
-    const planCouncilCart = (policy: Exclude<WfBuyPolicy, "off">) => {
-        const priorities = {
-            balanced: ["strike", "vitality", "guard", "swift", "mend"],
-            offense: ["strike", "swift", "vitality", "strike", "guard"],
-            defense: ["guard", "vitality", "mend", "swift", "strike"],
-        } as const;
-        const stacks = buyState.map((pet) => ({ ...pet.stacks }));
-        const added = buyState.map(() => new Map<string, number>());
-        const planned: WarfrontChoice[] = [];
-        let remaining = coins;
-        for (let guard = 0; guard < 40; guard++) {
-            const order = buyState.map((_, index) => index).sort((a, b) => {
-                const total = (petIndex: number) => Object.values(stacks[petIndex]).reduce((sum, value) => sum + value, 0);
-                return total(a) - total(b) || a - b;
-            });
-            let bought = false;
-            for (const petIndex of order) {
-                for (const kind of priorities[policy]) {
-                    if (stacks[petIndex][kind] >= WF_STACK_CAP) continue;
-                    const extra = added[petIndex].get(kind) ?? 0;
-                    let price = buyState[petIndex].costs[kind];
-                    for (let i = 0; i < extra; i++) price = Math.round(price * 1.35 / 5) * 5;
-                    if (remaining < price) continue;
-                    planned.push({ petIndex, kind });
-                    stacks[petIndex][kind]++;
-                    added[petIndex].set(kind, extra + 1);
-                    remaining -= price;
-                    bought = true;
-                    break;
-                }
-                if (bought) break;
-            }
-            if (!bought) break;
+    const commitCouncil = useCallback(async () => {
+        if (resumedRef.current || submittingRef.current) return;
+        submittingRef.current = true;
+        // The POST may commit even when its response is lost. Freeze the exact
+        // cart/stance from the first attempt so Retry cannot unknowingly fork
+        // the token into a permanently conflicting path.
+        setOrdersLocked(true);
+        setSubmitting(true);
+        setSubmitError("");
+        try {
+            await resumeRef.current(decisionRef.current);
+            // Latch only after the authenticated server commit succeeds. A lost
+            // response leaves this same modal/path retryable.
+            resumedRef.current = true;
+        } catch (error) {
+            setSubmitError(error instanceof Error ? error.message : "The server could not secure this Council decision. Retry the same choice.");
+        } finally {
+            submittingRef.current = false;
+            setSubmitting(false);
         }
-        setCart(planned);
+    }, []);
+
+    // Enter this modal deliberately and return focus to the takeover control
+    // that owned it. Tab is contained while the underlying battle is inert.
+    useEffect(() => {
+        const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        titleRef.current?.focus();
+        return () => { if (previous?.isConnected) previous.focus(); };
+    }, []);
+    const trapDialogFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onRequestExit();
+            return;
+        }
+        if (event.key !== "Tab") return;
+        const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? []);
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === titleRef.current)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
 
-    const cartCost = useMemo(() => {
-        const counts = new Map<string, number>();
-        let total = 0;
-        for (const choice of cart) {
-            const pet = buyState[choice.petIndex];
-            if (!pet) continue;
-            const key = `${choice.petIndex}:${choice.kind}`;
-            const extra = counts.get(key) ?? 0;
-            let price = pet.costs[choice.kind];
-            for (let i = 0; i < extra; i++) price = Math.round(price * 1.35 / 5) * 5;
-            total += price;
-            counts.set(key, extra + 1);
-        }
-        return total;
-    }, [buyState, cart]);
-    const coinsAvail = coins - cartCost;
-    const btn: CSSProperties = { padding: "5px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", font: "700 12px Inter, system-ui, sans-serif" };
+    // A readable planning window replaces the old 15-second rush. The timer can
+    // be held for motor/cognitive accessibility and never burns while the tab is
+    // hidden. Keeping it local avoids reconciling the 3D scene once per second.
+    useEffect(() => {
+        if (timerHeld || submitting || councilLeft <= 0) return;
+        const id = window.setInterval(() => {
+            if (document.hidden) return;
+            setCouncilLeft((seconds) => Math.max(0, seconds - 1));
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [councilLeft, submitting, timerHeld]);
+
+    // Keep state updaters pure. The deadline owns one cancellable task, while a
+    // failed authenticated commit leaves the frozen choices manually retryable.
+    useEffect(() => {
+        if (timerHeld || submitting || councilLeft > 0 || deadlineCommitQueuedRef.current) return;
+        deadlineCommitQueuedRef.current = true;
+        let fired = false;
+        const id = window.setTimeout(() => {
+            fired = true;
+            void commitCouncil();
+        }, 0);
+        return () => {
+            window.clearTimeout(id);
+            if (!fired && !resumedRef.current && !submittingRef.current) deadlineCommitQueuedRef.current = false;
+        };
+    }, [commitCouncil, councilLeft, submitting, timerHeld]);
+
+    const cartCost = useMemo(() => councilCartCost(buyState, cart), [buyState, cart]);
+    const coinsAvail = Math.max(0, coins - cartCost);
+    const sigilState = !context.snapshot.sigil.scheduled ? "No more Sigils" : context.snapshot.sigil.state === "awake"
+        ? `${WF_MINI_NAMES[context.snapshot.sigil.padIdx]} Sigil active · ${context.snapshot.sigil.secs}s`
+        : `${WF_MINI_NAMES[context.snapshot.sigil.padIdx]} Sigil in ${context.snapshot.sigil.secs}s`;
+    const pressure = score.blue === score.red ? "Judgment tied" : score.blue > score.red ? `Ahead ${score.blue}–${score.red}` : `Behind ${score.blue}–${score.red}`;
+    const choosePackage = (choice: WfBuildPackage) => {
+        if (!hasWarfrontRole(roles, WARFRONT_PACKAGE_ROLE[choice])) return;
+        setSelectedPackage(choice);
+        setCart(councilPackageChoices(buyState, choice, coins));
+    };
 
     return (
-        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.6)", zIndex: 60 }}>
-            <div style={{ width: "min(860px, 96vw)", maxHeight: "86vh", overflowY: "auto", background: "rgba(10,14,28,0.97)", border: "1px solid rgba(168,85,247,0.5)", borderRadius: 14, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                    <div style={{ color: "#d8b4fe", font: "900 16px Inter, system-ui, sans-serif" }}>📯 War Council — round {round}</div>
-                    <div style={{ color: "#fde047", font: "800 14px Inter, system-ui, sans-serif" }}>🪙 {coinsAvail}</div>
+        <div className="wf-council-backdrop">
+            <div
+                ref={dialogRef}
+                className="wf-council-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="wf-council-title"
+                aria-describedby="wf-council-help"
+                onKeyDown={trapDialogFocus}
+            >
+                <div className="wf-council-header">
+                    <h2 id="wf-council-title" ref={titleRef} tabIndex={-1}>📯 Coach Council · round {round}</h2>
+                    <div className="wf-council-coins" aria-label={`${coinsAvail} coins available`}>🪙 {coinsAvail}</div>
                 </div>
-                <div style={{ color: "#94a3b8", font: "600 11px Inter, system-ui, sans-serif", marginBottom: 10 }}>Spend the squad&apos;s coins on small edges — the council convenes every 90s of battle. Resuming in {councilLeft}s.</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 4px 10px", borderBottom: "1px solid rgba(51,65,85,0.6)", marginBottom: 6 }}>
-                    <div style={{ color: "#e2e8f0", font: "800 12px Inter, system-ui, sans-serif", minWidth: 110 }}>📜 War Order</div>
-                    {WF_STANCES.map((stance) => (
-                        <button
-                            key={stance.id}
-                            onClick={() => setCouncilStance(stance.id)}
-                            title={stance.desc}
-                            style={{ display: "grid", gap: 1, minWidth: 118, textAlign: "left", padding: "5px 8px", borderRadius: 8, border: `1px solid ${councilStance === stance.id ? "#6ee7b7" : "#334155"}`, background: councilStance === stance.id ? "rgba(16,185,129,0.16)" : "#111827", color: councilStance === stance.id ? "#d1fae5" : "#94a3b8", cursor: "pointer", font: "700 11px Inter, system-ui, sans-serif" }}
-                        >
-                            <span>{stance.icon} {stance.label}</span>
-                            <span style={{ font: "600 9px Inter, system-ui, sans-serif", color: councilStance === stance.id ? "#a7f3d0" : "#64748b" }}>{stance.desc}</span>
-                        </button>
+                <div id="wf-council-help">
+                    <span>Choose one build package and one macro order. Your choices resolve for the next battle phase.</span>
+                    <strong className={councilLeft <= 5 ? "urgent" : ""}>{timerHeld ? "Timer held" : `Resumes in ${councilLeft}s`}</strong>
+                    {forfeitRequired && <span className="wf-council-contract">This authenticated match contract lasts 60 minutes. Holding the Council timer does not extend it; Forfeit &amp; exit remains available.</span>}
+                </div>
+                <div className="wf-council-context" aria-label="Current match state">
+                    {[pressure, `${ownLost > foeLost ? "Down" : ownLost < foeLost ? "Up" : "Even"} ${Math.abs(ownLost - foeLost)} structure${Math.abs(ownLost - foeLost) === 1 ? "" : "s"}`, `Enemy ${enemyStance.icon} ${enemyStance.label}`, sigilState].map((text) => (
+                        <span key={text}>{text}</span>
                     ))}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "4px 4px 10px" }}>
-                    <div style={{ color: "#e2e8f0", font: "800 12px Inter, system-ui, sans-serif", minWidth: 110 }}>⚒ Quick Build</div>
-                    {([
-                        ["balanced", "⚖ Balanced", "Spread useful upgrades across the squad"],
-                        ["offense", "🗡 Assault", "Prioritize attack, speed and pressure"],
-                        ["defense", "🛡 Fortress", "Prioritize durability, healing and staying power"],
-                    ] as const).map(([id, label, tip]) => (
-                        <button key={id} onClick={() => planCouncilCart(id)} title={tip} style={{ ...btn, padding: "5px 9px", background: "rgba(30,41,59,0.8)" }}>{label}</button>
-                    ))}
-                    <button onClick={() => setCart([])} style={{ ...btn, padding: "5px 9px", color: "#94a3b8" }}>Clear</button>
-                    <span style={{ color: "#64748b", font: "700 10px Inter, system-ui, sans-serif" }}>One click fills an affordable, deterministic squad build. Fine-tune below.</span>
-                </div>
-                {buyState.map((pet, petIndex) => (
-                    <div key={pet.petId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderTop: "1px solid rgba(51,65,85,0.6)", flexWrap: "wrap" }}>
-                        <div style={{ minWidth: 110, color: "#e2e8f0", font: "700 12px Inter, system-ui, sans-serif" }}>{pet.petName}</div>
-                        {WF_POWERUPS.map((powerup) => {
-                            const inCart = cart.filter((choice) => choice.petIndex === petIndex && choice.kind === powerup.kind).length;
-                            const stacks = pet.stacks[powerup.kind] + inCart;
-                            let price = pet.costs[powerup.kind];
-                            for (let i = 0; i < inCart; i++) price = Math.round(price * 1.35 / 5) * 5;
-                            const capped = stacks >= WF_STACK_CAP;
-                            const afford = coinsAvail >= price;
+                {adaptationReserve > 0 && (
+                    <div className="wf-council-reserve" role="status">
+                        🔎 Adaptation reserve · +{adaptationReserve} coins — your squad converted the opening read into a counter-plan.
+                    </div>
+                )}
+                <section className="wf-council-block" aria-labelledby="wf-build-package-title">
+                    <div className="wf-council-heading" id="wf-build-package-title">1 · Build package <span>{recommendedPackage ? `Recommended: ${buildPackageSpec(recommendedPackage)?.label}` : "No role-compatible package"}</span></div>
+                    <div className="wf-council-upgrades">
+                        {WF_BUILD_PACKAGE_META.map((item) => {
+                            const requiredRole = WARFRONT_PACKAGE_ROLE[item.id];
+                            const available = hasWarfrontRole(roles, requiredRole);
+                            const fullChoices = available ? councilPackageChoices(buyState, item.id) : [];
+                            const choices = available ? councilPackageChoices(buyState, item.id, coins) : [];
+                            const target = buyState.find((pet) => pet.role === requiredRole);
+                            const cost = councilCartCost(buyState, choices);
+                            const selected = selectedPackage === item.id;
                             return (
-                                <button
-                                    key={powerup.kind}
-                                    disabled={capped || !afford}
-                                    onClick={() => setCart((current) => [...current, { petIndex, kind: powerup.kind }])}
-                                    style={{ display: "grid", gap: 1, minWidth: 108, textAlign: "left", padding: "5px 8px", borderRadius: 8, border: `1px solid ${capped ? "#334155" : afford ? "#7c3aed" : "#334155"}`, background: capped ? "#111827" : afford ? "rgba(124,58,237,0.18)" : "#111827", color: capped ? "#475569" : afford ? "#e9d5ff" : "#64748b", cursor: capped || !afford ? "default" : "pointer", font: "700 11px Inter, system-ui, sans-serif" }}
-                                >
-                                    <span>{powerup.icon} {powerup.label}</span>
-                                    <span style={{ font: "600 10px Inter, system-ui, sans-serif", color: capped ? "#475569" : "#a5b4fc" }}>{powerup.desc}</span>
-                                    <span style={{ font: "700 10px Inter, system-ui, sans-serif", color: capped ? "#64748b" : "#fde047" }}>{stacks}/{WF_STACK_CAP} owned · {capped ? "MAX" : `🪙${price}`}{inCart > 0 ? ` · +${inCart} in cart` : ""}</span>
+                                <button className="wf-council-option wf-package-option" key={item.id} type="button" disabled={submitting || ordersLocked || !available} aria-pressed={selected} onClick={() => choosePackage(item.id)} title={available ? undefined : `Unavailable: add a ${WARFRONT_ROLE_LABEL[requiredRole]}`}>
+                                    <span className="wf-option-top"><strong>{item.icon} {item.label}</strong><span>🪙{cost}</span></span>
+                                    <span className="wf-option-desc">{item.desc}</span>
+                                    <span className="wf-option-detail">{available ? <>{target?.petName ?? WARFRONT_ROLE_LABEL[requiredRole]} · {item.forecast}{choices.length < fullChoices.length ? ` · ${choices.length}/${fullChoices.length} upgrades affordable` : ""}</> : <>Unavailable · Requires a {WARFRONT_ROLE_LABEL[requiredRole]}</>}</span>
                                 </button>
                             );
                         })}
                     </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8 }}>
-                    <button onClick={() => setCart([])} style={{ ...btn, opacity: cart.length ? 1 : 0.5 }}>Clear ({cart.length})</button>
-                    <button onClick={() => onResume(cart, councilStance)} style={{ ...btn, background: "#6d28d9", border: "1px solid #a78bfa" }}>⚔ Resume battle ({councilLeft}s)</button>
+                    <div className="wf-council-cart" aria-label="Selected package upgrades">
+                        {cart.length ? cart.map((choice, index) => {
+                            const powerup = WF_POWERUP_BY_KIND.get(choice.kind);
+                            const pet = buyState[choice.petIndex];
+                            return <button className="wf-cart-chip" key={`${choice.petIndex}-${choice.kind}-${index}`} type="button" disabled={submitting || ordersLocked} aria-label={`Remove ${powerup?.label ?? choice.kind} from ${pet?.petName ?? "package"}`} onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}>{powerup?.icon} {pet?.petName} · {powerup?.desc} <span aria-hidden="true">×</span></button>;
+                        }) : <span className="wf-bank-copy">{selectedPackage ? "Coins banked · package identity remains active." : "Coins banked · no compatible package role available."}</span>}
+                        <button className="wf-bank-button" type="button" disabled={submitting || ordersLocked || !cart.length} onClick={() => setCart([])}>Bank upgrade coins</button>
+                    </div>
+                </section>
+                <section className="wf-council-block wf-council-orders-block" aria-labelledby="wf-coach-order-title">
+                    <div className="wf-council-heading" id="wf-coach-order-title">2 · Coach order <span>Recommended: {coachOrderSpec(recommendedOrder)?.label}</span></div>
+                    <div className="wf-council-orders">
+                    {WF_COACH_ORDER_META.map((order) => {
+                        const available = order.id !== "ambush" || hasWarfrontRole(roles, "assassin");
+                        return (
+                            <button
+                                type="button"
+                                key={order.id}
+                                disabled={submitting || ordersLocked || !available}
+                                onClick={() => setCoachOrder(order.id)}
+                                aria-pressed={coachOrder === order.id}
+                                className="wf-council-option wf-order-option"
+                                title={available ? undefined : "Unavailable: add an Assassin"}
+                            >
+                                <strong>{order.icon} {order.label}</strong><span className="wf-option-desc">{available ? order.desc : "Unavailable · Requires an Assassin."}</span>
+                            </button>
+                        );
+                    })}
+                    </div>
+                </section>
+                <section className="wf-council-special" aria-label="Special tactics">
+                    <div>
+                        <div className="wf-special-title">One-use objective technique {recommendedTechnique && <span>Recommended: {objectiveTechniqueSpec(recommendedTechnique)?.label}</span>}</div>
+                        {techniqueUse ? <div className="wf-tactic-spent">Spent · {objectiveTechniqueSpec(techniqueUse.choice)?.label}</div>
+                            : previousTechnique ? <div className="wf-tactic-armed">Armed · {objectiveTechniqueSpec(previousTechnique)?.label}. It will trigger at a valid Sigil window.</div>
+                            : <div className="wf-tactic-options">{WF_OBJECTIVE_TECHNIQUE_META.map((item) => {
+                                const requiredRole = WARFRONT_TECHNIQUE_ROLE[item.id];
+                                const available = hasWarfrontRole(roles, requiredRole);
+                                return <button className="wf-council-option wf-technique-option" key={item.id} type="button" disabled={submitting || ordersLocked || !available} aria-pressed={objectiveTechnique === item.id} onClick={() => setObjectiveTechnique(item.id)} title={available ? undefined : `Unavailable: add a ${WARFRONT_ROLE_LABEL[requiredRole]}`}><strong>{item.icon} {item.label}</strong><span className="wf-option-desc">{available ? item.desc : `Unavailable · Requires a ${WARFRONT_ROLE_LABEL[requiredRole]}.`}</span></button>;
+                            })}</div>}
+                    </div>
+                    <div>
+                        <div className="wf-special-title">Comeback route</div>
+                        {counterstrikeUse ? <div className="wf-tactic-spent">Triggered · {counterstrikeSpec(counterstrikeUse.choice)?.label}</div>
+                            : previousCounterstrike ? <div className="wf-tactic-armed">Armed · {counterstrikeSpec(previousCounterstrike)?.label}</div>
+                            : ownLost === 0 ? <div className="wf-tactic-spent">Unlocks after your first structure falls.</div>
+                            : <div className="wf-tactic-options">{WF_COUNTERSTRIKE_META.map((item) => <button className="wf-council-option wf-counter-option" key={item.id} type="button" disabled={submitting || ordersLocked} aria-pressed={counterstrike === item.id} onClick={() => setCounterstrike(item.id)}><strong>{item.icon} {item.label}</strong><span className="wf-option-desc">{item.desc}</span></button>)}</div>}
+                    </div>
+                </section>
+                <label className="wf-council-formation">Formation after Council
+                    <select disabled={submitting || ordersLocked} value={councilStance} onChange={(event) => setCouncilStance(event.target.value as WfStance)}>{WF_STANCES.map((item) => <option key={item.id} value={item.id}>{item.icon} {item.label}</option>)}</select>
+                    <span>{WF_STANCES.find((item) => item.id === councilStance)?.desc}</span>
+                </label>
+                {submitError && <p className="wf-council-error" role="alert">{submitError}</p>}
+                <div className="wf-council-actions">
+                    <div>
+                        <span>Spend 🪙{cartCost} · Bank 🪙{coinsAvail}</span>
+                        <button className="wf-timer-button" type="button" disabled={submitting || ordersLocked} aria-pressed={timerHeld} onClick={() => setTimerHeld((held) => !held)}>{timerHeld ? "▶ Resume timer" : "⏸ Hold timer"}</button>
+                    </div>
+                    <div className="wf-council-primary-actions">
+                        <button className="wf-council-exit" type="button" onClick={onRequestExit}>{forfeitRequired ? "Forfeit & exit" : "Exit match"}</button>
+                        <button className="wf-council-commit" type="button" disabled={submitting} onClick={() => void commitCouncil()}>{submitting ? "Securing decisions…" : submitError ? "Retry same decisions" : "⚔ Commit & resume"}</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3259,30 +3618,51 @@ function WfWarCouncil({
 
 export type PetWarfrontMatchProps = {
     blue: ArenaSlot[]; red: ArenaSlot[]; seed: number;
+    /** Which sealed side belongs to this viewer. Production Manual is
+     * intentionally blue-only; red-side PvP/co-op decisions are auto-sealed. */
+    localTeam?: Team;
     theme?: WfTheme;
-    /** "off" (default) = interactive War Council at each 90 s round. Any policy = silent
-     * auto-buy (the shape co-op replays share). */
+    /** Blue-side policy. "off" (default) = interactive Blue War Council at
+     * each 90 s round; any policy = deterministic auto-buy. */
     autoBuy?: WfBuyPolicy;
-    /** Opening formation/strategy — the player's pre-match pick. Adjustable at
-     * every War Council when the council is interactive. */
+    /** Red-side policy. PvP/co-op callers seal and pass both policies so every
+     * viewer replays the same deterministic decisions. */
+    opponentAutoBuy?: WfBuyPolicy;
+    /** Blue-side opening setup. Adjustable at each interactive Blue Council. */
     stance?: WfStance;
     doctrine?: WfDoctrine;
-    /** The OPPONENT's formation/doctrine. Needed whenever this component is
-     *  replaying a match someone else resolved (a ranked ladder defense fights
-     *  with its own setup) — leaving them at the defaults would replay a
-     *  different fight than the one that was scored. */
+    /** Red-side formation/doctrine. Explicit values replay a sealed player or
+     * ladder setup; omitted values use the simulator's adaptive AI defaults. */
     opponentStance?: WfStance;
     opponentDoctrine?: WfDoctrine;
+    /** Authored setup layer. Ordered slots map pets to Top/Mid/Bottom/Flex for
+     * the opening lock; the remaining choices are sealed gameplay, not UI-only. */
+    deployment?: WfOpeningDeployment;
+    buildPackage?: WfBuildPackage;
+    coachOrder?: WfCoachOrder;
+    objectiveTechnique?: WfObjectiveTechnique;
+    counterstrike?: WfCounterstrike;
+    opponentDeployment?: WfOpeningDeployment;
+    opponentBuildPackage?: WfBuildPackage;
+    opponentCoachOrder?: WfCoachOrder;
+    opponentObjectiveTechnique?: WfObjectiveTechnique;
+    opponentCounterstrike?: WfCounterstrike;
     /** Enables the 🎲 New-match button (vs-AI / harness). Leave off for shared
      * co-op/PvP replays, where both clients must stay on the agreed seed. */
     allowReseed?: boolean;
     /** Dev/QA playback multiplier. Production callers should keep the default. */
     playbackRate?: number;
+    /** Server-accepted Manual Council prefix recovered for this exact token. */
+    committedChoices?: WarfrontRoundChoice[];
+    /** Secure one Council round before the local sim is allowed to resume. */
+    onCouncilCommit?: (round: number, decision: WarfrontRoundDecision) => Promise<void>;
+    /** Active authorized vs-AI matches must durably forfeit before leaving. */
+    onForfeit?: () => Promise<void>;
     onExit: () => void;
     onResult?: (result: WarfrontResult) => void;
 };
 
-export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", opponentStance = "balanced", opponentDoctrine = "vanguard", stance = "balanced", doctrine = "none", allowReseed = false, playbackRate = 1, onExit, onResult }: PetWarfrontMatchProps) {
+export function PetWarfrontMatch({ blue, red, seed, localTeam = "blue", theme = "central", autoBuy = "off", opponentAutoBuy = "balanced", opponentStance, opponentDoctrine, stance = "balanced", doctrine = "none", deployment, buildPackage, coachOrder, objectiveTechnique, counterstrike, opponentDeployment, opponentBuildPackage, opponentCoachOrder, opponentObjectiveTechnique, opponentCounterstrike, allowReseed = false, playbackRate = 1, committedChoices = [], onCouncilCommit, onForfeit, onExit, onResult }: PetWarfrontMatchProps) {
     const safePlaybackRate = Number.isFinite(playbackRate) ? Math.max(0.1, Math.min(30, playbackRate)) : 1;
     // Dev-only deterministic renderer mode for DPR/alignment automation. The
     // production build always keeps the frame governor active; without this QA
@@ -3326,13 +3706,34 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // The interactive chunked sim: round 1 is streamed at mount so the
     // stage always has snapshots; later rounds advance at each boundary.
     const ctl = useMemo(() => {
-        const c = startWarfrontMatch(blue, red, effectiveSeed, { bluePolicy: autoBuy, redPolicy: "balanced", theme, blueStance: stance, blueDoctrine: doctrine, redStance: opponentStance, redDoctrine: opponentDoctrine });
+        const repeatOrder = (order: WfCoachOrder | undefined) => order
+            ? Array.from({ length: 6 }, () => ({ coachOrder: order } satisfies WarfrontRoundDecision))
+            : undefined;
+        const c = startWarfrontMatch(blue, red, effectiveSeed, {
+            bluePolicy: autoBuy,
+            redPolicy: opponentAutoBuy,
+            theme,
+            blueStance: stance,
+            blueDoctrine: doctrine,
+            redStance: opponentStance,
+            redDoctrine: opponentDoctrine,
+            blueDeployment: deployment,
+            redDeployment: opponentDeployment,
+            blueBuildPackage: buildPackage,
+            redBuildPackage: opponentBuildPackage,
+            blueObjectiveTechnique: objectiveTechnique,
+            redObjectiveTechnique: opponentObjectiveTechnique,
+            blueCounterstrike: counterstrike,
+            redCounterstrike: opponentCounterstrike,
+            blueRoundDecisions: autoBuy === "off" ? undefined : repeatOrder(coachOrder),
+            redRoundDecisions: repeatOrder(opponentCoachOrder),
+        });
         c.advanceRoundPartial(WARFRONT_TPS);   // seed one second; the frame pump streams the rest
         return c;
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
-    }, [blue, red, effectiveSeed, autoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, run]);
+    }, [blue, red, effectiveSeed, autoBuy, opponentAutoBuy, theme, stance, doctrine, opponentStance, opponentDoctrine, deployment, buildPackage, coachOrder, objectiveTechnique, counterstrike, opponentDeployment, opponentBuildPackage, opponentCoachOrder, opponentObjectiveTechnique, opponentCounterstrike, run]);
     const result = ctl.result;
-    const clock = useRef<WfClockState>({ t: 0, playing: true, slow: 0, rate: safePlaybackRate });
+    const clock = useRef<WfClockState>({ t: 0, playing: false, slow: 0, rate: safePlaybackRate });
     const shake = useRef(0);
     const camView = useRef<{ x: number; z: number; half: number }>({ x: 0, z: 0, half: 12 });
     const camCtl = useRef<WfCamCtl>({ mode: "follow", fx: 0, fz: 0, dist: 18 });
@@ -3341,12 +3742,50 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         setFreeCam(mode === "free");
     }, []);
     const [sfxMuted, setSfxMuted] = useState(() => isPetSfxMuted());
+    useEffect(() => subscribeAudioMute(() => setSfxMuted(isPetSfxMuted())), []);
+    useEffect(() => {
+        if (sfxMuted) {
+            stopWarfrontAudioBed();
+            return;
+        }
+        primeWarfrontAudio();
+        startWarfrontAudioBed();
+        seekWarfrontAudio(result.events, Math.floor(wfClockTick(clock)));
+        return stopWarfrontAudioBed;
+    }, [result, sfxMuted]);
+    const [reducedMotion, setReducedMotion] = useState(() => {
+        try {
+            const stored = localStorage.getItem("wfReducedMotion.v1");
+            if (stored === "true" || stored === "false") return stored === "true";
+        } catch { /* storage disabled — use the OS preference */ }
+        return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    });
+    const [uiScale, setUiScale] = useState<WfUiScale>(() => {
+        try {
+            const stored = localStorage.getItem("wfUiScale.v1");
+            if (stored === "large" || stored === "standard") return stored;
+        } catch { /* storage disabled — use the viewport-safe default */ }
+        return typeof window !== "undefined" && window.matchMedia?.("(max-width: 600px)").matches ? "large" : "standard";
+    });
+    const [paceMode, setPaceMode] = useState<WarfrontPaceMode>(() => {
+        try {
+            const stored = localStorage.getItem("wfPace.v1");
+            if (stored === "1" || stored === "1.5" || stored === "2" || stored === "smart") {
+                const safe = warfrontPaceForMotion(stored, reducedMotion);
+                if (safe !== stored) localStorage.setItem("wfPace.v1", safe);
+                return safe;
+            }
+        } catch { /* storage disabled — use broadcast speed */ }
+        return "1";
+    });
+    const [userPaused, setUserPaused] = useState(false);
     // Spectator camera mode — persisted per device; drag still enters free-cam.
     const [camMode, setCamModeState] = useState<WfCamMode>(() => {
         try {
             const v = localStorage.getItem("wfCamMode.v1");
-            return v === "calm" || v === "team" ? v : "broadcast";
-        } catch { return "broadcast"; }
+            if (v === "broadcast" || v === "calm" || v === "team") return v;
+        } catch { /* storage disabled — use the motion-safe default */ }
+        return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "calm" : "broadcast";
     });
     const camModeRef = useRef<WfCamMode>("broadcast");
     useEffect(() => { camModeRef.current = camMode; });
@@ -3355,35 +3794,82 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         try { localStorage.setItem("wfCamMode.v1", m); } catch { /* storage disabled — ignore */ }
     };
     const [ended, setEnded] = useState(false);
+    const [exitPrompt, setExitPrompt] = useState(false);
+    const [exitPending, setExitPending] = useState(false);
+    const [exitError, setExitError] = useState("");
+    const exitWasPlaying = useRef(false);
+    const exitDialogRef = useRef<HTMLDivElement>(null);
+    const exitHeadingRef = useRef<HTMLHeadingElement>(null);
     const [assetsReady, setAssetsReady] = useState(false);
     const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
     const [banner, setBanner] = useState<{ id: number; text: string; color: string; big: boolean } | null>(null);
+    const [replayClip, setReplayClip] = useState<{ label: string; startTick: number; eventTick: number; endTick: number } | null>(null);
+    const replayCameraRestore = useRef<WfCamCtl | null>(null);
+    const replayFocusRestore = useRef<{ petId: string | null; mini: number | null } | null>(null);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
-    const [fxList, setFxList] = useState<WfFxItem[]>([]);
-    const [shots, setShots] = useState<WfShotItem[]>([]);
-    const [floaters, setFloaters] = useState<WfFloatItem[]>([]);
+    const transientFxRef = useRef<TransientFx3DLayerApi | null>(null);
+    const impactFxRef = useRef<WfImpactLayerApi | null>(null);
     const [council, setCouncil] = useState<{ round: number } | null>(null);
     const stageRef = useRef<HTMLDivElement>(null);
-    const [stageWidth, setStageWidth] = useState(1200);
-    useLayoutEffect(() => {
-        const stage = stageRef.current;
-        if (!stage) return;
-        let frame = 0;
-        const measure = () => {
-            if (frame) cancelAnimationFrame(frame);
-            frame = requestAnimationFrame(() => {
-                frame = 0;
-                setStageWidth(Math.max(1, stage.getBoundingClientRect().width));
-            });
-        };
-        measure();
-        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-        observer?.observe(stage);
+    const endDialogRef = useRef<HTMLDivElement>(null);
+    const endHeadingRef = useRef<HTMLHeadingElement>(null);
+    const replaySkipRef = useRef<HTMLButtonElement>(null);
+    const focusBeforeTakeover = useRef<HTMLElement | null>(null);
+    useEffect(() => {
+        focusBeforeTakeover.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const id = window.requestAnimationFrame(() => stageRef.current?.focus());
         return () => {
-            observer?.disconnect();
-            if (frame) cancelAnimationFrame(frame);
+            window.cancelAnimationFrame(id);
+            focusBeforeTakeover.current?.focus();
         };
     }, []);
+    useEffect(() => {
+        if (!ended || replayClip) return;
+        const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const id = window.requestAnimationFrame(() => endHeadingRef.current?.focus());
+        return () => {
+            window.cancelAnimationFrame(id);
+            if (previous?.isConnected) previous.focus();
+        };
+    }, [ended, replayClip]);
+    useEffect(() => {
+        if (!exitPrompt) return;
+        const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const id = window.requestAnimationFrame(() => exitHeadingRef.current?.focus());
+        return () => {
+            window.cancelAnimationFrame(id);
+            if (previous?.isConnected) previous.focus();
+        };
+    }, [exitPrompt]);
+    const trapExitDialogFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === "Escape" && !exitPending) { event.preventDefault(); setExitPrompt(false); clock.current.playing = exitWasPlaying.current && !userPaused && !council; return; }
+        if (event.key !== "Tab") return;
+        const focusable = Array.from(exitDialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? []);
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === exitHeadingRef.current)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    const trapEndDialogFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== "Tab") return;
+        const focusable = Array.from(endDialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? []);
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === endHeadingRef.current)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    const trapTakeoverFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== "Tab" || exitPrompt || council || (ended && !replayClip)) return;
+        const root = stageRef.current;
+        if (!root) return;
+        const focusable = Array.from(root.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"))
+            .filter((element) => element !== root && element.getClientRects().length > 0 && window.getComputedStyle(element).visibility !== "hidden");
+        if (!focusable.length) { event.preventDefault(); root.focus(); return; }
+        const first = focusable[0], lastFocusable = focusable[focusable.length - 1], active = document.activeElement;
+        if (!root.contains(active)) { event.preventDefault(); (event.shiftKey ? lastFocusable : first).focus(); }
+        else if (event.shiftKey && (active === first || active === root)) { event.preventDefault(); lastFocusable.focus(); }
+        else if (!event.shiftKey && active === lastFocusable) { event.preventDefault(); first.focus(); }
+    };
     const timerRef = useRef<HTMLSpanElement>(null);
     const coinBlueRef = useRef<HTMLSpanElement>(null);
     const coinRedRef = useRef<HTMLSpanElement>(null);
@@ -3391,45 +3877,51 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     const scoreRedRef = useRef<HTMLSpanElement>(null);
     const killBlueRef = useRef<HTMLSpanElement>(null);
     const killRedRef = useRef<HTMLSpanElement>(null);
-    const momentumRef = useRef<HTMLDivElement>(null);
     const structsBlueRef = useRef<HTMLSpanElement>(null);
     const structsRedRef = useRef<HTMLSpanElement>(null);
+    const sigilPipsBlueRef = useRef<HTMLSpanElement>(null);
+    const sigilPipsRedRef = useRef<HTMLSpanElement>(null);
+    const judgmentRef = useRef<HTMLSpanElement>(null);
     const stanceBlueRef = useRef<HTMLSpanElement>(null);
     const stanceRedRef = useRef<HTMLSpanElement>(null);
     const phaseRef = useRef<HTMLSpanElement>(null);
     const phaseClockRef = useRef<HTMLSpanElement>(null);
     const objectiveRef = useRef<HTMLSpanElement>(null);
+    const stakesRef = useRef<HTMLSpanElement>(null);
+    const blueIntentRef = useRef<HTMLSpanElement>(null);
+    const redIntentRef = useRef<HTMLSpanElement>(null);
     const wardenWrapRef = useRef<HTMLDivElement>(null);
     const wardenHpRef = useRef<HTMLDivElement>(null);
     const wardenStatusRef = useRef<HTMLSpanElement>(null);
     const wardenDamageRef = useRef<HTMLSpanElement>(null);
-    const buffRef = useRef<HTMLSpanElement>(null);
-    const campsRef = useRef<HTMLSpanElement>(null);
+    const sigilRef = useRef<HTMLSpanElement>(null);
     const phaseOverlayRef = useRef<HTMLDivElement>(null);
     const storyCam = useRef<WfStoryCam | null>(null);
-    // MULTI-CAM WALL: one mini chase-screen per pet on YOUR team; clicking a
-    // tile features that pet on the main screen (click again → broadcast).
+    const directorSeek = useRef<WfDirectorSeek>({ generation: 0, tick: 0 });
+    const focusMiniRef = useRef<number | null>(null);
     const [focusPetId, setFocusPetId] = useState<string | null>(null);
-    // Opening VS card — a 4-second studio title before the action reads.
+    const handleConvoyFollow = useCallback((padIdx: number) => {
+        focusMiniRef.current = focusMiniRef.current === padIdx ? null : padIdx;
+        setFocusPetId(null);
+        camCtl.current.mode = "follow";
+        setFreeCam(false);
+        setCamModeState("broadcast");
+        try { localStorage.setItem("wfCamMode.v1", "broadcast"); } catch { /* storage disabled — ignore */ }
+    }, []);
+    // Opening VS card — a studio title before the action reads. Motion-safe
+    // viewers get the same strategic information without a four-second sweep.
     const [intro, setIntro] = useState(true);
     useEffect(() => {
-        if (!intro) return;
-        const id = window.setTimeout(() => setIntro(false), 4200);
+        if (!intro || !assetsReady) return;
+        clock.current.playing = false;
+        const id = window.setTimeout(() => {
+            setIntro(false);
+            if (!council && !ended && !replayClip && !userPaused) clock.current.playing = true;
+        }, reducedMotion ? 1100 : 4200);
         return () => window.clearTimeout(id);
-    }, [intro]);
+    }, [assetsReady, council, ended, intro, reducedMotion, replayClip, userPaused]);
     const focusPetRef = useRef<string | null>(null);
-    useEffect(() => { focusPetRef.current = focusPetId; });
-    const tileStatusRefs = useRef<Array<HTMLSpanElement | null>>([]);
-    const tileHpRefs = useRef<Array<HTMLDivElement | null>>([]);
-    const tileBoxRefs = useRef<Array<HTMLDivElement | null>>([]);
-    const myPets = useMemo(
-        () => result.snapshots[0].actors.filter((a) => a.team === "blue").map((a) => ({ id: a.id, name: roster.find((r) => r.id === a.id)?.pet.name ?? a.id })),
-        [result, roster],
-    );
-    const myPetIds = useMemo(() => myPets.map((m) => m.id), [myPets]);
-    const multiCamOn = presentationBudget.squadCameras && myPetIds.length > 0;
-    const tileW = Math.round(Math.min(180, Math.max(56, (stageWidth - 20 - Math.max(0, myPetIds.length - 1) * 8) / Math.max(1, myPetIds.length))));
-    const tileH = Math.round(tileW * 0.6);
+    useEffect(() => { focusPetRef.current = focusPetId; }, [focusPetId]);
 
     const nameOf = useMemo(() => {
         const names = new Map(roster.map((r) => [r.id, r.pet.name]));
@@ -3455,10 +3947,10 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         transientTimers.current.add(id);
         return id;
     };
-    const clearTransientTimers = () => {
+    const clearTransientTimers = useCallback(() => {
         for (const id of transientTimers.current) window.clearTimeout(id);
         transientTimers.current.clear();
-    };
+    }, []);
     useEffect(() => () => {
         for (const id of transientTimers.current) window.clearTimeout(id);
         transientTimers.current.clear();
@@ -3466,7 +3958,11 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
 
     const pushFeed = (text: string, color: string) => {
         const id = wfSeq++;
-        setFeed((arr) => [{ id, text, color }, ...arr].slice(0, 6));
+        setFeed((arr) => {
+            const next = [{ id, text, color }, ...arr];
+            const orders = next.filter((item) => /^COUNCIL \d/.test(item.text)).slice(0, 2);
+            return [...orders, ...next.filter((item) => !/^COUNCIL \d/.test(item.text)).slice(0, 6 - orders.length)];
+        });
         scheduleTransient(() => setFeed((arr) => arr.filter((f) => f.id !== id)), 4500);
     };
     // Banner QUEUE: broadcast moments display SEQUENTIALLY (big ones hold the
@@ -3485,37 +3981,41 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         bannerQueue.current.push({ id: wfSeq++, text, color, big });
         if (!bannerBusy.current) pumpBanner();
     };
+    const clearPresentationTransient = useCallback(() => {
+        clearTransientTimers();
+        bannerQueue.current = [];
+        bannerBusy.current = false;
+        shake.current = 0;
+        setFeed([]);
+        setBanner(null);
+        setFlash(null);
+        transientFxRef.current?.clear();
+        impactFxRef.current?.clear();
+    }, [clearTransientTimers]);
     const triggerFlash = (color: string) => {
+        if (reducedMotion) return;
         const id = wfSeq++;
         setFlash({ id, color });
         scheduleTransient(() => setFlash((f) => (f && f.id === id ? null : f)), 380);
     };
     const spawnFx = (x: number, z: number, key: string | null, element: string | null | undefined, scale: number, dur: number) => {
+        if (reducedMotion) return;
+        impactFxRef.current?.spawnImpact({ pos: [x, 0.8, z], scale, durationMs: dur, key, element });
         const frames = (key ? bundledJutsuFxFrames(key) : null) ?? bundledJutsuFxFrames(elementVfxKey(element)) ?? bundledJutsuFxFrames("none");
         if (!frames) return;
-        const id = wfSeq++;
-        setFxList((arr) => {
-            const next = [...arr, { id, frames, pos: [x, 0.8, z] as Vec3, scale, dur }];
-            return next.length > 24 ? next.slice(next.length - 24) : next;   // fight-spam cap
-        });
+        transientFxRef.current?.spawnFx({ frames, pos: [x, 0.8, z], scale, durationMs: dur });
     };
     const spawnShot = (fromX: number, fromY: number, toX: number, toY: number, element: string | null | undefined, charged: boolean) => {
+        if (reducedMotion) return;
         const visual = projectileVisual({ element, charged });
         const dist = Math.hypot(toX - fromX, toY - fromY);
         const dur = Math.min(820, Math.max(420, 260 + dist * 24));
-        const id = wfSeq++;
-        setShots((arr) => {
-            const next = [...arr, { id, from: [fromX, 0.9, fromY] as Vec3, to: [toX, 0.9, toY] as Vec3, visual, dur, arc: 0.28 }];
-            return next.length > 16 ? next.slice(next.length - 16) : next;   // fight-spam cap
-        });
+        impactFxRef.current?.spawnWake({ from: [fromX, 0.9, fromY], to: [toX, 0.9, toY], visual, durationMs: dur, arc: 0.28 });
+        transientFxRef.current?.spawnShot({ from: [fromX, 0.9, fromY], to: [toX, 0.9, toY], visual, durationMs: dur, arc: 0.28 });
     };
     const spawnFloater = (x: number, z: number, text: string, color: string, big: boolean) => {
-        const id = wfSeq++;
-        setFloaters((arr) => {
-            const next = [...arr, { id, pos: [x, 1.5, z] as Vec3, text, color, big }];
-            return next.length > 12 ? next.slice(next.length - 12) : next;
-        });
-        scheduleTransient(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 800);
+        if (reducedMotion) return;
+        transientFxRef.current?.spawnFloater({ pos: [x, 1.5, z], text, color, big });
     };
 
     // Round boundary: interactive → pause + open the War Council; auto → advance.
@@ -3523,13 +4023,15 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // render) keeps the closure fresh, which is compiler-safe.
     const boundaryBusy = useRef(false);
     const onFrontier = useRef<() => void>(() => {});
+    const committedChoicesRef = useRef<WarfrontRoundChoice[]>(committedChoices);
+    useEffect(() => { committedChoicesRef.current = committedChoices; }, [committedChoices]);
     // Council choices waiting to be applied to the STREAMED round.
-    const pendingResume = useRef<{ choices: WarfrontChoice[]; stance?: WfStance } | null>(null);
+    const pendingResume = useRef<WarfrontRoundDecision | null>(null);
     const pumpSim = useRef<() => void>(() => {});
     useEffect(() => {
         pumpSim.current = () => {
             if (ctl.done) return;
-            const runway = result.snapshots.length - 1 - wfClockTick(clock);
+            const runway = warfrontSnapshotFrontier(result.snapshots) - wfClockTick(clock);
             if (runway > WARFRONT_TPS * 6) return;
             // Refill frequently in tiny slices. This keeps the same deterministic
             // runway without a periodic CPU burst interrupting skeletal motion.
@@ -3537,7 +4039,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             if (autoBuy !== "off") { ctl.advanceRoundPartial(chunk); return; }
             const pend = pendingResume.current;
             if (pend) {
-                if (ctl.advanceRoundPartial(chunk, pend.choices, pend.stance)) pendingResume.current = null;
+                if (ctl.advanceRoundPartial(chunk, pend)) pendingResume.current = null;
                 return;
             }
             // Round zero is the opening battle, before the first shopping phase.
@@ -3552,8 +4054,38 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
         onFrontier.current = () => {
             if (ctl.done || boundaryBusy.current || council) return;
             boundaryBusy.current = true;
+            // A resumed Council streams its selected build into the next round.
+            // If a slow frame consumes that small runway immediately, do not
+            // reopen the same Council while those choices are still pending.
+            if (pendingResume.current) {
+                clock.current.playing = true;
+                boundaryBusy.current = false;
+                return;
+            }
+            // Round zero is the uninterrupted opening/laning round. Under an
+            // accelerated clock (or a temporarily slow renderer), playback can
+            // consume the tiny streamed runway before the next render pumps it.
+            // Refill here instead of presenting a nonsensical "round 0" Council
+            // a few seconds after the VS card.
+            if (ctl.round === 0) {
+                ctl.advanceRoundPartial(Math.max(WARFRONT_TPS * 6, Math.ceil(safePlaybackRate * WARFRONT_TPS * 2)));
+                clock.current.playing = true;
+                boundaryBusy.current = false;
+                return;
+            }
             if (autoBuy === "off") {
+                // Reload/recovery replays the immutable server-accepted prefix
+                // without reopening those rounds for a second branch. The next
+                // uncommitted boundary remains interactive.
+                const recovered = committedChoicesRef.current[ctl.round - 1];
+                if (recovered?.round === ctl.round) {
+                    pendingResume.current = recovered;
+                    clock.current.playing = true;
+                    boundaryBusy.current = false;
+                    return;
+                }
                 clock.current.playing = false;
+                setUserPaused(false);
                 setCouncil({ round: ctl.round });
             } else {
                 ctl.advanceRound();
@@ -3562,43 +4094,43 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             }
         };
     });
-    const resumeFromCouncil = (choices: WarfrontChoice[], stancePick?: WfStance) => {
+    const resumeFromCouncil = async (round: number, decision: WarfrontRoundDecision) => {
+        if (onCouncilCommit) await onCouncilCommit(round, decision);
         setCouncil(null);
         // Streamed, not synchronous — the pump applies these on its next call.
-        pendingResume.current = { choices, stance: stancePick };
+        pendingResume.current = decision;
         clock.current.playing = true;
+        setUserPaused(false);
         boundaryBusy.current = false;
     };
 
-    useEffect(() => { if (ended) onResult?.(result); }, [ended]);   // eslint-disable-line react-hooks/exhaustive-deps -- fire once on the end edge
+    // Replays (including a seven-second turning-point clip) must never submit a
+    // second reward report. The result object changes only for a fresh sim run.
+    const reportedResults = useRef(new WeakSet<WarfrontResult>());
+    useEffect(() => {
+        if (!ended || reportedResults.current.has(result)) return;
+        reportedResults.current.add(result);
+        onResult?.(result);
+    }, [ended, onResult, result]);
 
     // Preload EVERY rig the match will mount — roster, hounds, the four camp
     // bosses and both sentinel bodies. Camp bosses used to lazy-load at their
     // 90 s spawn and drop a frame spike mid-match.
     useEffect(() => {
         let cancelled = false;
-        let releaseTimer = 0;
         let timeoutTimer = 0;
-        const started = performance.now();
         const timeout = new Promise<void>((resolve) => {
             timeoutTimer = window.setTimeout(resolve, 4500);
         });
-        const preload = import("../lib/pet-model-preload")
-            .then((m) => m.preloadPetColiseumModels([
-                ...roster.map((r) => r.pet),
-                ...[HOLLOW_BEAST_ID, "legendary-2", "legendary-6", "legendary-10", "legendary-14", "mythic-0", "mythic-2"].map((id) => ({ id } as Pet)),
-            ]))
-            .catch(() => { /* fallbacks keep the match playable */ });
+        const preload = Promise.all([
+            import("../lib/pet-model-preload").then((m) => m.preloadPetWarfrontModels(roster.map((r) => r.pet))),
+            preloadTransientFxTextures(WARFRONT_COMMON_FX),
+        ]).then(() => undefined).catch(() => { /* fallbacks keep the match playable */ });
         void Promise.race([preload, timeout]).then(() => {
-            if (cancelled) return;
-            const remaining = Math.max(0, 650 - (performance.now() - started));
-            releaseTimer = window.setTimeout(() => {
-                if (!cancelled) setAssetsReady(true);
-            }, remaining);
+            if (!cancelled) setAssetsReady(true);
         });
         return () => {
             cancelled = true;
-            window.clearTimeout(releaseTimer);
             window.clearTimeout(timeoutTimer);
         };
     }, [roster]);
@@ -3612,43 +4144,315 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // Verdict receipts: HOW the match was decided (seal destruction vs the
     // timer's judgment on structures-then-coins), with the tallies to prove it.
     const sealBroken = ended && result.events.some((e) => e.type === "coredown");
+    const localVictory = result.winner === localTeam;
+    const decisionReceipt = result.decisionReceipts?.[localTeam];
+    const localSlots = localTeam === "blue" ? blue : red;
     const winLabel = result.winner === "draw" ? "Stalemate"
-        : sealBroken ? `${result.winner === "blue" ? "Blue" : "Red"} Shatters the Ward Seal`
-        : `${result.winner === "blue" ? "Blue" : "Red"} Wins the Judgment`;
+        : `${localVictory ? "Victory" : "Defeat"} · ${result.winner === "blue" ? "Blue" : "Red"} ${sealBroken ? "Shatters the Ward Seal" : "Wins the Judgment"}`;
+
+    const finishReplayClip = useCallback(() => {
+        clearPresentationTransient();
+        const finalTick = warfrontSnapshotFrontier(result.snapshots);
+        directorSeek.current = { generation: directorSeek.current.generation + 1, tick: finalTick };
+        seekWarfrontAudio(result.events, finalTick);
+        clock.current.playing = false;
+        clock.current.slow = 0;
+        clock.current.t = finalTick;
+        if (replayCameraRestore.current) camCtl.current = replayCameraRestore.current;
+        replayCameraRestore.current = null;
+        if (replayFocusRestore.current) {
+            focusMiniRef.current = replayFocusRestore.current.mini;
+            setFocusPetId(replayFocusRestore.current.petId);
+        }
+        replayFocusRestore.current = null;
+        storyCam.current = null;
+        setReplayClip(null);
+        setEnded(true);
+        setUserPaused(false);
+    }, [clearPresentationTransient, result]);
+    useEffect(() => {
+        if (!replayClip) return;
+        const armFrame = requestAnimationFrame(() => { replaySkipRef.current?.focus(); clock.current.playing = true; });
+        let frame = 0;
+        const monitor = () => {
+            if (clock.current.t >= replayClip.endTick) { finishReplayClip(); return; }
+            frame = requestAnimationFrame(monitor);
+        };
+        frame = requestAnimationFrame(monitor);
+        return () => { cancelAnimationFrame(armFrame); cancelAnimationFrame(frame); };
+    }, [finishReplayClip, replayClip]);
+
+    const replayTurningPoint = (event: WarfrontResult["events"][number], label: string) => {
+        clearPresentationTransient();
+        replayCameraRestore.current = camCtl.current.mode === "free" ? { ...camCtl.current } : null;
+        replayFocusRestore.current = { petId: focusPetId, mini: focusMiniRef.current };
+        const startTick = Math.max(0, event.t - WARFRONT_TPS * 3);
+        const endTick = Math.min(warfrontSnapshotFrontier(result.snapshots), event.t + WARFRONT_TPS * 4);
+        const eventSnap = warfrontSnapshotAtTick(result.snapshots, event.t) ?? result.snapshots.at(0)!;
+        const startSnap = warfrontSnapshotAtTick(result.snapshots, startTick) ?? result.snapshots.at(0)!;
+        let focus = wfCameraFocus(startSnap, 0, 0, localTeam);
+        if ("x" in event && "y" in event && typeof event.x === "number" && typeof event.y === "number") focus = { fx: event.x, fz: event.y, span: 13 };
+        else if (event.type === "wardenkill" || event.type === "wardenphase") focus = { fx: WF_LAIR.x, fz: WF_LAIR.y, span: 15 };
+        else if (event.type === "coreexposed" || event.type === "coredown") { const core = eventSnap.structures[event.team].core; focus = { fx: core.x, fz: core.y, span: 13 }; }
+        else if (event.type === "statuedown") { const statue = eventSnap.structures[event.team].statues[event.statue]; if (statue) focus = { fx: statue.x, fz: statue.y, span: 12 }; }
+        else if (event.type === "guardiandown") { const guardian = eventSnap.guardians[event.team][event.idx]; if (guardian) focus = { fx: guardian.x, fz: guardian.y, span: 12 }; }
+        else if (event.type === "minikill") { const mini = eventSnap.minis.find((item) => item.padIdx === event.padIdx); if (mini) focus = { fx: mini.x, fz: mini.y, span: 13 }; }
+        else if (event.type === "kill" || event.type === "shutdown") { const target = eventSnap.actors.find((actor) => actor.id === event.targetId); if (target) focus = { fx: target.x, fz: target.y, span: 12 }; }
+        else if (event.type === "techniqueused") { const mini = eventSnap.minis.find((item) => item.padIdx === event.padIdx); if (mini) focus = { fx: mini.x, fz: mini.y, span: 12 }; }
+        else if (event.type === "counterstrikeclaim") { const target = eventSnap.actors.find((actor) => actor.id === event.targetId); if (target) focus = { fx: target.x, fz: target.y, span: 12 }; }
+        else if (event.type === "counterstrike") { const target = event.targetId ? eventSnap.actors.find((actor) => actor.id === event.targetId) : null; const statue = eventSnap.structures[event.team].statues[event.statue]; if (target ?? statue) focus = { fx: (target ?? statue)!.x, fz: (target ?? statue)!.y, span: 12 }; }
+        startWarfrontAudioBed();
+        const silentFrontier = startTick === 0 ? -1 : startTick;
+        seekWarfrontAudio(result.events, silentFrontier);
+        directorSeek.current = { generation: directorSeek.current.generation + 1, tick: silentFrontier };
+        storyCam.current = { x: focus.fx, z: focus.fz, fromT: startTick, untilT: endTick, span: focus.span, prio: 10 };
+        clock.current = { t: startTick, playing: false, slow: 0, rate: 1 };
+        focusMiniRef.current = null;
+        setFocusPetId(null);
+        setIntro(false);
+        setCouncil(null);
+        setEnded(false);
+        setUserPaused(false);
+        setReplayClip({ label, startTick, eventTick: event.t, endTick });
+    };
 
     // ⟲/↻/🎲 controls: Replay rewinds the clock (the director re-fires events
     // and later councils reopen on schedule); Restart rebuilds the sim on the
     // SAME seed; New match rolls a fresh deterministic seed (vs-AI/harness only).
     const resetTransient = () => {
-        clearTransientTimers();
-        clock.current = { t: 0, playing: true, slow: 0, rate: safePlaybackRate };
+        startWarfrontAudioBed();
+        seekWarfrontAudio(result.events, -1);
+        clearPresentationTransient();
+        clock.current = { t: 0, playing: false, slow: 0, rate: safePlaybackRate };
         storyCam.current = null;
+        focusMiniRef.current = null;
         setFocusPetId(null);
         setIntro(true);
+        setReplayClip(null);
+        replayCameraRestore.current = null;
+        replayFocusRestore.current = null;
         setAdaptivePressure(0);
         pendingResume.current = null;
-        shake.current = 0;
         boundaryBusy.current = false;
         setEnded(false);
+        setUserPaused(false);
         setCouncil(null);
-        setFeed([]);
-        bannerQueue.current = [];
-        bannerBusy.current = false;
-        setBanner(null);
-        setFlash(null);
-        setFxList([]);
-        setShots([]);
-        setFloaters([]);
     };
     const doReplay = () => resetTransient();
     const doRestart = () => { setRun((r) => r + 1); resetTransient(); };
     const doNewMatch = () => { setSeedBump((b) => b + 1); setRun((r) => r + 1); resetTransient(); };
 
-    const btn: CSSProperties = { padding: "5px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", font: "700 12px Inter, system-ui, sans-serif" };
+    const togglePause = () => {
+        if (!assetsReady || intro || council || ended) return;
+        const next = !userPaused;
+        setUserPaused(next);
+        clock.current.playing = !next;
+        clock.current.slow = 0;
+        if (next) shake.current = 0;
+    };
+    const chooseUiScale = (next: WfUiScale) => {
+        setUiScale(next);
+        try { localStorage.setItem("wfUiScale.v1", next); } catch { /* storage disabled — session setting still works */ }
+    };
+    const choosePace = (next: WarfrontPaceMode) => {
+        const safe = warfrontPaceForMotion(next, reducedMotion);
+        setPaceMode(safe);
+        clock.current.slow = 0;
+        try { localStorage.setItem("wfPace.v1", safe); } catch { /* storage disabled — session setting still works */ }
+    };
+    const toggleReducedMotion = () => {
+        const next = !reducedMotion;
+        setReducedMotion(next);
+        try { localStorage.setItem("wfReducedMotion.v1", String(next)); } catch { /* storage disabled — session setting still works */ }
+        if (next) {
+            choosePace("1");
+            shake.current = 0;
+            setFlash(null);
+            transientFxRef.current?.clear();
+            setCamMode("calm");
+        }
+    };
+    const confirmLiveAction = (message: string, action: () => void) => {
+        if (ended || intro || wfClockTick(clock) < WARFRONT_TPS * 5) { action(); return; }
+        const wasPlaying = clock.current.playing;
+        clock.current.playing = false;
+        const approved = window.confirm(message);
+        if (approved) action();
+        else clock.current.playing = wasPlaying && !userPaused && !council;
+    };
+    const requestExit = () => {
+        if (!onForfeit || ended) { confirmLiveAction("Leave this Warfront? The current battle will be abandoned.", onExit); return; }
+        exitWasPlaying.current = clock.current.playing;
+        clock.current.playing = false;
+        setExitError("");
+        setExitPrompt(true);
+    };
+    const cancelExit = () => {
+        if (exitPending) return;
+        setExitPrompt(false);
+        setExitError("");
+        clock.current.playing = exitWasPlaying.current && !userPaused && !council;
+    };
+    const confirmForfeit = async () => {
+        if (!onForfeit || exitPending) return;
+        setExitPending(true);
+        setExitError("");
+        try {
+            await onForfeit();
+        } catch (error) {
+            setExitError(error instanceof Error ? error.message : "The server could not secure this forfeit. Retry or return to the match.");
+            setExitPending(false);
+        }
+    };
+
+    const btn: CSSProperties = { padding: "6px 10px", background: "rgba(15,23,42,0.88)", border: "1px solid #475569", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", font: "700 14px Inter, system-ui, sans-serif" };
+    const metaControl: CSSProperties = { display: "flex", alignItems: "center", gap: 4, padding: "3px 7px", background: "rgba(15,23,42,0.9)", border: "1px solid #475569", borderRadius: 999, color: "#cbd5e1", font: "700 12px Inter, system-ui, sans-serif" };
+    const metaSelect: CSSProperties = { background: "#0f172a", border: 0, color: "#e2e8f0", font: "700 12px Inter, system-ui, sans-serif", cursor: "pointer" };
+    const blueDoctrine = doctrineSpec(result.doctrines.blue);
+    const redDoctrine = doctrineSpec(result.doctrines.red);
+    const blueDeploymentPlan = deployment ?? WF_DEFAULT_DEPLOYMENT;
+    const redDeploymentPlan = opponentDeployment ?? WF_DEFAULT_DEPLOYMENT;
+    const bluePackage = buildPackageSpec(buildPackage), redPackage = buildPackageSpec(opponentBuildPackage);
+    const blueOrder = coachOrderSpec(coachOrder), redOrder = coachOrderSpec(opponentCoachOrder);
+    const openingLine = result.opening.winner
+        ? `${result.opening.winner === localTeam ? "YOUR SQUAD" : "RIVAL SQUAD"} COUNTERS · +${result.opening.attackPct}% ATTACK · +${result.opening.speedPct}% SPEED FOR ${result.opening.durationSecs}s`
+        : result.opening.reason === "mirror" ? "MIRRORED DOCTRINES · EVEN OPENING" : "NEUTRAL MATCHUP · NO OPENING EDGE";
 
     return createPortal((
-        <div ref={stageRef} className="pet-combat-takeover pet-warfront-takeover" style={{ backgroundColor: "#05060a" }}>
-            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes wfLoad{from{transform:translateX(-10%);opacity:.55}to{transform:translateX(120%);opacity:1}}@keyframes wfFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes wfFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes wfBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}22%{transform:translate(-50%,-50%) scale(1)}84%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}@keyframes wfShine{0%{transform:translateX(-140%) skewX(-18deg)}60%,100%{transform:translateX(260%) skewX(-18deg)}}@keyframes wfTilePulse{0%,100%{box-shadow:0 0 6px rgba(251,113,133,0.35)}50%{box-shadow:0 0 20px rgba(251,113,133,0.95)}}@keyframes wfIntro{0%{opacity:0;transform:scale(0.94)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.02)}}@keyframes wfEndIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}`}</style>
+        <div
+            ref={stageRef}
+            className="pet-combat-takeover pet-warfront-takeover"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Hollow Warfront match"
+            tabIndex={-1}
+            onKeyDown={trapTakeoverFocus}
+            data-wf-motion={reducedMotion ? "reduced" : "full"}
+            data-wf-ui-scale={uiScale}
+            data-wf-replay-focus={replayClip ? "locked" : "off"}
+            data-wf-camera-effective={replayClip ? "story" : freeCam ? "free" : camMode}
+            style={{ backgroundColor: "#05060a" }}
+        >
+            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes wfLoad{from{transform:translateX(-10%);opacity:.55}to{transform:translateX(120%);opacity:1}}@keyframes wfFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes wfFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes wfBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.72)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}22%{transform:translate(-50%,-50%) scale(1)}84%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}@keyframes wfShine{0%{transform:translateX(-140%) skewX(-18deg)}60%,100%{transform:translateX(260%) skewX(-18deg)}}@keyframes wfTilePulse{0%,100%{box-shadow:0 0 6px rgba(251,113,133,0.35)}50%{box-shadow:0 0 20px rgba(251,113,133,0.95)}}@keyframes wfIntro{0%{opacity:0;transform:scale(0.94)}10%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.02)}}@keyframes wfEndIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}@media(max-width:979px){.pet-warfront-takeover .wf-team-intent,.pet-warfront-takeover .wf-stakes-arrow{display:none}.pet-warfront-takeover .wf-live-stakes{max-inline-size:100%;text-align:center}}`}</style>
+            <style>{`
+                .pet-warfront-takeover button,.pet-warfront-takeover select,.pet-warfront-takeover [tabindex]{touch-action:manipulation}
+                .pet-warfront-takeover button:focus-visible,.pet-warfront-takeover select:focus-visible,.pet-warfront-takeover [tabindex]:focus-visible{outline:3px solid #fde047!important;outline-offset:2px}
+                .pet-warfront-takeover[data-wf-motion="reduced"] *{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
+                .pet-warfront-takeover[data-wf-motion="reduced"] .wf-banner,.pet-warfront-takeover[data-wf-motion="reduced"] .wf-intro-overlay{animation:none!important;opacity:1!important}
+                .pet-warfront-takeover[data-wf-motion="reduced"] .wf-banner{transform:translate(-50%,-50%)!important}
+                .pet-warfront-takeover[data-wf-motion="reduced"] .wf-banner-shine{display:none}
+                .wf-top-controls button{min-height:38px;font-size:14px!important}
+                .wf-score-strip{font-size:15px!important;z-index:52}
+                .wf-score-strip span{font-size:inherit!important}
+                .wf-objective-main>span{font-size:13px!important}
+                .wf-live-stakes,.wf-team-intent,.wf-warden-strip span{font-size:12px!important}
+                .wf-camera-modes button{min-width:40px;min-height:38px;font-size:14px!important}
+                .wf-feed-item{font-size:13px!important}
+                .wf-council-backdrop{position:absolute;inset:0;display:grid;place-items:center;background:#030712c2;z-index:80}
+                .wf-council-dialog{width:min(920px,96vw);max-height:min(86vh,760px);overflow-y:auto;background:#0a0e1cfa;border:1px solid #a855f7b3;border-radius:16px;padding:18px;box-shadow:0 24px 90px #000b}
+                .wf-council-dialog button{min-height:44px;padding:8px 12px;background:#0f172ae6;border:1px solid #475569;border-radius:9px;color:#e2e8f0;cursor:pointer;font:700 14px/1.25 Inter,system-ui,sans-serif}
+                .wf-council-dialog button:disabled{cursor:not-allowed;opacity:.55}
+                .wf-council-header,#wf-council-help,.wf-council-actions,.wf-council-actions>div,.wf-council-context,.wf-council-cart{display:flex;align-items:center}
+                .wf-council-header{justify-content:space-between;align-items:baseline;margin-bottom:8px}
+                .wf-council-header h2{margin:0;color:#e9d5ff;font:900 22px Inter,system-ui,sans-serif}
+                .wf-council-coins{color:#fde047;font:800 18px Inter,system-ui,sans-serif}
+                #wf-council-help{justify-content:space-between;gap:10px;flex-wrap:wrap;color:#cbd5e1;font:600 14px/1.4 Inter,system-ui,sans-serif;margin-bottom:12px}
+                #wf-council-help strong{color:#fde68a}#wf-council-help strong.urgent{color:#fca5a5}
+                #wf-council-help .wf-council-contract{flex:1 0 100%;color:#94a3b8;font-size:12px}
+                .wf-council-context{flex-wrap:wrap;gap:6px;margin-bottom:10px}
+                .wf-council-context span{padding:5px 8px;border-radius:999px;background:#1e293bd9;border:1px solid #475569;color:#e2e8f0;font:800 12px Inter,system-ui,sans-serif}
+                .wf-council-reserve{margin:0 0 12px;padding:9px 11px;border:1px solid #93c5fd88;border-radius:9px;background:#1e3a8a33;color:#dbeafe;font:800 14px/1.35 Inter,system-ui,sans-serif}
+                .wf-council-block,.wf-council-special{border-top:1px solid #475569b3;padding-top:10px}.wf-council-orders-block,.wf-council-special{margin-top:10px}
+                .wf-council-heading,.wf-special-title{color:#f8fafc;font:900 15px Inter,system-ui,sans-serif;margin-bottom:7px}.wf-special-title{font-size:14px;margin-bottom:6px}
+                .wf-council-heading span,.wf-special-title span{color:#86efac;font-size:12px}
+                .wf-council-upgrades,.wf-council-orders{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:8px}
+                .wf-council-option{display:grid;align-content:start;gap:4px;text-align:left}.wf-option-top{display:flex;justify-content:space-between;gap:6px}.wf-option-top>span{color:#fde047}
+                .wf-option-desc{color:#e2e8f0;font-size:12px;font-weight:600}.wf-option-detail{color:#a5b4fc;font-size:11px}
+                .wf-package-option[aria-pressed=true]{border-color:#c4b5fd;background:#6d28d947;box-shadow:0 0 0 2px #c4b5fd29}
+                .wf-order-option[aria-pressed=true]{border-color:#6ee7b7;color:#d1fae5;box-shadow:0 0 0 2px #6ee7b733}
+                .wf-technique-option[aria-pressed=true]{border-color:#38bdf8}.wf-counter-option[aria-pressed=true]{border-color:#fb7185}
+                .wf-council-cart{flex-wrap:wrap;gap:6px;margin-top:8px}.wf-council-dialog .wf-cart-chip,.wf-council-dialog .wf-bank-button{min-height:36px;padding:5px 8px;font-size:12px}.wf-cart-chip{border-color:#7c3aed!important}.wf-bank-copy{color:#fde68a;font:700 12px Inter,system-ui,sans-serif}
+                .wf-council-special{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:10px}.wf-tactic-options{display:grid;gap:5px}.wf-tactic-spent,.wf-tactic-armed{color:#94a3b8;font-size:12px}.wf-tactic-armed{color:#86efac}
+                .wf-council-formation{display:flex;align-items:center;gap:8px;margin-top:10px;color:#cbd5e1;font:700 12px Inter,system-ui,sans-serif}.wf-council-formation select{min-height:40px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;padding:6px 8px}
+                .wf-council-error{margin:10px 4px 0;color:#fca5a5;font:700 14px/1.4 Inter,system-ui,sans-serif}
+                .wf-council-actions{position:sticky;bottom:-18px;justify-content:space-between;margin:14px -18px -18px;padding:14px;gap:8px;background:#0a0e1cfa;border-top:1px solid #334155}.wf-council-actions>div{gap:8px}.wf-council-actions>div>span{color:#fde047;font-weight:800}.wf-council-primary-actions{display:flex;gap:8px}.wf-timer-button[aria-pressed=true]{border-color:#fbbf24!important}.wf-council-dialog .wf-council-exit{border-color:#fb7185;color:#fecdd3;background:#4c051966}.wf-council-dialog .wf-council-commit{background:#6d28d9;border-color:#c4b5fd;padding-inline:18px}
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-top-controls button,
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-camera-modes button,
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-top-meta label,
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-top-meta select{font-size:16px!important;min-height:44px}
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-score-strip{font-size:18px!important}
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-objective-main>span,
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-live-stakes,
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-team-intent,
+                .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-feed-item{font-size:16px!important}
+                @media(max-width:600px){
+                    .pet-warfront-takeover .wf-top-controls{top:max(8px,env(safe-area-inset-top,0px))!important;left:max(8px,env(safe-area-inset-left,0px))!important;right:max(8px,env(safe-area-inset-right,0px))!important;gap:5px!important;justify-content:center;z-index:62}
+                    .pet-warfront-takeover .wf-top-controls button{min-width:44px;min-height:44px;padding:6px 8px!important;font-size:14px!important}
+                    .pet-warfront-takeover .wf-control-label{position:absolute!important;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+                    .pet-warfront-takeover .wf-score-strip{top:calc(max(8px,env(safe-area-inset-top,0px)) + 46px)!important;left:max(8px,env(safe-area-inset-left,0px))!important;right:max(8px,env(safe-area-inset-right,0px))!important;width:auto;transform:none!important;padding:6px 8px!important;gap:3px!important;border-radius:11px!important}
+                    .pet-warfront-takeover .wf-score-strip{font-size:13px!important}
+                    .pet-warfront-takeover .wf-score-strip>div{gap:5px!important;max-width:100%}
+                    .pet-warfront-takeover .wf-score-strip>div:last-child,.pet-warfront-takeover .wf-score-strip>div:last-child>span{white-space:nowrap;line-height:1}
+                    .pet-warfront-takeover .wf-score-doctrine,.pet-warfront-takeover .wf-score-stance{display:none}
+                    .pet-warfront-takeover .wf-score-divider{width:54px!important}
+                    .pet-warfront-takeover .wf-objective-strip{top:calc(max(8px,env(safe-area-inset-top,0px)) + 124px)!important;left:max(8px,env(safe-area-inset-left,0px))!important;right:max(8px,env(safe-area-inset-right,0px))!important;width:auto!important;transform:none!important;padding:7px 9px!important;background:rgba(8,12,24,.92)!important;border-radius:10px;z-index:50}
+                    .pet-warfront-takeover .wf-objective-main{gap:6px!important;flex-wrap:wrap;line-height:1.2}
+                    .pet-warfront-takeover .wf-objective-main>span{font-size:12px!important}
+                    .pet-warfront-takeover .wf-objective-separator{display:none}
+                    .pet-warfront-takeover .wf-stakes-row{line-height:1.3}
+                    .pet-warfront-takeover .wf-live-stakes{font-size:11px!important}
+                    .pet-warfront-takeover .wf-warden-strip{grid-template-columns:1fr 112px 1fr!important;column-gap:5px!important}
+                    .pet-warfront-takeover .wf-warden-strip span{min-width:0!important;font-size:10px!important}
+                    .pet-warfront-takeover .wf-camera-modes{top:calc(max(8px,env(safe-area-inset-top,0px)) + 228px)!important;left:max(8px,env(safe-area-inset-left,0px))!important;z-index:54}
+                    .pet-warfront-takeover .wf-right-stack{top:calc(max(8px,env(safe-area-inset-top,0px)) + 228px)!important;right:max(8px,env(safe-area-inset-right,0px))!important;z-index:53}
+                    .pet-warfront-takeover .wf-minimap{width:176px!important;height:auto!important}
+                    .pet-warfront-takeover .wf-convoy-follow{width:176px!important}
+                    .pet-warfront-takeover .wf-top-meta{top:auto!important;bottom:max(8px,env(safe-area-inset-bottom,0px))!important;left:auto!important;right:max(8px,env(safe-area-inset-right,0px))!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));width:196px;max-width:calc(58vw - max(8px,env(safe-area-inset-right,0px)));gap:4px!important;align-items:stretch!important;z-index:56}
+                    .pet-warfront-takeover .wf-mode-badge{display:none}
+                    .pet-warfront-takeover .wf-top-meta label{box-sizing:border-box;width:100%;min-width:0!important;min-height:44px;font-size:12px!important;padding:3px 5px!important;justify-content:space-between}
+                    .pet-warfront-takeover .wf-top-meta select{min-width:0;max-width:58px;font-size:11px!important}
+                    .pet-warfront-takeover .wf-pace-label{display:none}
+                    .pet-warfront-takeover .wf-motion-toggle{width:100%;min-width:44px;min-height:44px!important;font-size:18px!important}
+                    .pet-warfront-takeover .wf-free-camera{top:calc(max(8px,env(safe-area-inset-top,0px)) + 278px)!important;left:max(8px,env(safe-area-inset-left,0px))!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-free-camera{min-height:44px;font-size:15px!important}
+                    .pet-warfront-takeover .wf-replay-chip{top:calc(max(8px,env(safe-area-inset-top,0px)) + 146px)!important;max-width:calc(100vw - max(8px,env(safe-area-inset-left,0px)) - max(8px,env(safe-area-inset-right,0px)))}
+                    .pet-warfront-takeover .wf-intro-card{max-width:calc(100vw - 24px);padding:12px}
+                    .pet-warfront-takeover .wf-intro-versus{gap:10px!important}
+                    .pet-warfront-takeover .wf-intro-versus>div:first-child,.pet-warfront-takeover .wf-intro-versus>div:last-child{min-width:0;max-width:42vw}
+                    .pet-warfront-takeover .wf-council-backdrop{padding:max(8px,env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) max(8px,env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));box-sizing:border-box}
+                    .pet-warfront-takeover .wf-council-dialog{box-sizing:border-box;width:100%!important;max-width:100%!important;max-height:100%!important;padding:14px!important;border-radius:12px!important;overflow-x:hidden!important}
+                    .pet-warfront-takeover .wf-council-dialog button,.pet-warfront-takeover .wf-council-dialog select{min-height:44px!important}
+                    .pet-warfront-takeover .wf-council-orders,.pet-warfront-takeover .wf-council-upgrades,.pet-warfront-takeover .wf-council-special{grid-template-columns:minmax(0,1fr)!important;align-items:stretch!important}
+                    .pet-warfront-takeover .wf-council-orders button,.pet-warfront-takeover .wf-council-upgrades button,.pet-warfront-takeover .wf-council-special button{box-sizing:border-box;min-width:0!important;min-height:44px;padding:8px!important}
+                    .pet-warfront-takeover .wf-council-formation{display:grid!important;grid-template-columns:1fr!important;font-size:14px!important}
+                    .pet-warfront-takeover .wf-council-formation select{box-sizing:border-box;width:100%;min-height:44px;font-size:16px!important}
+                    .pet-warfront-takeover .wf-council-actions{bottom:-14px!important;margin:12px -14px -14px!important;padding:10px!important;flex-wrap:wrap}
+                    .pet-warfront-takeover .wf-council-actions>div{display:grid!important;grid-template-columns:1fr;flex:1 1 100%}
+                    .pet-warfront-takeover .wf-council-primary-actions{grid-template-columns:1fr!important;width:100%}
+                    .pet-warfront-takeover .wf-end-card{width:calc(100vw - max(8px,env(safe-area-inset-left,0px)) - max(8px,env(safe-area-inset-right,0px)))!important;max-height:calc(100dvh - max(8px,env(safe-area-inset-top,0px)) - max(8px,env(safe-area-inset-bottom,0px)))!important;padding:16px 10px!important}
+                    .pet-warfront-takeover .wf-end-timeline{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-score-strip{font-size:18px!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-score-secondary,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-phase-clock,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-team-intent,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-stakes-arrow,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-warden-damage{display:none!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-phase-label{font-size:14px!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-objective-call,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-live-stakes,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-warden-status,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-feed-item{font-size:18px!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-warden-strip{grid-template-columns:auto minmax(112px,1fr)!important}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] #wf-council-help,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-orders button,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-upgrades button,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-special button,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-actions button{font-size:18px!important;min-height:44px}
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-orders button span,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-upgrades button span,
+                    .pet-warfront-takeover[data-wf-ui-scale="large"] .wf-council-special button span{font-size:14px!important;line-height:1.35!important}
+                }
+            `}</style>
             <div className="pet-warfront-canvas-stage" style={{ position: "absolute", inset: 0 }}>
                 <Canvas
                     dpr={canvasDpr}
@@ -3668,7 +4472,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                                 <planeGeometry args={[48, 28]} />
                                 <meshBasicMaterial color={spec.groundLight} />
                             </mesh>
-                            <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
+                            {!replayClip && <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />}
                         </>
                     ) : (
                         <>
@@ -3684,7 +4488,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                         shadow-mapSize-width={quality.id === "high" ? 2048 : 1024} shadow-mapSize-height={quality.id === "high" ? 2048 : 1024}
                         shadow-camera-left={-24} shadow-camera-right={24} shadow-camera-top={15} shadow-camera-bottom={-15} shadow-camera-far={60}
                     />
-                    <WfFloor theme={theme} />
+                    <WfFloor theme={theme} reducedMotion={reducedMotion} />
                     <WfSetDressing theme={theme} />
                     {roster.map((r) => (
                         // Always render — a pet without an approved GLB falls back
@@ -3716,44 +4520,22 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                         <group key={team}>
                             <WfStatue result={result} clock={clock} team={team} idx={0} />
                             <WfStatue result={result} clock={clock} team={team} idx={1} />
-                            <WfCore result={result} clock={clock} team={team} />
+                            <WfCore result={result} clock={clock} team={team} reducedMotion={reducedMotion} />
                         </group>
                     ))}
                     <WfWarden result={result} clock={clock} />
                     {WF_PADS.map((_, i) => (
                         <WfMini key={i} result={result} clock={clock} idx={i} name={WF_MINI_NAMES[i]} glow={spec.breachGlow} />
                     ))}
-                    {fxList.map((fx) => (
-                        <Fx3D key={fx.id} frames={fx.frames} pos={fx.pos} scale={fx.scale} durationMs={fx.dur} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
-                    ))}
-                    {shots.map((sh) => (
-                        <Shot3D key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} durationMs={sh.dur} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />
-                    ))}
-                    {floaters.map((f) => (<Floater3D key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
-                    {!geometryQa && <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />}
-                    <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} focusPetRef={focusPetRef} />
-                    <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
-                    <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} playbackRate={safePlaybackRate} />
+                    <TransientFx3DLayer apiRef={transientFxRef} />
+                    {!geometryQa && !reducedMotion && quality.id !== "low" && adaptivePressure < 2 ? <WfImpactLayer apiRef={impactFxRef} /> : null}
+                    {!geometryQa && !reducedMotion && <Sparkles count={adaptivePressure === 0 ? Math.max(12, quality.ambientParticles) : adaptivePressure === 1 ? 10 : 5} scale={[42, 7, 21]} position={[0, 3, 0]} size={2} speed={0.14} opacity={0.24} color={spec.sunColor} noise={2} />}
+                    <WfCameraRig result={result} clock={clock} shake={shake} camViewRef={camView} camCtlRef={camCtl} storyRef={storyCam} modeRef={camModeRef} focusPetRef={focusPetRef} focusMiniRef={focusMiniRef} localTeam={localTeam} reducedMotion={reducedMotion} />
+                    {!replayClip && <WfCameraControls camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />}
+                    <WfTicker result={result} clockRef={clock} shakeRef={shake} onFrontier={onFrontier} pumpRef={pumpSim} playbackRate={safePlaybackRate} paceMode={paceMode} replay={!!replayClip} />
                     {!fixedQaDpr && <WfFrameGovernor value={adaptivePressure} onPressure={setAdaptivePressure} />}
-                    <WfDirector result={result} clockRef={clock} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} camViewRef={camView} onEnd={() => setEnded(true)} />
-                    <WfHudWriter result={result} clock={clock} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} momentumRef={momentumRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} buffRef={buffRef} campsRef={campsRef} phaseOverlayRef={phaseOverlayRef} />
-                    {!geometryQa && multiCamOn && (
-                        <WfMultiCam
-                            result={result}
-                            clock={clock}
-                            petIds={myPetIds}
-                            tileW={tileW}
-                            tileH={tileH}
-                            margin={10}
-                            gap={8}
-                            renderEvery={presentationBudget.squadCameraRenderEvery}
-                            statusRefs={tileStatusRefs}
-                            hpRefs={tileHpRefs}
-                            tileRefs={tileBoxRefs}
-                            selectedRef={focusPetRef}
-                            camViewRef={camView}
-                        />
-                    )}
+                    <WfDirector result={result} clockRef={clock} seekRef={directorSeek} reducedMotion={reducedMotion} nameOf={nameOf} pushFeed={pushFeed} pushBanner={pushBanner} triggerFlash={triggerFlash} shakeRef={shake} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} storyRef={storyCam} onEnd={() => { setEnded(true); setUserPaused(false); }} />
+                    <WfHudWriter result={result} clock={clock} localTeam={localTeam} timerRef={timerRef} coinBlueRef={coinBlueRef} coinRedRef={coinRedRef} scoreBlueRef={scoreBlueRef} scoreRedRef={scoreRedRef} killBlueRef={killBlueRef} killRedRef={killRedRef} structsBlueRef={structsBlueRef} structsRedRef={structsRedRef} stanceBlueRef={stanceBlueRef} stanceRedRef={stanceRedRef} phaseRef={phaseRef} phaseClockRef={phaseClockRef} objectiveRef={objectiveRef} stakesRef={stakesRef} blueIntentRef={blueIntentRef} redIntentRef={redIntentRef} wardenWrapRef={wardenWrapRef} wardenHpRef={wardenHpRef} wardenStatusRef={wardenStatusRef} wardenDamageRef={wardenDamageRef} sigilRef={sigilRef} sigilPipsBlueRef={sigilPipsBlueRef} sigilPipsRedRef={sigilPipsRedRef} judgmentRef={judgmentRef} phaseOverlayRef={phaseOverlayRef} />
                         </>
                     )}
                 </Canvas>
@@ -3766,40 +4548,52 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     style={{ position: "absolute", inset: 0, zIndex: 96, display: "grid", placeItems: "center", background: "radial-gradient(ellipse at center, rgba(8,12,24,0.82), rgba(3,6,14,0.97))" }}
                 >
                     <div style={{ width: "min(360px, 82vw)", padding: "20px 24px", textAlign: "center", border: "1px solid rgba(168,85,247,0.55)", borderRadius: 14, background: "rgba(8,12,24,0.9)", boxShadow: "0 18px 60px rgba(0,0,0,0.55)" }}>
-                        <div style={{ color: "#d8b4fe", font: "900 13px Inter, system-ui, sans-serif", letterSpacing: 3 }}>PREPARING WARFRONT</div>
+                        <div style={{ color: "#d8b4fe", font: "900 16px Inter, system-ui, sans-serif", letterSpacing: 3 }}>PREPARING WARFRONT</div>
                         <div style={{ height: 4, marginTop: 12, overflow: "hidden", borderRadius: 999, background: "#1e1b2e" }}>
                             <div style={{ width: "48%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#7c3aed,#e879f9)", animation: "wfLoad 1.1s ease-in-out infinite alternate" }} />
                         </div>
-                        <div style={{ marginTop: 9, color: "#94a3b8", font: "600 11px Inter, system-ui, sans-serif" }}>Warming rigs, materials, and the Gate Warden</div>
+                        <div style={{ marginTop: 9, color: "#cbd5e1", font: "600 14px Inter, system-ui, sans-serif" }}>Warming rigs, materials, and the Gate Warden</div>
                     </div>
                 </div>
             )}
 
             {/* Opening VS card — team lineups + declared formations. */}
-            {intro && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "radial-gradient(ellipse at center, rgba(3,6,14,0.55) 30%, rgba(3,6,14,0.9) 100%)", zIndex: 58, pointerEvents: "none", animation: "wfIntro 4.2s ease-in-out forwards" }}>
-                    <div style={{ textAlign: "center" }}>
-                        <div style={{ color: "#d8b4fe", font: "900 15px Inter, system-ui, sans-serif", letterSpacing: 6 }}>HOLLOW WARFRONT</div>
-                        <div style={{ color: "#64748b", font: "700 11px Inter, system-ui, sans-serif", letterSpacing: 2, marginTop: 2 }}>{spec.label.toUpperCase()} · BREAK THE WARD SEAL</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 26, marginTop: 18 }}>
+            {intro && assetsReady && (
+                <div className="wf-intro-overlay" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "radial-gradient(ellipse at center, rgba(3,6,14,0.55) 30%, rgba(3,6,14,0.9) 100%)", zIndex: 58, pointerEvents: "none", animation: `wfIntro ${reducedMotion ? 1.1 : 4.2}s ease-in-out forwards` }}>
+                    <div className="wf-intro-card" style={{ textAlign: "center" }}>
+                        <div style={{ color: "#e9d5ff", font: "900 18px Inter, system-ui, sans-serif", letterSpacing: 6 }}>HOLLOW WARFRONT</div>
+                        <div style={{ color: "#94a3b8", font: "700 14px Inter, system-ui, sans-serif", letterSpacing: 2, marginTop: 2 }}>{spec.label.toUpperCase()} · BREAK THE WARD SEAL</div>
+                        <div className="wf-intro-versus" style={{ display: "flex", alignItems: "center", gap: 26, marginTop: 18 }}>
                             <div style={{ textAlign: "right" }}>
-                                {result.snapshots[0].actors.filter((a) => a.team === "blue").map((a) => (
-                                    <div key={a.id} style={{ color: "#93c5fd", font: "800 15px Inter, system-ui, sans-serif", textShadow: "0 2px 8px #000" }}>{roster.find((r) => r.id === a.id)?.pet.name ?? a.id} <span style={{ color: "#475569", fontSize: 10 }}>{ROLE_TAG[a.role] ?? ""}</span></div>
+                                <div style={{ color: localTeam === "blue" ? "#fde68a" : "#64748b", font: "900 11px Inter, system-ui, sans-serif", letterSpacing: 1.5, marginBottom: 4 }}>{localTeam === "blue" ? "YOUR SQUAD" : "RIVAL SQUAD"}</div>
+                                {result.snapshots.at(0)!.actors.filter((a) => a.team === "blue").map((a, index) => (
+                                    <div key={a.id} style={{ color: "#93c5fd", font: "800 15px Inter, system-ui, sans-serif", textShadow: "0 2px 8px #000" }}><span style={{ color: "#fde68a", fontSize: 11 }}>{WF_DEPLOYMENT_LABEL[blueDeploymentPlan[index] ?? WF_DEFAULT_DEPLOYMENT[index]]} · </span>{roster.find((r) => r.id === a.id)?.pet.name ?? a.id} <span style={{ color: "#94a3b8", fontSize: 12 }}>{ROLE_TAG[a.role] ?? ""}</span></div>
                                 ))}
-                                <div style={{ color: "#60a5fa", font: "700 11px Inter, system-ui, sans-serif", marginTop: 6 }}>{WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.blue)?.icon} {WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.blue)?.label}</div>
+                                <div style={{ color: "#60a5fa", font: "700 14px Inter, system-ui, sans-serif", marginTop: 6 }}>{WF_STANCES.find((st2) => st2.id === result.snapshots.at(0)!.stances.blue)?.icon} {WF_STANCES.find((st2) => st2.id === result.snapshots.at(0)!.stances.blue)?.label}</div>
+                                <div style={{ color: "#bfdbfe", font: "800 14px Inter, system-ui, sans-serif", marginTop: 3 }}>{blueDoctrine.icon} {blueDoctrine.label}</div>
+                                {(bluePackage || blueOrder) && <div style={{ color: "#c4b5fd", font: "700 11px Inter, system-ui, sans-serif", marginTop: 3 }}>{bluePackage?.icon} {bluePackage?.label}{bluePackage && blueOrder ? " · " : ""}{blueOrder?.icon} {blueOrder?.label}</div>}
                             </div>
                             <div style={{ color: "#fde047", font: "900 34px Inter, system-ui, sans-serif", textShadow: "0 0 24px rgba(250,204,21,0.5)" }}>VS</div>
                             <div style={{ textAlign: "left" }}>
-                                {result.snapshots[0].actors.filter((a) => a.team === "red").map((a) => (
-                                    <div key={a.id} style={{ color: "#fca5a5", font: "800 15px Inter, system-ui, sans-serif", textShadow: "0 2px 8px #000" }}><span style={{ color: "#475569", fontSize: 10 }}>{ROLE_TAG[a.role] ?? ""}</span> {roster.find((r) => r.id === a.id)?.pet.name ?? a.id}</div>
+                                <div style={{ color: localTeam === "red" ? "#fde68a" : "#64748b", font: "900 11px Inter, system-ui, sans-serif", letterSpacing: 1.5, marginBottom: 4 }}>{localTeam === "red" ? "YOUR SQUAD" : "RIVAL SQUAD"}</div>
+                                {result.snapshots.at(0)!.actors.filter((a) => a.team === "red").map((a, index) => (
+                                    <div key={a.id} style={{ color: "#fca5a5", font: "800 15px Inter, system-ui, sans-serif", textShadow: "0 2px 8px #000" }}><span style={{ color: "#fde68a", fontSize: 11 }}>{WF_DEPLOYMENT_LABEL[redDeploymentPlan[index] ?? WF_DEFAULT_DEPLOYMENT[index]]} · </span><span style={{ color: "#94a3b8", fontSize: 12 }}>{ROLE_TAG[a.role] ?? ""}</span> {roster.find((r) => r.id === a.id)?.pet.name ?? a.id}</div>
                                 ))}
-                                <div style={{ color: "#f87171", font: "700 11px Inter, system-ui, sans-serif", marginTop: 6 }}>{WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.red)?.icon} {WF_STANCES.find((st2) => st2.id === result.snapshots[0].stances.red)?.label}</div>
+                                <div style={{ color: "#f87171", font: "700 14px Inter, system-ui, sans-serif", marginTop: 6 }}>{WF_STANCES.find((st2) => st2.id === result.snapshots.at(0)!.stances.red)?.icon} {WF_STANCES.find((st2) => st2.id === result.snapshots.at(0)!.stances.red)?.label}</div>
+                                <div style={{ color: "#fecaca", font: "800 14px Inter, system-ui, sans-serif", marginTop: 3 }}>{redDoctrine.icon} {redDoctrine.label}</div>
+                                {(redPackage || redOrder) && <div style={{ color: "#c4b5fd", font: "700 11px Inter, system-ui, sans-serif", marginTop: 3 }}>{redPackage?.icon} {redPackage?.label}{redPackage && redOrder ? " · " : ""}{redOrder?.icon} {redOrder?.label}</div>}
                             </div>
                         </div>
+                        <div style={{ marginTop: 16, color: result.opening.winner ? TEAM_SOFT[result.opening.winner] : "#c4b5fd", font: "900 16px Inter, system-ui, sans-serif", letterSpacing: 1.2 }}>{openingLine}</div>
+                        <div style={{ marginTop: 4, color: "#bae6fd", font: "800 11px Inter, system-ui, sans-serif", letterSpacing: 1 }}>NAMED LANES LOCK FOR THE OPENING 40 SECONDS</div>
+                        <div style={{ marginTop: 4, color: "#94a3b8", font: "700 12px Inter, system-ui, sans-serif" }}>VANGUARD › ZEALOT › BULWARK › VANGUARD · WARDEN'S PACT IS NEUTRAL</div>
                     </div>
                 </div>
             )}
             <div ref={phaseOverlayRef} style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none", transition: "opacity 1.2s ease" }} />
+            {userPaused && (
+                <div role="status" aria-live="polite" style={{ position: "absolute", left: "50%", top: "42%", transform: "translate(-50%,-50%)", zIndex: 64, padding: "10px 18px", border: "1px solid rgba(253,224,71,.7)", borderRadius: 999, background: "rgba(8,12,24,.94)", color: "#fde68a", font: "900 16px Inter,system-ui,sans-serif", letterSpacing: 1.5, pointerEvents: "none" }}>⏸ BATTLE PAUSED</div>
+            )}
             {/* Broadcast vignette — pulls the eye to the action and hides the
                 hard viewport edge; pure CSS, zero render cost. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at center, transparent 54%, rgba(2,4,10,0.42) 100%)" }} />
@@ -3807,92 +4601,131 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
             {/* Broadcast ribbon banner: dark gradient bar, team-color hairlines,
                 a shine sweep, queued display (big moments sit higher + longer). */}
             {banner && (
-                <div key={banner.id} style={{ position: "absolute", top: banner.big ? "26%" : "16%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none", animation: `wfBanner ${banner.big ? 2.3 : 1.6}s cubic-bezier(.2,.8,.2,1) forwards`, maxWidth: "96vw" }}>
+                <div className="wf-banner" role="status" aria-live="polite" aria-atomic="true" key={banner.id} style={{ position: "absolute", top: banner.big ? "26%" : "16%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none", animation: reducedMotion ? "none" : `wfBanner ${banner.big ? 2.3 : 1.6}s cubic-bezier(.2,.8,.2,1) forwards`, opacity: reducedMotion ? 1 : undefined, maxWidth: "96vw" }}>
                     <div style={{ position: "relative", overflow: "hidden", padding: banner.big ? "12px 58px" : "7px 38px", background: "linear-gradient(90deg, transparent 0%, rgba(6,9,20,0.92) 13%, rgba(6,9,20,0.92) 87%, transparent 100%)" }}>
                         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: `linear-gradient(90deg, transparent, ${banner.color}, transparent)` }} />
                         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 1, background: `linear-gradient(90deg, transparent, ${banner.color}, transparent)` }} />
                         <div style={{ color: banner.color, font: `900 ${banner.big ? 40 : 24}px Inter, system-ui, sans-serif`, letterSpacing: banner.big ? 3 : 2, textShadow: "0 2px 18px #000, 0 0 30px currentColor", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>{banner.text}</div>
-                        <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "38%", background: "linear-gradient(105deg, transparent, rgba(255,255,255,0.16), transparent)", animation: "wfShine 1.25s ease-out forwards" }} />
+                        <div className="wf-banner-shine" style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "38%", background: "linear-gradient(105deg, transparent, rgba(255,255,255,0.16), transparent)", animation: "wfShine 1.25s ease-out forwards" }} />
                     </div>
+                </div>
+            )}
+            {replayClip && (
+                <div className="wf-replay-chip" role="status" aria-live="polite" style={{ position: "absolute", left: "50%", top: 116, transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", border: "1px solid rgba(253,224,71,0.65)", borderRadius: 999, background: "rgba(8,12,24,0.92)", color: "#fde047", font: "900 13px Inter, system-ui, sans-serif", zIndex: 65 }}>
+                    <span>1× TURNING-POINT REPLAY · {replayClip.label}</span>
+                    <button ref={replaySkipRef} type="button" onClick={finishReplayClip} style={{ ...btn, padding: "4px 8px", fontSize: 13 }}>Skip</button>
                 </div>
             )}
 
             {/* Top bar: exit · replay/restart · timer · coins · mode badge */}
             <div className="wf-top-controls" style={{ position: "absolute", top: 10, left: 12, display: "flex", gap: 8, alignItems: "center" }}>
-                <button onClick={onExit} style={btn}>✕ Exit</button>
-                <button onClick={doReplay} style={btn} title="Rewatch this match from the start">⟲ Replay</button>
-                <button onClick={doRestart} style={btn} title="Fresh match, same seed">↻ Restart</button>
-                {allowReseed && <button onClick={doNewMatch} style={btn} title="Fresh match, new seed">🎲 New match</button>}
+                <button type="button" onClick={requestExit} disabled={exitPending} style={btn} aria-label="Exit Warfront">✕ <span className="wf-control-label">Exit</span></button>
+                <button type="button" onClick={doReplay} style={btn} title="Rewatch this match from the start" aria-label="Replay match">⟲ <span className="wf-control-label">Replay</span></button>
+                <button type="button" onClick={() => confirmLiveAction("Restart this battle from the beginning with the same seed?", doRestart)} style={btn} title="Fresh match, same seed" aria-label="Restart match">↻ <span className="wf-control-label">Restart</span></button>
+                {allowReseed && <button type="button" onClick={() => confirmLiveAction("Abandon this battle and create a new matchup?", doNewMatch)} style={btn} title="Fresh match, new seed" aria-label="New match">🎲 <span className="wf-control-label">New match</span></button>}
                 <button
+                    type="button"
+                    onClick={togglePause}
+                    disabled={!assetsReady || intro || !!council || ended}
+                    aria-pressed={userPaused}
+                    aria-label={userPaused ? "Resume battle" : "Pause battle"}
+                    style={{ ...btn, opacity: !assetsReady || intro || council || ended ? 0.55 : 1 }}
+                >{userPaused ? "▶" : "⏸"} <span className="wf-control-label">{userPaused ? "Resume" : "Pause"}</span></button>
+                <button
+                    type="button"
                     onClick={() => {
                         const next = !sfxMuted;
-                        setSfxMuted(next);
                         setPetSfxMuted(next);
-                        if (!next) { primePetSfx(); playPetSfx("buff"); }
+                        setAudioMuted(next);
+                        setSfxMuted(next);
+                        if (!next) { primeWarfrontAudio(); startWarfrontAudioBed(); seekWarfrontAudio(result.events, Math.floor(wfClockTick(clock))); primePetSfx(); playPetSfx("buff"); }
                     }}
                     style={btn}
                     title={sfxMuted ? "Enable objective and combat cues" : "Mute Warfront cues"}
                     aria-label={sfxMuted ? "Enable Warfront sound" : "Mute Warfront sound"}
+                    aria-pressed={!sfxMuted}
                 >{sfxMuted ? "🔇" : "🔊"}</button>
             </div>
             {/* SCORE STRIP — the win condition at a glance: ⛩ points (statues +
-                seal broken, the exact timer-verdict formula), kills, coins, and
-                the momentum bar underneath. */}
+                seal broken), coin tiebreak, and the exact live Judgment leader. */}
             <div className="wf-score-strip" style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "grid", gap: 4, justifyItems: "center", padding: "6px 16px 7px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 14, font: "800 14px Inter, system-ui, sans-serif" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, whiteSpace: "nowrap" }}>
-                    <span ref={stanceBlueRef} style={{ fontSize: 13 }} />
-                    <span style={{ color: "#93c5fd" }} title="Structures broken (statues + Ward Seal) — how this mode is won">⛩ <span ref={scoreBlueRef}>0</span></span>
-                    <span style={{ color: "#93c5fd", fontSize: 12 }} title="Kills">⚔ <span ref={killBlueRef}>0</span></span>
-                    <span style={{ color: "#60a5fa", fontSize: 12 }}>🪙 <span ref={coinBlueRef}>0</span></span>
+                    {localTeam === "blue" && <span className="wf-team-marker" style={{ color: "#dbeafe", fontSize: 10, letterSpacing: 1 }}>YOU</span>}
+                    <span className="wf-score-doctrine" title={`Blue doctrine: ${blueDoctrine.label} — ${blueDoctrine.desc}`} style={{ color: "#bfdbfe", fontSize: 12 }}>{blueDoctrine.icon}</span>
+                    <span className="wf-score-stance" ref={stanceBlueRef} style={{ fontSize: 13 }} />
+                    <span style={{ color: "#93c5fd" }} aria-label={`Blue${localTeam === "blue" ? ", your team" : ""} structures score`} title="Structures broken (statues + Ward Seal) — how this mode is won">⛩ <span ref={scoreBlueRef}>0</span></span>
+                    <span className="wf-score-secondary" style={{ color: "#93c5fd", fontSize: 12 }} title="Kills">⚔ <span ref={killBlueRef}>0</span></span>
+                    <span className="wf-score-secondary" style={{ color: "#60a5fa", fontSize: 12 }}>🪙 <span ref={coinBlueRef}>0</span></span>
                     <span ref={timerRef} style={{ color: "#e2e8f0", fontSize: 13, padding: "0 4px" }}>10:00</span>
-                    <span style={{ color: "#fca5a5", fontSize: 12 }}><span ref={coinRedRef}>0</span> 🪙</span>
-                    <span style={{ color: "#fca5a5", fontSize: 12 }} title="Kills"><span ref={killRedRef}>0</span> ⚔</span>
-                    <span style={{ color: "#fca5a5" }} title="Structures broken (statues + Ward Seal) — how this mode is won"><span ref={scoreRedRef}>0</span> ⛩</span>
-                    <span ref={stanceRedRef} style={{ fontSize: 13 }} />
+                    <span className="wf-score-secondary" style={{ color: "#fca5a5", fontSize: 12 }}><span ref={coinRedRef}>0</span> 🪙</span>
+                    <span className="wf-score-secondary" style={{ color: "#fca5a5", fontSize: 12 }} title="Kills"><span ref={killRedRef}>0</span> ⚔</span>
+                    <span style={{ color: "#fca5a5" }} aria-label={`Red${localTeam === "red" ? ", your team" : ""} structures score`} title="Structures broken (statues + Ward Seal) — how this mode is won"><span ref={scoreRedRef}>0</span> ⛩</span>
+                    <span className="wf-score-stance" ref={stanceRedRef} style={{ fontSize: 13 }} />
+                    <span className="wf-score-doctrine" title={`Red doctrine: ${redDoctrine.label} — ${redDoctrine.desc}`} style={{ color: "#fecaca", fontSize: 12 }}>{redDoctrine.icon}</span>
+                    {localTeam === "red" && <span className="wf-team-marker" style={{ color: "#fee2e2", fontSize: 10, letterSpacing: 1 }}>YOU</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span ref={sigilPipsBlueRef} title="Blue's Sigil claims — three crowns HOLLOW ASCENDANCE" style={{ fontSize: 9, letterSpacing: 1, color: "#475569" }} />
                     <span ref={structsBlueRef} title="Blue's remaining sentinels · totems · Ward Seal" style={{ fontSize: 9, letterSpacing: 1, opacity: 0.9 }} />
-                    <div title="Momentum — structure damage, points, kills and gold" style={{ position: "relative", width: 250, height: 5, borderRadius: 4, background: "#7f1d1d", overflow: "hidden", border: "1px solid rgba(0,0,0,0.6)" }}>
-                        <div ref={momentumRef} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "50%", background: "linear-gradient(90deg,#1d4ed8,#60a5fa)", transition: "width 0.4s ease" }} />
-                        <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: "100%", background: "rgba(255,255,255,0.55)" }} />
-                    </div>
+                    <span ref={judgmentRef} className="wf-score-divider" role="img" data-wf-judgment="tied" aria-label="Judgment tied" style={{ width: 160, height: 3, borderRadius: 999, background: "linear-gradient(90deg,#3b82f6 0 49%,#475569 49% 51%,#ef4444 51% 100%)" }} />
                     <span ref={structsRedRef} title="Red's remaining Ward Seal · totems · sentinels" style={{ fontSize: 9, letterSpacing: 1, opacity: 0.9 }} />
+                    <span ref={sigilPipsRedRef} title="Red's Sigil claims — three crowns HOLLOW ASCENDANCE" style={{ fontSize: 9, letterSpacing: 1, color: "#475569" }} />
                 </div>
             </div>
             {/* Objective ribbon — phase clock, current instruction and live
                 neutral-objective state. Refs keep it cheap at 60fps. */}
             <div className="wf-objective-strip" style={{ position: "absolute", top: 70, left: "50%", transform: "translateX(-50%)", width: "min(610px, 58vw)", display: "grid", gap: 4, padding: "5px 10px 6px", background: "linear-gradient(90deg, transparent, rgba(8,12,24,0.9) 10%, rgba(8,12,24,0.9) 90%, transparent)", pointerEvents: "none", fontFamily: "Inter, system-ui, sans-serif" }}>
                 <div className="wf-objective-main" style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: 9, whiteSpace: "nowrap" }}>
-                    <span ref={phaseRef} style={{ color: "#93c5fd", fontSize: 11, fontWeight: 900, letterSpacing: 1.8 }}>LANING</span>
-                    <span ref={phaseClockRef} style={{ color: "#64748b", fontSize: 9, fontWeight: 800 }}>NEXT 1:00</span>
-                    <span style={{ color: "#334155" }}>◆</span>
-                    <span ref={objectiveRef} style={{ color: "#f8fafc", fontSize: 10, fontWeight: 900, letterSpacing: 0.7 }}>FARM COINS · SECURE THE LANES</span>
+                    <span className="wf-phase-label" ref={phaseRef} style={{ color: "#93c5fd", fontSize: 11, fontWeight: 900, letterSpacing: 1.8 }}>LANING</span>
+                    <span className="wf-phase-clock" ref={phaseClockRef} style={{ color: "#64748b", fontSize: 9, fontWeight: 800 }}>NEXT 1:00</span>
+                    <span className="wf-objective-separator" style={{ color: "#334155" }}>◆</span>
+                    <span ref={sigilRef} style={{ color: "#8b93a7", fontSize: 9, fontWeight: 800 }} />
+                    <span className="wf-objective-separator" style={{ color: "#334155" }}>◆</span>
+                    <span className="wf-objective-call" ref={objectiveRef} style={{ color: "#f8fafc", fontSize: 10, fontWeight: 900, letterSpacing: 0.7 }}>FARM COINS · SECURE THE LANES</span>
+                </div>
+                <div className="wf-stakes-row" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, whiteSpace: "nowrap", minWidth: 0 }}>
+                    <span className="wf-team-intent" ref={blueIntentRef} style={{ minWidth: 84, color: "#93c5fd", fontSize: 8, fontWeight: 900, textAlign: "right", letterSpacing: 0.7 }}>BLUE · FARM</span>
+                    <span className="wf-stakes-arrow" style={{ color: "#334155" }}>›</span>
+                    <span className="wf-live-stakes" ref={stakesRef} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", color: "#fde68a", fontSize: 8, fontWeight: 900, letterSpacing: 0.7 }}>BREAK SENTINELS · OPEN THE WARD SEAL</span>
+                    <span className="wf-stakes-arrow" style={{ color: "#334155" }}>‹</span>
+                    <span className="wf-team-intent" ref={redIntentRef} style={{ minWidth: 84, color: "#fca5a5", fontSize: 8, fontWeight: 900, textAlign: "left", letterSpacing: 0.7 }}>RED · FARM</span>
                 </div>
                 <div className="wf-warden-strip" ref={wardenWrapRef} style={{ display: "none", gridTemplateColumns: "auto 170px auto", justifyContent: "center", alignItems: "center", columnGap: 8, rowGap: 2 }}>
-                    <span ref={wardenStatusRef} style={{ color: "#e9d5ff", fontSize: 9, fontWeight: 800, minWidth: 102, textAlign: "right" }}>PHASE I</span>
+                    <span className="wf-warden-status" ref={wardenStatusRef} style={{ color: "#e9d5ff", fontSize: 9, fontWeight: 800, minWidth: 102, textAlign: "right" }}>PHASE I</span>
                     <div style={{ height: 6, background: "#1e1b2e", border: "1px solid rgba(216,180,254,0.4)", borderRadius: 5, overflow: "hidden" }}>
                         <div ref={wardenHpRef} style={{ height: "100%", width: "100%", background: "#a78bfa", transition: "width 0.15s linear" }} />
                     </div>
-                    <span ref={wardenDamageRef} style={{ color: "#94a3b8", fontSize: 8, fontWeight: 800, minWidth: 102 }}>BLUE 50% · 50% RED</span>
-                    <span ref={buffRef} style={{ gridColumn: "1 / 3", color: "#64748b", fontSize: 8, fontWeight: 800, textAlign: "right" }}>⚡ Gate's Wrath unclaimed</span>
-                    <span ref={campsRef} style={{ gridColumn: "3", color: "#d8b4fe", fontSize: 8, fontWeight: 800, whiteSpace: "nowrap" }}>🛡 READY · ✚ READY · 👁 READY · 🔥 READY</span>
+                    <span className="wf-warden-damage" ref={wardenDamageRef} style={{ color: "#94a3b8", fontSize: 8, fontWeight: 800, minWidth: 102 }}>BLUE 50% · 50% RED</span>
                 </div>
             </div>
             <div className="wf-top-meta" style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, alignItems: "center" }}>
-                <div style={{ padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label} (beta)</div>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 7px", background: "rgba(15,23,42,0.9)", border: "1px solid #334155", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif" }}>
+                <div className="wf-mode-badge" style={{ padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 12px Inter, system-ui, sans-serif" }}>⛩ Hollow Warfront · {spec.label}</div>
+                <label style={metaControl}>
                     FX
                     <select
                         aria-label="Warfront visual quality"
                         value={qualityId}
                         onChange={(event) => chooseQuality(event.target.value as PetVisualQuality)}
-                        style={{ background: "#0f172a", border: 0, color: "#e2e8f0", font: "700 10px Inter, system-ui, sans-serif", cursor: "pointer" }}
+                        style={metaSelect}
                     >
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
-                        <option value="high">High</option>
                     </select>
                 </label>
+                <label style={metaControl}>
+                    UI
+                    <select aria-label="Warfront interface size" value={uiScale} onChange={(event) => chooseUiScale(event.target.value as WfUiScale)} style={metaSelect}>
+                        <option value="standard">100%</option>
+                        <option value="large">Large</option>
+                    </select>
+                </label>
+                <label className="wf-pace-control" title="Smart uses 1.35× only in quiet play and returns to 1× before major moments" style={metaControl}>
+                    <span className="wf-pace-label">PACE</span>
+                    <select data-wf-pace={replayClip ? "1" : paceMode} aria-label="Broadcast pace" value={replayClip ? "1" : paceMode} disabled={!!replayClip} onChange={(event) => choosePace(event.target.value as WarfrontPaceMode)} style={metaSelect}>
+                        <option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="smart">Smart</option>
+                    </select>
+                </label>
+                <button className="wf-motion-toggle" type="button" aria-pressed={reducedMotion} aria-label={`${reducedMotion ? "Disable" : "Enable"} reduced motion`} title="Reduce camera cuts, shake, flashes and ambient motion" onClick={toggleReducedMotion} style={{ ...btn, minHeight: 34, padding: "4px 9px", borderRadius: 999, borderColor: reducedMotion ? "#6ee7b7" : "#475569" }}>◌</button>
             </div>
             {/* Camera modes: 📺 director's broadcast · 🎬 calm wide · 🛡 my team. */}
             <div className="wf-camera-modes" style={{ position: "absolute", top: 42, left: 12, display: "flex", gap: 4 }}>
@@ -3902,16 +4735,22 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     ["team", "🛡", "My Team — stay locked on your squad"],
                 ] as const).map(([id, icon, tip]) => (
                     <button
+                        type="button"
                         key={id}
-                        onClick={() => { setCamMode(id); setFocusPetId(null); camCtl.current.mode = "follow"; setFreeCam(false); }}
+                        disabled={!!replayClip}
+                        onClick={() => { setCamMode(id); focusMiniRef.current = null; setFocusPetId(null); camCtl.current.mode = "follow"; setFreeCam(false); }}
                         title={tip}
+                        aria-label={tip}
+                        aria-pressed={camMode === id && !freeCam}
                         style={{ padding: "3px 9px", background: camMode === id && !freeCam ? "rgba(109,40,217,0.9)" : "rgba(15,23,42,0.85)", border: `1px solid ${camMode === id && !freeCam ? "#a78bfa" : "#334155"}`, borderRadius: 999, color: camMode === id && !freeCam ? "#fff" : "#94a3b8", cursor: "pointer", font: "700 12px Inter, system-ui, sans-serif" }}
                     >{icon}</button>
                 ))}
             </div>
             {freeCam && (
                 <button
+                    type="button"
                     className="wf-free-camera"
+                    disabled={!!replayClip}
                     onClick={() => { camCtl.current.mode = "follow"; setFreeCam(false); }}
                     style={{ position: "absolute", top: 74, left: 12, padding: "4px 10px", background: "rgba(109,40,217,0.9)", border: "1px solid #a78bfa", borderRadius: 999, color: "#fff", cursor: "pointer", font: "700 11px Inter, system-ui, sans-serif" }}
                 >📍 Free cam — tap to follow</button>
@@ -3919,40 +4758,22 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
 
             {/* Kill feed + minimap (right column) */}
             <div className="wf-right-stack" style={{ position: "absolute", top: 46, right: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", pointerEvents: "none" }}>
-                <WfMinimap result={result} clock={clock} theme={theme} camViewRef={camView} camCtlRef={camCtl} onModeChange={handleFreeCameraMode} />
-                {feed.map((f) => (<div key={f.id} style={{ padding: "3px 9px", background: "rgba(8,12,24,0.82)", border: `1px solid ${f.color}66`, borderRadius: 6, color: f.color, font: "700 11px Inter, system-ui, sans-serif", animation: "wfFeedIn 0.2s ease-out", maxWidth: "44vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.text}</div>))}
+                <WfMinimap result={result} clock={clock} theme={theme} camViewRef={camView} camCtlRef={camCtl} onModeChange={handleFreeCameraMode} disabled={!!replayClip} />
+                {quality.id === "medium" && <WfConvoyFollow result={result} clock={clock} onFollow={handleConvoyFollow} disabled={!!replayClip} />}
+                {feed.map((f) => { const councilOrder = /^COUNCIL \d/.test(f.text); return <div className={`wf-feed-item${councilOrder ? " wf-council-recap" : ""}`} role={councilOrder ? "status" : undefined} key={f.id} title={f.text} style={{ padding: "4px 9px", background: "rgba(8,12,24,0.88)", border: `1px solid ${f.color}66`, borderRadius: 6, color: f.color, font: "700 13px Inter, system-ui, sans-serif", animation: "wfFeedIn 0.2s ease-out", maxWidth: "44vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.text}</div>; })}
             </div>
 
-            {/* MULTI-CAM WALL — one screen per pet; click to feature it. */}
-            {multiCamOn && (
-                <div className="wf-multicam-wall" style={{ position: "absolute", left: 10, bottom: 10, display: "flex", gap: 8, zIndex: 55 }}>
-                    {myPets.map((mp, i) => (
-                        <div
-                            key={mp.id}
-                            ref={(el) => { tileBoxRefs.current[i] = el; }}
-                            role="button"
-                            tabIndex={0}
-                            aria-pressed={focusPetId === mp.id}
-                            aria-label={focusPetId === mp.id ? `Return ${mp.name} tile to chase camera` : `Feature ${mp.name} on the main screen`}
-                            onClick={() => setFocusPetId((cur) => (cur === mp.id ? null : mp.id))}
-                            onKeyDown={(event) => {
-                                if (event.key !== "Enter" && event.key !== " ") return;
-                                event.preventDefault();
-                                setFocusPetId((cur) => (cur === mp.id ? null : mp.id));
-                            }}
-                            title={focusPetId === mp.id ? "Swap back — broadcast returns to the main screen" : `Feature ${mp.name} on the main screen (the broadcast moves here)`}
-                            style={{ position: "relative", width: tileW, height: tileH, border: `2px solid ${focusPetId === mp.id ? "#fbbf24" : "rgba(96,165,250,0.5)"}`, borderRadius: 10, cursor: "pointer", overflow: "hidden", boxShadow: focusPetId === mp.id ? "0 0 16px rgba(251,191,36,0.45)" : "0 4px 18px rgba(0,0,0,0.5)" }}
-                        >
-                            <div style={{ position: "absolute", left: 0, right: 0, top: 0, padding: "2px 7px", background: "linear-gradient(rgba(5,8,16,0.85), transparent)", color: focusPetId === mp.id ? "#fde047" : "#93c5fd", font: "700 10px Inter, system-ui, sans-serif", display: "flex", justifyContent: "space-between", pointerEvents: "none" }}>
-                                <span>{focusPetId === mp.id ? "📺 Broadcast" : `📷 ${mp.name}`}</span>
-                                <span ref={(el) => { tileStatusRefs.current[i] = el; }} style={{ color: "#fca5a5" }} />
-                            </div>
-                            {/* Squad-health strip — the wall doubles as team frames. */}
-                            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 4, background: "rgba(5,8,16,0.75)", pointerEvents: "none" }}>
-                                <div ref={(el) => { tileHpRefs.current[i] = el; }} style={{ height: "100%", width: "100%", background: "#60a5fa" }} />
-                            </div>
+            {exitPrompt && (
+                <div style={{ position: "absolute", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 14, background: "rgba(3,7,18,.82)" }}>
+                    <div ref={exitDialogRef} role="dialog" aria-modal="true" aria-labelledby="wf-forfeit-title" aria-describedby="wf-forfeit-desc" onKeyDown={trapExitDialogFocus} style={{ width: "min(470px, 94vw)", padding: 18, borderRadius: 14, border: "1px solid #fb7185", background: "rgba(10,14,28,.98)", boxShadow: "0 24px 80px rgba(0,0,0,.7)" }}>
+                        <h2 id="wf-forfeit-title" ref={exitHeadingRef} tabIndex={-1} style={{ margin: 0, color: "#fecdd3", font: "900 22px Inter,system-ui,sans-serif" }}>Forfeit this Warfront?</h2>
+                        <p id="wf-forfeit-desc" style={{ color: "#e2e8f0", lineHeight: 1.45 }}>The server will immediately record a loss with zero victory reward. To prevent seed rerolls, fresh scouting stays locked until this match&apos;s original regulation clock expires. The match stays open unless the receipt succeeds.</p>
+                        {exitError && <p role="alert" style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(127,29,29,.28)", color: "#fecaca", fontWeight: 700 }}>{exitError}</p>}
+                        <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 8 }}>
+                            <button type="button" disabled={exitPending} onClick={cancelExit} style={{ ...btn, minHeight: 44 }}>{exitError ? "Return to match" : "Cancel"}</button>
+                            <button type="button" disabled={exitPending} onClick={() => void confirmForfeit()} style={{ ...btn, minHeight: 44, borderColor: "#fb7185", background: "#9f1239" }}>{exitPending ? "Securing forfeit…" : exitError ? "Retry forfeit" : "Forfeit & exit"}</button>
                         </div>
-                    ))}
+                    </div>
                 </div>
             )}
 
@@ -3961,88 +4782,124 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                 <WfWarCouncil
                     key={council.round}
                     round={council.round}
-                    buyState={ctl.buyState("blue")}
+                    buyState={ctl.buyState("blue").map((pet, index) => ({ ...pet, role: blue[index]?.role ?? "defender" }))}
                     coins={ctl.coins("blue")}
                     initialStance={ctl.stances().blue}
-                    onResume={resumeFromCouncil}
+                    adaptationReserve={result.events.find((event): event is Extract<WfEvent, { type: "readreserve" }> => event.type === "readreserve" && event.team === "blue")?.coins ?? 0}
+                    context={{
+                        snapshot: result.snapshots.at(-1)!,
+                        decisions: result.choiceLog ?? [],
+                        events: result.events,
+                        setupDecision: { buildPackage, coachOrder, objectiveTechnique, counterstrike },
+                    }}
+                    onResume={(decision) => resumeFromCouncil(council.round, decision)}
+                    onRequestExit={requestExit}
+                    forfeitRequired={!!onForfeit}
                 />
             )}
 
-            {ended && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)", zIndex: 70 }}>
-                    <div style={{ textAlign: "center", animation: "wfEndIn 0.5s ease-out" }}>
-                        <div style={{ font: "900 34px Inter, system-ui, sans-serif", color: result.winner === "blue" ? "#60a5fa" : result.winner === "red" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{winLabel}</div>
+            {ended && !replayClip && (
+                <div ref={endDialogRef} role="dialog" aria-modal="true" aria-labelledby="wf-result-title" onKeyDown={trapEndDialogFocus} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.72)", zIndex: 70, padding: 12 }}>
+                    <div className="wf-end-card" style={{ width: "min(760px, 96vw)", maxHeight: "92vh", overflowY: "auto", padding: "22px 18px", textAlign: "center", animation: "wfEndIn 0.5s ease-out", background: "rgba(8,12,24,.9)", border: `1px solid ${result.winner === "draw" ? "#facc15" : localVictory ? "#6ee7b7" : "#fb7185"}`, borderRadius: 16 }}>
+                        <h2 id="wf-result-title" ref={endHeadingRef} tabIndex={-1} style={{ margin: 0, font: "900 34px Inter, system-ui, sans-serif", color: result.winner === "blue" ? "#60a5fa" : result.winner === "red" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{winLabel}</h2>
                         {(() => {
-                            const last = result.snapshots[result.snapshots.length - 1];
+                            const last = result.snapshots.at(-1)!;
                             const score = wfVerdictScore(last);
-                            let kb = 0, kr = 0;
-                            for (const e of result.events) if (e.type === "kill") { if (e.team === "blue") kb++; else kr++; }
-                            const sb = last.guardians.red.filter((g) => !g.alive).length;
-                            const sr = last.guardians.blue.filter((g) => !g.alive).length;
                             return (
                                 <div style={{ marginTop: 6, display: "grid", gap: 2 }}>
                                     <div style={{ color: "#e2e8f0", font: "800 14px Inter, system-ui, sans-serif" }}>
-                                        ⛩ Points <span style={{ color: "#93c5fd" }}>{score.blue}</span> — <span style={{ color: "#fca5a5" }}>{score.red}</span>
-                                        <span style={{ color: "#64748b" }}> · </span>⚔ Kills <span style={{ color: "#93c5fd" }}>{kb}</span> — <span style={{ color: "#fca5a5" }}>{kr}</span>
-                                        <span style={{ color: "#64748b" }}> · </span>🛡 Sentinels <span style={{ color: "#93c5fd" }}>{sb}</span> — <span style={{ color: "#fca5a5" }}>{sr}</span>
-                                        <span style={{ color: "#64748b" }}> · </span>🪙 <span style={{ color: "#93c5fd" }}>{result.coins.blue}</span> — <span style={{ color: "#fca5a5" }}>{result.coins.red}</span>
-                                        <span style={{ color: "#64748b" }}> · </span>Warden <span style={{ color: "#93c5fd" }}>{Math.round(last.warden.damage.blue)}</span> — <span style={{ color: "#fca5a5" }}>{Math.round(last.warden.damage.red)}</span>
+                                        ⛩ Points <span style={{ color: "#93c5fd" }}>{score.blue}{localTeam === "blue" ? " (you)" : ""}</span> — <span style={{ color: "#fca5a5" }}>{score.red}{localTeam === "red" ? " (you)" : ""}</span>
+                                        <span style={{ color: "#64748b" }}> · </span>🗿 Sigils <span style={{ color: "#93c5fd" }}>{last.sigilPips.blue}</span> — <span style={{ color: "#fca5a5" }}>{last.sigilPips.red}</span>
                                     </div>
-                                    <div style={{ color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>
-                                        {sealBroken ? "Victory by Ward Seal destruction" : "Timer verdict — points (statues + seal broken), then coins"}
+                                    {last.ascendant && <div style={{ color: "#fde047", font: "800 14px Inter" }}>🗿 {last.ascendant.toUpperCase()} · HOLLOW ASCENDANCE</div>}
+                                    <div style={{ color: result.opening.winner ? TEAM_SOFT[result.opening.winner] : "#94a3b8", font: "800 14px Inter, system-ui, sans-serif" }}>
+                                        {blueDoctrine.icon} {blueDoctrine.label} vs {redDoctrine.icon} {redDoctrine.label} · {openingLine}
+                                    </div>
+                                    <div style={{ color: "#94a3b8", font: "600 14px Inter, system-ui, sans-serif" }}>
+                                        {sealBroken ? "Decided by Ward Seal destruction" : "Timer verdict — points (statues + seal broken), then coins"}
                                     </div>
                                 </div>
+                            );
+                        })()}
+                        {decisionReceipt && (() => {
+                            const orderCounts = new Map<WfCoachOrder, number>();
+                            for (const round of decisionReceipt.rounds) if (round.coachOrder) orderCounts.set(round.coachOrder, (orderCounts.get(round.coachOrder) ?? 0) + 1);
+                            const orderLine = WF_COACH_ORDER_META
+                                .filter((item) => orderCounts.has(item.id))
+                                .map((item) => `${item.icon} ${item.label} ×${orderCounts.get(item.id)}`)
+                                .join(" · ") || "No authored round orders";
+                            const packageLine = (decisionReceipt.buildPackages ?? []).map((entry) => {
+                                const item = buildPackageSpec(entry.choice);
+                                return `${item?.icon ?? ""} ${item?.label ?? entry.choice} · ${visiblePackageActivationLabel(entry.procs)}`;
+                            }).join(" · ") || "No build package";
+                            const techniqueMeta = decisionReceipt.objectiveTechnique ? WF_OBJECTIVE_TECHNIQUE_META.find((item) => item.id === decisionReceipt.objectiveTechnique?.choice) : null;
+                            const counterMeta = decisionReceipt.counterstrike ? WF_COUNTERSTRIKE_META.find((item) => item.id === decisionReceipt.counterstrike?.choice) : null;
+                            const openingResult = result.opening.winner === localTeam ? "won the opening read" : result.opening.winner ? "lost the opening read" : "opened neutral";
+                            return (
+                                <section aria-labelledby="wf-decision-receipt-title" style={{ margin: "12px auto 0", maxWidth: 700, padding: "10px", border: "1px solid rgba(56,189,248,.42)", borderRadius: 11, background: "rgba(8,47,73,.18)", textAlign: "left" }}>
+                                    <h3 id="wf-decision-receipt-title" style={{ margin: "0 0 8px", color: "#bae6fd", font: "900 15px Inter,system-ui,sans-serif" }}>Your decision receipt</h3>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 7 }}>
+                                        <div style={{ padding: 8, borderRadius: 8, background: "rgba(15,23,42,.72)" }}>
+                                            <strong style={{ color: "#f8fafc" }}>Opening plan</strong>
+                                            <div style={{ marginTop: 3, color: "#cbd5e1", fontSize: 12 }}>{localSlots.map((slot, index) => `${decisionReceipt.deployment?.[index] ?? ["top", "mid", "bottom", "flex"][index]} · ${slot.pet.name} (${slot.role})`).join(" · ")}</div>
+                                            <div style={{ marginTop: 4, color: "#a5b4fc", fontSize: 12 }}>{doctrineSpec(result.doctrines[localTeam]).label} · {openingResult}</div>
+                                        </div>
+                                        <div style={{ padding: 8, borderRadius: 8, background: "rgba(15,23,42,.72)" }}>
+                                            <strong style={{ color: "#f8fafc" }}>Build & orders</strong>
+                                            <div style={{ marginTop: 3, color: "#cbd5e1", fontSize: 12 }}>{packageLine}</div>
+                                            <div style={{ marginTop: 4, color: "#a5b4fc", fontSize: 12 }}>{orderLine}</div>
+                                        </div>
+                                        <div style={{ padding: 8, borderRadius: 8, background: "rgba(15,23,42,.72)" }}>
+                                            <strong style={{ color: "#f8fafc" }}>Clutch tools</strong>
+                                            <div style={{ marginTop: 3, color: decisionReceipt.objectiveTechnique?.used ? "#86efac" : "#94a3b8", fontSize: 12 }}>{techniqueMeta?.icon} {techniqueMeta?.label ?? "No technique"} · {decisionReceipt.objectiveTechnique?.used ? `used ${mmss((decisionReceipt.objectiveTechnique.usedAt ?? 0) / WARFRONT_TPS)}` : "not triggered"}</div>
+                                            <div style={{ marginTop: 4, color: decisionReceipt.counterstrike?.triggered ? "#fda4af" : "#94a3b8", fontSize: 12 }}>{counterMeta?.icon} {counterMeta?.label ?? "No counterstrike"} · {decisionReceipt.counterstrike?.triggered ? `triggered ${mmss((decisionReceipt.counterstrike.triggeredAt ?? 0) / WARFRONT_TPS)}` : "not triggered"}</div>
+                                        </div>
+                                        <div style={{ padding: 8, borderRadius: 8, background: "rgba(15,23,42,.72)" }}>
+                                            <strong style={{ color: "#f8fafc" }}>Measured impact</strong>
+                                            <div style={{ marginTop: 3, color: "#cbd5e1", fontSize: 12 }}>{decisionReceipt.outcome.petKills} kills · {decisionReceipt.outcome.structuresDestroyed} structures · {decisionReceipt.outcome.sigilsClaimed} Sigils</div>
+                                            <div style={{ marginTop: 4, color: "#fde68a", fontSize: 12 }}>{decisionReceipt.outcome.objectiveSteals} steals · 🪙{decisionReceipt.outcome.coins}</div>
+                                        </div>
+                                    </div>
+                                </section>
                             );
                         })()}
                         {(() => {
-                            const beats = result.events
+                            const allBeats = result.events
                                 .map((event) => ({ event, label: objectiveEventLabel(event) }))
-                                .filter((beat): beat is { event: WarfrontResult["events"][number]; label: string } => !!beat.label)
-                                .slice(-8);
+                                .filter((beat): beat is { event: WarfrontResult["events"][number]; label: string } => !!beat.label);
+                            const openingBeat = allBeats.find((beat) => beat.event.type === "opening");
+                            const byEvent = new Map(allBeats.map((beat) => [beat.event, beat]));
+                            const beats = [...(openingBeat ? [openingBeat] : []), ...warfrontTurningPoints(allBeats.filter((beat) => beat !== openingBeat).map((beat) => beat.event), 7).map((event) => byEvent.get(event)!)];
                             if (!beats.length) return null;
                             return (
-                                <div style={{ margin: "10px auto 0", maxWidth: 620, display: "flex", alignItems: "stretch", justifyContent: "center", gap: 3 }}>
+                                <div className="wf-end-timeline" style={{ margin: "12px auto 0", maxWidth: 680, display: "grid", gridTemplateColumns: `repeat(${Math.min(4, beats.length)}, minmax(0, 1fr))`, alignItems: "stretch", justifyContent: "center", gap: 5 }}>
                                     {beats.map(({ event, label }, index) => (
-                                        <div key={warfrontEventKey(event, index)} style={{ flex: "1 1 0", minWidth: 0, padding: "5px 6px", background: "rgba(8,12,24,0.82)", borderTop: `2px solid ${objectiveEventColor(event)}`, color: "#cbd5e1", textAlign: "left" }}>
-                                            <div style={{ color: objectiveEventColor(event), font: "900 9px Inter, system-ui, sans-serif" }}>{mmss(event.t / WARFRONT_TPS)}</div>
-                                            <div style={{ font: "700 9px/1.25 Inter, system-ui, sans-serif" }}>{label}</div>
-                                        </div>
+                                        <button
+                                            key={warfrontEventKey(event, index)}
+                                            type="button"
+                                            data-wf-salience={warfrontEventSalience(event)}
+                                            onClick={() => replayTurningPoint(event, label)}
+                                            aria-label={`Replay turning point at ${mmss(event.t / WARFRONT_TPS)}: ${label}`}
+                                            title="Replay three seconds before and four seconds after this turning point"
+                                            style={{ flex: "1 1 0", minWidth: 0, padding: "5px 6px", background: "rgba(8,12,24,0.82)", border: 0, borderTop: `2px solid ${objectiveEventColor(event)}`, color: "#cbd5e1", textAlign: "left", cursor: "pointer" }}
+                                        >
+                                            <div style={{ color: objectiveEventColor(event), font: "900 12px Inter, system-ui, sans-serif" }}>{mmss(event.t / WARFRONT_TPS)}</div>
+                                            <div style={{ font: "700 12px/1.3 Inter, system-ui, sans-serif" }}>{label}</div>
+                                        </button>
                                     ))}
                                 </div>
                             );
                         })()}
-                        {result.petStats && (() => {
-                            const rows = [...result.petStats].sort((a, b) => b.dmg - a.dmg);
-                            const mvp = warfrontMvpId(rows);
-                            const mvpRow = rows.find((row) => row.id === mvp);
-                            return (
-                                <div style={{ margin: "12px auto 0", maxWidth: 460, background: "rgba(8,12,24,0.85)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "8px 10px", textAlign: "left" }}>
-                                    {mvpRow && (
-                                        <div style={{ margin: "-1px 0 7px", color: mvpRow.team === "blue" ? "#93c5fd" : "#fca5a5", font: "900 11px Inter, system-ui, sans-serif" }}>
-                                            👑 MVP · {mvpRow.name} · {mvpRow.kills} K / {mvpRow.assists ?? 0} A · {mvpRow.dmg} damage
-                                        </div>
-                                    )}
-                                    <div style={{ display: "grid", gridTemplateColumns: "1.6fr 0.55fr 0.5fr 0.5fr 0.85fr 0.85fr", gap: 4, font: "800 10px Inter, system-ui, sans-serif", color: "#64748b", padding: "0 2px 4px" }}>
-                                        <span>PET</span><span>LV</span><span>K</span><span>A</span><span>DMG</span><span>🪙</span>
-                                    </div>
-                                    {rows.map((r) => (
-                                        <div key={`${r.team}:${r.id}`} style={{ display: "grid", gridTemplateColumns: "1.6fr 0.55fr 0.5fr 0.5fr 0.85fr 0.85fr", gap: 4, font: "700 12px Inter, system-ui, sans-serif", color: r.team === "blue" ? "#93c5fd" : "#fca5a5", padding: "2px" }}>
-                                            <span>{r.id === mvp ? "👑 " : ""}{r.name}</span>
-                                            <span>★{r.level}</span>
-                                            <span>{r.kills}</span>
-                                            <span>{r.assists ?? 0}</span>
-                                            <span>{r.dmg}</span>
-                                            <span>{r.coins}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })()}
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
-                            <button onClick={doReplay} style={{ ...btn, padding: "8px 14px" }}>⟲ Replay</button>
-                            <button onClick={doRestart} style={{ ...btn, padding: "8px 14px" }}>↻ Restart</button>
-                            {allowReseed && <button onClick={doNewMatch} style={{ ...btn, background: "#6d28d9", border: "1px solid #a78bfa", padding: "8px 14px" }}>🎲 New match</button>}
-                            <button onClick={onExit} style={{ ...btn, background: "#1e3a8a", border: "1px solid #3b82f6", padding: "8px 14px" }}>Exit</button>
+                        {result.petStats?.length ? (() => {
+                            const mvpId = warfrontMvpId(result.petStats);
+                            const mvp = result.petStats.find((pet) => pet.id === mvpId) ?? result.petStats[0];
+                            return <div style={{ marginTop: 12, color: TEAM_SOFT[mvp.team], font: "900 14px Inter,system-ui" }}>👑 MVP · {mvp.name} · {mvp.kills} K · {mvp.dmg} damage</div>;
+                        })() : null}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 14 }}>
+                            <button type="button" onClick={doReplay} style={{ ...btn, minHeight: 44, padding: "8px 14px" }}>⟲ Replay</button>
+                            <button type="button" onClick={doRestart} style={{ ...btn, minHeight: 44, padding: "8px 14px" }}>↻ Restart</button>
+                            {allowReseed && <button type="button" onClick={doNewMatch} style={{ ...btn, minHeight: 44, background: "#6d28d9", border: "1px solid #a78bfa", padding: "8px 14px" }}>🎲 New match</button>}
+                            <button type="button" onClick={onExit} style={{ ...btn, minHeight: 44, background: "#1e3a8a", border: "1px solid #3b82f6", padding: "8px 14px" }}>Exit</button>
                         </div>
                     </div>
                 </div>

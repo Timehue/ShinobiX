@@ -489,13 +489,23 @@ async function certify() {
         api(`/api/save/${player}`, { token }),
         api(`/api/save/${other}`, { token: observerToken }),
     ]);
+    const pvpChallengeId = `cert-ch-${suffix}`.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+    const challengeSent = await api('/api/player/challenge', {
+        method: 'POST', token, asName: player,
+        body: {
+            targetName: other,
+            challenge: { id: pvpChallengeId, fromName: player, toName: other, createdAt: Date.now(), mode: 'standard' },
+        },
+    });
+    check(challengeSent.status === 200, `authoritative PvP challenge created → ${challengeSent.status}`);
     const clientBattleId = `client-forged-${suffix}`;
     const createdPvp = await api('/api/pvp/session', {
-        method: 'POST', token,
+        method: 'POST', token: observerToken, asName: other,
         body: {
             p1Character: p1Save.body.character ?? freshCharacter(player),
             p2Character: p2Save.body.character ?? freshCharacter(other),
             battleId: clientBattleId,
+            challengeId: pvpChallengeId,
             biome: 'central',
             weatherPositiveElement: '',
             weatherNegativeElement: '',
@@ -510,7 +520,25 @@ async function certify() {
             'the battle uses a server-generated UUID v4 capability id');
         check(battleId !== clientBattleId, 'a client-supplied battle id is ignored');
         check(pvp?.p1?.name === player && pvp?.p2?.name === other, 'both authoritative saved fighters are sealed into the session');
-        check(pvp?.baseRewards === true, 'the real-player duel is eligible for server-owned base rewards');
+        check(pvp?.baseRewards !== true, 'a standard challenge is sealed as a no-reward spar even if a client asks for base rewards');
+        check(pvp?.rewardAuthority === 'challenge', 'the sanctioned duel is sealed to the single-use challenge receipt');
+
+        const accepted = await api('/api/player/challenge', {
+            method: 'POST', token: observerToken, asName: other,
+            body: {
+                targetName: player,
+                challenge: { id: pvpChallengeId, fromName: other, toName: player, accepted: true, battleId },
+            },
+        });
+        check(accepted.status === 200, `the exact challenged player accepts the exact bound battle → ${accepted.status}`);
+
+        const joinedP1 = await api('/api/pvp/move', {
+            method: 'POST', token, asName: player,
+            body: { battleId, role: 'p1', action: 'join', moveToken: `cert-pvp-join-${suffix}`, playerName: player },
+        });
+        check(joinedP1.status === 200 && joinedP1.body.joined?.p1 === true && joinedP1.body.joined?.p2 === true,
+            `both fighters authenticate into the sanctioned session → ${joinedP1.status}`);
+        if (joinedP1.status === 200) pvp = joinedP1.body;
 
         const reconnected = await api(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
         check(reconnected.status === 200 && reconnected.body.battleId === battleId, `session reconnect/readback succeeds → ${reconnected.status}`);
@@ -599,9 +627,11 @@ async function certify() {
             });
             check(winnerClaim.status === 200 && winnerClaim.body.ok === true && winnerClaim.body.alreadyClaimed === false,
                 `the recorded winner settles exactly once → ${winnerClaim.status}`);
+            check(winnerClaim.body.rewardAuthorized === true,
+                'the claim confirms the single-use challenge authority and mutual join');
             const afterWinnerClaim = await api(`/api/save/${winner.name}`, { token: winner.token });
             const afterClaimRyo = Number(afterWinnerClaim.body.character?.ryo ?? 0);
-            check(afterClaimRyo > beforeClaimRyo, `the server-owned PvP reward persists to the winner's save (${beforeClaimRyo} → ${afterClaimRyo})`);
+            check(afterClaimRyo === beforeClaimRyo, `the no-reward spar cannot mint Ryo (${beforeClaimRyo} → ${afterClaimRyo})`);
 
             const forgedLoserWin = await api('/api/pvp/claim-rewards', {
                 method: 'POST', token: loser.token, asName: loser.name,
@@ -625,7 +655,7 @@ async function certify() {
             check(duplicateClaim.status === 200 && duplicateClaim.body.alreadyClaimed === true,
                 'replaying the winner claim reports alreadyClaimed');
             check(Number(afterDuplicate.body.character?.ryo ?? 0) === afterClaimRyo,
-                'replaying the winner claim cannot pay the base reward twice');
+                'replaying the winner claim cannot change the no-reward settlement');
 
             for (const participant of [winner, loser]) {
                 const history = await api('/api/pvp/combat-history?limit=20', {

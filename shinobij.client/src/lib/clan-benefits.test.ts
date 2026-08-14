@@ -28,7 +28,7 @@ describe("clan benefit membership safety", () => {
 
     test("the same snapshots still apply to an active clan member", () => {
         const member = character({
-            clan: "Akatsuki",
+            clan: "Ashen Vale",
             clanDoctrine: "scholars",
             clanUpgradeLevels: { trainingGrounds: 5, petDen: 5 },
         });

@@ -13,7 +13,7 @@
  * floor with no projection math, and the floor is generated from the very mask
  * the sim paths on — the visible world can never disagree with the gameplay.
  */
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
@@ -31,6 +31,7 @@ import { projectileVisual, type ProjectileVisual } from "../lib/pet-projectile-v
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { elementVfxKey } from "../lib/pet-battle-anim";
 import { lerp } from "../lib/pet-coliseum-scene";
+import { acquireTransientFxTextures } from "../lib/transient-fx-textures";
 
 type Vec3 = [number, number, number];
 type ArenaClockRef = MutableRefObject<{ t: number; playing: boolean }>;
@@ -536,34 +537,60 @@ function Boss3D({ result, clock }: { result: ArenaResult; clock: ArenaClockRef }
 
 // ── Broadcast FX — flipbook bursts, projectile comets, damage floaters ───────
 export function Fx3D({ frames, pos, scale, durationMs, onDone }: {
-    frames: string[]; pos: Vec3; scale: number; durationMs: number; onDone: () => void;
+    frames: readonly string[]; pos: Vec3; scale: number; durationMs: number; onDone: () => void;
 }) {
     const group = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const start = useRef<number | null>(null);
-    const textures = useMemo(() => frames.map((u) => {
-        const t = new THREE.TextureLoader().load(u);
-        t.colorSpace = THREE.SRGBColorSpace;
-        return t;
-    }), [frames]);
-    useLayoutEffect(() => () => { textures.forEach((t) => t.dispose()); }, [textures]);
+    const fallbackStart = useRef<number | null>(null);
+    const done = useRef(false);
+    const [textures, setTextures] = useState<readonly THREE.Texture[] | null>(null);
+    useEffect(() => {
+        let active = true;
+        const lease = acquireTransientFxTextures(frames);
+        void lease.ready.then((decoded) => {
+            if (!active) return;
+            start.current = null;
+            setTextures(decoded);
+        });
+        return () => { active = false; lease.release(); };
+    }, [frames]);
     useFrame((state) => {
+        // A cold sequence gets an immediate, readable radial burst. The actual
+        // flipbook timeline begins only after its shared images have decoded.
+        if (textures === null) {
+            if (fallbackStart.current === null) fallbackStart.current = state.clock.elapsedTime;
+            const elapsed = (state.clock.elapsedTime - fallbackStart.current) * 1000;
+            const duration = Math.min(650, Math.max(220, durationMs));
+            const progress = Math.min(1, elapsed / duration);
+            if (group.current) {
+                group.current.visible = true;
+                group.current.scale.setScalar(0.82 + progress * 0.34);
+            }
+            if (mat.current) mat.current.opacity = 0.78 * (1 - progress);
+            if (elapsed >= duration && !done.current) { done.current = true; onDone(); }
+            return;
+        }
         if (start.current === null) start.current = state.clock.elapsedTime;
         const elapsed = (state.clock.elapsedTime - start.current) * 1000;
         const p = Math.min(1, elapsed / durationMs);
         const idx = Math.min(textures.length - 1, Math.floor(p * textures.length));
         const tex = textures[idx] ?? null;
-        if (mat.current) mat.current.map = tex;
+        if (mat.current) {
+            if (tex) mat.current.map = tex;
+            mat.current.opacity = 0.78;
+        }
+        if (group.current) group.current.scale.setScalar(1);
         const img = tex?.image as HTMLImageElement | undefined;
-        if (group.current) group.current.visible = !!(img && img.complete && (img.naturalWidth || 0) > 0);
-        if (elapsed >= durationMs) onDone();
+        if (group.current) group.current.visible = textures.length === 0 || !!(img && img.complete && (img.naturalWidth || 0) > 0);
+        if (elapsed >= durationMs && !done.current) { done.current = true; onDone(); }
     });
     return (
-        <group ref={group} position={pos} visible={false}>
+        <group ref={group} position={pos} visible>
             <Billboard>
                 <mesh scale={[scale, scale, scale]}>
                     <planeGeometry args={[1, 1]} />
-                    <meshBasicMaterial ref={mat} transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    <meshBasicMaterial ref={mat} map={radialTexture3d()} color="#d8b4fe" transparent opacity={0.78} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
             </Billboard>
         </group>
@@ -577,6 +604,7 @@ export function Shot3D({ from, to, visual, durationMs, arc, onDone }: {
     const g1 = useRef<THREE.Group>(null);
     const g2 = useRef<THREE.Group>(null);
     const start = useRef<number | null>(null);
+    const done = useRef(false);
     const pathAt = (p: number): Vec3 => [
         lerp(from[0], to[0], p),
         lerp(from[1], to[1], p) + arc * Math.sin(Math.PI * Math.max(0, Math.min(1, p))),
@@ -589,7 +617,7 @@ export function Shot3D({ from, to, visual, durationMs, arc, onDone }: {
         set(head.current, p);
         set(g1.current, p - 0.08);
         set(g2.current, p - 0.16);
-        if (p >= 1) onDone();
+        if (p >= 1 && !done.current) { done.current = true; onDone(); }
     });
     const size = visual.size * 1.7;
     return (
@@ -613,6 +641,92 @@ export function Floater3D({ pos, text, color, big }: { pos: Vec3; text: string; 
         <Html position={pos} center pointerEvents="none" zIndexRange={[45, 0]}>
             <div style={{ font: `${big ? 900 : 800} ${big ? 20 : 13}px Inter, system-ui, sans-serif`, color, textShadow: "0 1px 2px #000, 0 0 5px rgba(0,0,0,0.7)", whiteSpace: "nowrap", animation: "arenaFloat 0.9s ease-out forwards" }}>{text}</div>
         </Html>
+    );
+}
+
+type TransientFxItem = { id: number; frames: readonly string[]; pos: Vec3; scale: number; durationMs: number };
+type TransientShotItem = { id: number; from: Vec3; to: Vec3; visual: ProjectileVisual; durationMs: number; arc: number };
+type TransientFloaterItem = { id: number; pos: Vec3; text: string; color: string; big: boolean };
+type TransientDecalItem = { id: number; x: number; z: number };
+
+export type TransientFx3DLayerApi = {
+    spawnFx: (item: Omit<TransientFxItem, "id">) => void;
+    spawnShot: (item: Omit<TransientShotItem, "id">) => void;
+    spawnFloater: (item: Omit<TransientFloaterItem, "id">) => void;
+    spawnDecal: (item: Omit<TransientDecalItem, "id">) => void;
+    clear: () => void;
+};
+
+/** Owns high-frequency cosmetic reconciliation below the Canvas root. Combat
+ * events can now add/remove bursts without rerendering the stage, fighters,
+ * cameras, HUD writers, or deterministic simulation controller. */
+export function TransientFx3DLayer({ apiRef }: { apiRef: MutableRefObject<TransientFx3DLayerApi | null> }) {
+    const [effects, setEffects] = useState<TransientFxItem[]>([]);
+    const [shots, setShots] = useState<TransientShotItem[]>([]);
+    const [floaters, setFloaters] = useState<TransientFloaterItem[]>([]);
+    const [decals, setDecals] = useState<TransientDecalItem[]>([]);
+    const floaterTimers = useRef<Set<number>>(new Set());
+    const mounted = useRef(true);
+    const clear = useCallback(() => {
+        for (const timer of floaterTimers.current) window.clearTimeout(timer);
+        floaterTimers.current.clear();
+        if (!mounted.current) return;
+        setEffects([]);
+        setShots([]);
+        setFloaters([]);
+        setDecals([]);
+    }, []);
+    const api = useMemo<TransientFx3DLayerApi>(() => ({
+        spawnFx: (item) => {
+            const id = fx3dSeq++;
+            setEffects((current) => [...current, { ...item, id }].slice(-24));
+        },
+        spawnShot: (item) => {
+            const id = fx3dSeq++;
+            setShots((current) => [...current, { ...item, id }].slice(-16));
+        },
+        spawnFloater: (item) => {
+            const id = fx3dSeq++;
+            setFloaters((current) => [...current, { ...item, id }].slice(-12));
+            const timer = window.setTimeout(() => {
+                floaterTimers.current.delete(timer);
+                if (mounted.current) setFloaters((current) => current.filter((entry) => entry.id !== id));
+            }, 950);
+            floaterTimers.current.add(timer);
+        },
+        spawnDecal: (item) => {
+            const id = fx3dSeq++;
+            setDecals((current) => [...current, { ...item, id }].slice(-12));
+        },
+        clear,
+    }), [clear]);
+    useLayoutEffect(() => {
+        const timers = floaterTimers.current;
+        mounted.current = true;
+        apiRef.current = api;
+        return () => {
+            mounted.current = false;
+            if (apiRef.current === api) apiRef.current = null;
+            for (const timer of timers) window.clearTimeout(timer);
+            timers.clear();
+        };
+    }, [api, apiRef]);
+    return (
+        <>
+            {effects.map((effect) => (
+                <Fx3D key={effect.id} frames={effect.frames} pos={effect.pos} scale={effect.scale} durationMs={effect.durationMs} onDone={() => setEffects((current) => current.filter((entry) => entry.id !== effect.id))} />
+            ))}
+            {shots.map((shot) => (
+                <Shot3D key={shot.id} from={shot.from} to={shot.to} visual={shot.visual} durationMs={shot.durationMs} arc={shot.arc} onDone={() => setShots((current) => current.filter((entry) => entry.id !== shot.id))} />
+            ))}
+            {floaters.map((floater) => <Floater3D key={floater.id} pos={floater.pos} text={floater.text} color={floater.color} big={floater.big} />)}
+            {decals.map((decal) => (
+                <mesh key={decal.id} rotation={[-Math.PI / 2, 0, 0]} position={[decal.x, 0.025, decal.z]} renderOrder={-3}>
+                    <planeGeometry args={[1.3, 1.3]} />
+                    <meshBasicMaterial map={radialTexture3d()} color="#20150c" transparent opacity={0.55} depthWrite={false} />
+                </mesh>
+            ))}
+        </>
     );
 }
 
@@ -715,7 +829,6 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
 }) {
     const stageRef = useRef<HTMLDivElement>(null);
     const [stageWidth, setStageWidth] = useState(1200);
-    const floaterTimersRef = useRef<Set<number>>(new Set());
     useLayoutEffect(() => {
         const stage = stageRef.current;
         if (!stage) return;
@@ -730,29 +843,18 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
             observer?.disconnect();
         };
     }, []);
-    useEffect(() => {
-        const floaterTimers = floaterTimersRef.current;
-        return () => {
-            for (const timer of floaterTimers) window.clearTimeout(timer);
-            floaterTimers.clear();
-        };
-    }, []);
     const quality = useMemo(() => petVisualQuality(), []);
     const configs = useMemo(() => {
         const m = new Map<string, PetCombatModelConfig>();
         for (const r of roster) { const c = petCombatModel(r.pet); if (c) m.set(r.id, c); }
         return m;
     }, [roster]);
-    const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
-    const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; visual: ProjectileVisual; dur: number; arc: number }>>([]);
-    const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
-    const [decals, setDecals] = useState<Array<{ id: number; x: number; z: number }>>([]);
+    const transientFxRef = useRef<TransientFx3DLayerApi | null>(null);
     const [spawns] = useState<Arena3DSpawns>(() => ({
         spawnFx: (n) => {
             const frames = (n.key ? bundledJutsuFxFrames(n.key) : null) ?? bundledJutsuFxFrames(elementVfxKey(n.element)) ?? bundledJutsuFxFrames("none");
             if (!frames) return;
-            const id = fx3dSeq++;
-            setFxList((arr) => [...arr, { id, frames, pos: [n.x, FX_Y3D, n.z], scale: n.scale * 0.62, dur: n.dur }]);
+            transientFxRef.current?.spawnFx({ frames, pos: [n.x, FX_Y3D, n.z], scale: n.scale * 0.62, durationMs: n.dur });
         },
         spawnShot: (n) => {
             const visual = projectileVisual({ element: n.element, role: n.role, kind: n.kind, support: n.support, charged: n.charged });
@@ -760,24 +862,16 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
             let dur = (260 + dist * 24) / Math.max(0.85, visual.speedMul);
             if (visual.tex === "bolt") dur *= 0.85;
             dur = Math.min(820, Math.max(420, dur));
-            const id = fx3dSeq++;
-            setShots((arr) => [...arr, { id, from: [n.fromX, 0.9, n.fromY], to: [n.toX, 0.9, n.toY], visual, dur, arc: visual.tex === "rock" ? 0.9 : 0.28 }]);
+            transientFxRef.current?.spawnShot({ from: [n.fromX, 0.9, n.fromY], to: [n.toX, 0.9, n.toY], visual, durationMs: dur, arc: visual.tex === "rock" ? 0.9 : 0.28 });
         },
         spawnFloater: (x, z, text, color, big) => {
-            const id = fx3dSeq++;
-            setFloaters((arr) => [...arr, { id, pos: [x, 1.5, z], text, color, big }]);
-            const timer = window.setTimeout(() => {
-                floaterTimersRef.current.delete(timer);
-                setFloaters((arr) => arr.filter((f) => f.id !== id));
-            }, 950);
-            floaterTimersRef.current.add(timer);
+            transientFxRef.current?.spawnFloater({ pos: [x, 1.5, z], text, color, big });
         },
         spawnDecal: (x, z) => {
-            const id = fx3dSeq++;
-            setDecals((arr) => [...arr, { id, x, z }].slice(-12));
+            transientFxRef.current?.spawnDecal({ x, z });
         },
     }));
-    const clearFx = () => { setFxList([]); setShots([]); setFloaters([]); setDecals([]); };
+    const clearFx = useCallback(() => { transientFxRef.current?.clear(); }, []);
 
     // Corner PiP — tap to cycle focus (your blue squad first, then red).
     const pipIds = useMemo(() => pipCycleIds(roster.map((r) => r.id)), [roster]);
@@ -813,19 +907,7 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
                 <Shrine3D result={result} clock={clock} />
                 <Boss3D result={result} clock={clock} />
                 <Ring3D result={result} clock={clock} />
-                {decals.map((d) => (
-                    <mesh key={d.id} rotation={[-Math.PI / 2, 0, 0]} position={[d.x, 0.025, d.z]} renderOrder={-3}>
-                        <planeGeometry args={[1.3, 1.3]} />
-                        <meshBasicMaterial map={radialTexture3d()} color="#20150c" transparent opacity={0.55} depthWrite={false} />
-                    </mesh>
-                ))}
-                {fxList.map((fx) => (
-                    <Fx3D key={fx.id} frames={fx.frames} pos={fx.pos} scale={fx.scale} durationMs={fx.dur} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
-                ))}
-                {shots.map((sh) => (
-                    <Shot3D key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} durationMs={sh.dur} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />
-                ))}
-                {floaters.map((f) => (<Floater3D key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
+                <TransientFx3DLayer apiRef={transientFxRef} />
                 <Sparkles count={Math.max(12, quality.ambientParticles)} scale={[30, 6, 18]} position={[0, 2.5, 0]} size={2} speed={0.14} opacity={0.28} color="#ffe9c0" noise={2} />
                 <CameraRig3D result={result} clock={clock} shake={shake} />
                 {pipOn && <PipRenderer result={result} clock={clock} focusId={focusId} statusRef={pipStatusRef} pipW={pipW} pipH={pipH} margin={10} />}

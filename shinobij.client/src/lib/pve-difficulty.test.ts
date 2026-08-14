@@ -29,19 +29,22 @@ test("difficulty bands use inclusive bracket boundaries", () => {
 // Stat AND HP multipliers must climb monotonically and stay < their peer value
 // below 90. Peer's stat multiplier is now ×1.0 (the AI base is already the full
 // level-budget block, so peer == a maxed player); peer HP stays ×1.0.
-test("stat multiplier weakens sub-peer bands and leaves peer as the full-budget mirror", () => {
+test("stat multiplier weakens sub-peer bands and ramps peer to the full-budget mirror", () => {
     assert.ok(pveDifficultyStatMultiplier(10) < pveDifficultyStatMultiplier(40), "easy < medium");
     assert.ok(pveDifficultyStatMultiplier(40) < pveDifficultyStatMultiplier(70), "medium < hard");
-    assert.ok(pveDifficultyStatMultiplier(70) < pveDifficultyStatMultiplier(95), "hard < peer");
-    assert.equal(pveDifficultyStatMultiplier(95), 1.0, "peer mirrors a maxed player (×1.0 on the full base)");
+    assert.ok(pveDifficultyStatMultiplier(70) < pveDifficultyStatMultiplier(91), "hard < early peer");
+    assert.ok(pveDifficultyStatMultiplier(91) < pveDifficultyStatMultiplier(95), "peer strength ramps");
+    assert.ok(pveDifficultyStatMultiplier(95) < pveDifficultyStatMultiplier(100), "peer reaches full power only at max level");
+    assert.equal(pveDifficultyStatMultiplier(100), 1.0, "max-level peer mirrors a maxed player");
 });
 
-test("HP multiplier makes sub-peer foes less tanky and leaves peer at full HP", () => {
+test("HP multiplier makes sub-peer foes less tanky and ramps peer to full HP", () => {
     assert.ok(pveDifficultyHpMultiplier(10) < 1, "easy foes soak fewer hits");
     assert.ok(pveDifficultyHpMultiplier(10) < pveDifficultyHpMultiplier(40), "easy < medium");
     assert.ok(pveDifficultyHpMultiplier(40) < pveDifficultyHpMultiplier(70), "medium < hard");
-    assert.ok(pveDifficultyHpMultiplier(70) < pveDifficultyHpMultiplier(95), "hard < peer");
-    assert.equal(pveDifficultyHpMultiplier(95), 1.0, "peer keeps its full HP pool");
+    assert.ok(pveDifficultyHpMultiplier(70) < pveDifficultyHpMultiplier(91), "hard < early peer");
+    assert.ok(pveDifficultyHpMultiplier(91) < pveDifficultyHpMultiplier(95), "peer HP ramps");
+    assert.equal(pveDifficultyHpMultiplier(100), 1.0, "max-level peer keeps its full HP pool");
 });
 
 // ── AI mastery is tied to the enemy's level, not hard-coded to max 50 ────────
@@ -60,7 +63,9 @@ test("enemy hit cap clamps early-band damage to a fraction of player HP", () => 
     assert.equal(pveEnemyHitCap(8, 300), 60);
     assert.equal(pveEnemyHitCap(35, 1000), 300);  // medium 30%
     assert.equal(pveEnemyHitCap(70, 2000), 900);  // hard 45%
-    assert.equal(pveEnemyHitCap(95, 5000), Infinity); // peer uncapped
+    assert.ok(Number.isFinite(pveEnemyHitCap(91, 5000)), "early peer retains a transition cap");
+    assert.ok(pveEnemyHitCap(95, 5000) > pveEnemyHitCap(91, 5000), "peer cap widens each level");
+    assert.equal(pveEnemyHitCap(100, 5000), Infinity); // max-level peer uncapped
 });
 
 test("hit cap survives junk HP and never returns a sub-1 ceiling", () => {
@@ -126,8 +131,10 @@ test("hard-band per-turn cap bounds a chained turn (~70% of max HP)", () => {
 });
 
 // ── Peer band is uncapped (endgame PvE plays like a real duel) ───────────────
-test("peer band passes raw damage through unchanged", () => {
-    const hit = pveGuardedEnemyHit(1650, { enemyLevel: 95, playerMaxHp: 4000, playerHpTurnStart: 4000, dealtThisTurn: 0 });
+test("early peer keeps a widening guard and max-level peer passes raw damage unchanged", () => {
+    const transitionHit = pveGuardedEnemyHit(99999, { enemyLevel: 91, playerMaxHp: 4000, playerHpTurnStart: 4000, dealtThisTurn: 0 });
+    assert.ok(transitionHit < 99999, "level 91 still has a finite transition guard");
+    const hit = pveGuardedEnemyHit(1650, { enemyLevel: 100, playerMaxHp: 4000, playerHpTurnStart: 4000, dealtThisTurn: 0 });
     assert.equal(hit, 1650);
 });
 

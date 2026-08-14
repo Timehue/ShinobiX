@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
@@ -326,6 +326,13 @@ const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 const THREE_VENDOR_FAIL_BYTES = 1_100_000;
 const THREE_VENDOR_GZIP_FAIL_BYTES = 300_000;
 const THREE_VENDOR_RE = /^assets\/three-vendor-[^/]+\.js$/;
+// Secondary byte cap for the compact Warfront setup contract. The production
+// build's pet-arena-static-isolation plugin owns the stronger invariant: it
+// walks PetArena's emitted static-import graph and rejects the full Match/sim.
+const WARFRONT_SETUP_SHARED_FAIL_BYTES = 15_000;
+const WARFRONT_SETUP_SHARED_GZIP_FAIL_BYTES = 8_000;
+const WARFRONT_SETUP_SHARED_RE = /^assets\/warfront-audio-[^/]+\.js$/;
+const JUTSU_FX_CHUNK_RE = /^assets\/jutsu-fx-assets-[^/]+\.js$/;
 
 function walk(dir) {
     const out = [];
@@ -368,10 +375,54 @@ const jsCssTotal = [...js, ...css].reduce((sum, file) => sum + file.size, 0);
 const failures = [];
 const sentryChunks = js.filter((file) => SENTRY_VENDOR_RE.test(file.rel));
 const threeChunks = js.filter((file) => THREE_VENDOR_RE.test(file.rel));
+const warfrontSetupChunks = js.filter((file) => WARFRONT_SETUP_SHARED_RE.test(file.rel));
+const jutsuFxChunks = js.filter((file) => JUTSU_FX_CHUNK_RE.test(file.rel));
 const budgetedJsCssTotal = [
     ...js.filter((file) => !SENTRY_VENDOR_RE.test(file.rel)),
     ...css,
 ].reduce((sum, file) => sum + file.size, 0);
+
+// Keep the pixel-art FX catalog out of JS without silently changing its
+// contents. The source glob is intentionally eager so callers receive a plain
+// URL map; `?url&no-inline` must produce one emitted, byte-exact PNG per source
+// key (identical frames may share the same hashed URL).
+if (jutsuFxChunks.length !== 1) {
+    failures.push(`expected exactly one jutsu FX asset chunk; found ${jutsuFxChunks.length}`);
+} else {
+    const fxChunkText = readFileSync(jutsuFxChunks[0].path, 'utf8');
+    if (fxChunkText.includes('data:image/')) {
+        failures.push('jutsu FX asset chunk contains an inlined data URL');
+    }
+
+    const pairPattern = /["'](\.\.\/assets\/fx\/[^"']+\.png)["']\s*:\s*[`"'](\/assets\/fx\/[^`"']+\.png)[`"']/g;
+    const pairs = [...fxChunkText.matchAll(pairPattern)].map((match) => ({ key: match[1], url: match[2] }));
+    const fxSourceDir = join(process.cwd(), 'shinobij.client', 'src', 'assets', 'fx');
+    const sourceFiles = walk(fxSourceDir)
+        .filter((file) => file.path.toLowerCase().endsWith('.png'))
+        .map((file) => ({ ...file, key: `../assets/fx/${relative(fxSourceDir, file.path).replaceAll('\\', '/')}` }))
+        .sort((a, b) => a.key.localeCompare(b.key));
+    const sourceByKey = new Map(sourceFiles.map((file) => [file.key, file.path]));
+    const emittedKeys = [...new Set(pairs.map((pair) => pair.key))].sort();
+    const sourceKeys = sourceFiles.map((file) => file.key);
+
+    if (pairs.length !== sourceFiles.length || emittedKeys.join('\n') !== sourceKeys.join('\n')) {
+        failures.push(`jutsu FX URL map has ${pairs.length} entries/${emittedKeys.length} keys; source has ${sourceFiles.length}`);
+    }
+    for (const pair of pairs) {
+        const sourcePath = sourceByKey.get(pair.key);
+        const emittedPath = join(distDir, pair.url.slice(1));
+        if (!sourcePath || !existsSync(emittedPath)) {
+            failures.push(`jutsu FX frame is missing for ${pair.key} -> ${pair.url}`);
+            continue;
+        }
+        if (!readFileSync(sourcePath).equals(readFileSync(emittedPath))) {
+            failures.push(`jutsu FX frame bytes changed for ${pair.key} -> ${pair.url}`);
+        }
+    }
+    if (!failures.some((failure) => failure.startsWith('jutsu FX'))) {
+        console.log(`[sizecheck] Jutsu FX assets: ${pairs.length} byte-exact frame URLs; 0 data URLs.`);
+    }
+}
 
 // Sentry is observability, not product code. Allow one tightly capped chunk only
 // when it stays off the initial graph; do not weaken the product-code budget.
@@ -390,6 +441,17 @@ for (const file of threeChunks) {
     }
     if (gzipBytes > THREE_VENDOR_GZIP_FAIL_BYTES) {
         failures.push(`${file.rel} is ${fmt(gzipBytes)} gzip; Three.js vendor gzip threshold is ${fmt(THREE_VENDOR_GZIP_FAIL_BYTES)}`);
+    }
+}
+if (warfrontSetupChunks.length !== 1) failures.push(`expected exactly one Warfront setup shared chunk; found ${warfrontSetupChunks.length}`);
+for (const file of warfrontSetupChunks) {
+    const gzipBytes = gzipSync(readFileSync(file.path), { level: 9 }).length;
+    console.log(`[sizecheck] Warfront setup shared: ${fmt(file.size)} raw / ${fmt(gzipBytes)} gzip.`);
+    if (file.size > WARFRONT_SETUP_SHARED_FAIL_BYTES) {
+        failures.push(`${file.rel} is ${fmt(file.size)}; Warfront setup shared threshold is ${fmt(WARFRONT_SETUP_SHARED_FAIL_BYTES)}`);
+    }
+    if (gzipBytes > WARFRONT_SETUP_SHARED_GZIP_FAIL_BYTES) {
+        failures.push(`${file.rel} is ${fmt(gzipBytes)} gzip; Warfront setup shared gzip threshold is ${fmt(WARFRONT_SETUP_SHARED_GZIP_FAIL_BYTES)}`);
     }
 }
 for (const file of js) {

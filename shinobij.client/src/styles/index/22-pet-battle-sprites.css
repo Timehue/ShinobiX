@@ -734,7 +734,7 @@
     width: 100% !important;
     margin: 0 auto !important;
     display: grid !important;
-    grid-template-columns: repeat(5, minmax(118px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)) !important;
     gap: clamp(10px, 1.2vw, 16px) !important;
 }
 

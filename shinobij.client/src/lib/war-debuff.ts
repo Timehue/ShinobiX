@@ -1,11 +1,9 @@
 /*
  * Village war MORALE — the settlement aftermath for both sides.
  *
- * At war settlement (api/world-state.ts settleVillageWar) the server stamps
- * `warLossDebuffUntil` on the loser's village-state and `warWinBuffUntil` on the
- * winner's, both for 3 days. The debuff has always been read here; the buff was
- * stamped but never served or consumed, so winning a war granted nothing while
- * losing one cost the whole village three days. Both are live now.
+ * At war settlement the server stamps the legacy `warLossDebuffUntil` field on
+ * the losing village for a three-day comeback rally. Historical winner stamps
+ * remain readable but progression-neutral.
  *
  * A village is only ever one or the other, but a stale stamp from an older war
  * can linger beside a fresh one — so we resolve whichever settled MOST RECENTLY.
@@ -21,22 +19,19 @@ import { useState, useEffect } from "react";
 // the debuff could only shave an existing bonus and did nothing to a player without
 // one). These constants are the DISPLAY mirror; KEEP THEM IN SYNC with that file.
 //
-// ── Loser: "demoralized" ──
-export const WAR_DEBUFF_TRAINING_XP_MULT = 0.9; // -10% stat / pet training gain
-export const WAR_DEBUFF_JUTSU_TIME_MULT = 1.2;  // +20% jutsu training time
+// ── Loser: comeback rally ──
+export const WAR_DEBUFF_TRAINING_XP_MULT = 1.1; // +10% comeback training gain
+export const WAR_DEBUFF_JUTSU_TIME_MULT = 0.9;  // -10% comeback training time
 
-// ── Winner: "triumphant" ──
-// Deliberately gentler than the debuff on the jutsu axis (-10% time against the
-// loser's +20%): a win should feel real without letting the victor snowball into
-// the next war on top of the spoils they already took.
-export const WAR_BUFF_TRAINING_XP_MULT = 1.1;   // +10% stat / pet training XP
-export const WAR_BUFF_JUTSU_TIME_MULT = 0.9;    // -10% jutsu training time
+// ── Winner: neutral progression (victory has its own rewards) ──
+export const WAR_BUFF_TRAINING_XP_MULT = 1;
+export const WAR_BUFF_JUTSU_TIME_MULT = 1;
 
-export type WarMorale = "triumphant" | "demoralized" | "none";
+export type WarMorale = "triumphant" | "rallying" | "none";
 
 export interface VillageWarMorale {
     morale: WarMorale;
-    /** True while the village is DEMORALIZED (back-compat with the old debuff API). */
+    /** True while the legacy loss-window field is active. */
     active: boolean;
     /** Multiply training XP by this. 1 when neutral, so callers can apply it blind. */
     xpMult: number;
@@ -92,7 +87,7 @@ export function resolveWarMorale(stamps: WarMoraleStamps, now: number = Date.now
     if (!lossLive && !winLive) return NEUTRAL;
     if (lossLive && (!winLive || loss >= win)) {
         return {
-            morale: "demoralized",
+            morale: "rallying",
             active: true,
             xpMult: WAR_DEBUFF_TRAINING_XP_MULT,
             jutsuTimeMult: WAR_DEBUFF_JUTSU_TIME_MULT,
@@ -123,5 +118,5 @@ export function useVillageWarMorale(village: string | undefined): VillageWarMora
     return resolveWarMorale(stamps);
 }
 
-/** Back-compat alias — the hook now covers the winner's buff as well. */
+/** Back-compat alias for callers still using the old hook name. */
 export const useWarLossDebuff = useVillageWarMorale;

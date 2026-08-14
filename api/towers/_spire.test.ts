@@ -6,7 +6,7 @@ import {
     SPIRE_MAX_TIER, HP_MULT_CAP, DMG_MULT_CAP, SPIRE_ENRAGE_CAP, SPIRE_WEEKLY_ROUND_BUFFER, type TowerModifier,
 } from './_modifiers.js';
 import {
-    getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS,
+    getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS, SPIRE_BOSS_VISUALS,
 } from './_spire-catalog.js';
 import {
     settleSpireForMember, isSpireRun, floorPaidKey, spireRewardKey, spireLbKey, SPIRE_SHARDS_PER_TIER,
@@ -17,6 +17,7 @@ import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { runTowerFloor, startRound, endTurn, applyAction, type TowerAction } from './_engine.js';
 import { makeRng } from './_sim.js';
 import { getFloor } from './_floor-catalog.js';
+import { validateFloor } from './_floor-validate.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
 
 // ─── resolveAscensionModifiers (pure single source of truth) ─────────────────
@@ -102,13 +103,51 @@ describe('Endless Spire — floor catalog', () => {
             assert.ok(f.boss, `floor ${t} has a boss`);
             assert.ok((f.boss!.hp ?? 0) > 0, `floor ${t} has authored HP`);
             assert.ok(f.boss!.aiId.startsWith('spire-'), 'uses an endgame spire boss template');
+            assert.deepEqual(validateFloor(f), [], `floor ${t} satisfies the shared Tower content schema`);
         }
     });
-    it('Sovereign anchors every milestone floor; the trio cycles the rest', () => {
-        for (const m of SPIRE_MILESTONE_FLOORS) assert.equal(spireBossForFloor(m), 'sovereign');
+    it('the Sovereign anchors the first three title floors and the authored apex owns tier 20', () => {
+        for (const m of [5, 10, 15]) assert.equal(spireBossForFloor(m), 'sovereign');
+        assert.equal(spireBossForFloor(20), 'void-emperor');
+        assert.deepEqual([...SPIRE_MILESTONE_FLOORS], [5, 10, 15, 20]);
         assert.equal(spireBossForFloor(1), 'warden');
         assert.equal(spireBossForFloor(2), 'revenant');
         assert.equal(spireBossForFloor(3), 'ravager');
+    });
+    it('tiers 12, 16, and 20 have distinct identities, mechanics, tactics, and board pressure', () => {
+        const t12 = getSpireFloor(12)!;
+        const t16 = getSpireFloor(16)!;
+        const t20 = getSpireFloor(20)!;
+
+        assert.equal(spireBossForFloor(12), 'stormcaller');
+        assert.equal(t12.boss!.aiId, 'spire-stormcaller');
+        assert.equal(t12.boss!.mechanic, 'summon');
+        assert.equal(t12.boss!.targetMode, 'support');
+        assert.deepEqual(t12.boss!.strike, { kind: 'volley', pct: 6, radius: 2, everyRounds: 4, firstRound: 4 });
+        assert.ok(t12.enemies.some(p => p.aiId === 'spire-tempest-shade'));
+        assert.ok((t12.dynamicHazards?.length ?? 0) > 0 && (t12.boardObjects?.length ?? 0) > 0);
+
+        assert.equal(spireBossForFloor(16), 'mirror-shogun');
+        assert.equal(t16.boss!.aiId, 'spire-mirror-shogun');
+        assert.equal(t16.boss!.mechanic, 'bulwark');
+        assert.equal(t16.boss!.targetMode, 'squishiest');
+        assert.deepEqual(t16.boss!.strike, { kind: 'slam', pct: 7, radius: 2, everyRounds: 4, firstRound: 4 });
+        assert.equal(t16.boss!.phasePillars, 2);
+        assert.deepEqual(t16.boss!.aegis, { shieldPct: 10 });
+        assert.ok(t16.enemies.some(p => p.aiId === 'spire-mirror-guard'));
+
+        assert.equal(spireBossForFloor(20), 'void-emperor');
+        assert.equal(t20.boss!.aiId, 'spire-void-emperor');
+        assert.equal(t20.boss!.mechanic, 'enrage');
+        assert.equal(t20.boss!.targetMode, 'support');
+        assert.deepEqual(t20.boss!.strike, { kind: 'nova', pct: 8, radius: 2, everyRounds: 3, firstRound: 3 });
+        assert.deepEqual(t20.closingRing, { pct: 5, fromRound: 14, minRadius: 3 });
+        assert.ok(t20.enemies.some(p => p.aiId === 'spire-eclipse-herald'));
+
+        assert.equal(new Set([t12.boss!.aiId, t16.boss!.aiId, t20.boss!.aiId]).size, 3);
+        for (const key of ['stormcaller', 'mirror-shogun', 'void-emperor'] as const) {
+            assert.equal(SPIRE_BOSS_VISUALS[key], key, `${key} owns a dedicated art-manifest key`);
+        }
     });
     it('warden floors ship a guard pod (bulwark needs live guards); revenant floors cap regen', () => {
         const warden = getSpireFloor(1)!;
@@ -117,6 +156,25 @@ describe('Endless Spire — floor catalog', () => {
         const revenant = getSpireFloor(2)!;
         assert.equal(revenant.boss!.mechanic, 'regen');
         assert.ok((revenant.boss!.regenFlatCap ?? 0) > 0, 'regen boss is flat-capped');
+    });
+    it('every boss variant carries a focus policy and dodgeable signature strike', () => {
+        const expected = {
+            warden: ['squishiest', 'slam'],
+            revenant: ['support', 'volley'],
+            ravager: ['lowest-hp', 'nova'],
+            sovereign: ['lowest-hp', 'nova'],
+            stormcaller: ['support', 'volley'],
+            'mirror-shogun': ['squishiest', 'slam'],
+            'void-emperor': ['support', 'nova'],
+        } as const;
+        for (let tier = 1; tier <= SPIRE_MAX_TIER; tier++) {
+            const key = spireBossForFloor(tier)!;
+            const boss = getSpireFloor(tier)!.boss!;
+            assert.equal(boss.targetMode, expected[key][0], `T${tier} focus policy`);
+            assert.equal(boss.strike?.kind, expected[key][1], `T${tier} strike identity`);
+            assert.ok((boss.strike?.firstRound ?? 0) > 1, `T${tier} never opens with unavoidable strike damage`);
+            assert.ok((boss.strike?.pct ?? 100) <= 8, `T${tier} strike remains bounded`);
+        }
     });
 });
 
@@ -203,6 +261,24 @@ function fakeKv(): TowerKv & { store: Map<string, unknown> } {
         async incr(key: string) { const v = (Number(store.get(key)) || 0) + 1; store.set(key, v); return v; },
     };
 }
+function forwardThenThrowOnFirstSave(): TowerKv & { store: Map<string, unknown> } {
+    const base = fakeKv();
+    let fail = true;
+    return {
+        store: base.store,
+        get: base.get.bind(base),
+        del: base.del.bind(base),
+        incr: base.incr.bind(base),
+        async set(key, value, opts) {
+            const result = await base.set(key, value, opts);
+            if (fail && key.startsWith('save:')) {
+                fail = false;
+                throw new Error('forwarded save, dropped response');
+            }
+            return result;
+        },
+    };
+}
 const passLock: TowerLock = async (_t, fn) => fn();
 function spireSquadActor(slug: string): TowerActor {
     return {
@@ -270,6 +346,23 @@ describe('Endless Spire — settleSpireForMember', () => {
         assert.equal(r.paid, false);
         assert.equal(r.reason, 'not-spire');
     });
+    it('requires the Spire tower id, direct tier binding, and no embedded floor', async () => {
+        const invalid = [
+            spireSession('wrong-id', 8, 'hero'),
+            spireSession('wrong-floor', 8, 'hero'),
+            spireSession('embedded', 8, 'hero'),
+        ];
+        invalid[0]!.towerId = 'celestial';
+        invalid[1]!.floor = 7;
+        invalid[2]!.encounterFloor = getSpireFloor(8);
+        for (const session of invalid) {
+            const kv = fakeKv(); seedSave(kv, 'hero');
+            assert.equal(isSpireRun(session), false);
+            const result = await settleSpireForMember({ slug: 'hero', session }, { kv, lock: passLock, now });
+            assert.equal(result.reason, 'not-spire');
+            assert.equal(charOf(kv, 'hero').fateShards, 0);
+        }
+    });
     it('upserts the weekly leaderboard board (best-per-player, no downgrade)', async () => {
         const kv = fakeKv(); seedSave(kv, 'hero');
         await settleSpireForMember({ slug: 'hero', session: spireSession('runA', 8, 'hero') }, { kv, lock: passLock, now });
@@ -286,6 +379,32 @@ describe('Endless Spire — settleSpireForMember', () => {
         await settleSpireForMember({ slug: 'hero', session: spireSession('runC', 6, 'hero') }, { kv, lock: passLock, now });
         board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
         assert.equal(board[0]!.tier, 11);
+    });
+    it('projects only the sealed clear tier, never a character-supplied weekly best', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'hero', {
+            battleTowerSpireWeeklyBest: 20,
+            battleTowerSpireWeekKey: weekKey(NOW),
+        });
+        await settleSpireForMember({ slug: 'hero', session: spireSession('authoritative-tier', 8, 'hero') }, { kv, lock: passLock, now });
+        const board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
+        assert.equal(board[0]!.tier, 8);
+    });
+    it('recovers a forwarded save without paying the run or weekly tier twice', async () => {
+        const kv = forwardThenThrowOnFirstSave(); seedSave(kv, 'hero');
+        const session = spireSession('forwarded-spire', 8, 'hero');
+        const dropped = await settleSpireForMember({ slug: 'hero', session }, { kv, lock: passLock, now });
+        assert.equal(dropped.reason, 'contended');
+        assert.equal(charOf(kv, 'hero').fateShards, SPIRE_SHARDS_PER_TIER);
+        assert.equal(kv.store.has(spireRewardKey('hero', weekKey(NOW), 8)), false);
+
+        const retry = await settleSpireForMember({ slug: 'hero', session }, { kv, lock: passLock, now });
+        assert.equal(retry.reason, 'already-paid');
+        assert.equal(charOf(kv, 'hero').fateShards, SPIRE_SHARDS_PER_TIER);
+        assert.equal(kv.store.has(spireRewardKey('hero', weekKey(NOW), 8)), true, 'retry repairs the weekly receipt');
+
+        await settleSpireForMember({ slug: 'hero', session: spireSession('new-run-same-tier', 8, 'hero') }, { kv, lock: passLock, now });
+        assert.equal(charOf(kv, 'hero').fateShards, SPIRE_SHARDS_PER_TIER);
     });
     it('weekly best RESETS when the reset-week rolls over', async () => {
         const kv = fakeKv();

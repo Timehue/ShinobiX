@@ -69,8 +69,8 @@ export async function isVillageKageSeated(village: string): Promise<boolean> {
 
 /** Village tax is ON by default; `DISABLE_VILLAGE_TAX=1` is the kill switch.
  *  Safe to ship on: every village starts holding its full 8 home sectors, which
- *  is the 0% tier, so the tax is inert until a village is actually conquered
- *  below 8 — exactly the pressure it exists to create. It also rides
+ *  is the 0% tier. The occupation tax begins only when it holds a ninth sector,
+ *  putting bounded upkeep on conquest without punishing the losing village. It rides
  *  ENABLE_VILLAGE_WAR, so the whole system's kill switch disables it too. */
 export function villageTaxEnabled(): boolean {
     return process.env.ENABLE_VILLAGE_WAR === '1' && process.env.DISABLE_VILLAGE_TAX !== '1';

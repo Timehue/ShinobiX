@@ -19,6 +19,7 @@
 import { buildTowerEncounter, type SquadMemberInput } from '../api/towers/_encounter.js';
 import {
     applyAction, endTurn, startRound, pickAiAction, towerNeighbors,
+    nextStepToward,
     BASIC_ATTACK_AP, MOVE_AP, HEAL_AP, HEAL_CHAKRA, MAX_ACTIONS, MAX_ROUNDS,
     type TowerAction,
 } from '../api/towers/_engine.js';
@@ -108,10 +109,18 @@ function smartSquadAction(session: TowerSession, actor: TowerActor): TowerAction
         return { actorId: actor.id, type: 'attack', targetId: target.id };
     }
     if (session.activeAp >= MOVE_AP && session.actionsThisTurn < MAX_ACTIONS) {
-        const step = towerNeighbors(actor.pos, w, h)
-            .filter(t => !session.map.blockedTiles.includes(t) && !session.actors.some(a => a.hp > 0 && a.pos === t && a.id !== actor.id))
+        // Preserve the calibrated direct approach while it makes progress, then use the
+        // production Tower pathfinder as the terrain dead-end fallback. The former policy
+        // waited forever at a local minimum; replacing every tie-break with BFS, however,
+        // changed open-board engagement lanes and invalidated the established balance model.
+        const greedy = towerNeighbors(actor.pos, w, h)
+            .filter(t => !session.map.blockedTiles.includes(t)
+                && !session.actors.some(a => a.hp > 0 && a.pos === t && a.id !== actor.id))
             .sort((a, b) => hexDistance(a, target.pos, w) - hexDistance(b, target.pos, w))[0];
-        if (step !== undefined && hexDistance(step, target.pos, w) < dist) return { actorId: actor.id, type: 'move', tile: step };
+        const step = greedy !== undefined && hexDistance(greedy, target.pos, w) < dist
+            ? greedy
+            : nextStepToward(session, actor.pos, target.pos, actor.id);
+        if (step !== actor.pos) return { actorId: actor.id, type: 'move', tile: step };
     }
     return { actorId: actor.id, type: 'wait' };
 }
@@ -179,7 +188,10 @@ export function simFloor(
     };
 }
 
-const MECH: Record<string, string> = { warden: 'bulwark', revenant: 'regen', ravager: 'summon', sovereign: 'enrage' };
+const MECH: Record<string, string> = {
+    warden: 'bulwark', revenant: 'regen', ravager: 'summon', sovereign: 'enrage',
+    stormcaller: 'stormcall', 'mirror-shogun': 'mirror', 'void-emperor': 'eclipse',
+};
 
 export function runSpireBalanceReport(argv = process.argv.slice(2)): void {
     const [minF, maxF, seedsArg, partyArg] = argv;

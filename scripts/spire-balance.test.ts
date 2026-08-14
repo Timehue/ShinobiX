@@ -9,6 +9,14 @@ const TARGETS = [
 ] as const;
 
 describe('Endless Spire release balance', () => {
+    it('covers the seven early ascension tiers omitted by the late-game release bands', () => {
+        for (let floor = 1; floor <= 7; floor++) {
+            const result = simFloor(floor, 4, 12);
+            assert.ok(result.win >= 80, `F${floor} early-tier win rate ${result.win}% should remain approachable`);
+            assert.ok(result.avgRounds > 0, `F${floor} produces completed wins rather than a stalled simulation`);
+        }
+    });
+
     it('keeps the geared four-player win curve inside the release bands', () => {
         for (const target of TARGETS) {
             for (let floor = target.minFloor; floor <= target.maxFloor; floor++) {

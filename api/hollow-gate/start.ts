@@ -22,6 +22,8 @@ import { RIFT_QUESTS } from '../sector/_rift-quest.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
+import { withKvLock } from '../_lock.js';
+import { isDeepStrictEqual } from 'node:util';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -36,6 +38,74 @@ import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_led
  */
 
 const DEFAULT_DAILY_RUN_CAP = 2;
+const DAILY_RUN_COUNTER_TTL_SECONDS = 25 * 60 * 60;
+
+type StartReservation = {
+    saveKey: string;
+    requestId: string;
+    countKey: string;
+    ordinal: number;
+    counterHeld: boolean;
+    rollbackAttempted: boolean;
+    token: string | null;
+    runKey: string | null;
+    runToken: HollowGateRunToken | null;
+};
+
+async function rollbackStartReservation(reservation: StartReservation): Promise<void> {
+    const cleanupErrors: unknown[] = [];
+    if (reservation.counterHeld) {
+        try {
+            await withKvLock(reservation.countKey, async () => {
+                const current = Math.max(0, Math.floor(Number(await kv.get<number>(reservation.countKey)) || 0));
+                if (current <= 0) return;
+                if (current === 1) await kv.del(reservation.countKey);
+                else await kv.set(reservation.countKey, current - 1, { ex: DAILY_RUN_COUNTER_TTL_SECONDS });
+            }, { failClosed: true });
+            reservation.counterHeld = false;
+        } catch (error) {
+            cleanupErrors.push(error);
+        }
+    }
+
+    if (reservation.runKey && reservation.runToken) {
+        try {
+            await withKvLock(reservation.runKey, async () => {
+                const current = await kv.get<HollowGateRunToken>(reservation.runKey!);
+                if (isDeepStrictEqual(current, reservation.runToken)) await kv.del(reservation.runKey!);
+            }, { failClosed: true });
+        } catch (error) {
+            cleanupErrors.push(error);
+        }
+    }
+
+    if (cleanupErrors.length > 0) throw new AggregateError(cleanupErrors, 'hollow-gate-start-rollback-failed');
+}
+
+async function rollbackDefinitiveStartFailure(reservation: StartReservation): Promise<void> {
+    if (reservation.rollbackAttempted) return;
+    if (reservation.token) {
+        let record: Record<string, unknown> | null;
+        try {
+            record = await kv.get<Record<string, unknown>>(reservation.saveKey);
+        } catch (error) {
+            // An unavailable readback cannot distinguish a failed write from a
+            // committed write with a lost acknowledgement. Preserve both
+            // reservations for retry instead of risking deletion of a live run.
+            console.error('[hollow-gate/start rollback deferred]', safeLogValue(error));
+            return;
+        }
+        const character = record?.character && typeof record.character === 'object'
+            ? record.character as Record<string, unknown>
+            : null;
+        const marker = character?.lastHollowGateStart && typeof character.lastHollowGateStart === 'object'
+            ? character.lastHollowGateStart as Record<string, unknown>
+            : null;
+        if (marker?.requestId === reservation.requestId && marker.token === reservation.token) return;
+    }
+    reservation.rollbackAttempted = true;
+    await rollbackStartReservation(reservation);
+}
 
 function utcDateKey(): string { return new Date().toISOString().slice(0, 10); }
 
@@ -135,6 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         let issued: { token: string; runToken: HollowGateRunToken; offers: ReturnType<typeof rollAugmentOffers> } | null = null;
         let replayed = false;
+        let reservation: StartReservation | null = null;
         const mutation = await mutatePlayerSave(playerName, async ({ character }) => {
             const priorStart = character.lastHollowGateStart && typeof character.lastHollowGateStart === 'object'
                 ? character.lastHollowGateStart as Record<string, unknown>
@@ -149,6 +220,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 issued = { token: priorStart.token, runToken: priorRun, offers: priorOffers };
                 return { ok: true as const, character, value: { token: priorStart.token } };
             }
+            const projectedRun = character.hollowGateRun && typeof character.hollowGateRun === 'object'
+                && !Array.isArray(character.hollowGateRun)
+                ? character.hollowGateRun as Record<string, unknown>
+                : null;
+            const projectedToken = typeof projectedRun?.runToken === 'string' ? projectedRun.runToken : '';
+            if (projectedToken) {
+                const activeRun = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, projectedToken));
+                if (activeRun) {
+                    return { ok: false as const, status: 409, error: 'hollow-gate-run-active' };
+                }
+            }
             const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
             const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);
             if (!afterKey) return { ok: false as const, status: 409, error: 'hollow-gate-key-required' };
@@ -157,9 +239,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : {};
             const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.min(1, Math.floor(Number(attunement['extra-dive']) || 0)));
             const countKey = `hg-runs:${playerName}:${utcDateKey()}`;
-            const priorRuns = Math.max(0, Math.floor(Number(await kv.get<number>(countKey)) || 0));
-            if (!identity.admin && priorRuns >= cap) return { ok: false as const, status: 429, error: 'daily-cap' };
-            const ord = await kv.incr(countKey, { ex: 25 * 60 * 60 });
+            const ord = await withKvLock<number | null>(countKey, async () => {
+                const priorRuns = Math.max(0, Math.floor(Number(await kv.get<number>(countKey)) || 0));
+                if (!identity.admin && priorRuns >= cap) return null;
+                const intended = priorRuns + 1;
+                const held: StartReservation = {
+                    saveKey: `save:${playerName}`,
+                    requestId,
+                    countKey,
+                    ordinal: intended,
+                    counterHeld: false,
+                    rollbackAttempted: false,
+                    token: null,
+                    runKey: null,
+                    runToken: null,
+                };
+                reservation = held;
+                try {
+                    await kv.set(countKey, intended, { ex: DAILY_RUN_COUNTER_TTL_SECONDS });
+                } catch (error) {
+                    const readback = await kv.get<number>(countKey);
+                    if (readback !== intended) {
+                        reservation = null;
+                        throw error;
+                    }
+                }
+                held.counterHeld = true;
+                return intended;
+            }, { failClosed: true });
+            if (ord === null) return { ok: false as const, status: 429, error: 'daily-cap' };
+            if (!reservation) throw new Error('hollow-gate-start-reservation-missing');
             const entry = {} as Partial<Record<HgCurrencyKey, number>>;
             for (const k of HG_CLAWBACK_KEYS) entry[k] = Math.max(0, Math.floor(Number(character[k]) || 0));
             const offers = rollAugmentOffers(3);
@@ -201,6 +310,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } : {}),
             };
             issued = { token, runToken, offers };
+            reservation.token = token;
+            reservation.runKey = hollowGateRunKey(playerName, token);
+            reservation.runToken = runToken;
             // Write the reward-bearing run before committing the key/daily save.
             // A crash can leave an unguessable orphan, but never a paid save with
             // a missing run token. The request marker makes a lost response safe.
@@ -234,9 +346,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
                 value: { token },
             };
+        }).catch(async (error: unknown) => {
+            if (reservation) {
+                try {
+                    await rollbackDefinitiveStartFailure(reservation);
+                } catch (cleanupError) {
+                    console.error('[hollow-gate/start rollback]', safeLogValue(cleanupError));
+                }
+            }
+            throw error;
         });
         if (!mutation.ok) {
+            if (reservation) {
+                try {
+                    await rollbackDefinitiveStartFailure(reservation);
+                } catch (cleanupError) {
+                    console.error('[hollow-gate/start rollback]', safeLogValue(cleanupError));
+                }
+            }
             if (mutation.error === 'daily-cap') return res.status(200).json({ ok: true, reason: 'daily-cap', token: null });
+            if (mutation.error === 'hollow-gate-run-active') return res.status(409).json({ error: 'Finish or settle the active Hollow Gate dive before starting another.' });
             return res.status(mutation.status).json({ error: mutation.error });
         }
         if (!issued) return res.status(500).json({ error: 'Run token was not issued.' });

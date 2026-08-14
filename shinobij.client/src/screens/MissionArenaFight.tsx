@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import "../styles/mission-arena-fight.css";
-import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
+import { CombatInstance } from "../components/CombatInstance";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -16,6 +16,7 @@ import type {
     ServerArenaStatus,
     ServerArenaTransport,
 } from "../lib/server-arena-runtime";
+import { presentSoloActionRejection } from "../lib/solo-action-rejection";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
@@ -26,7 +27,6 @@ import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
     CombatApPanel,
-    CombatBoardStage,
     CombatCommandBar,
     CombatEnvironmentStrip,
     CombatHudHeader,
@@ -37,7 +37,10 @@ import {
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
+import { BattlefieldActor } from "../components/BattlefieldActor";
 import { isImageAvatar } from "../lib/avatar";
+import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { resolveOwnAvatar } from "../lib/own-avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
 import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
 import { getAllJutsus } from "../App";
@@ -106,9 +109,10 @@ function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
 const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j) && j!.target === "SELF";
 
 // Runtime status → CombatSideHud status shape (it requires an explicit kind).
-function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
+function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; source?: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
     return (statuses ?? []).map((s) => ({
         name: s.name,
+        source: s.source,
         rounds: s.rounds,
         amount: s.amount,
         percent: s.percent,
@@ -499,18 +503,20 @@ export function MissionArenaFight({
 
     async function send(action: ServerArenaAction) {
         if (busy) return;
-        // Display-only tutorial progress (drives the SparCoach banner). Recorded
-        // on SUBMIT rather than from the log so the hint advances the moment the
-        // player does the thing they were told to do; it never touches combat.
-        if (action.type === "attack") setSparAttacked(true);
-        if (action.type === "jutsu") setSparCasted(true);
         setBusy(true); setReject(null);
         try {
             const res = await transport.submitAction(runId, me, session, action);
             setSession(res.session);
-            if (!res.applied) setReject(res.reason ?? "That move wasn't allowed.");
+            if (res.applied) {
+                // Display-only tutorial progress follows authoritative success;
+                // an out-of-range or otherwise rejected attempt keeps its lesson.
+                if (action.type === "attack") setSparAttacked(true);
+                if (action.type === "jutsu") setSparCasted(true);
+            } else {
+                setReject(presentSoloActionRejection(res.reason));
+            }
         } catch (e) {
-            setReject(String((e as Error)?.message ?? e));
+            setReject(presentSoloActionRejection(String((e as Error)?.message ?? e)));
         } finally {
             setBusy(false);
             setMode("idle"); setSelJutsu(null); setSelWeaponId("");
@@ -556,11 +562,12 @@ export function MissionArenaFight({
 
     // Avatar resolution — player's live avatar; enemy's sealed avatar or the
     // published AI portrait (ai:<id>), matching how the Mission Hall card resolves it.
-    const playerAvatar = character.avatarImage || me.slice(0, 2).toUpperCase();
+    const playerAvatar = resolveOwnAvatar(character, sharedImages) || me.slice(0, 2).toUpperCase();
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
     const enemyAvatar = enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
+    const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages);
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
     // Portrait-first (see petOrbPortrait) — `pet.image` alone misses published art.
@@ -626,8 +633,7 @@ export function MissionArenaFight({
     }
 
     return (
-        <ShinobiCombatShell
-            mode="solo"
+        <CombatInstance
             className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
@@ -735,7 +741,6 @@ export function MissionArenaFight({
                         </div>
                     </CombatApPanel>
 
-                    <CombatBoardStage>
                     <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
@@ -751,11 +756,9 @@ export function MissionArenaFight({
                         })()}>
                             <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}>
                                 {/* Actor orbs + HP bars (overlay above the tiles) */}
-                                {isImageAvatar(playerAvatar) && myActor && (() => {
+                                {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
-                                    return <div key="player-orb" className="avatar-orb" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <img className="tiny-map-avatar" src={playerAvatar} alt={me} />
-                                    </div>;
+                                    return <BattlefieldActor key="player-orb" side="player" label={me} portrait={playerAvatar} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
                                 })()}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
@@ -771,12 +774,11 @@ export function MissionArenaFight({
                                     const { left, top } = towerHexPixel(companion.pos, w);
                                     return <FighterHpBadge key="pet-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16} width={ORB} hp={companion.hp} maxHp={companion.maxHp} side="pet" caption={`${companion.name} · ${companionRoundsLeft}⟳`} />;
                                 })()}
-                                {enemy && isImageAvatar(enemyAvatar) && (() => {
+                                {enemy && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
-                                    return <div key="enemy-orb" className={`avatar-orb enemy-orb${gateDirective ? ` hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <img className="tiny-map-avatar" src={enemyAvatar} alt={enemyName} />
+                                    return <BattlefieldActor key="enemy-orb" side="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
-                                    </div>;
+                                    </BattlefieldActor>;
                                 })()}
                                 {enemy && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
@@ -830,8 +832,8 @@ export function MissionArenaFight({
                                             style={{ left: `${left}px`, top: `${top}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                             onClick={() => onTileClick(i)}
                                         >
-                                            {i === myPos ? (isImageAvatar(playerAvatar) ? "" : playerAvatar)
-                                                : i === enemyPos ? (isImageAvatar(enemyAvatar) ? "" : enemyAvatar)
+                                            {i === myPos ? ""
+                                                : i === enemyPos ? ""
                                                     : (companion && i === companion.pos) ? (isImageAvatar(companionImage) ? "" : companion.name.slice(0, 2).toUpperCase())
                                                         : ""}
                                         </button>
@@ -840,8 +842,6 @@ export function MissionArenaFight({
                             </div>
                         </div>
                     </div>
-                    </CombatBoardStage>
-
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
 
                     {/* ONE grid child (see hasActionNotice above) — a rejection and an
@@ -1019,6 +1019,6 @@ export function MissionArenaFight({
                     </div>
                 )
             )}
-        </ShinobiCombatShell>
+        </CombatInstance>
     );
 }

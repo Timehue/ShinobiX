@@ -11,6 +11,7 @@
  * reward amount, roundsCleared, or heartsLeft. Both calls go through the
  * auth-wrapped global fetch (installAuthFetch), so no name/token plumbing here.
  */
+import type { Character } from "../types/character";
 
 // One player decision in a run, in the order performed. Fight outcomes are NOT
 // recorded — the server re-fights each round. Mirrors GauntletAction in
@@ -31,6 +32,10 @@ export interface GauntletStart {
     rewardEligible: boolean;
     maxRounds: number;
     rewardedRunsLeft: number;
+    chargedRyo: number;
+    balances: { ryo: number };
+    character: Character;
+    _saveVersion?: number;
 }
 
 export interface GauntletReward {

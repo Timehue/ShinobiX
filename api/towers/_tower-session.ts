@@ -13,7 +13,7 @@
  * handler); they live here for TTL/AFK bookkeeping only, exactly like PvpSession.
  */
 import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
-import type { TowerFeature, TowerBoardObject } from './_floor-catalog.js';
+import type { TowerFeature, TowerBoardObject, TowerFieldRule } from './_floor-catalog.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
 import type { ClanBossContribution } from '../../shared/clan-boss-operation.js';
@@ -54,6 +54,8 @@ export type TowerMap = {
     height: number;
     /** floor biome (drives the client's battlefield floor art); mirrors the floor catalog */
     biome?: string;
+    /** sealed floor-wide combat affix; absent is exactly equivalent to `none` */
+    fieldRule?: TowerFieldRule;
     blockedTiles: number[];
     hazardTiles: number[];
     objectiveTiles: number[];
@@ -86,6 +88,11 @@ export type TowerObjectiveState = {
     npcAlive?: boolean;
     reachedGoal?: boolean;
     addsRemaining?: number;
+    /** Server-derived visibility for objectives that shield the boss behind living adds. */
+    bossUnlocked?: boolean;
+    /** Server-derived break progress; phaseState remains the authoritative source of truth. */
+    breakStagesCompleted?: number;
+    breakStagesTotal?: number;
     roundsSurvived?: number;
     completed: boolean;
     failed: boolean;
@@ -100,6 +107,27 @@ export type TowerPhaseState = {
 
 export type TowerStatus = 'active' | 'done';
 
+/** Provenance for an immutable floor snapshot sealed by an authoritative server route. */
+export type TowerFloorProvenance =
+    | {
+        kind: 'story-catalog';
+        mintedBy: 'tower-start';
+        contentVersion: string;
+        floorId: number;
+    }
+    | {
+        kind: 'spire-generated';
+        mintedBy: 'tower-start';
+        contentVersion: string;
+        tier: number;
+    }
+    | {
+        kind: 'embedded';
+        mintedBy: 'authoritative-pve';
+        contentVersion: string;
+        floorId: number;
+    };
+
 export type TowerSession = {
     towerId: string;
     runId: string;
@@ -108,6 +136,8 @@ export type TowerSession = {
     partySize: number;
     map: TowerMap;
     actors: TowerActor[];
+    /** delayed enemy pods, removed as they deploy at the start of their authored round */
+    pendingEnemyWaves?: TowerEnemyWave[];
     /** ordered actor ids for the round, incl. enemy-interrupt slots (built by the engine) */
     turnQueue: TowerActorId[];
     /** index into turnQueue of the actor currently to move */
@@ -124,6 +154,8 @@ export type TowerSession = {
     winner: TowerSide | 'draw' | null;
     /** idempotency ring for action retries (mirrors PvP recentMoveTokens) */
     recentMoveTokens: string[];
+    /** Additive intent binding for new action receipts; old sessions remain token-replay compatible. */
+    recentMoveReceipts?: Array<{ token: string; fingerprint: string }>;
     rewardSettlementState: 'pending' | 'settled';
     log: string[];
     createdAt: number;
@@ -138,6 +170,14 @@ export type TowerSession = {
      * and never accepted from a client. Catalog tower runs leave it absent.
      */
     encounterFloor?: TowerFloor;
+
+    /**
+     * Exact Story/Spire rules and reward snapshot for a newly minted public
+     * Tower run. Unlike encounterFloor, this field never opts a dynamic mode
+     * into public Tower settlement; floorProvenance supplies that identity.
+     */
+    sealedCatalogFloor?: TowerFloor;
+    floorProvenance?: TowerFloorProvenance;
 
     /**
      * Sealed weather for the encounter (combat missions). Adds the Arena's
@@ -213,6 +253,19 @@ export type TowerSession = {
     /** Server-derived per-actor operation credit. Present only on Clan Boss
      * sessions; ordinary Tower/Spire sessions remain byte-compatible. */
     clanBossContributions?: Record<string, ClanBossContribution>;
+};
+
+/**
+ * Server-sealed enemy reinforcements that have not entered the board yet.
+ *
+ * Actors are fully hydrated at encounter creation so a later deploy never reads
+ * mutable content. Their authored `pos` is a deterministic preferred entry tile;
+ * the engine relocates it to the nearest legal enemy-side tile if combatants have
+ * occupied that tile before the wave arrives.
+ */
+export type TowerEnemyWave = {
+    round: number;
+    actors: TowerActor[];
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 import { PetDoctrineEditor } from "../components/PetDoctrineEditor";
 import { useState, useEffect, useRef } from "react";
 import { serverNow } from "../lib/server-clock";
-import { maxPets } from "../lib/entitlements";
+import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
 import "../styles/pet-skin.css";
 import type { Character } from "../types/character";
 import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
@@ -27,6 +27,9 @@ import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import "../styles/pet-home.css";
 
 export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave: _onImmediateSave, sharedImages = {} }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void; sharedImages?: Record<string, string> }) {
+    const combatEligiblePets = activeCarriedPets<Pet>(character);
+    const combatEligiblePetIds = new Set(activeCarriedPetIds(character));
+    const preservedOverflowCount = Math.max(0, character.pets.length - combatEligiblePets.length);
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
@@ -55,6 +58,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
     const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
+    const selectedPetIsOverflow = Boolean(selectedPet && !combatEligiblePetIds.has(selectedPet.id));
     const selectedPetBreedingLocked = Boolean(selectedPet && activeClientBreedingParentIds(character).has(selectedPet.id));
     const releaseBlocker = selectedPetBreedingLocked
         ? "This companion is committed to the Breeding Barn until its timer completes."
@@ -114,7 +118,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (!selectedPet) throw new Error('Pet not found.');
         const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...extra }) });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
+        if (!res.ok || !data?.character) throw new Error(String(data?.message ?? data?.error ?? 'Pet update failed.'));
         updateCharacter(data.character as Character);
         return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }> };
     }
@@ -123,6 +127,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
+        if (selectedPetIsOverflow) return alert(`${petDisplayName(selectedPet)} is preserved overflow. Swap it into the carried roster through the Sanctuary before starting new training.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
@@ -178,6 +183,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
 
     async function startExpedition() {
         if (!selectedPet) return;
+        if (selectedPetIsOverflow) return alert(`${petDisplayName(selectedPet)} is preserved overflow. Swap it into the carried roster through the Sanctuary before starting an expedition.`);
         if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
@@ -190,23 +196,27 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // a Tamer's ryo + drop chances and no XP/stats (server-verified + scaled).
         // A non-Tamer's non-maxed pet runs for pet XP/stats only and needs no
         // token. On a genuine server/network failure we block (don't waste an
-        // expedition that would have earned currency). Past the daily reward cap
-        // the trip still runs with no token — the same 12/day currency ceiling.
+        // expedition that would have earned currency). At the daily reward cap,
+        // keep the pet home and explain the UTC reset instead of starting a trip
+        // whose valuable settlement could not be sealed.
         let token: string | undefined;
         {
-            let data: { token?: string; reason?: string; character?: Character } | null;
+            let data: { token?: string; reason?: string; character?: Character; error?: string; message?: string } | null;
             try {
                 const r = await fetch('/api/missions/expedition-start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, expType: option.type, petLevel: selectedPet.level }),
                 });
-                if (!r.ok) return alert("Couldn't start the expedition (server error). Please try again.");
-                data = await r.json();
+                data = await r.json().catch(() => null);
+                if (!r.ok) return alert(String(data?.message ?? data?.error ?? "Couldn't start the expedition (server error). Please try again."));
             } catch {
                 return alert("Couldn't reach the expedition server. Please try again.");
             }
             token = typeof data?.token === "string" ? data.token : undefined;
+            if (data?.reason === 'daily-mint-cap') {
+                return alert('Daily rewarded expedition limit reached. This companion stays home; try again after the UTC reset.');
+            }
             // No token AND not the daily-cap path: for a Tamer that's an unexpected
             // response — don't burn a currency-earning expedition. For a non-Tamer
             // it just means the server doesn't see the pet as maxed yet (e.g. a
@@ -651,7 +661,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                     <button className="back-btn" onClick={onBack}>← Back</button>
                     <div>
                         <h2>Pet Yard</h2>
-                        <p className="hint">{character.pets.length}/{Math.max(maxPets(character), character.pets.length)} pets · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
+                        <p className="hint">{combatEligiblePets.length}/{maxPets(character)} combat-carried · {character.pets.length} owned · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
                     </div>
                     {character.activePetId && (
                         <p className="hint">Active: {character.pets.find((p) => p.id === character.activePetId)?.name ?? "—"}</p>
@@ -660,6 +670,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                         <p className="hint">2v2 Partner: {character.pets.find((p) => p.id === character.activePetId2v2)?.name ?? "—"}</p>
                     )}
                 </div>
+
+                {preservedOverflowCount > 0 && (
+                    <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
+                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Base: 4 carried · Supporter: 6. Swap safely in Sanctuary.
+                    </p>
+                )}
 
                 {showStarterPetNote && (
                     <section className="pet-starter-note">
@@ -676,10 +692,14 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                     {Array.from({ length: Math.max(maxPets(character), character.pets.length) }, (_, i) => {
                         const pet = character.pets[i];
                         return (
-                            <div
+                            <button
+                                type="button"
                                 key={i}
                                 className={`pet-slot-card${pet ? (selectedPet?.id === pet.id ? " pet-selected" : "") : " pet-empty"}${character.activePetId === pet?.id ? " pet-active" : ""} ${pet ? petVisualVariantClass(pet) : ""}`}
                                 onClick={() => pet && setSelectedPetId(pet.id)}
+                                disabled={!pet}
+                                aria-pressed={pet ? selectedPet?.id === pet.id : undefined}
+                                aria-label={pet ? `Select ${petDisplayName(pet)}${pet.expedition && serverNow() >= pet.expedition.endsAt ? " to claim its expedition" : ""}` : `Empty pet slot ${i + 1}`}
                             >
                                 {pet ? (
                                     <>
@@ -696,8 +716,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         {pet.trait && <span className={`pet-trait-tag${ultraPetTraits.includes(pet.trait) ? " pet-trait-tag--apex" : ""}`}>{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
+                                        {!combatEligiblePetIds.has(pet.id) && <span className="pet-training-tag">Preserved overflow</span>}
                                         {pet.expedition && serverNow() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>}
-                                        {pet.expedition && serverNow() >= pet.expedition.endsAt && <span className="pet-ready-tag" onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }}>🎁 Claim</span>}
+                                        {pet.expedition && serverNow() >= pet.expedition.endsAt && <span className="pet-ready-tag">🎁 Claim</span>}
                                         {pet.training && serverNow() < pet.training.endsAt && (
                                             <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
@@ -708,7 +729,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 ) : (
                                     <span className="pet-empty-label">Empty</span>
                                 )}
-                            </div>
+                            </button>
                         );
                     })}
                 </div>
@@ -818,12 +839,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 </div>
                             </section>
                             <div className="menu">
-                                <button disabled={selectedPetBreedingLocked} aria-describedby={selectedPetBreedingLocked ? "pet-yard-roster-lock" : undefined} onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
+                                <button disabled={selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked ? "pet-yard-roster-lock" : selectedPetIsOverflow ? "pet-yard-overflow-lock" : undefined} onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
                                     {character.activePetId === selectedPet.id ? "⭐ Active Pet" : "Set as Active"}
                                 </button>
                                 <button
-                                    disabled={selectedPetBreedingLocked}
-                                    aria-describedby={selectedPetBreedingLocked ? "pet-yard-roster-lock" : undefined}
+                                    disabled={selectedPetBreedingLocked || selectedPetIsOverflow}
+                                    aria-describedby={selectedPetBreedingLocked ? "pet-yard-roster-lock" : selectedPetIsOverflow ? "pet-yard-overflow-lock" : undefined}
                                     onClick={() => updateCharacter({
                                         ...character,
                                         activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : selectedPet.id,
@@ -835,6 +856,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 <button className="danger-button" disabled={Boolean(releaseBlocker)} aria-describedby={releaseBlocker ? "pet-yard-roster-lock" : undefined} onClick={releasePet}>Release</button>
                             </div>
                             {releaseBlocker && <p id="pet-yard-roster-lock" className="hint" role="status">{releaseBlocker}</p>}
+                            {selectedPetIsOverflow && <p id="pet-yard-overflow-lock" className="hint" role="status">Preserved overflow cannot be active, fight, breed, or start new training or expeditions. Swap it in the Sanctuary.</p>}
                         </div>
 
                         <div className="pet-center-column">
@@ -1051,7 +1073,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                             ) : selectedPet.training ? (
                                 <div className="training-complete">
                                     <p>✅ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
-                                    <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
+                                    <button type="button" className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
+                                </div>
+                            ) : selectedPetIsOverflow ? (
+                                <div className="pet-expedition-locked" role="status">
+                                    <p className="pet-lock-title">Preserved safely</p>
+                                    <p className="hint">Swap this companion into the carried roster through the Sanctuary before starting new training. Existing completed sessions remain collectible.</p>
                                 </div>
                             ) : (
                                 <>
@@ -1095,7 +1122,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                             ) : selectedPet.expedition ? (
                                 <div className="training-complete">
                                     <p>Expedition complete!</p>
-                                    <button className="admin-button" onClick={collectExpedition} disabled={expeditionBusy}>{expeditionBusy ? "Collecting…" : "Collect Expedition"}</button>
+                                    <button type="button" className="admin-button" onClick={collectExpedition} disabled={expeditionBusy}>{expeditionBusy ? "Collecting…" : "Collect Expedition"}</button>
+                                </div>
+                            ) : selectedPetIsOverflow ? (
+                                <div className="pet-expedition-locked" role="status">
+                                    <p className="pet-lock-title">Preserved safely</p>
+                                    <p className="hint">Swap this companion into the carried roster through the Sanctuary before starting an expedition. Existing completed expeditions remain collectible.</p>
                                 </div>
                             ) : selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL ? (
                                 <div className="pet-expedition-locked">

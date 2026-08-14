@@ -1,18 +1,16 @@
 /*
- * PARKED / UNWIRED FUTURE LEVER — pure math with no production importer yet (only
- * its own _war-tax.test.ts imports it). Intentionally kept as the ready-to-wire
- * ryo-burn sink for the Village War economy; do NOT flag as dead code or delete.
+ * Shared pure math for the live village-tax application path.
  *
  * Village War Map — the lazy per-player tax (pure core, Phase 1). §6.4 / §8.2
  *
  * Applied lazily when a village member is active (the IO call-site — gated by
  * ENABLE_VILLAGE_TAX — lands with the sector-war engine, since in Phase 1 every
  * village still holds its 8 home sectors → the 0% tier → the tax is a no-op until
- * a village can be conquered below 8). This module is the pure math the wiring
- * will call: how many days are owed, and the wallet+bank debit + treasury split.
+ * a village occupies a ninth sector). This module owns how many days are owed and
+ * the wallet+bank debit + treasury split.
  *
  * Debits wallet ryo first, then banked ryo. Academy Students (level < 15) are a
- * total no-op (no stamp, no write). The 0% tier (full-control village), the
+ * total no-op (no stamp, no write). A non-occupying village, the
  * wealth exemption, and a same-day re-run all yield no debit. IO-free.
  */
 
@@ -74,7 +72,7 @@ export function applyPlayerTax(
     if (daysOwed <= 0) return stamped; // same day / clock skew
 
     const tax = computeTax({ ryo, bankRyo, sectors: opts.sectorsControlled, level, daysOwed, rateMultiplier: opts.rateMultiplier });
-    if (tax.owed <= 0) return stamped; // 0% tier (full control) or under the exemption
+    if (tax.owed <= 0) return stamped; // non-occupier (8 or fewer) or under the exemption
 
     const fromWallet = Math.min(ryo, tax.owed);
     const fromBank = Math.min(bankRyo, tax.owed - fromWallet);

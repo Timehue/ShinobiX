@@ -5,6 +5,8 @@ import {
     petPveSummonDamageMult,
     PET_CONSUMABLE_PVE_HEAL_PCT,
 } from '../_pet-sim/pet-config.js';
+import { activeCarriedPets } from '../_entitlements.js';
+import { petCombatBusyReason } from '../pet/_pet-busy.js';
 
 export const COMPANION_MAX_DAMAGE_FRAC = 0.16;
 export const COMPANION_FIELD_ROUNDS = 4;
@@ -45,7 +47,8 @@ type PetLike = {
     speed?: number;
     happiness?: number;
     unlockedForPve?: boolean;
-    expedition?: { endsAt?: number };
+    training?: unknown;
+    expedition?: unknown;
     jutsus?: PetJutsuLike[];
     loadout?: { pve?: string; pveDurability?: number; consumable?: string };
 };
@@ -76,13 +79,16 @@ export type CompanionSeal = {
 };
 
 export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.now()): CompanionSeal | null {
-    const pets = Array.isArray(char.pets) ? char.pets as PetLike[] : [];
+    // Project the owned roster through the current 4/6-slot entitlement before
+    // honoring activePetId. Preserved overflow remains owned in the save, but it
+    // is not combat-authoritative after an entitlement lapse.
+    const pets = activeCarriedPets<PetLike>(char);
     const activeId = typeof char.activePetId === 'string' ? char.activePetId : '';
     if (!activeId) return null;
     const pet = pets.find((candidate) => candidate && String(candidate.id ?? '') === activeId);
     if (!pet) return null;
     if (pet.unlockedForPve === false && Number(pet.level ?? 0) < 50) return null;
-    if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return null;
+    if (petCombatBusyReason(char, pet as Record<string, unknown>, now)) return null;
     const moves: CompanionMove[] = (Array.isArray(pet.jutsus) ? pet.jutsus : [])
         .filter((jutsu) => jutsu && typeof jutsu.name === 'string' && jutsu.name)
         .slice(0, 8)

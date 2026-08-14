@@ -77,6 +77,7 @@ describe('_item-budget — budgetItemBonuses (P0.1 sub-5)', () => {
                 creatorItems: [{ id: 'forged', slot: 'body', bonuses: { lifeStealPercent: 100, shield: 99_999, ninjutsuOffense: 1000 } }],
             },
             { character: { name: 'Audit' }, creatorItems: [] },
+            { adminContentSlot: true },
         ) as Record<string, any>;
         assert.deepEqual(saved.creatorItems[0].bonuses, { lifeStealPercent: 2, shield: 150, ninjutsuOffense: 280 });
     });

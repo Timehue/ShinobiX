@@ -13,11 +13,14 @@
  * from the client.
  */
 
+/** Increment only when shipped Story-Tower rules/rewards change. Active runs seal this value. */
+export const TOWER_CATALOG_VERSION = 'story-tower-v2' as const;
+
 export const TOWER_OBJECTIVES = [
     'defeat-all',           // clear every enemy
     'defeat-boss',          // kill the boss; trash optional
     'defeat-all-then-boss', // clear trash, then the boss
-    'protect-npc',          // an allied NPC must survive
+    'protect-npc',          // keep an allied NPC alive through `roundBudget` rounds
     'kill-escort',          // clear all enemies AND keep the NPC alive
     'reach-tile',           // reach the goal tile within the round budget
     'break-objective',      // destroy a staged objective across phase gates
@@ -175,9 +178,17 @@ export type TowerReward = {
     xp?: number;
     fateShards?: number;
     boneCharms?: number;
-    itemId?: string;
-    /** one-time milestone unlock key (title / cosmetic / signature), credited once */
+    /** One-time progression badge key. This is not a wearable/title entitlement. */
     milestone?: string;
+};
+
+/** Player-facing authored setup sealed beside the encounter rules. Keeping the briefing
+ *  on the floor prevents lobby copy from drifting away from the waves/mechanics that the
+ *  server actually runs. */
+export type TowerFloorBriefing = {
+    situation: string;
+    tactics: string[];
+    warnings: string[];
 };
 
 export type TowerFloor = {
@@ -216,6 +227,14 @@ export type TowerFloor = {
      *  parties face enemies scaled by partyScaleFactor(partySize, balanceFor). */
     balanceFor?: number;
     firstClearReward: TowerReward;
+    /** Optional story presentation metadata. It is cosmetic, but sealed with the floor so
+     *  an active run always retains the chapter copy it launched with across deploys. */
+    chapter?: number;
+    chapterTitle?: string;
+    chapterSubtitle?: string;
+    chapterSummary?: string;
+    artKey?: string;
+    briefing?: TowerFloorBriefing;
 };
 
 // Hex geometry (mirrors _engine.towerNeighbors) for laying out feature ZONES in
@@ -242,7 +261,7 @@ function ph(w: number, h: number): number[] {
     return hexZone(Math.floor(h / 2) * w + Math.floor(w / 2), w, h);
 }
 
-// ─── Seed catalog: 10 escalating floors on a roomy 20×14 board (22×16 / 24×16 for
+// ─── Chapter 1 seed catalog: 10 escalating floors on a roomy 20×14 board (22×16 / 24×16 for
 // bosses). Varied objectives + 4 boss floors, each boss with a DISTINCT mechanic
 // (bulwark / regen / summon / enrage). Features carry placeholder tiles (ph); the
 // encounter builder scatters them procedurally each run and assigns 3-of-5 pylon
@@ -261,6 +280,12 @@ function ph(w: number, h: number): number[] {
 const pylon = (w: number, h: number): TowerFeature => ({ kind: 'pylon', tiles: ph(w, h), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' });
 const ward = (w: number, h: number, percent = 22): TowerFeature => ({ kind: 'ward', tiles: ph(w, h), percent, label: 'Warded Stone' });
 const hazard = (w: number, h: number, percent = 12): TowerFeature => ({ kind: 'hazard', tiles: ph(w, h), percent, label: 'Hazard' });
+const CHAPTER_ONE_PRESENTATION = {
+    chapter: 1,
+    chapterTitle: 'The Celestial Ascent',
+    chapterSubtitle: 'Ten trials stand between the forest gate and the throne above.',
+    chapterSummary: 'Secure the lower ascent, defend its stranded shinobi, master four signature wardens, and dethrone the Sovereign before the summit collapses.',
+} as const;
 export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
@@ -268,6 +293,17 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-bandit', count: 8 }],
         features: [pylon(20, 14), pylon(20, 14)],
         firstClearReward: { ryo: 400, xp: 150 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'foothold',
+        briefing: {
+            situation: 'Bandit outriders hold the forest gate and its two elemental Pylons. Take the first platform before the Tower can reinforce it.',
+            tactics: [
+                'Read each Pylon\'s element before committing a technique into its lane.',
+                'Rotate wounded allies out of the Bandits\' Hamstring pressure instead of trading in place.',
+                'Establish two attack lanes so the squad cannot be surrounded at the gate.',
+            ],
+            warnings: ['All eight Bandits begin on the field; this opening trial has no reinforcement wave or recurring floor hazard.'],
+        },
     },
     {
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
@@ -277,6 +313,17 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-archer', count: 4, spawnRound: 2 }],
         features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 20)],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'crossfire-glade',
+        briefing: {
+            situation: 'Bandits pin the glade while Archers prepare converging fire from the upper ruins.',
+            tactics: [
+                'Use the six stone pillars and Warded Stone to break the Archers\' sightlines.',
+                'Exploit the 15% squad damage boon to remove the first Bandit line quickly.',
+                'Leave glowing vent tiles before their eruption instead of spending healing through them.',
+            ],
+            warnings: ['Five Bandits open the fight; four Archers enter on round 2.', 'Three geysers first erupt on round 3, then repeat every 3 rounds.'],
+        },
     },
     {
         id: 3, name: 'Frozen Gauntlet', biome: 'snow', objective: 'defeat-all',
@@ -289,14 +336,43 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-blocker', count: 6 }, { aiId: 'grunt-archer', count: 4 }],
         features: [pylon(20, 14), hazard(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 800, xp: 300 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'frozen-gauntlet',
+        briefing: {
+            situation: 'Shieldmen lock the frozen court while the Tower\'s Drain bleeds both health and chakra from every exposed shinobi.',
+            tactics: [
+                'Control the Chakra Well early so the squad can sustain techniques through the Drain.',
+                'Flank Iron Brace and avoid Shield Bash rather than feeding attacks into the shield wall.',
+                'Use safe pillar lanes to close on the Archers before crossfire overwhelms the court.',
+            ],
+            warnings: ['All ten enemies begin together.', 'Drain returns every round; four geysers begin on round 3 and two static hazard zones remain active.'],
+        },
     },
     {
         id: 4, name: 'Hold the Line', biome: 'central', objective: 'protect-npc',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
-        enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
+        // Timed defense, deliberately distinct from F8's kill-all escort: pressure arrives in
+        // escalating lanes through round 6 and the squad wins by keeping the Genin alive for 8.
+        enemies: [
+            { aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-brute', count: 1 },
+            { aiId: 'grunt-archer', count: 2, spawnRound: 2 },
+            { aiId: 'grunt-bandit', count: 2, spawnRound: 4 },
+            { aiId: 'grunt-brute', count: 1, spawnRound: 6 },
+        ],
         npc: { aiId: 'npc-genin' },
         features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'hold-the-line',
+        briefing: {
+            situation: 'A stranded Genin is transmitting the route upward. Hold the central court until the message clears the Tower.',
+            tactics: [
+                'Form an interception screen and keep every hostile lane away from the Genin.',
+                'Use the Warded Stone to absorb the Archers\' ranged pressure when their wave appears.',
+                'Rotate damaged defenders because the exposed court increases squad damage taken by 10%.',
+            ],
+            warnings: ['Hold through 8 completed rounds; clearing an early wave does not end the defense.', 'Waves arrive on rounds 2, 4, and 6 after the opening Bandits and Brute.'],
+        },
     },
     {
         id: 5, name: 'Warden of the Spire', biome: 'volcano', objective: 'defeat-boss',
@@ -307,9 +383,20 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // the player's first boss teaches "break the guards, burn the shield, protect your
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
-        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 }, strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 3 } },
+        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'spire-warden',
+        briefing: {
+            situation: 'The Warden advances behind living guards and layered Aegis shields, testing whether the squad can coordinate a boss burn.',
+            tactics: [
+                'Remove every guard to end Bulwark\'s 50% damage reduction before committing major techniques.',
+                'Protect the lowest-defense ally from the Warden\'s focus and pulling strike.',
+                'Coordinate burst windows after the Aegis rises at 60% and 30% health.',
+            ],
+            warnings: ['Three Bandits open the chamber and two Acolytes enter on round 2.', 'The Warden has no recurring telegraphed strike, but each phase shield must be broken.'],
+        },
     },
     {
         id: 6, name: 'The Acolyte Coven', biome: 'shadow', objective: 'defeat-all',
@@ -321,9 +408,20 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-acolyte', count: 5 }, { aiId: 'grunt-brute', count: 4 }],
         features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'acolyte-coven',
+        briefing: {
+            situation: 'The Coven and its Brute enforcers are fighting for a shrine that empowers whichever side controls it.',
+            tactics: [
+                'Remove Acolytes before their ground control divides the squad.',
+                'Contest the Battle Shrine for its 10% team damage bonus instead of yielding the center.',
+                'Rotate through the Chakra Well and keep Brute knockbacks away from active vents.',
+            ],
+            warnings: ['All nine enemies begin together and either team can benefit from the shrine.', 'Four geysers first erupt on round 3 while one static hazard remains active.'],
+        },
     },
     {
-        id: 7, name: 'The Hollow Revenant', biome: 'shadow', objective: 'defeat-boss',
+        id: 7, name: 'The Hollow Revenant', biome: 'shadow', objective: 'defeat-all-then-boss',
         roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         terrainPillars: 10,
         // REGEN: the Revenant heals every round — burst it down through the heal. It hunts the
@@ -332,10 +430,21 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 120, label: 'Healing Spring' }, { kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
         // VOLLEY — telegraphed strikes DEBUT here: a barrage at the nearest shinobi every 3
-        // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 8%.
-        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
+        // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 11%.
+        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', regenFlatCap: 650, targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'hollow-revenant',
+        briefing: {
+            situation: 'Three Acolytes seal the Hollow Revenant while it rebuilds itself from the flooded catacomb.',
+            tactics: [
+                'Defeat the Acolytes to lower the boss barrier before attempting a burn.',
+                'Contest both recovery fonts; hostile actors can exploit them if the squad yields the ground.',
+                'Scatter from the violet volley marker and Clear Grave Mirror before resuming damage.',
+            ],
+            warnings: ['The Revenant regenerates up to 650 health every round and hunts support-oriented shinobi.', 'Its radius-one volley begins on round 3 and repeats every 3 rounds.'],
+        },
     },
     {
         id: 8, name: 'Escort the Vanguard', biome: 'central', objective: 'kill-escort',
@@ -345,9 +454,20 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         npc: { aiId: 'npc-genin' },
         features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14)],
         firstClearReward: { ryo: 1800, xp: 700, fateShards: 8 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'escort-vanguard',
+        briefing: {
+            situation: 'The Vanguard must cross the central ruin while the squad clears every hostile lane around them.',
+            tactics: [
+                'Keep the squad between the Genin and every enemy instead of racing ahead.',
+                'Eliminate the round-2 Archers before their crossfire settles on the escort.',
+                'Prevent Brute knockbacks from driving the Genin or defenders into the static hazard.',
+            ],
+            warnings: ['Four Bandits and two Brutes begin the escort; three Archers enter on round 2.', 'Every enemy must fall and the Genin must survive; 12 rounds is the par pace, not a time limit.'],
+        },
     },
     {
-        id: 9, name: 'Pit of Embers', biome: 'volcano', objective: 'defeat-boss',
+        id: 9, name: 'Pit of Embers', biome: 'volcano', objective: 'kill-adds-first',
         roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
         terrainPillars: 11,
         // SUMMON: the Ravager calls reinforcements at each phase — don't get swarmed. It presses
@@ -356,10 +476,21 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 120, label: 'Healing Spring' }],
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 5, everyRounds: 3, firstRound: 2 }], // the pit erupts
         enemies: [{ aiId: 'grunt-brute', count: 2 }],
-        // NOVA debut: the Ravager erupts a boss-centred slam — melee learns to back off mid-swarm.
-        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'volley', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
+        // NOVA debut: the Ravager erupts a boss-centred blast — melee learns to back off mid-swarm.
+        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16), hazard(22, 16)],
         firstClearReward: { ryo: 3000, xp: 1200, fateShards: 15 },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'pit-of-embers',
+        briefing: {
+            situation: 'The Pit Ravager\'s living adds sustain its barrier, then return at both health gates to trap the squad inside the eruption cycle.',
+            tactics: [
+                'Clear the opening Brutes, push to one phase gate, then immediately swap to the summoned Bandits.',
+                'Back away from the boss before each even-round nova and leave vent tiles before they erupt.',
+                'Control the Healing Spring so lowest-health focus cannot snowball into a defeat.',
+            ],
+            warnings: ['Three Bandits appear at both 66% and 33% health, making the boss untargetable while they live.', 'The nova begins on round 2 every 2 rounds; four vents begin on round 2 every 3 rounds.'],
+        },
     },
     {
         id: 10, name: 'The Spire Sovereign', biome: 'shadow', objective: 'defeat-boss',
@@ -377,6 +508,173 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
         features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25), hazard(24, 16)],
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
+        ...CHAPTER_ONE_PRESENTATION,
+        artKey: 'spire-sovereign',
+        briefing: {
+            situation: 'The Spire Sovereign escalates through three enrage gates while the summit erupts into new walls and collapses around the squad.',
+            tactics: [
+                'Neutralize the Acolyte controllers and Brute displacement threats even though the boss is the only required kill.',
+                'Move toward the safe core before the outer ring becomes lethal after round 11.',
+                'Clear Reflect and cleanse Wound or Poison before committing to the final enrage burn.',
+            ],
+            warnings: ['At 75%, 50%, and 25% health the Sovereign gains 35% damage and raises two new pillars.', 'Its nova repeats every 2 rounds; the 3% closing ring first damages outer tiles on round 12.'],
+        },
+    },
+    // ─── Chapter 2: The Stormglass Rebellion ───────────────────────────────────────
+    // The Sovereign's defeat opens a second ascent rather than resetting the lessons of
+    // F1-F10. Each floor composes familiar, already-canonical systems into a new tactical
+    // problem: layered waves → staged boss break → timed protection → collapsing gauntlet →
+    // add-gated phase finale. No Chapter 2 rule exists outside Tower combat.
+    {
+        id: 11, name: 'Stormglass Breach', biome: 'forest', objective: 'defeat-all',
+        roundBudget: 12, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        terrainPillars: 9,
+        boardObjects: [{ kind: 'font', resource: 'stamina', percent: 18, cap: 45, label: 'Grounding Font' }],
+        dynamicHazards: [{ kind: 'geyser', count: 5, pct: 5, everyRounds: 3, firstRound: 2 }],
+        enemies: [
+            { aiId: 'stormglass-lancer', count: 4 },
+            { aiId: 'stormglass-marksman', count: 3, spawnRound: 2 },
+            { aiId: 'stormglass-weaver', count: 2, spawnRound: 4 },
+        ],
+        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 24), hazard(22, 16, 10)],
+        firstClearReward: { ryo: 3500, xp: 1400, boneCharms: 10 },
+        chapter: 2,
+        chapterTitle: 'The Stormglass Rebellion',
+        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
+        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        artKey: 'stormglass-breach',
+        briefing: {
+            situation: "The Sovereign's fall fractures a sealed gate, but the Regent's advance guard forms three lines inside the breach.",
+            tactics: [
+                'Dislodge Lancers before their driving attacks pin the squad against charged ground.',
+                'Close on Marksmen before their crossfire settles, then cleanse the Weavers\' seals.',
+                'Use the Grounding Font to sustain movement through the final wave.',
+            ],
+            warnings: ['Marksmen arrive on round 2; Weavers enter on round 4.', 'Storm vents begin erupting on round 2, then repeat every 3 rounds.'],
+        },
+    },
+    {
+        id: 12, name: 'The Thunder Archive', biome: 'snow', objective: 'break-objective',
+        roundBudget: 17, map: { width: 24, height: 16 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 3 },
+        terrainPillars: 10,
+        boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 45, label: 'Mnemonic Well' }],
+        enemies: [{ aiId: 'stormglass-bastion', count: 2 }, { aiId: 'stormglass-weaver', count: 1, spawnRound: 3 }],
+        boss: {
+            aiId: 'boss-thunder-archivist', phases: [75, 50, 25], mechanic: 'bulwark',
+            targetMode: 'support', strike: { kind: 'volley', pct: 12, radius: 1, everyRounds: 3, firstRound: 3 },
+            phasePillars: 1, aegis: { shieldPct: 12 },
+        },
+        features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25)],
+        firstClearReward: { ryo: 4500, xp: 1800, fateShards: 14 },
+        chapter: 2,
+        chapterTitle: 'The Stormglass Rebellion',
+        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
+        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        artKey: 'thunder-archive',
+        briefing: {
+            situation: 'The Thunder Archivist has bound the bridge route behind three living seals protected by mirrored sentinels.',
+            tactics: [
+                'Remove the Bastions to collapse the Archivist\'s Bulwark before burning each seal gate.',
+                'Claim the Mnemonic Well to offset the Archive\'s chakra drain.',
+                'Scatter from the violet volley marker before it detonates.',
+            ],
+            warnings: [
+                'The objective clears at the third phase seal; killing the Archivist is not required.',
+                'A Weaver enters on round 3 and sustains the Bulwark until removed.',
+                'Every broken seal raises an Aegis and changes the arena with a new pillar.',
+            ],
+        },
+    },
+    {
+        id: 13, name: 'Bridge of a Thousand Bolts', biome: 'central', objective: 'protect-npc',
+        roundBudget: 10, map: { width: 22, height: 16 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 8 },
+        terrainPillars: 7,
+        boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 140, label: 'Wayfarer Spring' }],
+        dynamicHazards: [{ kind: 'geyser', count: 6, pct: 5, everyRounds: 2, firstRound: 2 }],
+        enemies: [
+            { aiId: 'stormglass-lancer', count: 2 }, { aiId: 'stormglass-marksman', count: 1 },
+            { aiId: 'stormglass-lancer', count: 2, spawnRound: 2 },
+            { aiId: 'stormglass-marksman', count: 2, spawnRound: 4 },
+            { aiId: 'stormglass-bastion', count: 1, spawnRound: 6 },
+            { aiId: 'stormglass-weaver', count: 2, spawnRound: 8 },
+        ],
+        npc: { aiId: 'npc-tower-scout' },
+        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 28), hazard(22, 16, 10)],
+        firstClearReward: { ryo: 4200, xp: 1700, fateShards: 10 },
+        chapter: 2,
+        chapterTitle: 'The Stormglass Rebellion',
+        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
+        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        artKey: 'thousand-bolt-bridge',
+        briefing: {
+            situation: 'A wounded Tower Scout carries the route to the crown. Hold the lightning bridge until the message is transmitted.',
+            tactics: [
+                'Anchor the Scout near the ward and intercept Lancers before they reach the squad line.',
+                'Break away to eliminate Marksmen and Weavers when their waves appear.',
+                'Rotate injured defenders through the Wayfarer Spring instead of abandoning the Scout.',
+            ],
+            warnings: ['The Scout must survive through round 10; clearing every enemy early is optional.', 'Attack waves arrive on rounds 2, 4, 6, and 8 while bridge vents erupt every even round.'],
+        },
+    },
+    {
+        id: 14, name: 'Hall of Broken Reflections', biome: 'shadow', objective: 'defeat-all',
+        roundBudget: 14, map: { width: 24, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 8 },
+        terrainPillars: 12,
+        closingRing: { pct: 3, fromRound: 8, minRadius: 4 },
+        boardObjects: [{ kind: 'shrine', percent: 8, label: 'Prism Shrine' }],
+        dynamicHazards: [{ kind: 'geyser', count: 5, pct: 5, everyRounds: 3, firstRound: 3 }],
+        enemies: [
+            { aiId: 'stormglass-bastion', count: 3 }, { aiId: 'stormglass-marksman', count: 2 },
+            { aiId: 'stormglass-weaver', count: 3, spawnRound: 3 },
+            { aiId: 'stormglass-lancer', count: 3, spawnRound: 5 },
+        ],
+        features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 24), hazard(24, 16, 11)],
+        firstClearReward: { ryo: 5000, xp: 2100, fateShards: 12, boneCharms: 12 },
+        chapter: 2,
+        chapterTitle: 'The Stormglass Rebellion',
+        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
+        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        artKey: 'broken-reflections',
+        briefing: {
+            situation: 'The inner hall folds the Regiment into overlapping firing lanes while its mirrored walls close toward the central shrine.',
+            tactics: [
+                'Break a Bastion lane, then contest the Prism Shrine before the ranged wave arrives.',
+                'Use pillars to shorten sightlines and force Marksmen toward the squad.',
+                'Move inward before the closing ring leaves the outer galleries unsafe.',
+            ],
+            warnings: ['Weavers enter on round 3; Lancers flank on round 5.', 'The safe area contracts after round 8.'],
+        },
+    },
+    {
+        id: 15, name: 'The Stormglass Crown', biome: 'volcano', objective: 'kill-adds-first',
+        roundBudget: 20, map: { width: 24, height: 18 }, fieldRule: { kind: 'none' },
+        terrainPillars: 13,
+        closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
+        boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 150, label: 'Eye of the Storm' }],
+        dynamicHazards: [{ kind: 'geyser', count: 6, pct: 5, everyRounds: 3, firstRound: 2 }],
+        enemies: [{ aiId: 'stormglass-bastion', count: 2 }, { aiId: 'stormglass-marksman', count: 2 }],
+        boss: {
+            aiId: 'boss-stormglass-regent', phases: [70, 40], mechanic: 'summon',
+            summonAiId: 'stormglass-weaver', summonCount: 2, targetMode: 'support',
+            strike: { kind: 'slam', pct: 12, radius: 1, everyRounds: 3, firstRound: 2 },
+            phasePillars: 2, aegis: { shieldPct: 10 },
+        },
+        features: [pylon(24, 18), pylon(24, 18), pylon(24, 18), pylon(24, 18), ward(24, 18, 25), hazard(24, 18, 12), hazard(24, 18, 12)],
+        firstClearReward: { ryo: 9000, xp: 3600, fateShards: 45, boneCharms: 15, milestone: 'tower-floor-15' },
+        chapter: 2,
+        chapterTitle: 'The Stormglass Rebellion',
+        chapterSubtitle: 'Beyond the fallen throne, a weather-forged court awakens.',
+        chapterSummary: "Breach the Regent's stormglass citadel, carry its warning across the lightning bridge, and break the crown directing the endless storm.",
+        artKey: 'stormglass-crown',
+        briefing: {
+            situation: 'The Stormglass Regent conducts the endless storm from a crown of mirrored pylons. Break the court, then the crown.',
+            tactics: [
+                'Destroy every retainer to lower the Crown Barrier before attacking the Regent.',
+                'At each phase gate, eliminate the summoned Weavers before resuming damage.',
+                'Read the Regent\'s slam and avoid being knocked from the safe core into an active vent.',
+            ],
+            warnings: ['Living adds make the Regent completely untargetable, including after phase summons.', 'The arena reshapes at 70% and 40% HP, then contracts after round 11.'],
+        },
     },
 ];
 

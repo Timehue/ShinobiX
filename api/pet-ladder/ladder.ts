@@ -6,7 +6,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { kickPlayer } from '../_realtime/notify.js';
-import { activeBreedingParentIds } from '../pet/_pet-busy.js';
+import { petCombatBusyReason } from '../pet/_pet-busy.js';
+import { activeCarriedPets } from '../_entitlements.js';
 import {
     type Mode, type LadderEntry, type DefenseDoc, type OfferOpponent,
     petsForMode, DAILY_CHALLENGES, AI_SEED_COUNT, CLIMB_BAND,
@@ -41,6 +42,7 @@ const dayStamp = () => new Date().toISOString().slice(0, 10);   // UTC yyyy-mm-d
 const MAX_LIST = 200;
 const NOTIFY_TTL = 7 * 24 * 3600;
 const LAST_TTL = 48 * 3600;
+const TACTICAL_ROSTER_COPY = 'Tactical combat needs 4 eligible pets. Base account: 4 carried. Shinobi Supporter: 6 carried.';
 
 type LadderNotify = { from: string; mode: Mode; won: boolean; at: number };
 
@@ -48,6 +50,16 @@ function aiOfferSummary(mode: Mode, i: number): OfferOpponent {
     if (mode === 'tactical') { const t = AI_TACTICAL[i % AI_TACTICAL.length]; return { kind: 'ai', id: `ai:${i}`, name: t.name, rank: null, summary: t.pets.map(petLite) }; }
     const p = AI_COLISEUM[i % AI_COLISEUM.length];
     return { kind: 'ai', id: `ai:${i}`, name: p.name, rank: null, summary: [petLite(p)] };
+}
+
+export function defenseUsesCombatReadyPets(character: Record<string, unknown>, defense: DefenseDoc): boolean {
+    const eligibleById = new Map(activeCarriedPets<Record<string, unknown>>(character)
+        .map((pet) => [String(pet.id ?? ''), pet]));
+    return defense.pets.length === petsForMode(defense.mode)
+        && defense.pets.every((pet) => {
+            const current = eligibleById.get(String(pet.id ?? ''));
+            return Boolean(current && !petCombatBusyReason(character, current));
+        });
 }
 const aiDefense = (mode: Mode, i: number): DefenseDoc => (mode === 'tactical' ? aiTacticalDefense(i) : aiColiseumDefense(i));
 
@@ -124,12 +136,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'defense') {
             const count = petsForMode(mode);
             const save = await kv.get<{ character?: { pets?: Array<Record<string, unknown>>; name?: string; village?: string } }>(`save:${me}`);
-            const owned = Array.isArray(save?.character?.pets) ? save!.character!.pets! : [];
+            const character = (save?.character ?? {}) as Record<string, unknown>;
+            const owned = activeCarriedPets<Record<string, unknown>>(character);
             const pets = chooseOwnedLadderPets(owned, (body as { petIds?: unknown }).petIds, count);
-            if (!pets) return res.status(400).json({ error: count === 1 ? 'Pick a pet you own.' : `Pick ${count} pets you own.` });
-            const breedingParents = activeBreedingParentIds((save?.character ?? {}) as Record<string, unknown>);
-            if (pets.some((pet) => breedingParents.has(String(pet.id ?? '')))) {
-                return res.status(409).json({ error: 'A selected pet is in the breeding barn.' });
+            if (!pets) return res.status(400).json({ error: count === 1 ? 'Pick a pet you own.' : TACTICAL_ROSTER_COPY });
+            const chosenIds = new Set(pets.map((pet) => String(pet.id ?? '')));
+            if (owned.some((pet) => chosenIds.has(String(pet.id ?? '')) && petCombatBusyReason(character, pet))) {
+                return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
             }
             const displayName = String(save?.character?.name ?? me).slice(0, 40);
             const village = typeof save?.character?.village === 'string' ? save!.character!.village : undefined;
@@ -157,6 +170,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'offer') {
             const myDef = await kv.get<DefenseDoc>(defKey(mode, me));
             if (!myDef) return res.status(400).json({ error: 'Set your defense first.' });
+            const mySave = await kv.get<{ character?: Record<string, unknown> }>(`save:${me}`);
+            if (!mySave?.character || !defenseUsesCombatReadyPets(mySave.character, myDef)) {
+                return res.status(409).json({ error: mode === 'tactical' ? TACTICAL_ROSTER_COPY : 'Reset your defense with an eligible carried pet.' });
+            }
             const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
             const lastTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;   // exclude the opponent just fought
             const aiStart = crypto.randomInt(0, AI_SEED_COUNT);
@@ -169,6 +186,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const targetId = String((body as { targetId?: unknown }).targetId ?? '');
             const myDef = await kv.get<DefenseDoc>(defKey(mode, me));
             if (!myDef) return res.status(400).json({ error: 'Set your defense first.' });
+            const mySave = await kv.get<{ character?: Record<string, unknown> }>(`save:${me}`);
+            if (!mySave?.character || !defenseUsesCombatReadyPets(mySave.character, myDef)) {
+                return res.status(409).json({ error: mode === 'tactical' ? TACTICAL_ROSTER_COPY : 'Reset your defense with an eligible carried pet.' });
+            }
 
             const order0 = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
             const lastTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;
@@ -188,6 +209,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (isAiId(targetId)) { const i = aiIndexOf(targetId); targetDef = i >= 0 && i < AI_SEED_COUNT ? aiDefense(mode, i) : null; }
             else targetDef = await kv.get<DefenseDoc>(defKey(mode, targetId));
             if (!targetDef || targetDef.pets.length === 0) return res.status(404).json({ error: 'Opponent has no defense set.' });
+            if (!isAiId(targetId)) {
+                const targetSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(targetId)}`);
+                if (!targetSave?.character || !defenseUsesCombatReadyPets(targetSave.character, targetDef)) {
+                    return res.status(409).json({ error: 'Opponent must reset an ineligible carried-pet defense.' });
+                }
+            }
 
             // Server-minted seed → server recomputes the winner (outside the lock).
             const seed = crypto.randomInt(1, 0x7fffffff);

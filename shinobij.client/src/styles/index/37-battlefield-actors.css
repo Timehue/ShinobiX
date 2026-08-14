@@ -1,0 +1,148 @@
+/* Grounded combat actors ---------------------------------------------------
+   The battle engines still position a fixed `.avatar-orb` anchor and keep all
+   hit testing on the existing hex or actor buttons. This late presentation
+   layer changes only what is painted inside that anchor: player portraits
+   become map-pin standees, while AI body art becomes a compact full-body sprite. */
+
+.arena-fullscreen .battlefield-actor {
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none;
+    isolation: isolate;
+    overflow: visible !important;
+    pointer-events: none !important;
+}
+
+.arena-fullscreen .battlefield-actor--marker,
+.arena-fullscreen .battlefield-actor--sprite {
+    box-shadow: none !important;
+}
+
+.arena-fullscreen .battlefield-actor-marker {
+    position: absolute;
+    inset: 1px 4px 5px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.arena-fullscreen .battlefield-actor-portrait {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 100%;
+    aspect-ratio: 1;
+    transform: translateX(-50%);
+    overflow: hidden;
+    border: 2px solid rgba(224, 242, 254, 0.96);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 32%, #334155, #0f172a 76%);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.55), 0 4px 7px rgba(0, 0, 0, 0.72);
+    z-index: 2;
+}
+
+.arena-fullscreen .battlefield-actor--enemy .battlefield-actor-portrait {
+    border-color: rgba(255, 237, 213, 0.96);
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.62), 0 4px 7px rgba(0, 0, 0, 0.72);
+}
+
+.arena-fullscreen .battlefield-actor-pin {
+    position: absolute;
+    left: 50%;
+    top: 72%;
+    width: 34%;
+    height: 34%;
+    transform: translateX(-50%);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    background: linear-gradient(90deg, #bae6fd, #f8fafc 50%, #7dd3fc);
+    filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.58));
+    z-index: 1;
+}
+
+.arena-fullscreen .battlefield-actor--enemy .battlefield-actor-pin {
+    background: linear-gradient(90deg, #fdba74, #fff7ed 50%, #fb7185);
+}
+
+.arena-fullscreen .battlefield-actor-portrait-image,
+.arena-fullscreen .battlefield-actor-fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+
+.arena-fullscreen .battlefield-actor-portrait-image {
+    display: block;
+    object-fit: cover;
+    object-position: center 22%;
+    z-index: 2;
+}
+
+.arena-fullscreen .battlefield-actor-fallback {
+    display: grid;
+    place-items: center;
+    color: #fef3c7;
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 2px #020617;
+    z-index: 1;
+}
+
+.arena-fullscreen .battlefield-actor-sprite {
+    position: absolute;
+    left: 50%;
+    bottom: -3px;
+    width: 148%;
+    height: 136%;
+    transform: translateX(-50%);
+    transform-origin: 50% 100%;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.82)) drop-shadow(0 0 4px rgba(248, 113, 113, 0.58));
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+}
+
+.arena-fullscreen .battlefield-actor[data-battlefield-sprite-kind="quadruped"] .battlefield-actor-sprite {
+    width: 172%;
+    height: 126%;
+    bottom: -2px;
+}
+
+.arena-fullscreen .battlefield-actor[data-battlefield-sprite-kind="flying"] .battlefield-actor-sprite {
+    width: 164%;
+    height: 146%;
+    bottom: 0;
+}
+
+.arena-fullscreen .battlefield-actor[data-battlefield-sprite-kind="serpentine"] .battlefield-actor-sprite {
+    width: 180%;
+    height: 154%;
+    bottom: -3px;
+}
+
+.arena-fullscreen .battlefield-actor[data-battlefield-sprite-kind="boss"] .battlefield-actor-sprite {
+    width: 172%;
+    height: 158%;
+    bottom: -3px;
+}
+
+.arena-fullscreen .battlefield-actor[data-battlefield-sprite-kind="construct"] .battlefield-actor-sprite {
+    width: 166%;
+    height: 154%;
+    bottom: -3px;
+}
+
+.arena-fullscreen .battlefield-actor--sprite::before {
+    width: 72%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .arena-fullscreen .battlefield-actor,
+    .arena-fullscreen .battlefield-actor * {
+        animation: none !important;
+    }
+}

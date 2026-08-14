@@ -1,18 +1,10 @@
 /*
  * Village war MORALE — the server-side half (§17.1).
  *
- * settleVillageWar stamps `warLossDebuffUntil` on the loser's village-state and
- * `warWinBuffUntil` on the winner's. The client reads both (lib/war-debuff.ts),
- * but reading them there was never enough to make them BITE:
- *
- *   · Training gains are SEALED SERVER-SIDE at start (api/training/start.ts
- *     sealedGain, api/pet/progress.ts sealedXp), so a client-side XP multiplier
- *     had no seam to act on — the training-XP half of both windows was inert.
- *   · The jutsu-training bonus is client-reported and clamped to [0, 60]
- *     server-side, so the loser's "+20% training time" could only ever shave an
- *     existing bonus and did nothing at all to a player without one.
- *
- * So morale is resolved HERE, from authoritative state, and applied at the seal.
+ * settleVillageWar stamps the legacy `warLossDebuffUntil` field on the losing
+ * village. It now means a three-day comeback rally, not a growth punishment.
+ * Old winner stamps remain readable but progression-neutral. Morale is resolved
+ * here from authoritative state and applied when each gain is sealed.
  * The multipliers mirror shinobij.client/src/lib/war-debuff.ts exactly — KEEP THE
  * TWO IN SYNC, they are what the player is shown versus what they are given.
  *
@@ -23,14 +15,14 @@ import { kv } from './_storage.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 
-// Loser: "demoralized". Winner: "triumphant" — gentler on the jutsu axis so a
-// victor cannot snowball into the next war on top of the spoils they took.
-export const WAR_DEBUFF_TRAINING_XP_MULT = 0.9;
-export const WAR_DEBUFF_JUTSU_TIME_MULT = 1.2;
-export const WAR_BUFF_TRAINING_XP_MULT = 1.1;
-export const WAR_BUFF_JUTSU_TIME_MULT = 0.9;
+// A losing village receives a short comeback boost. Winner multipliers remain
+// neutral because victory already awards map control, spoils, crates, and standing.
+export const WAR_DEBUFF_TRAINING_XP_MULT = 1.1;
+export const WAR_DEBUFF_JUTSU_TIME_MULT = 0.9;
+export const WAR_BUFF_TRAINING_XP_MULT = 1;
+export const WAR_BUFF_JUTSU_TIME_MULT = 1;
 
-export type WarMorale = 'triumphant' | 'demoralized' | 'none';
+export type WarMorale = 'triumphant' | 'rallying' | 'none';
 
 export interface VillageWarMorale {
     morale: WarMorale;
@@ -48,6 +40,20 @@ export interface WarMoraleStamps {
     warWinBuffUntil?: unknown;
 }
 
+export const WAR_COMEBACK_RALLY_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Stamp the morale side of a settlement. A later victory explicitly ends an
+ * active loss rally; otherwise a village could keep its comeback boost after it
+ * had already won the rematch. The legacy field name remains storage-compatible. */
+export function settlementMoralePatch(
+    side: 'winner' | 'loser',
+    now: number,
+): Pick<WarMoraleStamps, 'warLossDebuffUntil'> {
+    return side === 'loser'
+        ? { warLossDebuffUntil: now + WAR_COMEBACK_RALLY_MS }
+        : { warLossDebuffUntil: 0 };
+}
+
 /** Resolve stamps → multipliers. Pure. The LATER stamp wins, so a stale victory
  *  can never cancel a fresh defeat. Mirrors the client's resolveWarMorale. */
 export function resolveWarMorale(stamps: WarMoraleStamps | null | undefined, now: number): VillageWarMorale {
@@ -58,7 +64,7 @@ export function resolveWarMorale(stamps: WarMoraleStamps | null | undefined, now
     if (!lossLive && !winLive) return NEUTRAL_MORALE;
     if (lossLive && (!winLive || loss >= win)) {
         return {
-            morale: 'demoralized',
+            morale: 'rallying',
             xpMult: WAR_DEBUFF_TRAINING_XP_MULT,
             jutsuTimeMult: WAR_DEBUFF_JUTSU_TIME_MULT,
             until: loss,
@@ -94,8 +100,7 @@ export async function moraleForCharacter(
     return villageWarMoraleOf(String(character?.village ?? ''), now);
 }
 
-/** Apply the XP multiplier to a sealed gain. Never turns a real gain into zero —
- *  a demoralized village trains slower, not not-at-all. Pure. */
+/** Apply the XP multiplier to a sealed gain. Never turns a real gain into zero. */
 export function applyMoraleToGain(gain: number, mult: number): number {
     const base = Math.max(0, Math.floor(Number(gain) || 0));
     if (base <= 0) return 0;

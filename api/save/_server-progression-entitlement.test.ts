@@ -8,6 +8,9 @@ test('generic saves cannot forge server-owned achievement and combat progression
         auraDust: 50,
         redeemedAuraFeeds: ['aura_receipt_1'],
         battleTowerAscension: 3,
+        battleTowerSpireWeeklyBest: 3,
+        battleTowerSpireWeekKey: '2026-W01',
+        battleTowerMilestones: ['tower-floor-5'],
         rankedSeasonsWon: 1,
         weeklyBossKills: { '2026-W01': 'boss-a' },
         defeatedAiIds: ['enemy-a'],
@@ -22,6 +25,9 @@ test('generic saves cannot forge server-owned achievement and combat progression
         auraDust: 50,
         redeemedAuraFeeds: [],
         battleTowerAscension: 20,
+        battleTowerSpireWeeklyBest: 20,
+        battleTowerSpireWeekKey: 'forged-week',
+        battleTowerMilestones: ['tower-floor-10', 'forged-title'],
         rankedSeasonsWon: 99,
         weeklyBossKills: { forged1: 'x', forged2: 'x', forged3: 'x', forged4: 'x', forged5: 'x' },
         defeatedAiIds: Array.from({ length: 200 }, (_, i) => `forged-${i}`),
@@ -33,7 +39,7 @@ test('generic saves cannot forge server-owned achievement and combat progression
     } };
     const out = sanitizeCharacterSave(incoming, stored) as Record<string, any>;
     const storedCharacter = stored.character as Record<string, unknown>;
-    for (const field of ['auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'element', 'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'examsPassed', 'elderFocus']) {
+    for (const field of ['auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'battleTowerSpireWeeklyBest', 'battleTowerSpireWeekKey', 'battleTowerMilestones', 'rankedSeasonsWon', 'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'element', 'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'examsPassed', 'elderFocus']) {
         assert.deepEqual(out.character[field], storedCharacter[field], field);
     }
 });
@@ -42,6 +48,9 @@ test('first save canonicalizes server-owned progression', () => {
     const out = sanitizeCharacterSave({ character: {
         auraSphereLevel: 300,
         battleTowerAscension: 20,
+        battleTowerSpireWeeklyBest: 20,
+        battleTowerSpireWeekKey: 'forged-week',
+        battleTowerMilestones: ['forged-title'],
         rankedSeasonsWon: 99,
         weeklyBossKills: { forged: 'boss' },
         defeatedAiIds: ['forged'],
@@ -53,6 +62,9 @@ test('first save canonicalizes server-owned progression', () => {
     } }, null) as Record<string, any>;
     assert.equal(out.character.auraSphereLevel, 1);
     assert.equal(out.character.battleTowerAscension, 0);
+    assert.equal(out.character.battleTowerSpireWeeklyBest, 0);
+    assert.equal(out.character.battleTowerSpireWeekKey, undefined);
+    assert.deepEqual(out.character.battleTowerMilestones, []);
     assert.equal(out.character.rankedSeasonsWon, 0);
     assert.deepEqual(out.character.weeklyBossKills, {});
     assert.deepEqual(out.character.defeatedAiIds, []);

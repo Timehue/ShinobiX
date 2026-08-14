@@ -81,7 +81,7 @@ npm ci
 npm test
 ```
 
-Run the local client:
+Run the lightweight UI/mock client:
 
 ```bash
 cd shinobij.client
@@ -89,11 +89,34 @@ npm ci
 npm run dev
 ```
 
-Vite starts on a local HTTPS URL such as:
+Vite starts on port `50891` by default (HTTPS when a local development
+certificate is available):
 
 ```text
-https://127.0.0.1:5173/
+https://127.0.0.1:50891/
 ```
+
+This Vite server intentionally implements only a small mock API for UI work. It
+is not the authoritative game backend, so deeper missions, PvP, persistence,
+training, and settlement routes may be unavailable there.
+
+For a full local gameplay/QA server without a production database, build first,
+then start the Express server in guarded in-memory test mode. In PowerShell:
+
+```powershell
+npm run build
+$env:NODE_ENV = "test"
+$env:SHINOBIX_QA_MEMORY_KV = "1"
+$env:SESSION_SECRET = "local-qa-session-secret-at-least-32-characters"
+$env:ADMIN_PASSWORD = "local-qa-admin-password"
+$env:DISABLE_SCHEDULED_JOBS = "1"
+$env:DISABLE_SNAPSHOT_CRON = "1"
+node dist/server.js
+```
+
+Open `http://127.0.0.1:3000/`. This mode is blocked in production and on
+Vercel; persistent production operation still requires the database variables
+documented in `.env.example`.
 
 Build everything:
 

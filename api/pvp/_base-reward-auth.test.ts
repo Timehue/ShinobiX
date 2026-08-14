@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { sealBaseRewardStamp } from './session.js';
+import { pvpSessionMayGrantProgress, pvpSessionMayReward, sealBaseRewardStamp } from './session.js';
 
 // Regression for #1A: a non-admin browser must never (a) turn a fight against a
 // fabricated no-save NPC into a base-reward battle, nor (b) self-assign the
@@ -11,6 +11,13 @@ import { sealBaseRewardStamp } from './session.js';
 const PVP = { isAdmin: false, p1HasSave: true, p2HasSave: true, deathsGateVerified: false } as const;
 
 describe('sealBaseRewardStamp — base-reward authorization', () => {
+    it('distinguishes a sanctioned no-reward spar from a progression match', () => {
+        const spar = { rewardAuthority: 'challenge' as const, joined: { p1: true, p2: true } };
+        assert.equal(pvpSessionMayReward(spar), true);
+        assert.equal(pvpSessionMayGrantProgress(spar), false);
+        assert.equal(pvpSessionMayGrantProgress({ ...spar, baseRewards: true }), true);
+    });
+
     it('does not stamp base rewards when they were not requested', () => {
         const r = sealBaseRewardStamp({ ...PVP, baseRewards: false, rewardSector: 5 });
         assert.deepEqual(r, { stamp: {}, denied: false });

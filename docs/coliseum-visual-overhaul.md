@@ -79,7 +79,7 @@ existing admin pet-art grid — instant, no re-encode, no token spend.
   51e488b, c283de0) is a losing game.
 
 **Fix concept: formation-slot staging.** Decouple *where pets stand* from raw
-sim tiles, the way every creature-battler (Pokémon, Octopath, FF) does: each
+sim tiles, the way every creature-battler (the leading creature-battler, HD-2D RPGs, FF) does: each
 side owns fixed lane anchors (player front-left + back-left, enemy mirrored),
 chosen so sprites can never overlap and nameplates never collide. The sim still
 decides everything that matters — who acts, who's in melee range
@@ -158,14 +158,14 @@ at the user's actual sizes — 1365×911 and 2005×1271 — not assumed ones.
 
 ## Research synthesis (2026-06-11) — four reference families
 
-Four parallel web-research passes (auto-battlers, Pokémon Legends Z-A, the
-Pokémon Colosseum/Stadium lineage, and cross-genre arena/stage design). The
+Four parallel web-research passes (auto-battlers, a modern creature-battler, the
+console creature-battler arenas lineage, and cross-genre arena/stage design). The
 findings converge hard on a handful of techniques and — importantly — supply
 concrete numbers and one strategy I didn't have. Full citations at the bottom.
 
 ### A. The single biggest idea: our sprites never touch, so don't make them — *edit*
 
-Pokémon Colosseum/Stadium's models **never actually make contact either**; the
+console creature-battler arenas's models **never actually make contact either**; the
 games "use the camera and attack animations to mask this" — they **cut to the
 defender on impact**, and the edit *implies* the hit. This is the
 highest-leverage trick available to us because we have the identical problem
@@ -179,7 +179,7 @@ back) vs the **Colosseum** model (keep them apart, cut the camera to sell it).
 For an HD-2D angled spectator battler, the strongest answer is a **blend** —
 SAP-style bump for clean melee reads *plus* a Colosseum-style impact push-in.
 
-### B. The #1 thing that makes modern Pokémon look flat — and our current scene too
+### B. The #1 thing that makes modern the leading creature-battler look flat — and our current scene too
 
 The consensus diagnosis of why GameCube-era battles felt weighty and Switch-era
 ones feel cheap: modern mons **freeze in place until the move's VFX finishes**,
@@ -299,7 +299,7 @@ The user offered "even top down" as an escape hatch. Recommendation: **no**.
 
 If after Phases 1–3 the look still doesn't land, the fallback isn't top-down —
 it's locking the camera lower/flatter (pure constants change) for a more
-side-on Octopath look, which all of this work transfers to 1:1.
+side-on HD-2D RPGs look, which all of this work transfers to 1:1.
 
 ---
 
@@ -383,7 +383,7 @@ scene runs ~60fps so frames ≈ ms·0.06.
    (freeze BOTH sprites **3–6 frames**, longer for crit/KO; camera punch-in via
    `petBattleCamera` beats) → **instant reaction** on the defender — the
    knockback/stagger fires on the *contact frame*, NOT an eased lerp (this is
-   the §B fix; the current slow `recoil` ease is the modern-Pokémon flatness) —
+   the §B fix; the current slow `recoil` ease is the modern-the leading creature-battler flatness) —
    plus a 1–2 frame white flash, knockback impulse scaled by damage/maxHp →
    attacker **snaps back to its anchor** on an ease-out (the HS Glyph-Guardian
    rule; never leave it mid-lane). Crits/signatures keep the bigger shake they
@@ -487,7 +487,7 @@ sell weight without making the fight hard to follow at both real viewports?
    hiding non-contact)? I lean: build Phase 3 first, demo, decide 3.5 from the
    real feel.
 2. **Camera flavor** once staging lands: keep the slightly-elevated Z-A style,
-   or flatten toward a side-on Octopath look? (Constants-only; can demo both.)
+   or flatten toward a side-on HD-2D RPGs look? (Constants-only; can demo both.)
 3. **Default-ON timing**: flip the coliseum to default after Phase 3 or only
    after Phase 4 polish?
 4. Are per-species size classes wanted (Colossus > Kitsune), or keep all pets
@@ -496,25 +496,25 @@ sell weight without making the fight hard to follow at both real viewports?
 ## Sources (2026-06-11 research)
 
 - **Auto-battlers / game-feel:** Super Auto Pets wiki + a327ex mechanics
-  breakdown; Hearthstone Battlegrounds wiki (+ Glyph-Guardian "hangs in the
+  breakdown; a leading card auto-battler wiki (+ Glyph-Guardian "hangs in the
   middle" return bug); TFT design (GDC 2020; world-space mana-over-HP bars);
   Dota Underlords edge-docked UI; Mechabellum silhouette readability; GDKeys
   "Anatomy of an Attack" (anticipation 8–15f, reaction ~0.25s); CritPoints /
   SmashWiki Hitlag (hit-stop 6f Final Fight, ~10f SF2, damage-scaled); Vlambeer
   "Art of Screenshake" / "Juice It or Lose It."
-- **Pokémon Legends Z-A:** Bulbapedia + Serebii (wind-up→execution,
+- **a modern creature-battler:** Bulbapedia + Serebii (wind-up→execution,
   move-driven spacing, melee/projectile/beam, cooldowns); Smogon mechanics
   research; TheGamer impressions; GamesHub review + Metacritic (the "sliding /
   clinical / grounding-disconnect" criticisms = what to AVOID).
-- **Pokémon Colosseum/Stadium lineage:** Nintendo World Report (camera
+- **console creature-battler arenas lineage:** Nintendo World Report (camera
   zoom/orbit; "the models never touch — camera + animation mask it"); Bulbapedia
   Battle effects + Realgam Colosseum (center Poké Ball emblem; pan-out for
   doubles); PokéCommunity "Battles visually left behind…" (instant overlapping
   reaction vs the modern freeze-then-snap); Nintendo Life hidden-animations;
   faint-animation compilations.
 - **Arena / HD-2D staging:** Wikipedia HD-2D (tilt-shift, point-light cast
-  shadows, bloom/fog/particles); Octopath II "picture-perfect" framing; Carré's
-  Corner fighting-stage grayscale/value rules; Darkest Dungeon art (chiaroscuro,
+  shadows, bloom/fog/particles); HD-2D RPGs II "picture-perfect" framing; Carré's
+  Corner fighting-stage grayscale/value rules; a party roguelike art (chiaroscuro,
   rule-of-thirds); Halisavakis + Unity threads (orthographic floor projection vs
   the baked-perspective anti-pattern); three.js docs/forum (vertical-only FOV,
   Hor+ clamp `vFOV = 2·atan(tan(hFOV/2)/aspect)`, `<Bounds>` auto-frame).

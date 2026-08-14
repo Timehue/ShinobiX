@@ -11,6 +11,9 @@ export type PetBusyCode =
     | 'pet-is-reserve'
     | 'pet-is-assigned';
 
+export type PetCombatBusyCode = Extract<PetBusyCode,
+    'pet-is-breeding' | 'pet-is-training' | 'pet-is-on-expedition'>;
+
 export type PetEligibilityResult = { ok: true; templateId: string; element: string }
     | { ok: false; code: string; message: string };
 
@@ -25,6 +28,26 @@ export function activeBreedingParentIds(character: Record<string, unknown>, now 
     return new Set(session.parentIds);
 }
 
+/**
+ * Busy states that make a carried pet unavailable for combat selection.
+ *
+ * Training and expedition records remain busy until their dedicated collect
+ * flows clear them, even when their timers have elapsed. Breeding is different:
+ * the parents unlock when its timer completes so a lost collect acknowledgement
+ * cannot strand them indefinitely.
+ */
+export function petCombatBusyReason(
+    character: Record<string, unknown>,
+    pet: Record<string, unknown>,
+    now = Date.now(),
+): PetCombatBusyCode | null {
+    const id = String(pet.id ?? '');
+    if (activeBreedingParentIds(character, now).has(id)) return 'pet-is-breeding';
+    if (pet.training) return 'pet-is-training';
+    if (pet.expedition) return 'pet-is-on-expedition';
+    return null;
+}
+
 export function petBusyReason(
     character: Record<string, unknown>,
     pet: Record<string, unknown>,
@@ -32,9 +55,8 @@ export function petBusyReason(
     options: { includeActive?: boolean; includeReserve?: boolean; assignmentIds?: Iterable<string> } = {},
 ): PetBusyCode | null {
     const id = String(pet.id ?? '');
-    if (activeBreedingParentIds(character, now).has(id)) return 'pet-is-breeding';
-    if (pet.training) return 'pet-is-training';
-    if (pet.expedition) return 'pet-is-on-expedition';
+    const combatBusy = petCombatBusyReason(character, pet, now);
+    if (combatBusy) return combatBusy;
     if (options.includeActive !== false && String(character.activePetId ?? '') === id) return 'pet-is-active';
     if (options.includeReserve !== false && String(character.activePetId2v2 ?? '') === id) return 'pet-is-reserve';
     const assigned = new Set(options.assignmentIds ?? []);

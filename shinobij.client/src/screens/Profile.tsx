@@ -10,7 +10,7 @@ import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/
 import { ANIMATED_MAX_MB, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { PatreonLink } from "../components/PatreonLink";
-import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
+import { activeJutsuLoadoutIds, maxLoadout, canCustomAvatar } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuLoadoutPanel } from "../components/JutsuLoadoutPanel";
 import { NindoEditor } from "../components/NindoEditor";
@@ -31,6 +31,7 @@ import { getAllJutsus, playerLensDiscipline } from "../App";
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
+import { placeNewJutsuPreservingDormant } from "../lib/jutsu-loadout-preferences";
 
 type ProfileDossierRow = {
     label: string;
@@ -119,9 +120,14 @@ export function Profile({
                 // rejects (server enforces a 2 MB decoded cap + data-URL-only).
                 // Fail closed. (#15)
                 const apply = async (img: string) => {
-                    const ok = await publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                    let publishError = "Your avatar couldn't be saved. Please try again.";
+                    const ok = await publishSharedImage(
+                        'avatar:' + character.name.toLowerCase(),
+                        img,
+                        (message) => { publishError = message; },
+                    );
                     if (!ok) {
-                        alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
+                        alert(publishError);
                         return;
                     }
                     updateCharacter((prev) => prev ? ({ ...prev, avatarImage: img }) : prev);
@@ -344,15 +350,18 @@ export function Profile({
         }
 
         const loadoutCap = maxLoadout(character);
-        if (character.equippedJutsuIds.length >= loadoutCap) {
+        const ids = placeNewJutsuPreservingDormant(
+            character.equippedJutsuIds,
+            id,
+            loadoutCap,
+            slotIndex < loadoutCap ? slotIndex : undefined,
+        );
+        if (!ids) {
             alert(loadoutCap < 15
-                ? `You can only equip ${loadoutCap} jutsu. Link your Patreon (Shinobi Supporter) to equip 15.`
+                ? `Your ${loadoutCap} active slots are full. Select one to replace; dormant preferences stay preserved.`
                 : "You can only equip 15 jutsu.");
             return;
         }
-
-        const ids = [...character.equippedJutsuIds];
-        ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
         updateCharacter({
             ...character,
             equippedJutsuIds: ids,
@@ -387,6 +396,9 @@ export function Profile({
     const disciplineLabel = playerLensDiscipline(character);
     const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
     const currentTitleLabel = character.customTitle || character.storyTitle || "";
+    const jutsuLoadoutCap = maxLoadout(character);
+    const activeJutsuCount = activeJutsuLoadoutIds(character).length;
+    const dormantJutsuCount = Math.max(0, character.equippedJutsuIds.length - jutsuLoadoutCap);
     // XP is retired: level progress is earned stat points vs the next threshold.
     const xpLabel = character.level >= MAX_LEVEL
         ? "MAX"
@@ -407,7 +419,7 @@ export function Profile({
             title: "Progress",
             rows: [
                 { label: "Growth", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "stat points toward next level", tone: "gold" },
-                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
+                { label: "Jutsu", value: `${formatAmount(activeJutsuCount)}/${jutsuLoadoutCap}`, detail: dormantJutsuCount > 0 ? `${dormantJutsuCount} dormant Supporter preference${dormantJutsuCount === 1 ? "" : "s"} preserved` : "active combat loadout", tone: activeJutsuCount > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
             ],
         },
@@ -446,9 +458,11 @@ export function Profile({
     function renderStatCard(stat: keyof Stats) {
         const value = character.stats[stat];
         const pct = Math.round((value / MAX_STAT) * 100);
+        const statLabel = formatStatLabel(stat);
+        const inputId = `stat-points-${stat}`;
         return (
             <div className="stat-card" key={stat}>
-                <div className="stat-card-label">{formatStatLabel(stat)}</div>
+                <div className="stat-card-label" id={`${inputId}-label`}>{statLabel}</div>
                 <div className="stat-card-values">
                     <span className="stat-current">{value}</span>
                     <span className="stat-max">/ {MAX_STAT}</span>
@@ -458,18 +472,23 @@ export function Profile({
                 </div>
                 <div className="stat-card-input-row">
                     <input
+                        id={inputId}
                         type="number"
                         min={1}
                         max={character.unspentStats}
                         value={statInputs[stat] ?? 1}
                         onChange={(e) => setStatInputs((prev) => ({ ...prev, [stat]: Math.max(1, parseInt(e.target.value) || 1) }))}
                         className="stat-input"
+                        aria-label={`Points to add to ${statLabel}`}
+                        aria-describedby={`${inputId}-label`}
                     />
                     <button
+                        type="button"
                         className="stat-add-btn"
                         onClick={() => addStat(stat)}
                         disabled={character.unspentStats === 0}
-                    >Add</button>
+                        aria-label={`Add selected points to ${statLabel}`}
+                    >Add to {statLabel}</button>
                 </div>
             </div>
         );

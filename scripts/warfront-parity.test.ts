@@ -6,9 +6,10 @@ import type { WfBuyPolicy, WfStance } from "../shinobij.client/src/lib/pet-warfr
 import type { Pet } from "../shinobij.client/src/types/pet";
 import type { ArenaRole, ArenaSlot } from "../shinobij.client/src/lib/pet-arena-sim";
 import { buildWarfrontAiTeam } from "../api/pet/_warfront-ai";
-import { genericPetArenaOpponents } from "../shinobij.client/src/data/pet-arena-opponents";
 import { derivePetRole } from "../shinobij.client/src/lib/pet-roles";
 import { derivePetRole as serverDerivePetRole } from "../api/_pet-sim/pet-roles";
+import { WF_BAKED_MASK as clientBakedMask } from "../shinobij.client/src/lib/pet-warfront-mask-baked";
+import { WF_BAKED_MASK as serverBakedMask } from "../api/_pet-sim/pet-warfront-mask-baked";
 
 /*
  * Hollow Warfront server-parity. api/_pet-sim/pet-warfront-sim.ts is a GENERATED
@@ -27,6 +28,10 @@ const mk = (id: string, el: string, o: Partial<Pet> = {}): Pet =>
 const squad = (p: string, boost = 0): ArenaSlot[] =>
     (["defender", "tracker", "assassin", "sage"] as ArenaRole[]).map((role, i) =>
         ({ pet: mk(`${p}-${i}`, ["Earth", "Water", "Fire", "Wind"][i], { attack: 90 + boost, hp: 700 + boost * 4 }), role }));
+
+test("generated server Warfront mask is byte-identical to the client source", () => {
+    assert.equal(serverBakedMask, clientBakedMask);
+});
 
 // Compare the authoritative surface: winner + ticks + the full event stream
 // (which determines the match) + final economy/structure state. Cheaper than a
@@ -74,11 +79,10 @@ function streamedRender(blue: ArenaSlot[], red: ArenaSlot[], seed: number, polic
     return ctl.result;
 }
 // The vs-AI RED team the reward endpoint re-sims must be the SAME team the
-// client fought. The client (PetArena "Start vs AI") cycles genericPetArenaOpponents
-// to the player's count; the server rebuilds it from SERVER_ARENA_PETS + elements
-// (buildWarfrontAiTeam). This proves the two produce byte-identical matches, so
-// the reward can never diverge from what the player saw. Roles are assigned the
-// client's way (pet.role ?? derivePetRole) on both sides.
+// client fought. The client renders the exact sealed roster returned by
+// warfront-start, while the server builds that roster from the hidden prepared
+// seed. Roles are assigned the client's way (pet.role ?? derivePetRole) on both
+// sides.
 function autoRole(pets: Pet[]): ArenaSlot[] {
     return pets.map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
 }
@@ -91,11 +95,12 @@ function autoRole(pets: Pet[]): ArenaSlot[] {
 test("reward endpoint's server computation === the browser's streamed render", () => {
     const bluePets = squad("P").map((s) => s.pet);
     const srvRole = (pets: Pet[]): ArenaSlot[] => pets.map((pet) => ({ pet, role: (pet.role ?? serverDerivePetRole(pet).role) as ArenaRole }));
-    const clientRed = autoRole(Array.from({ length: 4 }, (_, i) => ({ ...genericPetArenaOpponents.map((o) => o.pet)[i % genericPetArenaOpponents.length] })));
     for (const seed of [1, 42]) {
+        const redPets = buildWarfrontAiTeam(4, seed) as unknown as Pet[];
+        const clientRed = autoRole(redPets.map((pet) => ({ ...pet })));
         for (const stance of ["balanced", "headhunt"] as const) {
             for (const doc of ["vanguard", "warden-pact"] as const) {   // a stat doctrine + the recruit doctrine
-                const endpoint = serverRun(srvRole(bluePets), srvRole(buildWarfrontAiTeam(4)), seed, "balanced", "balanced", undefined, { blue: stance }, { blue: doc });
+                const endpoint = serverRun(srvRole(bluePets), srvRole(redPets), seed, "balanced", "balanced", undefined, { blue: stance }, { blue: doc });
                 const ctl = startWarfrontMatch(autoRole(bluePets), clientRed, seed, { bluePolicy: "balanced", redPolicy: "balanced", blueStance: stance, blueDoctrine: doc });
                 let g = 0;
                 while (!ctl.done && g++ < 100000) ctl.advanceRoundPartial(70);
@@ -104,15 +109,16 @@ test("reward endpoint's server computation === the browser's streamed render", (
         }
     }
 });
-test("server-resolved vs-AI red team reproduces the client roster's match byte-for-byte", () => {
+test("server-resolved seed-sealed red team reproduces the client render byte-for-byte", () => {
     const blue = squad("P");
     const count = 4;
-    const clientRed = autoRole(Array.from({ length: count }, (_, i) => ({ ...genericPetArenaOpponents.map((o) => o.pet)[i % genericPetArenaOpponents.length] })));
-    const serverRed = autoRole(buildWarfrontAiTeam(count));
     for (const seed of [1, 7, 42, 999]) {
+        const serverPets = buildWarfrontAiTeam(count, seed) as unknown as Pet[];
+        const clientRed = autoRole(serverPets.map((pet) => ({ ...pet })));
+        const serverRed = autoRole(serverPets);
         assert.equal(
             digest(clientRun(blue, clientRed, seed)),
-            digest(clientRun(blue, serverRed, seed)),
+            digest(serverRun(blue, serverRed, seed)),
             `server AI roster diverges from the client roster @ seed ${seed} — the reward would mismatch the fight`,
         );
     }

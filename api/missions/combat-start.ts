@@ -23,6 +23,7 @@ import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 
 /** Start or recover a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,6 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own mission.' });
+        if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
+            return res.status(409).json(towerBattleActiveErrorBody());
+        }
 
         const mission = combatMissionByKey(missionId);
         if (!mission) return res.status(404).json({ error: 'Unknown combat mission.' });

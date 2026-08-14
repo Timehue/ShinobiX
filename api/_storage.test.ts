@@ -1,6 +1,6 @@
 import { describe, it, after, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, _migrateDiskRoutedKeys, _copyDiskRoutedKeysToBase, _toSqlPattern, _chunkArray, _collectPaginated, type KvLike } from './_storage.js';
@@ -9,6 +9,41 @@ import { consumeSingleUseToken } from './_single-use-token.js';
 describe('SQL key-pattern escaping', () => {
     it('escapes LIKE metacharacters and escape characters before expanding glob syntax', () => {
         assert.equal(_toSqlPattern(String.raw`save:\alice_%*?`), String.raw`save:\\alice\_\%%_`);
+    });
+});
+
+describe('compareSet backend wiring contract', () => {
+    const storageSource = readFileSync(join(process.cwd(), 'api', '_storage.ts'), 'utf8');
+    const proxySource = readFileSync(join(process.cwd(), 'api', 'kv-proxy.ts'), 'utf8');
+    const pgSource = storageSource.slice(
+        storageSource.indexOf('const pgKv = {'),
+        storageSource.indexOf('// ─── Supabase REST backend'),
+    );
+    const pgCompareSet = pgSource.slice(
+        pgSource.indexOf('async compareSet('),
+        pgSource.indexOf('async del(', pgSource.indexOf('async compareSet(')),
+    );
+
+    it('direct Postgres uses atomic SQL without depending on the optional schema RPC', () => {
+        assert.doesNotMatch(pgCompareSet, /kv_compare_set|get\([^)]*key|set\([^)]*key/,
+            'Railway CAS must neither require a manual RPC migration nor degrade to get-then-set');
+        assert.match(pgCompareSet,
+            /expected === null[\s\S]*INSERT INTO public\.kv_store AS current[\s\S]*ON CONFLICT \(key\) DO UPDATE[\s\S]*WHERE current\.expires_at IS NOT NULL[\s\S]*AND current\.expires_at <= now\(\)[\s\S]*RETURNING true AS swapped/,
+            'null predecessor inserts only when absent or atomically replaces an expired row');
+        assert.match(pgCompareSet,
+            /UPDATE public\.kv_store[\s\S]*SET value = \$3::jsonb,[\s\S]*expires_at = \$4::timestamptz[\s\S]*WHERE key = \$1[\s\S]*AND value = \$2::jsonb[\s\S]*AND \(expires_at IS NULL OR expires_at > now\(\)\)[\s\S]*RETURNING true AS swapped/,
+            'non-null predecessor updates only the exact live JSONB row and replaces its TTL');
+    });
+
+    it('the retired Supabase REST adapter retains its atomic schema RPC', () => {
+        assert.match(storageSource, /db\.rpc\('kv_compare_set'/);
+    });
+
+    it('the rollback proxy exposes compare-set as an atomic disk operation', () => {
+        assert.match(storageSource, /'compare-set'/);
+        assert.match(proxySource, /case 'compare-set':/);
+        assert.match(proxySource, /_diskKvForProxy\.compareSet\(/);
+        assert.match(proxySource, /\[a-z-\]\+/);
     });
 });
 
@@ -79,6 +114,7 @@ function makeStub(label: string, store: Record<string, unknown>, log: string[]):
             return keys.map((k) => (k in store ? store[k] : null)) as (T[number] | null)[];
         },
         set: unused('set') as KvLike['set'],
+        compareSet: unused('compareSet') as KvLike['compareSet'],
         del: unused('del') as KvLike['del'],
         delIfEqual: unused('delIfEqual') as KvLike['delIfEqual'],
         incr: unused('incr') as KvLike['incr'],
@@ -99,6 +135,12 @@ function memoryKv(initial: Record<string, unknown> = {}): KvLike & { data: Map<s
             if (options?.nx && data.has(key)) return null;
             data.set(key, structuredClone(value));
             return 'OK';
+        },
+        async compareSet(key, expected, value) {
+            const current = data.has(key) ? data.get(key) : null;
+            if (JSON.stringify(current) !== JSON.stringify(expected)) return false;
+            data.set(key, structuredClone(value));
+            return true;
         },
         async del(...keys) { let n = 0; for (const key of keys) if (data.delete(key)) n += 1; return n; },
         async delIfEqual(key, expected) { if (data.get(key) !== expected) return false; data.delete(key); return true; },
@@ -199,6 +241,19 @@ describe('_makeRoutedKv.mget', () => {
 });
 
 describe('_makeRoutedKv snapshot failure-domain routing', () => {
+    it('routes compareSet to the same authoritative backend as get/set', async () => {
+        const base = memoryKv({ 'pvp:board': { version: 1 } });
+        const disk = memoryKv({ 'save:alice': { version: 1 } });
+        const routed = _makeRoutedKv(base, disk);
+
+        assert.equal(await routed.compareSet('save:alice', { version: 1 }, { version: 2 }), true);
+        assert.equal(await routed.compareSet('pvp:board', { version: 1 }, { version: 2 }), true);
+        assert.deepEqual(await disk.get('save:alice'), { version: 2 });
+        assert.equal(await base.get('save:alice'), null);
+        assert.deepEqual(await base.get('pvp:board'), { version: 2 });
+        assert.equal(await disk.get('pvp:board'), null);
+    });
+
     it('writes new snapshots to base while live saves remain on disk', async () => {
         const base = memoryKv();
         const disk = memoryKv();
@@ -459,6 +514,38 @@ describe('_makeRemoteKv transport resilience', () => {
         assert.equal(calls.length, 1); // single attempt only
     });
 
+    it('compareSet sends the exact predecessor and is never transport-retried', async () => {
+        let sentUrl = '';
+        let sentBody = '';
+        globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+            sentUrl = String(input);
+            sentBody = String(init?.body ?? '');
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({ swapped: true }),
+                text: async () => '',
+            };
+        }) as unknown as typeof fetch;
+        assert.equal(await kv().compareSet(
+            'save:alice',
+            { _saveVersion: 7, character: { ryo: 10 } },
+            { _saveVersion: 8, character: { ryo: 5 } },
+            { ex: 60 },
+        ), true);
+        assert.match(sentUrl, /\/api\/kv\/compare-set$/);
+        assert.deepEqual(JSON.parse(sentBody), {
+            key: 'save:alice',
+            expected: { _saveVersion: 7, character: { ryo: 10 } },
+            value: { _saveVersion: 8, character: { ryo: 5 } },
+            options: { ex: 60 },
+        });
+
+        installFetch([502]);
+        await assert.rejects(kv().compareSet('save:alice', { v: 1 }, { v: 2 }), /HTTP 502/);
+        assert.equal(calls.length, 1, 'a lost CAS acknowledgement is resolved by caller readback, never a blind retry');
+    });
+
     it('filtered hkeys requires a proxy capability acknowledgement during rolling deploys', async () => {
         let sentBody = '';
         globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
@@ -539,6 +626,26 @@ describe('_makeDiskKv concurrent RMW', () => {
             kv.set('claim:one', `owner-${i}`, { nx: true }),
         ));
         assert.equal(results.filter((r) => r === 'OK').length, 1);
+    });
+
+    it('compareSet permits exactly one concurrent successor across instances', async () => {
+        const a = _makeDiskKv(root);
+        const b = _makeDiskKv(root);
+        await a.set('save:cas-race', { _saveVersion: 1, character: { ryo: 10 } });
+        const expected = { character: { ryo: 10 }, _saveVersion: 1 };
+        const [left, right] = await Promise.all([
+            a.compareSet('save:cas-race', expected, { winner: 'a' }),
+            b.compareSet('save:cas-race', expected, { winner: 'b' }),
+        ]);
+        assert.equal(Number(left) + Number(right), 1);
+        assert.deepEqual(await a.get('save:cas-race'), left ? { winner: 'a' } : { winner: 'b' });
+    });
+
+    it('compareSet mismatch leaves both value and TTL untouched', async () => {
+        const kv = _makeDiskKv(root);
+        await kv.set('save:cas-mismatch', { version: 1 }, { ex: 60 });
+        assert.equal(await kv.compareSet('save:cas-mismatch', { version: 0 }, { version: 2 }), false);
+        assert.deepEqual(await kv.get('save:cas-mismatch'), { version: 1 });
     });
 
     it('hset preserves untouched fields and hdel removes only the named ones', async () => {

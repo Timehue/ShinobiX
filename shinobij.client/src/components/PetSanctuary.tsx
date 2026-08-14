@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import sanctuaryArt from "../assets/pet-home/companion-sanctuary.webp";
 import { ultraPetTraits } from "../data/pet-config";
-import { maxPets } from "../lib/entitlements";
+import { captureProductEvent } from "../lib/analytics";
+import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
 import { petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { fetchPetSanctuary, transferPetSanctuary, type PetSanctuaryFilters, type PetSanctuaryItem } from "../lib/pet-sanctuary-api";
@@ -48,9 +49,19 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
 
     const filters = useMemo<PetSanctuaryFilters>(() => ({ search, element, rarity, origin }), [search, element, rarity, origin]);
     const carriedCapacity = maxPets(character);
+    const eligibleCarried = activeCarriedPets<Pet>(character);
+    const eligibleCarriedIds = new Set(activeCarriedPetIds(character));
+    const preservedOverflowCount = Math.max(0, character.pets.length - eligibleCarried.length);
     const selectedDepositPetId = character.pets.some((pet) => pet.id === depositPetId)
         ? depositPetId
         : character.pets[0]?.id ?? "";
+
+    useEffect(() => {
+        captureProductEvent("sanctuary_overflow_explanation_viewed", {
+            screenId: "companion-sanctuary",
+            source: "pet-home",
+        });
+    }, []);
 
     const load = useCallback(async (mode: "replace" | "append", cursor?: string | null, signal?: AbortSignal) => {
         const request = ++requestRef.current;
@@ -92,7 +103,7 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
     }
 
     async function moveToRoster(item: PetSanctuaryItem) {
-        if (busyPetId || character.pets.length >= carriedCapacity) return;
+        if (busyPetId || eligibleCarried.length >= carriedCapacity) return;
         setBusyPetId(item.pet.id); setMessage("");
         try {
             const result = await transferPetSanctuary({ playerName: character.name, petId: item.pet.id, action: "to-roster" });
@@ -123,12 +134,12 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
     return <section className="pet-sanctuary" aria-labelledby="pet-sanctuary-title">
         <div className="pet-sanctuary-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(3,8,18,.94),rgba(3,8,18,.38) 62%,rgba(3,8,18,.72)),linear-gradient(0deg,rgba(3,8,18,.92),transparent 55%),url(${sanctuaryArt})` }}>
             <div><span className="pet-home-kicker">Unlimited bonded-companion preserve</span><h2 id="pet-sanctuary-title">Companion Sanctuary</h2><p>Companions beyond your carried roster rest here safely. Captures and hatches arrive automatically whenever your battle-ready spaces are full.</p></div>
-            <div className="pet-sanctuary-ledger" aria-label="Companion capacity"><span><b>{character.pets.length}/{carriedCapacity}</b> Carried</span><span><b>{total}</b> Sanctuary</span><strong>No ownership cap</strong></div>
+            <div className="pet-sanctuary-ledger" aria-label="Companion capacity"><span><b>{eligibleCarried.length}/{carriedCapacity}</b> Carried</span>{preservedOverflowCount > 0 && <span><b>{preservedOverflowCount}</b> Preserved overflow</span>}<span><b>{total}</b> Sanctuary</span><strong>No ownership cap</strong></div>
         </div>
 
         <div className="pet-sanctuary-manager">
-            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Stored companions cannot enter PvE, Tactical Arena, Coliseum, training, expeditions, or breeding until returned to your carried roster.</p></div>
-            <label><span>Carried companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No carried companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)}</option>)}</select></label>
+            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Base carries 4; Supporter carries 6. Overflow stays owned but cannot fight, breed, or start new training or expeditions. Store a carried pet to promote the next one. Sanctuary pets rest outside all activities.</p></div>
+            <label><span>Owned roster companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No roster companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)}{eligibleCarriedIds.has(pet.id) ? " · Carried" : " · Preserved overflow"}</option>)}</select></label>
             <button type="button" className="pet-home-primary" disabled={!selectedDepositPetId || Boolean(busyPetId)} onClick={() => void moveToSanctuary()}>{busyPetId === selectedDepositPetId ? "Preparing habitat…" : "Move to Sanctuary"}</button>
         </div>
         {message && <p className="pet-sanctuary-message" role="status">{message}</p>}
@@ -144,13 +155,13 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
             const art = petCardImage(pet, sharedImages);
             const apex = pet.trait && ultraPetTraits.includes(pet.trait) ? pet.trait : null;
             const isBusy = busyPetId === pet.id;
-            const rosterFull = character.pets.length >= carriedCapacity;
+            const rosterFull = eligibleCarried.length >= carriedCapacity;
             return <article key={pet.id} className={`pet-sanctuary-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}>
                 <div className="pet-sanctuary-portrait">{art ? <img src={art} alt={petDisplayName(pet)} /> : <span aria-label={`${petDisplayName(pet)} artwork unavailable`}>{initials(pet)}</span>}<em>Lv. {pet.level}</em></div>
                 {pet.paletteVariantId && <strong className="chromatic-ribbon">Chromatic</strong>}{apex && <strong className="apex-trait-ribbon">Apex · {apex}</strong>}
                 <div className="pet-sanctuary-copy"><span>{title(pet.rarity)} · {pet.element ?? "Neutral"}</span><h3>{petDisplayName(pet)}</h3><p>{pet.trait ?? "Unrevealed trait"} · {title(item.source)} arrival</p><small>{storedLabel(item.storedAt)}</small></div>
                 <dl><div><dt>HP</dt><dd>{pet.hp}</dd></div><div><dt>ATK</dt><dd>{pet.attack}</dd></div><div><dt>DEF</dt><dd>{pet.defense}</dd></div><div><dt>SPD</dt><dd>{pet.speed}</dd></div></dl>
-                <div className="pet-sanctuary-actions"><button type="button" className="pet-home-primary" disabled={rosterFull || Boolean(busyPetId)} title={rosterFull ? `Carried roster full (${character.pets.length}/${carriedCapacity})` : undefined} onClick={() => void moveToRoster(item)}>{isBusy ? "Moving…" : rosterFull ? "Roster full" : "Add to carried"}</button><button type="button" className="pet-sanctuary-release" disabled={Boolean(busyPetId)} onClick={() => void release(item)}>Release</button></div>
+                <div className="pet-sanctuary-actions"><button type="button" className="pet-home-primary" disabled={rosterFull || Boolean(busyPetId)} title={rosterFull ? `Carried roster full (${eligibleCarried.length}/${carriedCapacity})` : undefined} onClick={() => void moveToRoster(item)}>{isBusy ? "Moving…" : rosterFull ? "Roster full" : "Add to carried"}</button><button type="button" className="pet-sanctuary-release" disabled={Boolean(busyPetId)} onClick={() => void release(item)}>Release</button></div>
             </article>;
         })}</div> : <div className="pet-sanctuary-empty"><span>静</span><h3>{total ? "No companions match these filters" : "Every habitat is ready"}</h3><p>{total ? "Try widening your search." : "Overflow captures, hatched companions, and pets you move from your roster will appear here."}</p></div>}
         {nextCursor && !loading && <button type="button" className="pet-sanctuary-more" disabled={Boolean(busyPetId)} onClick={() => void load("append", nextCursor)}>Load more habitats</button>}

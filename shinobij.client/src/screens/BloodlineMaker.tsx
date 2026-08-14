@@ -10,7 +10,7 @@ import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { bloodlineArchetypes, bloodlineTemplateJutsus } from "../lib/bloodline-templates";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResourceCosts } from "../lib/jutsu-scaling";
-import { maxStoredBloodlines, isPatreonSubscriber } from "../lib/entitlements";
+import { activeStoredBloodlineIds, maxStoredBloodlines, storedBloodlinesAfterCreate } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { makeId } from "../lib/utils";
@@ -36,7 +36,7 @@ function defaultWeatherElement(bloodline: SavedBloodline | null | undefined, spe
     return (BASE_WEATHER_ELEMENTS.includes(source) ? source : "None") as JutsuElement;
 }
 
-export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
+export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, allowOverflowEditing = false }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void; allowOverflowEditing?: boolean }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
     const [bloodlineLore, setBloodlineLore] = useState(editingBloodline?.lore ?? "");
@@ -50,6 +50,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const [templateMsg, setTemplateMsg] = useState("");
     const recommendedMax = pointBudgetForRank(rank);
     const elementSuggestions = ["Crystal", "Lava", "Storm", "Shadow Flame", "Ice", "Sand", "Steel", "Blood", "Magnet", "Light"];
+    const storedBloodlineCap = maxStoredBloodlines(character);
+    const activeStoredIds = new Set(activeStoredBloodlineIds(character, savedBloodlines));
+    const preservedOverflowCount = savedBloodlines.filter((bloodline) => !activeStoredIds.has(bloodline.id)).length;
 
     useEffect(() => {
         setStep(0);
@@ -228,6 +231,19 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const overLimit = currentTotalPoints > pointLimit;
 
     async function saveBloodline() {
+        // A new bloodline must be entered through the Awakening Stone purchase
+        // flow, which sets lockedRank after the server issues a one-use forge
+        // entitlement. The right-menu Bloodline screen is still useful for
+        // viewing/swapping/editing, but must never optimistically replace a
+        // player's existing bloodline with an unpurchased draft.
+        if (!editingBloodline && !lockedRank) {
+            alert("Purchase a bloodline forge at the Awakening Stone before creating a new bloodline. Your current bloodline was not changed.");
+            return;
+        }
+        if (editingBloodline && !allowOverflowEditing && !activeStoredIds.has(editingBloodline.id)) {
+            alert("This bloodline is preserved overflow. It stays safe and read-only until an active storage slot is available.");
+            return;
+        }
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
         const usedUniqueTags = new Set<string>();
         const finalizedJutsus = jutsus.map((jutsu) => {
@@ -291,7 +307,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         // existing entry in place, preserving the previous id.
         const nextBloodlines = editingBloodline
             ? savedBloodlines.map((b) => b.id === finalId ? newBloodline : b)
-            : [newBloodline, ...savedBloodlines].slice(0, maxStoredBloodlines(character));
+            : storedBloodlinesAfterCreate(character, savedBloodlines, newBloodline);
         const swapped = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
         // Auto-grant level-1 mastery to the new bloodline's jutsu so they are
         // immediately equippable + usable. replaceCharacterBloodline strips their
@@ -326,6 +342,10 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     // handling, and every other confirmation in the game already uses it.
     async function equipStoredBloodline(target: SavedBloodline) {
         if (target.id === character.equippedBloodlineId) return;
+        if (!allowOverflowEditing && !activeStoredIds.has(target.id)) {
+            alert("This bloodline is preserved overflow. Base account: 1 active custom bloodline. Shinobi Supporter: 2.");
+            return;
+        }
         if (!await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" })) return;
         const outgoing = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
         const outgoingJutsuIds = new Set(outgoing?.jutsus.map((j) => j.id) ?? []);
@@ -597,8 +617,28 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j)} pts<br /><small>{describeJutsuEffects(j)}</small><br /><small>Combat VFX: {jutsuVisualEffectLabel(j.visualEffect)}</small></div>
                     ))}
                     {renderPointTotal()}
-                    <button onClick={saveBloodline} disabled={overLimit} style={overLimit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>Save Bloodline</button>
-                    {savedBloodlines.length > 0 && <><h3>Saved <small className="hint">({savedBloodlines.length}/{maxStoredBloodlines(character)} stored{!isPatreonSubscriber(character) ? " — link Patreon to store 2 & swap" : ""})</small></h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}{b.id === character.equippedBloodlineId ? <p className="hint">✓ Equipped</p> : <button onClick={() => void equipStoredBloodline(b)}>Equip</button>}</div>)}</>}
+                    {!editingBloodline && !lockedRank && <p className="hint" role="status">New bloodlines require a forge purchase at the Awakening Stone. Existing bloodlines can still be viewed and equipped here.</p>}
+                    <button onClick={saveBloodline} disabled={overLimit || (!editingBloodline && !lockedRank)} style={overLimit || (!editingBloodline && !lockedRank) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>{editingBloodline ? "Save Changes" : "Save Bloodline"}</button>
+                    {savedBloodlines.length > 0 && <>
+                        <h3>Saved <small className="hint">({activeStoredIds.size}/{storedBloodlineCap} active · {savedBloodlines.length} stored)</small></h3>
+                        <p className="hint" role="status">
+                            Base account: 1 active custom bloodline. Shinobi Supporter: 2.
+                            {preservedOverflowCount > 0 ? ` ${preservedOverflowCount} preserved overflow ${preservedOverflowCount === 1 ? "bloodline is" : "bloodlines are"} safe, read-only, and unavailable to equip.` : ""}
+                        </p>
+                        {savedBloodlines.map((b) => {
+                            const isOverflow = !activeStoredIds.has(b.id) && !allowOverflowEditing;
+                            return <div className="summary-box" key={b.id}>
+                                {b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}
+                                {b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}
+                                {b.lore && <p className="hint">{b.lore}</p>}
+                                {isOverflow
+                                    ? <p className="hint" role="status">Preserved overflow · safe and read-only until an active slot is available</p>
+                                    : b.id === character.equippedBloodlineId
+                                    ? <p className="hint">✓ Equipped</p>
+                                    : <button onClick={() => void equipStoredBloodline(b)}>Equip</button>}
+                            </div>;
+                        })}
+                    </>}
                 </div>
             )}
 

@@ -2,10 +2,10 @@
  * NextGoalPin — a persistent "what should I do next" breadcrumb.
  *
  * Once the guided OnboardingCoach beats end, a new player is handed a hub full of
- * buttons with no signpost. This pin reuses currentLogbookObjective() (the same
- * source the Daily Briefing uses) to surface the single active objective's first
- * INCOMPLETE requirement as a compact, tappable card that deep-links to the right
- * screen.
+ * buttons with no signpost. This pin consumes the server-authored Activity
+ * Spine's single `Now` recommendation, the same authority rendered by Daily
+ * Briefing. The permanent Logbook objective is used only as an explicit offline
+ * fallback, so the product never presents two competing live recommendations.
  *
  * Two presentations:
  *   • default (full)  — a banner; rendered on the Village / Central hubs. CSS hides
@@ -23,9 +23,13 @@
  */
 import { useState } from "react";
 import { buildAcademyHandoff } from "../lib/academy-handoff";
+import { preferredNowActivity, useActivitySpine } from "../lib/activity-spine-client";
+import { captureProductEvent } from "../lib/analytics";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
 import { isAcademyOnboardingActive } from "../lib/onboarding-step";
 import { GameIcon } from "./icons/GameIcon";
+import { Button } from "./ui/Button";
+import { ProgressBar } from "./ui/ProgressBar";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 
@@ -46,27 +50,46 @@ export function NextGoalPin({
     onOpenAwakening?: () => void;
 }) {
     const [dismissedId, setDismissedId] = useState<string | null>(readDismissed);
+    const onboardingActive = isAcademyOnboardingActive(character.onboardingStep ?? "");
+    const handoff = onboardingActive ? null : buildAcademyHandoff(character);
+    const liveEnabled = !onboardingActive && !handoff;
+    const { spine, status } = useActivitySpine(character.name, character.masteryFocus, liveEnabled);
+    const activity = status === "ready" ? preferredNowActivity(spine) : null;
+    const offlineFallback = status === "offline" || status === "error";
+    const objective = liveEnabled && offlineFallback ? currentLogbookObjective(character) : null;
+
     // The companion coach already owns wayfinding during the Academy tutorial.
     // Hiding the broader Logbook pin here prevents two valid but conflicting
     // "do this next" instructions from appearing at the same time.
-    if (isAcademyOnboardingActive(character.onboardingStep ?? "")) return null;
-    const handoff = buildAcademyHandoff(character);
-    const objective = handoff ? null : currentLogbookObjective(character);
-    const activeId = handoff?.id ?? objective?.id ?? null;
+    if (onboardingActive) return null;
+    // Do not flash a Logbook recommendation while the live authority is loading.
+    if (liveEnabled && status === "loading") return null;
+    const activeId = handoff?.id ?? (activity ? `activity:${activity.id}` : objective?.id) ?? null;
     if (!activeId) return null;
     if (dismissedId === activeId || dismissedId === objective?.title) return null;
-    const req = objective?.requirements.find((r) => r.progress < r.target) ?? (
-        objective?.kind === "academy" && !character.academyChecklistClaimed
-            ? {
-                label: "Claim Academy Reward",
-                progress: 0,
-                target: 1,
-                detail: "Open the Logbook and claim your Academy reward.",
-                goScreen: "logbook" as Screen,
-                goLabel: "Open Logbook",
-            }
-            : null
-    );
+    const req = activity
+        ? {
+            label: activity.why,
+            progress: 0,
+            target: 1,
+            detail: [activity.commitment, activity.progress, activity.reward, activity.blocker].filter(Boolean).join(" · "),
+            goScreen: activity.screen as Screen,
+            goLabel: activity.cta,
+        }
+        : objective?.requirements.find((r) => r.progress < r.target) ?? (
+            objective?.kind === "academy" && !character.academyChecklistClaimed
+                ? {
+                    label: "Claim Academy Reward",
+                    progress: 0,
+                    target: 1,
+                    detail: "Open the Logbook and claim your Academy reward.",
+                    goScreen: "logbook" as Screen,
+                    goLabel: "Open Logbook",
+                }
+                : null
+        );
+    const goalTitle = activity?.title ?? objective?.title ?? "Current objective";
+    const goalLabel = activity ? "Now" : "Offline goal";
 
     const dismiss = () => {
         try { localStorage.setItem(DISMISS_KEY, activeId); } catch { /* private mode — just hide for the session */ }
@@ -79,32 +102,38 @@ export function NextGoalPin({
         }
         navigate(action.screen);
     };
+    const runGoalAction = () => {
+        if (!req?.goScreen) return;
+        if (activity?.context === "clan-boss") {
+            try { sessionStorage.setItem("clan.initialView", "boss"); } catch { /* optional navigation hint */ }
+        }
+        if (activity) {
+            captureProductEvent("activity_recommendation_viewed", {
+                screenId: "persistent-next-goal",
+                mode: "recommendation-opened",
+                horizon: "now",
+                focus: spine?.resolvedFocus,
+            });
+        }
+        navigate(req.goScreen);
+    };
     const closeBtn = (size: number, compactButton = false) => (
-        <button
+        <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={dismiss}
             aria-label="Hide this goal"
             title="Hide — returns on your next goal"
-            className={compactButton ? "next-goal-pin-compact__close" : undefined}
+            className={`next-goal-pin__close${compactButton ? " next-goal-pin-compact__close" : ""}`}
             style={{
                 alignSelf: "flex-start",
-                background: "none",
-                border: "none",
-                color: "#94a3b8",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flex: "0 0 auto",
+                color: "var(--sj-text-muted)",
                 fontSize: size,
-                lineHeight: 1,
-                minWidth: compactButton ? 20 : 44,
-                minHeight: compactButton ? 20 : 44,
-                padding: 0,
             }}
         >
             ✕
-        </button>
+        </Button>
     );
 
     if (handoff && compact) {
@@ -119,7 +148,7 @@ export function NextGoalPin({
                     alignSelf: "stretch", overflow: "hidden", position: "relative",
                 }}
             >
-                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 24, minWidth: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#7dd3fc", textTransform: "uppercase" }}>
+                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 48, minWidth: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#7dd3fc", textTransform: "uppercase" }}>
                     <GameIcon name="target" size={11} />
                     <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>Academy handoff</span>
                     {closeBtn(12, true)}
@@ -129,25 +158,21 @@ export function NextGoalPin({
                 </strong>
                 <div style={{ display: "grid", gap: 5, marginTop: 7 }}>
                     {[handoff.primary, handoff.secondary].map((action, index) => (
-                        <button
+                        <Button
                             type="button"
+                            variant={index === 0 ? "primary" : "info"}
+                            size="sm"
                             key={action.screen}
                             onClick={() => runHandoffAction(action)}
                             title={action.detail}
+                            className="next-goal-pin-compact__action"
                             style={{
-                                cursor: "pointer",
-                                border: index === 0 ? "1px solid rgba(250,204,21,.42)" : "1px solid rgba(125,211,252,.28)",
-                                borderRadius: 6,
-                                padding: "5px 7px",
-                                background: index === 0 ? "rgba(250,204,21,.12)" : "rgba(56,189,248,.08)",
-                                color: index === 0 ? "#facc15" : "#bae6fd",
-                                fontSize: 10.5,
-                                fontWeight: 700,
+                                justifyContent: "flex-start",
                                 textAlign: "left",
                             }}
                         >
                             {action.label} →
-                        </button>
+                        </Button>
                     ))}
                 </div>
             </div>
@@ -176,24 +201,20 @@ export function NextGoalPin({
                     <p style={{ margin: 0, color: "#aebbd0", fontSize: 12.5, lineHeight: 1.4 }}>{handoff.summary}</p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                         {[handoff.primary, handoff.secondary].map((action, index) => (
-                            <button
+                            <Button
                                 type="button"
+                                variant={index === 0 ? "primary" : "info"}
+                                size="sm"
                                 key={action.screen}
                                 onClick={() => runHandoffAction(action)}
                                 title={action.detail}
+                                className="next-goal-pin__action"
                                 style={{
-                                    cursor: "pointer",
-                                    border: index === 0 ? "1px solid #eab308" : "1px solid rgba(125,211,252,.42)",
-                                    borderRadius: 8,
-                                    padding: "8px 12px",
-                                    background: index === 0 ? "linear-gradient(180deg, #facc15, #eab308)" : "rgba(56,189,248,.10)",
-                                    color: index === 0 ? "#1a1306" : "#e0f2fe",
-                                    fontWeight: 700,
-                                    fontSize: 12.5,
+                                    whiteSpace: "normal",
                                 }}
                             >
                                 {action.label} →
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </div>
@@ -202,9 +223,7 @@ export function NextGoalPin({
         );
     }
 
-    if (!objective || !req) return null;
-    const pct = req.target > 0 ? Math.min(100, Math.round((req.progress / req.target) * 100)) : 0;
-
+    if ((!objective && !activity) || !req) return null;
     if (compact) {
         return (
             <div
@@ -218,10 +237,10 @@ export function NextGoalPin({
                     overflow: "hidden", position: "relative",
                 }}
             >
-                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 24, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 48, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
                     <GameIcon name="target" size={11} />
                     <span style={{ display: "block", minWidth: 0, maxWidth: "100%", lineHeight: 1.25, overflowWrap: "anywhere", wordBreak: "break-word" }}>
-                        Next goal · {objective.title}
+                        {goalLabel} · {goalTitle}
                     </span>
                     {closeBtn(12, true)}
                 </div>
@@ -231,19 +250,26 @@ export function NextGoalPin({
                         {req.target > 1 && <span style={{ color: "#94a3b8", fontWeight: 500 }}> {Math.min(req.progress, req.target)}/{req.target}</span>}
                     </span>
                     {req.goScreen && (
-                        <button
+                        <Button
                             type="button"
-                            onClick={() => navigate(req.goScreen as Screen)}
-                            style={{ justifySelf: "start", maxWidth: "100%", cursor: "pointer", background: "none", color: "#facc15", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "normal", textAlign: "left", overflowWrap: "anywhere" }}
+                            variant="ghost"
+                            size="sm"
+                            onClick={runGoalAction}
+                            className="next-goal-pin-compact__action"
+                            style={{ color: "var(--sj-gold-bright)", fontSize: 11, whiteSpace: "normal", textAlign: "left", overflowWrap: "anywhere" }}
                         >
                             {req.goLabel ?? "Go"} →
-                        </button>
+                        </Button>
                     )}
                 </div>
                 {req.target > 1 && (
-                    <div style={{ height: 3, borderRadius: 3, background: "rgba(148,163,184,.25)", marginTop: 5, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#facc15" }} />
-                    </div>
+                    <ProgressBar
+                        className="next-goal-pin__progress"
+                        label={`${req.label} progress`}
+                        value={req.progress}
+                        max={req.target}
+                        showValue={false}
+                    />
                 )}
             </div>
         );
@@ -261,7 +287,7 @@ export function NextGoalPin({
         >
             <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
-                    <GameIcon name="target" size={13} /> Next goal · {objective.title}
+                    <GameIcon name="target" size={13} /> {goalLabel} · {goalTitle}
                 </div>
                 <div style={{ fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
                     {req.label}
@@ -269,19 +295,26 @@ export function NextGoalPin({
                 </div>
                 {req.detail && <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 1 }}>{req.detail}</div>}
                 {req.target > 1 && (
-                    <div style={{ height: 4, borderRadius: 4, background: "rgba(148,163,184,.25)", marginTop: 6, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#facc15" }} />
-                    </div>
+                    <ProgressBar
+                        className="next-goal-pin__progress"
+                        label={`${req.label} progress`}
+                        value={req.progress}
+                        max={req.target}
+                        showValue={false}
+                    />
                 )}
             </div>
             {req.goScreen && (
-                <button
+                <Button
                     type="button"
-                    onClick={() => navigate(req.goScreen as Screen)}
-                    style={{ cursor: "pointer", background: "linear-gradient(180deg, #facc15, #eab308)", color: "#1a1306", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 8, padding: "8px 16px", whiteSpace: "nowrap" }}
+                    variant="primary"
+                    size="sm"
+                    onClick={runGoalAction}
+                    className="next-goal-pin__action"
+                    style={{ fontSize: 13, whiteSpace: "nowrap" }}
                 >
                     {req.goLabel ?? "Go"} →
-                </button>
+                </Button>
             )}
             {closeBtn(16)}
         </div>
