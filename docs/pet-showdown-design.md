@@ -1450,6 +1450,39 @@ reduced-motion exemption unchanged. Harness gained `?capture`
 (preserveDrawingBuffer without the slow-mo stretch) so in-page frame grabs
 can verify REAL pacing.
 
+## Round 39 — the Champions grammar (2026-08-13)
+
+Owner supplied eight Pokémon Champions reference stills + ruling: NO crowd
+audio ("unnecessary clutter") — focus movesets, VFX, gameplay. Champions
+released 2026-04-08; research: we beat it on spread simultaneity and arena
+variety; its edge was per-move identity + weather-as-state + full-frame
+takeovers. This round ports that grammar:
+
+- **Casting glyph + charge orb** (the Gardevoir frame): during any ranged
+  channel, an element-tinted runic circle spins under the caster while a
+  swelling orb with two counter-rotating rings and spiral-in sparkles holds
+  at chest height. Both read the beat clock — replays identical.
+- **The charge DIM**: stage lights fall to 40% during a signature's channel
+  (70% for heavies) and release AT the strike — the arena goes dark around
+  the caster's glow, then detonates.
+- **Full-frame ELEMENT flash**: the super's white pop is now the move's
+  color as a soft radial (the whiteout/orange-out takeover), 560ms.
+- **Element climate** (their persistent weather): the last landed signature
+  holds the field — faint floor sheen, drifting motes, tinted light — until
+  another signature replaces it.
+- **Per-kind move accents** — the MOVESET reads: crush slams a ground ring
+  with debris, wounds slash red crosses, debuffs press dark rings down,
+  buffs/heals lift bright rings, stuns orbit stars, pushes shove a wave,
+  shields flash a dome, DoTs drip.
+- **Impact streak-throughs** (the Ursaluna frame): heavy/super/KO contacts
+  throw long element streaks that slice across the frame + a ground glow
+  disc; crushes and Earth heavies kick real tumbling debris chunks.
+- **Super-effective is physical** ("the screen practically vibrates"):
+  a harder, longer shake rides the type-win banner.
+
+Verified on the bench at 1×: the fire super's channel (glyph + orb rings +
+takeover), the strike flight, and the climate holding the arena warm after.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified

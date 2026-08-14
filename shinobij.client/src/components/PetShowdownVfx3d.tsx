@@ -25,8 +25,12 @@
  * flat layer: everything derives from a server event that already happened.
  */
 
+/* eslint-disable react-refresh/only-export-components -- the 3D FX layer
+   exports its spawn types and the kind-family helper alongside the components,
+   same as PetShowdownVfx; HMR granularity is irrelevant for visuals. */
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import { epicTexture, type SetPieceSpawn } from "./PetShowdownVfx";
 
@@ -679,6 +683,654 @@ const PARTICLES: Record<string, (superCast: boolean) => ParticleSpec> = {
     Earth: (s) => ({ count: s ? 30 : 20, color: "#d8b083", size: 0.3, mode: "burst", t0: 0, t1: 0.7, radius: s ? 2.4 : 1.7, height: 1.6 }),
     Lightning: (s) => ({ count: s ? 30 : 18, color: "#f4f8ff", size: 0.24, mode: "burst", t0: 0.05, t1: 0.85, radius: s ? 1.9 : 1.4, height: 2.2 }),
 };
+
+// ─── Element climate — weather as arena STATE (the Champions-ism) ────────────
+// Champions' rain persists until replaced; the arena carries its climate
+// between moves. Here: the last landed SIGNATURE sets the arena's climate —
+// a low, constant version of its element (faint floor sheen, drifting motes,
+// a soft colored light) that holds until another signature replaces it.
+
+export interface ClimateState {
+    element: string;
+    since: number;
+}
+
+export function ClimateLayer({ climate, reduced }: { climate: ClimateState | null; reduced: boolean }) {
+    const floorMesh = useRef<THREE.Mesh>(null);
+    const floorMat = useRef<THREE.MeshBasicMaterial>(null);
+    const light = useRef<THREE.PointLight>(null);
+    const points = useRef<THREE.Points>(null);
+    const mat = useRef<THREE.PointsMaterial>(null);
+    const COUNT = 12;
+    const dot = useMemo(() => dotTexture(), []);
+    const params = useMemo(() => {
+        const rand = seededRand((climate?.element.length ?? 1) * 131 + 7);
+        return Array.from({ length: COUNT }, () => ({
+            angle: rand() * Math.PI * 2,
+            r: 2 + rand() * 8,
+            speed: 0.15 + rand() * 0.3,
+            phase: rand(),
+        }));
+    }, [climate?.element]);
+    const style = climate ? RESIDUE_STYLE[climate.element] : undefined;
+    const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
+    useFrame((state) => {
+        const t = state.clock.elapsedTime;
+        const on = !!climate && !!style;
+        const grow = on ? Math.min(1, (performance.now() - climate.since) / 1400) : 0;
+        if (floorMesh.current && floorMat.current) {
+            floorMesh.current.visible = on && !!floorTex;
+            if (on && floorTex) {
+                if (floorMat.current.map !== floorTex) {
+                    floorMat.current.map = floorTex;
+                    floorMat.current.needsUpdate = true;
+                }
+                floorMesh.current.rotation.z = t * 0.03;
+                floorMat.current.opacity = 0.11 * grow;
+            }
+        }
+        if (light.current) {
+            light.current.intensity = on ? 2.4 * grow : 0;
+            if (on) light.current.color.set(ELEMENT_GLOW[climate.element] ?? "#ffffff");
+        }
+        if (points.current && mat.current) {
+            const show = on && !reduced;
+            points.current.visible = show;
+            if (show) {
+                const attr = points.current.geometry.attributes.position as THREE.BufferAttribute;
+                const pos = attr.array as Float32Array;
+                for (let i = 0; i < params.length; i++) {
+                    const p = params[i];
+                    const cycle = (t * p.speed * 0.2 + p.phase) % 1;
+                    pos[i * 3] = Math.cos(p.angle + t * 0.06) * p.r;
+                    pos[i * 3 + 1] = 0.3 + cycle * 3.4;
+                    pos[i * 3 + 2] = Math.sin(p.angle + t * 0.06) * p.r;
+                }
+                attr.needsUpdate = true;
+                mat.current.color.set(style!.color);
+                mat.current.opacity = 0.4 * grow;
+            }
+        }
+    });
+    return (
+        <group>
+            <mesh ref={floorMesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} visible={false}>
+                <planeGeometry args={[23, 23]} />
+                <meshBasicMaterial ref={floorMat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+            </mesh>
+            <pointLight ref={light} position={[0, 3.4, 0]} intensity={0} distance={17} decay={2} />
+            <points ref={points} visible={false}>
+                <bufferGeometry>
+                    <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
+                </bufferGeometry>
+                <pointsMaterial ref={mat} map={dot} size={0.17} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+            </points>
+        </group>
+    );
+}
+
+// ─── Per-kind move accents — the MOVESET reads, not just the element ─────────
+// Normal-weight casts used to be "dash and smack" or "projectile and burst"
+// regardless of what the move DOES. Each kind family now stages its identity:
+// crush slams a ground ring, wounds slash crosses, debuffs press dark rings
+// DOWN, buffs lift bright rings UP, stuns orbit stars, pushes shove a wave.
+
+export interface KindAccentSpawn {
+    key: number;
+    kind: string;
+    element: string;
+    x: number;
+    z: number;
+    /** Direction the cast traveled (for push/pull waves). */
+    dirX: number;
+    dirZ: number;
+    startedAt: number;
+    durationMs: number;
+}
+
+const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "ringsUp" | "stars" | "wave" | "dome" | "drip"> = {
+    crush: "slam",
+    wound: "slash",
+    lacerate: "slash",
+    debuff: "ringsDown",
+    slow: "ringsDown",
+    buff: "ringsUp",
+    haste: "ringsUp",
+    heal: "ringsUp",
+    lifesteal: "drip",
+    dot: "drip",
+    stun: "stars",
+    confuse: "stars",
+    mark: "stars",
+    push: "wave",
+    pull: "wave",
+    shield: "dome",
+    barrier: "dome",
+    absorb: "dome",
+    taunt: "dome",
+};
+
+export function kindAccentFamily(kind: string): string | null {
+    return KIND_ACCENT_FAMILY[kind] ?? null;
+}
+
+function AccentRing({ spawn, up }: { spawn: KindAccentSpawn; up: boolean }) {
+    const refs = useRef<Array<THREE.Mesh | null>>([]);
+    const mats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    useFrame(() => {
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        for (let i = 0; i < 3; i++) {
+            const m = refs.current[i], mm = mats.current[i];
+            if (!m || !mm) continue;
+            const k = (t - i * 0.14) / 0.6;
+            if (t < 0 || k < 0 || k >= 1) { m.visible = false; continue; }
+            m.visible = true;
+            const y = up ? 0.25 + k * 2.1 : 2.35 - k * 2.1;
+            m.position.set(spawn.x, y, spawn.z);
+            const s = up ? 1.5 - k * 0.5 : 0.9 + k * 0.7;
+            m.scale.set(s, s, s);
+            mm.opacity = 0.7 * Math.sin(Math.PI * k);
+        }
+    });
+    const tint = up ? (spawn.kind === "heal" ? "#6ee7a0" : "#ffe9a0") : "#b48ef0";
+    return (
+        <group>
+            {Array.from({ length: 3 }, (_, i) => (
+                <mesh key={i} ref={(el) => { refs.current[i] = el; }} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                    <ringGeometry args={[0.78, 0.92, 40]} />
+                    <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={tint} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
+function AccentSlash({ spawn }: { spawn: KindAccentSpawn }) {
+    const a = useRef<THREE.Mesh>(null);
+    const b = useRef<THREE.Mesh>(null);
+    const am = useRef<THREE.MeshBasicMaterial>(null);
+    const bm = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame(() => {
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const show = t >= 0 && t < 1;
+        const grow = 0.7 + Math.min(1, t * 3) * 0.5;
+        const fade = t < 0.12 ? t / 0.12 : Math.max(0, (1 - t) / 0.5);
+        if (a.current && am.current) {
+            a.current.visible = show;
+            a.current.position.set(spawn.x, 1.1, spawn.z);
+            a.current.scale.setScalar(grow);
+            am.current.opacity = 0.85 * fade;
+        }
+        if (b.current && bm.current) {
+            b.current.visible = show;
+            b.current.position.set(spawn.x, 1.05, spawn.z);
+            b.current.scale.setScalar(grow * 0.92);
+            bm.current.opacity = 0.7 * fade;
+        }
+    });
+    return (
+        <group>
+            <Billboard>
+                <mesh ref={a} rotation={[0, 0, 0.6]} visible={false}>
+                    <planeGeometry args={[2.3, 0.16]} />
+                    <meshBasicMaterial ref={am} color="#ff6a6a" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                </mesh>
+            </Billboard>
+            <Billboard>
+                <mesh ref={b} rotation={[0, 0, -0.7]} visible={false}>
+                    <planeGeometry args={[2.1, 0.13]} />
+                    <meshBasicMaterial ref={bm} color="#ffb0b0" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+                </mesh>
+            </Billboard>
+        </group>
+    );
+}
+
+function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: string }) {
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const pts = useRef<THREE.Points>(null);
+    const ptsMat = useRef<THREE.PointsMaterial>(null);
+    const COUNT = 10;
+    const dot = useMemo(() => dotTexture(), []);
+    const params = useMemo(() => {
+        const rand = seededRand(spawn.key * 71 + 17);
+        return Array.from({ length: COUNT }, () => ({ angle: rand() * Math.PI * 2, r: 0.35 + rand() * 0.75, phase: rand() }));
+    }, [spawn.key]);
+    const glow = ELEMENT_GLOW[spawn.element] ?? "#ffe9c0";
+    useFrame(() => {
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        const show = t >= 0 && t < 1;
+        const ease = 1 - (1 - Math.min(1, t)) * (1 - Math.min(1, t));
+        if (mesh.current && mat.current) {
+            mesh.current.visible = show;
+            if (show) {
+                if (family === "slam") {
+                    mesh.current.position.set(spawn.x, 0.09, spawn.z);
+                    mesh.current.rotation.set(-Math.PI / 2, 0, 0);
+                    const s = 0.6 + ease * 2.6;
+                    mesh.current.scale.set(s, s, s);
+                    mat.current.opacity = 0.8 * (1 - ease);
+                } else if (family === "wave") {
+                    // The force wave SHOVES along the cast direction.
+                    const d = 0.4 + ease * 2.4;
+                    mesh.current.position.set(spawn.x + spawn.dirX * d, 0.75, spawn.z + spawn.dirZ * d);
+                    mesh.current.rotation.set(0, Math.atan2(spawn.dirX, spawn.dirZ), 0);
+                    mesh.current.scale.set(1 + ease * 1.3, 0.85 + ease * 0.5, 1);
+                    mat.current.opacity = 0.65 * (1 - ease);
+                } else if (family === "dome") {
+                    mesh.current.position.set(spawn.x, 0.85, spawn.z);
+                    mesh.current.rotation.set(0, 0, 0);
+                    const s = 0.9 + Math.min(1, t * 2.4) * 0.45;
+                    mesh.current.scale.set(s, s, s);
+                    mat.current.opacity = 0.4 * (t < 0.16 ? t / 0.16 : Math.max(0, (1 - t) / 0.6));
+                } else {
+                    mesh.current.visible = false;
+                }
+            }
+        }
+        if (pts.current && ptsMat.current) {
+            const wantPts = family === "stars" || family === "drip" || family === "slam";
+            pts.current.visible = show && wantPts;
+            if (show && wantPts) {
+                const attr = pts.current.geometry.attributes.position as THREE.BufferAttribute;
+                const pos = attr.array as Float32Array;
+                for (let i = 0; i < params.length; i++) {
+                    const p = params[i];
+                    if (family === "stars") {
+                        const a = p.angle + t * Math.PI * 3;
+                        pos[i * 3] = spawn.x + Math.cos(a) * (0.55 + p.r * 0.3);
+                        pos[i * 3 + 1] = 1.85 + Math.sin(t * 8 + p.phase * 6) * 0.08;
+                        pos[i * 3 + 2] = spawn.z + Math.sin(a) * (0.55 + p.r * 0.3);
+                    } else if (family === "drip") {
+                        const cycle = (t * 1.6 + p.phase) % 1;
+                        pos[i * 3] = spawn.x + Math.cos(p.angle) * p.r * 0.7;
+                        pos[i * 3 + 1] = Math.max(0.1, 1.5 - cycle * 1.5);
+                        pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * p.r * 0.7;
+                    } else {
+                        const d = p.r * (0.3 + ease * 2.2);
+                        pos[i * 3] = spawn.x + Math.cos(p.angle) * d;
+                        pos[i * 3 + 1] = 0.2 + Math.sin(Math.min(1, t) * Math.PI) * 0.7 * p.phase;
+                        pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * d;
+                    }
+                }
+                attr.needsUpdate = true;
+                ptsMat.current.color.set(family === "drip" ? "#c084fc" : family === "stars" ? "#ffe86b" : "#d8b083");
+                ptsMat.current.opacity = 0.85 * (t < 0.15 ? t / 0.15 : Math.max(0, (1 - t) / 0.4));
+            }
+        }
+    });
+    return (
+        <group>
+            <mesh ref={mesh} visible={false}>
+                {family === "dome"
+                    ? <sphereGeometry args={[1.15, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
+                    : family === "wave"
+                        ? <planeGeometry args={[2.4, 1.3]} />
+                        : <ringGeometry args={[0.7, 0.95, 40]} />}
+                <meshBasicMaterial ref={mat} color={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
+            <points ref={pts} visible={false}>
+                <bufferGeometry>
+                    <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
+                </bufferGeometry>
+                <pointsMaterial ref={ptsMat} map={dot} size={0.2} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+            </points>
+        </group>
+    );
+}
+
+export function KindAccentFx({ spawn }: { spawn: KindAccentSpawn }) {
+    const family = KIND_ACCENT_FAMILY[spawn.kind];
+    if (!family) return null;
+    if (family === "slash") return <AccentSlash spawn={spawn} />;
+    if (family === "ringsUp") return <AccentRing spawn={spawn} up />;
+    if (family === "ringsDown") return <AccentRing spawn={spawn} up={false} />;
+    return <AccentGeneric spawn={spawn} family={family} />;
+}
+
+// ─── Casting glyph — the anime tell under a channeling caster ────────────────
+
+/** Runic circle: concentric rings, radial ticks, arc dashes — drawn once. */
+function glyphTexture(): THREE.CanvasTexture {
+    return canvasTexture("cast-glyph", 256, 256, (ctx, w, h) => {
+        const cx = w / 2, cy = h / 2;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(cx, cy, 116, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, 74, 0, Math.PI * 2); ctx.stroke();
+        // Radial ticks between the rings.
+        for (let i = 0; i < 24; i++) {
+            const a = (i / 24) * Math.PI * 2;
+            ctx.lineWidth = i % 3 === 0 ? 3 : 1.4;
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(a) * 80, cy + Math.sin(a) * 80);
+            ctx.lineTo(cx + Math.cos(a) * (i % 3 === 0 ? 108 : 96), cy + Math.sin(a) * (i % 3 === 0 ? 108 : 96));
+            ctx.stroke();
+        }
+        // Inner arc dashes.
+        ctx.lineWidth = 5;
+        for (let i = 0; i < 4; i++) {
+            const a0 = (i / 4) * Math.PI * 2 + 0.25;
+            ctx.beginPath(); ctx.arc(cx, cy, 56, a0, a0 + 0.9); ctx.stroke();
+        }
+        // Cardinal triangles on the outer ring.
+        for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2;
+            const tx = cx + Math.cos(a) * 116, ty = cy + Math.sin(a) * 116;
+            ctx.beginPath();
+            ctx.moveTo(tx + Math.cos(a) * 10, ty + Math.sin(a) * 10);
+            ctx.lineTo(tx + Math.cos(a + 2.3) * 8, ty + Math.sin(a + 2.3) * 8);
+            ctx.lineTo(tx + Math.cos(a - 2.3) * 8, ty + Math.sin(a - 2.3) * 8);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
+            ctx.fill();
+        }
+    });
+}
+
+/** Element-tinted rotating casting circle under the caster while a ranged
+ *  move channels (beat start → strike). Reads the beat each frame like
+ *  BeatDrivenVfx; rotation keys off the beat clock so replays match. */
+export function CastGlyphFx({ beatRef, posRef }: {
+    beatRef: React.MutableRefObject<{ event: { t: string; delivery?: string; moveKind?: string; actorId?: string; element?: string; super?: boolean } | null; startedAt: number; durationMs: number }>;
+    posRef: React.MutableRefObject<ReadonlyMap<string, readonly [number, number, number]>>;
+}) {
+    const inner = useRef<THREE.Mesh>(null);
+    const outer = useRef<THREE.Mesh>(null);
+    const innerMat = useRef<THREE.MeshBasicMaterial>(null);
+    const outerMat = useRef<THREE.MeshBasicMaterial>(null);
+    const tex = useMemo(() => glyphTexture(), []);
+    useFrame(() => {
+        const beat = beatRef.current;
+        const ev = beat.event;
+        const active = !!ev && ev.t === "action" && ev.delivery === "ranged"
+            && ev.moveKind !== "guard" && ev.moveKind !== "rest" && !!ev.actorId;
+        let frac = 0;
+        let pos: readonly [number, number, number] | undefined;
+        if (active) {
+            frac = (performance.now() - beat.startedAt) / beat.durationMs;
+            pos = posRef.current.get(ev!.actorId!);
+        }
+        const show = active && !!pos && frac >= 0.03 && frac <= 0.56;
+        const env = !show ? 0 : frac < 0.1 ? (frac - 0.03) / 0.07 : frac > 0.5 ? Math.max(0, (0.56 - frac) / 0.06) : 1;
+        const scale = (ev?.super ? 2.9 : 2.05) * (0.85 + Math.min(1, frac * 2) * 0.15);
+        const tint = ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
+        if (inner.current && innerMat.current) {
+            inner.current.visible = show;
+            if (show && pos) {
+                inner.current.position.set(pos[0], 0.1, pos[2]);
+                inner.current.rotation.z = frac * Math.PI * 2.4;
+                inner.current.scale.set(scale, scale, scale);
+                innerMat.current.opacity = 0.85 * env;
+                innerMat.current.color.set(tint);
+            }
+        }
+        if (outer.current && outerMat.current) {
+            outer.current.visible = show;
+            if (show && pos) {
+                outer.current.position.set(pos[0], 0.12, pos[2]);
+                outer.current.rotation.z = -frac * Math.PI * 1.6;
+                const s = scale * 1.28;
+                outer.current.scale.set(s, s, s);
+                outerMat.current.opacity = 0.4 * env;
+                outerMat.current.color.set(tint);
+            }
+        }
+    });
+    return (
+        <group>
+            <mesh ref={inner} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={innerMat} map={tex} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <mesh ref={outer} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={outerMat} map={tex} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+        </group>
+    );
+}
+
+// ─── Charge orb — the Gardevoir moment ───────────────────────────────────────
+// During a ranged channel the caster HOLDS its power: a glowing element orb
+// with two counter-rotating rings and orbiting sparkles at chest height,
+// swelling toward the release. (The floor glyph spins below; the stage lights
+// dim around it — three layers of the same reference frame.)
+
+export function ChargeOrbFx({ beatRef, posRef }: {
+    beatRef: React.MutableRefObject<{ event: { t: string; delivery?: string; moveKind?: string; actorId?: string; element?: string; super?: boolean } | null; startedAt: number; durationMs: number }>;
+    posRef: React.MutableRefObject<ReadonlyMap<string, readonly [number, number, number]>>;
+}) {
+    const core = useRef<THREE.Mesh>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const glowRef = useRef<THREE.Mesh>(null);
+    const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ringA = useRef<THREE.Mesh>(null);
+    const ringB = useRef<THREE.Mesh>(null);
+    const ringAMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ringBMat = useRef<THREE.MeshBasicMaterial>(null);
+    const pts = useRef<THREE.Points>(null);
+    const ptsMat = useRef<THREE.PointsMaterial>(null);
+    const COUNT = 14;
+    const dot = useMemo(() => dotTexture(), []);
+    const params = useMemo(() => {
+        const rand = seededRand(97);
+        return Array.from({ length: COUNT }, () => ({ angle: rand() * Math.PI * 2, tilt: (rand() - 0.5) * 1.6, r: 0.55 + rand() * 0.5, speed: 0.6 + rand() * 0.9 }));
+    }, []);
+    useFrame(() => {
+        const beat = beatRef.current;
+        const ev = beat.event;
+        const active = !!ev && ev.t === "action" && ev.delivery === "ranged"
+            && ev.moveKind !== "guard" && ev.moveKind !== "rest" && !!ev.actorId;
+        let frac = 0;
+        let pos: readonly [number, number, number] | undefined;
+        if (active) {
+            frac = (performance.now() - beat.startedAt) / beat.durationMs;
+            pos = posRef.current.get(ev!.actorId!);
+        }
+        const show = active && !!pos && frac >= 0.06 && frac <= 0.55;
+        const env = !show ? 0 : frac < 0.14 ? (frac - 0.06) / 0.08 : frac > 0.5 ? Math.max(0, (0.55 - frac) / 0.05) : 1;
+        // The orb SWELLS toward the release.
+        const charge = show ? Math.min(1, (frac - 0.06) / 0.42) : 0;
+        const base = (ev?.super ? 0.34 : 0.22) * (0.55 + charge * 0.75);
+        const tint = ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
+        const y = 1.25;
+        const set = (m: THREE.Mesh | null, mm: THREE.MeshBasicMaterial | null, s: number, o: number) => {
+            if (!m || !mm) return;
+            m.visible = show;
+            if (show && pos) {
+                m.position.set(pos[0], y, pos[2]);
+                m.scale.setScalar(s);
+                mm.opacity = o * env;
+                mm.color.set(tint);
+            }
+        };
+        const pulse = 1 + Math.sin(frac * 46) * 0.08 * (0.4 + charge);
+        set(core.current, coreMat.current, base * pulse, 0.95);
+        set(glowRef.current, glowMat.current, base * 2.6 * pulse, 0.3);
+        if (ringA.current && ringAMat.current) {
+            set(ringA.current, ringAMat.current, base * 3.4, 0.75);
+            ringA.current.rotation.set(0.5, frac * Math.PI * 3.2, 0.2);
+        }
+        if (ringB.current && ringBMat.current) {
+            set(ringB.current, ringBMat.current, base * 4.3, 0.5);
+            ringB.current.rotation.set(-0.4, -frac * Math.PI * 2.3, 0.5);
+        }
+        if (pts.current && ptsMat.current) {
+            pts.current.visible = show;
+            if (show && pos) {
+                const attr = pts.current.geometry.attributes.position as THREE.BufferAttribute;
+                const arr = attr.array as Float32Array;
+                for (let i = 0; i < params.length; i++) {
+                    const p = params[i];
+                    // Sparkles SPIRAL IN as the charge builds.
+                    const a = p.angle + frac * Math.PI * 4 * p.speed;
+                    const r = p.r * (1.35 - charge * 0.75) * (base / 0.22);
+                    arr[i * 3] = pos[0] + Math.cos(a) * r;
+                    arr[i * 3 + 1] = y + Math.sin(a * 0.7 + p.tilt) * r * 0.55;
+                    arr[i * 3 + 2] = pos[2] + Math.sin(a) * r;
+                }
+                attr.needsUpdate = true;
+                ptsMat.current.color.set(tint);
+                ptsMat.current.opacity = 0.9 * env;
+            }
+        }
+    });
+    return (
+        <group>
+            <mesh ref={core} visible={false}>
+                <sphereGeometry args={[1, 18, 14]} />
+                <meshBasicMaterial ref={coreMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <mesh ref={glowRef} visible={false}>
+                <sphereGeometry args={[1, 14, 10]} />
+                <meshBasicMaterial ref={glowMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <mesh ref={ringA} visible={false}>
+                <torusGeometry args={[1, 0.035, 8, 48]} />
+                <meshBasicMaterial ref={ringAMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <mesh ref={ringB} visible={false}>
+                <torusGeometry args={[1, 0.022, 8, 48]} />
+                <meshBasicMaterial ref={ringBMat} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+            <points ref={pts} visible={false}>
+                <bufferGeometry>
+                    <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
+                </bufferGeometry>
+                <pointsMaterial ref={ptsMat} map={dot} size={0.16} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+            </points>
+        </group>
+    );
+}
+
+// ─── Impact streak-through — the hit crosses the FRAME ───────────────────────
+// Champions impacts throw long thin element streaks that slice past the victim
+// across the whole shot (the Ursaluna fire hit). Five long quads radiating
+// from the contact point at seeded angles, plus a filled ground glow disc.
+
+export interface StreakBurstSpawn {
+    key: number;
+    element: string;
+    x: number;
+    z: number;
+    startedAt: number;
+    durationMs: number;
+    heavy: boolean;
+}
+
+export function StreakBurstFx({ spawn }: { spawn: StreakBurstSpawn }) {
+    const refs = useRef<Array<THREE.Mesh | null>>([]);
+    const mats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const disc = useRef<THREE.Mesh>(null);
+    const discMat = useRef<THREE.MeshBasicMaterial>(null);
+    const COUNT = spawn.heavy ? 5 : 3;
+    const params = useMemo(() => {
+        const rand = seededRand(spawn.key * 83 + 29);
+        return Array.from({ length: COUNT }, () => ({
+            yaw: rand() * Math.PI * 2,
+            pitch: (rand() - 0.5) * 0.7,
+            len: 5 + rand() * (spawn.heavy ? 7 : 4),
+            delay: rand() * 0.12,
+            w: 0.08 + rand() * 0.1,
+        }));
+    }, [spawn.key, COUNT, spawn.heavy]);
+    const glow = ELEMENT_GLOW[spawn.element] ?? "#ffe9c0";
+    useFrame(() => {
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        params.forEach((p, i) => {
+            const m = refs.current[i], mm = mats.current[i];
+            if (!m || !mm) return;
+            const k = (t - p.delay) / 0.55;
+            if (t < 0 || k < 0 || k >= 1) { m.visible = false; return; }
+            m.visible = true;
+            const ease = 1 - (1 - k) * (1 - k);
+            // The streak SHOOTS outward through the frame from the contact.
+            const d = 0.5 + ease * p.len * 0.55;
+            m.position.set(
+                spawn.x + Math.cos(p.yaw) * d,
+                1.15 + Math.sin(p.pitch) * d * 0.5,
+                spawn.z + Math.sin(p.yaw) * d,
+            );
+            m.rotation.set(0, -p.yaw + Math.PI / 2, p.pitch * 0.8);
+            m.scale.set(0.6 + ease * p.len, 1, 1);
+            mm.opacity = 0.9 * (1 - ease);
+        });
+        if (disc.current && discMat.current) {
+            const show = t >= 0 && t < 0.6;
+            disc.current.visible = show;
+            if (show) {
+                const ease = 1 - (1 - t / 0.6) * (1 - t / 0.6);
+                disc.current.position.set(spawn.x, 0.08, spawn.z);
+                const s = 1 + ease * (spawn.heavy ? 2.6 : 1.6);
+                disc.current.scale.set(s, s, s);
+                discMat.current.opacity = 0.55 * (1 - ease);
+            }
+        }
+    });
+    return (
+        <group>
+            {params.map((p, i) => (
+                <mesh key={i} ref={(el) => { refs.current[i] = el; }} visible={false}>
+                    <planeGeometry args={[1, p.w]} />
+                    <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
+            <mesh ref={disc} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+                <circleGeometry args={[1.15, 40]} />
+                <meshBasicMaterial ref={discMat} color={glow} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
+        </group>
+    );
+}
+
+// ─── Debris chunks — physical rubble for crushes and heavy contact ───────────
+
+export function DebrisFx({ spawn }: { spawn: StreakBurstSpawn }) {
+    const refs = useRef<Array<THREE.Mesh | null>>([]);
+    const COUNT = spawn.heavy ? 7 : 5;
+    const params = useMemo(() => {
+        const rand = seededRand(spawn.key * 101 + 41);
+        return Array.from({ length: COUNT }, () => ({
+            angle: rand() * Math.PI * 2,
+            v: 1.6 + rand() * 2.6,
+            up: 2.2 + rand() * 2.4,
+            size: 0.09 + rand() * 0.15,
+            spinX: (rand() - 0.5) * 9,
+            spinZ: (rand() - 0.5) * 9,
+            shade: 0.75 + rand() * 0.4,
+        }));
+    }, [spawn.key, COUNT]);
+    useFrame(() => {
+        const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
+        params.forEach((p, i) => {
+            const m = refs.current[i];
+            if (!m) return;
+            if (t < 0 || t >= 1) { m.visible = false; return; }
+            m.visible = true;
+            const k = Math.min(1, t * 1.15);
+            const d = p.v * k;
+            const y = Math.max(p.size * 0.5, 0.35 + p.up * k - 5.8 * k * k);
+            m.position.set(spawn.x + Math.cos(p.angle) * d, y, spawn.z + Math.sin(p.angle) * d);
+            m.rotation.set(p.spinX * k, p.angle, p.spinZ * k);
+            const mat = m.material as THREE.MeshStandardMaterial;
+            mat.opacity = t > 0.75 ? (1 - t) / 0.25 : 1;
+        });
+    });
+    return (
+        <group>
+            {params.map((p, i) => (
+                <mesh key={i} ref={(el) => { refs.current[i] = el; }} visible={false} castShadow>
+                    <dodecahedronGeometry args={[p.size, 0]} />
+                    <meshStandardMaterial color={new THREE.Color(0.32 * p.shade, 0.27 * p.shade, 0.21 * p.shade)} roughness={0.95} flatShading transparent opacity={1} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
 
 // ─── Battle scars — the arena remembers the whole fight ──────────────────────
 // Every signature and killing blow leaves a mark where it landed: scorch,
