@@ -1419,6 +1419,37 @@ floor + flame crown + dying flash + full crowd) and the aftermath (the body
 stays where it fell while the fight continues). Balance instruments run
 unchanged — everything here is presentation; no kit or engine numbers moved.
 
+## Round 38 — stillness and aliveness (2026-08-13)
+
+Owner: "still far off AAA — pets have a ton of motion in their models, USE
+it; a few more beats between moves, the enemy moves during the surf still."
+
+**Why the pets were statues**: the authored attack take presents as three
+clip windows (windup 0-34%, strike 34-74%, recover 74-99.5%) and PAUSES at
+each boundary. Under round-36's long beats a 3s windup froze the skeleton
+after ~800ms of motion, and "recover" held a frozen pose to the beat's end.
+Fixes: the coil now begins a fixed ~900ms before commitment — everything
+earlier is the species' LIVING idle (the hero-pose stalk/loom personality,
+now per the acting move's style); after recovery (84%) the pet returns to
+idle while its element finishes. And a LIVING IDLE quirk: the roster's
+never-used idle_2 take breaks the idle loop for one cycle every ~9.3s,
+phase-hashed per species so a field never syncs.
+
+**Why the enemy still moved during the surf**: round 36 counted the piece's
+fade tail as settle — the wave was visibly dissolving when the next windup
+began. Beats now hold the piece PLUS real stillness: super 6400 (strike
+3520 + piece-with-fade 2100 + ~780ms still), heavy 4100, normal 2700, KO
+air 1100. Verified at 1× by frame sequence: super → empty quiet arena (wet
+residue rings only) → then the enemy's action.
+
+**Punch**: toneMappingExposure 1.12 (deeper blacks against the painted
+arenas; VFX materials are toneMapped:false and keep their raw values);
+Bloom 0.55→0.85 with threshold 0.62→0.52 (the volumetric layer is built on
+additive light and most of it passed unbloomed). Desktop-only gate and
+reduced-motion exemption unchanged. Harness gained `?capture`
+(preserveDrawingBuffer without the slow-mo stretch) so in-page frame grabs
+can verify REAL pacing.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified

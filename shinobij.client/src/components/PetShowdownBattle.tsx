@@ -225,16 +225,21 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
     // point + the full piece + a settle breath of stillness before the next
     // actor winds up. 3300 used to end a super beat 600ms before the tsunami
     // finished landing — the next move attacked THROUGH the spectacle.
-    //   super: 5400 → strike 2970 + piece 2100 + ~330ms settle
-    //   heavy: 3400 → strike 1870 + piece 1150 + ~380ms settle
+    //   super: 6400 → strike 3520 + piece 2100 (fade INCLUDED) + ~780ms of
+    //          genuinely still arena before the next windup
+    //   heavy: 4100 → strike 2255 + piece 1150 + ~700ms stillness
+    //   normal: 2700 → burst done ~2100 + ~600ms breath
+    // The first pass counted the piece's fade tail as "settle" — the wave was
+    // still visibly dissolving when the next actor moved (owner: "the enemy
+    // moves during the surf animation"). Stillness now means STILLNESS.
     // A killing blow buys the beat extra air on top of its class: the impact
     // frame, the fall, and a breath of silence before anything else moves.
-    const koAir = event.t === "action" && event.targets.some((t) => t.ko && t.id !== event.actorId) ? 900 : 0;
+    const koAir = event.t === "action" && event.targets.some((t) => t.ko && t.id !== event.actorId) ? 1100 : 0;
     const base = koAir + (event.t === "action" ? (
-        event.super ? 5400
+        event.super ? 6400
         : (event.moveKind === "guard" || event.moveKind === "rest") ? 1200
-        : event.weight === "heavy" ? 3400
-        : 2300)
+        : event.weight === "heavy" ? 4100
+        : 2700)
         : event.t === "roundStart" ? 950
         : event.t === "skip" ? 900
         : event.t === "switch" ? 1500
@@ -955,8 +960,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 const dz = targetPos[2] - stand[2];
                 const len = Math.hypot(dx, dz) || 1;
                 faceX = dx / len; faceZ = dz / len;
+                // The long beats made a fixed-fraction windup a STATUE: the
+                // authored windup window holds its clip boundary, so a 3-second
+                // anticipation froze the skeleton after the first 800ms. The
+                // coil now begins a fixed ~900ms before commitment; everything
+                // earlier is the species' LIVING idle (the pouncer stalks, the
+                // dragon looms — hero-pose personality), and after recovery the
+                // pet returns to idle while its element finishes playing out.
+                const windupLead = 900 / beat.durationMs;
                 if (ev.delivery === "melee") {
-                    // Approach → strike at contact → spring back.
+                    // Stalk → coil → charge → strike at contact → spring back.
                     const reach = Math.max(0, len - 1.4);
                     const drive = frac < 0.32 ? 0
                         : frac < 0.5 ? (frac - 0.32) / 0.18
@@ -964,14 +977,20 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                         : Math.max(0, 1 - (frac - 0.68) / 0.24);
                     px = stand[0] + faceX * reach * drive;
                     pz = stand[2] + faceZ * reach * drive;
-                    f.motion = frac < 0.32 ? "windup" : frac < 0.5 ? "dash" : frac < 0.7 ? "strike" : "recover";
+                    const coilAt = Math.max(0.06, 0.32 - windupLead);
+                    f.motion = frac < coilAt ? "idle" : frac < 0.32 ? "windup" : frac < 0.5 ? "dash" : frac < 0.7 ? "strike" : frac < 0.84 ? "recover" : "idle";
                     if (f.motion === "dash") { f.moving = true; f.speed = 9; f.moveX = faceX; f.moveZ = faceZ; }
                 } else {
-                    f.motion = frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : "recover";
+                    const coilAt = Math.max(0.05, 0.4 - windupLead);
+                    f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
+                    // The channel is alive the whole approach: casting drives
+                    // the hero-pose sway from the first frame of the beat.
                     f.casting = frac < 0.4;
                 }
             } else {
-                f.motion = frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : "recover";
+                const windupLead = 900 / beat.durationMs;
+                const coilAt = Math.max(0.05, 0.4 - windupLead);
+                f.motion = frac < coilAt ? "idle" : frac < 0.4 ? "windup" : frac < 0.62 ? "strike" : frac < 0.84 ? "recover" : "idle";
             }
         } else if (sinceHit >= 0 && sinceHit < 480) {
             f.motion = "stagger";
@@ -2017,6 +2036,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  spectacle frame-by-frame (the pieces live ~900ms, too brief to study).
      *  URL-gated, presentation-only, and inert unless someone types it. */
     const fxStretch = useMemo(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("slowfx") ? 3 : 1), []);
+    /** ?capture — review knob: canvas capture WITHOUT the slow-mo stretch, so
+     *  in-page frame grabs can verify REAL pacing (?slowfx distorts beats). */
+    const captureFlag = useMemo(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("capture")), []);
     const spawnSetPiece = useCallback((element: string, casterId: string, victimId: string, baseDurationMs: number, superCast = false) => {
         const durationMs = baseDurationMs * fxStretch;
         const from = posRef.current.get(casterId);
@@ -2811,7 +2833,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             {/* preserveDrawingBuffer rides the ?slowfx review flag: it lets the
                 dev harness snapshot the WebGL canvas mid-beat (toDataURL reads
                 blank without it). Off in normal play — it costs a buffer. */}
-            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 }} camera={{ fov: 48, position: [0, 6.2, 12.2], near: 0.1, far: 80 }}>
+            {/* toneMappingExposure 1.12: the filmic curve at default exposure
+                sat a hair flat next to the painted arenas — a slight push
+                deepens the blacks and lets the VFX (toneMapped:false) pop
+                against them without touching any material. */}
+            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }} camera={{ fov: 48, position: [0, 6.2, 12.2], near: 0.1, far: 80 }}>
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
@@ -2824,7 +2850,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 {residues.map((r) => <ResidueFx key={r.key} spawn={r} />)}
                 {petBloomEnabled() && !reducedMotion && (
                     <EffectComposer>
-                        <Bloom intensity={0.55} luminanceThreshold={0.62} luminanceSmoothing={0.3} mipmapBlur />
+                        {/* Punchier glow: the volumetric layer is built on
+                            additive light (bolts, piece lights, shock rings)
+                            and the old threshold let most of it pass unbloomed. */}
+                        <Bloom intensity={0.85} luminanceThreshold={0.52} luminanceSmoothing={0.32} mipmapBlur />
                     </EffectComposer>
                 )}
                 {[...slots.values()].map((info) => (
