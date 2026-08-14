@@ -315,6 +315,28 @@
 .showdown-round { font-weight: 800; font-size: 0.9rem; color: #fbbf24; text-shadow: 0 1px 4px #000; }
 .showdown-vs { font-size: 0.78rem; color: #d9c9a8; text-shadow: 0 1px 4px #000; max-width: 160px; text-align: right; }
 
+/* Standing arena weather: the crest of the element it favours and the rounds
+   it has left. Sits with the round readout because it IS round state — the
+   board both sides are fighting over. */
+.showdown-weather {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px 1px 4px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.72rem;
+    color: #f8fafc;
+    background: rgba(12, 10, 20, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    text-shadow: 0 1px 3px #000;
+}
+.showdown-weather.fire { border-color: rgba(255, 138, 76, 0.75); box-shadow: 0 0 8px rgba(255, 122, 53, 0.35); }
+.showdown-weather.water { border-color: rgba(103, 199, 255, 0.75); box-shadow: 0 0 8px rgba(56, 189, 248, 0.35); }
+.showdown-weather.wind { border-color: rgba(141, 245, 211, 0.75); box-shadow: 0 0 8px rgba(110, 231, 183, 0.35); }
+.showdown-weather.earth { border-color: rgba(224, 180, 119, 0.75); box-shadow: 0 0 8px rgba(217, 158, 92, 0.35); }
+.showdown-weather.lightning { border-color: rgba(255, 232, 107, 0.75); box-shadow: 0 0 8px rgba(250, 204, 21, 0.35); }
+
 /* The player's own plates sit just above the command panels, mirroring the
    enemy's row at the top — the classic two-corner JRPG readout. */
 .showdown-playerbar {

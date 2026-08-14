@@ -58,11 +58,12 @@ A key with no folder here (e.g. the pet-only "chakra" tint, or "none"/neutral
 beats) falls back to the procedural element-tinted particle burst. Drop a
 matching folder here to give it a sprite too — no code change needed.
 
-plume/ + mist/ — Blender-baked simulation flipbooks (owned output, no
+plume/ + mist/ + burst/ — Blender-baked simulation flipbooks (owned output, no
 third-party license): Mantaflow fire-smoke and mist sims baked and rendered
 in-house (EEVEE, transparent film) and ingested as standard NNN.png frame
-sequences. Used as normal-blended smoke/mist body layers under the
-procedural shader flames and wave (PetShowdownVfx SUPER accents).
+sequences. Used as normal-blended body layers under the procedural shader
+flames and wave (PetShowdownVfx SUPER accents); burst/ is the KO detonation
+(fireball into turbulent smoke) played under the flash and the kaboom.
 
 epic/ — Pet Showdown hero sprites (single WebP paintings, not frame sequences):
 =========================================
@@ -70,6 +71,7 @@ Generated in-house for this project with gpt-image-1 via
 scripts/gen-showdown-vfx.mjs (owned output, no third-party license terms).
 Structures (tsunami, firewall, tornado, quake, stormbolt) are transparent
 billboards; floor-* are the "arena floor becomes the element" takeover discs.
-The same script generates the crowd-integrated arena backdrops in
-src/assets/coliseum/<stage>-bg-crowd.webp. Loaded by EPIC_SPRITES in
+(The same script once generated crowd-integrated arena backdrops; those were
+reverted by owner ruling in round 40 and the stages use the original scenery.)
+Loaded by EPIC_SPRITES in
 src/components/PetShowdownVfx.tsx (new URL imports, not the glob).

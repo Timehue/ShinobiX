@@ -1918,6 +1918,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** The arena's CLIMATE: the last landed signature's element holds the
      *  field (faint sheen + motes + tinted light) until another replaces it. */
     const [climate, setClimate] = useState<ClimateState | null>(null);
+    // Standing WEATHER owns the arena's climate whenever it is up — setting
+    // the sky is real board state and has to be visible without reading a
+    // number. A signature's residue climate only shows when no weather stands.
+    // Derived, never stored: the layer owns its own fade clock.
+    const climateElement = stateView.weather?.element ?? climate?.element ?? null;
     /** Per-kind move accents + impact streak-throughs + debris chunks. */
     const [kindFx, setKindFx] = useState<KindAccentSpawn[]>([]);
     const [streakFx, setStreakFx] = useState<StreakBurstSpawn[]>([]);
@@ -2123,14 +2128,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         window.setTimeout(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
     }, [fxStretch]);
 
-    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string) => {
+    const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string, normalBlend = false) => {
         // An empty key means "this action detonates nothing" (Rest).
         if (!frames) return;
         const at = posRef.current.get(petId);
         if (!at) return;
         const key = popupKey.current++;
         setVfx((list) => [...list.slice(-14), {
-            key, frames, scale, durationMs, aspect, tint,
+            key, frames, scale, durationMs, aspect, tint, normalBlend,
             pos: [at[0], at[1] + yLift, at[2]] as [number, number, number],
             startedAt: performance.now(),
         }]);
@@ -2445,6 +2450,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // A heavy or lethal blow gets a second, larger shell over
                         // the first — `explosion` and `bighit` ship in the bundle
                         // and nothing used to spawn them.
+                        // The KO's SIMULATED body: a Blender-baked Mantaflow
+                        // detonation (fireball into turbulent smoke) plays
+                        // normal-blended under the flash and the kaboom, the
+                        // same division of labour as the plume and the mist —
+                        // the sim carries the mass, the procedural layers keep
+                        // the crisp hot core.
+                        if (target.ko && !target.splash && !reducedMotion) {
+                            later(() => spawnFlipbook(target.id, "burst", burst * 2.1, 1150 / speed, 1.15, 1, undefined, true), 40 / speed);
+                        }
                         if (target.ko || event.weight === "heavy" || event.super) {
                             later(() => spawnFlipbook(
                                 target.id,
@@ -2964,7 +2978,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     signature left holding the field. */}
                 <ScarLayer scars={scars} />
                 {residues.map((r) => <ResidueFx key={r.key} spawn={r} />)}
-                <ClimateLayer climate={climate} reduced={reducedMotion} />
+                <ClimateLayer element={climateElement} reduced={reducedMotion} />
                 {/* The moveset READS: casting glyph + charge orb during ranged
                     channels, per-kind accents, streak-throughs and debris. */}
                 <CastGlyphFx beatRef={beatRef} posRef={posRef} />
@@ -3058,6 +3072,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         {/* stateView.round reconciles at playback end, so the round
                             IN PROGRESS (command or playing) is always round + 1. */}
                         <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}/{stateView.turnCap}</div>
+                        {stateView.weather && (
+                            <div className={`showdown-weather ${stateView.weather.element.toLowerCase()}`}
+                                title={`${stateView.weather.element} weather: ${stateView.weather.element} techniques hit harder, its counter is dampened`}>
+                                <ShowdownIcon name={elementCrest(stateView.weather.element)} size={12} />
+                                {stateView.weather.roundsLeft}
+                            </div>
+                        )}
                         {stateView.turnDeadline !== undefined && phase === "command" && (
                             <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
                         )}

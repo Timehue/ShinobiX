@@ -20,9 +20,12 @@ import {
     storedStatusKind,
     showdownConsumableSpends,
     KIND_FX,
+    weatherDamageMult,
+    elementCounteredBy,
     type ShowdownSession,
 } from './engine.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
+import { SHOWDOWN_WEATHER_ROUNDS } from '../../shared/pet-showdown-contract.js';
 import { buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
 import {
     SHOWDOWN_ATTRITION_START,
@@ -1109,4 +1112,84 @@ test('an overdraft onto a SHIELD reports what was dealt, not what was rolled', (
     ], [{ kind: 'rest', petId: 'd' }]);
     const bareAction = bareEvents.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'c');
     assert.ok((bareAction?.overexertDamage ?? 0) > 0, 'an unshielded overdraft still bleeds');
+});
+
+/* ── The variety pass: weather + protect (round 44) ─────────────────────── */
+
+test('every sealed pet fields a derived utility technique', () => {
+    // The catalog is damage-heavy (159 damage moves against 25 debuffs and a
+    // single absorb across 145 species), so variety is DERIVED at seal rather
+    // than by editing kits the arena/Hollow Gate/war modes also read.
+    for (const [role, wanted] of [
+        ['defender', 'protect'],
+        ['sage', 'weather'],
+        ['assassin', 'buff'],
+        ['tracker', 'debuff'],
+    ] as const) {
+        const sealed = sealShowdownPet(makePet('u', { role, rarity: 'standard' }), 'warrior', 30);
+        assert.ok(
+            sealed.moves.some((m) => m.kind === wanted),
+            `a standard ${role} should field a ${wanted} technique`,
+        );
+    }
+    // Rarity graduates the family rather than only inflating numbers.
+    const legendaryAssassin = sealShowdownPet(makePet('v', { role: 'assassin', rarity: 'legendary' }), 'warrior', 30);
+    assert.ok(legendaryAssassin.moves.some((m) => m.kind === 'mark'), 'a legendary assassin marks instead of buffing');
+});
+
+test('weather boosts its own element, dampens its counter, and leaves the neutral jab alone', () => {
+    assert.equal(weatherDamageMult(undefined, 'Fire'), 1, 'no weather, no change');
+    const heat = { element: 'Fire', until: 99 };
+    assert.ok(weatherDamageMult(heat, 'Fire') > 1, 'its own element is favoured');
+    // Water counters Fire on our wheel, exactly as rain/sun pair in Pokémon.
+    assert.equal(elementCounteredBy('Fire'), 'Water');
+    assert.ok(weatherDamageMult(heat, 'Water') < 1, 'the counter-element is dampened');
+    assert.equal(weatherDamageMult(heat, 'Earth'), 1, 'an unrelated element is untouched');
+    assert.equal(weatherDamageMult(heat, 'None'), 1, 'the neutral basic stays weather-proof');
+});
+
+test('a weather technique sets the arena and it expires on schedule', () => {
+    const caster = makePet('a', { role: 'sage', element: 'Water', speed: 200 });
+    const foe = makePet('b', { speed: 5, hp: 9000 });
+    const session = makeSession([caster], [foe]);
+    const weatherIndex = session.player[0].moves.findIndex((m) => m.kind === 'weather');
+    assert.ok(weatherIndex >= 0, 'the sage carries its weather technique');
+
+    resolveShowdownRound(session, [{ kind: 'move', petId: 'a', moveIndex: weatherIndex, targetId: 'b' }], [{ kind: 'guard', petId: 'b' }]);
+    assert.equal(session.weather?.element, 'Water', 'the arena took the caster element');
+    const view = showdownStateView(session);
+    assert.equal(view.weather?.element, 'Water', 'and the wire carries it for the HUD and the climate');
+    assert.ok((view.weather?.roundsLeft ?? 0) > 0);
+
+    // It is a window, never a permanent board.
+    const until = session.weather!.until;
+    for (let i = 0; i < SHOWDOWN_WEATHER_ROUNDS + 1 && !session.finished; i++) {
+        resolveShowdownRound(session, [{ kind: 'guard', petId: 'a' }], [{ kind: 'guard', petId: 'b' }]);
+    }
+    assert.ok(session.round > until, 'the fixture ran past the window');
+    assert.equal(session.weather, undefined, 'weather expired on its own');
+});
+
+test('protect blocks the round outright and cannot be chained', () => {
+    const blocker = makePet('a', { role: 'defender', speed: 200 });
+    const attacker = makePet('b', { attack: 400, speed: 5 });
+    const session = makeSession([blocker], [attacker]);
+    const protectIndex = session.player[0].moves.findIndex((m) => m.kind === 'protect');
+    assert.ok(protectIndex >= 0, 'the defender carries its block');
+    const hpBefore = session.player[0].hp;
+
+    resolveShowdownRound(session,
+        [{ kind: 'move', petId: 'a', moveIndex: protectIndex, targetId: 'b' }],
+        [{ kind: 'move', petId: 'b', moveIndex: 1, targetId: 'a' }]);
+    assert.equal(session.player[0].hp, hpBefore, 'the block ate the hit whole');
+
+    // Leaning on it is a wasted turn — the second consecutive cast fails and
+    // the blow lands.
+    const hpMid = session.player[0].hp;
+    const events = resolveShowdownRound(session,
+        [{ kind: 'move', petId: 'a', moveIndex: protectIndex, targetId: 'b' }],
+        [{ kind: 'move', petId: 'b', moveIndex: 1, targetId: 'a' }]);
+    const failed = events.some((e) => e.t === 'action' && e.targets.some((t) => t.applied === 'failed'));
+    assert.ok(failed, 'the chained block reported its failure');
+    assert.ok(session.player[0].hp < hpMid, 'and the attack got through');
 });

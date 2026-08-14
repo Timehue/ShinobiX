@@ -136,6 +136,10 @@ export interface VfxSpawn {
     durationMs: number;
     /** Height multiplier — sky bolts are tall, impacts are square. */
     aspect?: number;
+    /** Render normal-blended instead of additive. Required by the baked
+     *  simulation atlases: additive erases their dark smoke body entirely,
+     *  which is exactly what happened to the set-piece layers in round 42. */
+    normalBlend?: boolean;
 }
 
 function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
@@ -169,7 +173,7 @@ function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
                     opacity={0}
                     color={spawn.tint ?? "#ffffff"}
                     depthWrite={false}
-                    blending={THREE.AdditiveBlending}
+                    blending={spawn.normalBlend ? THREE.NormalBlending : THREE.AdditiveBlending}
                     toneMapped={false}
                 />
             </mesh>

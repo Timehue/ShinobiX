@@ -219,6 +219,18 @@ for (let r = 0; r < rarityOrder.length - 1; r++) {
 const species = [...speciesStats.values()].sort((a, b) => pct(a) - pct(b));
 console.log('\nWeakest 10:');
 for (const s of species.slice(0, 10)) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
+// --focus "Name,Name" — print these species' exact win rates (kit surgery
+// needs the number for the species being edited, not just the top/bottom ten).
+const focusArg = process.argv.includes('--focus') ? process.argv[process.argv.indexOf('--focus') + 1] : '';
+if (focusArg) {
+    const wanted = focusArg.split(',').map((n) => n.trim().toLowerCase()).filter(Boolean);
+    console.log('\nFOCUS:');
+    for (const s of species) {
+        if (wanted.some((w) => s.name.toLowerCase() === w)) {
+            console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
+        }
+    }
+}
 console.log('Strongest 10:');
 for (const s of species.slice(-10).reverse()) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role})`);
 

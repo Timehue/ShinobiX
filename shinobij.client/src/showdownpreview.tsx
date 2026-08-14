@@ -152,6 +152,28 @@ function mockKit(pet: Pet): ShowdownPetView["moves"] {
         element: pet.element ?? "None", cls: "special" as const,
         ...(pet.element && SHOWDOWN_ELEMENT_BEATS[pet.element] ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[pet.element] } : {}),
     });
+    // Mirror the seal's VARIETY PASS: every pet fields one derived utility
+    // keyed to its role (engine.ts derivedUtilityFor). Without this the bench
+    // deck would show a kit the real engine never builds.
+    const role = String(pet.role ?? "tracker");
+    const el = pet.element ?? "None";
+    const high = pet.rarity === "legendary" || pet.rarity === "mythic";
+    const utilKind = role === "defender" ? "protect"
+        : role === "sage" ? "weather"
+        : role === "assassin" ? (high ? "mark" : "buff")
+        : (high ? "slow" : "debuff");
+    const utilName = utilKind === "weather"
+        ? (({ Fire: "Heat Haze", Water: "Downpour", Wind: "Gale Front", Earth: "Duststorm", Lightning: "Thunderhead" } as Record<string, string>)[el] ?? "Front")
+        : ({ protect: "Bulwark", buff: "Kindle", mark: "Mark", slow: "Mire", debuff: "Glare" }[utilKind] ?? "Focus");
+    if (el !== "None") {
+        moves.splice(3, 0, {
+            name: utilName, power: utilKind === "protect" ? 90 : utilKind === "weather" ? 70 : 110,
+            kind: utilKind, cost: 34, signature: false,
+            priority: utilKind === "protect" ? SHOWDOWN_PRIORITY_LIGHT : SHOWDOWN_PRIORITY_NORMAL,
+            hold: 0, effect: utilKind === "weather" ? "Turns the arena to your element" : "Utility",
+            element: el, cls: "special" as const,
+        });
+    }
     return moves;
 }
 
@@ -159,8 +181,17 @@ function poolPet(index: number): Pet {
     return balanceBuiltInPetTemplate({ ...rawPetPool[index] }) as Pet;
 }
 
-const playerPets = [poolPet(0), poolPet(4), poolPet(16)];
-const enemyPets = [poolPet(8), poolPet(12)];
+// ?lineup=0,4,16,8,12 — review switch: pick the pool indices for
+// player0,player1,bench,enemy0,enemy1 so any ROLE (and therefore any derived
+// utility — protect/weather/mark/slow) is reachable from the bench. Defaults
+// to the original fixed cast.
+const LINEUP = (() => {
+    const raw = new URLSearchParams(window.location.search).get("lineup");
+    const picked = (raw ?? "").split(",").map((n) => Number(n.trim())).filter((n) => Number.isInteger(n) && n >= 0 && n < rawPetPool.length);
+    return picked.length === 5 ? picked : [0, 4, 16, 8, 12];
+})();
+const playerPets = [poolPet(LINEUP[0]), poolPet(LINEUP[1]), poolPet(LINEUP[2])];
+const enemyPets = [poolPet(LINEUP[3]), poolPet(LINEUP[4])];
 
 // ?elements=Wind,Earth,None,Lightning,Fire — review switch: remap the lineup's
 // elements in order (player0, player1, player2-bench, enemy0, enemy1) so every
@@ -218,6 +249,8 @@ const world = {
     winded: new Set<string>(),
     // The third player pet starts on the bench (mirrors the 2v2+bench format).
     benched: new Set<string>([]),
+    // Standing arena weather, mirroring the engine's session.weather.
+    weather: null as { element: string; until: number } | null,
 };
 world.benched.add(playerPets[2].id);
 // ?glass — review switch: enemies open at 30% health so one signature is
@@ -246,6 +279,9 @@ function stateView(finished = false, outcome: "win" | "loss" | null = null): Sho
         player: playerPets.map((p) => petView(p)),
         enemy: enemyPets.map((p) => petView(p)),
         enemyTeamName: "Harness Pack",
+        ...(world.weather && world.round <= world.weather.until
+            ? { weather: { element: world.weather.element, roundsLeft: Math.max(0, world.weather.until - world.round + 1) } }
+            : {}),
     };
 }
 
@@ -324,6 +360,21 @@ async function mockSubmitTurn(commands: ShowdownCommand[]): Promise<ShowdownTurn
                 moveKind: c.kind, element: actor.element ?? "None", delivery: "self", weight: "light", super: false,
                 targets: [{ id: actor.id, damage: 0, heal: 0, effectiveness: "neutral", guarded: false, ko: false, applied: c.kind }],
                 staminaAfter, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
+            });
+            continue;
+        }
+        const kitPeek = mockKit(actor);
+        const peeked = c.kind === "super" ? kitPeek[kitPeek.length - 1] : kitPeek[c.moveIndex] ?? kitPeek[0];
+        if (peeked?.kind === "weather") {
+            // Mirror the engine: the arena takes the caster's element for a
+            // fixed window, overwriting whatever stood before.
+            world.weather = { element: actor.element ?? "None", until: world.round + 3 };
+            const staminaAfterW = spendStamina(actor.id, peeked.cost);
+            events.push({
+                t: "action", actorId: actor.id, actorSide: "player", moveName: peeked.name,
+                moveKind: "weather", element: actor.element ?? "None", delivery: "self", weight: "light", super: false,
+                targets: [{ id: actor.id, damage: 0, heal: 0, effectiveness: "neutral", guarded: false, ko: false, applied: "weather" }],
+                staminaAfter: staminaAfterW, meterAfter: world.meter.get(actor.id) ?? 0, overexerted: false,
             });
             continue;
         }
