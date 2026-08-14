@@ -312,7 +312,7 @@ const HEAVY_ELIGIBLE_KINDS = new Set(['damage', 'crush', 'wound', 'lifesteal']);
 const KNOWN_KINDS = new Set([
     'damage', 'buff', 'heal', 'debuff', 'dot', 'move', 'barrier', 'movelock', 'lifesteal',
     'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark',
-    'slow', 'haste', 'taunt', 'push', 'pull',
+    'slow', 'haste', 'taunt', 'push', 'pull', 'pivot',
     // The variety pass: the arena-state setter and the hard block.
     'weather', 'protect',
 ]);
@@ -339,6 +339,10 @@ export const KIND_FX: Record<string, KindFx> = {
     // (attacker picks the wounded one).
     push:      { mult: 0.62, rounds: 0, blurb: 'Smashes the foe out; a random reserve is forced in' },
     pull:      { mult: 0.45, rounds: 0, blurb: 'Hooks the foe’s weakest reserve into the fight' },
+    // The third rotation: push and pull move the FOE, pivot moves YOU. Hits and
+    // withdraws behind a fresh reserve — the frail attacker's way to trade and
+    // leave before the answer lands (Pokemon's U-turn / Volt Switch).
+    pivot:     { mult: 0.32, rounds: 0, blurb: 'Strikes, then withdraws behind a reserve' },
     dot:       { mult: 0.82, rounds: 2, store: 'burn', blurb: 'Burns for 2 more rounds' },
     burn:      { mult: 0.82, rounds: 2, blurb: 'Burns for 2 more rounds' },
     wound:     { mult: 0.82, rounds: 2, blurb: 'Bleeds and halves foe healing' },
@@ -613,7 +617,7 @@ const ROLE_SPECIAL_LEAN: Record<string, { atk: number; def: number }> = {
  *  so no catalog data changes anywhere. Contact kinds ride ATK vs DEF;
  *  elemental/energetic kinds ride the role-derived special axis; anything that
  *  deals no direct hit is status. */
-const PHYSICAL_KINDS = new Set(['crush', 'wound', 'push', 'pull', 'lifesteal']);
+const PHYSICAL_KINDS = new Set(['crush', 'wound', 'push', 'pull', 'pivot', 'lifesteal']);
 const SPECIAL_KINDS = new Set(['damage', 'burn', 'dot', 'freeze']);
 function moveClass(kind: string): ShowdownMoveClass {
     if (PHYSICAL_KINDS.has(kind)) return 'physical';
@@ -1191,6 +1195,7 @@ const UTILITY_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> 
     heal: { Fire: 'Warm Mend', Water: 'Tidal Mend', Wind: 'Zephyr Mend', Earth: 'Deeproot Mend', Lightning: 'Charge Mend' },
     haste: { Fire: 'Emberstep', Water: 'Tidestep', Wind: 'Windstep', Earth: 'Stonestep', Lightning: 'Arcstep' },
     wound: { Fire: 'Scorch Rend', Water: 'Riptide Rend', Wind: 'Galecut', Earth: 'Gravel Rend', Lightning: 'Arc Rend' },
+    pivot: { Fire: 'Ember Feint', Water: 'Undertow Feint', Wind: 'Slipstream', Earth: 'Duststep', Lightning: 'Flashfeint' },
 });
 
 const HIGH_TIERS: ReadonlySet<string> = new Set(['legendary', 'mythic']);
@@ -1201,7 +1206,7 @@ export function derivedUtilityFor(role: string, rarity: string, element: string,
     const high = HIGH_TIERS.has(rarity);
     let kind = role === 'defender' ? 'protect'
         : role === 'sage' ? 'weather'
-        : role === 'assassin' ? (high ? 'mark' : 'buff')
+        : role === 'assassin' ? 'pivot'
         : (high ? 'slow' : 'debuff');
     // Never hand a pet a second copy of something it already carries: an
     // authored mark plus a derived mark is a wasted slot (25 species did
@@ -1210,7 +1215,7 @@ export function derivedUtilityFor(role: string, rarity: string, element: string,
     if (authoredKinds.includes(kind)) {
         const alternates = role === 'defender' ? ['barrier', 'protect', 'buff']
             : role === 'sage' ? ['heal', 'weather', 'buff']
-            : role === 'assassin' ? (high ? ['buff', 'mark', 'haste'] : ['mark', 'buff', 'haste'])
+            : role === 'assassin' ? (high ? ['mark', 'buff', 'haste'] : ['buff', 'mark', 'haste'])
             : (high ? ['debuff', 'slow', 'wound'] : ['slow', 'debuff', 'wound']);
         kind = alternates.find((k) => !authoredKinds.includes(k)) ?? kind;
     }
@@ -1219,7 +1224,8 @@ export function derivedUtilityFor(role: string, rarity: string, element: string,
         : (UTILITY_NAMES[kind]?.[element] ?? 'Focus');
     // Power on a status technique buys its stamina cost and its magnitude, not
     // a hit. Kept modest so a utility turn is a real tempo trade.
-    const power = kind === 'protect' ? 90
+    const power = kind === 'pivot' ? 100
+        : kind === 'protect' ? 90
         : kind === 'weather' ? 70
         : kind === 'mark' ? 95
         : kind === 'slow' ? 105
@@ -1423,7 +1429,7 @@ function applyHeal(target: ShowdownPet, amount: number, round = 0): number {
 // (damage ∝ atk/def) where attack, defense, and hp all carry equal marginal
 // weight, so every training focus is a real choice. REF_DEF anchors the
 // magnitude so a typical mid-game hit lands in the same range as before.
-const DAMAGE_SCALE = 2.65;
+const DAMAGE_SCALE = 4.8;
 const REF_DEF = 52;
 /** Assassin execute instinct: bonus damage against bloodied targets — the
  * burst identity the role's glass-cannon statline pays for. */
@@ -1451,8 +1457,14 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
 // glass role and paid the bulky one. Re-fit rather than nudge.
 const ROLE_DAMAGE_MULT: Record<string, number> = {
     tracker: 0.91,
-    assassin: 1.14,
-    sage: 1.07,
+    // Re-fitted for the three-pet bench format. The catalog gives sage the
+    // lowest attack of any role (43 against tracker's 63) and a third of its
+    // kit is healing, which is worth least in a damage race — it sat at 40.8%
+    // while everything else cleared 50. Assassin comes DOWN because the pivot
+    // it now derives (hit and withdraw) was worth more than the flat damage
+    // edge it used to need.
+    assassin: 1.02,
+    sage: 1.28,
     defender: 1.0,
 };
 const SAGE_HEAL_MULT = 1.15;
@@ -1488,17 +1500,18 @@ const RARITY_DAMAGE_TIER: Record<string, number> = {
  * multiplier AND the lowest damage taken, so it hit hardest and was hit least.
  * Result: elements now span 47.6-53.4% (was 44.0-60.6%). */
 const ELEMENT_DAMAGE_MULT: Record<string, number> = {
-    // Re-centred for the variety pass (round 44). Handing every species a
-    // derived utility turn re-weighted the elements: the extra setup round
-    // rewards elements that already hit hard and punishes the one that does
-    // not, so Earth fell to 40.7% while Wind climbed to 56.2% (measured, 3
-    // seeds). Earth is lifted and the two leaders trimmed; the wheel itself
-    // (1.5/0.75) and the weather numbers are untouched.
+    // Re-fitted for the three-pet bench format. An element inherits whatever
+    // ROLES its species are built from, and the catalog is not evenly split:
+    // 17 of Wind's 28 species are sage or assassin — the two lowest-attack
+    // roles — while Water is stacked with trackers. That put Wind at 38.4% and
+    // Water at 57.8% once matches got long enough for the difference to
+    // compound. The wheel itself (1.5/0.75) and the weather numbers are
+    // untouched; this is the identity-pricing table doing what it exists for.
     Fire: 1.07,
-    Water: 1.11,
-    Wind: 1.04,
+    Water: 1.00,
+    Wind: 1.20,
     Earth: 0.95,
-    Lightning: 0.97,
+    Lightning: 0.95,
 };
 /** Durability side of the same normalization — Fire/Water species carry the
  * lowest hp/def/speed lines, so out-damage alone can't level them. */
@@ -1799,9 +1812,12 @@ function executeMove(
         targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: stored });
     } else if (kind === 'heal') {
         const ally = resolveAllyTarget(session, actorSide, action.targetId, actor);
-        // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the 2.2x
-        // damage pace without enabling heal-stall (attrition decays this to
-        // zero in long fights; see applyHeal).
+        // power 120 ≈ 17% maxHp, capped at 30% — meaningful against the damage
+        // pace without enabling heal-stall (attrition decays this to zero in
+        // long fights; see applyHeal). Re-pricing this against the raised
+        // DAMAGE_SCALE was tried and reverted: it moved the heal-heavy sage by
+        // 0.7pt while pushing judged matches 5.3% -> 8.0%, so sustain is not
+        // what holds that role back — its 43 attack is (see ROLE_DAMAGE_MULT).
         const sageBonus = actor.role === 'sage' ? SAGE_HEAL_MULT : 1;
         const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, (Math.max(60, power) / 700) * sageBonus), session.round);
         targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
@@ -1890,6 +1906,34 @@ function executeMove(
                         addStatus(session, target, 'movelock', KIND_FX.movelock.rounds, 1, reactions);
                     }
                     break;
+                case 'pivot': {
+                    // HIT AND RUN. push/pull rotate the FOE; pivot rotates the
+                    // ACTOR. This is the answer to a measured problem: in a
+                    // three-pet format the glass cannon kills one thing and
+                    // dies, while a grinder chews through the whole team —
+                    // assassins sat at 37.9% against trackers at 62.4%. Both
+                    // Pokemon (U-turn, Volt Switch) and Temtem solve it the
+                    // same way: let the frail attacker trade and leave before
+                    // the answer lands.
+                    applyOffensiveHit(target, KIND_FX.pivot.mult, kind);
+                    const myTeam = session.player.includes(actor) ? session.player : session.enemy;
+                    const mySide: Side = myTeam === session.player ? 'player' : 'enemy';
+                    const reserves = myTeam.filter((p) => p.benched && !p.ko);
+                    if (!actor.ko && reserves.length) {
+                        // The HEALTHIEST reserve steps in — a pivot is a
+                        // withdrawal behind a fresh body, and picking it
+                        // automatically keeps the command shape a plain move.
+                        const inbound = reserves.reduce((best, p) => (
+                            p.hp / Math.max(1, p.maxHp) > best.hp / Math.max(1, best.maxHp) ? p : best
+                        ));
+                        actor.benched = true;
+                        actor.guarding = false;
+                        actor.statuses = actor.statuses.filter((s) => s.kind !== 'taunt' && s.kind !== 'tauntGuard');
+                        inbound.benched = false;
+                        events.push({ t: 'switch', side: mySide, outId: actor.id, inId: inbound.id, reinforcement: false });
+                    }
+                    break;
+                }
                 case 'push':
                 case 'pull':
                     // FORCED ROTATION. These two came from the board arena,
