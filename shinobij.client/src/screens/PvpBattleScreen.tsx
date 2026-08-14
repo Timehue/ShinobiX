@@ -28,6 +28,7 @@ import { CombatInstance } from "../components/CombatInstance";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
+import { BattlefieldActor } from "../components/BattlefieldActor";
 import { adjustedCombatApCost } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
@@ -1543,7 +1544,6 @@ export function PvpBattleScreen({
                                         const col = pos % gridWidth;
                                         const ox = col * X_STEP + HEX_W / 2 - ORB / 2;
                                         const oy = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
-                                        const isImg = imgSrc.startsWith("data:image") || imgSrc.startsWith("blob:") || imgSrc.startsWith("/api/img");
                                         const ward = pvpWardKey(fighter);
                                         return (
                                             // Walk the hex path between cells instead of snapping (Move / Dash /
@@ -1551,14 +1551,14 @@ export function PvpBattleScreen({
                                             // not teleporting. Stable key => same DOM node => CSS transitions each
                                             // hop. Always rendered (emoji fallback when there's no avatar image) so
                                             // emoji-only fighters travel too rather than blinking tile-to-tile.
-                                            <div key={isOpp ? "opp-orb" : "me-orb"}
-                                                className={`avatar-orb ${isOpp ? "enemy-orb" : ""}`}
+                                            <BattlefieldActor key={isOpp ? "opp-orb" : "me-orb"}
+                                                side={isOpp ? "enemy" : "player"}
+                                                label={altName}
+                                                portrait={imgSrc}
+                                                fallback={altName.slice(0, 2).toUpperCase()}
                                                 style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: ORB_PATH_TRANSITION }}>
                                                 {ward && <span className={`pvp-guard-aura pvp-guard-${ward}`} aria-hidden="true" />}
-                                                {isImg
-                                                    ? <img className="tiny-map-avatar" src={imgSrc} alt={altName} />
-                                                    : <span style={{ fontSize: 28, lineHeight: 1 }} role="img" aria-label={altName}>🥷</span>}
-                                            </div>
+                                            </BattlefieldActor>
                                         );
                                     };
                                     // Always-visible per-fighter HP bar floating above each orb

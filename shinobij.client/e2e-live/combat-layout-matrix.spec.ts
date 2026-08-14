@@ -107,24 +107,24 @@ async function seedSave(
     expect(seeded.status()).toBe(200);
 }
 
-async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode: 'solo' | 'pvp') {
+async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode: 'solo' | 'pvp' | 'tower') {
     const name = `${mode}${safeProject(testInfo)}champ`.slice(0, 20);
     const password = 'LayoutMatrix!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
     expect(registered.status()).toBe(200);
     const token = String((await registered.json()).token ?? '');
     expect(token.length).toBeGreaterThan(10);
-    // Keep the PvP seed's stored level consistent with the high stat ledger.
+    // Keep established combat seeds' stored levels consistent with the high stat ledger.
     // The UI derives this fixture to the first exam hold (L20), and L13 is the
     // point where the server-authoritative profession choice becomes mandatory.
-    await seedSave(request, name, mode === 'pvp' ? {
-        characterPatch: { level: 20, rankTitle: 'Genin' },
+    await seedSave(request, name, mode !== 'solo' ? {
+        characterPatch: { level: mode === 'tower' ? 30 : 20, rankTitle: 'Genin' },
         // L9's Aura Sphere ceremony is already complete for this established
         // combat account. Keep the real event id so the story engine and the
         // fixture cannot silently drift apart.
         triggeredEvents: [AURA_SPHERE_VN_ID],
     } : {});
-    if (mode === 'pvp') {
+    if (mode !== 'solo') {
         // The high-stat combat fixture is raised above the profession unlock by
         // the authoritative stat ledger. Complete that one-time progression
         // choice through its real endpoint before mounting PvP; otherwise the
@@ -491,6 +491,40 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
     await root.locator('.combat-jutsu-bar').evaluate((panel) => { panel.scrollTop = 0; });
 }
 
+async function assertBattlefieldActorPresentation(
+    page: Page,
+    rootSelector: string,
+    expected: { playerMarkers: number; enemyMarkers: number; minimumEnemySprites: number },
+): Promise<void> {
+    const root = page.locator(rootSelector);
+    const actors = root.locator('[data-battlefield-actor]');
+    const playerMarkers = root.locator('[data-battlefield-actor="player"][data-battlefield-presentation="marker"]');
+    const enemyMarkers = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="marker"]');
+    const enemySprites = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="sprite"]');
+
+    await expect(playerMarkers, 'player portrait markers').toHaveCount(expected.playerMarkers);
+    await expect(enemyMarkers, 'enemy portrait markers').toHaveCount(expected.enemyMarkers);
+    const enemySpriteCount = await enemySprites.count();
+    expect(enemySpriteCount, 'enemy body sprite count').toBeGreaterThanOrEqual(expected.minimumEnemySprites);
+    await expect(actors, 'every fighter must use the shared marker-or-sprite presentation').toHaveCount(
+        expected.playerMarkers + expected.enemyMarkers + enemySpriteCount,
+    );
+
+    expect(await actors.evaluateAll((nodes) => nodes.every((node) => {
+        const style = getComputedStyle(node);
+        return style.pointerEvents === 'none'
+            && Number.parseFloat(style.width) >= 40
+            && Number.parseFloat(style.height) >= 40;
+    })), 'actor art must stay inside a non-interactive combat anchor').toBe(true);
+
+    if (expected.minimumEnemySprites > 0) {
+        expect(await enemySprites.locator('.battlefield-actor-sprite').evaluateAll((images) => images.every((image) => {
+            const sprite = image as HTMLImageElement;
+            return sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0;
+        })), 'enemy body sprites must load successfully').toBe(true);
+    }
+}
+
 async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: string, testInfo: TestInfo) {
     const browser = testInfo.project.name.includes('dpr')
         ? testInfo.project.name
@@ -624,6 +658,11 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     await expect(firstJutsu).toBeVisible();
     await firstJutsu.click();
     await expect(page.locator('.mission-arena-fight .combat-action-notice')).toBeVisible();
+    await assertBattlefieldActorPresentation(page, '.mission-arena-fight', {
+        playerMarkers: 1,
+        enemyMarkers: 0,
+        minimumEnemySprites: 1,
+    });
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
 });
 
@@ -678,5 +717,44 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         return raw ? JSON.parse(raw) : null;
     });
     expect(restoredBreadcrumb).toMatchObject({ owner, pvpBattleId: battleId, pvpRole: 'p1' });
+    await assertBattlefieldActorPresentation(page, '.pvp-battle-layout', {
+        playerMarkers: 1,
+        enemyMarkers: 1,
+        minimumEnemySprites: 0,
+    });
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
+});
+
+test('Tower combat actor presentation preserves authoritative targeting', async ({ page, request }, testInfo) => {
+    const { name, token } = await seedAccount(request, testInfo, 'tower');
+    await installSession(page, name, token, { acknowledgeEstablishedNotices: true });
+    await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleTowers'));
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await dismissNotices(page);
+
+    const firstFloor = page.locator('button[aria-describedby="tower-story-floor-1-details"]');
+    await expect(firstFloor).toBeVisible();
+    await firstFloor.click();
+    await page.getByRole('button', { name: /Enter Floor 1/ }).click();
+
+    const fight = page.locator('.screen-battleTowerFight');
+    await expect(fight).toBeVisible();
+    const enterBattle = fight.getByRole('button', { name: 'Enter battle' });
+    if (await enterBattle.isVisible().catch(() => false)) await enterBattle.click();
+    await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
+        playerMarkers: 1,
+        enemyMarkers: 0,
+        minimumEnemySprites: 1,
+    });
+
+    const actorButtons = fight.locator('.tower-board-actor');
+    const actorCount = await actorButtons.count();
+    expect(actorCount, 'Tower must retain authoritative actor buttons').toBeGreaterThanOrEqual(2);
+    expect(await actorButtons.evaluateAll((buttons) => buttons.every((button) =>
+        button.querySelector(':scope > [data-battlefield-actor]') !== null,
+    )), 'actor art must remain nested in its combat-owned button').toBe(true);
+    const enabledTargetButtons = fight.locator('.tower-board-actor:not(:disabled)');
+    expect(await enabledTargetButtons.count(), 'Tower must retain a legal actor target').toBeGreaterThanOrEqual(1);
+    expect(await enabledTargetButtons.first().evaluate((button) => getComputedStyle(button).pointerEvents),
+        'combat-owned targeting button must remain interactive').not.toBe('none');
 });
