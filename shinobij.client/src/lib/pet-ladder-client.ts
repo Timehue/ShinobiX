@@ -5,6 +5,7 @@
  * the player name travels in the body (the handler also re-checks it against auth).
  */
 
+import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 import type { WfStance, WfDoctrine } from "./pet-warfront-sim";
 import type { Pet, PetJutsu } from "../types/pet";
 
@@ -30,6 +31,11 @@ export type LadderView = {
 export type OfferOpponent = { kind: "player" | "ai"; id: string; name: string; village?: string; rank: number | null; summary: PetLite[] };
 
 export type ChallengeReplay =
+    // The server ships its own derived script for a coliseum challenge; the
+    // client plays it rather than re-running the fight. Rows stored before the
+    // engine cutover still arrive as `coliseum` and are no longer playable —
+    // the result banner still stands.
+    | { kind: "showdown"; seed: number; player: LadderPet; enemy: LadderPet; script: ShowdownReplayScript }
     | { kind: "coliseum"; seed: number; player: LadderPet; enemy: LadderPet }
     | {
         kind: "tactical"; seed: number;

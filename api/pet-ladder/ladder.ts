@@ -13,7 +13,7 @@ import {
     petsForMode, DAILY_CHALLENGES, AI_SEED_COUNT, CLIMB_BAND,
     chooseOwnedLadderPets, ladderRoles, petLite,
     buildOffer, canChallenge, applyChallenge, projectLadder,
-    resolveColiseum, resolveTactical, isAiId, aiIndexOf, parseStance, parseDoctrineChoice,
+    resolveColiseum, coliseumScript, resolveTactical, isAiId, aiIndexOf, parseStance, parseDoctrineChoice,
     aiColiseumDefense, aiTacticalDefense, AI_COLISEUM, AI_TACTICAL,
 } from './_core.js';
 
@@ -267,7 +267,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     blueStance: parseStance(myDef.stance), redStance: parseStance(targetDef.stance),
                     blueDoctrine: parseDoctrineChoice(myDef.doctrine), redDoctrine: parseDoctrineChoice(targetDef.doctrine),
                 }
-                : { kind: 'coliseum' as const, seed, player: myDef.pets[0], enemy: targetDef.pets[0] };
+                // The coliseum row now ships the server's OWN derived script.
+                // The client cannot re-run this fight — Showdown has no client
+                // mirror — so what it watches is what was scored, by
+                // construction rather than by keeping two engines in step.
+                : {
+                    kind: 'showdown' as const,
+                    seed,
+                    player: myDef.pets[0],
+                    enemy: targetDef.pets[0],
+                    script: coliseumScript(myDef.pets[0], targetDef.pets[0], seed),
+                };
 
             return res.status(200).json({ won, mode, targetId, rank, challengesLeft: Math.max(0, DAILY_CHALLENGES - used), replay });
         }

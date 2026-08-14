@@ -19,6 +19,7 @@
  *     never the arena faucet.
  *   - tier 'warrior': the middle AI policy, matching the balance analyzer's
  *     reference configuration.
+ *   - FORMAT 2v2 + 2 bench, fixed. See WAR_DUEL_FORMAT.
  *
  * TERRAIN → OPENING WEATHER. Sector war seals the defender sector's terrain
  * for the home-ground bonus (+10% to the matching element in the legacy sim —
@@ -39,6 +40,7 @@
 import { createShowdownSession, showdownStateView, WEATHER_NAME } from './engine.js';
 import { resolveShowdownHeadless } from './headless.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
+import { WAR_DUEL_FORMAT } from './war-team.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 export interface WarDuelInput {
@@ -84,7 +86,14 @@ const TERRAIN_ELEMENT: Record<string, string> = {
  * outcome IS the script's final event, so computing one computes both.
  */
 export function resolveWarDuel(input: WarDuelInput): WarDuelResolution {
-    const format = input.fromPets.length >= 2 || input.toPets.length >= 2 ? '2v2' : '1v1';
+    // ALWAYS 2v2 with a two-pet bench (owner ruling), never inferred from how
+    // many pets happened to arrive. Sizing off the array made a war duel's
+    // format an accident of the submission flow: one pet each meant 1v1 with no
+    // reserves, so switching, forced rotation and trapping — core Showdown
+    // tactics — did nothing in the modes that decide territory and rating. The
+    // engine benches whatever exceeds the field, so a short roster still
+    // fights; it just fights without reserves.
+    const format = WAR_DUEL_FORMAT;
     const session = createShowdownSession({
         sessionId: input.sessionId,
         playerName: input.fromName,

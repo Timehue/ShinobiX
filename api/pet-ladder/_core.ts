@@ -20,7 +20,8 @@
  */
 
 import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
-import { runPetDuelCinematic } from "../_pet-sim/pet-duel-cinematic.js";
+import { resolveWarDuel } from "../_pet-showdown/war-duel.js";
+import type { ShowdownReplayScript } from "../../shared/pet-showdown-contract.js";
 import type { Pet as CinePet } from "../_pet-sim/pet-types.js";
 import { type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
 import { runWarfrontMatch, type WfStance, type WfDoctrine } from "../_pet-sim/pet-warfront-sim.js";
@@ -346,14 +347,37 @@ export function applyChallenge(order: LadderEntry[], challengerEntry: LadderEntr
 export const projectLadder = (order: LadderEntry[]) => order.map((e, i) => ({ rank: i + 1, slug: e.slug, name: e.name, village: e.village, record: e.record, summary: e.summary }));
 
 // ── Server-authoritative resolution (ported deterministic engines) ─────────────
-/** Coliseum 1v1: true ⇒ the ATTACKER (challenger) won. Items applied for both. */
+/** One derivation of the ladder duel's inputs, so the SCORED result and the
+ *  WATCHED replay can never come from different numbers. */
+function coliseumInput(attacker: LadderPet, defender: LadderPet, seed: number) {
+    // toPet yields the combat-relevant subset the engine reads; the Showdown
+    // seal only ever touches those fields, so the cast is runtime-safe.
+    return {
+        sessionId: `ladder:${seed}`,
+        seed,
+        fromName: attacker.name || "Challenger",
+        toName: defender.name || "Defender",
+        fromPets: [toPet(attacker) as unknown as CinePet],
+        toPets: [toPet(defender) as unknown as CinePet],
+    };
+}
+
+/** Coliseum 1v1: true ⇒ the ATTACKER (challenger) won.
+ *
+ *  Resolved on the SHOWDOWN engine. A ladder challenge is asynchronous — the
+ *  defender is a stored defence, not a present player — so both sides run the
+ *  same AI over their own sealed kits. Gear applies to both; the consumable
+ *  slot is inert, since there is no settlement transaction to charge it
+ *  against. Showdown's judge always decides, so a challenge can no longer
+ *  come back a draw. */
 export function resolveColiseum(attacker: LadderPet, defender: LadderPet, seed: number): boolean {
-    // The generated cinematic mirror (api/_pet-sim, parity-tested vs the client engine) types
-    // its Pet as the full client shape; toPet yields the combat-relevant subset the engine
-    // reads (the same fields the old _duel-sim port consumed), so the cast is runtime-safe.
-    const p = toPet(attacker) as unknown as CinePet;
-    const d = toPet(defender) as unknown as CinePet;
-    return runPetDuelCinematic(p, d, seed, 1, 1, false, true).result === "win";
+    return resolveWarDuel(coliseumInput(attacker, defender, seed)).outcome === "from";
+}
+
+/** Re-derive the watchable script for a scored coliseum challenge. Same inputs
+ *  as resolveColiseum, so what the challenger watches is what was scored. */
+export function coliseumScript(attacker: LadderPet, defender: LadderPet, seed: number): ShowdownReplayScript {
+    return resolveWarDuel(coliseumInput(attacker, defender, seed)).script;
 }
 /** Tactical 4v4: true ⇒ the ATTACKER (blue) won. Items applied for both teams. */
 export function resolveTactical(attacker: DefenseDoc, defender: DefenseDoc, seed: number): boolean {

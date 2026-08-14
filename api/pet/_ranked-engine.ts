@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { activeCarriedPets } from '../_entitlements.js';
 import { DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
-import { runPetDuel } from '../_pet-sim/pet-duel-sim.js';
+import { resolveWarDuel } from '../_pet-showdown/war-duel.js';
+import { buildWarTeam } from '../_pet-showdown/war-team.js';
 import type { Pet, PetJutsu } from '../_pet-sim/pet-types.js';
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
@@ -16,7 +17,11 @@ import { petCombatBusyReason } from './_pet-busy.js';
  * and the deterministic server engine owns the resolution and rating reward.
  */
 
-export const PET_RANKED_ENGINE_VERSION = 'pet-duel-sim-ranked-v1' as const;
+/* Bumped with the Showdown cutover. The version is baked into every stored
+ * token and checked on settlement, so tokens minted by the retired engine are
+ * refused rather than settled under different combat rules — exactly what this
+ * field exists for. */
+export const PET_RANKED_ENGINE_VERSION = 'showdown-ranked-v2' as const;
 export const PET_RANKED_TOKEN_TTL_SECONDS = 15 * 60;
 export const PET_RANKED_QUEUE_MATCH_TTL_SECONDS = 90;
 export const PET_RANKED_QUEUE_KEY = 'pvp:pet-ranked-queue';
@@ -295,10 +300,29 @@ export function resolveAuthoritativePetRankedMatch(input: {
     const createdAt = Math.max(1, Math.floor(Number(input.now ?? Date.now())));
     const aRating = rating(input.aCharacter.petRankedRating);
     const bRating = rating(input.bCharacter.petRankedRating);
-    // Items and accuracy are pinned ON for both sides. No per-device feature
-    // flag can change the server result.
-    const simulated = runPetDuel(input.aPet, input.bPet, input.seed, 1, 1, false, true, true, null, false);
-    const winner = simulated.result === 'win' ? 'a' : simulated.result === 'loss' ? 'b' : 'draw';
+    // Resolved on the SHOWDOWN engine, headlessly: ranked is asynchronous (no
+    // player is present at resolve), so both sides run the same AI over their
+    // own sealed kits. Gear applies to both; the consumable slot is inert,
+    // since a ranked settlement has no transaction to charge it against.
+    // No per-device flag can change the result — Showdown has none.
+    // 2v2 with a two-pet bench (owner ruling), same as every other war duel.
+    // The queued pet LEADS and the rest of the team fills from that player's own
+    // carried roster — the characters are already in hand here, so this stays a
+    // pure synchronous resolve with no storage read and no new failure mode.
+    const aTeam = buildWarTeam(input.aCharacter, [String(input.aPet.id)]) ?? [input.aPet];
+    const bTeam = buildWarTeam(input.bCharacter, [String(input.bPet.id)]) ?? [input.bPet];
+    const simulated = resolveWarDuel({
+        sessionId: `ranked:${input.matchId}`,
+        seed: input.seed,
+        fromName: a,
+        toName: b,
+        fromPets: aTeam,
+        toPets: bTeam,
+    });
+    // Showdown's judge always decides, so ranked no longer produces draws. The
+    // 'draw' branch below stays reachable only for tokens minted by the retired
+    // engine, which the version check refuses anyway.
+    const winner: 'a' | 'b' | 'draw' = simulated.outcome === 'from' ? 'a' : 'b';
     const delta = winner === 'a'
         ? rankedDelta(aRating, bRating)
         : winner === 'b'
@@ -314,10 +338,10 @@ export function resolveAuthoritativePetRankedMatch(input: {
         engineVersion: PET_RANKED_ENGINE_VERSION,
         matchId: input.matchId,
         seed: input.seed,
-        a: digestMaterial(input.aPet),
-        b: digestMaterial(input.bPet),
-        result: simulated.result,
-        ticks: simulated.ticks,
+        a: aTeam.map(digestMaterial),
+        b: bTeam.map(digestMaterial),
+        result: winner,
+        rounds: simulated.rounds,
         reward,
     })).digest('hex');
 

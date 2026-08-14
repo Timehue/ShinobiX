@@ -1,3 +1,4 @@
+import { PetShowdownReplay } from "../components/PetShowdownReplay";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
@@ -12,13 +13,11 @@ import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { petPvpGearById, petConsumableById } from "../data/pet-config";
-import { PetColiseumDuel } from "../components/PetColiseum";
 // three/r3f-heavy: its own chunk, loaded only when a tactical replay opens.
 const PetWarfrontMatch = lazy(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type WfStance, type WfDoctrine } from "../lib/pet-ladder-setup";
 import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { PetDuelLiveHost } from "../components/PetDuelLiveHost";
-import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeCarriedPets } from "../lib/entitlements";
@@ -161,13 +160,22 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     // ── Cinematic replay of the sealed challenge (items applied) ───────────────
     if (replay) {
         const r = replay.replay;
+        if (r.kind === "showdown") {
+            // The server derived this script from the same inputs it scored the
+            // challenge with, so the fight on screen IS the fight that moved the
+            // rank. Played through the normal Showdown arena in spectator mode.
+            return <PetShowdownReplay script={r.script} playerPets={[toClientPet(r.player)]} sharedImages={sharedImages} onExit={exitCinematic} />;
+        }
         if (r.kind === "coliseum") {
-            const player = toClientPet(r.player), enemy = toClientPet(r.enemy);
-            // Ladder replay runs the CINEMATIC engine — the server resolves via the
-            // parity-tested api/_pet-sim/pet-duel-cinematic.ts mirror (scripts/gen-pet-sim.mjs),
-            // so client replay and server-recorded winner stay byte-identical.
-            const result = runPetDuelCinematic(player, enemy, r.seed, 1, 1, false, true);
-            return <PetColiseumDuel playerPet={player} enemyPet={enemy} seed={r.seed} result={result} sharedImages={sharedImages} onExit={exitCinematic} />;
+            // A row stored before the engine cutover. Its winner came from the
+            // retired sim, so re-deriving it on Showdown could contradict the
+            // recorded rank — the result stands, the fight is not replayable.
+            return (
+                <div className="card" style={{ maxWidth: 480, margin: "2rem auto", textAlign: "center" }}>
+                    <p>This challenge predates the new arena and cannot be replayed.</p>
+                    <button onClick={exitCinematic}>← Back to the ladder</button>
+                </div>
+            );
         }
         const blue: ArenaSlot[] = r.blue.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
         const red: ArenaSlot[] = r.red.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
