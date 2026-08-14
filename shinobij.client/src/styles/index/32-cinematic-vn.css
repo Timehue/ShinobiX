@@ -435,44 +435,71 @@
 
 /*
  * Player uploads can be tall cutouts, square profile art, or wide banners.
- * Tall art keeps the authored full-body treatment. Square/wide uploads are
- * presented in a consistent portrait plinth without rewriting the source file.
+ * Tall art keeps the authored full-body treatment. Square/wide uploads sit in
+ * a compact shinobi field-record frame: clipped corners, a chakra-seal pin,
+ * and no oversized oval plinth competing with the scene painting.
  */
+.cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+    width: min(31vw, 360px);
+    height: min(50vh, 480px);
+}
+
 .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide)::before {
     position: absolute;
     z-index: -1;
-    right: 10%;
-    bottom: 9%;
-    left: 10%;
-    height: 66%;
-    border: 1px solid color-mix(in srgb, var(--cvn-accent) 34%, transparent);
-    border-radius: 48% 48% 8px 8px;
+    right: 5%;
+    bottom: 4%;
+    left: 5%;
+    height: 80%;
+    border: 1px solid color-mix(in srgb, var(--cvn-accent) 54%, transparent);
     background:
-        radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--cvn-accent) 14%, transparent), transparent 46%),
-        rgba(8, 13, 19, .7);
-    box-shadow: 0 26px 48px rgba(0, 0, 0, .42);
+        linear-gradient(135deg, color-mix(in srgb, var(--cvn-accent) 24%, transparent) 0 1px, transparent 1px 18px) 0 0 / 22px 22px,
+        radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--cvn-accent) 18%, transparent), transparent 46%),
+        linear-gradient(180deg, rgba(18, 25, 32, .93), rgba(6, 10, 15, .88));
+    box-shadow:
+        0 24px 46px rgba(0, 0, 0, .52),
+        inset 0 0 0 5px rgba(4, 7, 11, .7),
+        inset 0 0 34px color-mix(in srgb, var(--cvn-accent) 8%, transparent);
+    clip-path: polygon(13% 0, 87% 0, 100% 11%, 100% 89%, 87% 100%, 13% 100%, 0 89%, 0 11%);
     content: "";
+}
+
+.cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide)::after {
+    position: absolute;
+    z-index: 2;
+    right: 44%;
+    bottom: 77%;
+    left: 44%;
+    aspect-ratio: 1;
+    border: 1px solid color-mix(in srgb, var(--cvn-accent) 74%, #f4ead3);
+    background:
+        linear-gradient(135deg, transparent 42%, color-mix(in srgb, var(--cvn-accent) 78%, white) 43% 57%, transparent 58%),
+        linear-gradient(45deg, rgba(7, 11, 16, .98), rgba(25, 34, 43, .98));
+    box-shadow: 0 0 0 3px rgba(6, 10, 14, .82), 0 6px 14px rgba(0, 0, 0, .52);
+    content: "";
+    transform: rotate(45deg);
 }
 
 .cvn-actor.is-player img.cvn-avatar-square,
 .cvn-actor.is-player img.cvn-avatar-wide {
     position: absolute;
-    right: 15%;
-    bottom: 13%;
-    left: 15%;
-    width: 70%;
-    height: 58%;
-    border: 1px solid color-mix(in srgb, var(--cvn-accent) 42%, transparent);
-    border-radius: 48% 48% 10px 10px;
+    right: 11%;
+    bottom: 10%;
+    left: 11%;
+    width: 78%;
+    height: 67%;
+    border: 1px solid color-mix(in srgb, var(--cvn-accent) 62%, transparent);
+    border-radius: 2px;
     background: rgba(8, 13, 19, .82);
+    clip-path: polygon(9% 0, 91% 0, 100% 9%, 100% 91%, 91% 100%, 9% 100%, 0 91%, 0 9%);
     object-fit: cover;
-    object-position: 50% 22%;
-    -webkit-mask-image: linear-gradient(to bottom, #000 0 88%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 0 88%, transparent 100%);
+    object-position: 50% 24%;
+    -webkit-mask-image: none;
+    mask-image: none;
 }
 
 .cvn-actor.is-player img.cvn-avatar-wide {
-    object-position: 50% 28%;
+    object-position: 50% 34%;
 }
 
 .cvn-root.is-moonshadow .cvn-stage::before {
@@ -504,7 +531,7 @@
 }
 
 .cvn-actor.is-player:not(.is-speaking) {
-    opacity: .52;
+    opacity: .68;
 }
 
 .cvn-actor.enters-left { animation: cvn-actor-left 650ms cubic-bezier(.18, .78, .18, 1) both; }
@@ -1031,8 +1058,8 @@
 
     .cvn-actor.is-player img.cvn-avatar-square,
     .cvn-actor.is-player img.cvn-avatar-wide {
-        object-fit: contain;
-        object-position: 50% 100%;
+        object-fit: cover;
+        object-position: 50% 28%;
     }
 }
 
@@ -1040,8 +1067,14 @@
     .cvn-actor.is-left { left: -12vw; }
     .cvn-actor.is-right { right: -12vw; }
     .cvn-actor.is-player.is-left:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
-        left: -2vw;
-        width: 50vw;
+        left: -1vw;
+        width: min(46vw, 210px);
+        height: min(38dvh, 320px);
+    }
+    .cvn-actor.is-player.is-right:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        right: -1vw;
+        width: min(46vw, 210px);
+        height: min(38dvh, 320px);
     }
 }
 

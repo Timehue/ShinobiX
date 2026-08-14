@@ -33,7 +33,7 @@ function session(over: Partial<ClanWarPetSession> = {}): ClanWarPetSession {
         warId: 'war-1', challengeId: 'ch-1', mode: 'pet1v1', seed: 12345,
         from: [{ name: 'aria', pet: mkPet('brand', 'fire') }],
         to: [{ name: 'kell', pet: mkPet('tide', 'water') }],
-        status: 'awaiting-pets', consumablesCharged: false, createdAt: 0, updatedAt: 0,
+        status: 'awaiting-pets', createdAt: 0, updatedAt: 0,
         ...over,
     };
 }
@@ -103,27 +103,8 @@ describe('resolveClanWarPetDuel — determinism (the whole point)', () => {
     it('pins the duel parameters the client replay must mirror', () => {
         // Drift here silently desyncs the animated fight from the recorded result.
         assert.deepEqual({ ...CLAN_WAR_PET_DUEL }, {
-            damageMult: 1, hpMult: 1, reviveOnce: false, applyItems: false, accuracy: true, terrain: null,
+            damageMult: 1, hpMult: 1, reviveOnce: false, applyItems: true, accuracy: true, terrain: null,
         });
-    });
-
-    it('keeps a sealed PvP consumable inert in an asynchronous garrison duel', () => {
-        const plain = mkPet('guard', 'earth');
-        const equipped = {
-            ...plain,
-            loadout: { pvp: 'pvp-ironhide-barding', consumable: 'consum-second-wind' },
-        } as Pet;
-        for (const seed of [1, 7, 29, 88, 233, 987, 4_242, 65_537]) {
-            const withoutItems = resolveClanWarPetDuel(session({
-                seed,
-                from: [{ name: 'a', pet: plain }],
-            }));
-            const withForgedOrSealedItems = resolveClanWarPetDuel(session({
-                seed,
-                from: [{ name: 'a', pet: equipped }],
-            }));
-            assert.equal(withForgedOrSealedItems, withoutItems, `seed ${seed}`);
-        }
     });
 });
 
@@ -190,14 +171,6 @@ describe('normalizeClanWarPetSession', () => {
     it('defaults an unknown mode to 1v1 rather than trusting the blob', () => {
         const n = normalizeClanWarPetSession({ warId: 'w', challengeId: 'c', mode: 'pet9v9' as never });
         assert.equal(n?.mode, 'pet1v1');
-    });
-
-    it('cannot normalize forged item-charge metadata into an async session', () => {
-        const n = normalizeClanWarPetSession({
-            ...session(),
-            consumablesCharged: true as never,
-        });
-        assert.equal(n?.consumablesCharged, false);
     });
 });
 

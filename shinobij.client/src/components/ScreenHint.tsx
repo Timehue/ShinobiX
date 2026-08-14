@@ -5,9 +5,11 @@
  * small hints explain what a newly opened system is for without blocking play.
  * Dismissals live in character.seenHints and persist with the normal save.
  */
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import type { Character, Screen } from "../App";
+import { Modal } from "./ui/Modal";
 
 const HINTS: Partial<Record<Screen, string>> = {
     battleArena: "Battle Arena - practice combat here. Start with AI or mission fights before challenging real players.",
@@ -43,29 +45,67 @@ export function ScreenHint({
     character: Character;
     updateCharacter: (c: Character) => void;
 }) {
+    const [detailsOpen, setDetailsOpen] = useState(false);
     const text = HINTS[screen];
     if (!text) return null;
     // Don't compete with the guided coach; only ambient-hint once roaming freely.
     if (normalizeOnboardingStep(character.onboardingStep) !== "done") return null;
     if ((character.seenHints ?? []).includes(screen)) return null;
 
-    const dismiss = () => updateCharacter({ ...character, seenHints: [...(character.seenHints ?? []), screen] });
+    const subject = text.split(" - ", 1)[0]?.trim() || "Screen";
+    const dismiss = () => {
+        setDetailsOpen(false);
+        updateCharacter({ ...character, seenHints: [...(character.seenHints ?? []), screen] });
+    };
 
     return createPortal(
-        <div className="onboarding-coach-banner" style={bannerStyle}>
-            <span style={{ flex: 1, lineHeight: 1.4 }}>{text}</span>
-            <button
-                className="start-primary-btn"
-                // start-primary-btn is a full-width vertical-card button
-                // (display:block; width:100%; margin-top:16px). In this one-row
-                // flex banner those would make it hog the row and squish the
-                // hint text, so size it to its label and clear the top margin.
-                style={{ flexShrink: 0, display: "inline-block", width: "auto", marginTop: 0 }}
-                onClick={dismiss}
+        <>
+            <div
+                className="onboarding-coach-banner screen-hint-banner"
+                style={bannerStyle}
+                role="note"
+                aria-label={`${subject} contextual tip`}
             >
-                Got it
-            </button>
-        </div>,
+                <div className="screen-hint-inline" style={{ display: "contents" }}>
+                    <span className="screen-hint-copy" style={{ flex: 1, lineHeight: 1.4 }}>{text}</span>
+                    <button
+                        type="button"
+                        className="start-primary-btn screen-hint-dismiss"
+                        // start-primary-btn is a full-width vertical-card button
+                        // (display:block; width:100%; margin-top:16px). In this one-row
+                        // flex banner those would make it hog the row and squish the
+                        // hint text, so size it to its label and clear the top margin.
+                        style={{ flexShrink: 0, display: "inline-block", width: "auto", marginTop: 0 }}
+                        onClick={dismiss}
+                    >
+                        Got it
+                    </button>
+                </div>
+                <button
+                    type="button"
+                    className="screen-hint-battle-trigger"
+                    style={{ display: "none" }}
+                    aria-label={`Review ${subject} tip`}
+                    aria-haspopup="dialog"
+                    aria-expanded={detailsOpen}
+                    onClick={() => setDetailsOpen(true)}
+                >
+                    <span aria-hidden="true">?</span>
+                    <span aria-hidden="true">Tip</span>
+                </button>
+            </div>
+            <Modal
+                open={detailsOpen}
+                onClose={() => setDetailsOpen(false)}
+                title={`${subject} tip`}
+                size="sm"
+                backdropClassName="screen-hint-modal-backdrop"
+                className="screen-hint-dialog"
+            >
+                <p className="screen-hint-dialog-copy">{text}</p>
+                <button type="button" className="start-primary-btn" onClick={dismiss}>Got it</button>
+            </Modal>
+        </>,
         document.body,
     );
 }

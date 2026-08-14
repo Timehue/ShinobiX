@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useId, Suspense, lazy } from "react";
+import { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import type { Pet } from "../types/pet";
 import { type DuelResult } from "../lib/pet-duel-sim";
 
@@ -55,10 +55,6 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
     const [session, setSession] = useState<S | null>(null);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
-    const pickerId = useId();
-    const effectiveSelectedPetId = pets.some((pet) => pet.id === selectedPetId)
-        ? selectedPetId
-        : pets[0]?.id ?? "";
 
     const resolved = session ? replay(session) : null;
 
@@ -85,14 +81,14 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
     }, [ready, !!session, !!resolved]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const send = useCallback(async () => {
-        if (!ready || !effectiveSelectedPetId) return;
+        if (!ready || !selectedPetId) return;
         setBusy(true); setError("");
         try {
-            const d = await submit(effectiveSelectedPetId);
+            const d = await submit(selectedPetId);
             if (d.session) setSession(d.session); else setError(d.error ?? config.submitErrorText);
         } catch (e) { setError(String((e as Error).message || e)); }
         finally { setBusy(false); }
-    }, [ready, effectiveSelectedPetId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [ready, selectedPetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const card = (body: React.ReactNode) => (
         <div className="card" style={{ maxWidth: 480, margin: "2rem auto", textAlign: "center" }}>{body}</div>
@@ -142,14 +138,13 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
             <p className="hint">{config.intro}</p>
             {pets.length === 0 ? <p>You have no pets to send into battle.</p> : (
                 <>
-                    <label htmlFor={pickerId} className="sr-only">Carried pet</label>
-                    <select id={pickerId} value={effectiveSelectedPetId} onChange={(e) => setSelectedPetId(e.target.value)} disabled={busy} style={{ margin: "8px 0", minHeight: "var(--touch-target-min)" }}>
+                    <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)} disabled={busy} style={{ margin: "8px 0" }}>
                         {pets.map((p) => <option key={p.id} value={p.id}>{p.name} · Lv {p.level} · {p.element}</option>)}
                     </select>
-                    <div><button type="button" onClick={send} disabled={busy || !effectiveSelectedPetId}>{busy ? "…" : config.submitLabel}</button></div>
+                    <div><button onClick={send} disabled={busy || !selectedPetId}>{busy ? "…" : config.submitLabel}</button></div>
                 </>
             )}
-            {error && <p role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
+            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
             <div style={{ marginTop: 10 }}><button onClick={onBack}>{config.backLabel}</button></div>
         </>,
     );

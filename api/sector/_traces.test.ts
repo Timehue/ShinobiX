@@ -95,6 +95,16 @@ describe('sector shrines', () => {
         assert.equal(shrineForSector(1), undefined);
     });
 
+    it('the hundred-glyph shrine states the Ancient and Legacy canon', () => {
+        const ancient = shrineById('ancients');
+        assert.ok(ancient);
+        assert.match(ancient.lore, /Sunken Court.+hundred worn glyphs/i);
+        assert.match(ancient.lore, /action-pattern Legacy/i);
+        assert.match(ancient.lore, /Ancients who refused cession.+Withheld/i);
+        assert.match(ancient.blessing, /freely chosen.+witnessed/i);
+        assert.doesNotMatch(`${ancient.lore} ${ancient.blessing}`, /find their path in you|bloodline|soul|reincarn/i);
+    });
+
     it('tier thresholds are monotonic and map totals to the right tier', () => {
         for (let i = 1; i < SHRINE_TIERS.length; i += 1) assert.ok(SHRINE_TIERS[i].at > SHRINE_TIERS[i - 1].at);
         assert.equal(shrineTier(0), 0);

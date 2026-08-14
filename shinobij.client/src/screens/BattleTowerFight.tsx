@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import "../styles/battle-skin.css";
 import "../styles/tower-tactical.css";
-import type { Character, BattleHistoryEntry } from "../types/character";
+import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import {
     submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS,
@@ -18,7 +18,12 @@ import {
 } from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
-import { tagMatchesName } from "../lib/tags";
+import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
+import {
+    activeBarrierTilesForDisplay,
+    adjustedCombatApCost,
+    isElementallySealedForDisplay,
+} from "../lib/combat-action-display";
 import { equipSlotForItem } from "../lib/equipment";
 import {
     resolveTowerCombatantArt, resolveTowerStoryArt, TOWER_SPIRE_PORTRAITS, UNKNOWN_TOWER_COMBATANT,
@@ -402,7 +407,7 @@ const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> 
 
 export function BattleTowerFight({
     character,
-    updateCharacter,
+    onVersionedCharacter,
     sharedImages,
     hostLoadout,
     runId,
@@ -419,9 +424,7 @@ export function BattleTowerFight({
     variant = "tower",
 }: {
     character: Character;
-    /** optimistically mirror a spire unlock onto the client save so the lobby shows
-     *  the next floor immediately (the server is already authoritative via settle) */
-    updateCharacter?: (c: Character) => void;
+    onVersionedCharacter?: VersionedCharacterCommit;
     sharedImages?: Record<string, string>;
     hostLoadout?: TowerHostLoadout;
     runId: string;
@@ -484,6 +487,12 @@ export function BattleTowerFight({
         return onStatus(setRealtimeConnected);
     }, []);
 
+    const me = character.name;
+    // Actor ownership is sealed to the server's safeName slug. Mirror that canonical
+    // transform while continuing to send the authenticated display name to APIs.
+    const meSlug = towerPlayerSlug(me);
+    const ownedByMe = (slug: string | null) => !!slug && towerPlayerSlug(slug) === meSlug;
+
     // ── Story presentation (display-only): the boss speaks its own authored VN
     // lines at fight start / 2⁄3 / 1⁄3 HP and its last words on the killing
     // blow; the mentor cuts in when the PLAYER is hurting; the last-stand
@@ -498,7 +507,7 @@ export function BattleTowerFight({
             ?? session.actors.find((a) => a.side !== "squad")
         : undefined;
     const storyBossHpFrac = storyBoss ? Math.max(0, storyBoss.hp) / Math.max(1, storyBoss.maxHp) : 1;
-    const storySelf = storyTheme ? session.actors.find((a) => a.side === "squad" && a.ownerSlug?.toLowerCase() === character.name.toLowerCase()) : undefined;
+    const storySelf = storyTheme ? session.actors.find((a) => a.side === "squad" && ownedByMe(a.ownerSlug)) : undefined;
     const storySelfHpFrac = storySelf ? Math.max(0, storySelf.hp) / Math.max(1, storySelf.maxHp) : 1;
     const storyDone = session.status === "done";
     const storyFinalPhase = !!storyTheme && !storyDone && storyBossHpFrac <= 1 / 3;
@@ -554,11 +563,6 @@ export function BattleTowerFight({
     }, [storyFinalPhase]);
     useEffect(() => () => window.clearTimeout(barkTimerRef.current), []);
 
-    const me = character.name;
-    // Actor ownership is sealed to the server's safeName slug. Mirror that canonical
-    // transform here while continuing to send the display name to authenticated APIs.
-    const meSlug = towerPlayerSlug(me);
-    const ownedByMe = (slug: string | null) => !!slug && towerPlayerSlug(slug) === meSlug;
     const w = session.map.width, h = session.map.height;
     const layer = useMemo(() => towerLayerSize(w, h), [w, h]);
     const { battlefieldCallbackRef, boardContainerSize, effectiveScale: fittedScale } = useBoardScale(layer.width, layer.height);
@@ -781,20 +785,22 @@ export function BattleTowerFight({
         const request = (async () => {
             try {
                 if (settleFn) {
-                    await settleFn(runId, me);
+                    const response = await settleFn(runId, me);
                     if (!mountedRef.current) return;
+                    const mutation = (response ?? {}) as { character?: Character; _saveVersion?: unknown };
+                    if (mutation.character) onVersionedCharacter?.(mutation.character, mutation._saveVersion);
                     setSettlement(current => ({ ...current, phase: "settled", message: null }));
                     return;
                 }
                 const response = await settleTowerRun(runId, me);
                 if (!mountedRef.current) return;
-                if (response.character && updateCharacter) updateCharacter(response.character);
+                if (response.character) onVersionedCharacter?.(response.character, response._saveVersion);
                 if (!isStableTowerSettlement(response)) {
                     setSettlement(current => ({
                         ...current,
                         phase: "error",
                         response,
-                        message: settlementRetryMessage(response, me.toLowerCase()),
+                        message: settlementRetryMessage(response, meSlug),
                     }));
                     return;
                 }
@@ -813,7 +819,7 @@ export function BattleTowerFight({
             if (settlementPromiseRef.current === request) settlementPromiseRef.current = null;
         });
         return request;
-    }, [runId, me, settleFn, updateCharacter]);
+    }, [runId, me, meSlug, settleFn, onVersionedCharacter]);
 
     const shouldSettle = session.status === "done" && (settleOnAnyDone || session.winner === "squad");
     useEffect(() => {
@@ -897,12 +903,30 @@ export function BattleTowerFight({
     const healCd = Number(myActor?.cooldowns?.basicHeal ?? 0);
     const clearCd = Number(myActor?.cooldowns?.clear ?? 0);
     const cleanseCd = Number(myActor?.cooldowns?.cleanse ?? 0);
+    // Mirror the ordinary PvP/PvE Lag-then-Overclock contract for every paid action.
+    const adjustedActionAp = (base: number) => adjustedCombatApCost(myActor?.statuses, base, session.round);
+    const attackAp = adjustedActionAp(40);
+    const moveAp = adjustedActionAp(30);
+    const utilityAp = adjustedActionAp(60);
     // The weapon currently armed for targeting (when in weapon mode).
     const armedWeapon = mode === "weapon" ? myWeapons.find(w => w.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
 
     // Valid target/move sets for the current mode.
     const myPos = myActor?.pos ?? -1;
+    const barrierTiles = useMemo(
+        () => activeBarrierTilesForDisplay(
+            session.actors.flatMap(actor => actor.statuses),
+            session.round,
+            w * h,
+            "tower-grid:",
+        ),
+        [session.actors, session.round, w, h],
+    );
+    const impassableTiles = useMemo(
+        () => new Set([...session.map.blockedTiles, ...barrierTiles]),
+        [session.map.blockedTiles, barrierTiles],
+    );
     const enemiesInRange = useMemo(() => {
         if (!myActor) return new Set<string>();
         const out = new Set<string>();
@@ -918,17 +942,15 @@ export function BattleTowerFight({
     const moveTiles = useMemo(() => {
         if (mode !== "move" || !myActor) return new Set<number>();
         const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
-        const blocked = new Set(session.map.blockedTiles);
-        return new Set(towerNeighbors(myPos, w, h).filter(t => !occupied.has(t) && !blocked.has(t)));
-    }, [mode, myActor, session.actors, session.map.blockedTiles, myPos, w, h]);
+        return new Set(towerNeighbors(myPos, w, h).filter(t => !occupied.has(t) && !impassableTiles.has(t)));
+    }, [mode, myActor, session.actors, impassableTiles, myPos, w, h]);
 
     // Dash: any open, unoccupied tile within 3 hexes.
     const dashTiles = useMemo(() => {
         if (mode !== "dash" || !myActor) return new Set<number>();
         const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
-        const blocked = new Set(session.map.blockedTiles);
-        return new Set([...towerTilesInRange(myPos, 3, w, h)].filter(t => t !== myPos && !occupied.has(t) && !blocked.has(t)));
-    }, [mode, myActor, session.actors, session.map.blockedTiles, myPos, w, h]);
+        return new Set([...towerTilesInRange(myPos, 3, w, h)].filter(t => t !== myPos && !occupied.has(t) && !impassableTiles.has(t)));
+    }, [mode, myActor, session.actors, impassableTiles, myPos, w, h]);
 
     // Reach highlight for a ranged action: jutsu range, or the equipped weapon's range.
     const jutsuRangeTiles = useMemo(() => {
@@ -939,14 +961,13 @@ export function BattleTowerFight({
             // blocked) — clicking an occupied tile would just bounce server-side.
             if (isMoveJutsu(selJutsu)) {
                 const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
-                const blocked = new Set(session.map.blockedTiles);
-                return new Set([...inRange].filter(t => t !== myPos && !occupied.has(t) && !blocked.has(t)));
+                return new Set([...inRange].filter(t => t !== myPos && !occupied.has(t) && !impassableTiles.has(t)));
             }
             return inRange;
         }
         if (mode === "weapon") return towerTilesInRange(myPos, weaponRange, w, h);
         return new Set<number>();
-    }, [mode, myActor, selJutsu, weaponRange, myPos, w, h, session.actors, session.map.blockedTiles]);
+    }, [mode, myActor, selJutsu, weaponRange, myPos, w, h, session.actors, impassableTiles]);
 
     // AOE Burst splash footprint — the target-centred radius-1 blast (target tile + its
     // 6 touching hexes) that resolveHit → applyAoeSplash applies server-side. Centres on
@@ -1052,7 +1073,7 @@ export function BattleTowerFight({
     }
 
     function toggleMode(next: Exclude<Mode, "idle">) {
-        if (busy) return;
+        if (busy || !myTurn) return;
         setActionFeedback({ phase: "idle" });
         setSelJutsu(null);
         setSelWeaponId("");
@@ -1060,7 +1081,9 @@ export function BattleTowerFight({
     }
 
     async function send(action: TowerActionInput) {
-        if (actionInFlightRef.current) return;
+        // Forfeit is an owner command rather than a turn action. Every other
+        // command is tied to the authoritative active fighter.
+        if (actionInFlightRef.current || (action.type !== "forfeit" && !myTurn)) return;
         actionInFlightRef.current = true;
         const label = actionLabel(action);
         setActionFeedback({ phase: "submitting", label });
@@ -1099,8 +1122,11 @@ export function BattleTowerFight({
         if (!myTurn || busy) return;
         if (mode === "move" && moveTiles.has(tile)) { void send({ type: "move", tile }); return; }
         if (mode === "dash" && dashTiles.has(tile)) { void send({ type: "dash", tile }); return; }
+        if (mode === "jutsu" && selJutsu?.id && isMoveJutsu(selJutsu) && jutsuRangeTiles.has(tile)) {
+            void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
+        }
         // Ground-target jutsu → place the zone on a non-blocked tile in range (occupied or not).
-        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && jutsuRangeTiles.has(tile) && !session.map.blockedTiles.includes(tile)) {
+        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && jutsuRangeTiles.has(tile) && !impassableTiles.has(tile)) {
             void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
         }
         // Self-cast jutsu → confirmed by clicking your OWN ninja's tile.
@@ -1154,18 +1180,21 @@ export function BattleTowerFight({
     // ninja — matching PvP and the main PvE arena — instead of firing the instant
     // the card is clicked. Tower jutsu objects don't carry tags, so the SELF target
     // field is the self-cast signal here.
-    const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j) && j!.target === "SELF";
+    const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j)
+        && !isMoveJutsu(j)
+        && j!.target !== "EMPTY_GROUND"
+        && (j!.target === "SELF" || !pvpAffectsOpponent(j!));
     // Clicking a jutsu card only ARMS it; the cast fires on the follow-up click
     // (a foe in range, a ground tile, or — for a self-cast — your own ninja).
     function armJutsuCard(j: JutsuLike) {
-        if (busy) return;
+        if (busy || !myTurn) return;
         setActionFeedback({ phase: "idle" });
         setSelWeaponId("");
         setSelJutsu(prev => prev?.id === j.id ? null : j);
         setMode(prev => (prev === "jutsu" && selJutsu?.id === j.id) ? "idle" : "jutsu");
     }
     function armWeaponCard(itemId: string) {
-        if (busy) return;
+        if (busy || !myTurn) return;
         const alreadyArmed = mode === "weapon" && selWeaponId === itemId;
         setActionFeedback({ phase: "idle" });
         setSelJutsu(null);
@@ -1186,7 +1215,7 @@ export function BattleTowerFight({
     const enemies = session.actors.filter(a => a.side === "enemy");
     const actorById = useMemo(() => new Map(session.actors.map(actor => [actor.id, actor])), [session.actors]);
     const actorByTile = useMemo(() => new Map(session.actors.filter(actor => actor.hp > 0).map(actor => [actor.pos, actor])), [session.actors]);
-    const blockedTileSet = useMemo(() => new Set(session.map.blockedTiles), [session.map.blockedTiles]);
+    const blockedTileSet = impassableTiles;
     const objectiveTileSet = useMemo(() => new Set(session.map.objectiveTiles), [session.map.objectiveTiles]);
     const hazardTileSet = useMemo(() => new Set(session.map.hazardTiles), [session.map.hazardTiles]);
     const groundEffectByTile = useMemo(() => {
@@ -1281,7 +1310,7 @@ export function BattleTowerFight({
     const mySettlementResult = settlement.response?.results[meSlug];
 
     return (
-        <CombatInstance className="screen-battleTowerFight" style={{ color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
+        <CombatInstance className={`screen-battleTowerFight${variant === "team-pvp" ? " tower-team-pvp-fight" : ""}`} style={{ color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
             {bark && (
@@ -1329,7 +1358,7 @@ export function BattleTowerFight({
 
                 {/* Board */}
                 <main style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                    <header className="tower-fight-statusbar" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8,
+                    <header className="tower-fight-header tower-fight-statusbar" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8,
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>
                         <h1 className="tower-fight-title">{isTeamPvp ? "2v2 Team Arena · eliminate the rival team" : storyEncounterTitle}</h1>
@@ -1352,6 +1381,7 @@ export function BattleTowerFight({
                         {session.status === "active" && (
                             <button
                                 type="button"
+                                className="tower-fight-leave"
                                 disabled={busy}
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
@@ -1450,9 +1480,19 @@ export function BattleTowerFight({
                                     const boardObject = boardObjectByTile.get(pos);
                                     const dynamicHazard = dynamicHazardByTile.get(pos);
                                     const occupant = actorByTile.get(pos);
-                                    const validGroundTarget = mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" && jutsuRangeTiles.has(pos) && !isBlocked;
+                                    const isJutsuMoveTarget = mode === "jutsu"
+                                        && !!selJutsu
+                                        && isMoveJutsu(selJutsu)
+                                        && jutsuRangeTiles.has(pos)
+                                        && !isBlocked;
+                                    const validGroundTarget = mode === "jutsu"
+                                        && selJutsu?.target === "EMPTY_GROUND"
+                                        && !isMoveJutsu(selJutsu)
+                                        && jutsuRangeTiles.has(pos)
+                                        && !isBlocked;
                                     const validAction = isMove
                                         ? (mode === "dash" ? "Dash here" : "Move here")
+                                        : isJutsuMoveTarget ? "jutsu move destination"
                                         : validGroundTarget ? `Place ${selJutsu?.name ?? "jutsu"} here` : undefined;
                                     const danger: string[] = [];
                                     if (strikeTiles.has(pos)) danger.push(`${session.bossStrike?.label ?? "Boss strike"} at round end`);
@@ -1477,6 +1517,7 @@ export function BattleTowerFight({
                                     const tileActionable = Boolean(validAction && myTurn && !busy);
                                     return (
                                         <button key={pos} type="button" onClick={() => onTileClick(pos)} title={tileLabel} aria-label={tileLabel}
+                                            data-combat-tile={pos}
                                             aria-disabled={!tileActionable} tabIndex={tileActionable ? 0 : -1}
                                             aria-hidden={!tileActionable}
                                             inert={!tileActionable ? true : undefined}
@@ -1615,7 +1656,7 @@ export function BattleTowerFight({
                                     const ox = left + HEX_W / 2 - size / 2;
                                     const oy = top + HEX_H * 0.85 - size;
                                     const row = Math.floor(a.pos / w);
-                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !!selJutsu && !isSelfCastJutsu(selJutsu)));
+                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !!selJutsu && !isSelfCastJutsu(selJutsu) && !isMoveJutsu(selJutsu) && selJutsu.target !== "EMPTY_GROUND"));
                                     // Self-cast jutsu: the player's own orb is the click target.
                                     const selfTargetable = mode === "jutsu" && !!selJutsu && isSelfCastJutsu(selJutsu) && myActor != null && a.id === myActor.id;
                                     const isActive = a.id === activeId;
@@ -1628,6 +1669,7 @@ export function BattleTowerFight({
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
                                     return (
                                         <button key={a.id} type="button" className="tower-board-actor" onClick={() => onTileClick(a.pos)}
+                                            data-combat-target-tile={a.pos}
                                             aria-disabled={busy || (!targetable && !selfTargetable)}
                                             tabIndex={!busy && (targetable || selfTargetable) ? 0 : -1}
                                             aria-hidden={busy || (!targetable && !selfTargetable)}
@@ -1684,55 +1726,56 @@ export function BattleTowerFight({
                             </span>
                         </div>
 
-                        {(fightSyncState === "reconnecting" || actionFeedback.phase !== "idle" || armedActionName || (!myTurn && session.status === "active")) && (
-                            <div id="tower-action-guidance" className={`tower-action-state tower-action-state--${actionFeedback.phase}${targetingBlocked ? " tower-action-state--blocked" : ""}`} role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-busy={busy}>
-                                <div>
-                                    <strong>{fightSyncState === "reconnecting" ? "Reconnecting to the Tower…"
-                                        : actionFeedback.phase === "submitting" ? `Submitting ${actionFeedback.label}…`
-                                        : actionFeedback.phase === "error" ? `${actionFeedback.label} was rejected`
-                                        : targetingBlocked ? `${armedActionName ?? "Action"} has no legal target`
-                                        : armedActionName ? `${armedActionName} armed`
-                                        : turnLabel || "Waiting for the active fighter"}</strong>
-                                    <span>{fightSyncState === "reconnecting" ? "Showing the last confirmed battlefield. Actions remain available and the server will verify the current revision."
-                                        : actionFeedback.phase === "error" ? reject
-                                        : actionFeedback.phase === "submitting" ? "Waiting for the authoritative Tower result."
-                                        : targetingHint || `${activeActor?.name ?? "Another fighter"} is acting. Your HUD and loadout remain available to inspect.`}</span>
-                                </div>
-                                {(armedActionName || actionFeedback.phase === "error") && (
-                                    <button type="button" onClick={cancelAction} disabled={busy}>Cancel action</button>
-                                )}
+                        <div id="tower-action-guidance" className={`tower-action-state tower-action-state--${actionFeedback.phase}${targetingBlocked ? " tower-action-state--blocked" : ""}`} role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-busy={busy}>
+                            <div>
+                                <strong>{fightSyncState === "reconnecting" ? "Reconnecting to the Tower…"
+                                    : actionFeedback.phase === "submitting" ? `Submitting ${actionFeedback.label}…`
+                                    : actionFeedback.phase === "error" ? `${actionFeedback.label} was rejected`
+                                    : targetingBlocked ? `${armedActionName ?? "Action"} has no legal target`
+                                    : armedActionName ? `${armedActionName} armed`
+                                    : !myTurn && session.status === "active" ? (turnLabel || "Waiting for the active fighter")
+                                    : "Choose an action"}</strong>
+                                <span>{fightSyncState === "reconnecting" ? "Showing the last confirmed battlefield. Actions remain available and the server will verify the current revision."
+                                    : actionFeedback.phase === "error" ? reject
+                                    : actionFeedback.phase === "submitting" ? "Waiting for the authoritative Tower result."
+                                    : targetingHint || (!myTurn && session.status === "active"
+                                        ? `${activeActor?.name ?? "Another fighter"} is acting. Your HUD and loadout remain available to inspect.`
+                                        : "Select a command or inspect your sealed loadout.")}</span>
                             </div>
-                        )}
+                            {(armedActionName || actionFeedback.phase === "error") && (
+                                <button type="button" onClick={cancelAction} disabled={busy}>Cancel action</button>
+                            )}
+                        </div>
 
                         {/* Command bar */}
                         <div className="basic-action-bar shinobi-command-bar" style={myTurn ? undefined : { opacity: 0.65 }}>
                             <button className={mode === "attack" ? "selected-action" : ""}
                                 aria-pressed={mode === "attack"} onClick={() => toggleMode("attack")}
-                                disabled={!myTurn || busy || session.activeAp < 40}>
-                                <span>Attack</span><small>40 AP | R1</small>
+                                disabled={!myTurn || busy || session.activeAp < attackAp}>
+                                <span>Attack</span><small>{attackAp} AP | R1</small>
                             </button>
                             <button className={mode === "move" ? "selected-action" : ""}
                                 aria-pressed={mode === "move"} onClick={() => toggleMode("move")}
-                                disabled={!myTurn || busy || session.activeAp < 30}>
-                                <span>Move</span><small>30 AP / tile</small>
+                                disabled={!myTurn || busy || session.activeAp < moveAp}>
+                                <span>Move</span><small>{moveAp} AP / tile</small>
                             </button>
                             <button className={mode === "dash" ? "selected-action" : ""}
                                 aria-pressed={mode === "dash"} onClick={() => toggleMode("dash")}
-                                disabled={!myTurn || busy || session.activeAp < 30}>
-                                <span>Dash</span><small>3 tiles | 30 AP</small>
+                                disabled={!myTurn || busy || session.activeAp < moveAp}>
+                                <span>Dash</span><small>3 tiles | {moveAp} AP</small>
                             </button>
                             <button onClick={() => void send({ type: "heal" })}
-                                disabled={!myTurn || busy || healCd > 0 || myChakra < 10 || session.activeAp < 60}>
-                                <span>Heal</span><small>60 AP | 10◆ | CD {healCd}</small>
+                                disabled={!myTurn || busy || healCd > 0 || myChakra < 10 || session.activeAp < utilityAp}>
+                                <span>Heal</span><small>{utilityAp} AP | 10◆ | CD {healCd}</small>
                             </button>
                             <button className={mode === "clear" ? "selected-action" : ""}
                                 aria-pressed={mode === "clear"} onClick={() => toggleMode("clear")}
-                                disabled={!myTurn || busy || clearCd > 0 || session.activeAp < 60}>
-                                <span>Clear</span><small>60 AP | CD {clearCd}</small>
+                                disabled={!myTurn || busy || clearCd > 0 || session.activeAp < utilityAp}>
+                                <span>Clear</span><small>{utilityAp} AP | CD {clearCd}</small>
                             </button>
                             <button onClick={() => void send({ type: "cleanse" })}
-                                disabled={!myTurn || busy || cleanseCd > 0 || session.activeAp < 60}>
-                                <span>Cleanse</span><small>60 AP | CD {cleanseCd}</small>
+                                disabled={!myTurn || busy || cleanseCd > 0 || session.activeAp < utilityAp}>
+                                <span>Cleanse</span><small>{utilityAp} AP | CD {cleanseCd}</small>
                             </button>
                             {(session.pendingCompanion || summonedCompanion) && (
                                 <button
@@ -1764,17 +1807,19 @@ export function BattleTowerFight({
                                         const ck = Number(j.chakraCost ?? 0), st = Number(j.staminaCost ?? 0);
                                         const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
                                         const armed = mode === "jutsu" && selJutsu?.id === j.id;
-                                        const afford = session.activeAp >= Number(j.ap ?? 40) && myChakra >= ck && myStamina >= st && cd <= 0;
+                                        const effectiveAp = adjustedActionAp(Number(j.ap ?? 40));
+                                        const sealed = isElementallySealedForDisplay(myActor?.statuses, j.element, session.round);
+                                        const afford = session.activeAp >= effectiveAp && myChakra >= ck && myStamina >= st && cd <= 0 && !sealed;
                                         const art = jutsuArt(j);
                                         return (
                                             <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}`}>
                                                 <button type="button"
                                                     className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
-                                                    title={`${j.name ?? j.id} | ${j.ap ?? 40} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
+                                                    title={`${j.name ?? j.id} | ${effectiveAp} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${st ? ` | ${st} SP` : ""}${sealed ? " | Elementally sealed" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     aria-pressed={armed} onClick={() => armJutsuCard(j)} disabled={!myTurn || busy || !afford}>
                                                     <span className="combat-jutsu-thumb">{art ? <img src={art} alt={j.name ?? ""} /> : <strong>✨</strong>}</span>
                                                     <span className="combat-jutsu-name">{j.name ?? j.id}</span>
-                                                    <span className="combat-jutsu-info">{j.ap ?? 40} AP | R{j.range ?? 1} | CD {cd}</span>
+                                                    <span className="combat-jutsu-info">{effectiveAp} AP | R{j.range ?? 1} | CD {cd}</span>
                                                 </button>
                                             </div>
                                         );
@@ -1782,7 +1827,7 @@ export function BattleTowerFight({
                                     {/* Weapon cards (green) — hand reusable, thrown spends a charge */}
                                     {actionWeapons.map(({ item: wp, thrown, range, left, cd }) => {
                                         const armed = mode === "weapon" && selWeaponId === wp.id;
-                                        const ap = Number(wp.apCost ?? 40);
+                                        const ap = adjustedActionAp(Number(wp.apCost ?? 40));
                                         const out = thrown && left <= 0;
                                         return (
                                             <div key={wp.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${armed ? " selected-action" : ""}`}>
@@ -1800,7 +1845,7 @@ export function BattleTowerFight({
                                     })}
                                     {/* Consumable cards (red) — potions / combat items, used on self */}
                                     {actionConsumables.map(({ item: cs, left, cd }) => {
-                                        const ap = Number(cs.apCost ?? 35);
+                                        const ap = adjustedActionAp(Number(cs.apCost ?? 35));
                                         return (
                                             <div key={cs.id} className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
                                                 <button type="button" className={`combat-jutsu-button combat-item-button${cd > 0 ? " jutsu-on-cooldown" : ""}`}

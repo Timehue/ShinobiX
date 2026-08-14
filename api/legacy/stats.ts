@@ -6,8 +6,11 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { evaluateAllLegacies, getLegacyOverlay } from '../_legacy-score.js';
-import { legacyTrialKey, trialProgress, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
+import { legacyTrialKey, legacyTrialReceiptId, trialProgress, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
+import { LockContendedError } from '../_lock.js';
+import { recoverLegacyAcceptance } from './_acceptance.js';
+import { repairPendingTrialCompletionEffects } from './trial.js';
 
 /*
  * GET /api/legacy/stats?playerName=... — the LegacyPanel's single fetch.
@@ -35,6 +38,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'You can only view your own legacy.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'legacy-stats', 20, 60_000, identity.name))) return;
+
+        const recovery = await recoverLegacyAcceptance(playerName);
+        if (recovery.status === 'missing') return res.status(404).json({ error: 'Save not found.' });
+        if (recovery.status === 'invalid-marker') {
+            return res.status(409).json({ error: 'The sealed Legacy record is invalid.', reason: 'invalid-seal' });
+        }
+        if (recovery.status === 'conflict') {
+            return res.status(409).json({ error: 'The sealed Legacy conflicts with the save.', reason: 'legacy-save-conflict' });
+        }
+        const trialEffectsRepair = await repairPendingTrialCompletionEffects(playerName);
 
         const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = (rec?.character ?? null) as Record<string, unknown> | null;
@@ -67,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const legacy = (char.legacy ?? null) as CharacterLegacy | null;
         const trialRaw = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
         const trial = trialRaw && LEGACY_BY_ID.has(trialRaw.legacyId)
-            ? { ...trialRaw, objectives: trialProgress(trialRaw, stats) }
+            ? { ...trialRaw, id: legacyTrialReceiptId(trialRaw), objectives: trialProgress(trialRaw, stats) }
             : null;
         const trialIntro = trialRaw && LEGACY_BY_ID.has(trialRaw.legacyId)
             ? trialIntroFor(LEGACY_BY_ID.get(trialRaw.legacyId)!, trialRaw.kind)
@@ -87,8 +100,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             offer: offer && offer.status === 'spawned' ? offer : null,
             strongest,
             eligibleCounts,
+            repaired: recovery.status === 'ok' && recovery.repaired,
+            effectsPending: (recovery.status === 'ok' && recovery.effectsPending)
+                || trialEffectsRepair.effectsPending,
+            effectsRepaired: trialEffectsRepair.repaired > 0,
+            ...(recovery.status === 'ok' && recovery.repaired
+                ? { character: char, _saveVersion: Number(rec?._saveVersion) || 0 }
+                : {}),
         });
     } catch (err) {
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'Legacy records are synchronizing — please retry.' });
+        }
         console.error('[legacy/stats]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }

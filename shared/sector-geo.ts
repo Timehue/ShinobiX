@@ -16,7 +16,7 @@
  *   36-45  The Midlands          (green heart ring)
  *   46-51  The Castle City       (neutral keep: 46-50; 51 = East Ring Road)
  *   52-54  Festival Grounds      (54 = Sunscar Festival entrance)
- *   55-57  The Hollow Road       (dark pilgrim road; 57 = Hollow Temple)
+ *   55-57  The Hollow Road       (dark lantern road; 57 = Hollow Temple)
  *   58-60  The Lavafront         (volcanic frontier)
  *      99  Death's Gate          (unchanged, map-travel-only)
  *
@@ -137,9 +137,9 @@ export const SECTOR_PLACES: readonly SectorPlace[] = [
     { id: 53, name: 'Boardwalk Scrub', region: 'festival', biome: 'central', artKey: 33 },
     { id: 54, name: 'Cactus Flats', region: 'festival', biome: 'central', artKey: 35 },
 
-    // ── The Hollow Road (55-57) ── the darkening pilgrim road to the Gate
+    // ── The Hollow Road (55-57) ── the darkening lantern road to the Gate
     { id: 55, name: 'Waymarker Road', region: 'hollowroad', biome: 'shadow', artKey: 12 },
-    { id: 56, name: 'Pilgrim’s Approach', region: 'hollowroad', biome: 'shadow', artKey: 13 },
+    { id: 56, name: 'Lantern Approach', region: 'hollowroad', biome: 'shadow', artKey: 13 },
     { id: 57, name: 'Hollow Temple', region: 'hollowroad', biome: 'shadow', artKey: 18 },
 
     // ── The Lavafront (58-60) ── the volcanic frontier below Death's Gate

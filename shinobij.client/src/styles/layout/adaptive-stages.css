@@ -208,7 +208,7 @@ body.pet-combat-active {
 @media (max-width: 559px) {
   .pet-arena-takeover .pet-arena-controls {
     top: max(6px, env(safe-area-inset-top, 0px)) !important;
-    left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    left: 6px !important;
     z-index: 4;
   }
 
@@ -220,7 +220,7 @@ body.pet-combat-active {
     top: calc(max(6px, env(safe-area-inset-top, 0px)) + 50px) !important;
     right: auto !important;
     left: 50% !important;
-    max-inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
+    max-inline-size: calc(100% - 12px);
     transform: translateX(-50%);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -230,7 +230,7 @@ body.pet-combat-active {
 
   .pet-arena-takeover .pet-arena-scoreboard {
     top: calc(max(6px, env(safe-area-inset-top, 0px)) + 82px) !important;
-    max-inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
+    max-inline-size: calc(100% - 12px);
     padding: 5px 10px !important;
     font-size: 17px !important;
     z-index: 3;
@@ -242,7 +242,7 @@ body.pet-combat-active {
 
   .pet-arena-takeover .pet-arena-objective {
     top: calc(max(6px, env(safe-area-inset-top, 0px)) + 142px) !important;
-    inline-size: calc(100% - max(6px, env(safe-area-inset-left, 0px)) - max(6px, env(safe-area-inset-right, 0px)));
+    inline-size: calc(100% - 12px);
     z-index: 3;
   }
 
@@ -344,7 +344,6 @@ body.pet-combat-active {
 
   .pet-warfront-takeover .wf-top-controls > button,
   .pet-warfront-takeover .wf-camera-modes > button,
-  .pet-warfront-takeover .wf-free-camera,
   .pet-warfront-takeover .wf-top-meta select {
     min-inline-size: var(--touch-target-min);
     min-block-size: var(--touch-target-min);
@@ -414,6 +413,7 @@ body.pet-combat-active {
     right: 6px !important;
     max-inline-size: calc(100% - 12px);
   }
+
 }
 
 @media (max-width: 559px) {

@@ -54,3 +54,108 @@ export function createSaveFlightGate(): SaveFlightGate {
         },
     };
 }
+
+export type CompletedSaveFlight<T> = Readonly<{
+    status: "completed";
+    value: T;
+}>;
+
+export type DeferredSaveFlight = Readonly<{
+    status: "deferred";
+}>;
+
+export type AutosaveFlightResult<T> = CompletedSaveFlight<T> | DeferredSaveFlight;
+
+/**
+ * Coordinates every write to one player's full save payload.
+ *
+ * Autosaves are disposable snapshots: when another write is active (or a
+ * required write is queued), they are deferred so the caller can leave the
+ * payload dirty and rebuild it on the next tick. Required/immediate saves are
+ * user-visible durability boundaries, so they queue FIFO and their returned
+ * promise does not settle until their own work has actually completed.
+ */
+export interface SaveFlightCoordinator {
+    /** True while work is active or a required write is waiting. */
+    busy(): boolean;
+    /** Number of required writes waiting behind the active operation. */
+    pendingRequired(): number;
+    /** Run now only when idle; otherwise return a typed deferred result. */
+    runAutosave<T>(work: () => Promise<T>): Promise<AutosaveFlightResult<T>>;
+    /** Queue FIFO when busy and wait for this specific write to complete. */
+    runRequired<T>(work: () => Promise<T>): Promise<CompletedSaveFlight<T>>;
+}
+
+type RequiredSaveJob = () => void;
+
+export function createSaveFlightCoordinator(): SaveFlightCoordinator {
+    let active = false;
+    const requiredQueue: RequiredSaveJob[] = [];
+
+    const drain = () => {
+        active = false;
+        const next = requiredQueue.shift();
+        if (next) next();
+    };
+
+    const execute = <T>(
+        work: () => Promise<T>,
+        resolve: (result: CompletedSaveFlight<T>) => void,
+        reject: (reason?: unknown) => void,
+    ) => {
+        active = true;
+        void (async () => {
+            try {
+                resolve({ status: "completed", value: await work() });
+            } catch (error) {
+                reject(error);
+            } finally {
+                // Drain synchronously before promise continuations can enqueue a
+                // lower-priority autosave ahead of a required waiter.
+                drain();
+            }
+        })();
+    };
+
+    return {
+        busy: () => active || requiredQueue.length > 0,
+        pendingRequired: () => requiredQueue.length,
+        runAutosave<T>(work: () => Promise<T>): Promise<AutosaveFlightResult<T>> {
+            if (active || requiredQueue.length > 0) {
+                return Promise.resolve({ status: "deferred" });
+            }
+            return new Promise<CompletedSaveFlight<T>>((resolve, reject) => {
+                execute(work, resolve, reject);
+            });
+        },
+        runRequired<T>(work: () => Promise<T>): Promise<CompletedSaveFlight<T>> {
+            return new Promise<CompletedSaveFlight<T>>((resolve, reject) => {
+                const start = () => execute(work, resolve, reject);
+                if (active || requiredQueue.length > 0) requiredQueue.push(start);
+                else start();
+            });
+        },
+    };
+}
+
+/**
+ * Advance this revision whenever ANY field included in the full save payload
+ * changes. Comparing the captured revision after a request settles is safer
+ * than checking only the Character object reference: mission, biome, sector,
+ * training, and travel fields can change independently of that object.
+ */
+export function nextSavePayloadRevision(current: number): number {
+    if (!Number.isSafeInteger(current) || current < 0 || current >= Number.MAX_SAFE_INTEGER) {
+        throw new RangeError("Save payload revision is invalid or exhausted.");
+    }
+    return current + 1;
+}
+
+/** True only when no full-payload field changed after the revision was captured. */
+export function isCurrentSavePayloadRevision(captured: number, current: number): boolean {
+    return Number.isSafeInteger(captured)
+        && captured >= 0
+        && Number.isSafeInteger(current)
+        && current >= 0
+        && captured === current;
+}

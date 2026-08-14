@@ -28,10 +28,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const claim = claimStarterCards(character);
             if (!claim.ok) return { ok: false as const, status: 409, error: claim.reason };
-            return { ok: true as const, character: claim.character, value: { granted: claim.granted } };
+            return {
+                ok: true as const,
+                character: claim.character,
+                value: {
+                    granted: claim.granted,
+                    starterGranted: claim.starterGranted,
+                    progressionGranted: claim.progressionGranted,
+                    replayed: claim.replayed,
+                },
+                // A response-lost retry returns the current authoritative codex
+                // without rewriting an identical save. Older claimed accounts
+                // missing a starter/progression record are repaired here too.
+                write: !claim.replayed || claim.granted.length > 0,
+            };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-        return res.status(200).json({ ok: true, granted: result.value.granted, character: result.character, _saveVersion: result._saveVersion });
+        return res.status(200).json({
+            ok: true,
+            granted: result.value.granted,
+            starterGranted: result.value.starterGranted,
+            progressionGranted: result.value.progressionGranted,
+            replayed: result.value.replayed,
+            character: result.character,
+            _saveVersion: result._saveVersion,
+        });
     } catch (error) {
         console.error('[card-clash/claim-starter]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -20,6 +20,8 @@ export type MissionProgressReceipt = {
     playerName: string;
     missionId: string;
     missionType: MissionProgressType;
+    /** Server-owned acceptance nonce. Required for field missions. */
+    runId?: string;
     exploreCount: number;
     raidCount: number;
     huntKill: boolean;
@@ -81,6 +83,22 @@ export function savedAcceptedMissionIds(source: Record<string, unknown> | null |
         if (Array.isArray(nested)) return nested.map(String);
     }
     return [];
+}
+
+export function savedMissionProgress(source: Record<string, unknown> | null | undefined): Record<string, unknown> {
+    if (!source) return {};
+    const read = (value: unknown): Record<string, unknown> | null => (
+        value && typeof value === 'object' && !Array.isArray(value)
+            ? value as Record<string, unknown>
+            : null
+    );
+    const direct = 'missionProgress' in source ? read(source.missionProgress) : null;
+    if (direct) return direct;
+    const character = source.character;
+    if (character && typeof character === 'object' && !Array.isArray(character)) {
+        return read((character as Record<string, unknown>).missionProgress) ?? {};
+    }
+    return {};
 }
 
 export function savedCurrentSector(source: Record<string, unknown> | null | undefined): number {
@@ -184,6 +202,7 @@ export function cleanMissionProgressReceipt(raw: unknown): MissionProgressReceip
         playerName,
         missionId,
         missionType,
+        ...(cleanMissionProgressEvidenceToken(rec.runId) ? { runId: cleanMissionProgressEvidenceToken(rec.runId) } : {}),
         exploreCount: Math.max(0, Math.floor(Number(rec.exploreCount ?? 0))),
         raidCount: Math.max(0, Math.floor(Number(rec.raidCount ?? 0))),
         huntKill: rec.huntKill === true,
@@ -252,15 +271,20 @@ export function applyMissionProgressEvent(
         exploreTarget: number;
         raidTarget: number;
         evidenceId: string;
+        runId?: string;
         now?: number;
     },
 ): MissionProgressReceipt {
-    const next: MissionProgressReceipt = current && current.missionType === opts.missionType
+    const runId = cleanMissionProgressEvidenceToken(opts.runId);
+    const next: MissionProgressReceipt = current
+        && current.missionType === opts.missionType
+        && (!runId || current.runId === runId)
         ? { ...current }
         : {
             playerName: opts.playerName,
             missionId: opts.missionId,
             missionType: opts.missionType,
+            ...(runId ? { runId } : {}),
             exploreCount: 0,
             raidCount: 0,
             huntKill: false,
@@ -272,6 +296,7 @@ export function applyMissionProgressEvent(
     if (next.evidenceIds.includes(evidenceId)) return next;
     next.playerName = opts.playerName;
     next.missionId = opts.missionId;
+    if (runId) next.runId = runId;
     next.evidenceIds = [...next.evidenceIds, evidenceId].slice(-32);
     next.updatedAt = opts.now ?? Date.now();
 
@@ -303,11 +328,13 @@ export function validateMissionProgressReceipt(
         missionId: string;
         missionType: MissionProgressType;
         mission: Pick<FieldMissionDef, 'exploreCount' | 'raidCount'>;
+        runId?: string;
     },
 ): { ok: true } | { ok: false; reason: string } {
     if (!receipt) return { ok: false, reason: 'missing-progress-receipt' };
     if (receipt.playerName.toLowerCase() !== expected.playerName.toLowerCase()) return { ok: false, reason: 'wrong-progress-receipt-player' };
     if (receipt.missionId !== expected.missionId || receipt.missionType !== expected.missionType) return { ok: false, reason: 'wrong-progress-receipt-mission' };
+    if (expected.runId && receipt.runId !== expected.runId) return { ok: false, reason: 'wrong-progress-receipt-run' };
     // Hunt: the server-verified kill is the entire proof. Tracking pings are
     // optimistic UI now and no longer gate the claim — a single dropped
     // fire-and-forget ping used to brick the contract with no recovery. The kill

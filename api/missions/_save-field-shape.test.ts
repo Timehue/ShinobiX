@@ -80,7 +80,10 @@ function characterScopedReads(source: string): string[] {
 
 /** Any raw property read of a top-level save field, whatever the receiver. */
 function rawFieldReads(source: string): string[] {
-    return source.match(new RegExp(`\\.\\s*(?:${FIELDS})\\b`, 'g')) ?? [];
+    // A spread such as `...missionProgress` contains the text
+    // `.missionProgress`, but is not a property read. Require the dot to be the
+    // first in the access operator so spreads do not become false positives.
+    return source.match(new RegExp(`(?<!\\.)\\.\\s*(?:${FIELDS})\\b`, 'g')) ?? [];
 }
 
 describe('save-field shape contract', () => {

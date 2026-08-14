@@ -1,10 +1,10 @@
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
-    CHRONICLE_STARTER_GRANT_IDS,
     countChronicleCards,
     migrateLegacyDeck,
     validateDeckIds,
 } from '../../shared/chronicle-duel.js';
+import { starterCardTopUp } from './_starter-cards.js';
 
 /** Grants the fixed starter unlocks once and resolves a submitted/saved deck
  * against server-owned collection data. Invalid legacy lists are never trusted. */
@@ -16,13 +16,7 @@ export type ChronicleDeckResolution = {
 
 export async function resolveChronicleDeckWithSave(playerName: string, requested: readonly string[], admin = false): Promise<ChronicleDeckResolution | null> {
     const resolved = await mutatePlayerSave(playerName, ({ character }) => {
-        const current = Array.isArray(character.tileCards)
-            ? character.tileCards.filter((id): id is string => typeof id === 'string')
-            : [];
-        const currentCounts = countChronicleCards(current);
-        const starterCounts = countChronicleCards(CHRONICLE_STARTER_GRANT_IDS);
-        const missingStarterCopies = [...starterCounts].flatMap(([id, required]) =>
-            Array.from({ length: Math.max(0, required - (currentCounts.get(id) ?? 0)) }, () => id));
+        const { current, granted: missingStarterCopies } = starterCardTopUp(character.tileCards);
         const owned = [...current, ...missingStarterCopies];
         const ownedCounts = countChronicleCards(owned);
         const saved = Array.isArray(character.cardClashDeck)

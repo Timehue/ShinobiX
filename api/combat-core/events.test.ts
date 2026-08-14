@@ -23,7 +23,7 @@ describe('authoritative combat event projection', () => {
         after.player.pos = 12;
         after.enemy.shield = 0;
         after.enemy.hp = 85;
-        after.enemy.statuses.push({ name: 'Wound', kind: 'negative', rounds: 2, amount: 5, source: 'Thunder Prison' });
+        after.enemy.statuses.push({ name: 'Wound', kind: 'negative', rounds: 2, amount: 5 });
         after.groundEffects.push({ id: 'zone-1', owner: 'p1', name: 'Flame Zone', tiles: [11, 12], rounds: 2 });
         after.itemCharges.kunai = 1;
         after.itemsUsed.kunai = 1;
@@ -37,7 +37,6 @@ describe('authoritative combat event projection', () => {
         assert.deepEqual(event.damage, [{ source: 'player', target: 'enemy', raw: 15, resolved: 15, toHp: 15, toShield: 0, capped: false }]);
         assert.deepEqual(event.actors.find((actor) => actor.role === 'player')?.movement, { from: 10, to: 12 });
         assert.equal(event.statusChanges[0]?.after[0]?.name, 'Wound');
-        assert.equal(event.statusChanges[0]?.after[0]?.source, 'Thunder Prison');
         assert.equal(event.groundEffects.added[0]?.id, 'zone-1');
         assert.deepEqual(event.items, [{ id: 'kunai', chargeDelta: -1, usedDelta: 1 }]);
     });

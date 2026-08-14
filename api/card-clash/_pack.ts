@@ -1,6 +1,7 @@
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { countChronicleCardsWithStarter, deckLimitForCard } from '../../shared/chronicle-duel.js';
+import { canAppendPackableChronicleCards, CARD_COLLECTION_CAP } from './_collection-cap.js';
 
 export const CARD_PACK_TYPES = ['standard', 'epic', 'legendary'] as const;
 export type CardPackType = typeof CARD_PACK_TYPES[number];
@@ -24,7 +25,7 @@ const PACKS: Record<CardPackType, PackDefinition> = {
     legendary: { currency: 'fateShards', baseCost: 30, count: 1, rarities: ['legendary'], pool: 'marketplace' },
 };
 
-const CARD_COLLECTION_CAP = 1_200;
+export { CARD_COLLECTION_CAP } from './_collection-cap.js';
 
 export function parseCardPackType(value: unknown): CardPackType | null {
     return typeof value === 'string' && (CARD_PACK_TYPES as readonly string[]).includes(value)
@@ -69,7 +70,7 @@ export function applyCardPackOpen(
     const owned = Array.isArray(character.tileCards)
         ? (character.tileCards as unknown[]).filter((id): id is string => typeof id === 'string' && !!id)
         : [];
-    if (owned.length + def.count > CARD_COLLECTION_CAP) {
+    if (!canAppendPackableChronicleCards(owned, def.count)) {
         return { ok: false, status: 409, error: `Card collection is capped at ${CARD_COLLECTION_CAP}.` };
     }
     const balance = Math.max(0, Math.floor(Number(character[def.currency]) || 0));

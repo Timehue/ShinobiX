@@ -1,8 +1,7 @@
 import type { Character } from "../types/character";
 import type { AiFightBattleKind } from "./ai-fight-api";
 import { reportAiFightWin, type AiFightReportResult } from "./ai-fight-api";
-import { markMissionCompleted } from "./character-progress";
-import { stampWandererFightResult } from "./wanderer-fight";
+import type { WorldAiFightContext } from "../../../shared/world-ai-fight";
 
 /*
  * Settling a SERVER-resolved AI fight.
@@ -16,11 +15,9 @@ import { stampWandererFightResult } from "./wanderer-fight";
  *   hospital stay on a defeat or a forfeit. All of it in one atomic save
  *   mutation, none of it inflatable from here — this module sends only the token.
  *
- * CLIENT (this module) — only the world/mission state the server does not own:
- *   the shared sector territory pool, the accepted-mission raid/explore progress
- *   counters, the local hunt-board mirror, and the daily-mission counter. Exactly
- *   the set Arena.winBattle fires for an AI win, so the two engines stay
- *   equivalent until step 5 retires the local one.
+ * CLIENT (this module) — adopts that versioned character and mirrors only the
+ *   exact field/profession ids echoed by settlement for immediate presentation.
+ *   It never infers mission, hunt, or territory progression from battleKind.
  *
  * The settle runs on EVERY resolution, not just a win. A loss must reach the
  * server or the defeat costs nothing, and an abandoned fight must reach it too or
@@ -28,21 +25,8 @@ import { stampWandererFightResult } from "./wanderer-fight";
  */
 
 export type AiFightSettleHooks = {
-    /**
-     * Damage this sector's shared territory pool by the raid amount. Supplied by
-     * the host rather than imported here on purpose: lib/world-state reaches back
-     * into App for its back-compat re-exports, and pulling that in would drag a
-     * component (and its .css) into this module — which node's test runner
-     * cannot load, so this file would stop being testable.
-     */
-    onSectorRaidDamage?: (sector: number) => void;
     /** App's recordMissionRaid — accepted-mission raid progress for this sector. */
-    onMissionRaidComplete?: (sector: number) => void;
-    /** App's recordMissionExplore — explore credit deferred until the ambush was won. */
-    onExploreAmbushWon?: () => void;
-    /** App's completeHuntForAi — the LOCAL hunt-board mirror. The authoritative
-     *  receipt is written server-side by report-ai-fight's hunt-kill producer. */
-    onHuntBeastDefeated?: (opponentId: string) => void;
+    onMissionRaidComplete?: (sector: number, missionIds: readonly string[]) => void;
 };
 
 /** What the server says happened. `unknown` never reaches a settled result. */
@@ -56,41 +40,49 @@ export type AiFightSettleResult = {
     ryo: number;
     capped: boolean;
     replayed: boolean;
-    /** The post-settle character, with the client-owned counters folded in. */
+    /** The post-settle character returned by the server. */
     character: Character | null;
     _saveVersion?: number;
+    /** Echoed from the token/session seal; World Map callbacks never trust their
+     * local pending record for encounter identity or stage. */
+    worldContext?: WorldAiFightContext;
+    /** Exact field-mission ids stamped by this settlement. */
+    fetchMissionsCredited: string[];
+    raidProgression?: {
+        missionsCompleted: Array<{ id: string; name: string; xpReward: number }>;
+        xpAwarded: number;
+        bonusRyo: number;
+        bonusSeals: number;
+        territoryDamage: number;
+        sector: number | null;
+        replayed: boolean;
+    };
 };
 
-/** The client-owned counters, applied on top of the server's settled character. */
-export function applyLocalAiFightCounters(character: Character, battleKind: AiFightBattleKind): Character {
-    return battleKind === "mission" ? markMissionCompleted(character) : character;
-}
-
 /**
- * The world/mission side effects the server does not own. Fires only on a WIN —
- * a defeat must never consume an accepted hunt or bank raid progress.
+ * Presentation mirrors for exact server-owned raid receipts. Fires only on a
+ * WIN; a defeat must never light a field-mission card.
  *
  * `battleKind` alone selects the branch, matching how Arena computes it:
- *   raidAi   → sector territory damage + raid credit + hunt-board mirror
- *   explore  → explore-mission credit
- *   mission  → nothing here (the daily counter rides on the character)
+ *   raidAi   → exact field-mission ids returned by report-ai-fight
+ *   explore  → no local progression (the exact tile receipt owns field credit)
+ *   mission  → nothing here (generic mission starts fail closed)
  *   defense / practice / endless → nothing local
  */
 export function fireLocalAiFightSideEffects(
     battleKind: AiFightBattleKind,
-    opponentId: string,
     sector: number | undefined,
     hooks: AiFightSettleHooks,
+    worldContext?: WorldAiFightContext,
+    fetchMissionsCredited: readonly string[] = [],
 ): void {
-    if (battleKind === "explore") hooks.onExploreAmbushWon?.();
+    if (worldContext) return;
     if (battleKind !== "raidAi") return;
     if (typeof sector === "number") {
-        hooks.onSectorRaidDamage?.(sector);
-        hooks.onMissionRaidComplete?.(sector);
+        if (fetchMissionsCredited.length > 0) {
+            hooks.onMissionRaidComplete?.(sector, fetchMissionsCredited);
+        }
     }
-    // Hunt contracts complete ONLY on an actual kill; the beast is fought as a
-    // raidAi and this marks the matching accepted hunt claimable on the board.
-    hooks.onHuntBeastDefeated?.(opponentId);
 }
 
 /**
@@ -115,22 +107,51 @@ export async function settleAiFight(params: {
     const reported: AiFightReportResult | null = await reportAiFightWin(params.playerName, params.token);
     if (!reported) throw new Error("The fight could not be settled.");
     const outcome = (reported.outcome ?? null) as AiFightOutcome | null;
+    const fetchMissionsCredited = Array.from(new Set(
+        (reported.raidProgression?.fetchMissionsCredited ?? reported.fetchMissionsCredited ?? [])
+            .filter((missionId): missionId is string => typeof missionId === "string")
+            .map((missionId) => missionId.trim())
+            .filter(Boolean),
+    ));
     // Gated on the server having accepted a WIN. A defeat or a forfeit must not
     // burn the player's accepted hunt or raid progress.
     if (outcome === "win") {
-        fireLocalAiFightSideEffects(params.battleKind, params.opponentId, params.sector, params.hooks ?? {});
+        fireLocalAiFightSideEffects(
+            params.battleKind,
+            params.sector,
+            params.hooks ?? {},
+            reported.worldContext,
+            fetchMissionsCredited,
+        );
     }
     const settledCharacter = (reported.character ?? null) as Character | null;
+    const raidProgression = reported.raidProgression ? {
+        missionsCompleted: Array.isArray(reported.raidProgression.missionsCompleted)
+            ? reported.raidProgression.missionsCompleted.filter((mission) => !!mission
+                && typeof mission.id === "string"
+                && typeof mission.name === "string"
+                && Number.isFinite(mission.xpReward))
+            : [],
+        xpAwarded: Math.max(0, Number(reported.raidProgression.xpAwarded) || 0),
+        bonusRyo: Math.max(0, Number(reported.raidProgression.bonusRyo) || 0),
+        bonusSeals: Math.max(0, Number(reported.raidProgression.bonusSeals) || 0),
+        territoryDamage: Math.max(0, Number(reported.raidProgression.territoryDamage) || 0),
+        sector: Number.isSafeInteger(Number(reported.raidProgression.sector))
+            ? Math.floor(Number(reported.raidProgression.sector))
+            : null,
+        replayed: reported.raidProgression.replayed === true,
+    } : undefined;
     return {
         settled: true,
         outcome,
         ryo: Number(reported.ryo) || 0,
         capped: reported.capped === true,
         replayed: reported.replayed === true,
-        character: settledCharacter && outcome === "win"
-            ? applyLocalAiFightCounters(settledCharacter, params.battleKind)
-            : settledCharacter,
+        character: settledCharacter,
         _saveVersion: reported._saveVersion,
+        fetchMissionsCredited,
+        ...(raidProgression ? { raidProgression } : {}),
+        ...(reported.worldContext ? { worldContext: reported.worldContext } : {}),
     };
 }
 
@@ -147,10 +168,4 @@ export async function settleAiFight(params: {
  */
 export function shouldSettleOnClose(hasFight: boolean, alreadySettled: boolean): boolean {
     return hasFight && !alreadySettled;
-}
-
-/** Stamp the authoritative outcome onto any pending wanderer/ambush/hunt-pack record. */
-export function stampAiFightOutcome(won: boolean, draw: boolean): void {
-    if (draw) return;
-    stampWandererFightResult(won ? "win" : "loss");
 }

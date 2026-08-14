@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { PvpFighter } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
-import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import type { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
     applyPveOutcomeWithReceipt,
@@ -39,94 +38,34 @@ function terminalSession(overrides: Partial<SoloPveSession> = {}): SoloPveSessio
         enemy: fighter('Enemy', 25),
         now: NOW,
     });
-    return {
+    const terminal: SoloPveSession = {
         ...session,
         status: 'done',
         winner: 'enemy',
         outcome: 'loss',
         ...overrides,
     };
+    return {
+        ...terminal,
+        terminalEvidence: terminal.terminalEvidence ?? {
+            finishedAt: NOW,
+            finalMoveToken: terminal.recentMoveTokens.at(-1) ?? 'terminal',
+            finalVersion: terminal.version,
+            finalEventSeq: terminal.eventSeq,
+            winner: terminal.winner ?? 'enemy',
+            outcome: terminal.outcome ?? 'loss',
+            itemsUsed: { ...terminal.itemsUsed },
+            settlementState: 'pending',
+        },
+    };
 }
 
 describe('atomic PvE physical-outcome receipts', () => {
-    it('keeps pre-upgrade and mixed rolling-worker terminal usage payable exactly once', async () => {
-        const modern = terminalSession({
-            itemsUsed: { 'battle-pill': 1 },
-            companionUsage: { petId: 'pet-legacy', pveGearId: 'pve-crest', consumableId: 'pet-tonic' },
-            terminalEvidence: {
-                finishedAt: NOW,
-                finalMoveToken: 'legacy-final-move-0001',
-                finalVersion: 2,
-                finalEventSeq: 1,
-                winner: 'enemy',
-                outcome: 'loss',
-                itemsUsed: { 'battle-pill': 1 },
-                companionUsage: { petId: 'pet-legacy', pveGearId: 'pve-crest', consumableId: 'pet-tonic' },
-                settlementState: 'pending',
-            },
-        });
-        assert.equal(modern.usageAuthorityVersion, undefined, 'creation stays rollout-neutral until a capable action writer commits');
-        modern.usageAuthorityVersion = 1;
-        const mixedWorker = await settleSoloPveTerminalUsage(modern, 'Alice', { readItemIntent: async () => null });
-        assert.equal(mixedWorker.ok, true, 'an older action worker cannot strand an opted-in terminal session');
-
-        for (const terminalOutcome of ['loss', 'fled'] as const) {
-            const legacy = structuredClone(modern);
-            legacy.sessionId = `legacy-${terminalOutcome}-run`;
-            legacy.encounter = { ...legacy.encounter, bindingId: legacy.sessionId };
-            legacy.outcome = terminalOutcome;
-            legacy.terminalEvidence = { ...legacy.terminalEvidence!, outcome: terminalOutcome };
-            delete legacy.usageAuthorityVersion;
-            const accepted = await settleSoloPveTerminalUsage(legacy, 'Alice', { readItemIntent: async () => null });
-            assert.equal(accepted.ok, true, `a pre-upgrade ${terminalOutcome} must not be stranded`);
-
-            const startingCharacter = {
-                name: 'Alice',
-                hp: 100,
-                maxHp: 100,
-                inventory: ['battle-pill'],
-                pets: [{
-                    id: 'pet-legacy',
-                    loadout: { pve: 'pve-crest', pveDurability: 2, consumable: 'pet-tonic' },
-                }],
-            };
-            const applied = applyPveOutcomeWithReceipt({
-                character: startingCharacter,
-                session: legacy,
-                playerName: 'Alice',
-                outcome: 'loss',
-                now: NOW,
-            });
-            assert.equal(applied.ok, true);
-            if (!applied.ok) continue;
-            assert.deepEqual(applied.character.inventory, [], terminalOutcome);
-            const chargedPet = (applied.character.pets as Array<Record<string, any>>)[0]!;
-            assert.equal(chargedPet.loadout.pveDurability, 1, terminalOutcome);
-            assert.equal(chargedPet.loadout.consumable, undefined, terminalOutcome);
-
-            // There is no later win claim on either branch. A state poll or
-            // lost response can replay the same terminal receipt after the
-            // player replenishes inventory without consuming it again.
-            const replenished = { ...applied.character, inventory: ['battle-pill'] };
-            const replay = applyPveOutcomeWithReceipt({
-                character: replenished,
-                session: legacy,
-                playerName: 'Alice',
-                outcome: 'loss',
-                now: NOW + 30_000,
-            });
-            assert.equal(replay.ok, true);
-            if (!replay.ok) continue;
-            assert.deepEqual(replay.character.inventory, ['battle-pill'], terminalOutcome);
-            const replayPet = (replay.character.pets as Array<Record<string, any>>)[0]!;
-            assert.equal(replayPet.loadout.pveDurability, 1, terminalOutcome);
-        }
-    });
-
     it('writes hospitalization and its replay receipt in the same character snapshot', () => {
-        const session = terminalSession();
+        const session = terminalSession({ itemsUsed: { 'healing-pill': 1 } });
+        session.terminalEvidence = { ...session.terminalEvidence!, itemsUsed: { 'healing-pill': 1 } };
         const applied = applyPveOutcomeWithReceipt({
-            character: { name: 'Alice', hp: 100, maxHp: 100 },
+            character: { name: 'Alice', hp: 100, maxHp: 100, inventory: ['healing-pill'] },
             session,
             playerName: 'Alice',
             outcome: 'loss',
@@ -137,6 +76,7 @@ describe('atomic PvE physical-outcome receipts', () => {
         assert.equal(applied.value.applied, true);
         assert.equal(applied.character.hp, 0);
         assert.equal(applied.character.hospitalized, true);
+        assert.deepEqual(applied.character.inventory, [], 'mission usage settles with the physical outcome');
         const identity = pveOutcomeReceiptIdentity(session, 'Alice', 'loss');
         const receipts = applied.character.serverSettlementReceipts as Array<{ requestId: string }>;
         assert.equal(receipts[0]?.requestId, identity.requestId);
@@ -152,56 +92,6 @@ describe('atomic PvE physical-outcome receipts', () => {
         if (!replay.ok) return;
         assert.equal(replay.value.replayed, true);
         assert.equal(replay.character.hospitalizedUntil, applied.character.hospitalizedUntil, 'replay must not extend hospitalization');
-    });
-
-    it('does not backfill legacy usage after a mode receipt already settled the run', () => {
-        const preUpgrade = terminalSession({
-            itemsUsed: { 'battle-pill': 1 },
-            companionUsage: { petId: 'pet-settled', pveGearId: 'pve-crest' },
-        });
-        const priorOutcomeReceipt = applyPveOutcomeWithReceipt({
-            character: { name: 'Alice', hp: 100, maxHp: 100 },
-            session: preUpgrade,
-            playerName: 'Alice',
-            outcome: 'loss',
-            now: NOW,
-        });
-        assert.equal(priorOutcomeReceipt.ok, true);
-        if (!priorOutcomeReceipt.ok) return;
-
-        delete preUpgrade.usageAuthorityVersion;
-        preUpgrade.settlementState = 'settled';
-        const afterOldQueue = {
-            ...priorOutcomeReceipt.character,
-            inventory: ['battle-pill'],
-            pets: [{ id: 'pet-settled', loadout: { pve: 'pve-crest', pveDurability: 2 } }],
-        };
-        const replay = applyPveOutcomeWithReceipt({
-            character: afterOldQueue,
-            session: preUpgrade,
-            playerName: 'Alice',
-            outcome: 'loss',
-            now: NOW + 60_000,
-        });
-        assert.equal(replay.ok, true);
-        if (!replay.ok) return;
-        assert.deepEqual(replay.character.inventory, ['battle-pill']);
-        assert.equal(((replay.character.pets as Array<Record<string, any>>)[0]!.loadout as Record<string, unknown>).pveDurability, 2);
-        assert.equal(replay.value.migratedLegacyUsage, undefined);
-
-        preUpgrade.settlementState = 'pending';
-        const committedOldQueue = applyPveOutcomeWithReceipt({
-            character: { ...afterOldQueue, pendingCombatMissionClaims: ['combat-e-drill'] },
-            session: preUpgrade,
-            playerName: 'Alice',
-            outcome: 'loss',
-            now: NOW + 90_000,
-        });
-        assert.equal(committedOldQueue.ok, true);
-        if (!committedOldQueue.ok) return;
-        assert.deepEqual(committedOldQueue.character.inventory, ['battle-pill']);
-        assert.equal(((committedOldQueue.character.pets as Array<Record<string, any>>)[0]!.loadout as Record<string, unknown>).pveDurability, 2);
-        assert.equal(committedOldQueue.value.migratedLegacyUsage, undefined);
     });
 
     it('migrates an old KV receipt without re-applying the outcome', () => {
@@ -294,7 +184,6 @@ describe('automatic terminal reconciliation scope', () => {
             {
                 readLegacyReceipt: async () => { throw new Error('must not read'); },
                 writeLegacyReceipt: async () => { throw new Error('must not write'); },
-                settleTerminalUsage: async (session) => ({ ok: true, session, replayed: true }),
             },
         );
         assert.equal(reconciled, null);

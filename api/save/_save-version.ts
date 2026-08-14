@@ -93,9 +93,9 @@ export function isVersionlessPlayerSave(
  * Do NOT call for clan/pool records (those use the field-delta validator, not a
  * version stamp) or for admin-save writes (the handler already bumps those).
  */
-export function bumpSaveVersion<T extends Record<string, unknown>>(record: T): T {
-    const r = record as Record<string, unknown>;
+export function bumpSaveVersion<T extends Record<string, unknown>>(record: T): T & { _saveVersion: number; _saveAt: number } {
+    const r = record as T & { _saveVersion: number; _saveAt: number };
     r._saveVersion = nextSaveVersion(r._saveVersion);
     r._saveAt = Date.now();
-    return record;
+    return r;
 }

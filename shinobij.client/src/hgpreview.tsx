@@ -138,7 +138,7 @@ function Harness() {
                 onTileClick={walkTo}
                 walkTarget={walkTarget}
                 setHollowGateRun={setRun}
-                setCharacter={() => {}}
+                onVersionedCharacter={() => true}
                 pushHollowGateLog={pushLog}
                 petEligible={false}
                 onSearchHiddenChamber={() => {}}

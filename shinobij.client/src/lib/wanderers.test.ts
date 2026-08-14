@@ -6,6 +6,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, MAX_ROAMING_QUEST_GIVERS, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, questForWanderer, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
+import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -359,10 +360,15 @@ describe("wanderer relocation", () => {
     });
 
     it("wandererRelocationSector picks a different, in-range sector deterministically", () => {
-        for (let from = 1; from <= 60; from++) {
+        for (let from = 1; from <= MAX_WILD_SECTOR; from++) {
             const dest = wandererRelocationSector("w-7-5000-0", from);
-            assert.ok(dest >= 1 && dest <= 60, `dest ${dest} in range`);
+            assert.ok(dest >= 1 && dest <= MAX_WILD_SECTOR, `dest ${dest} in range`);
             assert.notEqual(dest, from, "never relocates to the same sector");
+        }
+        for (const from of [60, 61, 66]) {
+            const dest = wandererRelocationSector(`w-${from}-5000-0`, from);
+            assert.ok(dest >= 1 && dest <= MAX_WILD_SECTOR);
+            assert.notEqual(dest, from);
         }
         // deterministic
         assert.equal(wandererRelocationSector("w-7-5000-0", 12), wandererRelocationSector("w-7-5000-0", 12));

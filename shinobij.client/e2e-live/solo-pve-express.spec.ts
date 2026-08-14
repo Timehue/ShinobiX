@@ -7,7 +7,7 @@ type Session = {
     winner: 'player' | 'enemy' | 'draw' | null;
     outcome?: 'win' | 'loss' | 'fled' | 'draw' | null;
     activeSide: 'player' | 'enemy';
-    player: { pos: number; hp: number; character?: { jutsu?: Array<{ id?: string }> } };
+    player: { pos: number; hp: number; maxHp: number; character?: { jutsu?: Array<{ id?: string }> } };
     enemy: { pos: number; hp: number };
     environment: { blockedTiles: number[] };
 };
@@ -44,7 +44,7 @@ function distance(a: number, b: number): number {
     ) / 2;
 }
 
-async function seedAccount(request: APIRequestContext, testInfo: TestInfo, options: { equipFlicker?: boolean } = {}) {
+async function seedAccount(request: APIRequestContext, testInfo: TestInfo, options: { hp?: number; equipFlicker?: boolean } = {}) {
     const suffix = testInfo.project.name.includes('mobile') ? 'mobile' : 'desktop';
     const journey = testInfo.title.toLowerCase().includes('flee')
         ? 'flee'
@@ -73,7 +73,7 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, optio
             genjutsuOffense: 10, genjutsuDefense: 10,
             ninjutsuOffense: 10, ninjutsuDefense: 10,
         },
-        hp: 100, maxHp: 100,
+        hp: options.hp ?? 100, maxHp: 100,
         chakra: 100, maxChakra: 100,
         stamina: 100, maxStamina: 100,
         onboardingStep: 'done',
@@ -86,11 +86,56 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, optio
         pendingCombatMissionClaims: [],
         dailyMissionsCompleted: 0,
     };
-    const seeded = await request.post(`/api/save/${name}?signal=1`, {
+    // This brand-new disposable account has no mounted client to reload. Setting
+    // signal=1 here would make its first heartbeat report forceReload and create
+    // an artificial protected-draft conflict during a later hospital/reload path.
+    const seeded = await request.post(`/api/save/${name}`, {
         headers: { 'x-admin-password': 'live-express-e2e-admin' },
         data: { character, currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
     });
     expect(seeded.status()).toBe(200);
+    const canonicalResponse = await request.get(`/api/save/${name}`, {
+        headers: { 'x-player-name': name, 'x-player-token': token },
+    });
+    expect(canonicalResponse.status()).toBe(200);
+    const canonical = await canonicalResponse.json() as Record<string, unknown> & {
+        character: Record<string, unknown>;
+        _saveVersion: number;
+    };
+    expect(Number.isSafeInteger(canonical._saveVersion)).toBe(true);
+    const requestedHp = options.hp ?? Number(canonical.character.hp);
+    const exactSeedPayload: Record<string, unknown> = {
+        ...canonical,
+        character: { ...canonical.character, hp: requestedHp },
+        _baseSaveVersion: canonical._saveVersion,
+    };
+    delete exactSeedPayload._saveVersion;
+    delete exactSeedPayload._saveAt;
+    const exactSeed = await request.post(`/api/save/${name}`, {
+        headers: { 'x-player-name': name, 'x-player-token': token },
+        data: exactSeedPayload,
+    });
+    expect(exactSeed.status()).toBe(200);
+    const exactSeedAcknowledgement = await exactSeed.json() as Record<string, unknown>;
+    expect(exactSeedAcknowledgement.ok).toBe(true);
+    expect(Number(exactSeedAcknowledgement._saveVersion)).toBeGreaterThan(canonical._saveVersion);
+    const exactSeedVerification = await request.get(`/api/save/${name}`, {
+        headers: { 'x-player-name': name, 'x-player-token': token },
+    });
+    expect(exactSeedVerification.status()).toBe(200);
+    const exactSnapshot = await exactSeedVerification.json() as Record<string, unknown> & {
+        character: Record<string, unknown>;
+        _saveVersion: number;
+    };
+    expect(exactSnapshot._saveVersion).toBe(exactSeedAcknowledgement._saveVersion);
+    expect(Number(exactSnapshot.character.hp)).toBe(requestedHp);
+    expect(Number(exactSnapshot.character.hp)).toBeLessThanOrEqual(Number(exactSnapshot.character.maxHp));
+    const heartbeat = await request.post('/api/player/heartbeat', {
+        headers: { 'x-player-name': name, 'x-player-token': token },
+        data: { name, sector: 40, character: { name, level: 1, village: 'Ember' } },
+    });
+    expect(heartbeat.status()).toBe(200);
+    expect((await heartbeat.json()).forceReload).not.toBe(true);
     return { name, token, password };
 }
 
@@ -101,6 +146,31 @@ async function installSession(page: Page, name: string, token: string) {
         localStorage.setItem('shinobix:activePlayerPersist', player);
         localStorage.setItem('shinobix:activeTokenPersist', sessionToken);
     }, { player: name, sessionToken: token });
+}
+
+async function openMissionHall(page: Page): Promise<void> {
+    let networkChangedChunk = false;
+    const onRequestFailed = (request: import('@playwright/test').Request) => {
+        const url = new URL(request.url());
+        const appOrigin = new URL(request.frame().url() === 'about:blank' ? request.url() : request.frame().url()).origin;
+        if (
+            url.origin === appOrigin
+            && /^\/assets\/[^/]+\.js$/.test(url.pathname)
+            && request.failure()?.errorText === 'net::ERR_NETWORK_CHANGED'
+        ) networkChangedChunk = true;
+    };
+    page.on('requestfailed', onRequestFailed);
+    try {
+        await page.goto('/#/missions', { waitUntil: 'networkidle' });
+        const hall = page.getByRole('heading', { name: 'Mission Hall' });
+        if (!(await hall.isVisible().catch(() => false)) && networkChangedChunk) {
+            networkChangedChunk = false;
+            await page.reload({ waitUntil: 'networkidle' });
+        }
+        await expect(hall).toBeVisible();
+    } finally {
+        page.off('requestfailed', onRequestFailed);
+    }
 }
 
 async function browserApi(page: Page, path: string, body: Record<string, unknown>): Promise<JsonResponse> {
@@ -119,6 +189,81 @@ async function browserGet(page: Page, path: string): Promise<JsonResponse> {
         const response = await fetch(endpoint);
         return { status: response.status, body: await response.json().catch(() => ({})) };
     }, path);
+}
+
+async function fleeThroughVisibleMissionClient(
+    page: Page,
+    playerName: string,
+    runId: string,
+    initial: Session,
+): Promise<{ session: Session; character: Record<string, unknown>; saveVersion: number }> {
+    // The visible client must own these actions. Calling /solo-pve/action from
+    // page.evaluate leaves MissionArenaFight on its pre-action session, so its
+    // terminal outcome effect never replays /pve/fight-outcome and never adopts
+    // the authoritative character + save version before a reload.
+    const outcomeResponsePromise = page.waitForResponse((response) =>
+        response.url().includes('/api/pve/fight-outcome')
+        && response.request().method() === 'POST',
+    );
+    let session = initial;
+    let attempts = 0;
+    while (session.status === 'active' && attempts < 20) {
+        const actionResponsePromise = page.waitForResponse((response) =>
+            response.url().includes('/api/solo-pve/action')
+            && response.request().method() === 'POST',
+        );
+        await page.getByRole('button', { name: /^Flee\b/ }).click();
+        const actionResponse = await actionResponsePromise;
+        expect(actionResponse.status()).toBe(200);
+        const request = actionResponse.request().postDataJSON() as Record<string, unknown>;
+        expect(request.playerName).toBe(playerName);
+        expect(request.sessionId).toBe(runId);
+        expect(request.type).toBe('flee');
+        expect(request.expectedVersion).toBe(session.version);
+        const result = await actionResponse.json() as { applied?: boolean; session?: Session };
+        expect(result.applied).toBe(true);
+        expect(result.session).toBeTruthy();
+        session = result.session!;
+        attempts += 1;
+    }
+    expect(attempts).toBeGreaterThan(0);
+    expect(session.status).toBe('done');
+
+    // Terminal action reconciliation is already durable on the server. The UI's
+    // explicit outcome request must replay that receipt, then atomically adopt
+    // its full character + version just like the production component does.
+    const outcomeResponse = await outcomeResponsePromise;
+    expect(outcomeResponse.status()).toBe(200);
+    const outcome = await outcomeResponse.json() as Record<string, unknown>;
+    expect(outcome.ok).toBe(true);
+    expect(outcome.replayed).toBe(true);
+    expect(outcome.character).toBeTruthy();
+    const authoritativeCharacter = outcome.character as Record<string, unknown>;
+    const adoptedVersion = Number(outcome._saveVersion);
+    expect(Number.isSafeInteger(adoptedVersion)).toBe(true);
+    expect(adoptedVersion).toBeGreaterThan(0);
+
+    // Prove the App adopted the pair, rather than merely observing the HTTP
+    // response: its next successful full save must echo that version (or newer)
+    // as the optimistic-concurrency base before this test is allowed to reload.
+    const adoptionSaveResponse = await page.waitForResponse(async (response) => {
+        const url = new URL(response.url());
+        if (
+            url.pathname !== `/api/save/${playerName.toLowerCase()}`
+            || url.search !== ''
+            || response.request().method() !== 'POST'
+            || response.status() !== 200
+        ) return false;
+        const payload = response.request().postDataJSON() as Record<string, unknown>;
+        if (Number(payload._baseSaveVersion) < adoptedVersion) return false;
+        const acknowledgement = await response.json().catch(() => null) as Record<string, unknown> | null;
+        return acknowledgement?.ok === true
+            && Number.isSafeInteger(Number(acknowledgement._saveVersion))
+            && Number(acknowledgement._saveVersion) >= adoptedVersion;
+    }, { timeout: 20_000 });
+    const adoptionSave = await adoptionSaveResponse.json() as Record<string, unknown>;
+    expect(Number(adoptionSave._saveVersion)).toBeGreaterThanOrEqual(adoptedVersion);
+    return { session, character: authoritativeCharacter, saveVersion: adoptedVersion };
 }
 
 async function playToTerminal(page: Page, playerName: string, initial: Session): Promise<Session> {
@@ -262,10 +407,11 @@ test('real built client completes and recovers a server-owned combat mission', a
         }
     };
 
-    const { name, token, password } = await seedAccount(request, testInfo);
+    // Begin below max so this scenario always exercises surviving-HP authority;
+    // the E-rank opponent can deterministically lose without landing a hit.
+    const { name, token, password } = await seedAccount(request, testInfo, { hp: 20 });
     await installSession(page, name, token);
-    await page.goto('/#/missions', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
+    await openMissionHall(page);
     await dismissNotices();
 
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
@@ -276,6 +422,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     const started = await startedHttp.json();
     const initial = started.session as Session;
     expect(initial.sessionId).toBe(started.runId);
+    expect(initial.player.hp).toBeLessThan(initial.player.maxHp);
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
 
     const screenshotName = testInfo.project.name.includes('mobile') ? 'mission-mobile.png' : 'mission-desktop.png';
@@ -327,6 +474,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     const terminal = await playToTerminal(page, name, resumed.session as Session);
     expect(terminal.status).toBe('done');
     expect(terminal.winner).toBe('player');
+    expect(terminal.player.hp).toBeLessThan(terminal.player.maxHp);
 
     await hardReload();
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
@@ -365,9 +513,14 @@ test('real built client completes and recovers a server-owned combat mission', a
     await expect(page.getByText(/Return to the Mission Hall to claim your reward/)).toBeVisible();
     const firstSettle = await lostCommit;
     expect(firstSettle.queued).toBe(true);
+    const firstSettledCharacter = firstSettle.character as Record<string, unknown>;
+    expect(Number(firstSettledCharacter.hp)).toBeGreaterThanOrEqual(Number(terminal.player.hp));
+    expect(Number(firstSettledCharacter.hp)).toBeLessThan(Number(firstSettledCharacter.maxHp));
     const retrySettle = await recoveredRetry;
     expect(retrySettle.queued).toBe(true);
     expect(retrySettle.replayed).toBe(true);
+    expect(retrySettle._saveVersion).toBe(firstSettle._saveVersion);
+    expect(Number((retrySettle.character as Record<string, unknown>).hp)).toBe(Number(firstSettledCharacter.hp));
     const resultName = testInfo.project.name.includes('mobile') ? 'mission-result-mobile.png' : 'mission-result-desktop.png';
     await page.locator('.mission-arena-fight').screenshot({ path: testInfo.outputPath(resultName) });
 
@@ -379,6 +532,8 @@ test('real built client completes and recovers a server-owned combat mission', a
     expect(replaySettle.status).toBe(200);
     expect(replaySettle.body.queued).toBe(true);
     expect(replaySettle.body.replayed).toBe(true);
+    expect(replaySettle.body._saveVersion).toBe(firstSettle._saveVersion);
+    expect(Number((replaySettle.body.character as Record<string, unknown>).hp)).toBe(Number(firstSettledCharacter.hp));
 
     await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
@@ -434,10 +589,12 @@ test('real built client records a flee without queueing a mission reward', async
         if (response.url().includes('/api/') && response.status() >= 500) serverFailures.push(`${response.status()} ${response.url()}`);
     });
 
-    const { name, token } = await seedAccount(request, testInfo);
+    // A full-health flee can regenerate its fixed 10% escape cost during the
+    // reload/retry window. Start low enough that every replay still has a real,
+    // observable physical remainder without changing production combat rules.
+    const { name, token } = await seedAccount(request, testInfo, { hp: 20 });
     await installSession(page, name, token);
-    await page.goto('/#/missions', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
+    await openMissionHall(page);
     for (let guard = 0; guard < 3; guard++) {
         const notice = page.getByRole('button', { name: /Got it/ }).last();
         if (!(await notice.isVisible().catch(() => false))) break;
@@ -448,38 +605,47 @@ test('real built client records a flee without queueing a mission reward', async
     const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
     await mission.getByRole('button', { name: /Begin Mission/ }).click();
     const started = await (await startResponse).json() as { runId: string; session: Session };
-    let terminal = started.session;
-    let fleeAttempts = 0;
-    while (terminal.status === 'active' && fleeAttempts < 20) {
-        const fled = await browserApi(page, '/api/solo-pve/action', {
-            playerName: name,
-            sessionId: started.runId,
-            expectedVersion: terminal.version,
-            moveToken: `live-flee-${fleeAttempts}`,
-            type: 'flee',
-        });
-        expect(fled.status).toBe(200);
-        expect(fled.body.applied).toBe(true);
-        terminal = fled.body.session as Session;
-        fleeAttempts += 1;
-    }
-    expect(fleeAttempts).toBeGreaterThan(0);
-    expect(terminal.status).toBe('done');
+    expect(started.session.player.hp).toBe(20);
+    expect(started.session.player.hp).toBeLessThan(started.session.player.maxHp);
+    const authoritativeOutcome = await fleeThroughVisibleMissionClient(page, name, started.runId, started.session);
+    const terminal = authoritativeOutcome.session;
     expect(['fled', 'loss']).toContain(terminal.outcome);
 
+    // Assert the exact physical remainder at the authoritative acknowledgement
+    // boundary. A later full-save wait intentionally allows ordinary village
+    // regeneration to tick, but it may never erase or refill this combat cost.
+    const authoritativeHp = Number(authoritativeOutcome.character.hp);
+    const authoritativeReceipts = (authoritativeOutcome.character.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
+        .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId);
+    expect(authoritativeReceipts).toHaveLength(1);
+    if (terminal.player.hp <= 0) {
+        expect(authoritativeOutcome.character.hospitalized).toBe(true);
+        expect(authoritativeHp).toBe(0);
+    } else {
+        expect(authoritativeHp).toBe(Math.max(1, Number(terminal.player.hp)));
+    }
+    expect(authoritativeHp).toBeLessThan(Number(authoritativeOutcome.character.maxHp));
+
     // The terminal action route reconciles the physical outcome before it
-    // acknowledges completion. Assert the exact combat remainder here, before
-    // the ordinary one-HP-per-second village regeneration resumes.
+    // acknowledges completion. After the proven client adoption/full-save above,
+    // regeneration may have advanced HP, but the same receipt and cost survive.
     const immediatelySettled = await browserGet(page, `/api/save/${name}`);
     const immediatelySettledCharacter = immediatelySettled.body.character as Record<string, unknown>;
+    const immediatelySettledVersion = Number(immediatelySettled.body._saveVersion);
+    const immediateHp = Number(immediatelySettledCharacter.hp);
+    const immediateReceipts = (immediatelySettledCharacter.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
+        .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId);
+    expect(Number.isSafeInteger(immediatelySettledVersion)).toBe(true);
+    expect(immediatelySettledVersion).toBeGreaterThanOrEqual(authoritativeOutcome.saveVersion);
+    expect(immediateReceipts).toHaveLength(1);
+    expect(immediateReceipts[0]).toEqual(authoritativeReceipts[0]);
     if (terminal.player.hp <= 0) {
         expect(immediatelySettledCharacter.hospitalized).toBe(true);
-        expect(Number(immediatelySettledCharacter.hp)).toBe(0);
+        expect(immediateHp).toBe(0);
     } else {
-        expect(Number(immediatelySettledCharacter.hp)).toBe(Math.max(1, Number(terminal.player.hp)));
+        expect(immediateHp).toBeGreaterThanOrEqual(authoritativeHp);
     }
-    expect((immediatelySettledCharacter.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
-        .some((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId)).toBe(true);
+    expect(immediateHp).toBeLessThan(Number(immediatelySettledCharacter.maxHp));
 
     navigationInProgress = true;
     try {
@@ -492,9 +658,41 @@ test('real built client records a flee without queueing a mission reward', async
     // releases the player. Exercise that real recovery path instead of assuming
     // every flee leaves enough HP to return directly to Mission Hall.
     const hospital = page.getByRole('heading', { name: 'Village Hospital' });
+    let dischargedAuthority: {
+        saveVersion: number;
+        hp: number;
+        maxHp: number;
+        receipt: Record<string, unknown>;
+    } | null = null;
     if (await hospital.isVisible().catch(() => false)) {
         await expect(hospital).toBeHidden({ timeout: 70_000 });
-        await page.goto('/#/missions', { waitUntil: 'networkidle' });
+        const discharged = await browserGet(page, `/api/save/${name}`);
+        expect(discharged.status).toBe(200);
+        const dischargedCharacter = discharged.body.character as Record<string, unknown>;
+        const dischargedVersion = Number(discharged.body._saveVersion);
+        const dischargedHp = Number(dischargedCharacter.hp);
+        const dischargedMaxHp = Number(dischargedCharacter.maxHp);
+        const dischargedReceipts = (dischargedCharacter.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
+            .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId);
+        expect(Number.isSafeInteger(dischargedVersion)).toBe(true);
+        expect(dischargedVersion).toBeGreaterThan(immediatelySettledVersion);
+        expect(dischargedCharacter.hospitalized).toBe(false);
+        expect(dischargedHp).toBe(dischargedMaxHp);
+        expect(dischargedReceipts).toHaveLength(1);
+        expect(dischargedReceipts[0]).toEqual(immediateReceipts[0]);
+        dischargedAuthority = {
+            saveVersion: dischargedVersion,
+            hp: dischargedHp,
+            maxHp: dischargedMaxHp,
+            receipt: dischargedReceipts[0],
+        };
+
+        // Hospital discharge returns the real client to Village. Continue through
+        // the same visible navigation a player uses; changing only location.hash
+        // does not dispatch this app's screen transition after boot.
+        const enterMissionHall = page.getByRole('button', { name: 'Enter Mission Hall' });
+        await expect(enterMissionHall).toBeVisible();
+        await enterMissionHall.click();
     }
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
     let outcomeRequestCount = 0;
@@ -522,8 +720,32 @@ test('real built client records a flee without queueing a mission reward', async
     await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
     expect((await (await resumedResponse).json()).runId).toBe(started.runId);
     await expect(page.getByRole('heading', { name: 'Defeat' })).toBeVisible();
-    expect((await lostOutcome).replayed).toBe(true);
-    expect((await recoveredOutcome).replayed).toBe(true);
+    const lostReplay = await lostOutcome;
+    const recoveredReplay = await recoveredOutcome;
+    expect(lostReplay.replayed).toBe(true);
+    expect(recoveredReplay.replayed).toBe(true);
+    const replayBodies = [lostReplay, recoveredReplay];
+    for (const replay of replayBodies) {
+        const replayCharacter = replay.character as Record<string, unknown>;
+        const replayHp = Number(replayCharacter.hp);
+        const replayReceipts = (replayCharacter.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
+            .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId);
+        expect(Number(replay._saveVersion)).toBeGreaterThanOrEqual(immediatelySettledVersion);
+        expect(replayReceipts).toHaveLength(1);
+        expect(replayReceipts[0]).toEqual(immediateReceipts[0]);
+        if (dischargedAuthority) {
+            expect(Number(replay._saveVersion)).toBeGreaterThanOrEqual(dischargedAuthority.saveVersion);
+            expect(replayCharacter.hospitalized).toBe(false);
+            expect(replayHp).toBe(dischargedAuthority.hp);
+            expect(Number(replayCharacter.maxHp)).toBe(dischargedAuthority.maxHp);
+            expect(replayReceipts[0]).toEqual(dischargedAuthority.receipt);
+        } else {
+            expect(replayHp).toBeGreaterThanOrEqual(immediateHp);
+            expect(replayHp).toBeLessThan(Number(replayCharacter.maxHp));
+        }
+    }
+    expect(recoveredReplay._saveVersion).toBe(lostReplay._saveVersion);
+    expect(recoveredReplay.character).toEqual(lostReplay.character);
     expect(outcomeRequestCount).toBe(2);
 
     const refusedClaim = await browserApi(page, '/api/missions/queue-combat-claim', {
@@ -535,19 +757,26 @@ test('real built client records a flee without queueing a mission reward', async
     expect(refusedClaim.body.reason).toBe('not-won');
     const persisted = await browserGet(page, `/api/save/${name}`);
     const character = persisted.body.character as Record<string, unknown>;
+    const replayHpFloor = Math.max(immediateHp, ...replayBodies.map((body) => Number((body.character as Record<string, unknown>).hp)));
     expect(Number(character.ryo)).toBe(100);
-    if (terminal.player.hp <= 0) {
+    if (dischargedAuthority) {
+        expect(character.hospitalized).toBe(false);
+        expect(Number(character.hp)).toBe(dischargedAuthority.hp);
+        expect(Number(character.maxHp)).toBe(dischargedAuthority.maxHp);
+    } else if (terminal.player.hp <= 0) {
         expect(character.hospitalized).toBe(true);
         expect(Number(character.hp)).toBe(0);
     } else {
         // A reload plus the injected retry takes long enough for normal village
         // regeneration to tick. It may raise HP, but must never resurrect the
         // player to the newly-derived maximum as the old load normalizer did.
-        expect(Number(character.hp)).toBeGreaterThanOrEqual(Math.max(1, Number(terminal.player.hp)));
+        expect(Number(character.hp)).toBeGreaterThanOrEqual(Math.max(1, Number(terminal.player.hp), replayHpFloor));
         expect(Number(character.hp)).toBeLessThan(Number(character.maxHp));
     }
-    expect((character.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
-        .some((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId)).toBe(true);
+    const finalReceipts = (character.serverSettlementReceipts as Array<Record<string, unknown> & { value?: { kind?: string; runId?: string } }> ?? [])
+        .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === started.runId);
+    expect(finalReceipts).toHaveLength(1);
+    expect(finalReceipts[0]).toEqual(immediateReceipts[0]);
     expect(Array.isArray(character.pendingCombatMissionClaims) ? character.pendingCombatMissionClaims : []).not.toContain('combat-e-drill');
     await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();

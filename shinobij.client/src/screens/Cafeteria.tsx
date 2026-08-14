@@ -1,15 +1,15 @@
 import { useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { buyCafeteriaMeal, CAFETERIA_MEALS, type CafeteriaMealId } from "../lib/cafeteria";
 
 export function Cafeteria({
     character,
-    updateCharacter,
+    onVersionedCharacter,
     onBack,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     onBack: () => void;
 }) {
     const [busyMeal, setBusyMeal] = useState<CafeteriaMealId | null>(null);
@@ -30,7 +30,7 @@ export function Cafeteria({
             alert(res.error ?? "The cafeteria is too busy right now.");
             return;
         }
-        updateCharacter(res.character);
+        if (!onVersionedCharacter(res.character, res._saveVersion)) return;
         alert(`${res.meal?.name ?? meal.name} restored your resources.`);
     }
 

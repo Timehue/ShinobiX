@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { before, beforeEach, describe, test } from 'node:test';
-import { isDeepStrictEqual } from 'node:util';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
 import type { CombatJutsu } from './types.js';
@@ -28,12 +27,6 @@ before(async () => {
         if (options?.nx && store.has(key)) return null;
         store.set(key, clone(value));
         return 'OK' as const;
-    };
-    kv.compareSet = async (key: string, expected: unknown | null, value: unknown) => {
-        const current = store.has(key) ? store.get(key) : null;
-        if (!isDeepStrictEqual(current, expected)) return false;
-        store.set(key, clone(value));
-        return true;
     };
     kv.del = async (...keys: string[]) => keys.reduce((count, key) => count + (store.delete(key) ? 1 : 0), 0);
     kv.delIfEqual = async (key: string, expected: string) => {

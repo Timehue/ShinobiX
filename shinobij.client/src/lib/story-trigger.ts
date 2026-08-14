@@ -12,8 +12,10 @@
 
 import type { Character } from "../types/character";
 import type { CreatorEvent, StoryStep } from "../types/vn";
-import { storylines, villageBiomeMap, getCurrentStory } from "../data/storylines";
-import { storyInterludesByVillage, type StoryInterlude } from "../data/story-interludes";
+import { villageBiomeMap } from "../data/village-biomes";
+import type { StoryInterlude } from "../data/story-interludes";
+import { isStoryContentVillage, type StoryContentPayload } from "./story-content-contract";
+import { loadStoryContent } from "./story-content-loader";
 
 // Post-finale ending epilogues live in their own module; re-exported here so
 // App.tsx keeps a single story-beat import surface (and its line ratchet).
@@ -52,12 +54,12 @@ export function storyToCreatorEvent(step: StoryStep, village: string, index: num
     };
 }
 
-export function interludeToCreatorEvent(interlude: StoryInterlude): CreatorEvent {
+export function interludeToCreatorEvent(interlude: StoryInterlude, bossIcon = "📜"): CreatorEvent {
     return {
         id: interlude.id,
         name: `${interlude.village}: ${interlude.title}`,
         biome: villageBiomeMap[interlude.village] ?? "central",
-        icon: storylines[interlude.village]?.[0]?.bossIcon ?? "📜",
+        icon: bossIcon,
         eventKind: "visualNovel",
         trigger: "manual",
         vnTitle: interlude.title,
@@ -102,9 +104,10 @@ export type StoryTriggerCandidate = {
 
 /** The choice trait this character recorded for an interlude, or null if the
  *  scene has not been decided yet (skipped scenes leave no trait). */
-export function interludeChosenTrait(character: Character, interludeId: string): string | null {
+export function interludeChosenTraitFromContent(character: Character, content: StoryContentPayload, interludeId: string): string | null {
     const village = character.storyVillage || character.village;
-    const interlude = (storyInterludesByVillage[village] ?? []).find((entry) => entry.id === interludeId);
+    if (content.village !== village) return null;
+    const interlude = content.interludes.find((entry) => entry.id === interludeId);
     if (!interlude) return null;
     const lastPage = interlude.pages[interlude.pages.length - 1];
     const choiceTraits = (lastPage?.choices ?? []).map((choice) => choice.trait).filter(Boolean);
@@ -125,13 +128,14 @@ export function interludeChosenTrait(character: Character, interludeId: string):
  * refresh). `dismissed` is the caller's session-only skip list, so a refresh
  * re-offers a skipped scene instead of losing it forever.
  */
-export function nextStoryTrigger(character: Character, triggeredEvents: string[], dismissed: readonly string[] = []): StoryTriggerCandidate | null {
+export function nextStoryTriggerFromContent(character: Character, content: StoryContentPayload, triggeredEvents: string[], dismissed: readonly string[] = []): StoryTriggerCandidate | null {
     const village = character.storyVillage || character.village;
+    if (content.village !== village) return null;
+    const storyLine = content.chapters;
 
     let milestone: StoryTriggerCandidate | null = null;
-    const step = getCurrentStory(character);
+    const step = storyLine[character.storyProgress] ?? null;
     if (step && character.level >= step.levelReq) {
-        const storyLine = storylines[village] || [];
         const index = storyLine.findIndex((s) => s.levelReq === step.levelReq);
         if (index >= 0) {
             const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
@@ -143,18 +147,34 @@ export function nextStoryTrigger(character: Character, triggeredEvents: string[]
 
     let interlude: StoryTriggerCandidate | null = null;
     const owned = character.storyTraits ?? [];
-    for (const entry of storyInterludesByVillage[village] ?? []) {
+    for (const entry of content.interludes) {
         if (character.level < entry.levelReq) continue;
         if ((character.storyProgress ?? 0) < entry.minProgress) continue;
         if (triggeredEvents.includes(entry.id) || dismissed.includes(entry.id)) continue;
         const lastChoices = entry.pages[entry.pages.length - 1].choices ?? [];
         if (lastChoices.some((choice) => choice.trait && owned.includes(choice.trait))) continue;
-        interlude = { eventId: entry.id, base: interludeToCreatorEvent(entry), returnScreen: "current" };
+        interlude = { eventId: entry.id, base: interludeToCreatorEvent(entry, storyLine[0]?.bossIcon), returnScreen: "current" };
         break;
     }
 
     if (milestone && interlude) return milestone.base.levelReq <= interlude.base.levelReq ? milestone : interlude;
     return milestone ?? interlude;
+}
+
+async function contentFor(character: Character): Promise<StoryContentPayload | null> {
+    const village = character.storyVillage || character.village;
+    if (!isStoryContentVillage(village)) return null;
+    return loadStoryContent(village);
+}
+
+export async function nextStoryTrigger(character: Character, triggeredEvents: string[], dismissed: readonly string[] = []): Promise<StoryTriggerCandidate | null> {
+    const content = await contentFor(character);
+    return content ? nextStoryTriggerFromContent(character, content, triggeredEvents, dismissed) : null;
+}
+
+export async function interludeChosenTrait(character: Character, interludeId: string): Promise<string | null> {
+    const content = await contentFor(character);
+    return content ? interludeChosenTraitFromContent(character, content, interludeId) : null;
 }
 
 /**
@@ -164,7 +184,7 @@ export function nextStoryTrigger(character: Character, triggeredEvents: string[]
  * nothing. authFetch's global interceptor attaches the auth headers.
  */
 export async function reportStoryInterlude(character: Character, interludeId: string): Promise<void> {
-    const trait = interludeChosenTrait(character, interludeId);
+    const trait = await interludeChosenTrait(character, interludeId);
     if (!trait) return;
     const post = async (): Promise<string> => {
         const res = await fetch("/api/story/interlude", {

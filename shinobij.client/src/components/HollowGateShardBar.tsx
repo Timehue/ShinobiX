@@ -5,7 +5,7 @@
  * catalog/availability projection lives in lib/hollow-gate-shards; all spend and
  * gameplay effects are committed by the server-owned run endpoint.
  */
-import type { Character, HollowGateShrineRun } from "../types/character";
+import type { Character, HollowGateShrineRun, VersionedCharacterCommit } from "../types/character";
 import { HOLLOW_SHARD_CONSUMABLES, shardConsumableAvailable } from "../lib/hollow-gate-shards";
 import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
 
@@ -13,11 +13,11 @@ type Props = {
     run: HollowGateShrineRun;
     character: Character;
     setRun: (r: HollowGateShrineRun) => void;
-    setCharacter: (c: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     pushLog: (line: string) => void;
 };
 
-export function HollowGateShardBar({ run, character, setRun, setCharacter, pushLog }: Props) {
+export function HollowGateShardBar({ run, character, setRun, onVersionedCharacter, pushLog }: Props) {
     const shards = character.hollowShards ?? 0;
 
     async function use(id: string) {
@@ -51,7 +51,7 @@ export function HollowGateShardBar({ run, character, setRun, setCharacter, pushL
             entryCurrencies: result.entryCurrencies ?? run.entryCurrencies,
             ...(result.runState.divinerUsed ? { tiles: run.tiles.map((tile) => ({ ...tile, revealed: true })) } : {}),
         };
-        setCharacter({ ...result.character, hollowGateRun: nextRun });
+        if (!onVersionedCharacter({ ...result.character, hollowGateRun: nextRun }, result._saveVersion)) return;
         setRun(nextRun);
         const consumable = HOLLOW_SHARD_CONSUMABLES.find((entry) => entry.id === id);
         pushLog(`${consumable?.label ?? "Shrine relic"} answers the server-sealed run.`);

@@ -70,3 +70,15 @@ test("CreatorEvent conversion: zero rewards, battles only where authored", () =>
     }
     assert.ok(battles > 0, "at least some road events end in a fight");
 });
+
+test("the shared-shrine road story uses shinobi-world civilian language", () => {
+    const shrine = storyRoadEvents.find((event) => event.slug === "shrine-of-two-flags");
+    assert.ok(shrine);
+    const playerFacingCopy = [
+        shrine.title,
+        ...shrine.pages.flatMap((page) => [page.title, page.scene, ...page.dialogue, ...(page.choices ?? []).map((choice) => `${choice.text} ${choice.conclusion}`)]),
+    ].join(" ");
+    assert.doesNotMatch(playerFacingCopy, /\bpilgrims?\b/i);
+    assert.match(playerFacingCopy, /passing shinobi/);
+    assert.match(playerFacingCopy, /civilians/);
+});

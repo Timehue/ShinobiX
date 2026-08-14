@@ -70,15 +70,7 @@ export function kickPlayer(name: string | undefined | null, reason: 'attack' | '
     }
 }
 
-/**
- * Push a non-sensitive Tower revision hint to authenticated player rooms.
- *
- * The durable HTTP party/state endpoints remain authoritative. The socket event
- * deliberately contains no roster, invite code, combat snapshot, or save data;
- * clients reconcile the hinted channel with their normal authenticated fetch.
- * This also makes a dropped socket event harmless because bounded HTTP fallback
- * polling can recover the same revision later.
- */
+/** Publish only a revision hint; clients refetch authenticated Tower authority. */
 export function kickTowerPlayers(
     names: Iterable<string | undefined | null>,
     payload: TowerRealtimeKick,

@@ -1,7 +1,23 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
-import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightGate } from "./save-flight";
+import {
+    SAVE_FAILURE_BANNER_THRESHOLD,
+    createSaveFlightCoordinator,
+    createSaveFlightGate,
+    isCurrentSavePayloadRevision,
+    nextSavePayloadRevision,
+} from "./save-flight";
+
+function deferred<T>() {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
 
 describe("autosave single-flight gate", () => {
     it("runs the first save and defers an overlapping one", async () => {
@@ -46,41 +62,202 @@ describe("autosave single-flight gate", () => {
     });
 });
 
-describe("autosave wiring in App.tsx", () => {
-    const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+describe("save-flight coordinator", () => {
+    it("defers a disposable autosave instead of queueing its stale snapshot", async () => {
+        const coordinator = createSaveFlightCoordinator();
+        const release = deferred<void>();
+        let autosavesRun = 0;
 
-    it("gates persistSave and re-arms the dirty flag when deferring", () => {
-        // Re-arming dirty is what makes deferral safe: the next tick sends the CURRENT
-        // snapshot instead of the stale one this call was holding.
-        assert.match(
-            appSource,
-            /if \(saveFlightRef\.current\.busy\(\)\) \{ charDirtyRef\.current = true; return; \}/,
-            "persistSave must defer (and stay dirty) while another save is in flight",
-        );
-        assert.match(appSource, /return saveFlightRef\.current\.run\(async \(\) => \{/);
+        const required = coordinator.runRequired(async () => {
+            await release.promise;
+            return "durable";
+        });
+        assert.equal(coordinator.busy(), true);
+
+        const deferredResult = await coordinator.runAutosave(async () => {
+            autosavesRun += 1;
+            return "stale";
+        });
+        assert.deepEqual(deferredResult, { status: "deferred" });
+        assert.equal(autosavesRun, 0, "a deferred autosave body must never run later");
+
+        release.resolve();
+        assert.deepEqual(await required, { status: "completed", value: "durable" });
+        assert.equal(coordinator.busy(), false);
     });
 
-    it("adopts every mutation-response save version monotonically", () => {
+    it("queues a required save behind active work and waits for its own completion", async () => {
+        const coordinator = createSaveFlightCoordinator();
+        const releaseAutosave = deferred<void>();
+        const releaseRequired = deferred<void>();
+        const order: string[] = [];
+
+        const autosave = coordinator.runAutosave(async () => {
+            order.push("autosave:start");
+            await releaseAutosave.promise;
+            order.push("autosave:end");
+            return "autosaved";
+        });
+        const required = coordinator.runRequired(async () => {
+            order.push("required:start");
+            await releaseRequired.promise;
+            order.push("required:end");
+            return "saved-now";
+        });
+
+        assert.deepEqual(order, ["autosave:start"]);
+        assert.equal(coordinator.pendingRequired(), 1);
+        let requiredSettled = false;
+        void required.finally(() => { requiredSettled = true; });
+
+        releaseAutosave.resolve();
+        assert.deepEqual(await autosave, { status: "completed", value: "autosaved" });
+        assert.deepEqual(order, ["autosave:start", "autosave:end", "required:start"]);
+        assert.equal(requiredSettled, false, "required promise must wait for its own write");
+
+        releaseRequired.resolve();
+        assert.deepEqual(await required, { status: "completed", value: "saved-now" });
+        assert.deepEqual(order, ["autosave:start", "autosave:end", "required:start", "required:end"]);
+    });
+
+    it("releases after failure and still runs the next queued required save", async () => {
+        const coordinator = createSaveFlightCoordinator();
+        const releaseFailure = deferred<void>();
+        const order: string[] = [];
+
+        const failed = coordinator.runRequired(async () => {
+            order.push("first:start");
+            await releaseFailure.promise;
+            order.push("first:throw");
+            throw new Error("save unavailable");
+        });
+        const failedAssertion = assert.rejects(failed, /save unavailable/);
+        const recovered = coordinator.runRequired(async () => {
+            order.push("second:start");
+            return "recovered";
+        });
+
+        assert.equal(coordinator.pendingRequired(), 1);
+        releaseFailure.resolve();
+        await failedAssertion;
+        assert.deepEqual(await recovered, { status: "completed", value: "recovered" });
+        assert.deepEqual(order, ["first:start", "first:throw", "second:start"]);
+        assert.equal(coordinator.busy(), false);
+    });
+
+    it("serializes multiple required saves in FIFO order", async () => {
+        const coordinator = createSaveFlightCoordinator();
+        const releases = [deferred<void>(), deferred<void>(), deferred<void>()];
+        const order: string[] = [];
+        let active = 0;
+        let maxActive = 0;
+
+        const saves = releases.map((release, index) => coordinator.runRequired(async () => {
+            active += 1;
+            maxActive = Math.max(maxActive, active);
+            order.push(`${index}:start`);
+            await release.promise;
+            order.push(`${index}:end`);
+            active -= 1;
+            return index;
+        }));
+
+        assert.deepEqual(order, ["0:start"]);
+        assert.equal(coordinator.pendingRequired(), 2);
+        releases[0].resolve();
+        assert.deepEqual(await saves[0], { status: "completed", value: 0 });
+        assert.deepEqual(order, ["0:start", "0:end", "1:start"]);
+        releases[1].resolve();
+        assert.deepEqual(await saves[1], { status: "completed", value: 1 });
+        assert.deepEqual(order, ["0:start", "0:end", "1:start", "1:end", "2:start"]);
+        releases[2].resolve();
+        assert.deepEqual(await saves[2], { status: "completed", value: 2 });
+        assert.equal(maxActive, 1, "required saves must never overlap");
+    });
+});
+
+describe("full save-payload revision", () => {
+    it("detects a non-character payload change during an in-flight write", () => {
+        let revision = 0;
+        const captured = revision;
+        revision = nextSavePayloadRevision(revision); // e.g. mission/biome/travel changed
+        assert.equal(isCurrentSavePayloadRevision(captured, revision), false);
+
+        const nextCapture = revision;
+        assert.equal(isCurrentSavePayloadRevision(nextCapture, revision), true);
+    });
+
+    it("rejects invalid or exhausted revision counters", () => {
+        assert.throws(() => nextSavePayloadRevision(-1), /invalid or exhausted/i);
+        assert.throws(() => nextSavePayloadRevision(1.5), /invalid or exhausted/i);
+        assert.throws(() => nextSavePayloadRevision(Number.MAX_SAFE_INTEGER), /invalid or exhausted/i);
+        assert.equal(isCurrentSavePayloadRevision(Number.NaN, Number.NaN), false);
+    });
+});
+
+describe("save-persistence wiring in App.tsx", () => {
+    const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+
+    it("connects extracted autosaves and in-App required saves to one coordinator", () => {
+        const initialization = appSource.slice(
+            appSource.indexOf("if (!savePersistenceRef.current)"),
+            appSource.indexOf("async function downloadLocalConflictDraft"),
+        );
+        assert.match(initialization, /createSavePersistence\(\{/);
+        assert.match(initialization, /flight: saveFlightRef\.current/);
+        assert.match(initialization, /dirty: charDirtyRef/);
+        assert.match(initialization, /failureCount: saveFailCountRef/);
+        assert.match(appSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
+        assert.ok((appSource.match(/void persistSave\(snap\)/g) ?? []).length >= 3, "every autosave trigger uses the extracted persistence path");
+        assert.match(
+            appSource,
+            /return savePersistenceRef\.current!\.persistRequired\(\(\) => \{/,
+            "immediate saves must queue and be awaited rather than bypassing the coordinator",
+        );
+    });
+
+    it("keeps immediate and mutation-only versions monotonic", () => {
         // A version that can go BACKWARDS guarantees a spurious 409 on the next
         // autosave, and the 409 path applies the server snapshot wholesale.
-        for (const source of ["data._saveVersion", "saveData?._saveVersion", "snapshot.saveVersion"]) {
-            // Plain substring, not a built regex: every character here is literal, so
-            // escaping one would only reintroduce a partial escaper to get wrong.
-            const call = `latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, ${source})`;
-            assert.ok(appSource.includes(call), `${source} must be adopted via adoptSaveVersion`);
-        }
+        assert.match(
+            appSource,
+            /detail\.source !== "full-save"[\s\S]{0,140}acceptExternalSaveVersion\(version, detail\.accountName\)/,
+            "version-only mutation events must use the account-scoped monotonic adopter",
+        );
+        assert.match(
+            appSource,
+            /if \(!commitVersionedCharacter\(state\.character, state\._saveVersion\)\) return false;/,
+            "mission state receipts must adopt their character and save version atomically",
+        );
+        const persistenceSource = readFileSync(new URL("./save-persistence.ts", import.meta.url), "utf8");
+        assert.match(
+            persistenceSource,
+            /params\.latestVersion\.current = adoptSaveVersion\(params\.latestVersion\.current, acknowledgement\?\._saveVersion\)/,
+            "autosave and immediate save acknowledgements must use the shared monotonic adopter",
+        );
+        const versionedCommit = appSource.slice(
+            appSource.indexOf("function commitVersionedCharacter"),
+            appSource.indexOf("const {", appSource.indexOf("function commitVersionedCharacter")),
+        );
+        assert.match(versionedCommit, /acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
+        assert.ok(versionedCommit.indexOf("if (!decision.accepted) return false") < versionedCommit.indexOf("latestSaveVersionRef.current = decision.latestVersion"));
+        assert.ok(versionedCommit.indexOf("installAuthoritativeSaveRef") < versionedCommit.indexOf("setCharacter(nextCharacter)"),
+            "the synchronous save payload ref must be updated before React paints the authoritative character");
+        assert.match(appSource, /commitVersionedCharacter\(reconcileOwnedStarter\(current, result\.character, granted\.id\), result\._saveVersion\)/,
+            "starter entitlement replies must not split version adoption from their reconciled character");
 
         // No mutation reply may assign the ref directly. The remaining direct
         // assignments are full-snapshot adoptions, which replace character state at the
         // same time, so version and state stay consistent.
-        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = data\._saveVersion/);
+        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = data\??\._saveVersion/);
         assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = saveData\._saveVersion/);
-        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = snapshot\.saveVersion/);
+        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = result\.saveVersion/);
+        assert.doesNotMatch(appSource, /latestSaveVersionRef\.current = Math\.max\(latestSaveVersionRef\.current, result\._saveVersion\)/);
     });
 });
 
 describe("save-failure banner threshold", () => {
-    const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    const persistenceSource = readFileSync(new URL("./save-persistence.ts", import.meta.url), "utf8");
 
     it("is low enough to fire during a routine deploy outage", () => {
         // Autosave runs every 15s, so a ~30s outage yields only 2-3 attempts. The old
@@ -97,8 +274,8 @@ describe("save-failure banner threshold", () => {
     it("is used by BOTH the rejection and the network-error path", () => {
         // The catch branch had its own, higher count; if either path keeps a literal the
         // banner stays effectively unreachable on that path.
-        const uses = appSource.match(/saveFailCountRef\.current >= SAVE_FAILURE_BANNER_THRESHOLD/g) ?? [];
+        const uses = persistenceSource.match(/params\.failureCount\.current >= SAVE_FAILURE_BANNER_THRESHOLD/g) ?? [];
         assert.equal(uses.length, 2, "both the HTTP-rejection and network-error paths must use the shared threshold");
-        assert.doesNotMatch(appSource, /saveFailCountRef\.current >= [0-9]/, "no hard-coded streak counts");
+        assert.doesNotMatch(persistenceSource, /failureCount\.current >= [0-9]/, "no hard-coded streak counts");
     });
 });

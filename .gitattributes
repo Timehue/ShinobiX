@@ -7,6 +7,8 @@
 # Keep them LF on Windows as well as CI so checkout alone cannot make them stale.
 docs/generated/*.json text eol=lf
 docs/generated/*.csv text eol=lf
+shinobij.client/src/generated/story-content/*.json text eol=lf
+shinobij.client/src/generated/story-content/*.ts text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

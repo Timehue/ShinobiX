@@ -59,6 +59,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
     }
 
     function previousStep() {
+        if (submitting) return;
         if (stepIndex <= 0) {
             onBack?.();
             return;
@@ -337,7 +338,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
         <section className={`cc-flow ${compact ? "is-compact" : ""}`}>
             <div className="cc-shell">
                 <div className="cc-topline">
-                    <button type="button" className="cc-back-link" onClick={previousStep}>
+                    <button type="button" className="cc-back-link" onClick={previousStep} disabled={submitting}>
                         {stepIndex === 0 ? "Back to Landing" : "Back"}
                     </button>
                     <div className="cc-progress" role="list" aria-label="Character creation progress">
@@ -366,7 +367,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                         )}
                         <div className="cc-actions">
                             {stepIndex > 0 && (
-                                <button type="button" className="cc-secondary" onClick={previousStep}>
+                                <button type="button" className="cc-secondary" onClick={previousStep} disabled={submitting}>
                                     Back
                                 </button>
                             )}

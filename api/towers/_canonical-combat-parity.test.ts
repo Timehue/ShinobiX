@@ -4,6 +4,7 @@ import { v2PoisonOnSpend } from '../_combat-resources.js';
 import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { applyJutsu as applyPvpJutsu } from '../pvp/move.js';
+import { filledDiskTiles } from '../pvp/_aoe.js';
 import { CANONICAL_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
 import type { PvpFighter } from '../pvp/session.js';
 import type { TowerFloor } from './_floor-catalog.js';
@@ -127,7 +128,7 @@ describe('Tower direct-cast canonical tag parity', () => {
             const caster = actor('caster', 'squad', 0, {
                 ai: false,
                 hp: 80_000,
-                statuses: [{ name: 'Wound', rounds: 2, amount: 9, kind: 'negative', source: 'fixture' }],
+                statuses: [{ name: 'Wound', rounds: 2, amount: 9, kind: 'negative' }],
                 character: {
                     specialty: 'Ninjutsu',
                     level: 100,
@@ -137,7 +138,7 @@ describe('Tower direct-cast canonical tag parity', () => {
                 },
             });
             const target = actor('target', 'enemy', 8, {
-                statuses: [{ name: 'Increase Damage Given', rounds: 2, percent: 10, kind: 'positive', source: 'fixture' }],
+                statuses: [{ name: 'Increase Damage Given', rounds: 2, percent: 10, kind: 'positive' }],
                 character: {
                     specialty: 'Ninjutsu',
                     level: 100,
@@ -170,6 +171,92 @@ describe('Tower direct-cast canonical tag parity', () => {
 
         assert.deepEqual(covered, nonPositionalTags);
         assert.equal(covered.length, CANONICAL_TAG_NAMES.length - positional.size);
+    });
+
+    it('classifies stale zero-damage utility records exactly like canonical PvP targeting', () => {
+        const cases: Array<{
+            name: string;
+            jutsu: Parameters<typeof applyPvpJutsu>[2];
+            action: TowerAction;
+            self: boolean;
+        }> = [
+            {
+                name: 'legacy OPPONENT self buff',
+                jutsu: {
+                    id: 'legacy-guard', name: 'Legacy Guard', type: 'Ninjutsu', target: 'OPPONENT',
+                    method: 'SINGLE', effectPower: 0, ap: 40, range: 1,
+                    chakraCost: 20, staminaCost: 10, cooldown: 3,
+                    tags: [{ name: 'Shield', percent: 20 }, { name: 'Increase Damage Given', percent: 15 }],
+                },
+                action: { actorId: 'caster', type: 'jutsu', jutsuId: 'legacy-guard' } as TowerAction,
+                self: true,
+            },
+            {
+                name: 'missing-target self buff',
+                jutsu: {
+                    id: 'legacy-reflect', name: 'Legacy Reflect', type: 'Genjutsu',
+                    method: 'SINGLE', effectPower: 0, ap: 40, range: 0,
+                    chakraCost: 5, staminaCost: 0, cooldown: 2,
+                    tags: [{ name: 'Reflect', percent: 20 }],
+                },
+                action: { actorId: 'caster', type: 'jutsu', jutsuId: 'legacy-reflect' } as TowerAction,
+                self: true,
+            },
+            {
+                name: 'mixed buff and opponent debuff',
+                jutsu: {
+                    id: 'mixed-control', name: 'Mixed Control', type: 'Genjutsu', target: 'OPPONENT',
+                    method: 'SINGLE', effectPower: 0, ap: 40, range: 5,
+                    chakraCost: 0, staminaCost: 0, cooldown: 0,
+                    tags: [{ name: 'Absorb', percent: 20 }, { name: 'Decrease Damage Given', percent: 15 }],
+                },
+                action: { actorId: 'caster', type: 'jutsu', jutsuId: 'mixed-control', targetId: 'target' } as TowerAction,
+                self: false,
+            },
+        ];
+
+        for (const fixture of cases) {
+            const caster = actor('caster', 'squad', 0, {
+                ai: false,
+                character: {
+                    specialty: fixture.jutsu.type,
+                    level: 100,
+                    stats: { ninjutsuOffense: 2_500 },
+                    jutsu: [fixture.jutsu],
+                },
+            });
+            const target = actor('target', 'enemy', 8);
+            const expectedTarget = fixture.self ? caster : target;
+            const reference = applyPvpJutsu(
+                towerActorToPvpFighter(caster),
+                towerActorToPvpFighter(expectedTarget),
+                fixture.jutsu,
+                1,
+                'central',
+                1,
+            );
+            reference.self.chakra = Math.max(0, reference.self.chakra - Number(fixture.jutsu.chakraCost ?? 0));
+            reference.self.stamina = Math.max(0, reference.self.stamina - Number(fixture.jutsu.staminaCost ?? 0));
+            const s = begin([caster, target]);
+            assert.equal(applyAction(s, floor(), fixture.action, makeRng(1)).applied, true, fixture.name);
+            assert.deepEqual(towerReceipt(getActor(s, 'caster')!), fighterReceipt(reference.self), `${fixture.name}: caster`);
+            if (!fixture.self) {
+                assert.deepEqual(towerReceipt(getActor(s, 'target')!), fighterReceipt(reference.opponent), `${fixture.name}: target`);
+            } else {
+                assert.deepEqual(towerReceipt(getActor(s, 'target')!), towerReceipt(target), `${fixture.name}: opponent untouched`);
+            }
+        }
+
+        const noTarget = begin([
+            actor('caster', 'squad', 0, {
+                ai: false,
+                character: { specialty: 'Ninjutsu', level: 100, stats: {}, jutsu: [cases[2]!.jutsu] },
+            }),
+            actor('target', 'enemy', 8),
+        ]);
+        assert.deepEqual(applyAction(noTarget, floor(), {
+            actorId: 'caster', type: 'jutsu', jutsuId: cases[2]!.jutsu.id,
+        }, makeRng(1)), { applied: false, reason: 'no-target' }, 'an opponent-affecting mixed utility never self-casts');
     });
 });
 
@@ -455,7 +542,7 @@ function castBarrier(s: TowerSession): number {
     assert.equal(result.applied, true);
     const status = getActor(s, 'caster')!.statuses.find(entry => canonicalTagName(entry.name) === 'Barrier');
     assert.ok(status);
-    assert.ok(status.source?.startsWith('tower-grid:'), 'only the Tower-stamped coordinate is board authority');
+    assert.ok((status as typeof status & { source?: string }).source?.startsWith('tower-grid:'), 'only the Tower-stamped coordinate is board authority');
     assert.equal(status.rounds, 2);
     assert.ok(Number.isInteger(status.amount));
     return status.amount!;
@@ -554,7 +641,7 @@ describe('Tower-grid Barrier policy', () => {
         const walled = begin([
             actor('caster', 'squad', 0, {
                 ai: false,
-                statuses: [{ name: 'Barrier', source: 'tower-grid:test', rounds: 2, amount: 1, kind: 'positive' }],
+                statuses: [{ name: 'Barrier', source: 'tower-grid:test', rounds: 2, amount: 1, kind: 'positive' } as TowerActor['statuses'][number] & { source: string }],
                 character: {
                     specialty: 'Ninjutsu', level: 100, stats: { ninjutsuOffense: 2_500 },
                     jutsu: [pullJutsu],
@@ -591,6 +678,34 @@ describe('Tower-grid Barrier policy', () => {
         endTurn(s, floor());
         assert.equal(getActor(s, 'caster')!.statuses.some(status => canonicalTagName(status.name) === 'Barrier'), false);
         assert.equal(applyAction(s, floor(), probe, makeRng(7)).applied, true, 'the expired tile becomes legal again');
+    });
+});
+
+describe('EMPTY_GROUND spiral parity', () => {
+    it('creates the canonical radius-two footprint and immediately applies Recoil', () => {
+        const spiral = {
+            id: 'spiral-recoil', name: 'Spiral Recoil', type: 'Genjutsu', element: 'None',
+            ap: 60, range: 10, effectPower: 0, target: 'EMPTY_GROUND',
+            method: 'AOE_SPIRAL', cooldown: 4, tags: [{ name: 'Recoil', percent: 12 }],
+        };
+        const targetTile = 18;
+        const s = begin([
+            actor('caster', 'squad', 0, {
+                ai: false,
+                character: { specialty: 'Genjutsu', level: 100, stats: {}, jutsu: [spiral] },
+            }),
+            actor('target', 'enemy', targetTile),
+        ]);
+        assert.equal(applyAction(s, floor(), {
+            actorId: 'caster', type: 'jutsu', jutsuId: spiral.id, tile: targetTile,
+        }, makeRng(8)).applied, true);
+        assert.equal(s.groundEffects.length, 1);
+        assert.deepEqual(
+            [...s.groundEffects[0]!.tiles].sort((a, b) => a - b),
+            [...filledDiskTiles(targetTile, 2, s.map.width, s.map.height)].sort((a, b) => a - b),
+        );
+        assert.equal(s.groundEffects[0]!.tags.some(tag => canonicalTagName(tag.name) === 'Recoil'), true);
+        assert.equal(getActor(s, 'target')!.statuses.some(status => canonicalTagName(status.name) === 'Recoil'), true);
     });
 });
 

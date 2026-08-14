@@ -212,10 +212,13 @@ export const opponentAffectingTags = [
 // battle screen uses this to decide auto-cast (self) vs arm-then-click-opponent,
 // so a clicked jutsu can't "do nothing" because the client guessed self-target
 // while the server gated it on an in-range opponent.
-export function pvpAffectsOpponent(jutsu: Pick<Jutsu, "effectPower" | "tags">): boolean {
+export function pvpAffectsOpponent(jutsu: {
+    effectPower?: number;
+    tags?: ReadonlyArray<{ name?: string }>;
+}): boolean {
     if ((jutsu.effectPower ?? 0) > 0) return true;
     const set = new Set(opponentAffectingTags);
-    return (jutsu.tags ?? []).some((tag) => set.has(normalizeTagName(tag.name)));
+    return (jutsu.tags ?? []).some((tag) => set.has(normalizeTagName(tag.name ?? "")));
 }
 
 const fixedEffectPowerTags = [...binaryTags, "Push", "Pull"];

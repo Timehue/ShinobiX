@@ -607,7 +607,6 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
-    const source = move?.name ?? `${companion.name} strike`;
     const label = move ? ` uses ${move.name}` : ' strikes';
     if (kind === 'heal') {
         const heal = Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
@@ -623,7 +622,7 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     }
     if (kind === 'buff' || kind === 'haste' || kind === 'absorb' || kind === 'taunt') {
         const status = kind === 'absorb' ? 'Absorb' : kind === 'taunt' ? 'Decrease Damage Taken' : 'Increase Damage Given';
-        addCompanionStatus(companion, { name: status, source, rounds, percent: kind === 'absorb' ? 30 : 25, kind: 'positive' });
+        addCompanionStatus(companion, { name: status, rounds, percent: kind === 'absorb' ? 30 : 25, kind: 'positive' });
         session.log.push(`${companion.name}${label} and steels itself.`);
         return undefined;
     }
@@ -632,17 +631,17 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     session.log.push(`${companion.name}${label} -> ${session.enemy.name} for ${dealt}.`);
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
-            addCompanionStatus(session.enemy, { name: 'Stun', source, rounds: 1, kind: 'negative' }); break;
+            addCompanionStatus(session.enemy, { name: 'Stun', rounds: 1, kind: 'negative' }); break;
         case 'wound':
-            addCompanionStatus(session.enemy, { name: 'Wound', source, rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' }); break;
+            addCompanionStatus(session.enemy, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' }); break;
         case 'dot': case 'burn':
-            addCompanionStatus(session.enemy, { name: 'Poison', source, rounds, percent: 8, kind: 'negative' });
-            if (kind === 'burn') addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', source, rounds, percent: 15, kind: 'negative' });
+            addCompanionStatus(session.enemy, { name: 'Poison', rounds, percent: 8, kind: 'negative' });
+            if (kind === 'burn') addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' });
             break;
         case 'crush': case 'confuse': case 'debuff': case 'slow':
-            addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', source, rounds, percent: kind === 'confuse' ? 40 : 25, kind: 'negative' }); break;
+            addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: kind === 'confuse' ? 40 : 25, kind: 'negative' }); break;
         case 'mark':
-            addCompanionStatus(session.enemy, { name: 'Increase Damage Taken', source, rounds, percent: 20, kind: 'negative' }); break;
+            addCompanionStatus(session.enemy, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' }); break;
         case 'lifesteal':
             if (dealt > 0) companion.hp = Math.min(companion.maxHp, companion.hp + Math.max(1, Math.floor(dealt * 0.5)));
             break;
@@ -1144,7 +1143,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 setFighter(session, side, {
                     ...updated,
                     statuses: addCombatStatus(updated.statuses, {
-                        name: 'Decrease Damage Given', source: item.name ?? 'Combat item', rounds: 1, percent, kind: 'negative',
+                        name: 'Decrease Damage Given', rounds: 1, percent, kind: 'negative',
                     }, { isStackable: (name) => STACKABLE_STATUS.has(name) }),
                 });
                 session.log.push(`Smoke: ${updated.name} also deals ${percent}% less damage for 1 round.`);

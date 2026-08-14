@@ -83,6 +83,28 @@ The Court does not hate people. It improves them into fuel.
   mourners who feel fine, a genius remembered as a hobbyist. Show the edit, not
   the mechanism.
 
+### Ancients, the Withheld, and the hundred Legacies
+
+**The Ancients were people.** The name refers to people who lived during the
+Sunken Court's era. They were not gods, a prehuman species, or spirits waiting
+to inhabit descendants.
+
+**The Withheld refused cession.** They were Ancients who would not surrender a
+defining choice to the Court's extraction process. Their resistance survived
+as one hundred recognizable patterns of action. The hundred glyphs name those
+hundred patterns; shinobi call them **Legacies**.
+
+**A Legacy is repetition, never heredity.** It is not a Bloodline, soul,
+reincarnation, ancestor, gene, or person preserved inside another person. A
+Legacy is recognized when a shinobi freely repeats its pattern through
+witnessed deeds. The Sage and emissaries can name a pattern; they do not put it
+inside anyone, and a player may refuse their reading.
+
+**The cohesion rule.** Combat makes the deed; companions witness it; the
+Chronicle preserves it; a Legacy is the pattern a shinobi chooses to repeat.
+Chronicle cards are portable records of real people, beasts, places, and deeds.
+They never contain the soul or living essence of what they depict.
+
 ---
 
 ## 3. The Player

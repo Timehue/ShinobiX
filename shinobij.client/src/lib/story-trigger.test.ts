@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Character } from "../types/character";
-import { nextStoryTrigger, interludeToCreatorEvent } from "./story-trigger";
+import { nextStoryTriggerFromContent, interludeToCreatorEvent } from "./story-trigger";
 import { storyInterludesByVillage } from "../data/story-interludes";
+import { storylines } from "../data/storylines";
+import { STORY_CONTENT_SCHEMA_VERSION, type StoryContentPayload, type StoryContentVillage } from "./story-content-contract";
 
 // Minimal character stub — nextStoryTrigger only reads these fields.
 function char(level: number, storyProgress: number, village = "Stormveil Village", storyTraits: string[] = []): Character {
@@ -16,60 +18,66 @@ function char(level: number, storyProgress: number, village = "Stormveil Village
     } as unknown as Character;
 }
 
+function next(character: Character, triggeredEvents: string[], dismissed: readonly string[] = []) {
+    const village = (character.storyVillage || character.village) as StoryContentVillage;
+    const content: StoryContentPayload = { schemaVersion: STORY_CONTENT_SCHEMA_VERSION, village, chapters: storylines[village], interludes: storyInterludesByVillage[village] };
+    return nextStoryTriggerFromContent(character, content, triggeredEvents, dismissed);
+}
+
 test("interlude completion semantics: owned choice trait blocks re-fire; session dismissal is honored", () => {
     // Refresh-after-choosing: the trait alone (triggeredEvents lost the id)
     // must block a re-offer, or the player could double-pick a lane.
-    const chosen = nextStoryTrigger(char(20, 2, "Stormveil Village", ["sv20-asked-the-price"]), []);
+    const chosen = next(char(20, 2, "Stormveil Village", ["sv20-asked-the-price"]), []);
     assert.notEqual(chosen?.eventId, "story-interlude-stormveil-village-20");
     // Skipped this session: the dismissed list suppresses the immediate
     // re-offer without consuming the beat.
-    const dismissed = nextStoryTrigger(char(20, 2), [], ["story-interlude-stormveil-village-20"]);
+    const dismissed = next(char(20, 2), [], ["story-interlude-stormveil-village-20"]);
     assert.notEqual(dismissed?.eventId, "story-interlude-stormveil-village-20");
     // Fresh session (no trait, nothing dismissed): the beat is offered again.
-    const fresh = nextStoryTrigger(char(20, 2), []);
+    const fresh = next(char(20, 2), []);
     assert.equal(fresh?.eventId, "story-interlude-stormveil-village-20");
 });
 
 test("fresh character gets the level-4 milestone, not an interlude", () => {
-    const next = nextStoryTrigger(char(4, 0), []);
-    assert.ok(next);
-    assert.equal(next.returnScreen, "storyHall");
-    assert.equal(next.eventId, "story-stormveil-village-4-0");
+    const candidate = next(char(4, 0), []);
+    assert.ok(candidate);
+    assert.equal(candidate.returnScreen, "storyHall");
+    assert.equal(candidate.eventId, "story-stormveil-village-4-0");
 });
 
 test("interlude gates on minProgress while an unfinished milestone remains eligible", () => {
     // storyProgress 1 = only the level-4 chapter beaten; the level-15 milestone
     // is the pending beat, and at level 20 it should fire (levelReq 15 <= 20).
-    const next = nextStoryTrigger(char(20, 1), []);
-    assert.ok(next);
-    assert.equal(next.eventId, "story-stormveil-village-15-1");
+    const candidate = next(char(20, 1), []);
+    assert.ok(candidate);
+    assert.equal(candidate.eventId, "story-stormveil-village-15-1");
     // With the 15-chapter also already triggered (VN seen, boss unbeaten),
     // nothing fires — the interlude still needs storyProgress >= 2.
     // Merely seeing the chapter never consumes it. Only storyProgress does.
-    assert.equal(nextStoryTrigger(char(20, 1), ["story-stormveil-village-15-1"])?.eventId, "story-stormveil-village-15-1");
+    assert.equal(next(char(20, 1), ["story-stormveil-village-15-1"])?.eventId, "story-stormveil-village-15-1");
     // A session dismissal prevents an immediate reopen without corrupting save progress.
-    assert.equal(nextStoryTrigger(char(20, 1), [], ["story-stormveil-village-15-1"]), null);
+    assert.equal(next(char(20, 1), [], ["story-stormveil-village-15-1"]), null);
 });
 
 test("level-20 interlude fires once both gates pass, and only once", () => {
-    const first = nextStoryTrigger(char(20, 2), []);
+    const first = next(char(20, 2), []);
     assert.ok(first);
     assert.equal(first.eventId, "story-interlude-stormveil-village-20");
     assert.equal(first.returnScreen, "current");
     assert.equal(first.base.xpReward, 0);
     assert.equal(first.base.ryoReward, 0);
-    const after = nextStoryTrigger(char(20, 2), [first.eventId]);
+    const after = next(char(20, 2), [first.eventId]);
     assert.equal(after, null);
 });
 
 test("lower level fires first when a milestone and an interlude are both pending", () => {
     // Level 30, two chapters beaten: the 25-milestone (levelReq 25) and the
     // 20-interlude (minProgress 2) are both eligible — the interlude is lower.
-    const next = nextStoryTrigger(char(30, 2), []);
-    assert.ok(next);
-    assert.equal(next.eventId, "story-interlude-stormveil-village-20");
+    const candidate = next(char(30, 2), []);
+    assert.ok(candidate);
+    assert.equal(candidate.eventId, "story-interlude-stormveil-village-20");
     // Once it has fired, the milestone is next.
-    const then = nextStoryTrigger(char(30, 2), ["story-interlude-stormveil-village-20"]);
+    const then = next(char(30, 2), ["story-interlude-stormveil-village-20"]);
     assert.ok(then);
     assert.equal(then.eventId, "story-stormveil-village-25-2");
 });
@@ -80,12 +88,12 @@ test("interludes fire in level order within a village", () => {
     // should arrive strictly in catalog (level) order (8 per village since
     // the L88 proof trials).
     for (let i = 0; i < storyInterludesByVillage["Moonshadow Village"].length; i++) {
-        const next = nextStoryTrigger(char(100, 9, "Moonshadow Village"), fired);
-        assert.ok(next, `interlude ${i} missing`);
-        fired.push(next.eventId);
+        const candidate = next(char(100, 9, "Moonshadow Village"), fired);
+        assert.ok(candidate, `interlude ${i} missing`);
+        fired.push(candidate.eventId);
     }
     assert.deepEqual(fired, storyInterludesByVillage["Moonshadow Village"].map((e) => e.id));
-    assert.equal(nextStoryTrigger(char(100, 9, "Moonshadow Village"), fired), null);
+    assert.equal(next(char(100, 9, "Moonshadow Village"), fired), null);
 });
 
 test("interludeToCreatorEvent builds a VN-only event: no battle on any choice", () => {

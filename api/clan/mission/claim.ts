@@ -250,6 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
 
         let awardedCharacter: Record<string, unknown> | undefined;
+        let awardedSaveVersion: number | undefined;
         const pointAmount = Number(outcome.pointAmount ?? 0) || 0;
         const pointMembers = Array.isArray(outcome.pointMembers) ? outcome.pointMembers : [];
         if (pointAmount > 0 && pointMembers.length > 0) {
@@ -266,7 +267,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clan,
                     missionKey,
                 });
-                if (contribution.found) awardedCharacter = contribution.character;
+                if (contribution.found) {
+                    awardedCharacter = contribution.character;
+                    awardedSaveVersion = contribution._saveVersion;
+                }
             }
         }
         if (pointAmount > 0) {
@@ -275,7 +279,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 clan,
                 missionKey,
             });
-            if (claimAward.found) awardedCharacter = claimAward.character;
+            if (claimAward.found) {
+                awardedCharacter = claimAward.character;
+                awardedSaveVersion = claimAward._saveVersion;
+            }
         }
 
         return res.status(200).json({
@@ -286,6 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             level: outcome.level,
             treasury: outcome.treasury,
             character: awardedCharacter,
+            ...(awardedSaveVersion !== undefined ? { _saveVersion: awardedSaveVersion } : {}),
             claimed: claimed.includes(missionKey) ? claimed : [...claimed, missionKey],
         });
     } catch (err) {

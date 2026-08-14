@@ -9,6 +9,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
+import { cleanWorldAiPendingOutcome } from '../missions/_world-ai-fight.js';
 
 /*
  * /api/sector/wanderer-ambush — POST { action: 'start' | 'claim', playerName }
@@ -48,36 +49,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── START: seal the foe-kill baseline ─────────────────────────────────
         if (action === 'start') {
-            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = (rec?.character ?? null) as Record<string, unknown> | null;
-            if (!rec || !char) return res.status(404).json({ error: 'Your save was not found.' });
-            await kv.set(tokenKey, { baseline: num(char.totalAiKills), at: Date.now() }, { ex: TOKEN_TTL_SECONDS });
-            return res.status(200).json({ ok: true });
+            // New runs are sealed by the World AI chain. Baseline-only tokens
+            // allowed unrelated fights to impersonate the four-wave ambush.
+            return res.status(200).json({ ok: false, reason: 'sealed-combat-required' });
         }
 
         // ── CLAIM: verify the gauntlet was cleared, then pay ──────────────────
         if (action === 'claim') {
-            const sealed = await kv.get<{ baseline: number; at?: number }>(tokenKey);
-            if (!sealed) return res.status(200).json({ ok: false, reason: 'none' });
-
             const today = utcDateKey();
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
-                const fresh = await kv.get<{ baseline: number; at?: number }>(tokenKey);
-                if (!fresh) return { status: 200, body: { ok: false, reason: 'none' } };
-
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
-                const receiptId = `${fresh.baseline}:${Number(fresh.at ?? 0)}`;
                 const receipts = Array.isArray(char.redeemedWandererAmbushes) ? char.redeemedWandererAmbushes as Array<Record<string, unknown>> : [];
+                const pending = cleanWorldAiPendingOutcome(char.worldAiPendingOutcome);
+                const fresh = await kv.get<{ baseline: number; at?: number; authority?: string; chainId?: string; kind?: string; sourceId?: string; sector?: number }>(tokenKey);
+                if (!pending && !fresh) {
+                    const priorWorld = [...receipts].reverse().find((entry) => entry.source === 'world-ai-chain');
+                    return priorWorld
+                        ? { status: 200, body: { ok: true, replayed: true, reward: priorWorld.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) }, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } }
+                        : { status: 200, body: { ok: false, reason: 'none' } };
+                }
+                const receiptId = pending ? `world:${pending.claimId}` : `${fresh!.baseline}:${Number(fresh!.at ?? 0)}`;
                 const prior = receipts.find((entry) => entry.id === receiptId);
                 if (prior) {
                     await kv.del(tokenKey).catch(() => undefined);
-                    return { status: 200, body: { ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) } } };
+                    return { status: 200, body: { ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) }, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
                 }
 
-                if (!ambushCleared(num(fresh.baseline), num(char.totalAiKills))) {
+                const chainWins = Array.isArray(char.worldAiChainWins) ? char.worldAiChainWins as Array<Record<string, unknown>> : [];
+                const authoritative = pending ?? fresh;
+                const hasSealedWorldChain = (pending != null || fresh?.authority === 'world-ai-chain')
+                    && typeof authoritative?.chainId === 'string'
+                    && (pending ? pending.sourceId : fresh?.kind) === 'wanderer-ambush'
+                    && (pending ? pending.sourceId : fresh?.sourceId) === 'wanderer-ambush'
+                    && Number.isInteger(authoritative?.sector)
+                    && [0, 1, 2, 3].every((stage) => chainWins.some((entry) => entry.chainId === authoritative?.chainId
+                        && entry.kind === 'wanderer-ambush'
+                        && entry.sourceId === 'wanderer-ambush'
+                        && Number(entry.sector) === authoritative?.sector
+                        && Number(entry.stage) === stage));
+                // New WorldMap encounters require the exact sealed four-wave
+                // chain. The baseline-only branch remains solely for an already
+                // issued pre-migration token during its one-hour rollout TTL.
+                const verified = pending || fresh?.authority === 'world-ai-chain'
+                    ? hasSealedWorldChain
+                    : ambushCleared(num(fresh?.baseline), num(char.totalAiKills));
+                if (!verified) {
                     return { status: 200, body: { ok: false, reason: 'incomplete' } };
                 }
 
@@ -91,14 +110,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const reward = rollAmbushReward(num(char.level) || 1, Math.random);
+                const { worldAiPendingOutcome: _clearedPending, ...withoutPending } = char;
                 const updated = {
-                    ...char,
+                    ...withoutPending,
                     ryo: num(char.ryo) + reward.ryo,
                     fateShards: num(char.fateShards) + reward.fateShards,
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
                     wandererAmbushRewardDate: today,
                     wandererAmbushRewardCount: claimedSoFar + 1,
-                    redeemedWandererAmbushes: [...receipts.slice(-49), { id: receiptId, reward }],
+                    redeemedWandererAmbushes: [...receipts.slice(-49), { id: receiptId, source: pending ? 'world-ai-chain' : 'legacy', claimId: pending?.claimId, reward }],
                 };
                 const record = bumpSaveVersion({ ...rec, character: updated });
                 await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
@@ -109,6 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ok: true,
                         reward,
                         totals: { ryo: updated.ryo, fateShards: updated.fateShards, boneCharms: updated.boneCharms },
+                        character: updated,
+                        _saveVersion: Number(record._saveVersion ?? 0),
                     },
                 };
             }, { failClosed: true });

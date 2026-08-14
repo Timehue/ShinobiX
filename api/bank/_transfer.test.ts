@@ -92,7 +92,8 @@ describe('bank transfer endpoint contract', () => {
         assert.ok(start >= 0 && end > start, 'moveRyo function must remain present');
         const moveSource = bankScreenSource.slice(start, end);
         assert.match(moveSource, /fetch\("\/api\/bank\/transfer"/);
-        assert.match(moveSource, /updateCharacter\(data\.character\)/);
+        assert.match(moveSource, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return;\s*setAmount\(0\)/,
+            'the committed save/version must be adopted before clearing transfer state');
         assert.doesNotMatch(moveSource, /updateCharacter\([^)]*\.\.\.character/);
         assert.doesNotMatch(moveSource, /character\.ryo\s*[+-]\s*value/);
         assert.doesNotMatch(moveSource, /character\.bankRyo\s*[+-]\s*value/);

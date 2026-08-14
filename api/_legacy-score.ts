@@ -63,6 +63,22 @@ export type LegacyEvaluation = {
     missing: string[];
 };
 
+export type StoryLaneTally = { good?: number; neutral?: number; bad?: number };
+
+const STORY_LANE_CATEGORIES: Readonly<Record<keyof StoryLaneTally, ReadonlySet<string>>> = {
+    good: new Set(['support', 'pets', 'village']),
+    neutral: new Set(['cards', 'explorer', 'pve']),
+    bad: new Set(['pvp', 'war', 'ninjutsu', 'genjutsu', 'taijutsu', 'bukijutsu', 'mythic']),
+};
+
+function dominantStoryLane(lanes: StoryLaneTally | null | undefined): keyof StoryLaneTally | null {
+    if (!lanes) return null;
+    const entries = (['good', 'neutral', 'bad'] as const).map((lane) => [lane, num(lanes[lane])] as const);
+    const top = Math.max(...entries.map(([, count]) => count));
+    if (top <= 0 || entries.filter(([, count]) => count === top).length !== 1) return null;
+    return entries.find(([, count]) => count === top)?.[0] ?? null;
+}
+
 function floorFor(def: LegacyDef, stat: LegacyStatKey, base: number, overlay: LegacyOverlay): number {
     const o = Number(overlay.thresholds?.[def.id]?.[stat]);
     // An explicit overlay 0 WAIVES the requirement (every value passes a
@@ -75,7 +91,7 @@ function floorFor(def: LegacyDef, stat: LegacyStatKey, base: number, overlay: Le
 export function evaluateLegacy(
     def: LegacyDef,
     stats: LegacyStats,
-    opts: { village?: string | null; overlay?: LegacyOverlay } = {},
+    opts: { village?: string | null; overlay?: LegacyOverlay; storyLanes?: StoryLaneTally | null } = {},
 ): LegacyEvaluation {
     const overlay = opts.overlay ?? {};
     const reasons: string[] = [];
@@ -116,6 +132,11 @@ export function evaluateLegacy(
         opts.village.toLowerCase().includes(def.villageAffinity.toLowerCase())) {
         score *= 1.15;
     }
+    // Server-recorded story choices influence which *eligible* path feels most
+    // like the player without ever waiving an activity requirement. A unique
+    // dominant lane is a modest tie-breaker, not a hidden hard gate.
+    const storyLane = dominantStoryLane(opts.storyLanes);
+    if (storyLane && STORY_LANE_CATEGORIES[storyLane].has(def.category)) score *= 1.05;
 
     return {
         legacyId: def.id, name: def.name, rarity: def.rarity, category: def.category,
@@ -125,7 +146,7 @@ export function evaluateLegacy(
 
 export function evaluateAllLegacies(
     stats: LegacyStats,
-    opts: { level?: number; village?: string | null; overlay?: LegacyOverlay } = {},
+    opts: { level?: number; village?: string | null; overlay?: LegacyOverlay; storyLanes?: StoryLaneTally | null } = {},
 ): LegacyEvaluation[] {
     const overlay = opts.overlay ?? {};
     const disabled = new Set(overlay.disabled ?? []);
@@ -134,7 +155,7 @@ export function evaluateAllLegacies(
     const out: LegacyEvaluation[] = [];
     for (const def of LEGACY_DEFS) {
         if (disabled.has(def.id)) continue;
-        const ev = evaluateLegacy(def, stats, { village: opts.village, overlay });
+        const ev = evaluateLegacy(def, stats, { village: opts.village, overlay, storyLanes: opts.storyLanes });
         if (underLevel && ev.eligible) {
             ev.eligible = false;
             ev.missing = [`level ${opts.level ?? 0}/${LEGACY_MIN_LEVEL}`, ...ev.missing];

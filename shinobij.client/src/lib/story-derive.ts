@@ -162,9 +162,9 @@ const RULES: DeriveRule[] = [
     { grant: "ms88-first-reflection-stirred", when: (has) => has("ms88-return-proven") },
     { grant: "ms100-first-reflection-awake", when: (has) => has("ms88-better-truth-ready") },
     // Road: completing "A Legacy Without a Name" (any register choice) means the
-    // player heard the canonical Legacy explanation — the Sunken Court preserved
-    // one defining piece of a Bloodline that outlives its person. Knowledge-only:
-    // it does not awaken, choose, or grant a Legacy.
+    // player heard the canonical Legacy explanation: the Withheld refused cession
+    // to the Sunken Court, and their defining choices survived as repeatable action
+    // patterns. Knowledge-only: it does not awaken, choose, or grant a Legacy.
     { grant: "rd44-legacy-defined", when: (has) => has("rd44-restored-isa-renn") || has("rd44-kept-three-warnings") || has("rd44-wore-her-myth") },
 ];
 

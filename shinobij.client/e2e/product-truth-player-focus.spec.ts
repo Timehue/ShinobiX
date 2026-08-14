@@ -24,6 +24,17 @@ const baseCharacter = {
     lastLoginRewardDate: new Date().toISOString().slice(0, 10), profession: "healer", professionRank: 5,
 };
 
+type RuntimeSavePayload = {
+    character: Record<string, unknown>;
+    [key: string]: unknown;
+};
+
+type RuntimeSaveCommit = {
+    baseVersion: number;
+    version: number;
+    postedState: string;
+};
+
 const allAvailable: PublicCapabilities = {
     gameplay: { state: "available", reason: "available" },
     gameplayMutations: { state: "available", reason: "available" },
@@ -54,9 +65,18 @@ function spine(focus: string) {
 }
 
 async function installRuntime(page: Page) {
-    let character: Record<string, unknown> = { ...baseCharacter };
+    let save: RuntimeSavePayload = {
+        character: { ...baseCharacter },
+        currentBiome: "central",
+        currentSector: 40,
+        acceptedMissionIds: [],
+        missionProgress: {},
+        triggeredEvents: ["builtin-aura-sphere-lv9"],
+    };
     let capabilities: PublicCapabilities = structuredClone(allAvailable);
     let saveVersion = 1;
+    let acknowledgedVersion = 0;
+    let lastCommit: RuntimeSaveCommit | null = null;
     await page.addInitScript(() => {
         localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: "VisualNinja" }));
         localStorage.setItem("ninjav-player-accounts-v1", JSON.stringify({ visualninja: { token: "visual-session-token" } }));
@@ -68,14 +88,46 @@ async function installRuntime(page: Page) {
         if (localStorage.getItem("e2e:showBriefing") === "1") localStorage.removeItem("dailyBriefing.seen.v1");
         else localStorage.setItem("dailyBriefing.seen.v1", today);
     });
-    await page.route("**/api/**", (route) => {
+    await page.route("**/api/**", async (route) => {
         const request = route.request();
         const url = new URL(request.url());
         const path = url.pathname.toLowerCase();
         if (path === "/api/save/visualninja") {
-            if (request.method() === "GET") return json(route, { character, currentBiome: "central", currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: ["builtin-aura-sphere-lv9"], _saveVersion: saveVersion });
-            saveVersion += 1;
-            return json(route, { ok: true, _saveVersion: saveVersion });
+            if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
+            const incoming = request.postDataJSON() as RuntimeSavePayload;
+            const rawBaseVersion = incoming._baseSaveVersion;
+            if (!Number.isSafeInteger(rawBaseVersion) || Number(rawBaseVersion) < 0) {
+                return json(route, {
+                    error: "Your game client is out of date. Please refresh the page to keep saving.",
+                    code: "CLIENT_REFRESH_REQUIRED",
+                }, 426);
+            }
+            const baseVersion = Number(rawBaseVersion);
+            if (baseVersion !== saveVersion) {
+                return json(route, {
+                    error: "Save conflict — another tab or device wrote first.",
+                    currentVersion: saveVersion,
+                }, 409);
+            }
+            const persisted = { ...incoming };
+            delete persisted._baseSaveVersion;
+            delete persisted._saveVersion;
+            delete persisted._saveAt;
+            if (!persisted.character || typeof persisted.character !== "object") {
+                return json(route, { error: "A valid character is required." }, 400);
+            }
+            const postedState = JSON.stringify(persisted);
+            const nextVersion = saveVersion + 1;
+            save = JSON.parse(postedState) as RuntimeSavePayload;
+            saveVersion = nextVersion;
+            lastCommit = {
+                baseVersion,
+                version: nextVersion,
+                postedState,
+            };
+            await json(route, { ok: true, _saveVersion: nextVersion });
+            acknowledgedVersion = nextVersion;
+            return;
         }
         if (path === "/api/player/capabilities") return json(route, { ok: true, capabilities });
         if (path === "/api/player/activity-spine") return json(route, { ok: true, spine: spine(url.searchParams.get("focus") ?? "auto") });
@@ -86,14 +138,40 @@ async function installRuntime(page: Page) {
         if (path === "/api/weekly-boss") return json(route, { boss: null, fightEnabled: true });
         if (path === "/api/ranked-season") return json(route, { current: null, lastSeason: null });
         if (path === "/api/legacy/status") return json(route, { enabled: true });
-        if (path === "/api/towers/party") return json(route, { party: null, invitations: [] });
         if (path === "/api/towers/floors") return json(route, { floors: [] });
         return json(route, { ok: true, images: {}, categories: {}, players: [], leaderboard: [], announcements: [], entries: [], eras: [], wars: [], territories: [], standings: [], villageStates: {}, arenaActiveFights: [] });
     });
     return {
-        setCharacter: (next: Record<string, unknown>) => { character = { ...baseCharacter, ...next }; },
+        setCharacter: (next: Record<string, unknown>) => {
+            saveVersion += 1;
+            save = { ...save, character: { ...baseCharacter, ...next } };
+        },
         disableVillageWar: () => { capabilities = { ...allAvailable, villageWar: { state: "temporarily-unavailable", reason: "temporarily-disabled" } }; },
+        committedVersion: () => saveVersion,
+        acknowledgedVersion: () => acknowledgedVersion,
+        lastCommit: () => lastCommit,
+        persistedStateMatchesLastPost: () => Boolean(lastCommit && JSON.stringify(save) === lastCommit.postedState),
     };
+}
+
+type RuntimeFixture = Awaited<ReturnType<typeof installRuntime>>;
+
+async function expectRuntimeSaveCommitted(page: Page, runtime: RuntimeFixture) {
+    await expect.poll(() => {
+        const commit = runtime.lastCommit();
+        return Boolean(
+            commit
+            && runtime.persistedStateMatchesLastPost()
+            && commit.baseVersion === commit.version - 1
+            && runtime.committedVersion() === commit.version
+            && runtime.acknowledgedVersion() === commit.version,
+        );
+    }, {
+        timeout: 20_000,
+        message: "the visual fixture must persist and acknowledge the exact posted save before reload",
+    }).toBe(true);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
@@ -106,12 +184,13 @@ async function loadScreen(page: Page, hash: string) {
 }
 
 test("product truth and player focus visual matrix", async ({ page }, testInfo) => {
-    test.setTimeout(180_000);
+    test.setTimeout(60_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "single Chromium visual evidence run");
     const runtime = await installRuntime(page);
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await loadScreen(page, "centralHub");
+    await expectRuntimeSaveCommitted(page, runtime);
     await expect(page.locator(".right-menu-panel.open")).toBeVisible();
     await capture(page, testInfo, "01-desktop-menu-expanded-1440x900.png");
     await page.getByRole("button", { name: "Hide Menu" }).click();

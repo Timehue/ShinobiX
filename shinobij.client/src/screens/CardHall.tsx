@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Character } from "../types/character";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
+import "../styles/living-chronicle-spine.css";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
@@ -30,6 +31,17 @@ import { ChronicleCardView } from "../components/ChronicleCardView";
 import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
+import {
+  advanceFreePlayQueueAuthority,
+  FreePlayQueueError,
+  freePlayQueueAuthorityIsCurrent,
+  freePlayPollOutcome,
+  normalizeFreePlayQueueAccount,
+  requestFreePlayQueue,
+  type FreePlayQueueAuthority,
+} from "../lib/free-play-queue-client";
+import { syncChronicleProgression } from "../lib/chronicle-progression-sync";
+import { chronicleResponseAuthority } from "../lib/chronicle-response-authority";
 
 type Tab = "collection" | "deck" | "play" | "pvp" | "rules";
 type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
@@ -52,6 +64,14 @@ function readResumableMatch(): string | null {
   }
 }
 
+function chronicleRecordSource(cardId: string): string {
+  if (cardId.startsWith("legacy-")) return "Legacy awakening";
+  if (cardId.startsWith("pet-witness-")) return "Companion witness";
+  if (cardId === "story-wandering-sage") return "Wandering Sage encounter";
+  if (cardId.startsWith("story-")) return "Story victory";
+  return "Witnessed deed";
+}
+
 type CardHallProps = {
   character: Character;
   updateCharacter: (character: Character) => void;
@@ -60,6 +80,9 @@ type CardHallProps = {
   autoStart?: boolean;
   onAutoStartConsumed?: () => void;
   onStartFreePlay?: (matchId: string) => void;
+  /** Return false when a newer mutation version has already been adopted. */
+  onServerVersion?: (version?: number) => boolean | void;
+  onVersionedCharacter?: VersionedCharacterCommit;
   sharedImages?: Record<string, string>;
 };
 
@@ -94,6 +117,8 @@ function CardHallInner({
   autoStart = false,
   onAutoStartConsumed,
   onStartFreePlay,
+  onServerVersion,
+  onVersionedCharacter,
   sharedImages = {},
 }: CardHallProps) {
   const sourceCards = useMemo(
@@ -138,17 +163,76 @@ function CardHallInner({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [aiActing, setAiActing] = useState(false);
+  const [progressionReceipt, setProgressionReceipt] = useState<string[]>([]);
+  const [progressionSyncError, setProgressionSyncError] = useState("");
   const [resumableMatchId, setResumableMatchId] = useState<string | null>(
     readResumableMatch,
   );
   const autoStarted = useRef(false);
+  const progressionSyncedForRef = useRef("");
+  const activeProgressionPlayerRef = useRef(character.name.trim().toLowerCase());
+  const progressionVersionHandlerRef = useRef(onServerVersion);
+  const progressionVersionedCharacterHandlerRef = useRef(onVersionedCharacter);
+  const progressionCharacterHandlerRef = useRef(updateCharacter);
+  const progressionReceiptRef = useRef<HTMLElement>(null);
+  const collectionTabRef = useRef<HTMLButtonElement>(null);
   const replayToken = useRef(0);
+  const cardHallMountedRef = useRef(false);
+  useLayoutEffect(() => {
+    cardHallMountedRef.current = true;
+    return () => {
+      cardHallMountedRef.current = false;
+    };
+  }, []);
   useEffect(() => {
     // Cancel any in-flight AI replay when the hall unmounts.
     return () => {
       replayToken.current += 1;
     };
   }, []);
+
+  useLayoutEffect(() => {
+    const nextPlayer = character.name.trim().toLowerCase();
+    if (activeProgressionPlayerRef.current !== nextPlayer) replayToken.current += 1;
+    activeProgressionPlayerRef.current = nextPlayer;
+    progressionVersionHandlerRef.current = onServerVersion;
+    progressionVersionedCharacterHandlerRef.current = onVersionedCharacter;
+    progressionCharacterHandlerRef.current = updateCharacter;
+  }, [character.name, onServerVersion, onVersionedCharacter, updateCharacter]);
+
+  useEffect(() => {
+    const playerName = character.name;
+    const syncKey = playerName.trim().toLowerCase();
+    if (!syncKey || progressionSyncedForRef.current === syncKey) return;
+    progressionSyncedForRef.current = syncKey;
+    let alive = true;
+    void syncChronicleProgression(playerName)
+      .then((result) => {
+        // A Card Hall unmount, account switch, or superseding character render
+        // invalidates this response before it can advance the account-scoped
+        // save version or announce an authoritative grant.
+        if (!alive || activeProgressionPlayerRef.current !== syncKey) return;
+        // Adopt the server version before painting its full authoritative
+        // character, matching other versioned mutation screens.
+        const versionedHandler = progressionVersionedCharacterHandlerRef.current;
+        const versionAccepted = versionedHandler
+          ? versionedHandler(result.character, result._saveVersion)
+          : progressionVersionHandlerRef.current?.(result._saveVersion) !== false;
+        if (!versionAccepted) return;
+        if (!versionedHandler) progressionCharacterHandlerRef.current(result.character);
+        if (result.granted.length) setProgressionReceipt(result.granted);
+      })
+      .catch((syncError) => {
+        if (alive) setProgressionSyncError(syncError instanceof Error ? syncError.message : "The Living Chronicle could not be refreshed.");
+      });
+    return () => { alive = false; };
+  }, [character.name]);
+
+  useEffect(() => {
+    if (!progressionReceipt.length) return;
+    const frame = window.requestAnimationFrame(() => progressionReceiptRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [progressionReceipt.length]);
 
   function syncResumableMatch(nextMatchId: string | null) {
     setResumableMatchId(nextMatchId);
@@ -164,11 +248,28 @@ function CardHallInner({
   /** Sync the authoritative result immediately, then show the Keeper's moves
    *  one beat at a time. Settlement (ryo, W/L, save version) must never wait
    *  on — or be skipped by — an interrupted animation. */
-  async function presentSession(result: ChronicleAiResult) {
+  async function presentSession(result: ChronicleAiResult, originatingPlayerName: string) {
     const final = result.session;
     if (!final) return;
-    if (result.reward) setReward(result.reward);
-    if (result.character) updateCharacter(result.character);
+    const carriesAuthoritativeSnapshot = Boolean(
+      result.character || result.reward || typeof result._saveVersion === "number",
+    );
+    const authority = chronicleResponseAuthority({
+      mounted: cardHallMountedRef.current,
+      activePlayerName: activeProgressionPlayerRef.current,
+      originatingPlayerName,
+      responsePlayerName: result.character?.name,
+      carriesAuthoritativeSnapshot,
+      saveVersion: result._saveVersion,
+      onServerVersion: (version) => result.character && progressionVersionedCharacterHandlerRef.current
+        ? progressionVersionedCharacterHandlerRef.current(result.character, version)
+        : progressionVersionHandlerRef.current?.(version),
+    });
+    if (authority === "discard") return;
+    if (authority === "authoritative") {
+      if (result.reward) setReward(result.reward);
+      if (result.character && !progressionVersionedCharacterHandlerRef.current) progressionCharacterHandlerRef.current(result.character);
+    }
     syncResumableMatch(final.status === "complete" ? null : final.matchId);
     const steps = result.aiSteps ?? [];
     const token = ++replayToken.current;
@@ -190,12 +291,20 @@ function CardHallInner({
   /** Reload an interrupted duel from the server (action:"state"). */
   async function resumeShowdown() {
     if (!resumableMatchId || busy) return;
+    const originatingPlayerName = character.name;
     setBusy(true);
     setError("");
     setReward(undefined);
     const result = await chronicleAiAction(resumableMatchId, {
       action: "state",
     });
+    if (chronicleResponseAuthority({
+      mounted: cardHallMountedRef.current,
+      activePlayerName: activeProgressionPlayerRef.current,
+      originatingPlayerName,
+      responsePlayerName: result.character?.name,
+      carriesAuthoritativeSnapshot: false,
+    }) === "discard") return;
     if (!result.ok || !result.session) {
       setBusy(false);
       syncResumableMatch(null);
@@ -203,8 +312,8 @@ function CardHallInner({
       return;
     }
     setMatchId(resumableMatchId);
-    await presentSession(result);
-    setBusy(false);
+    await presentSession(result, originatingPlayerName);
+    if (activeProgressionPlayerRef.current === originatingPlayerName.trim().toLowerCase()) setBusy(false);
   }
   const deckDirty = JSON.stringify(deck) !== JSON.stringify(savedDeck);
   const deckCheck = useMemo(
@@ -217,14 +326,22 @@ function CardHallInner({
     difficulty = aiDifficulty,
   ) {
     if (busy) return;
+    const originatingPlayerName = character.name;
     setBusy(true);
     setError("");
     setReward(undefined);
     const result = await startChronicleAi(
-      character.name,
+      originatingPlayerName,
       deckIds,
       difficulty,
     );
+    if (chronicleResponseAuthority({
+      mounted: cardHallMountedRef.current,
+      activePlayerName: activeProgressionPlayerRef.current,
+      originatingPlayerName,
+      responsePlayerName: result.character?.name,
+      carriesAuthoritativeSnapshot: false,
+    }) === "discard") return;
     if (!result.ok || !result.matchId || !result.session) {
       setBusy(false);
       setError(result.error ?? "Could not start the showdown.");
@@ -232,8 +349,8 @@ function CardHallInner({
     }
     setMatchId(result.matchId);
     setTab("play");
-    await presentSession(result);
-    setBusy(false);
+    await presentSession(result, originatingPlayerName);
+    if (activeProgressionPlayerRef.current === originatingPlayerName.trim().toLowerCase()) setBusy(false);
   }
 
   useEffect(() => {
@@ -246,16 +363,24 @@ function CardHallInner({
 
   async function act(intent: Parameters<typeof chronicleAiAction>[1]) {
     if (!matchId || busy) return;
+    const originatingPlayerName = character.name;
     setBusy(true);
     setError("");
     const result = await chronicleAiAction(matchId, intent);
+    if (chronicleResponseAuthority({
+      mounted: cardHallMountedRef.current,
+      activePlayerName: activeProgressionPlayerRef.current,
+      originatingPlayerName,
+      responsePlayerName: result.character?.name,
+      carriesAuthoritativeSnapshot: false,
+    }) === "discard") return;
     if (!result.ok || !result.session) {
       setBusy(false);
       setError(result.error ?? "That action was not legal.");
       return;
     }
-    await presentSession(result);
-    setBusy(false);
+    await presentSession(result, originatingPlayerName);
+    if (activeProgressionPlayerRef.current === originatingPlayerName.trim().toLowerCase()) setBusy(false);
   }
 
   function closeTutorial() {
@@ -306,6 +431,75 @@ function CardHallInner({
         The scribes will tell you straight: our archives kept burning. So we
         print the history on cards now — you can't burn ten thousand pockets.
       </p>
+      <section className="living-chronicle-spine" aria-labelledby="living-chronicle-spine-title">
+        <header>
+          <small>ONE JOURNEY · FOUR FORMS OF PROOF</small>
+          <h2 id="living-chronicle-spine-title">The Living Chronicle</h2>
+          <p>
+            The Ancients were people of the Sunken Court's age. The Withheld refused to surrender their defining choices;
+            the hundred patterns they left are now called Legacies. Your deeds make those patterns visible again.
+          </p>
+        </header>
+        <ol>
+          <li>
+            <span aria-hidden="true">01</span>
+            <strong>Make the deed</strong>
+            <p>Defeat a story foe and Ihara presses the witnessed victory into the Chronicle. A deed already recorded is never pressed twice.</p>
+          </li>
+          <li>
+            <span aria-hidden="true">02</span>
+            <strong>Carry a living witness</strong>
+            <p>Your eligible active companion can answer your call in story combat. After ten arena victories, that companion earns a Living Witness record.</p>
+          </li>
+          <li>
+            <span aria-hidden="true">03</span>
+            <strong>Replay the record</strong>
+            <p>Chronicle victories are part of your path. The scribes record how you defend history, and the Wandering Sage weighs that choice with the rest.</p>
+          </li>
+          <li>
+            <span aria-hidden="true">04</span>
+            <strong>Repeat the pattern</strong>
+            <p>The Sage names a pattern you chose, never a bloodline. Acceptance preserves the meeting; Awakening presses one of the hundred Legacy cards.</p>
+          </li>
+        </ol>
+      </section>
+      {progressionReceipt.length ? (
+        <section
+          ref={progressionReceiptRef}
+          className="chronicle-panel chronicle-scribe-note"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-labelledby="living-chronicle-update-title"
+          aria-describedby="living-chronicle-update-copy"
+          tabIndex={-1}
+          style={{ borderColor: "rgba(196, 162, 90, .72)", boxShadow: "0 0 24px rgba(196, 162, 90, .16)" }}
+        >
+          <small>SCRIBE IHARA · WITNESS PRESS</small>
+          <h2 id="living-chronicle-update-title">Living Chronicle updated</h2>
+          <p id="living-chronicle-update-copy">
+            You completed the deed. A living witness carried it beyond the moment. Ihara has pressed that truth into the Chronicle.
+          </p>
+          <ul aria-label="Newly recorded Chronicle cards" style={{ textAlign: "left", margin: "10px auto", maxWidth: 560 }}>
+            {progressionReceipt.map((id) => (
+              <li key={id}>
+                <strong>{getChronicleCard(id)?.name ?? id}</strong>
+                {" — "}{chronicleRecordSource(id)}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => {
+              setProgressionReceipt([]);
+              window.requestAnimationFrame(() => collectionTabRef.current?.focus());
+            }}
+          >
+            Enter the archive
+          </button>
+        </section>
+      ) : null}
+      {progressionSyncError ? <div className="chronicle-error" role="alert">{progressionSyncError} Reopen the Card Hall to retry.</div> : null}
       <nav className="chronicle-tabs" aria-label="Card Hall sections">
         {(
           [
@@ -317,8 +511,10 @@ function CardHallInner({
           ] as Tab[]
         ).map((item) => (
           <button
+            type="button"
             key={item}
-            aria-selected={tab === item}
+            ref={item === "collection" ? collectionTabRef : undefined}
+            aria-pressed={tab === item}
             onClick={() => setTab(item)}
           >
             {item === "pvp"
@@ -368,7 +564,7 @@ function CardHallInner({
                     .
                   </p>
                 ) : (
-                  <p>The authoritative result is final.</p>
+                  <p>The result has been entered in the Chronicle.</p>
                 )}
                 <button
                   onClick={() => {
@@ -418,7 +614,7 @@ function CardHallInner({
             </p>
             {!savedValid ? (
               <p>
-                Your saved deck uses retired rules. The server can deal a fixed
+                Your saved deck uses retired rules. The Hall can deal a fixed
                 starter deck, or you can review and save the migrated 40-card
                 list in Deck Builder.
               </p>
@@ -458,7 +654,7 @@ function CardHallInner({
         )
       ) : null}
       {tab === "pvp" ? (
-        <FreePlayQueue character={character} onStart={onStartFreePlay} />
+        <FreePlayQueue key={normalizeFreePlayQueueAccount(character.name)} character={character} onStart={onStartFreePlay} />
       ) : null}
       {tab === "rules" ? <Rules /> : null}
       {showTutorial ? <CardClashTutorial onClose={closeTutorial} /> : null}
@@ -724,6 +920,14 @@ function DeckBuilder({
   );
 }
 
+type FreePlayQueueLease = {
+  authority: FreePlayQueueAuthority;
+  owned: boolean;
+  matched: boolean;
+  pollBusy: boolean;
+  controllers: Set<AbortController>;
+};
+
 function FreePlayQueue({
   character,
   onStart,
@@ -732,10 +936,60 @@ function FreePlayQueue({
   onStart?: (matchId: string) => void;
 }) {
   const [searching, setSearching] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
+  const mountedRef = useRef(true);
+  const [activeAuthority] = useState<FreePlayQueueAuthority>(() =>
+    advanceFreePlayQueueAuthority({ accountKey: "", generation: 0 }, character.name),
+  );
+  const leaseRef = useRef<FreePlayQueueLease | null>(null);
   const [pageVisible, setPageVisible] = useState(
     () => typeof document === "undefined" || document.visibilityState === "visible",
   );
+
+  const leaseIsCurrent = useCallback((lease: FreePlayQueueLease): boolean => mountedRef.current
+    && leaseRef.current === lease
+    && freePlayQueueAuthorityIsCurrent(activeAuthority, lease.authority), [activeAuthority]);
+  const leaveLease = useCallback(async (lease: FreePlayQueueLease): Promise<boolean> => {
+    if (!lease.owned || lease.matched) return true;
+    try {
+      await requestFreePlayQueue(lease.authority.accountKey, "leave", { keepalive: true });
+      lease.owned = false;
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // A queue lease must never outlive the UI that owns it. `pagehide` covers a
+  // browser navigation/close; the effect cleanup covers Card Hall tab changes
+  // and ordinary React unmounts. keepalive lets the tiny signed POST finish
+  // while the document is being discarded.
+  useEffect(() => {
+    const lease: FreePlayQueueLease = {
+      authority: activeAuthority,
+      owned: false,
+      matched: false,
+      pollBusy: false,
+      controllers: new Set(),
+    };
+    leaseRef.current = lease;
+    const leaveOwnedQueue = () => { void leaveLease(lease); };
+    window.addEventListener("pagehide", leaveOwnedQueue);
+    return () => {
+      window.removeEventListener("pagehide", leaveOwnedQueue);
+      for (const controller of lease.controllers) controller.abort();
+      lease.controllers.clear();
+      void leaveLease(lease);
+    };
+  }, [activeAuthority, leaveLease]);
+
   useEffect(() => {
     const syncVisibility = () =>
       setPageVisible(document.visibilityState === "visible");
@@ -745,51 +999,147 @@ function FreePlayQueue({
   }, []);
   useEffect(() => {
     if (!searching || !pageVisible) return;
+    const lease = leaseRef.current;
+    if (!lease || !leaseIsCurrent(lease)) return;
     let alive = true;
+    const controller = new AbortController();
+    lease.controllers.add(controller);
     const poll = async () => {
-      const response = await fetch("/api/card-clash/queue", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: character.name, action: "poll" }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (alive && body.match?.matchId) {
-        setSearching(false);
-        onStart?.(body.match.matchId);
+      if (lease.pollBusy || !leaseIsCurrent(lease)) return;
+      lease.pollBusy = true;
+      try {
+        const body = await requestFreePlayQueue(lease.authority.accountKey, "poll", { signal: controller.signal });
+        if (!alive || !leaseIsCurrent(lease)) return;
+        const outcome = freePlayPollOutcome(body);
+        if (outcome.kind === "matched") {
+          if (!onStart) {
+            lease.owned = false;
+            setSearching(false);
+            await requestFreePlayQueue(lease.authority.accountKey, "leave", { keepalive: true }).catch(() => undefined);
+            if (!leaseIsCurrent(lease)) return;
+            setError("A match was found, but this screen could not open it. Please try again.");
+            return;
+          }
+          lease.matched = true;
+          lease.owned = false;
+          setSearching(false);
+          setError("");
+          onStart(outcome.matchId);
+          return;
+        }
+        if (outcome.kind === "expired") {
+          lease.owned = false;
+          setSearching(false);
+          setError("Your queue search expired while you were away. Start a new search when you're ready.");
+          return;
+        }
+        setError("");
+      } catch (pollError) {
+        if (!alive || !leaseIsCurrent(lease) || (pollError instanceof DOMException && pollError.name === "AbortError")) return;
+        const message = pollError instanceof Error ? pollError.message : "The showdown queue could not be reached.";
+        setError(`${message} Your search is still active; retrying automatically.`);
+      } finally {
+        lease.pollBusy = false;
       }
     };
     const timer = window.setInterval(() => void poll(), 2500);
     void poll();
     return () => {
       alive = false;
+      controller.abort();
+      lease.controllers.delete(controller);
       window.clearInterval(timer);
     };
-  }, [searching, pageVisible, character.name, onStart]);
+  }, [searching, pageVisible, activeAuthority, onStart, leaseIsCurrent]);
+
   async function join() {
+    if (joining || leaving || searching) return;
+    const lease = leaseRef.current;
+    if (!lease || !leaseIsCurrent(lease)) return;
     setError("");
-    const response = await fetch("/api/card-clash/queue", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: character.name, action: "join" }),
-    });
-    if (!response.ok) {
-      setError("Could not join the showdown queue.");
-      return;
+    setJoining(true);
+    lease.matched = false;
+    // Treat the request as owning a possible lease before awaiting it. If the
+    // response is lost after the server accepted it, cleanup still sends leave.
+    lease.owned = true;
+    const controller = new AbortController();
+    lease.controllers.add(controller);
+    try {
+      const body = await requestFreePlayQueue(lease.authority.accountKey, "join", { signal: controller.signal });
+      if (!leaseIsCurrent(lease)) {
+        await leaveLease(lease);
+        return;
+      }
+      if (body.inQueue !== true) {
+        lease.owned = false;
+        setError("The Hall did not confirm your queue search. Please try again.");
+        return;
+      }
+      setSearching(true);
+    } catch (joinError) {
+      if (!leaseIsCurrent(lease)) {
+        await leaveLease(lease);
+        return;
+      }
+      // A failed response is ambiguous: the join may have committed before the
+      // connection dropped. Compensate with leave so it cannot become a ghost.
+      const leaveConfirmed = await leaveLease(lease);
+      lease.owned = !leaveConfirmed;
+      if (leaseIsCurrent(lease)) {
+        if (!leaveConfirmed) setSearching(true);
+        const message = joinError instanceof Error ? joinError.message : "Could not join the showdown queue.";
+        setError(leaveConfirmed
+          ? message
+          : `${message} The join could not be canceled, so the search remains active. Use Cancel Search to retry.`);
+      }
+    } finally {
+      lease.controllers.delete(controller);
+      if (leaseIsCurrent(lease)) setJoining(false);
     }
-    setSearching(true);
   }
+
+  async function cancel() {
+    const lease = leaseRef.current;
+    if (!lease || !leaseIsCurrent(lease) || !lease.owned || leaving) return;
+    setLeaving(true);
+    setSearching(false);
+    try {
+      if (!await leaveLease(lease)) throw new FreePlayQueueError("The queue cancellation could not be confirmed.");
+      if (!leaseIsCurrent(lease)) return;
+      setError("");
+    } catch (leaveError) {
+      const message = leaveError instanceof FreePlayQueueError
+        ? leaveError.message
+        : "The queue cancellation could not be confirmed.";
+      // Do not pretend cancellation succeeded. Keep ownership + polling live so
+      // the player can retry and cleanup will send another leave on navigation.
+      if (leaseIsCurrent(lease)) {
+        setSearching(true);
+        setError(`${message} Your search remains active; retry Cancel Search.`);
+      }
+    } finally {
+      if (leaseIsCurrent(lease)) setLeaving(false);
+    }
+  }
+
   return (
     <section className="chronicle-panel">
       <h2>{CHRONICLE_ROOM_TITLE}</h2>
       <p>
         Unranked Free-Play PvP with the Founding Codex room rules. No rewards
         and no rating changes. Hidden hands, Deck order, face-down Monsters and
-        set Snares remain server-private.
+        set Snares remain hidden until play reveals them.
       </p>
-      {error ? <div className="chronicle-error">{error}</div> : null}
-      <button onClick={() => void join()} disabled={searching}>
-        {searching ? "Searching…" : "Find a Showdown"}
+      {error ? <div className="chronicle-error" role="alert">{error}</div> : null}
+      {searching ? <p role="status" aria-live="polite">Searching for an opponent…</p> : null}
+      <button onClick={() => void join()} disabled={searching || joining || leaving}>
+        {joining ? "Joining…" : searching ? "Searching…" : leaving ? "Canceling…" : "Find a Showdown"}
       </button>
+      {searching ? (
+        <button onClick={() => void cancel()} disabled={leaving} style={{ marginLeft: 8 }}>
+          {leaving ? "Canceling…" : "Cancel Search"}
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -825,7 +1175,7 @@ function Rules() {
       <p>
         <strong>Support:</strong> Set Snares wait one turn and allow one matching
         response—no chains. Most cards allow three copies; printed LIMIT 1/2
-        exceptions and the number of copies you own are server-enforced. Lose
+        exceptions and the number of copies in your collection are enforced when you save and play. Lose
         at zero Health Points, on an empty Deck draw, or by forfeit.
       </p>
     </section>

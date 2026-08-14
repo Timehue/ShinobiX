@@ -3,10 +3,7 @@ import { balanceBuiltInPetTemplate } from "./pet-balance";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { BRED_APEX_TRAIT_CHANCE_PERCENT } from "../../../shared/shrines";
-import { clientPetCombatBusyReason } from "./pet-combat-busy";
 import { activeCarriedPets } from "./entitlements";
-
-export { activeClientBreedingParentIds } from "./pet-combat-busy";
 
 // Mirror the authoritative server breeding pool exactly. Breeding-only species
 // deliberately set wildSpawnable:false, so encounter eligibility must not hide
@@ -25,15 +22,19 @@ export type PetBreedingOdds = {
     apexTrait: number;
 };
 
+export function activeClientBreedingParentIds(character: Character, now = Date.now()): Set<string> {
+    const session = character.petBreeding;
+    return session?.state === "breeding" && now < session.readyAt ? new Set(session.parentIds) : new Set();
+}
+
 export function clientPetBreedingBlocker(character: Character, pet: Pet, now = Date.now()): string | null {
     if (pet.breedable === false) return "Protected companion";
     if (!pet.element || pet.element === "None") return "No elemental affinity";
     if (Number(pet.level ?? 0) < PET_BREEDING_MIN_LEVEL) return `Requires level ${PET_BREEDING_MIN_LEVEL}`;
     if (Number(pet.breedingUsesRemaining ?? 0) <= 0) return "No breeding uses";
-    const combatBusy = clientPetCombatBusyReason(character, pet, now);
-    if (combatBusy === "pet-is-breeding") return "Already in the barn";
-    if (combatBusy === "pet-is-training") return "Training in progress";
-    if (combatBusy === "pet-is-on-expedition") return "Expedition in progress";
+    if (activeClientBreedingParentIds(character, now).has(pet.id)) return "Already in the barn";
+    if (pet.training) return "Training in progress";
+    if (pet.expedition) return "Expedition in progress";
     if (character.activePetId === pet.id) return "Active PvE pet";
     if (character.activePetId2v2 === pet.id) return "Active 2v2 reserve";
     return null;

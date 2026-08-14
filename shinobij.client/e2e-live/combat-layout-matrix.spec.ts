@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
 import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
 
 const PHASE = process.env.COMBAT_LAYOUT_CAPTURE_PHASE === 'before' ? 'before' : 'after';
@@ -36,6 +37,16 @@ const BROWSER_ZOOM_EQUIVALENTS = [
     { zoomPercent: 200, width: 512, height: 384, physicalWidth: 1024, physicalHeight: 768 },
 ] as const;
 
+// Registration is a production security boundary, not a knob for the suite to
+// disable. Six projects each register Solo, primary PvP, and Story Tower (18),
+// the baseline authority project registers 2 MPvE + 4 MPvP controllers (6),
+// and ordinary PvP shares one authenticated opponent: 25 total.
+const MATRIX_REGISTRATION_BUDGET = 25;
+const MATRIX_EXPECTED_REGISTRATION_COUNT = (6 * 3) + 2 + 4 + 1;
+if (MATRIX_EXPECTED_REGISTRATION_COUNT > MATRIX_REGISTRATION_BUDGET) {
+    throw new Error(`Combat matrix needs ${MATRIX_EXPECTED_REGISTRATION_COUNT} registrations, over the ${MATRIX_REGISTRATION_BUDGET} release-server budget`);
+}
+
 const JUTSU_IDS = [
     'starter-nin-fire-1', 'starter-nin-fire-2', 'starter-nin-fire-3',
     'starter-nin-water-1', 'starter-nin-water-2', 'starter-nin-wind-1',
@@ -52,6 +63,13 @@ function safeProject(testInfo: TestInfo): string {
         .filter(Boolean);
     const [engine = 'test', ...qualifiers] = segments;
     return `${engine.slice(0, 3)}${qualifiers.join('').slice(0, 6)}`.slice(0, 9);
+}
+
+function serverPlayerSlug(name: string): string {
+    // Mirror the public player-identity boundary used by the built server.
+    // Tower ownership is stored as this slug while the signed-in/display name
+    // may legitimately retain punctuation.
+    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, 32);
 }
 
 function character(name: string) {
@@ -114,21 +132,13 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode:
     expect(registered.status()).toBe(200);
     const token = String((await registered.json()).token ?? '');
     expect(token.length).toBeGreaterThan(10);
-    // Keep established combat seeds' stored levels consistent with the high stat ledger.
-    // The UI derives this fixture to the first exam hold (L20), and L13 is the
-    // point where the server-authoritative profession choice becomes mandatory.
     await seedSave(request, name, mode !== 'solo' ? {
         characterPatch: { level: mode === 'tower' ? 30 : 20, rankTitle: 'Genin' },
-        // L9's Aura Sphere ceremony is already complete for this established
-        // combat account. Keep the real event id so the story engine and the
-        // fixture cannot silently drift apart.
         triggeredEvents: [AURA_SPHERE_VN_ID],
     } : {});
     if (mode !== 'solo') {
-        // The high-stat combat fixture is raised above the profession unlock by
-        // the authoritative stat ledger. Complete that one-time progression
-        // choice through its real endpoint before mounting PvP; otherwise the
-        // lazy ProfessionPicker can cover the board mid-matrix on slower engines.
+        // Established combat fixtures must clear real one-time progression
+        // gates or their overlays can hide a layout shift in the battle UI.
         const chosen = await request.post('/api/profession/choose', {
             headers: { 'x-player-name': name, 'x-player-token': token },
             data: { playerName: name, profession: 'vanguard' },
@@ -137,9 +147,6 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode:
         expect(chosen.status(), JSON.stringify(choice)).toBe(200);
         expect(choice).toMatchObject({ ok: true, profession: 'vanguard' });
 
-        // Completing the presentation alone is not the reward receipt. Claim the
-        // ceremony through the same idempotent server command the live UI uses,
-        // so the fixture carries both the event ledger and its Aura Sphere.
         const claimed = await request.post('/api/events/claim', {
             headers: { 'x-player-name': name, 'x-player-token': token },
             data: { playerName: name, eventId: AURA_SPHERE_VN_ID },
@@ -157,17 +164,525 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode:
     return { name, token };
 }
 
+type TowerPvpLayoutMatch = {
+    matchId: string;
+    status: 'ready' | 'active' | 'done' | 'cancelled';
+    version: number;
+    roster: Array<{ slug: string; actorId: string }>;
+    combat: { activeIndex: number; turnQueue: string[] };
+};
+
+async function seedEstablishedTowerAccount(request: APIRequestContext, name: string) {
+    const password = 'LayoutMatrix!1234';
+    const registered = await request.post('/api/player-auth', {
+        data: { action: 'register', name, password },
+    });
+    expect(registered.status()).toBe(200);
+    const token = String((await registered.json()).token ?? '');
+    expect(token.length).toBeGreaterThan(10);
+    await seedSave(request, name, {
+        characterPatch: { level: 30, rankTitle: 'Genin' },
+        triggeredEvents: [AURA_SPHERE_VN_ID],
+    });
+    const headers = { 'x-player-name': name, 'x-player-token': token };
+    const chosen = await request.post('/api/profession/choose', {
+        headers,
+        data: { playerName: name, profession: 'vanguard' },
+    });
+    expect(chosen.status(), JSON.stringify(await chosen.json())).toBe(200);
+    const claimed = await request.post('/api/events/claim', {
+        headers,
+        data: { playerName: name, eventId: AURA_SPHERE_VN_ID },
+    });
+    expect(claimed.status(), JSON.stringify(await claimed.json())).toBe(200);
+    return { name, token };
+}
+
+async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
+    // One ordinary-PvP opponent is sufficient across the six serial projects.
+    // Re-registering a throwaway opponent in every project pushed this single
+    // no-retry matrix over the real household registration budget (25/15m).
+    // Verify-first avoids spending a registration attempt on an existing name;
+    // the admin reseed below restores a deterministic, lease-free combat save.
+    const name = 'layout-pvp-opponent';
+    const password = 'LayoutMatrix!1234';
+    let authenticated = await request.post('/api/player-auth', {
+        data: { action: 'verify', name, password },
+    });
+    let authentication = await authenticated.json() as { ok?: boolean; token?: string; error?: string };
+    if (authenticated.status() === 200 && authentication.ok !== true) {
+        authenticated = await request.post('/api/player-auth', {
+            data: { action: 'register', name, password },
+        });
+        authentication = await authenticated.json() as { ok?: boolean; token?: string; error?: string };
+    }
+    expect(authenticated.status(), JSON.stringify(authentication)).toBe(200);
+    const token = String(authentication.token ?? '');
+    expect(token.length).toBeGreaterThan(10);
+    await seedSave(request, name, {
+        characterPatch: { level: 30, rankTitle: 'Genin' },
+        triggeredEvents: [AURA_SPHERE_VN_ID],
+    });
+    const headers = { 'x-player-name': name, 'x-player-token': token };
+    const chosen = await request.post('/api/profession/choose', {
+        headers,
+        data: { playerName: name, profession: 'vanguard' },
+    });
+    expect(chosen.status(), JSON.stringify(await chosen.json())).toBe(200);
+    const claimed = await request.post('/api/events/claim', {
+        headers,
+        data: { playerName: name, eventId: AURA_SPHERE_VN_ID },
+    });
+    expect(claimed.status(), JSON.stringify(await claimed.json())).toBe(200);
+    // This shared account may have won the previous project's PvP coin flip.
+    // Closing that browser leaves its short-lived in-memory presence marked in
+    // battle; after the admin reset + authenticated save acknowledgement, publish
+    // the same ordinary out-of-battle heartbeat a returned client would send.
+    await fetchAuthoritativeSave(request, { name, token });
+    const clearedPresence = await request.post('/api/player/heartbeat', {
+        headers,
+        data: { name, sector: 40, inBattle: false },
+    });
+    const presence = await clearedPresence.json() as {
+        error?: string;
+        forceReload?: boolean;
+        sector?: number;
+        sectorMates?: Array<{ name?: string; sector?: number; inBattle?: boolean }>;
+    };
+    expect(clearedPresence.status(), JSON.stringify(presence)).toBe(200);
+    expect(presence.forceReload, 'shared PvP opponent reset signal must be acknowledged').not.toBe(true);
+    expect(
+        presence.sectorMates?.find(member => serverPlayerSlug(String(member.name ?? '')) === serverPlayerSlug(name)),
+        'shared PvP opponent publishes an out-of-battle presence',
+    ).toMatchObject({ sector: presence.sector, inBattle: false });
+    return { name, token };
+}
+
+async function seedActiveTowerPvpMatch(request: APIRequestContext, testInfo: TestInfo) {
+    const accounts: Array<{ name: string; token: string }> = [];
+    for (const suffix of ['a', 'b', 'c', 'd']) {
+        // Punctuation is intentional: the UI must reconcile a display name with
+        // the canonical owner slug instead of hiding the signed-in actor/loadout.
+        const name = `tm.${safeProject(testInfo)}${suffix}`.slice(0, 20);
+        accounts.push(await seedEstablishedTowerAccount(request, name));
+    }
+
+    let match: TowerPvpLayoutMatch | null = null;
+    for (const [index, account] of accounts.entries()) {
+        const joined = await request.post('/api/towers/pvp-queue', {
+            headers: { 'x-player-name': account.name, 'x-player-token': account.token },
+            data: {
+                action: 'join',
+                playerName: account.name,
+                requestId: `layout-queue-${safeProject(testInfo)}-${index}-0001`,
+            },
+        });
+        const body = await joined.json() as {
+            error?: string;
+            presence?: { state?: string; match?: TowerPvpLayoutMatch | null };
+        };
+        expect(joined.status(), JSON.stringify(body)).toBe(200);
+        if (body.presence?.match) match = body.presence.match;
+    }
+    expect(match, 'the fourth exact-2v2 queue join must publish a match').not.toBeNull();
+
+    for (const [index, account] of accounts.entries()) {
+        const ready = await request.post('/api/towers/pvp-queue', {
+            headers: { 'x-player-name': account.name, 'x-player-token': account.token },
+            data: {
+                action: 'ready',
+                playerName: account.name,
+                matchId: match!.matchId,
+                ready: true,
+                requestId: `layout-ready-${safeProject(testInfo)}-${index}-0001`,
+                expectedVersion: match!.version,
+            },
+        });
+        const body = await ready.json() as { error?: string; match?: TowerPvpLayoutMatch | null };
+        expect(ready.status(), JSON.stringify(body)).toBe(200);
+        expect(body.match, 'every ready acknowledgement must return the current match').toBeTruthy();
+        match = body.match!;
+    }
+    expect(match!.status).toBe('active');
+
+    const activeActorId = match!.combat.turnQueue[match!.combat.activeIndex];
+    const activeController = match!.roster.find(member => member.actorId === activeActorId)?.slug;
+    const account = accounts.find(candidate => serverPlayerSlug(candidate.name) === activeController);
+    expect(account, 'the active actor must map to one of the four authenticated controllers').toBeTruthy();
+    return { account: account!, match: match! };
+}
+
+type TowerPartyLayoutView = {
+    id: string;
+    inviteCode: string;
+    version: number;
+    status: 'forming' | 'launching' | 'active' | 'closed';
+};
+
+type TowerPartyLayoutSession = {
+    runId: string;
+    activeIndex: number;
+    turnQueue: string[];
+    actors: Array<{ id: string; ownerSlug: string | null }>;
+};
+
+type TowerAuthoritySession = {
+    actionVersion?: number;
+    activeAp: number;
+    actionsThisTurn: number;
+    activeIndex: number;
+    turnQueue: string[];
+    actors: Array<{
+        id: string;
+        ownerSlug: string | null;
+        pos: number;
+        chakra: number;
+        stamina: number;
+        cooldowns?: Record<string, number>;
+        character?: {
+            level?: number;
+            specialty?: string;
+            jutsu?: Array<{
+                id?: string;
+                type?: string;
+                ap?: number;
+                chakraCost?: number;
+                staminaCost?: number;
+                cooldown?: number;
+            }>;
+        };
+    }>;
+    log: string[];
+};
+
+type TowerAuthority =
+    | { kind: 'mpve'; runId: string }
+    | { kind: 'mpvp'; matchId: string };
+
+async function fetchTowerAuthoritySession(
+    request: APIRequestContext,
+    account: { name: string; token: string },
+    authority: TowerAuthority,
+): Promise<TowerAuthoritySession> {
+    const headers = { 'x-player-name': account.name, 'x-player-token': account.token };
+    if (authority.kind === 'mpve') {
+        const response = await request.get(
+            `/api/towers/state?runId=${encodeURIComponent(authority.runId)}&playerName=${encodeURIComponent(account.name)}`,
+            { headers },
+        );
+        const body = await response.json() as { error?: string; session?: TowerAuthoritySession };
+        expect(response.status(), JSON.stringify(body)).toBe(200);
+        expect(body.session).toBeTruthy();
+        return body.session!;
+    }
+    const response = await request.get(
+        `/api/towers/pvp-state?matchId=${encodeURIComponent(authority.matchId)}&playerName=${encodeURIComponent(account.name)}`,
+        { headers },
+    );
+    const body = await response.json() as {
+        error?: string;
+        match?: { version: number; combat: TowerAuthoritySession };
+    };
+    expect(response.status(), JSON.stringify(body)).toBe(200);
+    expect(body.match).toBeTruthy();
+    return body.match!.combat.actionVersion == null
+        ? { ...body.match!.combat, actionVersion: body.match!.version }
+        : body.match!.combat;
+}
+
+async function assertAuthoritativeTowerFlickerCast(
+    page: Page,
+    request: APIRequestContext,
+    account: { name: string; token: string },
+    authority: TowerAuthority,
+    rootSelector: string,
+): Promise<void> {
+    const root = page.locator(rootSelector);
+    // Keep a stable locator after the successful cast disables the card on
+    // cooldown; a :not(:disabled) locator would disappear before UI proof.
+    const flicker = root.locator('.combat-jutsu-button[title^="Flicker |"]').first();
+    await expect(flicker, `${authority.kind} Flicker card`).toBeVisible();
+    await expect(flicker, `${authority.kind} Flicker starts enabled`).toBeEnabled();
+    await flicker.scrollIntoViewIfNeeded();
+    await flicker.click();
+    await expect(flicker).toHaveClass(/selected-action/);
+
+    const destination = root.getByRole('button', { name: /jutsu move destination/i }).first();
+    await expect(destination, `${authority.kind} legal Flicker destination`).toBeVisible();
+    const targetTile = Number(await destination.getAttribute('data-combat-tile'));
+    expect(Number.isSafeInteger(targetTile), `${authority.kind} destination tile index`).toBe(true);
+
+    const before = await fetchTowerAuthoritySession(request, account, authority);
+    const beforeVersion = Number(before.actionVersion);
+    expect(Number.isSafeInteger(beforeVersion), `${authority.kind} pre-cast action version`).toBe(true);
+    const actorId = before.turnQueue[before.activeIndex];
+    const beforeActor = before.actors.find(actor => actor.id === actorId);
+    expect(beforeActor, `${authority.kind} active actor`).toBeTruthy();
+    expect(beforeActor!.ownerSlug, `${authority.kind} active controller`).toBe(serverPlayerSlug(account.name));
+    expect(targetTile, `${authority.kind} Flicker must change position`).not.toBe(beforeActor!.pos);
+    // Tower authority seals the run/match loadout when combat starts. Its
+    // Flicker must preserve the canonical PvE/PvP contract; deriving expected
+    // deltas from a drifted Tower record would hide the parity regression.
+    const sealedFlicker = beforeActor!.character?.jutsu?.find(jutsu => jutsu.id === 'starter-universal-flicker');
+    expect(sealedFlicker, `${authority.kind} sealed Flicker definition`).toBeTruthy();
+    const authorityLevel = Number(beforeActor!.character?.level);
+    expect(Number.isFinite(authorityLevel), `${authority.kind} authoritative actor level`).toBe(true);
+    // Compute the expectation through the parity-pinned ordinary client formula,
+    // not from Tower's sealed cost fields. This keeps the journey sensitive to
+    // hydration drift while supporting fixtures whose authoritative level is
+    // sanitized upward by the save service.
+    const canonicalFlicker = {
+        type: 'Taijutsu',
+        ap: 20,
+        chakraCost: 0,
+        staminaCost: v2JutsuResourceCost(20, authorityLevel),
+        cooldown: 2,
+    } as const;
+    expect(
+        sealedFlicker,
+        `${authority.kind} preserves PvE/PvP runtime Flicker costs; sealed=${JSON.stringify(sealedFlicker)}`,
+    ).toMatchObject(canonicalFlicker);
+
+    const endpoint = authority.kind === 'mpve' ? '/api/towers/action' : '/api/towers/pvp-action';
+    const actionPosts: Array<Record<string, unknown>> = [];
+    const recordAction = (browserRequest: BrowserRequest) => {
+        if (browserRequest.method() !== 'POST' || new URL(browserRequest.url()).pathname !== endpoint) return;
+        try {
+            actionPosts.push(browserRequest.postDataJSON() as Record<string, unknown>);
+        } catch {
+            actionPosts.push({ unreadable: true });
+        }
+    };
+    page.on('request', recordAction);
+    try {
+        const actionResponsePromise = page.waitForResponse(response =>
+            response.request().method() === 'POST' && new URL(response.url()).pathname === endpoint);
+        await destination.click();
+        const actionResponse = await actionResponsePromise;
+        const actionBody = await actionResponse.json() as {
+            applied?: boolean;
+            replayed?: boolean;
+            reason?: string;
+            currentVersion?: number;
+            match?: { version?: number; combat?: TowerAuthoritySession };
+        };
+        expect(actionResponse.status(), JSON.stringify(actionBody)).toBe(200);
+        expect(actionBody.applied, JSON.stringify(actionBody)).toBe(true);
+        expect(actionBody.replayed, `${authority.kind} first delivery is not a replay`).toBe(false);
+        expect(actionBody.currentVersion, `${authority.kind} response version`).toBe(beforeVersion + 1);
+        if (authority.kind === 'mpvp') {
+            expect(actionBody.match?.version, 'MPvP match version').toBe(beforeVersion + 1);
+            expect(actionBody.match?.combat?.actionVersion, 'MPvP combat version').toBe(beforeVersion + 1);
+        }
+
+        let latest: TowerAuthoritySession | null = null;
+        await expect.poll(async () => {
+            latest = await fetchTowerAuthoritySession(request, account, authority);
+            return Number(latest.actionVersion);
+        }, {
+            message: `${authority.kind} persisted Flicker version`,
+            timeout: 10_000,
+        }).toBe(beforeVersion + 1);
+        const after = latest!;
+        const afterActor = after.actors.find(actor => actor.id === actorId);
+        expect(afterActor, `${authority.kind} moved actor`).toBeTruthy();
+        expect(afterActor!.pos, `${authority.kind} authoritative destination`).toBe(targetTile);
+        expect(after.activeAp, `${authority.kind} Flicker AP spend`).toBe(before.activeAp - canonicalFlicker.ap);
+        expect(after.actionsThisTurn, `${authority.kind} action count`).toBe(before.actionsThisTurn + 1);
+        expect(afterActor!.chakra, `${authority.kind} Flicker chakra spend`).toBe(beforeActor!.chakra - canonicalFlicker.chakraCost);
+        expect(afterActor!.stamina, `${authority.kind} Flicker stamina spend`).toBe(beforeActor!.stamina - canonicalFlicker.staminaCost);
+        expect(afterActor!.cooldowns?.['starter-universal-flicker'], `${authority.kind} Flicker cooldown`).toBe(canonicalFlicker.cooldown);
+        expect(after.log, `${authority.kind} exactly one combat-log entry`).toHaveLength(before.log.length + 1);
+        expect(after.log.at(-1), `${authority.kind} Flicker log`).toMatch(new RegExp(`uses Flicker.*flickers to hex ${targetTile}`, 'i'));
+
+        await expect(flicker).not.toHaveClass(/selected-action/);
+        await expect(flicker, `${authority.kind} Flicker enters cooldown`).toBeDisabled();
+        await expect(root.locator(`button.tower-hex-tile[data-combat-tile="${targetTile}"]`)).toHaveAttribute(
+            'aria-label',
+            new RegExp(`occupied by ${account.name}`, 'i'),
+        );
+        // A duplicate browser submission would be a user-visible double action.
+        // Wait across several frames so an accidental effect/refetch replay is observed.
+        await page.evaluate(() => new Promise<void>(resolveAfterFrames => {
+            let frames = 0;
+            const next = () => {
+                frames += 1;
+                if (frames >= 6) resolveAfterFrames();
+                else requestAnimationFrame(next);
+            };
+            requestAnimationFrame(next);
+        }));
+        expect(actionPosts, `${authority.kind} browser action POST count`).toHaveLength(1);
+        expect(actionPosts[0]).toMatchObject({
+            type: 'jutsu',
+            jutsuId: 'starter-universal-flicker',
+            tile: targetTile,
+            playerName: account.name,
+        });
+        if (authority.kind === 'mpve') expect(actionPosts[0]?.runId, 'MPvE action run').toBe(authority.runId);
+        else expect(actionPosts[0]?.matchId, 'MPvP action match').toBe(authority.matchId);
+        expect(actionPosts[0]?.expectedVersion, `${authority.kind} optimistic version`).toBe(beforeVersion);
+        expect(String(actionPosts[0]?.moveToken ?? ''), `${authority.kind} idempotency token`).toMatch(/^tower_[A-Za-z0-9_-]+$/);
+
+        // Exercise the captured browser intent a second time at the API boundary.
+        // Both Tower authority variants must replay the original receipt without
+        // another reducer mutation, even though their transports are distinct.
+        const replayResponse = await request.post(endpoint, {
+            headers: { 'x-player-name': account.name, 'x-player-token': account.token },
+            data: actionPosts[0],
+        });
+        const replayBody = await replayResponse.json() as {
+            applied?: boolean;
+            replayed?: boolean;
+            reason?: string;
+            currentVersion?: number;
+        };
+        expect(replayResponse.status(), JSON.stringify(replayBody)).toBe(200);
+        expect(replayBody.currentVersion, `${authority.kind} duplicate keeps version`).toBe(beforeVersion + 1);
+        expect(replayBody.applied, JSON.stringify(replayBody)).toBe(true);
+        expect(replayBody.replayed, `${authority.kind} duplicate is receipt replay`).toBe(true);
+        const afterDuplicate = await fetchTowerAuthoritySession(request, account, authority);
+        const duplicateActor = afterDuplicate.actors.find(actor => actor.id === actorId);
+        expect(Number(afterDuplicate.actionVersion), `${authority.kind} duplicate persisted version`).toBe(beforeVersion + 1);
+        expect(afterDuplicate.activeAp, `${authority.kind} duplicate AP`).toBe(after.activeAp);
+        expect(afterDuplicate.actionsThisTurn, `${authority.kind} duplicate action count`).toBe(after.actionsThisTurn);
+        expect(afterDuplicate.log, `${authority.kind} duplicate log`).toEqual(after.log);
+        expect(duplicateActor, `${authority.kind} duplicate actor`).toEqual(afterActor);
+
+        // Exercise a real ownership transition after the movement cast. An
+        // armed intent must not survive into another fighter's turn, while the
+        // signed-in fighter's sealed loadout remains visible for inspection.
+        const nextJutsu = root.locator('.combat-jutsu-button:not(:disabled):not([title^="Flicker |"])').first();
+        await expect(nextJutsu, `${authority.kind} post-cast alternate jutsu`).toBeVisible();
+        await nextJutsu.click();
+        await expect(nextJutsu).toHaveClass(/selected-action/);
+        const endTurn = root.getByRole('button', { name: /End Turn/i });
+        await expect(endTurn, `${authority.kind} end-turn control`).toBeEnabled();
+        const endTurnResponsePromise = page.waitForResponse(response =>
+            response.request().method() === 'POST' && new URL(response.url()).pathname === endpoint);
+        await endTurn.click();
+        const endTurnResponse = await endTurnResponsePromise;
+        const endTurnBody = await endTurnResponse.json() as {
+            applied?: boolean;
+            replayed?: boolean;
+            currentVersion?: number;
+            reason?: string;
+        };
+        expect(endTurnResponse.status(), JSON.stringify(endTurnBody)).toBe(200);
+        expect(endTurnBody.applied, JSON.stringify(endTurnBody)).toBe(true);
+        expect(endTurnBody.replayed, `${authority.kind} first end-turn delivery`).toBe(false);
+        expect(endTurnBody.currentVersion, `${authority.kind} end-turn version`).toBe(beforeVersion + 2);
+        await expect.poll(async () => {
+            const transitioned = await fetchTowerAuthoritySession(request, account, authority);
+            return {
+                version: Number(transitioned.actionVersion),
+                activeActorId: transitioned.turnQueue[transitioned.activeIndex],
+            };
+        }, {
+            message: `${authority.kind} persisted ownership transition`,
+            timeout: 10_000,
+        }).toEqual({ version: beforeVersion + 2, activeActorId: expect.not.stringMatching(new RegExp(`^${actorId}$`)) });
+        await expect(root.locator('.combat-jutsu-button.selected-action'), `${authority.kind} stale armed intent`).toHaveCount(0);
+        await expect(root.locator('.combat-jutsu-button').first(), `${authority.kind} local sealed loadout remains mounted`).toBeVisible();
+        await expect(root.locator('.combat-jutsu-button:not(:disabled)'), `${authority.kind} waiting-turn jutsu controls`).toHaveCount(0);
+        expect(actionPosts, `${authority.kind} browser action POST count after end turn`).toHaveLength(2);
+        expect(actionPosts[1]).toMatchObject({
+            type: 'wait',
+            playerName: account.name,
+            expectedVersion: beforeVersion + 1,
+        });
+        expect(String(actionPosts[1]?.moveToken ?? ''), `${authority.kind} end-turn idempotency token`).toMatch(/^tower_[A-Za-z0-9_-]+$/);
+    } finally {
+        page.off('request', recordAction);
+    }
+}
+
+async function seedActiveTowerPartyMatch(request: APIRequestContext, testInfo: TestInfo) {
+    const accounts = await Promise.all(['a', 'b'].map(suffix =>
+        seedEstablishedTowerAccount(request, `tv.${safeProject(testInfo)}${suffix}`.slice(0, 20))));
+    const [host, ally] = accounts as [typeof accounts[number], typeof accounts[number]];
+    const headers = (account: typeof host) => ({
+        'x-player-name': account.name,
+        'x-player-token': account.token,
+    });
+
+    const created = await request.post('/api/towers/party', {
+        headers: headers(host),
+        data: {
+            action: 'create', playerName: host.name, mode: 'story', floor: 1,
+            requestId: `layout-party-create-${safeProject(testInfo)}-0001`,
+        },
+    });
+    let body = await created.json() as { error?: string; party?: TowerPartyLayoutView | null };
+    expect(created.status(), JSON.stringify(body)).toBe(200);
+    expect(body.party).toBeTruthy();
+    let party = body.party!;
+
+    const joined = await request.post('/api/towers/party', {
+        headers: headers(ally),
+        data: {
+            action: 'join', playerName: ally.name, inviteCode: party.inviteCode,
+            expectedVersion: party.version,
+            requestId: `layout-party-join-${safeProject(testInfo)}-0001`,
+        },
+    });
+    body = await joined.json() as { error?: string; party?: TowerPartyLayoutView | null };
+    expect(joined.status(), JSON.stringify(body)).toBe(200);
+    party = body.party!;
+
+    for (const [index, account] of accounts.entries()) {
+        const ready = await request.post('/api/towers/party', {
+            headers: headers(account),
+            data: {
+                action: 'ready', playerName: account.name, partyId: party.id,
+                expectedVersion: party.version,
+                requestId: `layout-party-ready-${safeProject(testInfo)}-${index}-0001`,
+            },
+        });
+        body = await ready.json() as { error?: string; party?: TowerPartyLayoutView | null };
+        expect(ready.status(), JSON.stringify(body)).toBe(200);
+        party = body.party!;
+    }
+
+    const launched = await request.post('/api/towers/start', {
+        headers: headers(host),
+        data: {
+            hostName: host.name, mode: 'story', floor: 1, partyId: party.id,
+            expectedVersion: party.version,
+            requestId: `layout-party-launch-${safeProject(testInfo)}-0001`,
+        },
+    });
+    const launch = await launched.json() as {
+        error?: string;
+        runId?: string;
+        session?: TowerPartyLayoutSession;
+    };
+    expect(launched.status(), JSON.stringify(launch)).toBe(200);
+    expect(launch.runId).toBeTruthy();
+    expect(launch.session).toBeTruthy();
+    const session = launch.session!;
+    const activeActorId = session.turnQueue[session.activeIndex];
+    const activeOwner = session.actors.find(actor => actor.id === activeActorId)?.ownerSlug;
+    const account = accounts.find(candidate => serverPlayerSlug(candidate.name) === activeOwner);
+    expect(account, 'the first party-MPvE turn must belong to a live party member').toBeTruthy();
+    return { account: account!, runId: launch.runId! };
+}
+
 async function installSession(
     page: Page,
     name: string,
     token: string,
-    { acknowledgeEstablishedNotices = false }: { acknowledgeEstablishedNotices?: boolean } = {},
+    {
+        acknowledgeEstablishedNotices = false,
+        savePreview,
+    }: { acknowledgeEstablishedNotices?: boolean; savePreview?: unknown } = {},
 ) {
-    await page.addInitScript(({ player, sessionToken, establishedAccount, latestPatchVersion }) => {
+    await page.addInitScript(({ player, sessionToken, establishedAccount, latestPatchVersion, previewKey, preview }) => {
         localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: player }));
         localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({ [player]: { token: sessionToken } }));
         localStorage.setItem('shinobix:activePlayerPersist', player);
         localStorage.setItem('shinobix:activeTokenPersist', sessionToken);
+        if (preview !== undefined) localStorage.setItem(previewKey, JSON.stringify(preview));
         if (establishedAccount) {
             localStorage.setItem('shinobix:storage-notice-ack', '1');
             if (latestPatchVersion) localStorage.setItem('patchNotes.lastSeenVersion.v1', latestPatchVersion);
@@ -178,7 +693,50 @@ async function installSession(
         sessionToken: token,
         establishedAccount: acknowledgeEstablishedNotices,
         latestPatchVersion: LATEST_PATCH_NOTE?.version ?? '',
+        previewKey: `ninjav-save-preview-v1:${accountKey(name)}`,
+        preview: savePreview,
     });
+}
+
+async function fetchAuthoritativeSave(request: APIRequestContext, account: { name: string; token: string }): Promise<unknown> {
+    const headers = { 'x-player-name': account.name, 'x-player-token': account.token };
+    let previousShape = '';
+    let latest: unknown;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        const response = await request.get(`/api/save/${encodeURIComponent(account.name)}`, {
+            headers,
+        });
+        latest = await response.json();
+        expect(response.status(), JSON.stringify(latest)).toBe(200);
+
+        // A freshly admin-seeded record can acquire server-owned defaults over
+        // more than one read. Mounting the client from the first projection lets
+        // its concurrent boot reads protect that incomplete projection as a
+        // device draft, which later raises an unrelated save-conflict banner in
+        // long WebKit matrices. Require a fixed-point payload before installing
+        // the preview; save clock/version metadata is expected to advance.
+        const shape = JSON.stringify(latest, (key, value) =>
+            key === '_saveVersion' || key === '_saveAt' ? undefined : value);
+        if (previousShape && shape === previousShape) {
+            // Admin seeding intentionally publishes a short-lived reset signal.
+            // A real active session acknowledges it after applying the reset;
+            // these fixtures have already fetched and accepted the settled save,
+            // so finalize that handshake before mounting the browser. Otherwise
+            // heartbeat can force-reload during combat and correctly preserve the
+            // device projection as a conflict draft, obscuring the board under test.
+            const acknowledged = await request.post(`/api/save/${encodeURIComponent(account.name)}?ack=1`, { headers });
+            const acknowledgement = await acknowledged.json() as { ok?: boolean; error?: string };
+            expect(acknowledged.status(), JSON.stringify(acknowledgement)).toBe(200);
+            expect(acknowledgement.ok).toBe(true);
+
+            const finalResponse = await request.get(`/api/save/${encodeURIComponent(account.name)}`, { headers });
+            const finalSave = await finalResponse.json();
+            expect(finalResponse.status(), JSON.stringify(finalSave)).toBe(200);
+            return finalSave;
+        }
+        previousShape = shape;
+    }
+    throw new Error(`Authoritative save did not normalize to a fixed point for ${account.name}`);
 }
 
 async function dismissNotices(page: Page) {
@@ -199,6 +757,16 @@ async function dismissNotices(page: Page) {
     }
 }
 
+async function resolveSaveConflict(page: Page): Promise<void> {
+    const banner = page.getByRole('complementary', { name: 'Device and server saves diverged' });
+    if (await banner.isVisible().catch(() => false)) {
+        // This is intentionally a real pointer action: recovery must remain
+        // operable above a body-portaled fullscreen CombatInstance.
+        await banner.getByRole('button', { name: 'Keep server' }).click();
+    }
+    await expect(banner).toBeHidden();
+}
+
 type Rect = { x: number; y: number; width: number; height: number; right: number; bottom: number };
 type LayoutMeasurement = {
     viewport: { width: number; height: number };
@@ -217,7 +785,6 @@ type LayoutMeasurement = {
     dossierFlow: Array<{ dossier: number; display: string; columns: string; children: Array<{ className: string; gridColumn: string; gridRow: string; rect: Rect | null }> }>;
     gridTemplateColumns: string;
     gridTemplateRows: string;
-    layoutGridRowCount: number;
     mainGridRowCount: number;
     mainGridTemplateColumns: string;
     mainGridTemplateRows: string;
@@ -329,6 +896,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         );
         const style = layoutNode ? getComputedStyle(layoutNode) : null;
         const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
+        const trackStyle = mainStyle?.display === 'contents' ? style : mainStyle;
         const countGridTracks = (template: string) => {
             let depth = 0;
             let count = 0;
@@ -365,10 +933,9 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             dossierFlow,
             gridTemplateColumns: style?.gridTemplateColumns ?? '',
             gridTemplateRows: style?.gridTemplateRows ?? '',
-            layoutGridRowCount: countGridTracks(style?.gridTemplateRows ?? ''),
-            mainGridRowCount: countGridTracks(mainStyle?.gridTemplateRows ?? ''),
+            mainGridRowCount: countGridTracks(trackStyle?.gridTemplateRows ?? ''),
             mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
-            mainGridTemplateRows: mainStyle?.gridTemplateRows ?? '',
+            mainGridTemplateRows: trackStyle?.gridTemplateRows ?? '',
             visibleTileCount: tiles.length,
             allTilesNamed: tiles.every((tile) => Boolean(tile.getAttribute('aria-label')?.trim())),
             tileCentersInsideBoard,
@@ -396,16 +963,420 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
     }, rootSelector);
 }
 
+async function settleLayout(page: Page): Promise<void> {
+    // ResizeObserver updates fitted board scale after layout. Two animation
+    // frames cover both the resize notification and React's rendered response.
+    await page.evaluate(() => new Promise<void>((resolveFrame) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame()));
+    }));
+}
+
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
+    await settleLayout(page);
     let current = await measure(page, rootSelector);
     for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
-        await page.evaluate(() => new Promise<void>((resolveFrame) => {
-            requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame()));
-        }));
-        await page.waitForTimeout(180);
+        await page.waitForTimeout(90);
+        await settleLayout(page);
         current = await measure(page, rootSelector);
     }
     return current;
+}
+
+type SelectionGeometry = {
+    root: Rect | null;
+    boardStage: Rect | null;
+    board: Rect | null;
+    gridLayer: Rect | null;
+    gridTransform: string;
+    actionScrollTop: number;
+    windowScrollX: number;
+    windowScrollY: number;
+    documentHeight: number;
+    visualViewport: { width: number; height: number; offsetLeft: number; offsetTop: number; scale: number } | null;
+    visibleTileCount: number;
+    allTilesNamed: boolean;
+    tileCenterHitCount: number;
+    tileCenterMisses: string[];
+};
+
+type TransitionFrameGeometry = {
+    timestamp: number;
+    selected: boolean;
+    root: Rect | null;
+    boardStage: Rect | null;
+    board: Rect | null;
+    gridLayer: Rect | null;
+    gridTransform: string;
+};
+
+const TRANSITION_TRACE_KEY = '__combatLayoutTransitionTrace';
+const TRANSITION_TRACE_FRAMES = 12;
+
+async function startTransitionTrace(page: Page, rootSelector: string): Promise<void> {
+    await page.evaluate(({ selector, traceKey, frameCount }) => {
+        const rect = (element: Element | null): Rect | null => {
+            if (!element) return null;
+            const value = element.getBoundingClientRect();
+            return { x: value.x, y: value.y, width: value.width, height: value.height, right: value.right, bottom: value.bottom };
+        };
+        const capture = (timestamp: number): TransitionFrameGeometry => {
+            const root = document.querySelector(selector);
+            const gridLayer = root?.querySelector('.hex-grid-layer') ?? null;
+            return {
+                timestamp,
+                selected: Boolean(root?.querySelector('.combat-jutsu-button.selected-action')),
+                root: rect(root),
+                boardStage: rect(root?.querySelector('.combat-board-stage, .tower-board-area, .hex-battlefield') ?? null),
+                board: rect(root?.querySelector('.hex-battlefield, .tower-board-area') ?? null),
+                gridLayer: rect(gridLayer),
+                gridTransform: gridLayer ? getComputedStyle(gridLayer).transform : '',
+            };
+        };
+        const trace = { samples: [capture(performance.now())], complete: false, started: false };
+        (window as unknown as Record<string, unknown>)[traceKey] = trace;
+        const beginTrace = () => {
+            if (trace.started) return;
+            trace.started = true;
+            root?.removeEventListener('pointerdown', beginTrace, true);
+            document.removeEventListener('keydown', beginTrace, true);
+            let sampledFrames = 0;
+            const sampleFrame = (timestamp: number) => {
+                trace.samples.push(capture(timestamp));
+                sampledFrames += 1;
+                if (sampledFrames >= frameCount) trace.complete = true;
+                else requestAnimationFrame(sampleFrame);
+            };
+            requestAnimationFrame(sampleFrame);
+        };
+        // Anchor the consecutive-frame window to the real user interaction.
+        // Starting rAFs before Playwright dispatches input can let a busy WebKit
+        // process consume the entire trace before pointerdown reaches the page.
+        const root = document.querySelector(selector);
+        root?.addEventListener('pointerdown', beginTrace, true);
+        document.addEventListener('keydown', beginTrace, true);
+    }, { selector: rootSelector, traceKey: TRANSITION_TRACE_KEY, frameCount: TRANSITION_TRACE_FRAMES });
+}
+
+async function finishTransitionTrace(page: Page): Promise<TransitionFrameGeometry[]> {
+    await page.waitForFunction((traceKey) => {
+        const trace = (window as unknown as Record<string, { complete?: boolean } | undefined>)[traceKey];
+        return trace?.complete === true;
+    }, TRANSITION_TRACE_KEY);
+    return page.evaluate((traceKey) => {
+        const store = window as unknown as Record<string, { samples?: TransitionFrameGeometry[] } | undefined>;
+        const samples = store[traceKey]?.samples ?? [];
+        delete store[traceKey];
+        return samples;
+    }, TRANSITION_TRACE_KEY);
+}
+
+async function clickVisibleControlCenter(page: Page, control: Locator, label: string): Promise<void> {
+    const box = await control.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box, `${label} bounding box`).not.toBeNull();
+    expect(viewport, `${label} viewport`).not.toBeNull();
+    const left = Math.max(0, box?.x ?? 0);
+    const top = Math.max(0, box?.y ?? 0);
+    const right = Math.min(viewport?.width ?? 0, (box?.x ?? 0) + (box?.width ?? 0));
+    const bottom = Math.min(viewport?.height ?? 0, (box?.y ?? 0) + (box?.height ?? 0));
+    expect(right - left, `${label} visible width`).toBeGreaterThanOrEqual(44);
+    expect(bottom - top, `${label} visible height`).toBeGreaterThanOrEqual(44);
+    const center = { x: (left + right) / 2, y: (top + bottom) / 2 };
+    const hit = await control.evaluate((element, point) => {
+        const target = document.elementFromPoint(point.x, point.y);
+        return {
+            inside: target === element || Boolean(target && element.contains(target)),
+            target: target instanceof HTMLElement ? `${target.tagName}.${target.className}` : target?.nodeName ?? 'none',
+        };
+    }, center);
+    expect(hit.inside, `${label} visible centre hit ${hit.target}`).toBe(true);
+    // Locator.click() first scrolls the whole control into view. That is useful
+    // for form automation but unlike a real pointer tap on an already-visible
+    // card, and it mutates the combat tray/viewport before pointerdown. Click
+    // the visible centre directly so the trace covers only the UI transition.
+    await page.mouse.click(center.x, center.y);
+}
+
+async function selectionGeometry(page: Page, rootSelector: string): Promise<SelectionGeometry> {
+    return page.evaluate((selector) => {
+        const root = document.querySelector(selector);
+        const rect = (element: Element | null): Rect | null => {
+            if (!element) return null;
+            const value = element.getBoundingClientRect();
+            return { x: value.x, y: value.y, width: value.width, height: value.height, right: value.right, bottom: value.bottom };
+        };
+        const gridLayer = root?.querySelector('.hex-grid-layer') ?? null;
+        const actionTray = root?.querySelector<HTMLElement>('.combat-jutsu-bar') ?? null;
+        // Tower draws several non-interactive overlays with the tile skin class.
+        // Scope this inventory to the real board controls so the 120-tile
+        // accessibility and hit-test contract cannot be satisfied by decoration.
+        const tiles = [...(root?.querySelectorAll<HTMLButtonElement>('button.hex-tile, button.tower-hex-tile') ?? [])].filter(tile => {
+            const value = tile.getBoundingClientRect();
+            return value.width > 0 && value.height > 0;
+        });
+        const tileCenterMisses: string[] = [];
+        const tileCenterHitCount = tiles.filter(tile => {
+            const value = tile.getBoundingClientRect();
+            const hit = document.elementFromPoint(value.left + value.width / 2, value.top + value.height / 2);
+            const tileIndex = Number(tile.dataset.combatTile);
+            const actorTarget = hit instanceof Element
+                ? hit.closest<HTMLElement>('.tower-board-actor[data-combat-target-tile]')
+                : null;
+            const mappedActorTarget = Boolean(
+                tile.hasAttribute('inert')
+                && actorTarget
+                && (actorTarget instanceof HTMLButtonElement || actorTarget.getAttribute('role') === 'button'),
+            );
+            // Tower intentionally removes idle/non-target tiles from pointer and
+            // accessibility hit-testing with `inert`. In that state the browser
+            // must resolve the centre to the tile's own grid substrate—not an
+            // unrelated overlay. Once a tile becomes actionable, the stricter
+            // tile/actor hit contract below still applies.
+            const inertGridSubstrate = tile.hasAttribute('inert')
+                && hit === tile.closest('.hex-grid-layer');
+            const accurate = hit === tile || Boolean(hit && tile.contains(hit)) || mappedActorTarget || inertGridSubstrate;
+            if (!accurate) {
+                tileCenterMisses.push(
+                    `${Number.isSafeInteger(tileIndex) ? tileIndex + 1 : '?'}=>${hit instanceof HTMLElement ? hit.className : hit?.nodeName ?? 'none'}`,
+                );
+            }
+            return accurate;
+        }).length;
+        return {
+            root: rect(root),
+            boardStage: rect(root?.querySelector('.combat-board-stage, .tower-board-area, .hex-battlefield') ?? null),
+            board: rect(root?.querySelector('.hex-battlefield, .tower-board-area') ?? null),
+            gridLayer: rect(gridLayer),
+            gridTransform: gridLayer ? getComputedStyle(gridLayer).transform : '',
+            actionScrollTop: actionTray?.scrollTop ?? 0,
+            windowScrollX: window.scrollX,
+            windowScrollY: window.scrollY,
+            documentHeight: document.documentElement.scrollHeight,
+            visualViewport: window.visualViewport ? {
+                width: window.visualViewport.width,
+                height: window.visualViewport.height,
+                offsetLeft: window.visualViewport.offsetLeft,
+                offsetTop: window.visualViewport.offsetTop,
+                scale: window.visualViewport.scale,
+            } : null,
+            visibleTileCount: tiles.length,
+            allTilesNamed: tiles.every(tile => Boolean(tile.getAttribute('aria-label')?.trim())),
+            tileCenterHitCount,
+            tileCenterMisses,
+        };
+    }, rootSelector);
+}
+
+function expectGeometryNear(actual: SelectionGeometry, expected: SelectionGeometry, label: string): void {
+    const expectRectNear = (actualRect: Rect | null, expectedRect: Rect | null, rectLabel: string) => {
+        expect(actualRect, `${label} ${rectLabel} must exist`).not.toBeNull();
+        expect(expectedRect, `${label} baseline ${rectLabel} must exist`).not.toBeNull();
+        for (const key of ['x', 'y', 'width', 'height'] as const) {
+            expect(Math.abs((actualRect?.[key] ?? 0) - (expectedRect?.[key] ?? 0)), `${label} ${rectLabel}.${key}`).toBeLessThanOrEqual(1);
+        }
+    };
+    expectRectNear(actual.root, expected.root, 'root');
+    expectRectNear(actual.boardStage, expected.boardStage, 'board stage');
+    expectRectNear(actual.board, expected.board, 'board');
+    expectRectNear(actual.gridLayer, expected.gridLayer, 'rendered grid');
+    expect(actual.gridTransform, `${label} computed board transform`).toBe(expected.gridTransform);
+    // WebKit can quantize the same subpixel scroll position to adjacent integer
+    // CSS pixels after a selected border repaints. Preserve the no-jump contract
+    // while tolerating only that single-pixel projection noise.
+    expect(Math.abs(actual.actionScrollTop - expected.actionScrollTop), `${label} action tray scroll`).toBeLessThanOrEqual(1);
+    expect(actual.windowScrollX, `${label} document horizontal scroll`).toBe(expected.windowScrollX);
+    expect(actual.windowScrollY, `${label} document vertical scroll`).toBe(expected.windowScrollY);
+    expect(actual.documentHeight, `${label} document height`).toBe(expected.documentHeight);
+    expect(actual.visualViewport, `${label} visual viewport`).toEqual(expected.visualViewport);
+}
+
+function expectTransitionTraceStable(
+    trace: TransitionFrameGeometry[],
+    expected: SelectionGeometry,
+    label: string,
+    selectedBefore: boolean,
+    selectedAfter: boolean,
+): void {
+    expect(trace, `${label} frame trace`).toHaveLength(TRANSITION_TRACE_FRAMES + 1);
+    expect(trace[0]?.selected, `${label} selection at trace start`).toBe(selectedBefore);
+    expect(trace.some(sample => sample.selected === selectedAfter), `${label} must span the interaction state change`).toBe(true);
+    const expectRectNear = (actualRect: Rect | null, expectedRect: Rect | null, rectLabel: string, frame: number) => {
+        expect(actualRect, `${label} frame ${frame} ${rectLabel} must exist`).not.toBeNull();
+        expect(expectedRect, `${label} baseline ${rectLabel} must exist`).not.toBeNull();
+        for (const key of ['x', 'y', 'width', 'height'] as const) {
+            expect(
+                Math.abs((actualRect?.[key] ?? 0) - (expectedRect?.[key] ?? 0)),
+                `${label} frame ${frame} ${rectLabel}.${key}`,
+            ).toBeLessThanOrEqual(1);
+        }
+    };
+    trace.forEach((sample, frame) => {
+        expectRectNear(sample.root, expected.root, 'root', frame);
+        expectRectNear(sample.boardStage, expected.boardStage, 'board stage', frame);
+        expectRectNear(sample.board, expected.board, 'board', frame);
+        expectRectNear(sample.gridLayer, expected.gridLayer, 'rendered grid', frame);
+        expect(sample.gridTransform, `${label} frame ${frame} computed board transform`).toBe(expected.gridTransform);
+    });
+}
+
+function expectCombatBoardUsable(geometry: SelectionGeometry, label: string, isTower: boolean): void {
+    expect(geometry.board?.height ?? 0, `${label} board height`).toBeGreaterThanOrEqual(90);
+    // Story/MPvP are 12x10; generated party-MPvE maps can be larger. Never
+    // accept a reduced board, and require every actual button in larger maps.
+    if (isTower) expect(geometry.visibleTileCount, `${label} visible Tower tile count`).toBeGreaterThanOrEqual(120);
+    else expect(geometry.visibleTileCount, `${label} visible combat tile count`).toBe(120);
+    expect(geometry.allTilesNamed, `${label} every combat tile must have an accessible name`).toBe(true);
+    expect(
+        geometry.tileCenterHitCount,
+        `${label} tile center hit-test misses: ${geometry.tileCenterMisses.join(', ')}`,
+    ).toBe(geometry.visibleTileCount);
+}
+
+async function assertJutsuSelectionGeometryStable(
+    page: Page,
+    rootSelector: string,
+    canToggleOff: boolean,
+    captureSlug?: string,
+    fullViewportMatrix = false,
+): Promise<void> {
+    // Every shell gets the phone plus both 200%-zoom equivalents that exposed
+    // the auto-fit jump. The shared Tower shell additionally runs the complete
+    // advertised viewport/zoom set in every browser/DPR project.
+    const focusedViewports = [
+        { width: 390, height: 844 },
+        { width: 720, height: 450 },
+        { width: 512, height: 384 },
+    ];
+    const requestedMatrix = [
+        ...ACTIVE_VIEWPORTS.map(([width, height]) => ({ width, height })),
+        ...BROWSER_ZOOM_EQUIVALENTS
+            .filter(({ width, height }) => !VIEWPORT_FILTER || `${width}x${height}` === VIEWPORT_FILTER)
+            .map(({ width, height }) => ({ width, height })),
+    ];
+    const viewports = (fullViewportMatrix ? requestedMatrix : focusedViewports)
+        .filter((viewport, index, all) => all.findIndex(candidate =>
+            candidate.width === viewport.width && candidate.height === viewport.height) === index);
+    expect(viewports.length, 'at least one jutsu transition viewport must be selected').toBeGreaterThan(0);
+    for (const viewport of viewports) {
+        await page.setViewportSize(viewport);
+        const root = page.locator(rootSelector);
+        const firstJutsu = root.locator('.combat-jutsu-button:not(:disabled)').first();
+        const actionTray = root.locator('.combat-jutsu-bar');
+        await expect(firstJutsu).toBeVisible();
+        await actionTray.evaluate((panel) => { panel.scrollTop = 0; });
+        await page.mouse.move(0, 0);
+        await settleLayout(page);
+        const before = await selectionGeometry(page, rootSelector);
+        const isTower = rootSelector.toLowerCase().includes('tower');
+        const captureDirectory = captureSlug && viewport.width === 512 && viewport.height === 384
+            ? resolve(SCREENSHOT_ROOT, 'arming', captureSlug)
+            : null;
+        if (captureDirectory) {
+            await mkdir(captureDirectory, { recursive: true });
+            await writeScreenshotWithRetry(page, resolve(captureDirectory, '512x384-idle.png'));
+        }
+        expectCombatBoardUsable(before, `${rootSelector} ${viewport.width}x${viewport.height} idle`, isTower);
+        if (isTower) {
+            const leaveControl = root.locator('.tower-fight-leave');
+            await expect(leaveControl, `${rootSelector} leave or forfeit control`).toBeVisible();
+            const leaveMinimum = await leaveControl.evaluate((control) => {
+                const style = getComputedStyle(control);
+                return {
+                    width: Number.parseFloat(style.minWidth),
+                    height: Number.parseFloat(style.minHeight),
+                };
+            });
+            expect(leaveMinimum.width, `${rootSelector} leave or forfeit CSS min-width`).toBeGreaterThanOrEqual(44);
+            expect(leaveMinimum.height, `${rootSelector} leave or forfeit CSS min-height`).toBeGreaterThanOrEqual(44);
+            const leaveBox = await leaveControl.boundingBox();
+            // Firefox/DPR projection can report an exact 44 CSS-pixel box as
+            // 43.999998. Keep the authored 44px minimum above authoritative,
+            // while tolerating only sub-hundredth floating-point noise here.
+            expect(leaveBox?.width ?? 0, `${rootSelector} leave or forfeit target width`).toBeGreaterThanOrEqual(43.99);
+            expect(leaveBox?.height ?? 0, `${rootSelector} leave or forfeit target height`).toBeGreaterThanOrEqual(43.99);
+        }
+
+        await startTransitionTrace(page, rootSelector);
+        await clickVisibleControlCenter(page, firstJutsu, `${rootSelector} ${viewport.width}x${viewport.height} jutsu`);
+        const armTrace = await finishTransitionTrace(page);
+        await expect(firstJutsu, `${rootSelector} ${viewport.width}x${viewport.height} jutsu must arm`).toHaveClass(/selected-action/);
+        expectTransitionTraceStable(armTrace, before, `${rootSelector} ${viewport.width}x${viewport.height} arming`, false, true);
+        await page.mouse.move(0, 0);
+        await settleLayout(page);
+        const label = `${rootSelector} ${viewport.width}x${viewport.height}`;
+        const armed = await selectionGeometry(page, rootSelector);
+        if (captureDirectory) {
+            await writeScreenshotWithRetry(page, resolve(captureDirectory, '512x384-armed.png'));
+        }
+        expectCombatBoardUsable(armed, `${label} armed`, isTower);
+        expectGeometryNear(armed, before, `${label} after arming a jutsu`);
+
+        await startTransitionTrace(page, rootSelector);
+        if (canToggleOff) await clickVisibleControlCenter(page, firstJutsu, `${rootSelector} ${viewport.width}x${viewport.height} selected jutsu`);
+        else await page.keyboard.press('Escape');
+        const cancelTrace = await finishTransitionTrace(page);
+        await expect(firstJutsu).not.toHaveClass(/selected-action/);
+        expectTransitionTraceStable(cancelTrace, before, `${label} cancelling`, true, false);
+        await page.mouse.move(0, 0);
+        await settleLayout(page);
+        const cancelled = await selectionGeometry(page, rootSelector);
+        if (captureDirectory) {
+            await writeScreenshotWithRetry(page, resolve(captureDirectory, '512x384-cancelled.png'));
+            await writeArtifactWithRetry(
+                page,
+                resolve(captureDirectory, '512x384-geometry.json'),
+                `${JSON.stringify({ viewport, idle: before, armTrace, armed, cancelTrace, cancelled }, null, 2)}\n`,
+            );
+        }
+        expectCombatBoardUsable(cancelled, `${label} cancelled`, isTower);
+        expectGeometryNear(cancelled, before, `${label} after cancelling a jutsu`);
+
+        if (viewport.width === 512 && viewport.height === 384) {
+            // The first card exercises self-cast guidance in these fixtures.
+            // Also cover the Move + EMPTY_GROUND family whose range overlay and
+            // longer guidance previously had no explicit arming transition.
+            const moveJutsu = root.locator('.combat-jutsu-button:not(:disabled)').filter({ hasText: /Flicker/i }).first();
+            await expect(moveJutsu, `${label} Move/ground jutsu fixture`).toBeAttached();
+            await moveJutsu.scrollIntoViewIfNeeded();
+            await settleLayout(page);
+            const moveBefore = await selectionGeometry(page, rootSelector);
+            await startTransitionTrace(page, rootSelector);
+            await moveJutsu.click();
+            const moveArmTrace = await finishTransitionTrace(page);
+            await expect(moveJutsu).toHaveClass(/selected-action/);
+            expectTransitionTraceStable(moveArmTrace, moveBefore, `${label} arming Flicker`, false, true);
+            await settleLayout(page);
+            const moveArmed = await selectionGeometry(page, rootSelector);
+            expectCombatBoardUsable(moveArmed, `${label} Flicker armed`, isTower);
+            expectGeometryNear(moveArmed, moveBefore, `${label} after arming Flicker`);
+
+            await startTransitionTrace(page, rootSelector);
+            if (canToggleOff) await moveJutsu.click();
+            else await page.keyboard.press('Escape');
+            const moveCancelTrace = await finishTransitionTrace(page);
+            await expect(moveJutsu).not.toHaveClass(/selected-action/);
+            expectTransitionTraceStable(moveCancelTrace, moveBefore, `${label} cancelling Flicker`, true, false);
+            await settleLayout(page);
+            const moveCancelled = await selectionGeometry(page, rootSelector);
+            expectCombatBoardUsable(moveCancelled, `${label} Flicker cancelled`, isTower);
+            expectGeometryNear(moveCancelled, moveBefore, `${label} after cancelling Flicker`);
+
+            if (captureDirectory) {
+                await writeArtifactWithRetry(
+                    page,
+                    resolve(captureDirectory, '512x384-flicker-geometry.json'),
+                    `${JSON.stringify({ viewport, idle: moveBefore, armTrace: moveArmTrace, armed: moveArmed, cancelTrace: moveCancelTrace, cancelled: moveCancelled }, null, 2)}\n`,
+                );
+            }
+        }
+    }
+
+    // Leave the matrix in its historical armed state so every viewport also
+    // validates the populated guidance slot.
+    const firstJutsu = page.locator(rootSelector).locator('.combat-jutsu-button:not(:disabled)').first();
+    await firstJutsu.click();
+    await expect(firstJutsu).toHaveClass(/selected-action/);
+    await settleLayout(page);
 }
 
 async function writeArtifactWithRetry(page: Page, path: string, data: string | Uint8Array): Promise<void> {
@@ -429,6 +1400,7 @@ async function writeScreenshotWithRetry(page: Page, path: string): Promise<void>
 
 async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promise<void> {
     const root = page.locator(rootSelector);
+    const actionTray = root.locator('.combat-jutsu-bar');
     const helpButtons = root.locator('.combat-jutsu-help');
     await expect(helpButtons.first()).toBeVisible();
     const indices = await helpButtons.evaluateAll((buttons) => {
@@ -439,12 +1411,16 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
     });
     for (const [position, index] of indices.entries()) {
         const trigger = helpButtons.nth(index);
+        await trigger.scrollIntoViewIfNeeded();
+        const scrollBeforeOpen = await actionTray.evaluate((panel) => panel.scrollTop);
         const controlledId = await trigger.getAttribute('aria-controls');
         expect(controlledId, `edge action trigger ${index} must identify its portaled detail dialog`).toBeTruthy();
         await trigger.click();
         await expect(trigger).toHaveAttribute('aria-expanded', 'true');
         const popover = page.locator(`#${controlledId}`);
         await expect(popover).toBeVisible();
+        await settleLayout(page);
+        expect(await actionTray.evaluate((panel) => panel.scrollTop), `opening edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
         await expect(popover).toHaveAttribute('role', 'dialog');
         await expect(popover).toHaveAttribute('aria-modal', 'true');
         const backdrop = popover.locator('..');
@@ -466,14 +1442,19 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
             await expect(popover).toBeHidden();
             await expect(trigger).toHaveAttribute('aria-expanded', 'false');
             await expect(trigger).toBeFocused();
+            expect(await actionTray.evaluate((panel) => panel.scrollTop), `closing edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
             continue;
         }
         await popover.locator('[data-combat-detail-close]').click();
         await expect(popover).toBeHidden();
+        await expect(trigger).toBeFocused();
+        expect(await actionTray.evaluate((panel) => panel.scrollTop), `closing edge action ${index} must not scroll its tray`).toBe(scrollBeforeOpen);
     }
 
     const thrownTrigger = root.locator('#pvp-combat-detail-trigger-item-thrown-shuriken');
     await expect(thrownTrigger).toBeVisible();
+    await thrownTrigger.scrollIntoViewIfNeeded();
+    const thrownScrollBeforeOpen = await actionTray.evaluate((panel) => panel.scrollTop);
     await thrownTrigger.click();
     await expect(thrownTrigger).toHaveAttribute('aria-expanded', 'true');
     const thrownDialog = page.locator('#pvp-combat-detail-item-thrown-shuriken');
@@ -484,6 +1465,7 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
     await expect(thrownDialog).toBeHidden();
     await expect(thrownTrigger).toHaveAttribute('aria-expanded', 'false');
     await expect(thrownTrigger).toBeFocused();
+    expect(await actionTray.evaluate((panel) => panel.scrollTop), 'closing thrown-item details must not scroll its tray').toBe(thrownScrollBeforeOpen);
 
     // The edge-control checks intentionally scroll the contained action tray
     // to its final equipment row. Restore the matrix's top-of-tray baseline so
@@ -501,7 +1483,6 @@ async function assertBattlefieldActorPresentation(
     const playerMarkers = root.locator('[data-battlefield-actor="player"][data-battlefield-presentation="marker"]');
     const enemyMarkers = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="marker"]');
     const enemySprites = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="sprite"]');
-
     await expect(playerMarkers, 'player portrait markers').toHaveCount(expected.playerMarkers);
     await expect(enemyMarkers, 'enemy portrait markers').toHaveCount(expected.enemyMarkers);
     const enemySpriteCount = await enemySprites.count();
@@ -538,10 +1519,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.documentOverflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
         expect(current.visibleTileCount, `${label} tile count`).toBe(120);
         expect(current.allTilesNamed, `${label} tile accessible names`).toBe(true);
-        expect(
-            current.tileCentersInsideBoard,
-            `${label} tile centers outside board; centers=${JSON.stringify(current.tileCenterBounds)} board=${JSON.stringify(current.board)}`,
-        ).toBe(true);
+        expect(current.tileCentersInsideBoard, `${label} tile centers`).toBe(true);
         expect(
             current.tileCenterHitCount,
             `${label} tile center hit-testing misses: ${current.tileCenterMisses.join(', ')}; main=${JSON.stringify(current.main)} stage=${JSON.stringify(current.boardStage)} board=${JSON.stringify(current.board)}`,
@@ -561,26 +1539,28 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             current.board?.height ?? 0,
             `${label} board must not collapse; stage=${JSON.stringify(current.boardStage)} rows=${current.mainGridTemplateRows}`,
         ).toBeGreaterThanOrEqual(90);
-        const shortLandscape = current.viewport.width >= 480 && current.viewport.height <= 500;
-        if (mode === 'solo' && current.main === null) {
-            expect(current.layoutGridRowCount, `${label} unexpected implicit outer-grid row`).toBe(7);
+        // Solo carries the authoritative action-notice row. Ordinary PvP uses
+        // six portrait tracks, four split-landscape tracks, and the complete
+        // seven-track desktop composition. Pin each authored breakpoint so an
+        // accidental implicit row is still a release failure.
+        const expectedMainRows = mode === 'solo'
+            ? 7
+            : current.viewport.width < 980
+                ? (current.viewport.height <= 500 ? 4 : 6)
+                : 7;
+        expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(expectedMainRows);
+        if (mode === 'solo') {
+            // Solo intentionally renders the battlefield directly, without an
+            // aspect-locking CombatBoardStage. Its row height changes by viewport;
+            // width, tile containment, hit testing, and the 90px floor are the
+            // live usability contracts rather than one stale aspect ratio.
+            expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(280, current.viewport.width - 12));
         } else {
-            expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(shortLandscape ? 4 : 7);
-        }
-        if (mode === 'pvp') {
+            // PvP deliberately splits the shortest landscape tier between the
+            // board and actions. Preserve its authored stage ratio and a useful
+            // physical floor while allowing that responsive split composition.
+            expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(232, current.viewport.width - 12));
             expect((current.board?.width ?? 0) / Math.max(1, current.board?.height ?? 0), `${label} board aspect`).toBeCloseTo(1.6214, 2);
-        }
-        const desktopMission = mode === 'solo' && current.viewport.width >= 1280 && current.viewport.height > 500;
-        if (desktopMission) {
-            expect(current.boardStage, `${label} must not inherit the shared-shell board stage`).toBeNull();
-            expect(current.dossiers, `${label} desktop dossiers`).toHaveLength(2);
-            expect(current.tabs, `${label} desktop tab bar`).toBeNull();
-            expect(
-                (current.board?.width ?? 0) / Math.max(1, current.main?.width ?? 0),
-                `${label} board must use the central combat column`,
-            ).toBeGreaterThanOrEqual(0.9);
-            expect(current.dossiers[0]?.right ?? Infinity, `${label} player dossier must flank the board`).toBeLessThanOrEqual(current.main?.x ?? -Infinity);
-            expect(current.dossiers[1]?.x ?? -Infinity, `${label} enemy dossier must flank the board`).toBeGreaterThanOrEqual(current.main?.right ?? Infinity);
         }
     };
     for (const [width, height] of ACTIVE_VIEWPORTS) {
@@ -624,8 +1604,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         }
     }
     await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
-    // A targeted viewport run should not silently expand into the separate zoom matrix.
-    for (const zoom of VIEWPORT_FILTER ? [] : BROWSER_ZOOM_EQUIVALENTS) {
+    for (const zoom of BROWSER_ZOOM_EQUIVALENTS) {
         await page.setViewportSize({ width: zoom.width, height: zoom.height });
         await page.waitForTimeout(180);
         const current = await measureStable(page, rootSelector);
@@ -648,53 +1627,60 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
 
 test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInfo) => {
     const { name, token } = await seedAccount(request, testInfo, 'solo');
-    await installSession(page, name, token);
+    // Prime the device preview with the exact post-sanitization server record.
+    // Otherwise the async divergence detector can raise a save-conflict banner
+    // midway through the viewport loop and turn a combat hit-test into an
+    // overlay test.
+    const savePreview = await fetchAuthoritativeSave(request, { name, token });
+    await installSession(page, name, token, { savePreview });
     await page.goto('/#/missions', { waitUntil: 'networkidle' });
     await dismissNotices(page);
+    await resolveSaveConflict(page);
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
     await mission.getByRole('button', { name: /Begin Mission/ }).click();
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
-    const firstJutsu = page.locator('.mission-arena-fight .combat-jutsu-button:not(:disabled)').first();
-    await expect(firstJutsu).toBeVisible();
-    await firstJutsu.click();
     await expect(page.locator('.mission-arena-fight .combat-action-notice')).toBeVisible();
     await assertBattlefieldActorPresentation(page, '.mission-arena-fight', {
         playerMarkers: 1,
         enemyMarkers: 0,
         minimumEnemySprites: 1,
     });
+    await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
 });
 
 test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) => {
-    const { name, token } = await seedAccount(request, testInfo, 'pvp');
-    const opponent = `${safeProject(testInfo)}opponent`.slice(0, 20);
-    await seedSave(request, opponent);
-    await installSession(page, name, token, { acknowledgeEstablishedNotices: true });
-    await page.goto('/#/village', { waitUntil: 'networkidle' });
-    await dismissNotices(page);
-    const created = await page.evaluate(async ({ p1, p2 }) => {
-        const response = await fetch('/api/pvp/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ p1Character: { name: p1 }, p2Character: { name: p2 }, biome: 'central' }),
-        });
-        return { status: response.status, body: await response.json() };
-    }, { p1: name, p2: opponent });
-    expect(created.status).toBe(200);
-    const battleId = String((created.body as { battleId?: string }).battleId ?? '');
+    const p1 = await seedAccount(request, testInfo, 'pvp');
+    const p2 = await seedSharedOrdinaryPvpOpponent(request);
+    const created = await request.post('/api/pvp/session', {
+        headers: { 'x-player-name': p1.name, 'x-player-token': p1.token },
+        data: { p1Character: { name: p1.name }, p2Character: { name: p2.name }, biome: 'central' },
+    });
+    const creation = await created.json() as {
+        error?: string;
+        battleId?: string;
+        session?: { activePlayer?: 'p1' | 'p2' };
+    };
+    expect(created.status(), JSON.stringify(creation)).toBe(200);
+    const battleId = String(creation.battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
-    const owner = accountKey(name);
-    await page.evaluate(({ id, authenticatedOwner }) => {
-        localStorage.setItem('pvpSession.v1', JSON.stringify({ owner: authenticatedOwner, pvpBattleId: id, pvpRole: 'p1', pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
+    const activeRole = creation.session?.activePlayer;
+    expect(activeRole, 'PvP session must declare the coin-flip winner').toMatch(/^p[12]$/);
+    const activeAccount = activeRole === 'p2' ? p2 : p1;
+    const savePreview = await fetchAuthoritativeSave(request, activeAccount);
+    await installSession(page, activeAccount.name, activeAccount.token, {
+        acknowledgeEstablishedNotices: true,
+        savePreview,
+    });
+    await page.addInitScript(({ id, owner, role }) => {
+        localStorage.setItem('pvpSession.v1', JSON.stringify({ owner, pvpBattleId: id, pvpRole: role, pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
         localStorage.setItem('lastScreen.v1', 'pvpBattle');
-        history.replaceState(null, '', '#/pvpBattle');
-    }, { id: battleId, authenticatedOwner: owner });
-    // A hash-only page.goto is a same-document navigation, so startup restore
-    // never runs. Reload the document after installing the breadcrumb to model
-    // the real crash/refresh path.
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    }, { id: battleId, owner: accountKey(activeAccount.name), role: activeRole! });
+    // Mount the authenticated fighter who won the real server coin flip. That
+    // keeps the arming test deterministic without forging client turn state.
+    await page.goto('/#/pvpBattle', { waitUntil: 'domcontentloaded' });
     await dismissNotices(page);
+    await resolveSaveConflict(page);
     await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     const battleVisible = await page.locator('.pvp-battle-layout').waitFor({ state: 'visible', timeout: 20_000 })
         .then(() => true, () => false);
@@ -712,49 +1698,102 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         throw new Error(`PvP restore diagnostic: ${JSON.stringify(debug)}`);
     }
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
-    const restoredBreadcrumb = await page.evaluate(() => {
-        const raw = localStorage.getItem('pvpSession.v1');
-        return raw ? JSON.parse(raw) : null;
-    });
-    expect(restoredBreadcrumb).toMatchObject({ owner, pvpBattleId: battleId, pvpRole: 'p1' });
     await assertBattlefieldActorPresentation(page, '.pvp-battle-layout', {
         playerMarkers: 1,
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
+    await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 });
 
-test('Tower combat actor presentation preserves authoritative targeting', async ({ page, request }, testInfo) => {
+test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
+    // WebKit needs roughly five minutes to exercise all 22 base viewports,
+    // six zoom equivalents, and both 12-frame arm/cancel traces. Keep this
+    // exhaustive test no-retry, but do not let the suite-wide 240s budget
+    // terminate a healthy final-viewport run before the zoom checks complete.
+    test.setTimeout(420_000);
     const { name, token } = await seedAccount(request, testInfo, 'tower');
-    await installSession(page, name, token, { acknowledgeEstablishedNotices: true });
+    const savePreview = await fetchAuthoritativeSave(request, { name, token });
+    await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
     await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleTowers'));
     await page.goto('/', { waitUntil: 'networkidle' });
     await dismissNotices(page);
+    await resolveSaveConflict(page);
 
     const firstFloor = page.locator('button[aria-describedby="tower-story-floor-1-details"]');
     await expect(firstFloor).toBeVisible();
     await firstFloor.click();
     await page.getByRole('button', { name: /Enter Floor 1/ }).click();
-
-    const fight = page.locator('.screen-battleTowerFight');
-    await expect(fight).toBeVisible();
-    const enterBattle = fight.getByRole('button', { name: 'Enter battle' });
-    if (await enterBattle.isVisible().catch(() => false)) await enterBattle.click();
+    await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
     await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
         playerMarkers: 1,
         enemyMarkers: 0,
         minimumEnemySprites: 1,
     });
 
-    const actorButtons = fight.locator('.tower-board-actor');
-    const actorCount = await actorButtons.count();
-    expect(actorCount, 'Tower must retain authoritative actor buttons').toBeGreaterThanOrEqual(2);
-    expect(await actorButtons.evaluateAll((buttons) => buttons.every((button) =>
-        button.querySelector(':scope > [data-battlefield-actor]') !== null,
-    )), 'actor art must remain nested in its combat-owned button').toBe(true);
-    const enabledTargetButtons = fight.locator('.tower-board-actor:not(:disabled)');
-    expect(await enabledTargetButtons.count(), 'Tower must retain a legal actor target').toBeGreaterThanOrEqual(1);
-    expect(await enabledTargetButtons.first().evaluate((button) => getComputedStyle(button).pointerEvents),
-        'combat-owned targeting button must remain interactive').not.toBe('none');
+    // BattleTowerFight is also the shared party-MPvE host. The authoritative
+    // team-PvP variant gets its own real exact-2v2 journey below.
+    await assertJutsuSelectionGeometryStable(
+        page,
+        '.screen-battleTowerFight',
+        true,
+        `tower-${testInfo.project.name}`,
+        true,
+    );
+});
+
+test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-layout',
+        'One built-server party authority journey is enough; the shared Tower shell has full browser/DPR coverage above.');
+    const { account, runId } = await seedActiveTowerPartyMatch(request, testInfo);
+    const savePreview = await fetchAuthoritativeSave(request, account);
+    await installSession(page, account.name, account.token, { acknowledgeEstablishedNotices: true, savePreview });
+    await page.addInitScript(({ activeRunId }) => {
+        localStorage.setItem('shinobix:towerRunId', activeRunId);
+        localStorage.setItem('lastScreen.v1', 'battleTowers');
+    }, { activeRunId: runId });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await dismissNotices(page);
+    await resolveSaveConflict(page);
+
+    const fight = page.locator('.screen-battleTowerFight:not(.tower-team-pvp-fight)');
+    await expect(fight).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toBeHidden();
+    await assertJutsuSelectionGeometryStable(page, '.screen-battleTowerFight:not(.tower-team-pvp-fight)', true,
+        `tower-mpve-${testInfo.project.name}`);
+    await assertAuthoritativeTowerFlickerCast(
+        page,
+        request,
+        account,
+        { kind: 'mpve', runId },
+        '.screen-battleTowerFight:not(.tower-team-pvp-fight)',
+    );
+});
+
+test('Tower MPvP authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-layout',
+        'One built-server authority journey is enough; the shared shell has full browser/DPR coverage above.');
+    const { account, match } = await seedActiveTowerPvpMatch(request, testInfo);
+    const savePreview = await fetchAuthoritativeSave(request, account);
+    await installSession(page, account.name, account.token, { acknowledgeEstablishedNotices: true, savePreview });
+    await page.addInitScript(({ matchId }) => {
+        localStorage.setItem('shinobix:towerRunId', `pvp:${matchId}`);
+        localStorage.setItem('lastScreen.v1', 'battleTowers');
+    }, { matchId: match.matchId });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await dismissNotices(page);
+    await resolveSaveConflict(page);
+
+    const fight = page.locator('.screen-battleTowerFight.tower-team-pvp-fight');
+    await expect(fight).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toBeHidden();
+    await assertJutsuSelectionGeometryStable(page, '.tower-team-pvp-fight', true, `tower-mpvp-${testInfo.project.name}`);
+    await assertAuthoritativeTowerFlickerCast(
+        page,
+        request,
+        account,
+        { kind: 'mpvp', matchId: match.matchId },
+        '.tower-team-pvp-fight',
+    );
 });

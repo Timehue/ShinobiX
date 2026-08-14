@@ -17,6 +17,7 @@ import { MasteryPanel } from "../../components/MasteryPanel";
 import { ProfessionRankBar } from "../ProfessionRankBar";
 import { DailyProfessionMissions } from "../DailyProfessionMissions";
 import type { Character, PlayerRecord, Screen } from "../../App";
+import type { VersionedCharacterCommit } from "../../types/character";
 
 export function HealerHub({
     character,
@@ -25,13 +26,15 @@ export function HealerHub({
     onBack,
     playerRoster,
     onServerVersion,
+    onVersionedCharacter,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     setScreen: (s: Screen) => void;
     onBack: () => void;
     playerRoster: PlayerRecord[];
-    onServerVersion?: (version: number | undefined) => void;
+    onServerVersion: (version: unknown) => boolean;
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const healerRank = character.professionRank ?? 1;
 
@@ -63,7 +66,7 @@ export function HealerHub({
 
             <div style={{ marginTop: "1.5rem" }}>
                 <DailyProfessionMissions character={character} />
-                <MasteryPanel character={character} updateCharacter={updateCharacter} />
+                <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />
             </div>
         </div>
     );

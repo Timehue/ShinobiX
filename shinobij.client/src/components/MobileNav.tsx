@@ -187,7 +187,7 @@ export const MobileNav = memo(function MobileNav({
                                 <h2 id={`mobile-menu-${group.id}`}>{group.label}</h2>
                                 <div className="mobile-menu-grid">
                                     {group.items.map(([target, label, Icon]) => (
-                                        <button className="mobile-menu-btn" key={target} aria-current={screen === target ? "page" : undefined} onClick={() => go(target)} onPointerDown={() => preloadScreen(target)}>
+                                        <button className="mobile-menu-btn" key={target} aria-current={screen === target ? "page" : undefined} onClick={() => go(target)} onPointerDown={() => preloadScreen(target, character.storyVillage || character.village)}>
                                             <Icon size={20} />{target === "professions" && character.profession ? PROFESSION_LABEL[character.profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
                                         </button>
                                     ))}

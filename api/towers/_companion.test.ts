@@ -1,10 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { activeActor, createTowerSession, getActor, type TowerActor, type TowerMap } from './_tower-session.js';
-import {
-    applyAction, checkTowerWinner, companionObedienceRoll, endTurn, runAiUntilHuman, startRound,
-} from './_engine.js';
-import { makeRng } from './_sim.js';
+import { createTowerSession, getActor, type TowerActor, type TowerMap } from './_tower-session.js';
+import { checkTowerWinner, companionObedienceRoll, runAiUntilHuman, startRound } from './_engine.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import {
     COMPANION_ACTOR_ID, companionActor, companionGearDamageMult, companionHealOnSummonPct,
@@ -59,28 +56,6 @@ describe('summoned companion (mission pet)', () => {
         assert.equal(sealed?.petId, 'b');
         assert.equal(sealed?.hp, 50);
         assert.ok((sealed?.damage ?? 0) >= 20);
-    });
-
-    it('does not seal a combat-busy active pet, including completed-but-unclaimed work', () => {
-        const readyPet = { id: 'p1', name: 'Ready', level: 50, hp: 50, attack: 8, unlockedForPve: true };
-        const activeBreeding = {
-            pets: [readyPet],
-            activePetId: 'p1',
-            petBreeding: { state: 'breeding', parentIds: ['p1', 'p2'], readyAt: 100 },
-        };
-
-        assert.equal(sealCompanionFromSave(activeBreeding, 99), null, 'an active breeding parent cannot be sealed');
-        assert.equal(sealCompanionFromSave(activeBreeding, 100)?.petId, 'p1', 'breeding unlocks at the ready boundary');
-        assert.equal(
-            sealCompanionFromSave({ pets: [{ ...readyPet, training: { type: 'strength', endsAt: 1 } }], activePetId: 'p1' }, 100),
-            null,
-            'finished training remains busy until collected',
-        );
-        assert.equal(
-            sealCompanionFromSave({ pets: [{ ...readyPet, expedition: { type: 'scout', endsAt: 1 } }], activePetId: 'p1' }, 100),
-            null,
-            'a finished expedition remains busy until claimed',
-        );
     });
 
     // The load-bearing invariant: a temporary pet must NEVER hold a lost run open.
@@ -158,41 +133,11 @@ describe('summoned companion (mission pet)', () => {
         const s = petVsFoe([mv('Rot', 'dot', 45)], 0); // unhappy, not loyal
         s.seed = 2; // the authoritative (seed, round, actor) roll is below the 35% gate
         assert.ok(companionObedienceRoll(s, COMPANION_ACTOR_ID) < 0.35);
-        runAiUntilHuman(s, mkFloor(), () => 0.99); // a caller RNG cannot override the sealed turn roll
+        runAiUntilHuman(s, mkFloor(), () => 0.99); // caller RNG cannot override the sealed turn roll
         const foe = getActor(s, 'en-1')!;
         assert.equal(foe.hp, 5000, 'no damage');
         assert.equal(foe.statuses.length, 0, 'no status');
         assert.ok(s.log.some(l => l.includes('ignores your command')));
-    });
-
-    it('keeps companion obedience identical when live requests reconstruct their RNG', () => {
-        const build = () => {
-            const s = mkSession([
-                mk('sq-1', 'squad', 0, { hp: 50_000, maxHp: 50_000, ai: false, ownerSlug: 'rill' }),
-                companionActor({ ...SEAL, happiness: 0, moves: [mv('Bite', 'damage', 45)] }, 1),
-                mk('en-1', 'enemy', 2, { hp: 50_000, maxHp: 50_000 }),
-            ]);
-            s.seed = 77;
-            startRound(s);
-            return s;
-        };
-        const uninterrupted = build();
-        const requestScoped = build();
-        const persistentRng = makeRng(uninterrupted.seed);
-        const advance = (s: ReturnType<typeof build>, rng: () => number) => {
-            runAiUntilHuman(s, mkFloor(), rng);
-            if (s.status !== 'active') return;
-            const human = activeActor(s);
-            assert.equal(human?.id, 'sq-1');
-            assert.ok(applyAction(s, mkFloor(), { actorId: human!.id, type: 'wait' }, rng).applied);
-            endTurn(s, mkFloor());
-        };
-        for (let round = 0; round < 4; round++) {
-            advance(uninterrupted, persistentRng);
-            advance(requestScoped, makeRng(requestScoped.seed));
-        }
-        assert.deepEqual(requestScoped, uninterrupted,
-            'turn-salted rolls prevent live-vs-recompute companion drift');
     });
 
     it('heals itself first when hurt, then keeps acting on its remaining AP', () => {
@@ -219,14 +164,6 @@ describe('summoned companion (mission pet)', () => {
         // read after the fact.)
         const petActions = s.log.filter(l => l.startsWith('Kit ')).length;
         assert.ok(petActions >= 2, `expected 2+ pet actions in the log, got ${petActions}`);
-    });
-
-    it('spends a legal step escaping authored danger instead of standing in it to attack', () => {
-        const s = petVsFoe([mv('Bite', 'damage', 45)]);
-        s.map.features = [{ kind: 'hazard', tiles: [1], percent: 12, label: 'Marked Fire' }];
-        runAiUntilHuman(s, mkFloor(), () => 0.9);
-        assert.notEqual(getActor(s, COMPANION_ACTOR_ID)!.pos, 1, 'pet leaves the dangerous tile');
-        assert.ok(s.log.some(line => line.includes('evades the marked ground')));
     });
 
     it('uses the pet NICKNAME on the field, and seals its PVE gear', () => {

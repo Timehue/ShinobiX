@@ -24,6 +24,7 @@ import { HealerHub } from "./professions/HealerHub";
 import { VanguardHub } from "./professions/VanguardHub";
 import { PetTamerHub } from "./professions/PetTamerHub";
 import type { Character, PlayerRecord, Profession, Screen } from "../App";
+import type { VersionedCharacterCommit } from "../types/character";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 
 // Mirrors api/profession/choose.ts PROFESSION_UNLOCK_LEVEL.
@@ -43,12 +44,10 @@ const PROFESSION_ICON: Record<Profession, GameIconName> = {
 
 function ProfessionRespecPanel({
     character,
-    updateCharacter,
-    onServerVersion,
+    onVersionedCharacter,
 }: {
     character: Character;
-    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
-    onServerVersion?: (version: number | undefined) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -81,8 +80,7 @@ function ProfessionRespecPanel({
                 setError(data.error ?? `Server error (${response.status})`);
                 return;
             }
-            updateCharacter(data.character);
-            onServerVersion?.(data._saveVersion);
+            onVersionedCharacter(data.character, data._saveVersion);
         } catch {
             setError("Network error. Your profession was not changed; try again.");
         } finally {
@@ -118,6 +116,7 @@ export function Professions({
     setScreen,
     onBack,
     playerRoster,
+    onVersionedCharacter,
     onServerVersion,
 }: {
     character: Character;
@@ -125,18 +124,19 @@ export function Professions({
     setScreen: (s: Screen) => void;
     onBack: () => void;
     playerRoster: PlayerRecord[];
-    onServerVersion?: (version: number | undefined) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
+    onServerVersion: (version: unknown) => boolean;
 }) {
     let hub: React.ReactNode = null;
     if (character.profession === "healer") {
-        hub = <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} onServerVersion={onServerVersion} />;
+        hub = <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} onServerVersion={onServerVersion} onVersionedCharacter={onVersionedCharacter} />;
     } else if (character.profession === "vanguard") {
-        hub = <VanguardHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
+        hub = <VanguardHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} />;
     } else if (character.profession === "petTamer") {
-        hub = <PetTamerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
+        hub = <PetTamerHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} />;
     }
     if (hub) {
-        return <>{hub}<ProfessionRespecPanel character={character} updateCharacter={updateCharacter} onServerVersion={onServerVersion} /></>;
+        return <>{hub}<ProfessionRespecPanel character={character} onVersionedCharacter={onVersionedCharacter} /></>;
     }
 
     // No profession yet → the three-path overview.

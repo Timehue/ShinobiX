@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from "react";
 import type { Wanderer } from "./wanderers";
+import type { Character } from "../types/character";
 
 export function legacyAvailabilityAllowed(preferenceEnabled: boolean, serverEnabled: boolean | null): boolean {
     return preferenceEnabled && serverEnabled === true;
@@ -71,10 +72,73 @@ export type SageOfferView = {
 export type TrialKindView = "awaken" | "bind" | "prove" | "mythic";
 export type TrialObjectiveView = { stat: string; delta: number; progress: number; done: boolean };
 export type TrialView = {
+    id: string;
     legacyId: string; kind: TrialKindView; startedAt: number; attempt: number;
     variant?: number;
     objectives: TrialObjectiveView[];
 };
+
+export type SageAcceptResult = {
+    ok: boolean;
+    reason?: string;
+    legacy?: CharacterLegacy;
+    trial?: TrialView;
+    intro?: string;
+    character?: Character;
+    _saveVersion?: number;
+    /** Newly granted server-owned Chronicle records. Presentation receipt only;
+     * callers must never mutate the local tile-card collection from this list. */
+    chronicleCards?: string[];
+};
+
+export type TrialCompleteResult = {
+    ok: boolean;
+    reason?: string;
+    legacy?: CharacterLegacy;
+    title?: string | null;
+    completion?: string;
+    objectives?: TrialObjectiveView[];
+    character?: Character;
+    _saveVersion?: number;
+    receiptId?: string;
+    /** Newly granted server-owned Chronicle records. Presentation receipt only;
+     * callers must never mutate the local tile-card collection from this list. */
+    chronicleCards?: string[];
+};
+
+export type ChronicleRecordReceipt = {
+    heading: string;
+    message: string;
+    count: number;
+};
+
+/** Turn a server grant receipt into diegetic ceremony copy. This intentionally
+ * carries no card ids and performs no collection write: the save transaction
+ * already owns the grant, while the client only announces what was recorded. */
+export function buildChronicleRecordReceipt(
+    chronicleCards: readonly string[] | null | undefined,
+    kind: "sage-acceptance" | "legacy-awakening",
+    legacyName?: string | null,
+): ChronicleRecordReceipt | null {
+    const count = new Set((chronicleCards ?? []).map((id) => id.trim()).filter(Boolean)).size;
+    if (count === 0) return null;
+
+    const cardPhrase = count === 1 ? "a new card" : `${count} new cards`;
+    const collectionPhrase = count === 1
+        ? "The record is already in your Chronicle collection."
+        : "The records are already in your Chronicle collection.";
+    const witnessedMoment = kind === "sage-acceptance"
+        ? "your witnessed covenant with the Wandering Sage"
+        : legacyName?.trim()
+            ? `the moment ${legacyName.trim()} awakened through your freely chosen, witnessed deeds`
+            : "this freely chosen, witnessed Legacy awakening";
+
+    return {
+        heading: "Chronicle Record Preserved",
+        message: `Chronicle scribes preserve ${witnessedMoment} as ${cardPhrase}. ${collectionPhrase}`,
+        count,
+    };
+}
 
 export type LegacyStatusView = {
     level: number;
@@ -88,6 +152,12 @@ export type LegacyStatusView = {
     offer: SageOfferView | null;
     strongest: Array<{ category: string; tier: string }>;
     eligibleCounts: Record<LegacyRarity, number>;
+    /** Present on authenticated reads so a marker-only acceptance repair is
+     * adopted atomically instead of waiting for the next full save load. */
+    character?: Character;
+    _saveVersion?: number;
+    repaired?: boolean;
+    effectsPending?: boolean;
 };
 
 export type AnnouncementView = {
@@ -191,7 +261,7 @@ export function sageDecline(playerName: string): Promise<{ ok: boolean } | null>
     return postJson(`/api/legacy/sage`, { action: "decline", playerName });
 }
 
-export function sageAccept(playerName: string, legacyId: string): Promise<{ ok: boolean; reason?: string; legacy?: CharacterLegacy; trial?: TrialView; intro?: string } | null> {
+export function sageAccept(playerName: string, legacyId: string): Promise<SageAcceptResult | null> {
     return postJson(`/api/legacy/sage`, { action: "accept", playerName, legacyId });
 }
 
@@ -204,8 +274,8 @@ export function trialReroll(playerName: string): Promise<{ ok: boolean; reason?:
     return postJson(`/api/legacy/trial`, { action: "reroll", playerName });
 }
 
-export function trialComplete(playerName: string): Promise<{ ok: boolean; reason?: string; legacy?: CharacterLegacy; title?: string | null; completion?: string; objectives?: TrialObjectiveView[] } | null> {
-    return postJson(`/api/legacy/trial`, { action: "complete", playerName });
+export function trialComplete(playerName: string, trialId?: string): Promise<TrialCompleteResult | null> {
+    return postJson(`/api/legacy/trial`, { action: "complete", playerName, ...(trialId ? { trialId } : {}) });
 }
 
 export function fetchAnnouncements(limit = 20): Promise<{ announcements: AnnouncementView[]; latestId: number } | null> {

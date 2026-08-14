@@ -1,0 +1,130 @@
+.pet-chronicle-progress {
+    position: relative;
+    margin-top: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(240, 196, 99, .46);
+    border-radius: 13px;
+    padding: 12px 14px;
+    background:
+        radial-gradient(circle at 100% 0, rgba(240, 196, 99, .13), transparent 42%),
+        linear-gradient(135deg, rgba(26, 19, 13, .96), rgba(10, 22, 35, .96));
+    box-shadow: inset 0 1px rgba(255, 255, 255, .07);
+    text-align: left;
+}
+
+.pet-chronicle-progress__announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.pet-chronicle-progress__seal {
+    position: absolute;
+    right: -8px;
+    bottom: -24px;
+    color: rgba(240, 196, 99, .06);
+    font: 900 6.5rem/1 Georgia, serif;
+    transform: rotate(-8deg);
+    pointer-events: none;
+}
+
+.pet-chronicle-progress__heading,
+.pet-chronicle-progress ul {
+    position: relative;
+    z-index: 1;
+}
+
+.pet-chronicle-progress__heading > p {
+    margin: 0 0 3px;
+    color: #f8d98c;
+    font-size: .64rem;
+    font-weight: 900;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+}
+
+.pet-chronicle-progress h3 {
+    margin: 0;
+    color: #fff4cf;
+    font: 800 .98rem/1.3 Georgia, serif;
+}
+
+.pet-chronicle-progress ul {
+    display: grid;
+    gap: 10px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pet-chronicle-progress li {
+    display: grid;
+    gap: 6px;
+}
+
+.pet-chronicle-progress__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.pet-chronicle-progress__row strong {
+    color: #f8fafc;
+    font-size: .82rem;
+}
+
+.pet-chronicle-progress__row span {
+    color: #bfdbfe;
+    font-size: .7rem;
+    font-weight: 800;
+}
+
+.pet-chronicle-progress__row span[data-complete="true"] {
+    color: #fde68a;
+}
+
+.pet-chronicle-progress progress {
+    width: 100%;
+    height: 7px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(2, 6, 23, .78);
+    accent-color: #e7c46b;
+}
+
+.pet-chronicle-progress progress::-webkit-progress-bar {
+    border-radius: 999px;
+    background: rgba(2, 6, 23, .78);
+}
+
+.pet-chronicle-progress progress::-webkit-progress-value {
+    border-radius: 999px;
+    background: linear-gradient(90deg, #9c762d, #f3d489);
+}
+
+.pet-chronicle-progress progress::-moz-progress-bar {
+    border-radius: 999px;
+    background: linear-gradient(90deg, #9c762d, #f3d489);
+}
+
+.pet-chronicle-progress li > p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: .74rem;
+    line-height: 1.4;
+}
+
+@media (max-width: 430px) {
+    .pet-chronicle-progress__row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
+    }
+}

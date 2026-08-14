@@ -25,6 +25,8 @@ export type StoryBossSettleResult = {
     auraDust: number;
     finale: boolean;
     title?: string;
+    /** Card records minted by this authoritative settlement. */
+    chronicleCards?: string[];
     character?: Character | null;
     _saveVersion?: number;
     error?: string;

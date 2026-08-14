@@ -1,7 +1,5 @@
 # Onboarding & Tutorial Plan
 
-> **HISTORICAL DESIGN PROPOSAL — SUPERSEDED FOR CURRENT RUNTIME.** Preserve this document as implementation history; its old `App.tsx` line references, client-only assumptions, and “not yet implemented” statements do not define the shipped tutorial. The current canonical step order and compatibility mapping live in `shinobij.client/src/lib/onboarding-step.ts`, with runtime orchestration in `shinobij.client/src/components/OnboardingCoach.tsx` and exact permanent goals in `shinobij.client/src/lib/logbook-objectives.ts`.
-
 Detailed, implementation-ready plan for the new-player tutorial/onboarding,
 including **auto-learning the chosen bloodline's jutsu at character creation**.
 Drills into §3 of [`early-progression.md`](./early-progression.md); follows the
@@ -11,7 +9,7 @@ choices is in [`competitor-early-game.md`](./competitor-early-game.md) — notab
 that ShinobiX's two closest genre twins (the genre leader, a sibling shinobi RPG) both give new
 players starter jutsu, making the auto-learn feature (§1) the genre norm.
 
-> **Original status at time of writing:** proposal / not yet implemented.
+> **Status:** proposal / not yet implemented.
 > **Headline:** the whole flow is achievable as a **client-only** change. The
 > save sanitizer (`api/save/[name].ts`) does not validate or strip
 > `jutsuMastery`/`equippedJutsuIds`, so seeding starter jutsu at creation
@@ -82,8 +80,8 @@ return {
 ### 1.4 Persistence — verified client-only (no API/cPanel change)
 
 `sanitizeCharacterSave` (`api/save/[name].ts:220`) clamps level, ryo, currencies,
-profession, per-stat + total stat gain, lifetime counters, entitlement-aware
-carried-pet cap (Base 4 / Supporter 6),
+profession, per-stat + total stat gain, lifetime counters, the entitlement-aware
+carried-pet cap (4 base / 6 Supporter),
 inventory cap (500, absolute), and `examsPassed`. It **does not touch
 `jutsuMastery` or `equippedJutsuIds`** — they pass through and are stored. The
 `FIRST_SAVE_BASELINE_CHARACTER.jutsuMastery: []` baseline (line 216) is only used

@@ -126,6 +126,39 @@ export function resumableMissionCombatSession(params: {
         || session.encounter.id !== mission.key
         || session.encounter.sourceId !== mission.aiProfileId
         || session.encounter.bindingId !== binding.runId) return null;
+    // An active fight and a terminal WIN both need exact recovery: the latter
+    // lets a lost result response continue into queue/turn-in. Terminal
+    // non-wins are retired only after their physical outcome is reconciled.
+    if (session.status !== 'active' && !(session.status === 'done' && session.winner === 'player')) return null;
+    return session;
+}
+
+/** Validate the exact terminal non-win that combat-start may reconcile and
+ * retire before minting a retry. This deliberately keeps winning authority. */
+export function retryableTerminalMissionCombatSession(params: {
+    active: MissionCombatActivePointer | null | undefined;
+    binding: MissionCombatBinding | null | undefined;
+    session: SoloPveSession | null | undefined;
+    playerName: string;
+    mission: CombatMissionDef;
+    now?: number;
+}): SoloPveSession | null {
+    const { active, binding, session, playerName, mission } = params;
+    const now = params.now ?? Date.now();
+    if (!active || active.version !== 1 || active.playerName !== playerName
+        || active.missionId !== mission.key || active.expiresAt <= now) return null;
+    if (!binding || binding.version !== 1 || binding.status !== 'active' || binding.settledAt
+        || binding.expiresAt <= now || binding.playerName !== playerName
+        || binding.missionId !== mission.key || binding.enemyProfileId !== mission.aiProfileId
+        || binding.rewardFingerprint !== missionCombatRewardFingerprint(mission)) return null;
+    if (!session || session.status !== 'done' || session.winner === 'player'
+        || session.ownerSlug !== playerName || session.settlementState !== 'pending'
+        || session.expiresAt <= now || session.sessionId !== active.sessionId
+        || active.runId !== binding.runId || active.sessionId !== binding.sessionId
+        || binding.sessionId !== session.sessionId || binding.runId !== session.sessionId) return null;
+    if (session.encounter.kind !== 'mission' || session.encounter.id !== mission.key
+        || session.encounter.sourceId !== mission.aiProfileId
+        || session.encounter.bindingId !== binding.runId) return null;
     return session;
 }
 

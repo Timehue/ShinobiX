@@ -12,7 +12,7 @@ import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
 import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
@@ -184,8 +184,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // Hide a portrait slot entirely when there is genuinely nothing to show
     // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
     // on disk). The dialogue's <speaker> label already tells the player who's talking.
-    const hideLeft = !leftImage && leftName.trim().toLowerCase() === "narrator";
-    const hideRight = !rightImage && rightName.trim().toLowerCase() === "narrator";
+    const hideLeft = hidePlayerPortraitDuringNarration(speaker, leftName, authoredLeftImage)
+        || (!leftImage && leftName.trim().toLowerCase() === "narrator");
+    const hideRight = hidePlayerPortraitDuringNarration(speaker, rightName, authoredRightImage)
+        || (!rightImage && rightName.trim().toLowerCase() === "narrator");
     const upcomingPageIndex = lineIndex < pageDialogue.length - 1 ? pageIndex : pageIndex + 1;
     const upcomingLineIndex = lineIndex < pageDialogue.length - 1 ? lineIndex + 1 : 0;
     const upcomingPage = pages[upcomingPageIndex];
@@ -413,8 +415,8 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         <button className="admin-button" onClick={() => startBattle()}>
                             Enter Battle — {biomeLabel(event.biome)}
                         </button>
-                        {/* No free "skip & claim": a combat event's reward is paid only on
-                            WINNING the fight (completePendingArenaStoryBattle). Leaving here
+                        {/* No free "skip & claim": combat continuation happens only after
+                            the canonical server fight reports a verified win. Leaving here
                             dismisses the event with no reward. */}
                         <button onClick={cancelScene}>
                             Leave — No Reward

@@ -21,6 +21,7 @@ type PvpStatusState = {
     name: string;
     source?: string;
     rounds: number;
+    activeRound?: number;
     percent?: number;
     amount?: number;
     kind: "positive" | "negative";
@@ -69,6 +70,7 @@ export type PvpSessionState = {
     joined?: { p1: boolean; p2: boolean };
     baseRewards?: boolean;
     ranked?: boolean;
+    /** Server-minted Player Ranked V2 authority marker. Ordinary/casual fights omit it. */
     playerRankedAuthorityVersion?: 2;
     fleedBy?: "p1" | "p2";
     createdAt?: number;

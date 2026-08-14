@@ -128,7 +128,7 @@ export async function requestHollowGateServerConsumable(
     requestId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `hg-consumable-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-): Promise<{ ok: boolean; character?: Character; entryCurrencies?: Partial<Record<string, number>>; secondWindArmed?: boolean; runState?: { keys: number; torch: number; threat: number; wardSteps: number; divinerUsed: boolean; secondWindArmed: boolean }; error?: string; alreadyReported?: boolean } | null> {
+): Promise<{ ok: boolean; character?: Character; _saveVersion?: unknown; entryCurrencies?: Partial<Record<string, number>>; secondWindArmed?: boolean; runState?: { keys: number; torch: number; threat: number; wardSteps: number; divinerUsed: boolean; secondWindArmed: boolean }; error?: string; alreadyReported?: boolean } | null> {
     if (!playerName || !token) return null;
     try {
         const response = await fetch("/api/hollow-gate/use-consumable", {
@@ -136,7 +136,7 @@ export async function requestHollowGateServerConsumable(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, token, action, requestId }),
         });
-        const data = await response.json().catch(() => ({})) as { ok?: boolean; character?: Character; entryCurrencies?: Partial<Record<string, number>>; secondWindArmed?: boolean; runState?: { keys: number; torch: number; threat: number; wardSteps: number; divinerUsed: boolean; secondWindArmed: boolean }; error?: string; alreadyReported?: boolean };
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; character?: Character; _saveVersion?: unknown; entryCurrencies?: Partial<Record<string, number>>; secondWindArmed?: boolean; runState?: { keys: number; torch: number; threat: number; wardSteps: number; divinerUsed: boolean; secondWindArmed: boolean }; error?: string; alreadyReported?: boolean };
         return response.ok && data.ok ? { ...data, ok: true } : { ...data, ok: false };
     } catch {
         return null;

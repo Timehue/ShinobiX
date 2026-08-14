@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, towerPlayerSlug, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
 import {
     allSpireFloors, spireFloorMeta, keystonesUpTo, SPIRE_KEYSTONE_COLOR,
     SPIRE_SHARDS_PER_TIER,
@@ -28,9 +28,30 @@ const FLOOR_CACHE_KEY = "tower-floors:v4";
 const FLOOR_CACHE_TTL_MS = 5 * 60_000;
 
 function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
-    return Array.isArray(value) && value.every((floor) =>
-        !!floor && typeof floor === "object" && Number.isFinite((floor as TowerFloorMeta).id),
-    );
+    return Array.isArray(value) && value.every((candidate) => {
+        if (!candidate || typeof candidate !== "object") return false;
+        const floor = candidate as Partial<TowerFloorMeta>;
+        const reward = floor.firstClearReward;
+        const map = floor.map;
+        return Number.isFinite(floor.id)
+            && typeof floor.name === "string"
+            && typeof floor.biome === "string"
+            && typeof floor.objective === "string"
+            && Number.isFinite(floor.roundBudget)
+            && typeof floor.isBoss === "boolean"
+            && Number.isFinite(floor.enemyCount)
+            && Array.isArray(floor.dynamicHazards)
+            && Array.isArray(floor.reinforcementWaves)
+            && floor.reinforcementWaves.every(Number.isFinite)
+            && !!reward
+            && Number.isFinite(reward.ryo)
+            && Number.isFinite(reward.statPoints)
+            && Number.isFinite(reward.fateShards)
+            && Number.isFinite(reward.boneCharms)
+            && !!map
+            && Number.isFinite(map.width)
+            && Number.isFinite(map.height);
+    });
 }
 
 // ─── Battle Towers Lobby ──────────────────────────────────────────────────────
@@ -250,7 +271,10 @@ export function BattleTowersLobby({
             }
         });
         fetchTowerFloors()
-            .then(f => { if (alive) { const ordered = applyCatalog(f); setFloorError(null); writeScreenCache(FLOOR_CACHE_KEY, ordered, FLOOR_CACHE_TTL_MS); } })
+            .then(f => {
+                if (!isTowerFloorList(f)) throw new Error("The Tower floor catalog was incomplete. Please retry.");
+                if (alive) { const ordered = applyCatalog(f); setFloorError(null); writeScreenCache(FLOOR_CACHE_KEY, ordered, FLOOR_CACHE_TTL_MS); }
+            })
             .catch(e => { if (alive) setFloorError(String(e?.message ?? e)); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
@@ -601,7 +625,7 @@ function SpireLadder({
     const nextFloor = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1); // real progression frontier
     const locked = spireTier > spireMaxSelectable;
     const activeKeystones = keystonesUpTo(spireTier);
-    const myRank = board.find(r => r.name.toLowerCase() === me.toLowerCase());
+    const myRank = board.find(r => towerPlayerSlug(r.name) === towerPlayerSlug(me));
     const progressPct = Math.round((spireUnlocked / SPIRE_MAX_TIER) * 100);
     const accent = sel.boss.accent;
 
@@ -734,7 +758,7 @@ function SpireLadder({
                     <div className="spire-board-head">🏆 This Week's Ascendants</div>
                     <ol className="spire-board-list">
                         {board.slice(0, 5).map(r => (
-                            <li key={r.rank} className={r.name.toLowerCase() === me.toLowerCase() ? "me" : ""}>
+                            <li key={r.rank} className={towerPlayerSlug(r.name) === towerPlayerSlug(me) ? "me" : ""}>
                                 <span className="spire-board-rank">#{r.rank}</span>
                                 <span className="spire-board-name">{r.name}</span>
                                 <span className="spire-board-tier">Floor {r.tier}</span>

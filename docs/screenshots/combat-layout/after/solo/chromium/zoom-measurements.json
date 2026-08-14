@@ -40,41 +40,41 @@
         "x": 292.03125,
         "y": 187.40625,
         "width": 1215.9375,
-        "height": 565.328125,
+        "height": 482.125,
         "right": 1507.96875,
-        "bottom": 752.734375
+        "bottom": 669.53125
       },
       "board": {
-        "x": 441.6875,
+        "x": 509.140625,
         "y": 187.40625,
-        "width": 916.609375,
-        "height": 565.328125,
-        "right": 1358.296875,
-        "bottom": 752.734375
+        "width": 781.703125,
+        "height": 482.125,
+        "right": 1290.84375,
+        "bottom": 669.53125
       },
       "gridLayer": {
-        "x": 443.96875,
-        "y": 188.53125,
-        "width": 912.419921875,
-        "height": 562.7274780273438,
-        "right": 1356.388671875,
-        "bottom": 751.2587280273438
+        "x": 511.1875,
+        "y": 188.515625,
+        "width": 777.887939453125,
+        "height": 479.7559814453125,
+        "right": 1289.075439453125,
+        "bottom": 668.2716064453125
       },
       "actions": {
         "x": 292.03125,
-        "y": 921.546875,
+        "y": 860,
         "width": 1215.9375,
-        "height": 188.453125,
+        "height": 250,
         "right": 1507.96875,
         "bottom": 1110
       },
       "tabs": {
         "x": 292.03125,
-        "y": 751.6875,
+        "y": 668.484375,
         "width": 1215.9375,
         "height": 48,
         "right": 1507.96875,
-        "bottom": 799.6875
+        "bottom": 716.484375
       },
       "log": null,
       "dossiers": [
@@ -361,7 +361,7 @@
       "gridTemplateRows": "1083px",
       "mainGridRowCount": 7,
       "mainGridTemplateColumns": "1215.94px",
-      "mainGridTemplateRows": "110.5px 26px 565.328px 48px 29px 72px 188.453px",
+      "mainGridTemplateRows": "110.5px 26px 482.125px 48px 29px 93.6562px 250px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
@@ -374,19 +374,25 @@
       "firstJutsuCenterHit": "combat-jutsu-resources",
       "firstJutsu": {
         "x": 306.03125,
-        "y": 929.546875,
-        "width": 99.8125,
-        "height": 99.8125,
-        "right": 405.84375,
-        "bottom": 1029.359375
+        "y": 868,
+        "width": 130,
+        "height": 108,
+        "right": 436.03125,
+        "bottom": 976
+      },
+      "firstJutsuLabel": "Cinder Shot40 AP · R4 · CD 7Single · Enemy25 CP",
+      "actionScroll": {
+        "scrollTop": 0,
+        "clientHeight": 248,
+        "scrollHeight": 248
       },
       "tileCenterBounds": {
-        "x": 493.28875732421875,
-        "y": 217.30125427246094,
-        "right": 1307.0687255859375,
-        "bottom": 722.4887390136719,
-        "width": 813.7799682617188,
-        "height": 505.18748474121094
+        "x": 553.2355041503906,
+        "y": 213.0436248779297,
+        "right": 1247.0274658203125,
+        "bottom": 643.7435913085938,
+        "width": 693.7919616699219,
+        "height": 430.69996643066406
       },
       "minCommandTouchTarget": 48,
       "boardActionOverlap": false,
@@ -436,41 +442,41 @@
         "x": 259,
         "y": 184.46875,
         "width": 922,
-        "height": 400.1875,
+        "height": 274.59375,
         "right": 1181,
-        "bottom": 584.65625
+        "bottom": 459.0625
       },
       "board": {
-        "x": 395.5625,
+        "x": 497.390625,
         "y": 184.46875,
-        "width": 648.859375,
-        "height": 400.1875,
-        "right": 1044.421875,
-        "bottom": 584.65625
+        "width": 445.21875,
+        "height": 274.59375,
+        "right": 942.609375,
+        "bottom": 459.0625
       },
       "gridLayer": {
-        "x": 397.703125,
-        "y": 185.65625,
-        "width": 644.68798828125,
-        "height": 397.60595703125,
-        "right": 1042.39111328125,
-        "bottom": 583.26220703125
+        "x": 498.765625,
+        "y": 185.59375,
+        "width": 442.2239990234375,
+        "height": 272.73797607421875,
+        "right": 940.9896240234375,
+        "bottom": 458.33172607421875
       },
       "actions": {
         "x": 259,
-        "y": 751.609375,
+        "y": 635,
         "width": 922,
-        "height": 133.390625,
+        "height": 250,
         "right": 1181,
         "bottom": 885
       },
       "tabs": {
         "x": 259,
-        "y": 582.140625,
+        "y": 456.546875,
         "width": 922,
         "height": 48,
         "right": 1181,
-        "bottom": 630.140625
+        "bottom": 504.546875
       },
       "log": null,
       "dossiers": [
@@ -757,7 +763,7 @@
       "gridTemplateRows": "858px",
       "mainGridRowCount": 7,
       "mainGridTemplateColumns": "922px",
-      "mainGridTemplateRows": "110.5px 26px 400.188px 48px 29px 76.0156px 133.391px",
+      "mainGridTemplateRows": "110.5px 26px 274.594px 48px 29px 85px 250px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
@@ -770,19 +776,25 @@
       "firstJutsuCenterHit": "combat-jutsu-resources",
       "firstJutsu": {
         "x": 273,
-        "y": 759.609375,
-        "width": 103.875,
-        "height": 103.875,
-        "right": 376.875,
-        "bottom": 863.484375
+        "y": 643,
+        "width": 130,
+        "height": 108,
+        "right": 403,
+        "bottom": 751
+      },
+      "firstJutsuLabel": "Cinder Shot40 AP · R4 · CD 7Single · Enemy25 CP",
+      "actionScroll": {
+        "scrollTop": 0,
+        "clientHeight": 248,
+        "scrollHeight": 356
       },
       "tileCenterBounds": {
-        "x": 432.5511169433594,
-        "y": 205.9842529296875,
-        "right": 1007.5431213378906,
-        "bottom": 562.9342346191406,
-        "width": 574.9920043945312,
-        "height": 356.9499816894531
+        "x": 522.6696166992188,
+        "y": 199.53775024414062,
+        "right": 917.0856323242188,
+        "bottom": 444.3877258300781,
+        "width": 394.416015625,
+        "height": 244.8499755859375
       },
       "minCommandTouchTarget": 48,
       "boardActionOverlap": false,
@@ -1125,10 +1137,16 @@
       "firstJutsu": {
         "x": 63.3125,
         "y": 603.90625,
-        "width": 139.171875,
-        "height": 139.171875,
-        "right": 202.484375,
-        "bottom": 743.078125
+        "width": 130,
+        "height": 108,
+        "right": 193.3125,
+        "bottom": 711.90625
+      },
+      "firstJutsuLabel": "Cinder Shot40 AP · R4 · CD 7Single · Enemy25 CP",
+      "actionScroll": {
+        "scrollTop": 0,
+        "clientHeight": 94,
+        "scrollHeight": 254
       },
       "tileCenterBounds": {
         "x": 445.75238037109375,
@@ -1174,135 +1192,135 @@
         "right": 954,
         "bottom": 592
       },
-      "main": {
-        "x": 13.578125,
-        "y": 112.203125,
-        "width": 932.84375,
-        "height": 472.21875,
-        "right": 946.421875,
-        "bottom": 584.421875
-      },
+      "main": null,
       "boardStage": {
-        "x": 13.578125,
-        "y": 233.203125,
-        "width": 932.84375,
-        "height": 95.21875,
-        "right": 946.421875,
-        "bottom": 328.421875
+        "x": 12,
+        "y": 219,
+        "width": 936,
+        "height": 116,
+        "right": 948,
+        "bottom": 335
       },
       "board": {
-        "x": 402.8125,
-        "y": 233.203125,
-        "width": 154.375,
-        "height": 95.21875,
-        "right": 557.1875,
-        "bottom": 328.421875
+        "x": 385.953125,
+        "y": 219,
+        "width": 188.078125,
+        "height": 116,
+        "right": 574.03125,
+        "bottom": 335
       },
       "gridLayer": {
-        "x": 404.546875,
-        "y": 234.28125,
-        "width": 150.5159912109375,
-        "height": 92.82949829101562,
-        "right": 555.0628662109375,
-        "bottom": 327.1107482910156
+        "x": 387.703125,
+        "y": 220.109375,
+        "width": 184.48199462890625,
+        "height": 113.77777099609375,
+        "right": 572.1851196289062,
+        "bottom": 333.88714599609375
       },
       "actions": {
-        "x": 13.578125,
-        "y": 488.421875,
-        "width": 932.84375,
+        "x": 12,
+        "y": 488,
+        "width": 936,
         "height": 96,
-        "right": 946.421875,
-        "bottom": 584.421875
+        "right": 948,
+        "bottom": 584
       },
       "tabs": {
-        "x": 13.578125,
-        "y": 376.421875,
-        "width": 932.84375,
-        "height": 48,
-        "right": 946.421875,
-        "bottom": 424.421875
+        "x": 12,
+        "y": 331,
+        "width": 936,
+        "height": 44,
+        "right": 948,
+        "bottom": 375
       },
       "log": null,
       "dossiers": [
         {
-          "x": 13.578125,
-          "y": 13.578125,
-          "width": 463.109375,
-          "height": 92,
-          "right": 476.6875,
-          "bottom": 105.578125
+          "x": 12,
+          "y": 12,
+          "width": 421,
+          "height": 132,
+          "right": 433,
+          "bottom": 144
         },
         {
-          "x": 483.3125,
-          "y": 13.578125,
-          "width": 463.109375,
-          "height": 92,
-          "right": 946.421875,
-          "bottom": 105.578125
+          "x": 527,
+          "y": 12,
+          "width": 421,
+          "height": 132,
+          "right": 948,
+          "bottom": 144
         }
       ],
       "dossierFlow": [
         {
           "dossier": 0,
           "display": "grid",
-          "columns": "220.547px 220.562px",
+          "columns": "38px 363px",
           "children": [
             {
               "className": "combat-hud-header",
-              "gridColumn": "1 / -1",
+              "gridColumn": "2",
               "gridRow": "1",
               "rect": {
-                "x": 20.578125,
-                "y": 20.578125,
-                "width": 449.109375,
+                "x": 63,
+                "y": 19,
+                "width": 363,
                 "height": 12.59375,
-                "right": 469.6875,
-                "bottom": 33.171875
+                "right": 426,
+                "bottom": 31.59375
               }
             },
             {
               "className": "combat-avatar",
               "gridColumn": "1",
               "gridRow": "1 / span 2",
-              "rect": null
+              "rect": {
+                "x": 19,
+                "y": 19,
+                "width": 36,
+                "height": 36,
+                "right": 55,
+                "bottom": 55
+              }
             },
             {
               "className": "resource-line resource-line--hp",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 20.578125,
-                "y": 35.171875,
-                "width": 220.546875,
+                "x": 19,
+                "y": 57,
+                "width": 407,
                 "height": 14,
-                "right": 241.125,
-                "bottom": 49.171875
+                "right": 426,
+                "bottom": 71
               }
             },
             {
               "className": "resource-line resource-line--chakra",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 249.125,
-                "y": 35.171875,
-                "width": 220.5625,
+                "x": 19,
+                "y": 73,
+                "width": 407,
                 "height": 14,
-                "right": 469.6875,
-                "bottom": 49.171875
+                "right": 426,
+                "bottom": 87
               }
             },
             {
               "className": "resource-line resource-line--stamina",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 20.578125,
-                "y": 51.171875,
-                "width": 220.546875,
+                "x": 19,
+                "y": 89,
+                "width": 407,
                 "height": 14,
-                "right": 241.125,
-                "bottom": 65.171875
+                "right": 426,
+                "bottom": 103
               }
             },
             {
@@ -1325,15 +1343,15 @@
             },
             {
               "className": "resource-line resource-line--shield",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 249.125,
-                "y": 51.171875,
-                "width": 220.5625,
+                "x": 19,
+                "y": 105,
+                "width": 407,
                 "height": 14,
-                "right": 469.6875,
-                "bottom": 65.171875
+                "right": 426,
+                "bottom": 119
               }
             },
             {
@@ -1341,12 +1359,12 @@
               "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 20.578125,
-                "y": 67.171875,
-                "width": 449.109375,
+                "x": 19,
+                "y": 121,
+                "width": 407,
                 "height": 16,
-                "right": 469.6875,
-                "bottom": 83.171875
+                "right": 426,
+                "bottom": 137
               }
             }
           ]
@@ -1354,64 +1372,71 @@
         {
           "dossier": 1,
           "display": "grid",
-          "columns": "220.547px 220.562px",
+          "columns": "38px 363px",
           "children": [
             {
               "className": "combat-hud-header",
-              "gridColumn": "1 / -1",
+              "gridColumn": "2",
               "gridRow": "1",
               "rect": {
-                "x": 490.3125,
-                "y": 20.578125,
-                "width": 449.109375,
+                "x": 578,
+                "y": 19,
+                "width": 363,
                 "height": 12.59375,
-                "right": 939.421875,
-                "bottom": 33.171875
+                "right": 941,
+                "bottom": 31.59375
               }
             },
             {
               "className": "combat-avatar",
               "gridColumn": "1",
               "gridRow": "1 / span 2",
-              "rect": null
+              "rect": {
+                "x": 534,
+                "y": 19,
+                "width": 36,
+                "height": 36,
+                "right": 570,
+                "bottom": 55
+              }
             },
             {
               "className": "resource-line resource-line--hp",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 490.3125,
-                "y": 35.171875,
-                "width": 220.546875,
+                "x": 534,
+                "y": 57,
+                "width": 407,
                 "height": 14,
-                "right": 710.859375,
-                "bottom": 49.171875
+                "right": 941,
+                "bottom": 71
               }
             },
             {
               "className": "resource-line resource-line--chakra",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 718.859375,
-                "y": 35.171875,
-                "width": 220.5625,
+                "x": 534,
+                "y": 73,
+                "width": 407,
                 "height": 14,
-                "right": 939.421875,
-                "bottom": 49.171875
+                "right": 941,
+                "bottom": 87
               }
             },
             {
               "className": "resource-line resource-line--stamina",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 490.3125,
-                "y": 51.171875,
-                "width": 220.546875,
+                "x": 534,
+                "y": 89,
+                "width": 407,
                 "height": 14,
-                "right": 710.859375,
-                "bottom": 65.171875
+                "right": 941,
+                "bottom": 103
               }
             },
             {
@@ -1434,15 +1459,15 @@
             },
             {
               "className": "resource-line resource-line--shield",
-              "gridColumn": "auto",
+              "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 718.859375,
-                "y": 51.171875,
-                "width": 220.5625,
+                "x": 534,
+                "y": 105,
+                "width": 407,
                 "height": 14,
-                "right": 939.421875,
-                "bottom": 65.171875
+                "right": 941,
+                "bottom": 119
               }
             },
             {
@@ -1450,22 +1475,22 @@
               "gridColumn": "1 / -1",
               "gridRow": "auto",
               "rect": {
-                "x": 490.3125,
-                "y": 67.171875,
-                "width": 449.109375,
+                "x": 534,
+                "y": 121,
+                "width": 407,
                 "height": 16,
-                "right": 939.421875,
-                "bottom": 83.171875
+                "right": 941,
+                "bottom": 137
               }
             }
           ]
         }
       ],
-      "gridTemplateColumns": "463.109px 463.109px",
-      "gridTemplateRows": "92px 472.219px",
+      "gridTemplateColumns": "421px 86px 421px",
+      "gridTemplateRows": "132px 29px 26px 116px 44px 105px 96px",
       "mainGridRowCount": 7,
-      "mainGridTemplateColumns": "932.844px",
-      "mainGridTemplateRows": "76px 29px 95.2188px 48px 48px 56px 96px",
+      "mainGridTemplateColumns": "minmax(0px, 1fr)",
+      "mainGridTemplateRows": "76px auto minmax(0px, 2fr) 48px auto auto minmax(96px, 0.4fr)",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
@@ -1477,20 +1502,26 @@
       "firstJutsuCenterVisibleAndHit": true,
       "firstJutsuCenterHit": "combat-jutsu-method-target",
       "firstJutsu": {
-        "x": 29.203125,
-        "y": 504.046875,
-        "width": 122.203125,
-        "height": 122.203125,
-        "right": 151.40625,
-        "bottom": 626.25
+        "x": 24,
+        "y": 500,
+        "width": 116,
+        "height": 86.5,
+        "right": 140,
+        "bottom": 586.5
+      },
+      "firstJutsuLabel": "Cinder Shot40 AP · R4 · CD 7Single · Enemy25 CP",
+      "actionScroll": {
+        "scrollTop": 0,
+        "clientHeight": 94,
+        "scrollHeight": 202
       },
       "tileCenterBounds": {
-        "x": 412.68287658691406,
-        "y": 239.2532501220703,
-        "right": 546.9268798828125,
-        "bottom": 322.5907440185547,
-        "width": 134.24400329589844,
-        "height": 83.33749389648438
+        "x": 397.6751251220703,
+        "y": 226.20337677001953,
+        "right": 562.213134765625,
+        "bottom": 328.3471221923828,
+        "width": 164.5380096435547,
+        "height": 102.14374542236328
       },
       "minCommandTouchTarget": 44,
       "boardActionOverlap": false,
@@ -1562,9 +1593,9 @@
       },
       "actions": {
         "x": 462.90625,
-        "y": 309.75,
+        "y": 316.75,
         "width": 245.078125,
-        "height": 126.25,
+        "height": 119.25,
         "right": 707.984375,
         "bottom": 436
       },
@@ -1819,7 +1850,7 @@
       "gridTemplateRows": "104px 314px",
       "mainGridRowCount": 4,
       "mainGridTemplateColumns": "446.906px 245.078px",
-      "mainGridTemplateRows": "48px 26px 101.75px 126.25px",
+      "mainGridTemplateRows": "48px 26px 108.75px 119.25px",
       "visibleTileCount": 120,
       "allTilesNamed": true,
       "tileCentersInsideBoard": true,
@@ -1832,11 +1863,17 @@
       "firstJutsuCenterHit": "path",
       "firstJutsu": {
         "x": 474.90625,
-        "y": 321.75,
+        "y": 328.75,
         "width": 221.078125,
         "height": 44,
         "right": 695.984375,
-        "bottom": 365.75
+        "bottom": 372.75
+      },
+      "firstJutsuLabel": "Cinder Shot40 AP · R4 · CD 7Single · Enemy25 CP",
+      "actionScroll": {
+        "scrollTop": 0,
+        "clientHeight": 117,
+        "scrollHeight": 640
       },
       "tileCenterBounds": {
         "x": 74.97125244140625,
@@ -2191,6 +2228,12 @@
         "height": 44,
         "right": 487.984375,
         "bottom": 367.125
+      },
+      "firstJutsuLabel": "Cinder Shot40 AP · R4 · CD 7Single · Enemy25 CP",
+      "actionScroll": {
+        "scrollTop": 0,
+        "clientHeight": 57,
+        "scrollHeight": 640
       },
       "tileCenterBounds": {
         "x": 27.872875213623047,

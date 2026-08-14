@@ -370,9 +370,46 @@ export type Character = {
     weaponElements?: Record<string, string>;
     claimedAwakenings?: string[];
     redeemedAwakeningActions?: string[];
-    activeDungeonRun?: { token: string; startedAt: number; entry?: "free" | "key" } | null;
+    activeDungeonRun?: {
+        token: string;
+        startedAt: number;
+        entry?: "free" | "key";
+        sector?: number;
+        exploreReceiptId?: string;
+        combatAuthorityVersion?: number;
+        wardenDefeated?: boolean;
+        wardenProofId?: string;
+        wardenProfileId?: string;
+        wardenLastOutcome?: "win" | "loss" | "draw" | "forfeit";
+    } | null;
+    /** Server-issued nonce for each accepted built-in field contract. */
+    serverFieldMissionRuns?: Record<string, { missionId: string; runId: string; acceptedAt: number }>;
+    /** Proof-bound AI/PvP raid settlement ledger; never synthesized by the client. */
+    raidProgressionSettlements?: Array<{
+        version: 1;
+        proofId: string;
+        proofAt: number;
+        fetchMissionsCredited: string[];
+        xpAwarded: number;
+        missionsCompleted: Array<{ id: string; name: string; xpReward: number }>;
+        bonusRyo: number;
+        bonusSeals: number;
+        territoryDamage: number;
+        sector?: number;
+        settledAt: number;
+    }>;
     serverFreeDungeonProbeDate?: string;
     serverFreeDungeonProbesToday?: number;
+    /** Durable server receipts make free-dungeon hit/miss probes replayable after lost ACKs. */
+    serverFreeDungeonProbeReceipts?: Array<{
+        requestId: string;
+        day: string;
+        sector: number;
+        found: boolean;
+        token: string;
+        at: number;
+        resolvedAt?: number;
+    }>;
     redeemedDungeonRuns?: string[];
     redeemedHollowGateRuns?: string[];
     boneCharms: number;
@@ -720,8 +757,7 @@ export type PlayerRecord = {
     village: string;
     specialty: JutsuType;
     character: Character;
-    /** Server-projected pets currently eligible for public combat. This keeps
-     * supporter capacity accurate without exposing the Patreon ledger. */
+    /** Server-projected 4/6 combat roster; ownership remains character.pets. */
     eligiblePets?: Pet[];
     currentSector?: number;
     lastSeenAt?: number;
@@ -739,10 +775,12 @@ export type ServerPlayerSummary = {
     specialty?: string;
     online: boolean;
     character?: Character;
-    /** Authoritative public combat roster (Base 4 / active Supporter 6). */
     eligiblePets?: Pet[];
     currentSector?: number;
     lastSeenAt?: number;
     travelingUntil?: number;
     sleeping?: boolean;
 };
+
+/** Atomically accepts a server-issued character together with its save version. */
+export type VersionedCharacterCommit = (character: Character, version: unknown) => boolean;

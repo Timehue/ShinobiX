@@ -24,6 +24,8 @@ export type Announcement = {
     player?: string;
     village?: string;
     legacyId?: string;
+    /** Stable internal settlement identity used to make retries exact-once. */
+    receiptId?: string;
     meta?: Record<string, unknown>;
 };
 
@@ -42,6 +44,8 @@ export type HallEntry = {
     meta?: Record<string, unknown>;
 };
 
+type HallEntryInput = Omit<HallEntry, 'id' | 'ts' | 'status'>;
+
 export const ANNOUNCEMENTS_KEY = 'game:announcements';
 const ANNOUNCEMENTS_SEQ = 'game:announcements-seq';
 const ANNOUNCEMENTS_CAP = 100;
@@ -49,6 +53,15 @@ const ANNOUNCEMENTS_CAP = 100;
 export const HALL_KEY = 'hall:entries';
 const HALL_SEQ = 'hall:entries-seq';
 const HALL_CAP = 500;
+type HallNxMarker = '1' | {
+    status: 'pending' | 'done';
+    entryId?: number;
+    player?: string;
+    /** The first claimant's payload. A later retry can finish that exact Hall
+     * entry without letting a different caller steal a server-first claim. */
+    entry?: HallEntryInput;
+    updatedAt: number;
+};
 
 const DAY_SECONDS = 25 * 60 * 60;
 const dateKeyUTC = (d = new Date()) => d.toISOString().slice(0, 10);
@@ -59,26 +72,39 @@ const dateKeyUTC = (d = new Date()) => d.toISOString().slice(0, 10);
  * high/mythic always land (they are already structurally rare). Best-effort:
  * never throws into the game action that triggered it.
  */
-export async function announce(a: Omit<Announcement, 'id' | 'ts'>): Promise<Announcement | null> {
+export async function announce(
+    a: Omit<Announcement, 'id' | 'ts' | 'receiptId'>,
+    opts?: { receiptId?: string },
+): Promise<Announcement | null> {
     try {
-        if (a.importance === 'low' || a.importance === 'medium') {
-            const rlKey = `announce-rl:${a.type}:${a.player ?? 'server'}:${dateKeyUTC()}`;
-            const count = await kv.incr(rlKey, { ex: DAY_SECONDS });
-            if (count > 3) return null;
-        }
-        const id = await kv.incr(ANNOUNCEMENTS_SEQ);
-        const full: Announcement = { id, ts: Date.now(), ...a };
+        const receiptId = opts?.receiptId?.trim().slice(0, 200) || undefined;
+        let full: Announcement | null = null;
+        let created = false;
         await withKvLock(ANNOUNCEMENTS_KEY, async () => {
             const list = (await kv.get<Announcement[]>(ANNOUNCEMENTS_KEY)) ?? [];
+            const current = Array.isArray(list) ? list : [];
+            if (receiptId) {
+                const existing = current.find((item) => item.receiptId === receiptId);
+                if (existing) { full = existing; return; }
+            }
+            if (a.importance === 'low' || a.importance === 'medium') {
+                const rlKey = `announce-rl:${a.type}:${a.player ?? 'server'}:${dateKeyUTC()}`;
+                const count = await kv.incr(rlKey, { ex: DAY_SECONDS });
+                if (count > 3) return;
+            }
+            const id = await kv.incr(ANNOUNCEMENTS_SEQ);
+            full = { id, ts: Date.now(), ...a, ...(receiptId ? { receiptId } : {}) };
+            created = true;
             await kv.set(ANNOUNCEMENTS_KEY, [full, ...(Array.isArray(list) ? list : [])].slice(0, ANNOUNCEMENTS_CAP));
-        });
+        }, { failClosed: true });
+        if (!full) return null;
         // Delivery breadth (handoff §Server Announcements): high/mythic events
         // also land as a system line in every village chat, and mythic events
         // fire the optional Discord webhook. Both best-effort.
         if (a.importance === 'high' || a.importance === 'mythic') {
-            await broadcastToVillageChats(full);
+            if (!(await broadcastToVillageChats(full, receiptId))) return null;
         }
-        if (a.importance === 'mythic') {
+        if (a.importance === 'mythic' && created) {
             void postDiscordWebhook(full);
         }
         return full;
@@ -96,27 +122,33 @@ const VILLAGE_CHAT_KEYS = [
 const CHAT_MAX_MESSAGES = 30; // mirror api/village/chat.ts MAX_MESSAGES
 
 /** System line in every village chat for high/mythic world moments. */
-async function broadcastToVillageChats(a: Announcement): Promise<void> {
+async function broadcastToVillageChats(a: Announcement, receiptId?: string): Promise<boolean> {
     const line = {
         author: '📜 World Herald',
         text: `${a.title} — ${a.message}`.slice(0, 480),
         ts: a.ts,
         rank: 'Herald',
+        ...(receiptId ? { receiptId } : {}),
         // `system` marks server-authored lines; api/village/chat.ts constructs
         // player messages from derived fields only, so it can't be forged, and
         // the tavern styles system lines distinctly — a player named to mimic
         // "World Herald" won't get the herald treatment.
         system: true,
     };
+    let delivered = true;
     for (const key of VILLAGE_CHAT_KEYS) {
         try {
             await withKvLock(key, async () => {
                 const existing = (await kv.get<unknown[]>(key)) ?? [];
+                if (receiptId && existing.some((item) => (
+                    item && typeof item === 'object' && (item as { receiptId?: unknown }).receiptId === receiptId
+                ))) return;
                 const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
                 await kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
-            });
-        } catch { /* best-effort per village */ }
+            }, { failClosed: true });
+        } catch { delivered = false; }
     }
+    return delivered;
 }
 
 /**
@@ -126,23 +158,34 @@ async function broadcastToVillageChats(a: Announcement): Promise<void> {
  * ("Moonshadow Village"); an unknown name is a no-op. Best-effort — never
  * throws into the game action that triggered it.
  */
-export async function postVillageHerald(villageName: string, title: string, message: string): Promise<void> {
+export async function postVillageHerald(
+    villageName: string,
+    title: string,
+    message: string,
+    opts?: { receiptId?: string },
+): Promise<boolean> {
     const key = `chat:village:${villageName.toLowerCase().replace(/\s+/g, '-')}`;
-    if (!VILLAGE_CHAT_KEYS.includes(key)) return;
+    if (!VILLAGE_CHAT_KEYS.includes(key)) return true;
+    const receiptId = opts?.receiptId?.trim().slice(0, 200) || undefined;
     const line = {
         author: '📜 World Herald',
         text: `${title} — ${message}`.slice(0, 480),
         ts: Date.now(),
         rank: 'Herald',
+        ...(receiptId ? { receiptId } : {}),
         system: true, // server-authored; the tavern can't be tricked into forging it
     };
     try {
         await withKvLock(key, async () => {
             const existing = (await kv.get<unknown[]>(key)) ?? [];
+            if (receiptId && existing.some((item) => (
+                item && typeof item === 'object' && (item as { receiptId?: unknown }).receiptId === receiptId
+            ))) return;
             const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
             await kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
-        });
-    } catch { /* best-effort */ }
+        }, { failClosed: true });
+        return true;
+    } catch { return false; }
 }
 
 /** Optional Discord relay for mythic moments. Env-gated, fire-and-forget.
@@ -205,25 +248,70 @@ export async function recentAnnouncements(limit = 20, sinceId = 0): Promise<Anno
  * (the same trick as ranked:season:rewarded markers).
  */
 export async function addHallEntry(
-    entry: Omit<HallEntry, 'id' | 'ts' | 'status'>,
+    entry: HallEntryInput,
     opts?: { nxKey?: string },
 ): Promise<HallEntry | null> {
     try {
-        // The NX claim and the list write commit together under a fail-closed
-        // lock — claiming first and then failing the (previously fail-open)
-        // write would permanently lose a "permanent" entry (verification
-        // finding). Lock contention throws to the catch: callers are
-        // best-effort and the NX stays unclaimed for the retry.
+        // The pending marker is a durable mini-outbox. It preserves the first
+        // claimant's exact payload before the Hall write, then flips to done
+        // only after the entry exists. A crash at either write is recoverable,
+        // and a later caller cannot steal a server-first claim.
         let full: HallEntry | null = null;
         await withKvLock(HALL_KEY, async () => {
+            const list = (await kv.get<HallEntry[]>(HALL_KEY)) ?? [];
+            const current = Array.isArray(list) ? list : [];
+            let settledEntry = entry;
             if (opts?.nxKey) {
-                const claimed = await kv.set(`hall:nx:${opts.nxKey}`, '1', { nx: true });
-                if (claimed !== 'OK') return;
+                const markerKey = `hall:nx:${opts.nxKey}`;
+                const marker = await kv.get<HallNxMarker>(markerKey);
+                if (marker === '1' || (marker && marker.status === 'done')) return;
+                const existing = current.find((item) => item.meta?.hallNxKey === opts.nxKey);
+                if (existing) {
+                    await kv.set(markerKey, {
+                        status: 'done', entryId: existing.id, player: existing.player, updatedAt: Date.now(),
+                    } satisfies HallNxMarker);
+                    return;
+                }
+                if (!marker) {
+                    const claimed = await kv.set(
+                        markerKey,
+                        {
+                            status: 'pending',
+                            player: entry.player,
+                            entry,
+                            updatedAt: Date.now(),
+                        } satisfies HallNxMarker,
+                        { nx: true },
+                    );
+                    if (claimed !== 'OK') return;
+                } else {
+                    // New markers preserve the first claimant's complete
+                    // payload. A legacy pending marker can only be recovered by
+                    // that same player, so a server-first cannot be stolen.
+                    if (marker.entry) settledEntry = marker.entry;
+                    else if (marker.player !== undefined && marker.player !== entry.player) return;
+                }
             }
             const id = await kv.incr(HALL_SEQ);
-            full = { id, ts: Date.now(), status: 'active', ...entry };
-            const list = (await kv.get<HallEntry[]>(HALL_KEY)) ?? [];
-            await kv.set(HALL_KEY, [full, ...(Array.isArray(list) ? list : [])].slice(0, HALL_CAP));
+            full = {
+                id,
+                ts: Date.now(),
+                status: 'active',
+                ...settledEntry,
+                ...(opts?.nxKey ? { meta: { ...(settledEntry.meta ?? {}), hallNxKey: opts.nxKey } } : {}),
+            };
+            await kv.set(HALL_KEY, [full, ...current].slice(0, HALL_CAP));
+            if (opts?.nxKey) {
+                await kv.set(
+                    `hall:nx:${opts.nxKey}`,
+                    {
+                        status: 'done',
+                        entryId: id,
+                        player: settledEntry.player,
+                        updatedAt: Date.now(),
+                    } satisfies HallNxMarker,
+                );
+            }
         }, { failClosed: true });
         return full;
     } catch (err) {

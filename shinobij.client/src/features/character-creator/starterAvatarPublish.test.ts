@@ -9,15 +9,14 @@
  * a data URL is not an allowlisted preset. Result: initials whenever the shared-
  * image manifest was slow or failed.
  *
- * Presets are static public assets, so account creation keeps the path and does
- * not POST duplicate bytes to the supporter-gated custom-avatar endpoint.
+ * The bucket still receives the data URL — that is how OTHER players resolve the
+ * portrait by name — but the character keeps the path.
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { keepsPresetPath, publishStarterAvatarForCharacter } from "./starterAvatarPublish";
+import { keepsPresetPath } from "./starterAvatarPublish";
 import { STARTER_AVATARS } from "./characterCreatorCopy";
 import { isPresetAvatar } from "../../lib/entitlements";
-import type { Character } from "../../types/character";
 
 describe("starter avatar path retention", () => {
     it("keeps every avatar the creator can actually offer", () => {
@@ -33,16 +32,6 @@ describe("starter avatar path retention", () => {
     it("only keeps paths the save clamp will accept from a non-subscriber", () => {
         for (const avatar of STARTER_AVATARS) {
             assert.equal(isPresetAvatar(avatar.image), true, `${avatar.id} (${avatar.image})`);
-        }
-    });
-
-    it("does not make a pre-save shared upload for any allowlisted preset", async () => {
-        for (const avatar of STARTER_AVATARS) {
-            const character = { name: "Preset", avatarImage: avatar.image } as Character;
-            let published = false;
-            const result = await publishStarterAvatarForCharacter(character, () => { published = true; });
-            assert.equal(result, character);
-            assert.equal(published, false, `${avatar.id} must bypass the custom-avatar POST`);
         }
     });
 

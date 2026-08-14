@@ -213,6 +213,10 @@ type SectorTerritory = {
     warSupply: number;
     lastSupplyAt?: number;
     rebuiltAt?: number;
+    // Exact server-owned raid settlement receipts. Never accepted from a
+    // client territory payload; preserved under the territory row lock.
+    serverRaidDamageReceipts?: unknown[];
+    serverRaidDamagePending?: unknown;
     updatedAt: number;
 };
 
@@ -319,8 +323,26 @@ function normalizeSectorTerritory(data: Partial<SectorTerritory>): SectorTerrito
             : [],
         warSupply: Math.min(TERRITORY_WAR_SUPPLY_MAX, Math.max(0, Math.floor(Number(data.warSupply ?? 0)))),
         terrainBuffStat: normalizeTerrainBuffStat(data.terrainBuffStat),
+        serverRaidDamageReceipts: [],
         updatedAt: data.updatedAt ?? Date.now(),
     };
+}
+
+function preserveServerRaidSettlementAuthority(
+    next: SectorTerritory,
+    source: SectorTerritory | null | undefined,
+): SectorTerritory {
+    next.serverRaidDamageReceipts = Array.isArray(source?.serverRaidDamageReceipts)
+        ? source.serverRaidDamageReceipts
+        : [];
+    // This pin is written only by the server raid saga. Never copy it from an
+    // incoming client payload; a territory writer must carry the locked row's
+    // value until the saga helps it into the immutable per-proof terminal key.
+    delete next.serverRaidDamagePending;
+    if (source && Object.prototype.hasOwnProperty.call(source, 'serverRaidDamagePending')) {
+        next.serverRaidDamagePending = source.serverRaidDamagePending;
+    }
+    return next;
 }
 
 function villageWarId(villageA: string, villageB: string) {
@@ -440,13 +462,13 @@ export async function captureSectorForVillage(
             requestedOwnerVillage: ownerVillage,
         });
         if (ownershipError) throw new Error(ownershipError);
-        const next = normalizeSectorTerritory({
+        const next = preserveServerRaidSettlementAuthority(normalizeSectorTerritory({
             ...(prev ?? defaultSectorTerritory(s)),
             ownerVillage,
             ownerClan: undefined,
             hp: TERRITORY_HP_MAX,
             updatedAt: now,
-        });
+        }), prev);
         const owned = resolveClaimedWarSupply(prev ?? null, next, now);
         next.warSupply = owned.warSupply;
         next.lastSupplyAt = owned.lastSupplyAt;
@@ -470,11 +492,11 @@ export async function seedHomeSectorOwnership(now: number = Date.now()): Promise
             const changed = await withKvLock(key, async () => {
                 const prev = await kv.get<SectorTerritory>(key);
                 if (prev && String(prev.ownerVillage ?? '').trim()) return false; // already owned
-                const next = normalizeSectorTerritory({
+                const next = preserveServerRaidSettlementAuthority(normalizeSectorTerritory({
                     ...(prev ?? defaultSectorTerritory(sector)),
                     ownerVillage: village,
                     updatedAt: now,
-                });
+                }), prev);
                 await kv.set(key, next);
                 return true;
             }, { failClosed: true });
@@ -983,15 +1005,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
 
-                // Serialize concurrent raid POSTs through a per-territory
-                // lock so two simultaneous writers can't lose each other's
-                // updates. The lock falls through to unlocked on contention
-                // (per _lock.ts behavior) — better to race occasionally
-                // than to drop a raid entirely.
+                // Serialize concurrent territory POSTs through the same
+                // fail-closed lock as the authoritative raid saga. Falling
+                // through unlocked could erase a crash-pinned proof between
+                // its HP commit and terminal-key help-forward.
+                let committedTerritory = incomingTerritory;
                 await withKvLock(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, async () => {
-                    await kv.set(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, incomingTerritory);
-                });
-                return res.status(200).json({ territory: incomingTerritory });
+                    const fresh = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`);
+                    committedTerritory = preserveServerRaidSettlementAuthority({
+                        ...incomingTerritory,
+                    }, fresh);
+                    await kv.set(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, committedTerritory);
+                }, { failClosed: true });
+                return res.status(200).json({ territory: committedTerritory });
             }
 
             if (body?.kind === 'war') {

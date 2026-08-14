@@ -5,7 +5,6 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
 import { r2WriteEnabled, putImage } from './_r2.js';
-import { canCustomAvatar } from './_entitlements.js';
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
 // rejected — keeps disk usage bounded and stops one player from filling the
@@ -193,25 +192,8 @@ const KNOWN_PREFIXES: Record<string, string> = {
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 
 export function categoryFromId(id: string): string {
-    // Ownership checks are case-insensitive, so classification must be too.
-    // Otherwise `Avatar:<own-slug>` passes ownership as an avatar but falls
-    // through to `misc`, skipping the supporter/avatar validation below.
-    const prefix = id.split(':')[0].toLowerCase();
+    const prefix = id.split(':')[0];
     return KNOWN_PREFIXES[prefix] ?? 'misc';
-}
-
-// Avatar readers across the client use exactly `avatar:<safe player slug>`.
-// Ownership intentionally accepts harmless case/spacing variants by comparing
-// through safeName(), but those variants must never become distinct storage
-// fields (for example `Avatar:Rill` beside `avatar:rill`). Canonicalize only
-// the POST write id; GET keeps returning legacy fields and DELETE keeps
-// accepting their exact ids, so grandfathered aliases remain readable and
-// removable without letting new uploads multiply the same player's slot.
-function canonicalAvatarWriteId(id: string): string | null {
-    const colon = id.indexOf(':');
-    if (colon < 0) return null;
-    const player = safeName(id.slice(colon + 1));
-    return player ? `avatar:${player}` : null;
 }
 
 // Admin-only image prefixes. The admin tooling owns these (jutsus, items,
@@ -476,31 +458,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const reject = ownershipReject(id, identity);
             if (reject) return res.status(reject.status).json({ error: reject.error });
 
-            const cat = categoryFromId(id);
-            const writeId = cat === 'avatar' ? canonicalAvatarWriteId(id) : id;
-            if (!writeId) {
-                return res.status(400).json({ error: 'Avatar image id must include a valid player name.' });
-            }
-
-            // A custom avatar is a Shinobi Supporter upload entitlement. Read
-            // the authoritative stored character here instead of trusting any
-            // client save field. This gates only NEW/replacement bytes: GET and
-            // DELETE remain unchanged, so an expired supporter keeps their
-            // already-published portrait until they choose to remove it.
-            if (cat === 'avatar' && !identity.admin) {
-                const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${identity.name}`);
-                if (!canCustomAvatar(save?.character)) {
-                    return res.status(403).json({
-                        error: 'Custom avatars are a Shinobi Supporter perk. Link Patreon to upload or replace one.',
-                    });
-                }
-            }
-
             // First-writer-wins on the player-created carve-outs: a player who
             // didn't publish this id first can't overwrite it (custom bloodline /
             // jutsu / named gear / pet art). The first publish claims the slot.
-            const claimReject = await imageClaimReject(writeId, identity);
+            const claimReject = await imageClaimReject(id, identity);
             if (claimReject) return res.status(claimReject.status).json({ error: claimReject.error });
+
+            const cat = categoryFromId(id);
 
             // Avatar hardening (audit #15): inline data URL only + 2 MB decoded
             // cap. Applied after isValidImageString (which would otherwise let a
@@ -525,7 +489,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Atomic HSET — sets exactly this one field without touching any other
             // image in the same category. Eliminates the race condition.
-            await kv.hset(catHashKey(cat), { [writeId]: image });
+            await kv.hset(catHashKey(cat), { [id]: image });
 
             // Phase 2 (image-as-files): also write the per-image key so
             // GET /api/img can serve it directly and the client can lazy-load it
@@ -533,7 +497,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // GET /api/images working throughout the migration. Best-effort — a
             // failure here must not fail the upload (the hash write above is
             // authoritative; /api/img falls back to it and self-heals on read).
-            await kv.set(`shared:img:${writeId}`, image).catch(() => undefined);
+            await kv.set(`shared:img:${id}`, image).catch(() => undefined);
 
             // Stage 3 (R2): also dual-write the decoded bytes to R2 so GET /api/img
             // can redirect there instead of reading Postgres (see api/_r2.ts +
@@ -544,17 +508,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // URLs are left to the Postgres redirect path.
             if (r2WriteEnabled()) {
                 const decoded = decodeBase64Image(image);
-                if (decoded) void putImage(writeId, decoded).catch(() => undefined);
+                if (decoded) void putImage(id, decoded).catch(() => undefined);
             }
 
             // Asset registry (Priority 6) + content audit (Priority 8). Both are
             // best-effort and feature-gated (DISABLE_ASSET_META) — they wrap
             // metadata around the write above and can never fail or alter it.
             const actor = identity.admin ? 'admin' : identity.name;
-            await writeAssetMeta({ id: writeId, category: cat, image, actor });
+            await writeAssetMeta({ id, category: cat, image, actor });
             await recordAudit({
                 domain: 'content', actor, action: 'image.set',
-                entityType: 'image', entityId: writeId,
+                entityType: 'image', entityId: id,
                 meta: { category: cat, format: imageFormat(image) },
             });
 

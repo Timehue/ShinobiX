@@ -32,7 +32,7 @@ export function HealerInjuredList({
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     playerRoster: PlayerRecord[];
-    onServerVersion?: (version: number | undefined) => void;
+    onServerVersion: (version: unknown) => boolean;
 }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
@@ -89,7 +89,7 @@ export function HealerInjuredList({
                 return;
             }
             delete pendingRequestIds.current[targetName];
-            onServerVersion?.(typeof data._saveVersion === 'number' ? data._saveVersion : undefined);
+            if (!onServerVersion(data._saveVersion)) return;
             const xpGained = Number(data.xpGained ?? 0);
             const missionXp = Number(data.missionXpAwarded ?? 0);
             const raidAssist = !!data.raidAssist;
@@ -114,7 +114,7 @@ export function HealerInjuredList({
             // a concurrent regen/heartbeat setState during the await would otherwise be
             // clobbered. professionXp/Rank are server-authoritative absolutes; chakra
             // deducts off the LATEST prev so a concurrent chakra change survives.
-            updateCharacter((prev) => prev ? ({
+            updateCharacter((prev) => prev && prev.name.trim().toLowerCase() === character.name.trim().toLowerCase() ? ({
                 ...prev,
                 professionXp: finalXp,
                 professionRank: finalRank,

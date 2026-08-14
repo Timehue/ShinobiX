@@ -27,7 +27,7 @@ const ZERO_PROGRESS_COUNTERS = [
     'totalEndlessTowerWins', 'totalPetWins', 'warsWon', 'warMvpCount',
     'lifetimeWarDamage', 'dailyAiKills', 'dailyPetWins',
     'dailyTilesExplored', 'dailyMissionsCompleted',
-    'rankedSeasonsWon', 'battleTowerAscension', 'battleTowerSpireWeeklyBest', 'hunterRank',
+    'rankedSeasonsWon', 'battleTowerAscension', 'hunterRank',
 ] as const;
 
 export function applyCanonicalFirstSave(character: Record<string, unknown>): Record<string, unknown> {
@@ -64,7 +64,6 @@ export function applyCanonicalFirstSave(character: Record<string, unknown>): Rec
     next.weeklyBossKills = {};
     next.redeemedAuraFeeds = [];
     next.redeemedHunterRanks = [];
-    next.battleTowerMilestones = [];
     next.element = undefined;
     next.elements = [];
     next.claimedAwakenings = [];
@@ -73,8 +72,6 @@ export function applyCanonicalFirstSave(character: Record<string, unknown>): Rec
     next.redeemedDungeonRuns = [];
     next.redeemedHollowGateRuns = [];
     next.redeemedPetBattleTokens = [];
-    next.warfrontSettlementReceipts = [];
-    delete next.lastWarfrontFirstWinDate;
     next.redeemedPetExpeditionTokens = [];
     next.claimedServerMissions = [];
     next.redeemedPetGauntletRuns = [];
@@ -98,7 +95,6 @@ export function applyCanonicalFirstSave(character: Record<string, unknown>): Rec
     delete next.profession;
     delete next.masterySpec;
     delete next.elderFocus;
-    delete next.battleTowerSpireWeekKey;
     delete next.customTitle;
     delete next.customTitleStyle;
     delete next.customTitleIcon;

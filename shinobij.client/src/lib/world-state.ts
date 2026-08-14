@@ -1079,6 +1079,7 @@ export async function claimServerWarCrates(
 
 export type ServerWarRewardClaim = {
     character: Character;
+    _saveVersion: unknown;
     granted: boolean;
     crates: number;
     mvp: boolean;
@@ -1107,6 +1108,7 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
     if (candidates.size === 0) return null;
 
     let latest: Character | null = null;
+    let latestSaveVersion: unknown;
     let granted = false;
     let crates = 0;
     let mvp = false;
@@ -1121,7 +1123,10 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
             });
             if (!response.ok) continue;
             const result = await response.json() as Partial<ServerWarRewardClaim>;
-            if (result.character) latest = result.character;
+            if (result.character) {
+                latest = result.character;
+                latestSaveVersion = result._saveVersion;
+            }
             granted ||= result.granted === true;
             crates += Number(result.crates ?? 0);
             mvp ||= result.mvp === true;
@@ -1131,7 +1136,7 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
             // Fail closed; the next world/clan poll retries the idempotent claim.
         }
     }
-    return latest ? { character: latest, granted, crates, mvp, consolation, lifetimeDamage } : null;
+    return latest ? { character: latest, _saveVersion: latestSaveVersion, granted, crates, mvp, consolation, lifetimeDamage } : null;
 }
 
 /**
