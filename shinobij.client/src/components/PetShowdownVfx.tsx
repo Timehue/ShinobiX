@@ -326,6 +326,12 @@ const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
     Water: [
         { sprite: "tsunami", scale: 10.5, aspect: 0.667, delay: 0, y0: 0.6, y1: 1.2, travel: 1, spin: 0, grow: 1.26, sway: 0.03, tint: "#e6f6ff" },
         { sprite: "tsunami", scale: 7.2, aspect: 0.667, delay: 0.22, y0: 0.45, y1: 0.9, travel: 1, spin: 0, grow: 1.2, flip: true, tint: "#bfe6ff" },
+        // Blender-baked Mantaflow spray: the torn white water a breaking crest
+        // throws forward. The painted tsunami gives the wave its SHAPE and the
+        // shader volume its body, but neither can produce foam — which is why
+        // the surf read as a translucent dome instead of water. Normal-blended
+        // and travelling with the crest, so it sweeps rather than sits.
+        { frames: "surf", scale: 6.4, aspect: 1.0, delay: 0.26, y0: 0.35, y1: 0.95, travel: 1, spin: 0, grow: 1.4, normalBlend: true, tint: "#eaf9ff" },
         { frames: "water", scale: 4.2, aspect: 0.5, delay: 0.52, y0: 0.3, y1: 0.7, travel: 0, spin: 0, grow: 1.5, tint: "#e8f8ff" },
         { frames: "mist", scale: 3.6, aspect: 1.0, delay: 0.5, y0: 0.5, y1: 1.7, travel: 0, spin: 0, grow: 1.45, normalBlend: true },
     ],
