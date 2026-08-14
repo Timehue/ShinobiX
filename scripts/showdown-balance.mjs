@@ -145,18 +145,27 @@ for (const [rarity, list] of byRarity) {
         if (!s) continue;
         const kinds = new Set(tpl.jutsus.map((j) => j.kind));
         for (const kind of kinds) {
-            const k = kindStats.get(kind) ?? { w: 0, n: 0 };
+            const k = kindStats.get(kind) ?? { w: 0, n: 0, species: 0 };
             k.w += s.w;
             k.n += s.n;
+            k.species += 1;   // HOW MANY SPECIES back this number
             kindStats.set(kind, k);
         }
     }
 }
-console.log(`\nKIND CARRIERS (win rate of species carrying each move kind):`);
-console.log([...kindStats.entries()]
-    .sort((a, b) => pct(a[1]) - pct(b[1]))
-    .map(([k, s]) => `${k}: ${pct(s).toFixed(1)}%`)
-    .join('  ·  '));
+// The species count is not decoration — it is the difference between a finding
+// and a coincidence. Several kinds are carried by a handful of pets (absorb by
+// ONE), so their win rate is that pet's win rate wearing a category's name.
+// Printing the rate alone invites reading `absorb: 33%` as "absorb is
+// underpowered" when it means "one specific pet is weak". Kinds below the
+// threshold are listed separately so they can't be mistaken for a trend.
+const KIND_SIGNAL_MIN = 20;   // species needed before a kind's rate means anything
+const kindRows = [...kindStats.entries()].sort((a, b) => pct(a[1]) - pct(b[1]));
+const fmtKind = ([k, s]) => `${k}: ${pct(s).toFixed(1)}% (${s.species})`;
+console.log(`\nKIND CARRIERS (win rate of species carrying each move kind; (n) = species):`);
+console.log(kindRows.filter(([, s]) => s.species >= KIND_SIGNAL_MIN).map(fmtKind).join('  ·  '));
+console.log(`  too few carriers to read as a trend (<${KIND_SIGNAL_MIN} species):`);
+console.log(`  ${kindRows.filter(([, s]) => s.species < KIND_SIGNAL_MIN).map(fmtKind).join('  ·  ')}`);
 
 // ── Training relevance: every focus must beat an untrained twin ──────────────
 // A pet trained all-in on ONE stat (the +396% budget channeled per the live
