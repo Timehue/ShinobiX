@@ -29,7 +29,7 @@ import {
     SHOWDOWN_GUARD_MULT,
     SHOWDOWN_HOLD_HEAVY,
     SHOWDOWN_HOLD_SUPER,
-    SHOWDOWN_MAX_TEAM,
+    SHOWDOWN_MAX_TEAM_ANY,
     showdownAttritionPct,
     showdownHealScale,
     SHOWDOWN_ATTRITION_START,
@@ -1022,7 +1022,7 @@ export function createShowdownSession(input: {
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[], commitConsumables: boolean): ShowdownPet[] =>
-        pets.slice(0, SHOWDOWN_MAX_TEAM).map((raw, i) => {
+        pets.slice(0, SHOWDOWN_MAX_TEAM_ANY).map((raw, i) => {
             const sealed = { ...sealShowdownPet(raw), benched: i >= size };
             // Gear proc: Aegis-style start shields raise before round one.
             if (sealed.gear?.shieldStartPctOfHp) {

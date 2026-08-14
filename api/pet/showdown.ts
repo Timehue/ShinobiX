@@ -11,7 +11,7 @@ import { activeBreedingParentIds } from './_pet-busy.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_FORMAT_SIZE,
-    SHOWDOWN_MAX_TEAM,
+    showdownTeamSize,
     SHOWDOWN_PVP_TURN_SECONDS,
     type ShowdownCommand,
     type ShowdownFormat,
@@ -242,13 +242,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const format: ShowdownFormat = body.format === '2v2' ? '2v2' : body.format === '3v3' ? '3v3' : '1v1';
             const tier: ShowdownTier = body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
             const size = SHOWDOWN_FORMAT_SIZE[format];
-            // Team = field + optional bench, up to SHOWDOWN_MAX_TEAM. The first
-            // `size` ids start on the field; the rest wait as reserves.
+            // Team = field + bench, and the bench is the same size in every
+            // format (SHOWDOWN_BENCH_SIZE). The first `size` ids start on the
+            // field; the rest wait as reserves.
+            const teamSize = showdownTeamSize(format);
             const petIds: string[] = Array.isArray(body.petIds)
-                ? body.petIds.map((v: unknown) => String(v)).slice(0, SHOWDOWN_MAX_TEAM)
+                ? body.petIds.map((v: unknown) => String(v)).slice(0, teamSize)
                 : [];
             if (petIds.length < size || new Set(petIds).size !== petIds.length) {
-                return res.status(400).json({ error: `Pick at least ${size} distinct pets for ${format} (up to ${SHOWDOWN_MAX_TEAM} with a bench).` });
+                return res.status(400).json({ error: `Pick at least ${size} distinct pets for ${format} (up to ${teamSize} with a bench).` });
             }
 
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);

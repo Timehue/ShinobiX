@@ -228,7 +228,27 @@ export const SHOWDOWN_FORMAT_SIZE: Readonly<Record<ShowdownFormat, number>> = Ob
 
 /** Max pets on a team (field + bench). Every format allows a bench up to this
  *  cap — the switch is the prediction layer that replaces board movement. */
-export const SHOWDOWN_MAX_TEAM = 3;
+/** Reserves behind the field, the SAME for every format (owner ruling): 1v1 is
+ *  one fighter and two reserves, 2v2 is two and two, 3v3 is three and two.
+ *
+ *  This replaces a flat `SHOWDOWN_MAX_TEAM = 3` cap on the whole team, under
+ *  which the bench SHRANK as the format grew — two reserves at 1v1, one at 2v2,
+ *  none at 3v3 — so rotation was a real tactic in the smallest format and
+ *  absent from the largest. Switching, forced rotation (push/pull) and trapping
+ *  (movelock) are core to the mode, so every format gets the same bench to use
+ *  them on. */
+export const SHOWDOWN_BENCH_SIZE = 2;
+
+/** Total pets a team brings for a format: field + bench. */
+export function showdownTeamSize(format: ShowdownFormat): number {
+    return SHOWDOWN_FORMAT_SIZE[format] + SHOWDOWN_BENCH_SIZE;
+}
+
+/** The largest team any format can bring — the sizing cap for validation and
+ *  for the seal's slice. */
+export const SHOWDOWN_MAX_TEAM_ANY = Math.max(
+    ...(Object.keys(SHOWDOWN_FORMAT_SIZE) as ShowdownFormat[]).map(showdownTeamSize),
+);
 
 /** PvP command timer: seconds each side gets to lock a round's orders (owner
  *  ruling — Temtem runs 30s + a reserve bank; ours is a flat 45). Applies ONLY

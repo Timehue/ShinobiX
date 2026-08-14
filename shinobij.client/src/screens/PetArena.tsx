@@ -13,7 +13,7 @@ import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-c
 import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { gameToast } from "../components/GameToast";
-import { petPlayerControlEnabled, petShowdownEnabled } from "../lib/pet-coliseum-flag";
+import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
@@ -2501,17 +2501,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             )}
 
-            {/* Flagship entry: the turn-based cinematic Pet Showdown replaces the
-                legacy sim as the headline Coliseum experience (petShowdown.v1,
-                default ON — "0" restores the legacy flow as the lead). */}
-            {petShowdownEnabled() && (
-                <div className="menu pet-coliseum-entry" style={{ marginBottom: 12 }}>
-                    <button className="pet-coliseum-enter" onClick={() => setScreen("petShowdown")}>
-                        <span>🏟️ Pet Showdown</span>
-                        <small>The flagship battle — cinematic turn-based 1v1 · 2v2 · 3v3. Command every strike.</small>
-                    </button>
-                </div>
-            )}
+            {/* The Coliseum entry. Not gated: the turn-based battle is not an
+                alternative to the legacy sim, it IS this mode. */}
+            <div className="menu pet-coliseum-entry" style={{ marginBottom: 12 }}>
+                <button className="pet-coliseum-enter" onClick={() => setScreen("petShowdown")}>
+                    <span>🏟️ Pet Showdown</span>
+                    <small>The flagship battle — cinematic turn-based 1v1 · 2v2 · 3v3. Command every strike.</small>
+                </button>
+            </div>
 
             <div className="menu pet-coliseum-entry">
                 {opponentMode === "ai" && selectedPet && selectedOpponent ? (
