@@ -1,3 +1,4 @@
+import { sealWarTeam } from '../../_pet-showdown/war-team.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
@@ -181,7 +182,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
             if (!pet) return { status: 400 as const, body: { error: clanWarPetDeclineMessage('no-pet') } };
-            roster.push({ name: me, pet });
+            // The champion leads; the rest of the 2v2+bench team fills from the
+            // same roster (owner ruling: war duels are 2v2 with two reserves).
+            const team = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
+            roster.push({ name: me, pet, team });
             session.updatedAt = now;
 
             if (!isReadyToResolve(session)) {

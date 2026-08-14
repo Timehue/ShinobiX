@@ -10,6 +10,7 @@ import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import { applyContestBattleByWinner, findSectorWarBattleReceipt, recordSectorWarBattleOutcome, sectorWarKey } from '../_sector-war.js';
 import { loadSectorWar, saveSectorWar } from '../_sector-war-store.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
+import { sealWarTeam } from '../_pet-showdown/war-team.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
@@ -45,8 +46,12 @@ type SectorPetSession = {
     sector: number;
     attackerVillage: string;
     defenderVillage: string;
-    p1: { name: string; pet: Pet };       // attacker-side opener
-    p2?: { name: string; pet: Pet };       // defender-side joiner
+    // `pet` is the champion the player SENT; `team` is the full 2v2+bench roster
+    // sealed from their save at submit time (owner ruling: war duels are 2v2
+    // with two reserves). Sessions written before the team change carry only
+    // `pet`, so every reader falls back to [pet].
+    p1: { name: string; pet: Pet; team?: Pet[] };   // attacker-side opener
+    p2?: { name: string; pet: Pet; team?: Pet[] };  // defender-side joiner
     status: 'awaiting-defender' | 'done';
     seed?: number;
     winner?: 'p1' | 'p2' | 'draw';
@@ -127,16 +132,18 @@ function sectorWarInput(args: {
     sectorWarId: string;
     seed: number;
     terrain: string | null;
-    p1: { name: string; pet: Pet };
-    p2: { name: string; pet: Pet };
+    p1: { name: string; pet: Pet; team?: Pet[] };
+    p2: { name: string; pet: Pet; team?: Pet[] };
 }): WarDuelInput {
     return {
         sessionId: `sectorwar:${args.sectorWarId}:${args.seed}`,
         seed: args.seed,
         fromName: args.p1.name,
         toName: args.p2.name,
-        fromPets: [args.p1.pet],
-        toPets: [args.p2.pet],
+        // Full team when the session has one; a pre-team session falls back to
+        // its single champion so old sessions still watch back correctly.
+        fromPets: args.p1.team?.length ? args.p1.team : [args.p1.pet],
+        toPets: args.p2.team?.length ? args.p2.team : [args.p2.pet],
         terrain: args.terrain,
     };
 }
@@ -195,6 +202,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
             if (!pet) return { status: 400 as const, body: { error: 'You have no pet to send into battle.' } };
+            // The champion leads; the rest of the 2v2+bench team fills from the
+            // same roster (owner ruling: war duels are 2v2 with two reserves).
+            const team = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
 
             const existing = await kv.get<SectorPetSession>(sessionKey(sectorWarId));
             const now = Date.now();
@@ -204,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!isAttacker) return { status: 409 as const, body: { error: 'Waiting for an attacker to send a pet.' } };
                 const session: SectorPetSession = {
                     sectorWarId, sector: contest.sector, attackerVillage, defenderVillage,
-                    p1: { name: me, pet }, status: 'awaiting-defender', createdAt: now, updatedAt: now,
+                    p1: { name: me, pet, team }, status: 'awaiting-defender', createdAt: now, updatedAt: now,
                 };
                 await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
                 return { status: 200 as const, body: { session } };
@@ -227,11 +237,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
             const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1: existing.p1, p2: { name: me, pet } }));
+            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1: existing.p1, p2: { name: me, pet, team } }));
             // Showdown's judge always decides — 'draw' survives in the type only
             // for sessions the retired engine recorded.
             const winner: 'p1' | 'p2' = duel.outcome === 'from' ? 'p1' : 'p2';
-            const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, engine: 'showdown', updatedAt: now };
+            const session: SectorPetSession = { ...existing, p2: { name: me, pet, team }, status: 'done', seed, winner, terrain, engine: 'showdown', updatedAt: now };
             await applyPetOutcomeToContest(session);
             session.appliedToContest = true;
             await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });

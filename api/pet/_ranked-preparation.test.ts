@@ -29,6 +29,7 @@ import {
 } from './_ranked-preparation.js';
 import { settlePetRankedMatchDurably } from './_ranked-settlement.js';
 import { recordCancelledPlayerRankedAdmission } from '../pvp/_player-ranked-journal.js';
+import { PET_RANKED_ENGINE_VERSION } from './_ranked-engine.js';
 
 const MATCH = '91726354abcdef0091726354abcdef00';
 const OTHER_MATCH = '81726354abcdef0081726354abcdef00';
@@ -49,7 +50,7 @@ const token: ServerResolvedPetRankedToken = {
     bPetId: 'bravo-pet',
     resolution: {
         authority: 'server-engine-v1',
-        engineVersion: 'pet-duel-sim-ranked-v1',
+        engineVersion: PET_RANKED_ENGINE_VERSION,
         winner: 'a',
         resolvedAt: NOW,
         engineDigest: '1234567890abcdef'.repeat(4),
