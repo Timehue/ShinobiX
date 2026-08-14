@@ -293,7 +293,7 @@ export const SHOWDOWN_MAX_STATUSES = 2;
  * 1.5/0.75 and STAB adds 1.15 on top, so a half-strength weather would let a
  * matched attacker triple-dip. Measured at 1.18/0.88 the setter's lost turn is
  * paid back over the window without deciding the fight on setup alone. */
-export const SHOWDOWN_WEATHER_ROUNDS = 4;
+export const SHOWDOWN_WEATHER_ROUNDS = 8;
 export const SHOWDOWN_WEATHER_BOOST = 1.18;
 export const SHOWDOWN_WEATHER_DAMPEN = 0.88;
 
