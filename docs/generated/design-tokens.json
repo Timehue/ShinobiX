@@ -2320,6 +2320,17 @@
       },
       {
         "direction": "max",
+        "axis": "height",
+        "valuePx": 480,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/PetShowdown.css",
+            "line": 1623
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "width",
         "valuePx": 480,
         "occurrences": [
@@ -2411,6 +2422,14 @@
         "axis": "width",
         "valuePx": 559,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/PetShowdown.css",
+            "line": 1072
+          },
+          {
+            "source": "shinobij.client/src/screens/PetShowdown.css",
+            "line": 1407
+          },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
             "line": 67
@@ -2656,6 +2675,17 @@
           {
             "source": "shinobij.client/src/styles/tower-lobby.css",
             "line": 1191
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 700,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/PetShowdown.css",
+            "line": 1488
           }
         ]
       },
@@ -3115,6 +3145,10 @@
         "axis": "width",
         "valuePx": 979,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/screens/PetShowdown.css",
+            "line": 1375
+          },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 5187
