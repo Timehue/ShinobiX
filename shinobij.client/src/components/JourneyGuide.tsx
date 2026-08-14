@@ -7,7 +7,7 @@
  *
  * The old objective-list Journey Guide (lib/journey-guide.ts buildJourneyGuide)
  * only ever showed during the tutorial, so this replaces its render entirely;
- * the lib builder stays as the tested spec for logbook/daily-briefing parity.
+ * the lib builder remains the tested status-roadmap spec for this tutorial only.
  * After the tutorial ("done") the panel hides, as before.
  */
 import { useState } from "react";

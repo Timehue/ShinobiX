@@ -32,6 +32,8 @@ const XPENGINE = read('api', '_xp-engine.ts');
 const VILLAGE_UP = read('shinobij.client', 'src', 'lib', 'village-upgrades.ts');
 const BANK_INT = read('api', '_bank-interest.ts');
 const BANK_SCREEN = read('shinobij.client', 'src', 'screens', 'Bank.tsx');
+const SERVER_ENTITLEMENTS = read('api', '_entitlements.ts');
+const CLIENT_ENTITLEMENTS = read('shinobij.client', 'src', 'lib', 'entitlements.ts');
 
 // Extract a (possibly underscore-grouped) number captured by `pattern`.
 function numFrom(src: string, pattern: RegExp, label: string): number {
@@ -61,6 +63,17 @@ function annotatedNum(src: string, name: string): number {
     assert.ok(m, `constant ${name} not found`);
     return Number(m![1]);
 }
+
+describe('parity: carried-pet entitlement caps', () => {
+    it('keeps both build roots on Base four and Supporter six', () => {
+        for (const [name, expected] of [['PET_CAP_BASE', 4], ['PET_CAP_SUB', 6]] as const) {
+            const server = singleNum(SERVER_ENTITLEMENTS, name);
+            const client = singleNum(CLIENT_ENTITLEMENTS, name);
+            assert.equal(server, client, `${name} drifted between server and client entitlement helpers`);
+            assert.equal(server, expected, `${name} must remain ${expected}`);
+        }
+    });
+});
 
 describe('parity: Healer rank perk arrays (_progress.ts ⇄ professionLogic.ts)', () => {
     for (const name of ['HEALER_PER_TARGET_COOLDOWN_SEC', 'HEALER_HEAL_XP_BONUS_PCT']) {

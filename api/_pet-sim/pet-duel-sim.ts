@@ -24,8 +24,8 @@
 //     by slot), projectiles in spawn order. Do not reorder.
 //
 // One core (`simulate`) drives BOTH `runPetDuel` (1v1) and `runPetPartyDuel`
-// (2v2). NOT wired to anything live yet (PvE wiring is Phase C; ranked stays on
-// the old engine until balance Phase D + server-validation Phase E). Consumes
+// (2v2). It now powers the fail-closed PRIVATE ranked server resolution; public
+// ranked presentation remains gated pending two-account certification. Consumes
 // only persisted Pet fields (hp/attack/defense/speed/element/trait/jutsus) → zero
 // save impact. Balance numbers here are PLACEHOLDERS to be tuned in Phase D.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -902,7 +902,7 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
     f.state = "windup";
     f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : Math.max(1, Math.round(f.windT * plantedPaceMul(f, t)));
     // Event payloads carry the move name + target so the renderer can "call the
-    // attack" (Pokemon-style caption BEFORE the swing lands). Payload-only — no
+    // attack" (creature-battler-style caption BEFORE the swing lands). Payload-only — no
     // state or rng change, so authoritative outcomes are untouched.
     if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name, targetId });
     else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });

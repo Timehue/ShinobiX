@@ -31,7 +31,7 @@ export const jutsuRyoTrainingCost = (levelRaw: unknown): number => {
 /**
  * `bonusPct` is the player's own (client-reported, hard-clamped) training bonus.
  * `moraleTimeMult` is the village's war MORALE, resolved SERVER-SIDE — a separate
- * multiplier on purpose: folding morale into `bonusPct` meant the loser's debuff
+ * multiplier on purpose: folding morale into `bonusPct` made the server-owned window
  * could only ever shave an existing bonus, so a player without one felt the
  * advertised "+20% training time" not at all. As its own factor it always bites,
  * in both directions, and the client cannot touch it.

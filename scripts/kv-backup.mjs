@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import pg from 'pg';
+import { databaseConnectionFingerprint } from './lib/database-identity.mjs';
+
+export { databaseConnectionFingerprint } from './lib/database-identity.mjs';
 
 const zip = promisify(gzip);
 const unzip = promisify(gunzip);
@@ -124,14 +127,65 @@ function redactConnection(url) {
         port: parsed.port || '5432',
         database: parsed.pathname.replace(/^\//, ''),
         userHash: safeKeyLabel(decodeURIComponent(parsed.username)),
+        databaseFingerprint: databaseConnectionFingerprint(url),
     };
+}
+
+function saveCountForPayload(payload) {
+    return new Set(allRecords(payload)
+        .map((record) => String(record.key ?? ''))
+        .filter((key) => key.startsWith('save:'))).size;
 }
 
 export function sameConnection(sourceUrl, targetUrl) {
     if (!sourceUrl || !targetUrl) return false;
-    const source = redactConnection(sourceUrl);
-    const target = redactConnection(targetUrl);
-    return source.protocol === target.protocol && source.host === target.host && source.port === target.port && source.database === target.database;
+    return databaseConnectionFingerprint(sourceUrl) === databaseConnectionFingerprint(targetUrl);
+}
+
+function normalizedDatabaseHost(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    try {
+        return new URL(raw.includes('://') ? raw : `postgres://${raw}`).hostname.toLowerCase();
+    } catch {
+        return raw.toLowerCase();
+    }
+}
+
+export function restoreTargetConfirmation(targetUrl) {
+    return `EMPTY-ISOLATED:${databaseConnectionFingerprint(targetUrl)}`;
+}
+
+/** Fail closed before opening a connection to any destructive restore target. */
+export function validateRestoreTargetGuard({
+    sourceUrl,
+    targetUrl,
+    allow,
+    confirmation,
+    deniedHosts = [],
+    deniedDatabaseFingerprints = [],
+}) {
+    if (allow !== '1') throw new Error('Set ALLOW_ISOLATED_RESTORE=1 for an explicitly isolated target.');
+    if (sameConnection(sourceUrl, targetUrl)) throw new Error('Refusing to restore into the source database endpoint.');
+    const expected = restoreTargetConfirmation(targetUrl);
+    if (String(confirmation ?? '') !== expected) throw new Error('RESTORE_CONFIRM_TARGET does not match the empty isolated target.');
+    const targetFingerprint = databaseConnectionFingerprint(targetUrl);
+    const deniedValues = deniedDatabaseFingerprints.map((value) => String(value).trim().toLowerCase()).filter(Boolean);
+    if (deniedValues.some((value) => !/^[a-f0-9]{20}$/.test(value))) {
+        throw new Error('RESTORE_DENY_DATABASE_FINGERPRINTS contains an invalid database identity.');
+    }
+    const deniedDatabases = new Set(deniedValues);
+    if (deniedDatabases.size === 0) {
+        throw new Error('RESTORE_DENY_DATABASE_FINGERPRINTS must contain every production database identity.');
+    }
+    if (sourceUrl && !deniedDatabases.has(databaseConnectionFingerprint(sourceUrl))) {
+        throw new Error('RESTORE_DENY_DATABASE_FINGERPRINTS must include the configured source database identity.');
+    }
+    if (deniedDatabases.has(targetFingerprint)) throw new Error('Refusing a target in the production database identity deny set.');
+    const targetHost = new URL(targetUrl).hostname.toLowerCase();
+    const denied = new Set(deniedHosts.map(normalizedDatabaseHost).filter(Boolean));
+    if (denied.has(targetHost)) throw new Error('Refusing a target in the production database host deny set.');
+    return expected;
 }
 
 export function validatedProxyBase(raw) {
@@ -248,11 +302,18 @@ async function connect(url, label) {
 }
 
 async function identity(client, url) {
-    const { rows } = await client.query(`select current_database() db, current_user db_user, inet_server_addr()::text host, inet_server_port() port`);
+    const { rows } = await client.query(`
+        select current_database() db,
+               current_user db_user,
+               inet_server_addr()::text host,
+               inet_server_port() port,
+               pg_postmaster_start_time() started_at
+    `);
     return {
         endpoint: redactConnection(url), database: rows[0].db,
         databaseUserHash: safeKeyLabel(rows[0].db_user),
         serverAddressHash: safeKeyLabel(`${rows[0].host}:${rows[0].port}`),
+        clusterStartHash: safeKeyLabel(String(rows[0].started_at)),
     };
 }
 
@@ -371,14 +432,28 @@ async function listFiles(root) {
     return out;
 }
 
+export async function removeRestoreOverlayDirectory(root) {
+    if (!root) return false;
+    const absolute = resolve(root);
+    const allowedPrefix = resolve(tmpdir(), 'shinobix-restore-overlay-');
+    if (!absolute.startsWith(allowedPrefix)) throw new Error('Refusing to remove a directory outside the isolated restore workspace.');
+    await rm(absolute, { recursive: true, force: true });
+    return true;
+}
+
 export async function writeOverlayDirectory(entries) {
     const absolute = await mkdtemp(resolve(tmpdir(), 'shinobix-restore-overlay-'));
-    for (const entry of entries) {
-        const target = diskPath(absolute, entry.key);
-        await mkdir(dirname(target), { recursive: true });
-        await writeFile(target, JSON.stringify({ value: entry.value, expires_at: null }));
+    try {
+        for (const entry of entries) {
+            const target = diskPath(absolute, entry.key);
+            await mkdir(dirname(target), { recursive: true });
+            await writeFile(target, JSON.stringify({ value: entry.value, expires_at: null }));
+        }
+        return absolute;
+    } catch (error) {
+        await removeRestoreOverlayDirectory(absolute).catch(() => undefined);
+        throw error;
     }
-    return absolute;
 }
 
 export async function readOverlayDirectory(root) {
@@ -415,26 +490,53 @@ async function verifyRepresentatives(target, overlayRoot, payload, requestedKeys
     return expected.map((sample) => ({ ...sample, verified: true }));
 }
 
+export function restoredRuntimeTopology(overlayKeyCount) {
+    return Number(overlayKeyCount) > 0
+        ? {
+            mode: 'base-plus-disk-overlay',
+            set: ['DISK_KV_DIR=<targetOverlayDir>', 'REQUIRE_DISK_OVERLAY=1'],
+            unset: ['KV_PROXY_URL', 'KV_PROXY_TOKEN'],
+        }
+        : {
+            mode: 'base-only',
+            set: [],
+            unset: ['DISK_KV_DIR', 'REQUIRE_DISK_OVERLAY', 'KV_PROXY_URL', 'KV_PROXY_TOKEN'],
+        };
+}
+
 async function restoreBackup(inPath, requestedKeys = []) {
-    if (process.env.ALLOW_ISOLATED_RESTORE !== '1') throw new Error('Set ALLOW_ISOLATED_RESTORE=1 for an explicitly isolated target.');
-    if (sameConnection(process.env.DATABASE_URL, process.env.TARGET_DATABASE_URL)) throw new Error('Refusing to restore into the source database endpoint.');
+    validateRestoreTargetGuard({
+        sourceUrl: process.env.DATABASE_URL,
+        targetUrl: process.env.TARGET_DATABASE_URL,
+        allow: process.env.ALLOW_ISOLATED_RESTORE,
+        confirmation: process.env.RESTORE_CONFIRM_TARGET,
+        deniedDatabaseFingerprints: (process.env.RESTORE_DENY_DATABASE_FINGERPRINTS ?? '').split(','),
+        deniedHosts: [
+            ...(process.env.RESTORE_DENY_HOSTS ?? '').split(','),
+            process.env.PRODUCTION_DATABASE_HOST,
+        ].filter(Boolean),
+    });
     const started = Date.now();
     const { payload, file } = await readBackup(inPath);
     const target = await connect(process.env.TARGET_DATABASE_URL, 'TARGET_DATABASE_URL');
     let sourceClient;
+    let overlayRoot = '';
     try {
         const targetId = await identity(target, process.env.TARGET_DATABASE_URL);
         if (process.env.DATABASE_URL) {
             sourceClient = await connect(process.env.DATABASE_URL, 'DATABASE_URL');
             const sourceId = await identity(sourceClient, process.env.DATABASE_URL);
-            if (sourceId.endpoint.host === targetId.endpoint.host && sourceId.endpoint.port === targetId.endpoint.port && sourceId.endpoint.database === targetId.endpoint.database) {
+            const sameLiveDatabase = sourceId.database === targetId.database
+                && sourceId.serverAddressHash === targetId.serverAddressHash
+                && sourceId.clusterStartHash === targetId.clusterStartHash;
+            if (sourceId.endpoint.databaseFingerprint === targetId.endpoint.databaseFingerprint || sameLiveDatabase) {
                 throw new Error('Refusing to restore into the source database.');
             }
         }
         await inspectTargetSchema(target);
         const count = Number((await target.query(`select count(*)::int n from public.kv_store`)).rows[0].n);
         if (count > 0) throw new Error('Target kv_store is not empty; refusing overwrite.');
-        const overlayRoot = await writeOverlayDirectory(payload.overlay.entries);
+        overlayRoot = await writeOverlayDirectory(payload.overlay.entries);
         await target.query('begin');
         for (const row of payload.base.rows) {
             await target.query(`insert into public.kv_store(key,value,expires_at,updated_at) values($1,$2::jsonb,$3,$4)`, [row.key, JSON.stringify(row.value), row.expires_at, row.updated_at]);
@@ -447,16 +549,35 @@ async function restoreBackup(inPath, requestedKeys = []) {
         if (rows.length !== payload.base.rowCount || digestRows(rows) !== payload.base.sha256) throw new Error('Post-restore base-store verification mismatch.');
         if (restoredOverlay.length !== payload.overlay.keyCount || digestOverlay(restoredOverlay) !== payload.overlay.sha256) throw new Error('Post-restore overlay verification mismatch.');
         const representatives = await verifyRepresentatives(target, overlayRoot, payload, requestedKeys);
+        const runtimeTopology = restoredRuntimeTopology(restoredOverlay.length);
         await target.query('commit');
+        const retainedOverlayRoot = restoredOverlay.length > 0 ? overlayRoot : '';
+        if (!retainedOverlayRoot) {
+            await removeRestoreOverlayDirectory(overlayRoot).catch(() => undefined);
+            overlayRoot = '';
+        }
         return {
-            file, target: targetId, targetOverlay: { kind: 'disk', pathHash: safeKeyLabel(resolve(overlayRoot)) }, targetOverlayDir: overlayRoot,
+            file,
+            target: targetId,
+            targetOverlay: retainedOverlayRoot
+                ? { kind: 'disk', pathHash: safeKeyLabel(resolve(retainedOverlayRoot)) }
+                : { kind: 'none' },
+            ...(retainedOverlayRoot ? { targetOverlayDir: retainedOverlayRoot } : {}),
             baseRowCount: rows.length, overlayKeyCount: restoredOverlay.length,
-            saveCount: restoredOverlay.filter((entry) => entry.key.startsWith('save:')).length,
+            saveCount: saveCountForPayload(payload),
             baseSha256: digestRows(rows), overlaySha256: digestOverlay(restoredOverlay), representatives,
+            runtimeTopology,
             durationMs: Date.now() - started,
         };
     } catch (error) {
         await target.query('rollback').catch(() => undefined);
+        if (overlayRoot) {
+            try {
+                await removeRestoreOverlayDirectory(overlayRoot);
+            } catch (cleanupError) {
+                throw new AggregateError([error, cleanupError], 'Restore failed and its isolated overlay cleanup also failed.');
+            }
+        }
         throw error;
     } finally { await sourceClient?.end(); await target.end(); }
 }
@@ -464,14 +585,24 @@ async function restoreBackup(inPath, requestedKeys = []) {
 async function run(argv = process.argv.slice(2)) {
     const [mode, ...rest] = argv;
     const args = argsOf(rest);
+    if (mode === 'fingerprint') {
+        const url = process.env.TARGET_DATABASE_URL;
+        console.log(JSON.stringify({
+            ok: true,
+            mode,
+            databaseFingerprint: databaseConnectionFingerprint(url),
+            restoreConfirmation: restoreTargetConfirmation(url),
+        }));
+        return;
+    }
     if (mode === 'export') {
         const out = await exportBackup(args.one('--out'));
-        console.log(JSON.stringify({ ok: true, mode, file: out.file, durationMs: out.durationMs, baseRowCount: out.payload.base.rowCount, overlayKeyCount: out.payload.overlay.keyCount, saveCount: out.payload.overlay.saveCount, baseSha256: out.payload.base.sha256, overlaySha256: out.payload.overlay.sha256 }));
+        console.log(JSON.stringify({ ok: true, mode, file: out.file, durationMs: out.durationMs, baseRowCount: out.payload.base.rowCount, overlayKeyCount: out.payload.overlay.keyCount, saveCount: saveCountForPayload(out.payload), baseSha256: out.payload.base.sha256, overlaySha256: out.payload.overlay.sha256 }));
         return;
     }
     if (mode === 'inspect') {
         const { payload, file } = await readBackup(args.one('--in'));
-        console.log(JSON.stringify({ ok: true, mode, file, createdAt: payload.createdAt, baseRowCount: payload.base.rowCount, overlayKeyCount: payload.overlay.keyCount, saveCount: payload.overlay.saveCount, baseSha256: payload.base.sha256, overlaySha256: payload.overlay.sha256, representatives: representativeRecords(allRecords(payload), args.all('--representative-key')) }));
+        console.log(JSON.stringify({ ok: true, mode, file, createdAt: payload.createdAt, baseRowCount: payload.base.rowCount, overlayKeyCount: payload.overlay.keyCount, saveCount: saveCountForPayload(payload), baseSha256: payload.base.sha256, overlaySha256: payload.overlay.sha256, representatives: representativeRecords(allRecords(payload), args.all('--representative-key')) }));
         return;
     }
     if (mode === 'restore') {
@@ -502,7 +633,7 @@ async function run(argv = process.argv.slice(2)) {
         console.log(JSON.stringify({ ok: true, mode, evidenceFile, targetOverlayDir: restored.targetOverlayDir, ...evidence }));
         return;
     }
-    throw new Error('Usage: kv-backup.mjs export --out <file> | inspect --in <file> | restore --in <file> | drill --out <file> --evidence-out <file>');
+    throw new Error('Usage: kv-backup.mjs fingerprint | export --out <file> | inspect --in <file> | restore --in <file> | drill --out <file> --evidence-out <file>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

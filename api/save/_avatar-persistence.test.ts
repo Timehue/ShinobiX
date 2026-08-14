@@ -55,7 +55,7 @@ describe('isOwnAvatarReference', () => {
         assert.equal(isOwnAvatarReference('/api/img?id=avatar%3Arill', 'Sloth'), false);
     });
     it('rejects references to other image categories', () => {
-        assert.equal(isOwnAvatarReference('/api/img?id=ai%3Akakashi', 'Sloth'), false);
+        assert.equal(isOwnAvatarReference('/api/img?id=ai%3Araiko', 'Sloth'), false);
         assert.equal(isOwnAvatarReference('/api/img?id=item%3Asloth', 'Sloth'), false);
     });
     it('rejects non-reference values', () => {

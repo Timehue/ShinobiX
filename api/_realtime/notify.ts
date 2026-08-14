@@ -18,6 +18,32 @@ import { safeName } from '../_utils.js';
 
 type Emitter = (room: string, event: string, payload: unknown) => void;
 
+export type TowerRealtimeKick =
+    | { channel: 'reconcile'; reason: 'socket-connected' }
+    | {
+        channel: 'party';
+        reason: 'created' | 'changed' | 'launched' | 'closed';
+        partyId?: string;
+        version?: number;
+    }
+    | {
+        channel: 'session';
+        reason: 'started' | 'action' | 'afk' | 'settled';
+        runId: string;
+        actionVersion?: number;
+    }
+    | {
+        channel: 'pvp';
+        reason: 'queued' | 'matched' | 'ready' | 'action' | 'settled' | 'closed';
+        matchId?: string;
+        version?: number;
+    };
+
+export const TOWER_RECONNECT_KICK: TowerRealtimeKick = Object.freeze({
+    channel: 'reconcile',
+    reason: 'socket-connected',
+});
+
 let _emit: Emitter | null = null;
 
 /** socket.ts calls this once at attach; pass null to detach (tests). */
@@ -41,5 +67,34 @@ export function kickPlayer(name: string | undefined | null, reason: 'attack' | '
         _emit(`user:${canon(name)}`, 'presence:kick', { reason });
     } catch {
         /* best-effort — never let a push failure break the request path */
+    }
+}
+
+/**
+ * Push a non-sensitive Tower revision hint to authenticated player rooms.
+ *
+ * The durable HTTP party/state endpoints remain authoritative. The socket event
+ * deliberately contains no roster, invite code, combat snapshot, or save data;
+ * clients reconcile the hinted channel with their normal authenticated fetch.
+ * This also makes a dropped socket event harmless because bounded HTTP fallback
+ * polling can recover the same revision later.
+ */
+export function kickTowerPlayers(
+    names: Iterable<string | undefined | null>,
+    payload: TowerRealtimeKick,
+): void {
+    if (!_emit) return;
+    const rooms = new Set<string>();
+    for (const name of names) {
+        if (!name) continue;
+        const slug = canon(name);
+        if (slug) rooms.add(`user:${slug}`);
+    }
+    for (const room of rooms) {
+        try {
+            _emit(room, 'tower:kick', payload);
+        } catch {
+            /* best-effort — HTTP reconciliation remains authoritative */
+        }
     }
 }

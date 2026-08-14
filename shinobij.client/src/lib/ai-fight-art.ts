@@ -11,6 +11,16 @@ export type TowerEnemySpriteKey =
     | "genin"
     | "revenant"
     | "sovereign"
+    | "stormcaller"
+    | "mirror-shogun"
+    | "void-emperor"
+    | "stormglass-lancer"
+    | "stormglass-marksman"
+    | "stormglass-bastion"
+    | "stormglass-weaver"
+    | "thunder-archivist"
+    | "stormglass-regent"
+    | "tower-scout"
     | "clan-boss-oni"
     | "clan-boss-leviathan"
     | "clan-boss-kage"
@@ -18,7 +28,10 @@ export type TowerEnemySpriteKey =
 
 const DIRECT_TOWER_SPRITES = new Set<TowerEnemySpriteKey>([
     "bandit", "archer", "blocker", "brute", "acolyte", "warden", "ravager",
-    "genin", "revenant", "sovereign", "clan-boss-oni", "clan-boss-leviathan",
+    "genin", "revenant", "sovereign", "stormcaller", "mirror-shogun", "void-emperor",
+    "stormglass-lancer", "stormglass-marksman", "stormglass-bastion", "stormglass-weaver",
+    "thunder-archivist", "stormglass-regent", "tower-scout",
+    "clan-boss-oni", "clan-boss-leviathan",
     "clan-boss-kage", "clan-boss-golem",
 ]);
 

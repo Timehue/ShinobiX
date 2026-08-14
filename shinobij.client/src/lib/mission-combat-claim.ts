@@ -1,41 +1,151 @@
-// Server-authoritative queueing for a won E/D combat mission, plus the
+// Server-authoritative queueing for a won combat mission, plus the
 // account-deletion request pair. Both were inline in App.tsx; they live here so
 // the settlement logic is testable and App.tsx keeps draining.
+
+import type { Character } from '../types/character';
+
+export type CombatMissionQueueDisposition = "accepted" | "terminal" | "retryable";
+
+export type CombatMissionQueueResult = {
+    queued: boolean;
+    disposition: CombatMissionQueueDisposition;
+    reason?: string;
+    character?: Character;
+    _saveVersion?: number;
+    saveVersion?: number;
+    httpStatus?: number;
+};
+
+// Only decisions that prove this exact run can never become claim authority are
+// safe to retire from the durable outbox. Capacity/auth/conflict/server states
+// remain parked and can recover after the surrounding condition changes.
+const DEFINITIVE_QUEUE_REASONS = new Set([
+    "unknown-mission",
+    "server_authoritative_combat_required",
+    "invalid-binding",
+    "wrong-player",
+    "wrong-mission",
+    "wrong-run",
+    "expired",
+    "not-won",
+    "not-a-member",
+    "reward-drift",
+]);
+
+export function isAuthoritativeCombatMissionCharacter(value: unknown): value is Character {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const candidate = value as Record<string, unknown>;
+    return typeof candidate.name === "string" && candidate.name.length > 0
+        && Number.isFinite(candidate.level) && Number(candidate.level) >= 1
+        && Number.isFinite(candidate.ryo) && Number(candidate.ryo) >= 0
+        && Array.isArray(candidate.inventory);
+}
+
+function queueDecision(
+    playerName: string,
+    data: { queued?: unknown; reason?: unknown; character?: unknown; _saveVersion?: unknown } | null,
+): CombatMissionQueueResult {
+    if (!data || typeof data.queued !== "boolean") {
+        return { queued: false, disposition: "retryable", reason: "invalid-server-response" };
+    }
+    const reason = typeof data.reason === "string" ? data.reason : undefined;
+    if (!data.queued) {
+        return {
+            queued: false,
+            disposition: reason && DEFINITIVE_QUEUE_REASONS.has(reason) ? "terminal" : "retryable",
+            reason: reason ?? "queue-not-confirmed",
+        };
+    }
+    const version = typeof data._saveVersion === "number"
+        && Number.isSafeInteger(data._saveVersion)
+        && data._saveVersion >= 0
+        ? data._saveVersion
+        : undefined;
+    const character = isAuthoritativeCombatMissionCharacter(data.character)
+        ? data.character
+        : undefined;
+    if (!character
+        || character.name.toLowerCase() !== playerName.toLowerCase()
+        || version === undefined) {
+        // The queue may have committed, but adopting or retiring without its
+        // authoritative snapshot would leave the client on a stale save base.
+        // Keep the run parked; the idempotent replay returns the full snapshot.
+        return { queued: false, disposition: "retryable", reason: "authoritative-snapshot-missing" };
+    }
+    return {
+        queued: true,
+        disposition: "accepted",
+        character,
+        _saveVersion: version,
+        saveVersion: version,
+    };
+}
 
 /**
  * Queue the server-side claim for a won combat mission.
  *
  * This is NOT optional bookkeeping: /api/missions/claim-mission rejects the
  * later payout with `not-queued` unless this call minted its durable claim
- * token, and the local pendingCombatMissionClaims flag can never promote itself
- * into one. The original call site fired this and swallowed every error, which
+ * run-bound token, and the local pendingCombatMissionClaims flag can never
+ * promote itself into one. The original call site fired this and swallowed
+ * every error, which
  * left the player looking at a "Claim Reward" button that could only ever fail.
  *
- * Retries transient failures with backoff; a 4xx is a decision, not a hiccup, so
- * it stops immediately. Resolves with the new `_saveVersion` on success (the
- * caller advances its optimistic-concurrency base) or null on failure.
+ * Retries transient failures with backoff. Auth, rate, conflict, network, and
+ * server outcomes remain explicitly retryable; only a validated success or a
+ * small allowlist of run-invalidating decisions is definitive.
  */
 export async function queueCombatMissionClaim(
     playerName: string,
     missionId: string,
+    runId: string,
     attempts = 4,
-): Promise<{ saveVersion?: number } | null> {
+): Promise<CombatMissionQueueResult> {
+    if (!runId) return { queued: false, disposition: "terminal", reason: "missing-run-authority" };
+    let latestFailure: CombatMissionQueueResult = {
+        queued: false,
+        disposition: "retryable",
+        reason: "network-error",
+    };
     for (let attempt = 0; attempt < attempts; attempt++) {
         try {
             const res = await fetch("/api/missions/queue-combat-claim", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playerName, missionId }),
+                body: JSON.stringify({ playerName, missionId, runId }),
             });
             if (res.ok) {
-                const data = await res.json().catch(() => null) as { _saveVersion?: number } | null;
-                return { saveVersion: typeof data?._saveVersion === "number" ? data._saveVersion : undefined };
+                const data = await res.json().catch(() => null) as {
+                    queued?: unknown;
+                    reason?: unknown;
+                    character?: unknown;
+                    _saveVersion?: unknown;
+                } | null;
+                const decision = queueDecision(playerName, data);
+                if (decision.disposition !== "retryable") return decision;
+                latestFailure = decision;
             }
-            if (res.status < 500) break;
+            if (!res.ok) {
+                const category = res.status === 401 || res.status === 403
+                    ? "auth"
+                    : res.status === 429
+                        ? "rate-limit"
+                        : res.status === 409
+                            ? "conflict"
+                            : res.status >= 500 || res.status === 404
+                                ? "server"
+                                : "http";
+                latestFailure = {
+                    queued: false,
+                    disposition: "retryable",
+                    reason: `${category}-${res.status}`,
+                    httpStatus: res.status,
+                };
+            }
         } catch { /* network — fall through to the backoff */ }
         if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 800 * 2 ** attempt));
     }
-    return null;
+    return latestFailure;
 }
 
 /** Player-facing copy for each way deleteServerAccount can fail. */

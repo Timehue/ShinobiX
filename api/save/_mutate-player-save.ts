@@ -1,4 +1,6 @@
 import { bumpSaveVersion } from './_save-version.js';
+import { isDeepStrictEqual } from 'node:util';
+import type { KvLike } from '../_storage.js';
 
 export type PlayerSaveRecord = Record<string, unknown>;
 export type PlayerCharacter = Record<string, unknown>;
@@ -23,18 +25,41 @@ export function versionedPlayerRecord(currentRecord: PlayerSaveRecord, nextChara
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 
+/**
+ * Exact-CAS save write used by store-injected settlement sagas and their fault
+ * tests. A fulfilled `false` is definitive evidence that this writer did not
+ * commit. Only a thrown/ambiguous acknowledgement may be recovered from an
+ * exact full-record readback.
+ */
+export async function writeVersionedPlayerSaveWithStore(
+    store: Pick<KvLike, 'get' | 'compareSet'>,
+    saveKey: string,
+    currentRecord: PlayerSaveRecord,
+    nextCharacter: PlayerCharacter,
+    recordPatch: PlayerSaveRecord = {},
+): Promise<{ record: PlayerSaveRecord; _saveVersion: number }> {
+    const { mergePreservingImages } = await import('../_utils.js');
+    const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch);
+    const intended = mergePreservingImages(out.record, currentRecord) as PlayerSaveRecord;
+    try {
+        const committed = await store.compareSet(saveKey, currentRecord, intended);
+        if (committed !== true) throw new Error('player-save-version-conflict');
+    } catch (error) {
+        if (error instanceof Error && error.message === 'player-save-version-conflict') throw error;
+        const readback = await store.get<PlayerSaveRecord>(saveKey).catch(() => null);
+        if (!isDeepStrictEqual(readback, intended)) throw error;
+    }
+    return { record: intended, _saveVersion: out._saveVersion };
+}
+
 export async function writeVersionedPlayerSave(
     saveKey: string,
     currentRecord: PlayerSaveRecord,
     nextCharacter: PlayerCharacter,
     recordPatch: PlayerSaveRecord = {},
 ): Promise<{ record: PlayerSaveRecord; _saveVersion: number }> {
-    const [{ kv }, { mergePreservingImages }] = await Promise.all([
-        import('../_storage.js'),
-        import('../_utils.js'),
-    ]);
-    const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch);
-    await kv.set(saveKey, mergePreservingImages(out.record, currentRecord));
+    const { kv } = await import('../_storage.js');
+    const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch);
     // Project the currency slice into its side-car ledger (P0-5). The blob
     // above is and stays authoritative; this only builds the evidence a future
     // read cutover needs. It costs nothing when the write did not move

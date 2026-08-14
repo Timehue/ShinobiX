@@ -5,9 +5,9 @@ import { settleVillageTax } from "./village-tax-api";
 /*
  * Settle the daily village tax once per session (§6.4).
  *
- * The rate falls as your village holds more sectors: a village at its full 8 pays
- * nothing, a conquered one pays the most. Half of what is collected is destroyed
- * (the anti-inflation sink) and half goes to the village treasury.
+ * The first eight home sectors are untaxed. Holding territory beyond those eight
+ * creates a bounded occupation tax; half is destroyed (the anti-inflation sink)
+ * and half goes to the village treasury.
  *
  * Ryo is client-owned in the save ledger, so the debit has to be ADOPTED here —
  * otherwise the next autosave would re-assert the pre-tax balance and undo it.
@@ -36,9 +36,9 @@ export function useVillageTax(
             setCharacter((prev) => (prev ? { ...prev, ryo: result.ryo, bankRyo: result.bankRyo } : prev));
             onServerVersion?.(result._saveVersion);
             notify?.(
-                `Village tax: −${result.taxed.toLocaleString()} ryo. `
-                + `Your village holds ${result.rateSectors} sector${result.rateSectors === 1 ? "" : "s"} — `
-                + `retake ground to lower the rate.`,
+                `Occupation tax: −${result.taxed.toLocaleString()} ryo. `
+                + `Your village holds ${result.rateSectors} sector${result.rateSectors === 1 ? "" : "s"}; `
+                + `territory beyond eight creates this rate, and the Treasury Vault can reduce it.`,
             );
         })();
 

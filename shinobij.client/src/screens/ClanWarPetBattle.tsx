@@ -3,6 +3,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { PetDuelReplayScreen, type PetDuelReplayView } from "../components/PetDuelReplayScreen";
+import { activeCarriedPets } from "../lib/entitlements";
 import {
     submitClanWarPet,
     clanWarPetState,
@@ -42,10 +43,10 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
 
     return (
         <PetDuelReplayScreen<ClanWarPetSession>
-            pets={character.pets}
+            pets={activeCarriedPets(character)}
             config={{
                 title: "🐾 Clan War Pet Battle",
-                intro: "Send a pet to fight for your clan. The battle is resolved by the server and replays here — no result is reported from your client.",
+                intro: "Send a pet to fight for your clan. The server resolves and replays the battle here. Equipped consumables stay unused and are not charged.",
                 missingText: "No clan-war pet battle selected.",
                 backLabel: "← Back to Clan Hall",
                 onBack: back,

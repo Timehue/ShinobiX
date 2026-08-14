@@ -47,6 +47,12 @@ type MoveHandler = (sector: number, name: string, tile: number, sequence: number
 type GoneHandler = (names: string[]) => void;
 type KickHandler = (reason: string) => void;
 type StatusHandler = (connected: boolean) => void;
+export type TowerRealtimeKick =
+    | { channel: 'reconcile'; reason: 'socket-connected' }
+    | { channel: 'party'; reason: 'created' | 'changed' | 'launched' | 'closed'; partyId?: string; version?: number }
+    | { channel: 'session'; reason: 'started' | 'action' | 'afk' | 'settled'; runId: string; actionVersion?: number }
+    | { channel: 'pvp'; reason: 'queued' | 'matched' | 'ready' | 'action' | 'settled' | 'closed'; matchId?: string; version?: number };
+type TowerKickHandler = (kick: TowerRealtimeKick) => void;
 
 let socket: Socket | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -59,6 +65,7 @@ const moveHandlers = new Set<MoveHandler>();
 const goneHandlers = new Set<GoneHandler>();
 const kickHandlers = new Set<KickHandler>();
 const statusHandlers = new Set<StatusHandler>();
+const towerKickHandlers = new Set<TowerKickHandler>();
 
 // Keepalive cadence — the "15-30s client heartbeat" that keeps server presence
 // fresh inside the 45-60s offline window.
@@ -149,6 +156,10 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
     socket.on('presence:kick', (data: { reason?: string } | null) => {
         kickHandlers.forEach((h) => h(data?.reason ?? ''));
     });
+    socket.on('tower:kick', (data: TowerRealtimeKick | null) => {
+        if (!data || typeof data.channel !== 'string') return;
+        towerKickHandlers.forEach((handler) => handler(data));
+    });
 
     if (pingTimer) clearInterval(pingTimer);
     pingTimer = setInterval(() => {
@@ -234,6 +245,11 @@ export function onGone(fn: GoneHandler): () => void {
 export function onKick(fn: KickHandler): () => void {
     kickHandlers.add(fn);
     return () => { kickHandlers.delete(fn); };
+}
+/** Subscribe before or after the shared socket connects; handlers survive reconnects. */
+export function onTowerKick(fn: TowerKickHandler): () => void {
+    towerKickHandlers.add(fn);
+    return () => { towerKickHandlers.delete(fn); };
 }
 export function onStatus(fn: StatusHandler): () => void {
     statusHandlers.add(fn);

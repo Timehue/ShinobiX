@@ -7,7 +7,7 @@ type Session = {
     winner: 'player' | 'enemy' | 'draw' | null;
     outcome?: 'win' | 'loss' | 'fled' | 'draw' | null;
     activeSide: 'player' | 'enemy';
-    player: { pos: number; hp: number };
+    player: { pos: number; hp: number; character?: { jutsu?: Array<{ id?: string }> } };
     enemy: { pos: number; hp: number };
     environment: { blockedTiles: number[] };
 };
@@ -44,9 +44,11 @@ function distance(a: number, b: number): number {
     ) / 2;
 }
 
-async function seedAccount(request: APIRequestContext, testInfo: TestInfo) {
+async function seedAccount(request: APIRequestContext, testInfo: TestInfo, options: { equipFlicker?: boolean } = {}) {
     const suffix = testInfo.project.name.includes('mobile') ? 'mobile' : 'desktop';
-    const journey = testInfo.title.includes('flee') ? 'flee' : 'win';
+    const journey = testInfo.title.toLowerCase().includes('flee')
+        ? 'flee'
+        : testInfo.title.toLowerCase().includes('flicker') ? 'flicker' : 'win';
     const name = `live${suffix}${journey}`;
     const password = 'LiveExpress!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
@@ -77,7 +79,10 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo) {
         onboardingStep: 'done',
         inventory: ['rustfang-kunai', 'shinobi-vest'],
         itemStacks: [], equipment: {}, pets: [],
-        jutsuMastery: [], equippedJutsuIds: [],
+        jutsuMastery: options.equipFlicker
+            ? [{ jutsuId: 'starter-universal-flicker', level: 1, xp: 0 }]
+            : [],
+        equippedJutsuIds: options.equipFlicker ? ['starter-universal-flicker'] : [],
         pendingCombatMissionClaims: [],
         dailyMissionsCompleted: 0,
     };
@@ -150,6 +155,81 @@ async function playToTerminal(page: Page, playerName: string, initial: Session):
     return session;
 }
 
+test('real built mission combat casts Flicker through a highlighted destination', async ({ page, request }, testInfo) => {
+    const runtimeErrors: string[] = [];
+    const serverFailures: string[] = [];
+    page.on('pageerror', (error) => {
+        runtimeErrors.push(error.message);
+    });
+    page.on('console', (message) => {
+        // Chromium also prints a generic resource-load line for an HTTP error;
+        // the response watcher below captures the useful status and URL.
+        if (message.type() === 'error' && !message.text().includes('Failed to load resource')) {
+            runtimeErrors.push(message.text());
+        }
+    });
+    page.on('response', (response) => {
+        if (response.url().includes('/api/') && response.status() >= 500) {
+            serverFailures.push(`${response.status()} ${response.url()}`);
+        }
+    });
+
+    const { name, token } = await seedAccount(request, testInfo, { equipFlicker: true });
+    await installSession(page, name, token);
+    await page.goto('/#/missions', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
+    const notice = page.getByRole('button', { name: /Got it/ }).last();
+    if (await notice.isVisible().catch(() => false)) await notice.click();
+
+    const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
+    const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
+    await mission.getByRole('button', { name: /Begin Mission/ }).click();
+    const startedHttp = await startResponse;
+    expect(startedHttp.status()).toBe(200);
+    const started = await startedHttp.json();
+    const initial = started.session as Session;
+    expect(initial.player.character?.jutsu?.map((jutsu) => jutsu.id)).toContain('starter-universal-flicker');
+    await expect(page.locator('.mission-arena-fight')).toBeVisible();
+
+    const flickerButton = page.locator('button.combat-jutsu-button[title^="Flicker |"]');
+    await expect(flickerButton).toBeVisible();
+    await flickerButton.click();
+    await expect(flickerButton).toHaveClass(/selected-action/);
+
+    const highlightedTiles = page.locator('button.hex-tile.dash-target-tile');
+    await expect(highlightedTiles.first()).toBeVisible();
+    const legalDestinations = await highlightedTiles.evaluateAll((tiles) => tiles
+        .map((tile) => Number(tile.getAttribute('data-tile')))
+        .filter(Number.isInteger));
+    const destination = legalDestinations
+        .sort((a, b) => distance(b, initial.enemy.pos) - distance(a, initial.enemy.pos))[0];
+    expect(Number.isInteger(destination)).toBe(true);
+    expect(distance(initial.player.pos, destination)).toBeLessThanOrEqual(5);
+    expect(distance(destination, initial.enemy.pos)).toBeGreaterThan(1);
+    const highlightedDestination = page.locator(`button.hex-tile.dash-target-tile[data-tile="${destination}"]`);
+
+    const flickerResponse = page.waitForResponse((response) => {
+        if (!response.url().includes('/api/solo-pve/action') || response.request().method() !== 'POST') return false;
+        const action = response.request().postDataJSON() as Record<string, unknown>;
+        return action.type === 'jutsu';
+    });
+    await highlightedDestination.click();
+    const flickerHttp = await flickerResponse;
+    const flickerRequest = flickerHttp.request().postDataJSON() as Record<string, unknown>;
+    expect(flickerRequest.jutsuId).toBe('starter-universal-flicker');
+    expect(flickerRequest.tile).toBe(destination);
+    expect(flickerHttp.status()).toBe(200);
+    const flickerResult = await flickerHttp.json() as Record<string, unknown>;
+    expect(flickerResult.error).not.toBe('Internal server error.');
+    expect(flickerResult.applied).toBe(true);
+    const flickered = flickerResult.session as Session;
+    expect(flickered.version).toBe(initial.version + 1);
+    expect(flickered.player.pos).toBe(destination);
+    await expect(page.getByText('Internal server error.', { exact: true })).toHaveCount(0);
+    expect(runtimeErrors).toEqual([]);
+    expect(serverFailures).toEqual([]);
+});
+
 test('real built client completes and recovers a server-owned combat mission', async ({ page, request }, testInfo) => {
     const runtimeErrors: string[] = [];
     const serverFailures: string[] = [];
@@ -199,7 +279,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
 
     const screenshotName = testInfo.project.name.includes('mobile') ? 'mission-mobile.png' : 'mission-desktop.png';
-    await page.locator('.mission-arena-fight').screenshot({ path: `../docs/screenshots/solo-pve-cutover/${screenshotName}` });
+    await page.locator('.mission-arena-fight').screenshot({ path: testInfo.outputPath(screenshotName) });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
 
@@ -289,7 +369,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     expect(retrySettle.queued).toBe(true);
     expect(retrySettle.replayed).toBe(true);
     const resultName = testInfo.project.name.includes('mobile') ? 'mission-result-mobile.png' : 'mission-result-desktop.png';
-    await page.locator('.mission-arena-fight').screenshot({ path: `../docs/screenshots/solo-pve-cutover/${resultName}` });
+    await page.locator('.mission-arena-fight').screenshot({ path: testInfo.outputPath(resultName) });
 
     const replaySettle = await browserApi(page, '/api/missions/queue-combat-claim', {
         playerName: name,

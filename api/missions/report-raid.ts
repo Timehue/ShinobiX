@@ -8,7 +8,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { consumeSingleUseToken } from '../_single-use-token.js';
 import { reportMissionEvent, type CompletedMissionInfo } from './_progress.js';
 import { creditFieldRaidProgress } from './_field-raid-progress.js';
-import type { PvpSession } from '../pvp/session.js';
+import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 
 // Replay window for PvP-flavored raid reports — keyed off the same 24h
@@ -143,6 +143,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
             if (session.status !== 'done' || !session.winner) {
                 return res.status(409).json({ error: 'Battle not yet decided.' });
+            }
+            if (!pvpSessionMayGrantProgress(session)) {
+                return res.status(409).json({ error: 'This battle is not an authorized raid/progression match.' });
+            }
+            if (session.rewardAuthority !== 'world') {
+                return res.status(409).json({ error: 'Only a server-verified world battle can be used as a PvP raid receipt.' });
             }
             const sessionAge = Date.now() - Number(session.createdAt ?? 0);
             if (sessionAge > SESSION_REPLAY_WINDOW_MS) {

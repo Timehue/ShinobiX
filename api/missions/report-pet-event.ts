@@ -20,7 +20,7 @@ const MIN_EXPEDITION_MINUTES = 10;
 // either a bot or a buggy client — clip at 240 min so XP / Ryo formulas
 // can't be inflated by a forged body.
 const MAX_EXPEDITION_MINUTES = 240;
-// Hard daily ceiling on claims, even with PET_CAP = 5 pets each running
+// Hard daily ceiling on claims, even with six carried pets each running
 // back-to-back short expeditions. Stops a 30s-spam attack from accumulating
 // thousands of claims/day.
 const MAX_EXPEDITIONS_PER_DAY = 12;

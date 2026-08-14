@@ -73,8 +73,8 @@ const BEGINNER: Guide = {
             blocks: [
                 { type: "table", head: ["Pool", "What it does"], rows: [
                     ["Health (HP)", "Your life in battle. Drop to 0 and you're knocked out and sent to the Hospital."],
-                    ["Chakra", "Energy that powers your jutsu — every technique spends chakra."],
-                    ["Stamina", "Also powers your jutsu (every technique spends both chakra and stamina). Also spent on stat training and to enter the Weekly Boss."],
+                    ["Chakra", "The casting resource for Ninjutsu and Genjutsu. These disciplines spend chakra, not stamina."],
+                    ["Stamina", "The exertion resource for Taijutsu and Bukijutsu. These disciplines spend stamina, not chakra. Stamina is also spent on stat training and to enter the Weekly Boss."],
                     ["Action Points (AP)", "Your turn budget in battle only — 100 AP per turn. Every move costs AP; when you run out, your turn ends."],
                 ] },
                 { type: "callout", tone: "good", label: "Good to know", text: "HP, chakra and stamina refill over time, and a Hospital checkout restores them fully. Missions are gated by a daily cap and your level — they do not cost stamina (some even reward it)." },
@@ -106,7 +106,7 @@ const BEGINNER: Guide = {
             blocks: [
                 { type: "list", items: [
                     "Battles are turn-based on a tile grid. You get 100 AP each turn.",
-                    "Each jutsu has an AP cost, a range, a cooldown, and spends both chakra and stamina — get in range before you cast.",
+                    "Each jutsu has an AP cost, a range, and a cooldown. Ninjutsu/Genjutsu spend chakra; Taijutsu/Bukijutsu spend stamina — get in range before you cast.",
                     "AP cost scales with the technique's strength: the Flicker move jutsu is cheap (20 AP) and repositions you; standard techniques cost 40; the heaviest cost 60.",
                     "There's a per-turn timer, so don't freeze up.",
                     "Win by dropping the enemy to 0 HP. Lose first and it's off to the Hospital.",
@@ -124,10 +124,10 @@ const BEGINNER: Guide = {
             blocks: [
                 { type: "p", text: "Stat Training (Training Grounds) — pick a stat and a duration. When the timer finishes the stat rises directly, and every point you earn counts toward your next level. Only one training runs at a time, and you can cancel early for partial credit." },
                 { type: "table", head: ["Duration", "Stat points (base)"], rows: [
-                    ["15 minutes", "+1"],
-                    ["1 hour", "+3"],
-                    ["4 hours", "+8"],
-                    ["8 hours", "+14"],
+                    ["15 minutes", "+6"],
+                    ["1 hour", "+22"],
+                    ["4 hours", "+84"],
+                    ["8 hours", "+160"],
                 ] },
                 { type: "p", text: "Jutsu Training (Jutsu Hall) — a jutsu's first level is free and instant, so go unlock some. Higher levels cost ryo and time." },
                 { type: "callout", tone: "tip", label: "Tip", text: "The fastest way to grow a jutsu is to use it in battle. Every cast builds its mastery, which raises its effect and lowers its cost." },
@@ -156,7 +156,7 @@ const BEGINNER: Guide = {
                 ] },
                 { type: "p", text: "There is no experience bar. Your level IS your stats: every stat point you earn — whether you spend it or leave it unspent — counts toward your next level, and the level follows automatically. Nothing can take those points away, so your level can never go backwards." },
                 { type: "p", text: "Points come from four places: stat training (the biggest by far — keep a timer running), claiming your field and hunt dailies, one-time story chapters and Battle Tower first clears, and winning serious PvP. Repeatable grinding — arena practice, combat missions, chests, Endless Tower — pays ryo and loot instead, so it funds your build without ever out-levelling it." },
-                { type: "p", text: "Two levels are held until you pass an exam: 20 (Genin Exam) and 39 (Chunin Exam). Points you earn during a hold are banked, not lost — pass the exam and you jump straight to where your points already put you. The level cap is 100." },
+                { type: "p", text: "Ranks and advancement gates are separate: you become Genin at level 15 and Chunin at level 30. Level 20 then holds for the Genin Advancement Exam, and level 39 holds for the Chunin Advancement Exam. These exams qualify an existing rank to continue; they do not award the rank. Points earned during a hold are banked, so passing can jump you straight to the level those points support. The level cap is 100." },
             ],
         },
         {
@@ -168,13 +168,13 @@ const BEGINNER: Guide = {
         {
             heading: "11 · Pick a Path: Professions (Level 13)",
             blocks: [
-                { type: "p", text: "At Level 13 you choose one permanent profession. Choose the one that matches how you like to play:" },
+                { type: "p", text: "At Level 13 you choose a profession. Every character gets one free path change later from the Profession Hub, so choose the one that best matches how you like to play:" },
                 { type: "list", items: [
                     "Healer — mend other players and support your village.",
                     "Vanguard — PvP raider who earns Honor Seals from real-player kills.",
                     "Pet Tamer — stronger pets in PvE and better expedition rewards.",
                 ] },
-                { type: "callout", tone: "warn", label: "Heads up", text: "Your profession choice is permanent, so don't rush it — play a bit first and pick the path that fits you." },
+                { type: "callout", tone: "warn", label: "Heads up", text: "A path change resets profession rank, XP, and mastery, and your second choice is permanent. Read the paths before spending your one free change." },
             ],
         },
         {
@@ -397,7 +397,7 @@ const COMBAT: Guide = {
             heading: "3 · Chakra, Stamina, Range & Cooldown",
             blocks: [
                 { type: "list", items: [
-                    "Every jutsu spends both chakra and stamina (a percentage of your pools). Run either dry and you can't cast it.",
+                    "Jutsu spend one discipline resource: Ninjutsu and Genjutsu use chakra, while Taijutsu and Bukijutsu use stamina. Run the resource your technique needs dry and you can't cast it.",
                     "Each jutsu has a range — you must be within it to cast. Move or Flicker to close the gap.",
                     "Each jutsu has a cooldown in rounds. After casting, it's locked until the cooldown clears.",
                 ] },
@@ -440,7 +440,7 @@ const PETS: Guide = {
             heading: "1 · Getting & Raising Pets",
             blocks: [
                 { type: "list", items: [
-                    "Befriend wild pets on the world map and inside the Hollow Gate. You carry 3 battle-ready companions (5 for Shinobi Supporters); every additional companion is kept safely in your unlimited Sanctuary.",
+                    "Befriend wild pets on the world map and inside the Hollow Gate. You carry 4 battle-ready companions (6 for Shinobi Supporters); every additional companion is kept safely in your unlimited Sanctuary.",
                     "Open Home → Sanctuary to move companions between storage and your carried roster. A full roster never blocks a capture or hatch — overflow arrives there automatically.",
                     "Rarity runs Standard → Rare → Legendary → Mythic. Mythics come with full, hand-crafted kits.",
                     "Train pets in the Pet Yard (15 min / 1 hr / 4 hr / 8 hr sessions) or feed treats for instant XP. Pets level up to 100.",

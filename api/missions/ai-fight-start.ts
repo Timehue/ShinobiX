@@ -12,11 +12,13 @@ import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { writeSoloPveSession } from '../solo-pve/_store.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
     aiFightTokenKey,
     computeAiFightBaseReward,
     createAiFightTokenRecord,
+    type AiFightToken,
 } from './_ai-fight-token.js';
 
 /*
@@ -77,6 +79,51 @@ async function sealAiFightEncounter(
         return { sessionId, session };
 }
 
+type SealedAiFightAuthority = { record: AiFightToken; session: SoloPveSession };
+
+function startPayload(authority: SealedAiFightAuthority, resumed = false): Record<string, unknown> {
+    const { record, session } = authority;
+    return {
+        ok: true,
+        token: record.tokenId,
+        expiresInSeconds: Math.max(1, AI_FIGHT_TOKEN_TTL_SECONDS - Math.floor((Date.now() - record.mintedAt) / 1000)),
+        maxXp: record.maxXp,
+        maxRyo: record.maxRyo,
+        baseXp: record.baseXp,
+        baseRyo: record.baseRyo,
+        trait: record.rewardTrait ?? null,
+        sessionId: session.sessionId,
+        session,
+        ...(resumed ? { resumed: true } : {}),
+    };
+}
+
+/** Read the authoritative save only after a rewardful caller owns the pet lease. */
+async function createAiFightAuthority(
+    playerName: string,
+    body: Record<string, unknown>,
+    token: string,
+): Promise<SealedAiFightAuthority | null | 'missing-save'> {
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const character = (save?.character ?? null) as Record<string, unknown> | null;
+    if (!save || !character) return 'missing-save';
+    const reward = computeAiFightBaseReward(character);
+    const sealed = await sealAiFightEncounter(playerName, body, save);
+    if (!sealed) return null;
+    const record = createAiFightTokenRecord(playerName, token, Date.now(), {
+        opponentId: body.opponentId,
+        opponentLevel: body.opponentLevel,
+        baseXp: reward.xp,
+        baseRyo: reward.ryo,
+        battleKind: body.battleKind,
+        sessionRuntime: 'solo-pve',
+        sessionId: sealed.sessionId,
+        rewardTrait: reward.trait,
+    });
+    await kv.set(aiFightTokenKey(playerName, token), record, { ex: AI_FIGHT_TOKEN_TTL_SECONDS });
+    return { record, session: sealed.session };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -93,41 +140,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only start your own AI fights.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'ai-fight-start', 30, 60_000, identity.name))) return;
+        if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
+            return res.status(409).json(towerBattleActiveErrorBody());
+        }
 
-        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const character = (save?.character ?? null) as Record<string, unknown> | null;
-        if (!save || !character) return res.status(404).json({ error: 'Player save not found.' });
-        const reward = computeAiFightBaseReward(character);
-
-        // Persist combat authority before minting its one-battle reward token.
-        const sealed = await sealAiFightEncounter(playerName, body, save);
-        if (!sealed) return res.status(404).json({ error: 'AI opponent is not published on the server.' });
-
+        // Starting an encounter does not reserve the pet. The shared boundary
+        // is claimed only by the common summon action, immediately before the
+        // current entitled pet is re-sealed and charged.
         const token = randomUUID().replace(/-/g, '');
-        const record = createAiFightTokenRecord(playerName, token, Date.now(), {
-            opponentId: body.opponentId,
-            opponentLevel: body.opponentLevel,
-            baseXp: reward.xp,
-            baseRyo: reward.ryo,
-            battleKind: body.battleKind,
-            sessionRuntime: 'solo-pve',
-            sessionId: sealed.sessionId,
-        });
-        await kv.set(aiFightTokenKey(playerName, token), record, { ex: AI_FIGHT_TOKEN_TTL_SECONDS });
-
-        return res.status(200).json({
-            ok: true,
-            token,
-            expiresInSeconds: AI_FIGHT_TOKEN_TTL_SECONDS,
-            maxXp: record.maxXp,
-            maxRyo: record.maxRyo,
-            baseXp: record.baseXp,
-            baseRyo: record.baseRyo,
-            trait: reward.trait,
-            // The client mounts only from this complete authority response.
-            sessionId: sealed.sessionId,
-            session: sealed.session,
-        });
+        const authority = await createAiFightAuthority(playerName, body, token);
+        if (authority === 'missing-save') return res.status(404).json({ error: 'Player save not found.' });
+        if (!authority) return res.status(404).json({ error: 'AI opponent is not published on the server.' });
+        return res.status(200).json(startPayload(authority));
     } catch (err) {
         console.error('[missions/ai-fight-start]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

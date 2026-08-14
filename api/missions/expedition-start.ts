@@ -8,6 +8,8 @@ import { withKvLock } from '../_lock.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { activeBreedingParentIds } from '../pet/_pet-busy.js';
+import { activeCarriedPetIds, PET_CAP_SUB } from '../_entitlements.js';
+import { claimPetLifecycleLease } from '../pet/_active-battle-lease.js';
 
 /*
  * /api/missions/expedition-start  — POST only
@@ -30,9 +32,11 @@ import { activeBreedingParentIds } from '../pet/_pet-busy.js';
  * durationMinutes, petLevel, mintedAt, endsAt }, TTL = 5h (covers the 4h max
  * expedition + collect slack). Single-use: report-pet-event deletes it on redeem.
  *
- * Body: { playerName, petId?, expType, petLevel? }
+ * Body: { playerName, petId?, expType }. Legacy `petLevel` input is ignored;
+ * reward level always comes from the saved pet selected by `petId`.
  *
- * Rate limited 5 per 30s (a Tamer can launch up to PET_CAP=5 pets back-to-back)
+ * The burst limit follows the supporter carried-pet cap so every eligible pet
+ * can be launched back-to-back without weakening the separate 12/day ceiling.
  * + a hard 12/day mint cap (matches report-pet-event's MAX_EXPEDITIONS_PER_DAY).
  */
 
@@ -46,6 +50,7 @@ const EXP_DURATION_MINUTES: Record<ExpType, number> = { scout: 45, forage: 120, 
 
 // Matches report-pet-event.MAX_EXPEDITIONS_PER_DAY — the daily reward ceiling.
 const MAX_EXPEDITION_STARTS_PER_DAY = 12;
+const EXPEDITION_DAILY_COUNT_TTL_SECONDS = 25 * 60 * 60;
 // 7 days: must comfortably outlast the longest expedition (4h) PLUS however
 // long a player takes to come back and collect (they may close the game for
 // days). The endsAt time-gate, single-use deletion, and 12/day mint cap are the
@@ -56,6 +61,39 @@ function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
+async function releaseFailedStartReservation(dailyKey: string, tokenKey: string | null): Promise<void> {
+    let tokenCleanupError: unknown = null;
+    if (tokenKey) {
+        try {
+            // This key contains this request's random id, so cleanup cannot
+            // erase a successor token minted by a later successful request.
+            await kv.del(tokenKey);
+        } catch (error) {
+            tokenCleanupError = error;
+        }
+    }
+
+    let counterCleanupError: unknown = null;
+    try {
+        // Another request may have incremented after this one reserved. Adjust
+        // the current aggregate under the same lock instead of restoring a
+        // stale pre-increment snapshot.
+        await withKvLock(dailyKey, async () => {
+            const current = Math.max(0, Math.floor(Number((await kv.get<number>(dailyKey)) ?? 0) || 0));
+            if (current <= 1) await kv.del(dailyKey);
+            else await kv.set(dailyKey, current - 1, { ex: EXPEDITION_DAILY_COUNT_TTL_SECONDS });
+        }, { failClosed: true });
+    } catch (error) {
+        counterCleanupError = error;
+    }
+
+    if (tokenCleanupError && counterCleanupError) {
+        throw new AggregateError([tokenCleanupError, counterCleanupError], 'Failed to release expedition start reservation.');
+    }
+    if (tokenCleanupError) throw tokenCleanupError;
+    if (counterCleanupError) throw counterCleanupError;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -64,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Pre-auth rate limit so spam at unknown names also throttles.
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'expedition-start', 5, 30_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'expedition-start', PET_CAP_SUB, 30_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -72,7 +110,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null) as ExpType | null;
         const petIdRaw = typeof body.petId === 'string' ? body.petId.trim().slice(0, 64) : '';
         const petId = /^[A-Za-z0-9:_-]+$/.test(petIdRaw) ? petIdRaw : '';
-        const petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!expType) return res.status(400).json({ error: 'Invalid expedition type.' });
@@ -82,6 +119,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own expeditions.' });
         }
+        const lifecycleLease = await claimPetLifecycleLease(kv, playerName, 'expedition');
+        if (!lifecycleLease) {
+            return res.status(409).json({ error: 'pet-is-in-active-battle', message: 'Finish or settle your active pet battle before starting an expedition.' });
+        }
+        try {
 
         // Pet Tamers earn FULL expedition currency/Tamer rewards. Non-Tamers earn
         // nothing from expeditions normally — EXCEPT once a pet is fully maxed
@@ -91,22 +133,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
         const isTamer = char?.profession === 'petTamer';
-        // Verify the pet's REAL level from the save — never trust body.petLevel —
-        // so a non-Tamer can't fake a maxed pet to farm the half-rate currency.
+        // Verify the pet's REAL level from the save for every profession. Reward
+        // inputs must never let even a Pet Tamer forge a stronger expedition pet.
         const pets = Array.isArray(char?.pets) ? (char.pets as Array<Record<string, unknown>>) : [];
         const thePet = petId ? pets.find((p) => p && p.id === petId) : undefined;
         const realLevel = Number(thePet?.level ?? 0);
         const realMaxLevel = Number(thePet?.maxLevel ?? 100);
         const petMaxed = !!thePet && realLevel >= realMaxLevel;
         if (!thePet) return res.status(404).json({ error: 'Pet not found.' });
+        if (!activeCarriedPetIds(char, pets).includes(petId)) {
+            return res.status(409).json({
+                error: 'pet-preserved-overflow',
+                message: 'Move this companion into the carried roster through the Sanctuary before starting an expedition.',
+            });
+        }
         if (activeBreedingParentIds(char ?? {}, Date.now()).has(petId)) return res.status(409).json({ error: 'This pet is in the breeding barn.' });
         if (realLevel < 20) return res.status(409).json({ error: 'Pet must reach level 20.' });
         if (thePet.training || thePet.expedition) return res.status(409).json({ error: 'Pet is already busy.' });
         // Half rate for the non-Tamer maxed-pet path; full rate for Pet Tamers.
         const rewardScale = isTamer ? 1 : petMaxed ? 0.5 : 0;
-        // Seal the level used by the ryo formula: the verified maxed level for the
-        // non-Tamer path, the (clamped) body value for Tamers (unchanged behavior).
-        const sealedPetLevel = isTamer ? petLevel : Math.max(1, Math.min(100, realLevel));
+        // Seal only the authoritative saved level used by the Ryo formula.
+        const sealedPetLevel = Math.max(1, Math.min(100, Math.floor(realLevel)));
 
         // Daily mint cap (separate counter from report-pet-event's claim cap;
         // a mint without a redeem still counts so the two can't be played off
@@ -116,9 +163,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Read-check-increment under a lock so concurrent -start calls can't both
         // read N and both write N+1, slipping past the cap on the boundary
         // (mirrors report-raid.ts). Defense-in-depth only — the real currency
-        // payout in report-pet-event has its own locked claim cap — so the default
-        // fall-through policy is right here (no failClosed): a rare over-mint
-        // costs nothing, and we'd rather mint than 500 a launch under contention.
+        // payout in report-pet-event has its own locked claim cap. Fail closed on
+        // lock contention here because rollback must adjust this exact aggregate,
+        // never a value concurrently written by another launch.
         // Caravan Master capstone raises the daily reward cap by 2; mirror it on
         // the mint cap so the extra tokens can actually be minted.
         const caravanBonus = masteryHasCapstone(char?.profession, char?.masterySpec, 'caravan-master') ? 2 : 0;
@@ -127,9 +174,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY + caravanBonus) {
                 return { capped: true as const };
             }
-            await kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
-            return { capped: false as const };
-        });
+            const intendedCount = startedToday + 1;
+            try {
+                const result = await kv.set(dailyKey, intendedCount, { ex: EXPEDITION_DAILY_COUNT_TTL_SECONDS });
+                if (result !== 'OK') throw new Error('expedition-daily-reservation-failed');
+            } catch (error) {
+                // Plain SET can commit and then lose its acknowledgement. The
+                // daily lock makes an exact readback authoritative for this
+                // writer, so later save cleanup still knows whether to decrement.
+                const readback = await kv.get<number>(dailyKey).catch(() => null);
+                if (Number(readback) !== intendedCount) throw error;
+            }
+            return { capped: false as const, reserved: true as const };
+        }, { failClosed: true });
         if (capCheck.capped) {
             return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'daily-mint-cap', token: null });
         }
@@ -146,42 +203,89 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const tokenId = randomUUID().replace(/-/g, '');
         const tokenKey = `pet-exp-token:${playerName}:${tokenId}`;
-        await kv.set(tokenKey, {
-            playerName,
-            petId: petId || undefined,
-            expType,
-            durationMinutes,
-            petLevel: sealedPetLevel,
-            mintedAt,
-            endsAt,
-            expRewardMult,
-            expMaterialMult,
-            // Reward scale (1 = full Tamer, 0.5 = non-Tamer maxed pet) and whether
-            // this is a Tamer token, both sealed so the redeemer pays accordingly.
-            rewardScale,
-            tamer: isTamer,
-        }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
-        const mutation = await mutatePlayerSave(playerName, ({ character }) => {
-            const storedPets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
-            const currentIndex = storedPets.findIndex((pet) => String(pet?.id ?? '') === petId);
-            if (currentIndex < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
-            const currentPet = storedPets[currentIndex];
-            if (activeBreedingParentIds(character, mintedAt).has(petId)) return { ok: false as const, status: 409, error: 'This pet is in the breeding barn.' };
-            if (currentPet.training || currentPet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
-            const nextPets = storedPets.map((pet, i) => i === currentIndex ? {
-                ...pet,
-                expedition: {
-                    type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId,
-                    // Durable, server-owned fallback authority. The generic save
-                    // sanitizer preserves expedition state from the stored pet.
-                    serverSeal: { petLevel: sealedPetLevel, expRewardMult, expMaterialMult, rewardScale, tamer: isTamer },
-                },
-            } : pet);
-            return { ok: true as const, character: { ...character, pets: nextPets }, value: { petId } };
-        });
-        if (!mutation.ok) { await kv.del(tokenKey).catch(() => undefined); return res.status(mutation.status).json({ error: mutation.error }); }
+        const releaseArtifacts = async () => {
+            if (capCheck.reserved) await releaseFailedStartReservation(dailyKey, tokenKey);
+            else await kv.del(tokenKey);
+        };
+        const mutation = await (async () => {
+            try {
+                await kv.set(tokenKey, {
+                    playerName,
+                    petId: petId || undefined,
+                    expType,
+                    durationMinutes,
+                    petLevel: sealedPetLevel,
+                    mintedAt,
+                    endsAt,
+                    expRewardMult,
+                    expMaterialMult,
+                    // Reward scale (1 = full Tamer, 0.5 = non-Tamer maxed pet) and whether
+                    // this is a Tamer token, both sealed so the redeemer pays accordingly.
+                    rewardScale,
+                    tamer: isTamer,
+                }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
+                return await mutatePlayerSave(playerName, ({ character }) => {
+                    const storedPets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
+                    const currentIndex = storedPets.findIndex((pet) => String(pet?.id ?? '') === petId);
+                    if (currentIndex < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
+                    if (!activeCarriedPetIds(character, storedPets).includes(petId)) {
+                        return { ok: false as const, status: 409, error: 'pet-preserved-overflow' };
+                    }
+                    const currentPet = storedPets[currentIndex];
+                    if (activeBreedingParentIds(character, mintedAt).has(petId)) return { ok: false as const, status: 409, error: 'This pet is in the breeding barn.' };
+                    if (currentPet.training || currentPet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
+                    const nextPets = storedPets.map((pet, i) => i === currentIndex ? {
+                        ...pet,
+                        expedition: {
+                            type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId,
+                            // Durable, server-owned fallback authority. The generic save
+                            // sanitizer preserves expedition state from the stored pet.
+                            serverSeal: { petLevel: sealedPetLevel, expRewardMult, expMaterialMult, rewardScale, tamer: isTamer },
+                        },
+                    } : pet);
+                    return { ok: true as const, character: { ...character, pets: nextPets }, value: { petId } };
+                });
+            } catch (error) {
+                // A thrown CAS acknowledgement is ambiguous until the
+                // authoritative save is read back. If this exact token landed
+                // (even with a later autosave version), treat the start as
+                // committed and retain both its daily slot and reward token.
+                // If readback itself fails, preserve the artifacts so a
+                // possibly-committed expedition never loses reward authority.
+                let recoveredRecord: Record<string, unknown> | null;
+                try {
+                    recoveredRecord = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                } catch {
+                    throw error;
+                }
+                const recoveredCharacter = recoveredRecord?.character as Record<string, unknown> | undefined;
+                const recoveredPets = Array.isArray(recoveredCharacter?.pets)
+                    ? recoveredCharacter.pets as Array<Record<string, unknown>>
+                    : [];
+                const recoveredPet = recoveredPets.find((pet) => String(pet?.id ?? '') === petId);
+                const recoveredExpedition = recoveredPet?.expedition as Record<string, unknown> | undefined;
+                if (recoveredRecord && recoveredCharacter && recoveredExpedition?.token === tokenId) {
+                    return {
+                        ok: true as const,
+                        value: { petId },
+                        record: recoveredRecord,
+                        character: recoveredCharacter,
+                        _saveVersion: Number(recoveredRecord._saveVersion ?? 0),
+                    };
+                }
+                await releaseArtifacts();
+                throw error;
+            }
+        })();
+        if (!mutation.ok) {
+            await releaseArtifacts();
+            return res.status(mutation.status).json({ error: mutation.error });
+        }
 
         return res.status(200).json({ ok: true, petTamer: isTamer, token: tokenId, durationMinutes, endsAt, character: mutation.character, _saveVersion: mutation._saveVersion });
+        } finally {
+            await lifecycleLease.release();
+        }
     } catch (err) {
         console.error('[missions/expedition-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });

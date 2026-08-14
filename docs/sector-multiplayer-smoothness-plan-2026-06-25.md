@@ -160,7 +160,7 @@ documented root cause of historical pop-in/out (the 90s tombstone is a workaroun
   the roster widgets re-render when the roster changes.
   ([useSyncExternalStore — React](https://react.dev/reference/react/useSyncExternalStore),
   [Context perf trap](https://azguards.com/performance-optimization/the-propagation-penalty-bypassing-react-context-re-renders-via-usesyncexternalstore/))
-- **Crowd rendering / graceful enter-leave.** Room-based social games (Habbo/Gather-style) cap
+- **Crowd rendering / graceful enter-leave.** Room-based social games (room-based social games-style) cap
   visible avatars and show overflow as a pile/"+N", and **fade** avatars in/out rather than
   hard add/remove, which is what kills flicker perceptually.
 
@@ -228,7 +228,7 @@ mechanism.
 ### Phase 5 — Crowd rendering: cap + overflow + (optional) canvas layer
 **Problem:** #4 — unvirtualized DOM avatars thrash at 50–100+ in one sector.
 **Approach (in order of effort):**
-1. **Cap visible avatars per tile** with a "+N" pile indicator (Habbo/Discord style); clicking
+1. **Cap visible avatars per tile** with a "+N" pile indicator (a room-based social game/Discord style); clicking
    the pile opens a scrollable list. Cheap, big perceived-stability win.
 2. **Overflow as lightweight dots** for distant/lower-priority players.
 3. If hot sectors become real, **move the remote-avatar layer to a single canvas** (the project

@@ -39,37 +39,35 @@ describe('war-tax: applyPlayerTax', () => {
         assert.equal(o.noWrite, true);
     });
 
-    it('taxes a conquered village (3 sectors → 3.5%) from the wallet, 50/50 split', () => {
-        // base = 600k − 5k = 595k; perDay = floor(595k·0.035)=20,825; 3 days → 62,475.
-        const o = applyPlayerTax({ ryo: 600_000, bankRyo: 0, level: 50, lastTaxDate: '2026-06-26' }, { sectorsControlled: 3, today: TODAY });
+    it('taxes an occupying village (9 sectors → 1%) from the wallet, 50/50 split', () => {
+        const o = applyPlayerTax({ ryo: 600_000, bankRyo: 0, level: 50, lastTaxDate: '2026-06-26' }, { sectorsControlled: 9, today: TODAY });
         assert.equal(o.taxed, true);
-        assert.equal(o.owed, 62_475);
-        assert.equal(o.fromWallet, 62_475);
+        assert.equal(o.owed, 17_850);
+        assert.equal(o.fromWallet, 17_850);
         assert.equal(o.fromBank, 0);
-        assert.equal(o.nextRyo, 600_000 - 62_475);
-        assert.equal(o.toBurn + o.toTreasury, 62_475);
-        assert.equal(o.toBurn, Math.round(62_475 * 0.5));
+        assert.equal(o.nextRyo, 600_000 - 17_850);
+        assert.equal(o.toBurn + o.toTreasury, 17_850);
+        assert.equal(o.toBurn, Math.round(17_850 * 0.5));
         assert.equal(o.noWrite, false);
     });
 
     it('spills into bank ryo when the wallet cannot cover the bill', () => {
-        // 0 sectors → 5%; base = (10k+1M)−5k = 1,005,000; perDay = 50,250; 1 day.
-        const o = applyPlayerTax({ ryo: 10_000, bankRyo: 1_000_000, level: 80, lastTaxDate: '' }, { sectorsControlled: 0, today: TODAY });
-        assert.equal(o.owed, 50_250);
+        const o = applyPlayerTax({ ryo: 10_000, bankRyo: 1_000_000, level: 80, lastTaxDate: '' }, { sectorsControlled: 9, today: TODAY });
+        assert.equal(o.owed, 10_050);
         assert.equal(o.fromWallet, 10_000);
-        assert.equal(o.fromBank, 40_250);
+        assert.equal(o.fromBank, 50);
         assert.equal(o.nextRyo, 0);
-        assert.equal(o.nextBankRyo, 1_000_000 - 40_250);
+        assert.equal(o.nextBankRyo, 1_000_000 - 50);
     });
 
     it('catch-up is capped at 3 days even after a long absence', () => {
         // last = 19 days ago, but only 3 days are charged.
-        const o = applyPlayerTax({ ryo: 600_000, bankRyo: 0, level: 50, lastTaxDate: '2026-06-10' }, { sectorsControlled: 3, today: TODAY });
-        assert.equal(o.owed, 62_475); // == the 3-day bill, not 19 days
+        const o = applyPlayerTax({ ryo: 600_000, bankRyo: 0, level: 50, lastTaxDate: '2026-06-10' }, { sectorsControlled: 9, today: TODAY });
+        assert.equal(o.owed, 17_850); // == the 3-day bill, not 19 days
     });
 
     it('a player under the wealth exemption pays nothing but is stamped', () => {
-        const o = applyPlayerTax({ ryo: 3_000, bankRyo: 1_000, level: 20, lastTaxDate: '2026-06-26' }, { sectorsControlled: 0, today: TODAY });
+        const o = applyPlayerTax({ ryo: 3_000, bankRyo: 1_000, level: 20, lastTaxDate: '2026-06-26' }, { sectorsControlled: 9, today: TODAY });
         assert.equal(o.taxed, false);
         assert.equal(o.nextLastTaxDate, TODAY);
     });

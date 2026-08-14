@@ -68,7 +68,7 @@ describe('admin-slot write path', () => {
 
     function saveAsAdminSlot(incomingItems: unknown[]) {
         const previous = process.env.STRICT_RAW_SAVE_LEDGER;
-        delete process.env.STRICT_RAW_SAVE_LEDGER;
+        process.env.STRICT_RAW_SAVE_LEDGER = '0';
         try {
             return sanitizeCharacterSave(
                 { character: { name: 'Admin 1', level: 30 }, creatorItems: incomingItems },

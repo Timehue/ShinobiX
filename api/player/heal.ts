@@ -7,9 +7,15 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { getDurableSettlement } from '../_durable-settlement.js';
+import { parseSettlementRequestId } from '../_settlement-receipts.js';
+import {
+    CrossHealSettlementError,
+    crossHealTransaction,
+    settleCrossPlayerHeal,
+} from './_cross-heal-settlement.js';
 import {
     reportMissionEvent,
-    awardProfessionXp,
     professionRankForXp,
     healerHealXpBonusPct,
     healerPerTargetCooldownMs,
@@ -133,7 +139,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             stamina: freshChar.maxStamina,
                         },
                     };
-                    await kv.set(targetKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
+                    const versioned = bumpSaveVersion(updated);
+                    await kv.set(targetKey, mergePreservingImages(versioned, fresh));
                     return {
                         status: 200 as const,
                         body: {
@@ -143,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             hp: updated.character.hp,
                             chakra: updated.character.chakra,
                             stamina: updated.character.stamina,
-                            _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+                            _saveVersion: Number((versioned as Record<string, unknown>)._saveVersion ?? 0),
                         },
                     };
                 }, { failClosed: true });
@@ -166,12 +173,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Discounted discharge fee (Town Hall Hospital + clan Medical Wing),
             // matching the price shown in the Hospital UI.
             const dischargeCost = discountedDischargeCost(targetChar);
-            let chargedRyo = 0;
             if (!identity.admin && !timerExpired) {
                 if (selfIsHealer) {
                     // Healers self-heal & discharge INSTANTLY for free — it is the
                     // profession perk, and the button literally reads "Free Self-Heal
-                    // & Discharge (Healer)". No timer wait: chargedRyo stays 0 and we
+                    // & Discharge (Healer)". No timer wait and no charge; we
                     // fall through to the discharge write below.
                     //
                     // Previously a rank-scaled hospital timer (r1=60s … r10=15s) gated
@@ -185,7 +191,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (curRyo < dischargeCost) {
                         return res.status(402).json({ error: `Need ${dischargeCost} ryo to pay-skip discharge.` });
                     }
-                    chargedRyo = dischargeCost;
                 } else {
                     return res.status(429).json({
                         error: 'Hospital timer not yet expired.',
@@ -198,9 +203,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // as the discharge button press) can wipe the ryo charge or
             // re-set the hospitalized flag using its stale snapshot. We
             // re-read inside the lock to fold in any fresh ryo gains.
-            const saveVersion = await withKvLock(targetKey, async () => {
+            const dischargeResult = await withKvLock(targetKey, async () => {
                 const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
                 const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
+                // Re-check every eligibility and price input under the lock. Two
+                // concurrent pay-skip requests may both have observed the old
+                // hospitalized snapshot above; only the first may debit it.
+                if (!freshChar.hospitalized) {
+                    return {
+                        status: 200 as const,
+                        body: {
+                            ok: true,
+                            kind: 'self',
+                            chargedRyo: 0,
+                            alreadyDischarged: true,
+                            _saveVersion: Number(fresh._saveVersion ?? 0),
+                        },
+                    };
+                }
+                const freshUntil = Number(freshChar.hospitalizedUntil ?? 0);
+                const freshTimerExpired = !freshUntil || Date.now() >= freshUntil;
+                const freshSelfIsHealer = freshChar.profession === 'healer';
+                const freshDischargeCost = discountedDischargeCost(freshChar);
+                let freshChargedRyo = 0;
+                if (!identity.admin && !freshTimerExpired && !freshSelfIsHealer) {
+                    if (!paySkip) {
+                        return {
+                            status: 429 as const,
+                            body: { error: 'Hospital timer not yet expired.', retryAfterMs: Math.max(0, freshUntil - Date.now()) },
+                        };
+                    }
+                    if (Number(freshChar.ryo ?? 0) < freshDischargeCost) {
+                        return { status: 402 as const, body: { error: `Need ${freshDischargeCost} ryo to pay-skip discharge.` } };
+                    }
+                    freshChargedRyo = freshDischargeCost;
+                }
                 const healed = {
                     ...fresh,
                     character: {
@@ -216,13 +253,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // autosave racing this discharge is ignored instead of
                         // re-admitting the player with a fresh timer.
                         lastDischargeAt: Date.now(),
-                        ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
+                        ryo: Math.max(0, Number(freshChar.ryo ?? 0) - freshChargedRyo),
                     },
                 };
-                await kv.set(targetKey, mergePreservingImages(bumpSaveVersion(healed), fresh));
-                return Number((healed as Record<string, unknown>)._saveVersion ?? 0);
-            });
-            return res.status(200).json({ ok: true, kind: 'self', chargedRyo, _saveVersion: saveVersion });
+                const versioned = bumpSaveVersion(healed);
+                await kv.set(targetKey, mergePreservingImages(versioned, fresh));
+                return {
+                    status: 200 as const,
+                    body: {
+                        ok: true,
+                        kind: 'self',
+                        chargedRyo: freshChargedRyo,
+                        _saveVersion: Number((versioned as Record<string, unknown>)._saveVersion ?? 0),
+                    },
+                };
+            }, { failClosed: true });
+            return res.status(dischargeResult.status).json(dischargeResult.body);
         }
 
         // Cross-player heal — requires Healer profession.
@@ -231,6 +277,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!healerRecord) return res.status(404).json({ error: 'Healer not found.' });
         const healerChar = healerRecord.character as Record<string, unknown> | undefined;
         if (!healerChar) return res.status(404).json({ error: 'Healer character not found.' });
+
+        const requestId = parseSettlementRequestId(body.requestId);
+        if (!requestId) return res.status(400).json({ error: 'A valid requestId is required for cross-player healing.' });
+        const { transactionId } = crossHealTransaction(requestId, actorName, targetName);
+        const priorSettlement = await getDurableSettlement(transactionId, { kv });
+        if (priorSettlement && ['debit-applied', 'credit-applied', 'reconciliation-required', 'completed'].includes(priorSettlement.state)) {
+            const resumed = await settleCrossPlayerHeal({ requestId, actorName, targetName });
+            if (resumed.result.targetHospitalized) {
+                await kv.set(`heal-signal:${targetName}`, { by: actorName, at: Date.now() }, { ex: 120 } as never);
+                kickPlayer(targetName, 'heal');
+            }
+            return res.status(200).json({ ok: true, kind: 'healer', ...resumed.result, requestId, replayed: true });
+        }
 
         if (!identity.admin && healerChar.profession !== 'healer') {
             return res.status(403).json({ error: 'Only Healers can heal other players.' });
@@ -261,6 +320,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        // Reject active-battle heals before reserving the cooldown. A failed
+        // eligibility check must never lock every Healer out of this target.
+        if (!identity.admin && onlineStore.get(targetName)?.inBattle) {
+            return res.status(409).json({ error: 'Target is in an active battle.' });
+        }
+
         // Per-target cooldown — any Healer touching the same target shares
         // the same lockout (prevents two-Healer ping-pong farming). Rank-
         // scaled: r1=5min, r10=1.5min. Higher-rank Healers can ping-pong
@@ -282,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && effectiveCooldownMs > 0) {
             const placed = await kv.set(
                 cooldownKey,
-                { at: Date.now(), by: actorName },
+                { at: Date.now(), by: actorName, transactionId },
                 { nx: true, ex: Math.max(1, Math.ceil(effectiveCooldownMs / 1000)) } as never,
             );
             if (!placed) {
@@ -292,27 +357,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // retryAfterMs=0 because the client treats 0 as "ready" and
                 // retries immediately, defeating the cooldown. Floor the
                 // hint at half the cooldown so the client always waits.
-                const existing = await kv.get<{ at: number; by: string }>(cooldownKey);
-                const elapsed = existing?.at ? Date.now() - existing.at : 0;
-                const computed = effectiveCooldownMs - elapsed;
-                const retryAfterMs = existing
-                    ? Math.max(250, computed)
-                    : Math.max(250, Math.floor(effectiveCooldownMs / 2));
-                return res.status(429).json({
-                    error: 'Target was healed recently. Try again later.',
-                    retryAfterMs,
-                });
-            }
-        }
-
-        // No healing during active battle — presence:{name} carries an
-        // inBattle flag stamped by heartbeat while a PvP session is open.
-        // This is mainly relevant at Rank 10 (where targets aren't required
-        // to be hospitalized); Rank 1-9 heals are blocked earlier by the
-        // hospitalized check (KO'd players aren't in a live battle).
-        if (!identity.admin) {
-            if (onlineStore.get(targetName)?.inBattle) {
-                return res.status(409).json({ error: 'Target is in an active battle.' });
+                const existing = await kv.get<{ at: number; by: string; transactionId?: string }>(cooldownKey);
+                // A retry for the same durable heal owns this reservation and
+                // may resume. A different request still observes the shared
+                // per-target cooldown.
+                if (existing?.transactionId === transactionId) {
+                    // Continue into the receipt-backed settlement below.
+                } else {
+                    const elapsed = existing?.at ? Date.now() - existing.at : 0;
+                    const computed = effectiveCooldownMs - elapsed;
+                    const retryAfterMs = existing
+                        ? Math.max(250, computed)
+                        : Math.max(250, Math.floor(effectiveCooldownMs / 2));
+                    return res.status(429).json({
+                        error: 'Target was healed recently. Try again later.',
+                        retryAfterMs,
+                    });
+                }
             }
         }
 
@@ -361,52 +422,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Healer can sustain more heals before resting. PvE/utility only.
         const chakraCostPct = Math.min(80, masteryBonus('healer', healerChar.masterySpec, 'healChakraCostPct'));
         const chakraCost = Math.ceil(amountToHeal * chakraRate * (1 - chakraCostPct / 100));
-        if (!identity.admin && chakraCost > 0) {
-            const paid = await withKvLock<{ ok: boolean }>(healerKey, async () => {
-                const fresh = await kv.get<Record<string, unknown>>(healerKey);
-                const fChar = fresh?.character as Record<string, unknown> | undefined;
-                if (!fresh || !fChar) return { ok: false };
-                const have = Number(fChar.chakra ?? 0);
-                if (have < chakraCost) return { ok: false };
-                const charged = bumpSaveVersion({ ...fresh, character: { ...fChar, chakra: have - chakraCost } });
-                await kv.set(healerKey, mergePreservingImages(charged, fresh));
-                return { ok: true };
+        let healed;
+        try {
+            healed = await settleCrossPlayerHeal({
+                requestId,
+                actorName,
+                targetName,
+                core: { xpGained, raidAssist, chakraCost, targetHospitalized },
             });
-            if (!paid.ok) {
-                await kv.del(cooldownKey).catch(() => undefined);
-                return res.status(400).json({ error: `Not enough chakra — healing costs ${chakraCost} chakra.`, chakraCost });
+        } catch (error) {
+            if (error instanceof CrossHealSettlementError) {
+                if (error.status < 500) {
+                    const marker = await kv.get<{ transactionId?: string }>(cooldownKey);
+                    if (marker?.transactionId === transactionId) await kv.del(cooldownKey).catch(() => undefined);
+                }
+                return res.status(error.status).json({ error: error.message, ...error.details });
             }
+            throw error;
         }
-
-        // Restore target under the save lock. The cross-heal write is just
-        // as race-prone as the self-heal discharge above — a concurrent
-        // auto-save of the target could wipe our hp/chakra/stamina/hosp
-        // restore using its stale snapshot. Re-read inside the lock and
-        // merge on top so any genuine concurrent gains survive.
-        await withKvLock(targetKey, async () => {
-            const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
-            const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
-            const healedTarget = {
-                ...fresh,
-                character: {
-                    ...freshChar,
-                    hp: freshChar.maxHp,
-                    chakra: freshChar.maxChakra,
-                    stamina: freshChar.maxStamina,
-                    hospitalized: false,
-                    hospitalizedUntil: 0,
-                    hospitalizedAt: 0,
-                    // Only a hospitalized target is being DISCHARGED here; stamp the
-                    // discharge-race marker so a stale `hospitalized:true` autosave
-                    // can't re-admit them (sanitizeCharacterSave grace window). A
-                    // Rank-10 heal of a merely-injured (non-hospitalized) player is
-                    // not a discharge, so it leaves no marker — a genuine later KO
-                    // for them still hospitalizes normally.
-                    ...(targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
-                },
-            };
-            await kv.set(targetKey, mergePreservingImages(bumpSaveVersion(healedTarget), fresh));
-        });
+        if (healed.replayed) {
+            return res.status(200).json({ ok: true, kind: 'healer', ...healed.result, requestId, replayed: true });
+        }
 
         // If this heal actually discharged a hospitalized player, queue a one-shot
         // "you were healed" signal for them. Their next heartbeat delivers+clears it
@@ -418,13 +454,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(`heal-signal:${targetName}`, { by: actorName, at: Date.now() }, { ex: 120 } as never);
             kickPlayer(targetName, 'heal');
         }
-
-        // Award Healer XP for the heal itself (% HP restored).
-        const heralded = await awardProfessionXp(actorName, 'healer', xpGained);
-
-        // Cooldown was already placed by the NX-reservation above (admin
-        // path took no reservation, so no stamp is needed either — admins
-        // bypass the gate). Nothing further to write here.
 
         // Report daily mission progress (best-effort — don't fail the heal
         // if mission storage hiccups). Auto-grants additional XP onto the
@@ -453,8 +482,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Re-read after mission grants to return the truly final state.
         const finalRecord = await kv.get<Record<string, unknown>>(healerKey);
         const finalChar = finalRecord?.character as Record<string, unknown> | undefined;
-        const finalXp = Number(finalChar?.professionXp ?? heralded?.xp ?? 0);
-        const finalRank = Number(finalChar?.professionRank ?? heralded?.rank ?? 1);
+        const finalXp = Number(finalChar?.professionXp ?? healed.result.professionXp);
+        const finalRank = Number(finalChar?.professionRank ?? healed.result.professionRank);
 
         return res.status(200).json({
             ok: true,
@@ -466,6 +495,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             professionXp: finalXp,
             professionRank: finalRank,
             chakraCost,
+            requestId,
             _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     } catch (err) {

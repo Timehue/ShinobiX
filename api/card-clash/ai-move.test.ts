@@ -1,5 +1,6 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
 import {
   CHRONICLE_FIXED_FALLBACK_DECK,
   CHRONICLE_RULES_VERSION,
@@ -57,6 +58,12 @@ before(async () => {
     if (options?.nx && store.has(key)) return null;
     store.set(key, clone(value));
     return "OK";
+  };
+  kv.compareSet = async (key: string, expected: unknown | null, value: unknown) => {
+    const current = store.has(key) ? clone(store.get(key)) : null;
+    if (!isDeepStrictEqual(current, expected)) return false;
+    store.set(key, clone(value));
+    return true;
   };
   kv.del = async (...keys: string[]) =>
     keys.reduce((count, key) => count + (store.delete(key) ? 1 : 0), 0);

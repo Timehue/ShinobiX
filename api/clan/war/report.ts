@@ -6,7 +6,8 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { awardWarEndClanXp } from './_war-xp.js';
 import { awardFinalizedWarPoints } from './_war-points.js';
-import type { PvpSession } from '../../pvp/session.js';
+import { pvpSessionMayReward, type PvpSession } from '../../pvp/session.js';
+import { clanWarPvpReportAuthorityError } from '../../pvp/_clan-war-authorization.js';
 import {
     applyFinalResult,
     applyLazyClanWarExpiry,
@@ -28,15 +29,19 @@ async function validateAgainstPvpSession(
     ch: ClanChallenge,
     result: ChallengeResult,
 ): Promise<{ status: 409 | 404; body: { error: string } } | null> {
+    const authorityError = clanWarPvpReportAuthorityError(ch);
+    if (authorityError) return { status: 409, body: { error: authorityError } };
     if (!ch.battleId) return null;
     const session = await kv.get<PvpSession>(`pvp:${ch.battleId}`);
-    if (!session) {
-        // Session may have expired (24h TTL on pvp:* keys). Fall back to
-        // the two-phase reporting defense rather than blocking the report.
-        return null;
-    }
+    if (!session) return { status: 404, body: { error: 'The authoritative PvP session is missing or expired; this result cannot be rewarded.' } };
     if (session.status !== 'done' || !session.winner) {
         return { status: 409, body: { error: 'Battle session not yet decided — wait for the fight to finish before reporting.' } };
+    }
+    if (!pvpSessionMayReward(session)) {
+        return { status: 409, body: { error: 'This PvP session was not authorized or both fighters did not join.' } };
+    }
+    if (session.rewardAuthority !== 'clan-war' || session.clanWarChallengeId !== ch.id) {
+        return { status: 409, body: { error: 'That PvP session is not the sealed battle for this Clan War challenge.' } };
     }
     // Map the session winner back to challenge sides. fromPlayer / fromPlayer2
     // are on the "from" side; the rest are on the "to" side.

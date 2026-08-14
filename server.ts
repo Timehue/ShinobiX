@@ -41,6 +41,7 @@ import saveHandler       from './api/save/[name].js';
 import heartbeatHandler  from './api/player/heartbeat.js';
 import travelHandler     from './api/player/travel.js';
 import challengeHandler  from './api/player/challenge.js';
+import playerBlocksHandler from './api/player/blocks.js';
 import friendsHandler    from './api/player/friends.js';
 import attackHandler     from './api/player/attack.js';
 import sleeperKillHandler from './api/player/sleeper-kill.js';
@@ -63,6 +64,7 @@ import playerAuthHandler from './api/player-auth.js';
 import adminAuthHandler  from './api/admin-auth.js';
 import adminPlayersHandler from './api/admin/players.js';
 import adminGrantSubscriptionHandler from './api/admin/grant-subscription.js';
+import adminGrantItemHandler from './api/admin/grant-item.js';
 import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
@@ -98,7 +100,12 @@ import towersStateHandler  from './api/towers/state.js';
 import towersSettleHandler from './api/towers/settle.js';
 import towersMyRunHandler  from './api/towers/my-run.js';
 import towersJoinHandler   from './api/towers/join.js';
+import towersPartyHandler  from './api/towers/party.js';
 import towersSpireLeaderboardHandler from './api/towers/spire-leaderboard.js';
+import towersPvpQueueHandler from './api/towers/pvp-queue.js';
+import towersPvpStateHandler from './api/towers/pvp-state.js';
+import towersPvpActionHandler from './api/towers/pvp-action.js';
+import towersPvpSettleHandler from './api/towers/pvp-settle.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import trainingStartHandler from './api/training/start.js';
 import trainingCompleteHandler from './api/training/complete.js';
@@ -284,6 +291,8 @@ import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petWarfrontStartHandler from './api/pet/warfront-start.js';
+import petWarfrontCouncilHandler from './api/pet/warfront-council.js';
+import petWarfrontForfeitHandler from './api/pet/warfront-forfeit.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
 import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
@@ -509,7 +518,10 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // default with room to spare.
 const jsonBig = express.json({ limit: '50mb' });
 const jsonSave = express.json({ limit: '1mb' });
+const jsonChallenge = express.json({ limit: '512kb' });
 const jsonDefault = express.json({ limit: '5mb' });
+const urlEncodedChallenge = express.urlencoded({ extended: true, limit: '512kb' });
+const urlEncodedDefault = express.urlencoded({ extended: true, limit: '5mb' });
 // The Patreon webhook must verify an HMAC-MD5 over the EXACT raw request body,
 // so this parser stashes the raw Buffer on req.rawBody. The capture runs ONLY
 // for that one path — every other request skips it. See api/patreon/webhook.ts.
@@ -525,10 +537,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     switch (classifyBodyLimit(req.path)) {
         case 'big':  return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
+        case 'challenge': return jsonChallenge(req, res, next);
         default:     return jsonDefault(req, res, next);
     }
 });
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use((req, res, next) => classifyBodyLimit(req.path) === 'challenge'
+    ? urlEncodedChallenge(req, res, next)
+    : urlEncodedDefault(req, res, next));
 
 // Per-request correlation id — a short, greppable token on every request,
 // echoed in the x-request-id response header (visible in the browser network
@@ -891,6 +906,24 @@ async function runDbHealthProbe(): Promise<{
         checks.setNx = (await kv.set(nxKey, token, { nx: true, ex: 60 })) === 'OK';
         await kv.del(nxKey).catch(() => undefined);
 
+        // Full-value atomic CAS (required by cross-row economy sagas). Probe a
+        // mismatch first to prove it cannot overwrite, then the exact-success
+        // path. A missing kv_compare_set schema RPC fails deep readiness before
+        // payout traffic reaches an unsafe/partially-migrated deployment.
+        const casKey = `health:probe:cas:${tag}`;
+        const casBefore = { probe: token, version: 1 };
+        const casAfter = { probe: token, version: 2 };
+        await kv.set(casKey, casBefore, { ex: 60 });
+        checks.compareSetMismatch = (await kv.compareSet(
+            casKey,
+            { probe: token, version: 0 },
+            { probe: token, version: 999 },
+            { ex: 60 },
+        )) === false && JSON.stringify(await kv.get(casKey)) === JSON.stringify(casBefore);
+        checks.compareSet = (await kv.compareSet(casKey, casBefore, casAfter, { ex: 60 })) === true
+            && JSON.stringify(await kv.get(casKey)) === JSON.stringify(casAfter);
+        await kv.del(casKey).catch(() => undefined);
+
         // kv_hset / kv_hdel RPCs.
         const hashKey = `health:probe:hash:${tag}`;
         await kv.hset(hashKey, { f: token });
@@ -1011,6 +1044,7 @@ route('/save/:name', saveHandler);
 route('/player/heartbeat',    heartbeatHandler);
 route('/player/travel',       travelHandler);
 route('/player/challenge',    challengeHandler);
+route('/player/blocks',       playerBlocksHandler);
 route('/player/friends',      friendsHandler);
 route('/player/attack',       attackHandler);
 route('/player/sleeper-kill', sleeperKillHandler);
@@ -1048,6 +1082,7 @@ route('/admin-auth',  adminAuthHandler);
 // Admin
 route('/admin/players',      adminPlayersHandler);
 route('/admin/grant-subscription', adminGrantSubscriptionHandler);
+route('/admin/grant-item', adminGrantItemHandler);
 route('/admin/player-index-health', adminPlayerIndexHealthHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
@@ -1116,7 +1151,12 @@ route('/towers/state', towersStateHandler);
 route('/towers/settle', towersSettleHandler);
 route('/towers/my-run', towersMyRunHandler);
 route('/towers/join', towersJoinHandler);
+route('/towers/party', towersPartyHandler);
 route('/towers/spire-leaderboard', towersSpireLeaderboardHandler);
+route('/towers/pvp-queue', towersPvpQueueHandler);
+route('/towers/pvp-state', towersPvpStateHandler);
+route('/towers/pvp-action', towersPvpActionHandler);
+route('/towers/pvp-settle', towersPvpSettleHandler);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).
@@ -1373,6 +1413,8 @@ route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/warfront-start', petWarfrontStartHandler);
+route('/pet/warfront-council', petWarfrontCouncilHandler);
+route('/pet/warfront-forfeit', petWarfrontForfeitHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
 route('/weapon/apply-elemental-core', applyElementalCoreHandler);

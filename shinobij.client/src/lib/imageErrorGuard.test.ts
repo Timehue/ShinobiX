@@ -11,15 +11,15 @@ const PAGE = "https://shinobijourney.com/arena";
 
 describe("PvE image retry URLs", () => {
     it("retries same-origin game images but never arbitrary external sources", () => {
-        assert.equal(isRetryableImageSource("/api/img?id=ai%3Akakashi", PAGE), true);
+        assert.equal(isRetryableImageSource("/api/img?id=ai%3Araiko", PAGE), true);
         assert.equal(isRetryableImageSource("/assets/avatar-abcd1234.webp", PAGE), true);
-        assert.equal(isRetryableImageSource("https://example.com/api/img?id=ai%3Akakashi", PAGE), false);
+        assert.equal(isRetryableImageSource("https://example.com/api/img?id=ai%3Araiko", PAGE), false);
         assert.equal(isRetryableImageSource("data:image/png;base64,YQ==", PAGE), false);
         assert.equal(isRetryableImageSource("not a valid url", "not a valid base"), false);
     });
 
     it("gives dynamic image storage an extra retry", () => {
-        assert.equal(imageRetryLimitForSource("/api/img?id=ai%3Akakashi", PAGE), 2);
+        assert.equal(imageRetryLimitForSource("/api/img?id=ai%3Araiko", PAGE), 2);
         assert.equal(imageRetryLimitForSource("/scenes/intro.webp", PAGE), 1);
         assert.equal(imageRetryLimitForSource("https://cdn.example.com/intro.webp", PAGE), 0);
     });

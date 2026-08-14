@@ -86,6 +86,7 @@ async function installRuntime(page: Page) {
         if (path === "/api/weekly-boss") return json(route, { boss: null, fightEnabled: true });
         if (path === "/api/ranked-season") return json(route, { current: null, lastSeason: null });
         if (path === "/api/legacy/status") return json(route, { enabled: true });
+        if (path === "/api/towers/party") return json(route, { party: null, invitations: [] });
         if (path === "/api/towers/floors") return json(route, { floors: [] });
         return json(route, { ok: true, images: {}, categories: {}, players: [], leaderboard: [], announcements: [], entries: [], eras: [], wars: [], territories: [], standings: [], villageStates: {}, arenaActiveFights: [] });
     });

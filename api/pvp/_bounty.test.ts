@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     placeBounty, claimBounty, findBounty, normalizeBoard, emptyBoard,
-    BOUNTY_MIN_PLACE, BOUNTY_MAX_PLACE, BOUNTY_MAX_PER_TARGET,
+    BOUNTY_MIN_PLACE, BOUNTY_MAX_PLACE, BOUNTY_MAX_PER_TARGET, BOUNTY_CONTRIBUTOR_MAX,
     type BountyBoard, type PlaceInput,
 } from './_bounty.js';
 
@@ -93,5 +93,11 @@ describe('normalizeBoard', () => {
     it('returns an empty board for junk input', () => {
         assert.deepEqual(normalizeBoard(null), emptyBoard());
         assert.deepEqual(normalizeBoard({ nope: true }), emptyBoard());
+    });
+    it('bounds contributor attribution to the same limit recovery journals validate', () => {
+        const contributors = Array.from({ length: BOUNTY_CONTRIBUTOR_MAX + 25 }, (_, index) => `backer-${index}`);
+        const board = normalizeBoard({ bounties: [{ target: 'A', amount: 5_000, contributors, updatedAt: NOW }] });
+        assert.equal(board.bounties[0]?.contributors.length, BOUNTY_CONTRIBUTOR_MAX);
+        assert.equal(board.bounties[0]?.contributors.at(-1), `backer-${BOUNTY_CONTRIBUTOR_MAX + 24}`);
     });
 });

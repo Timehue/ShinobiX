@@ -643,7 +643,7 @@ free squads**, climb floors that are single-map tactical battles, each with a **
 domains, and **buff/debuff zones**; bosses start at **Floor 10**; entry is **free with unlimited
 retries**; rewards are **one-time first-clear** loot + **milestone unit drops** at landmark floors; gated
 behind a player rank. We adopt that skeleton, expressed through our 100-AP hex combat, and layer in
-proven patterns from Spiral Abyss / HSR endgame / Slay the Spire / RAID / FFXIV.
+proven patterns from Spiral Abyss / a leading gacha RPG endgame / a roguelike deckbuilder / RAID / FFXIV.
 
 **Adopt directly (the headline design):**
 - **Free entry, unlimited retries, manual tactical puzzle** — gate by **level/rank, not stamina**. (Note:
@@ -695,7 +695,7 @@ safety (§9):**
   model). Climb-to-unlock **milestone rewards** at landmark floors (G Gen's UR-unit drops) — everyone in
   the squad who clears gets it.
 - **A season-resetting top "Spire" segment**: repeatable currency, leaderboard, **affix set rotates per
-  season** (~biweekly–monthly, HSR's 6-week cadence is a good upper bound).
+  season** (~biweekly–monthly, a leading gacha RPG's 6-week cadence is a good upper bound).
 - **(Phase 3) Weekly co-op raid boss**: paid from **damage-milestone chests** (capped — past the
   milestone, more attacks give nothing), full-kill one-time doubler.
 - **Primary anti-faucet = entry keys/tickets** (e.g. 1 free key/day + a weekly bundle) on the *rewarding*
@@ -708,7 +708,7 @@ a later expansion; they're out of v1 because the handoff freezes the AP/movement
 
 Sources: G Gen Eternal Generation Tower guides (ldplayer, vortexgaming, invenglobal, note.com, ldshop,
 mumuplayer); G Gen series wikis (Overworld/World/Genesis Fandom, Wikipedia, Cross Rays Steam combat
-guide); genre — Genshin Spiral Abyss, HSR endgame (Game8), Slay the Spire Ascension, Arknights I.S.,
+guide); genre — a leading open-world RPG Spiral Abyss, a leading gacha RPG endgame (Game8), a roguelike deckbuilder Ascension, Arknights I.S.,
 RAID Hydra, FFXIV common mechanics. (Full URL list in the research transcript.)
 
 ---

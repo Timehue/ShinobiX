@@ -59,22 +59,25 @@ describe('village treasury transfer settlement', () => {
     });
 
     it('retries after recipient persistence fails without duplicating the debit', { concurrency: false }, async () => {
-        const originalSet = kv.set.bind(kv);
+        const originalCompareSet = kv.compareSet.bind(kv);
         let failRecipient = true;
-        kv.set = async (key, value, options) => {
+        kv.compareSet = async (key, expected, value, options) => {
             if (failRecipient && key === RECIPIENT_KEY) throw new Error('injected recipient write failure');
-            return originalSet(key, value, options);
+            return originalCompareSet(key, expected, value, options);
         };
         const body = { village: 'Leaf', recipientName: 'Recipient', currency: 'ryo', amount: 25, requestId: 'village-transfer-fault-01' };
-        assert.equal((await post(body)).statusCode, 500);
-        assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(VILLAGE_KEY))?.treasury?.ryo, 75);
-        assert.equal((await getDurableSettlement(
-            settlementTransactionId('village-treasury-transfer', 'village-transfer-fault-01'),
-            { kv },
-        ))?.state, 'reconciliation-required');
-        failRecipient = false;
-        assert.equal((await post(body)).statusCode, 200);
-        kv.set = originalSet;
+        try {
+            assert.equal((await post(body)).statusCode, 500);
+            assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(VILLAGE_KEY))?.treasury?.ryo, 75);
+            assert.equal((await getDurableSettlement(
+                settlementTransactionId('village-treasury-transfer', 'village-transfer-fault-01'),
+                { kv },
+            ))?.state, 'reconciliation-required');
+            failRecipient = false;
+            assert.equal((await post(body)).statusCode, 200);
+        } finally {
+            kv.compareSet = originalCompareSet;
+        }
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(VILLAGE_KEY))?.treasury?.ryo, 75);
         assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 35);
     });

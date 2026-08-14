@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
     consumeRunToken,
     storeRunToken,
@@ -15,9 +17,14 @@ import {
     type TowerLock,
     type RunTokenData,
     MAX_ASSISTS_PER_DAY,
+    isPublicTowerRun,
+    writeSession,
+    TOWER_SESSION_TTL,
+    PAID_RECEIPT_TTL,
 } from './_tower-store.js';
 import { computeFloorReward, computeFloorClearScore } from './_tower-rewards.js';
 import { getFloor, type TowerFloor } from './_floor-catalog.js';
+import { sealTowerCatalogFloor } from './_session-floor.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
 
 const NOW = 1_700_000_000_000;
@@ -35,6 +42,24 @@ function fakeKv(): TowerKv & { store: Map<string, unknown> } {
         },
         async del(...keys: string[]) { let n = 0; for (const k of keys) if (store.delete(k)) n++; return n; },
         async incr(key: string) { const v = (Number(store.get(key)) || 0) + 1; store.set(key, v); return v; },
+    };
+}
+function forwardThenThrowOnFirstSave(): TowerKv & { store: Map<string, unknown> } {
+    const base = fakeKv();
+    let fail = true;
+    return {
+        store: base.store,
+        get: base.get.bind(base),
+        del: base.del.bind(base),
+        incr: base.incr.bind(base),
+        async set(key, value, opts) {
+            const result = await base.set(key, value, opts);
+            if (fail && key.startsWith('save:')) {
+                fail = false;
+                throw new Error('forwarded save, dropped response');
+            }
+            return result;
+        },
     };
 }
 const passLock: TowerLock = async (_t, fn) => fn();
@@ -101,6 +126,21 @@ describe('Battle Towers run token (single-use, atomic)', () => {
         assert.equal(await bumpDailyStartCount('host', { kv, now }), 1);
         assert.equal(await bumpDailyStartCount('host', { kv, now }), 2);
     });
+    it('retains completed session evidence for the receipt window and detects a rejected publish', async () => {
+        const kv = fakeKv();
+        const expiries: number[] = [];
+        const set = kv.set.bind(kv);
+        kv.set = async (key, value, opts) => {
+            expiries.push(Number(opts?.ex));
+            return set(key, value, opts);
+        };
+        await writeSession(makeSession('active-session', 1, 'host', { status: 'active', winner: null }), { kv });
+        await writeSession(makeSession('done-session', 1, 'host'), { kv });
+        assert.deepEqual(expiries, [TOWER_SESSION_TTL, PAID_RECEIPT_TTL]);
+
+        const rejected = { ...fakeKv(), async set() { return null; } } as TowerKv;
+        await assert.rejects(() => writeSession(makeSession('rejected', 1, 'host'), { kv: rejected }), /not committed/);
+    });
 });
 
 describe('Battle Towers per-member settlement (server-authoritative, idempotent)', () => {
@@ -116,6 +156,31 @@ describe('Battle Towers per-member settlement (server-authoritative, idempotent)
         assert.ok((res.score ?? 0) > 0);
         assert.deepEqual(c.battleTowerClearedFloors, [1]);
         assert.ok(kv.store.has(firstClearKey('alice', 1)), 'permanent first-clear receipt placed');
+    });
+
+    it('settles the immutable Story reward snapshot instead of the current catalog object', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice');
+        const session = makeSession('sealed-reward-snapshot', 1, 'alice');
+        const snapshot = structuredClone(F1);
+        snapshot.firstClearReward = { ryo: 777, xp: 321 };
+        sealTowerCatalogFloor(session, snapshot, 'story');
+
+        const result = await settleFloorForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(result.paid, true);
+        assert.equal(charOf(kv, 'alice').ryo, 777);
+        assert.equal(charOf(kv, 'alice').unspentStats, 8, 'sealed 321 XP folds into 8 stat-pool points');
+        assert.deepEqual(getFloor(1)!.firstClearReward, { ryo: 400, xp: 150 });
+    });
+
+    it('credits authored milestone badges into a deduped server-owned ledger', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice');
+        const first = await settleFloorForMember({ session: makeSession('milestone-run', 5, 'alice'), slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(first.paid, true);
+        assert.deepEqual(charOf(kv, 'alice').battleTowerMilestones, ['tower-floor-5']);
+        await settleFloorForMember({ session: makeSession('milestone-run', 5, 'alice'), slug: 'alice' }, { kv, lock: passLock, now });
+        assert.deepEqual(charOf(kv, 'alice').battleTowerMilestones, ['tower-floor-5']);
     });
 
     it('a second settle of the SAME run pays nothing (per-run NX receipt)', async () => {
@@ -232,6 +297,38 @@ describe('Battle Towers per-member settlement (server-authoritative, idempotent)
         assert.deepEqual(charOf(kv, 'alice').itemStacks, [{ itemId: 'smoke', count: 1 }]);
         assert.equal(kv.store.has(consumedItemsKey('run-active-items', 'alice')), false);
     });
+
+    it('recovers a forwarded consumable save without deducting twice', async () => {
+        const kv = forwardThenThrowOnFirstSave();
+        seedSave(kv, 'alice', { inventory: ['pill', 'pill'] });
+        const actor = squadActor('alice');
+        actor.itemsUsed = { pill: 1 };
+        const session = makeSession('run-forward-items', 1, 'alice', { actors: [actor] });
+
+        const dropped = await settleConsumedItemsForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(dropped.reason, 'contended');
+        assert.deepEqual(charOf(kv, 'alice').inventory, ['pill']);
+        assert.equal(kv.store.has(consumedItemsKey('run-forward-items', 'alice')), false);
+
+        const retry = await settleConsumedItemsForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(retry.reason, 'already-consumed');
+        assert.deepEqual(charOf(kv, 'alice').inventory, ['pill']);
+    });
+
+    it('recovers a forwarded floor reward save without paying twice', async () => {
+        const kv = forwardThenThrowOnFirstSave();
+        seedSave(kv, 'alice');
+        const session = makeSession('run-forward-reward', 1, 'alice');
+        const dropped = await settleFloorForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(dropped.reason, 'contended');
+        assert.equal(charOf(kv, 'alice').ryo, 400);
+        assert.equal(kv.store.has(firstClearKey('alice', 1)), false, 'external projection is not published before the save result');
+
+        const retry = await settleFloorForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(retry.reason, 'already-first-cleared');
+        assert.equal(charOf(kv, 'alice').ryo, 400);
+        assert.equal(kv.store.has(firstClearKey('alice', 1)), true, 'retry repairs the permanent receipt projection');
+    });
 });
 
 describe('Battle Towers borrowed-ally assist (capped, once per run)', () => {
@@ -245,6 +342,20 @@ describe('Battle Towers borrowed-ally assist (capped, once per run)', () => {
         assert.equal(charOf(kv, 'ally').ryo, 100 + 27);
         const again = await settleAssistForAlly({ session: makeSession('run1', 1, 'ally'), slug: 'ally' }, { kv, lock: passLock, now });
         assert.equal(again.reason, 'assist-already-paid');
+    });
+
+    it('recovers a forwarded assist save without paying twice or consuming two cap slots', async () => {
+        const kv = forwardThenThrowOnFirstSave();
+        seedSave(kv, 'ally');
+        const session = makeSession('run-forward-assist', 1, 'ally');
+        const dropped = await settleAssistForAlly({ session, slug: 'ally' }, { kv, lock: passLock, now });
+        assert.equal(dropped.reason, 'contended');
+        assert.equal(charOf(kv, 'ally').ryo, 127);
+
+        const retry = await settleAssistForAlly({ session, slug: 'ally' }, { kv, lock: passLock, now });
+        assert.equal(retry.reason, 'assist-already-paid');
+        assert.equal(charOf(kv, 'ally').ryo, 127);
+        assert.equal(kv.store.get(assistCountKey('ally', '2023-11-14')), 1);
     });
 
     it('enforces the daily assist cap and does NOT burn the per-run receipt', async () => {
@@ -336,13 +447,35 @@ describe('the tower reward channels pay CATALOG floors only', () => {
         assert.equal(charOf(kv, 'climber').battleTowerBestFloor, 1);
     });
 
-    it('an embedded floor that IS a catalog id still settles by that id', async () => {
+    it('rejects embedded floors even when they reuse a public catalog id', async () => {
         // The rule is about the id being in the catalog, not about the embedding
         // mechanism — a co-op tower run may legitimately carry its floor along.
         const kv = fakeKv();
         seedSave(kv, 'climber');
         const session = makeSession('tower-2', 1, 'climber', { encounterFloor: getFloor(1)! });
         const res = await settleFloorForMember({ session, slug: 'climber' }, { kv, lock: passLock, now });
-        assert.equal(res.paid, true);
+        assert.equal(res.reason, 'not-a-catalog-floor');
+        assert.equal(isPublicTowerRun(session), false);
+    });
+
+    it('rejects clan-boss and mismatched tower identities despite catalog resolution', async () => {
+        for (const session of [
+            makeSession('clan-boss', 9_001, 'climber'),
+            makeSession('wrong-tower', 1, 'climber', { towerId: 'clan-boss' }),
+            makeSession('wrong-floor-binding', 1, 'climber', { encounterFloor: getFloor(2)! }),
+        ]) {
+            const kv = fakeKv();
+            seedSave(kv, 'climber');
+            const res = await settleFloorForMember({ session, slug: 'climber' }, { kv, lock: passLock, now });
+            assert.equal(res.reason, 'not-a-catalog-floor');
+            assert.equal(charOf(kv, 'climber').battleTowerBestFloor, undefined);
+        }
+    });
+
+    it('the public settle handler refuses non-public sessions before consumable writes', () => {
+        const source = readFileSync(resolve(process.cwd(), 'api/towers/settle.ts'), 'utf8');
+        const guard = source.indexOf('!spire && !isPublicTowerRun(session)');
+        const consumables = source.indexOf('settleConsumedItemsForMember', guard);
+        assert.ok(guard >= 0 && consumables > guard);
     });
 });

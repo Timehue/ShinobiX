@@ -63,6 +63,11 @@ test("authoritative tower visuals always resolve the intended portrait source", 
     for (const id of ["clan-boss-oni", "clan-boss-leviathan", "clan-boss-kage", "clan-boss-golem"] as const) {
         assert.equal(resolveTowerEnemyPortrait(id, towerSprites), `sprite:${id}`);
     }
+    assert.equal(
+        resolveTowerEnemyPortrait("unregistered-tower-combatant", towerSprites),
+        null,
+        "unknown authoritative IDs must not masquerade as a generic fighter",
+    );
 });
 
 test("Endless Tower portrait ids unwrap without changing ordinary AI ids", () => {
@@ -113,8 +118,10 @@ test("dungeon Wardens use character art and never the scene backdrop", () => {
 test("the image resolvers stay wired into both combat screens", () => {
     const app = readFileSync(join(clientRoot, "src", "App.tsx"), "utf8");
     const towerFight = readFileSync(join(clientRoot, "src", "screens", "BattleTowerFight.tsx"), "utf8");
+    const towerManifest = readFileSync(join(clientRoot, "src", "lib", "tower-art-manifest.ts"), "utf8");
     assert.match(app, /resolveDungeonWardenPortrait\(activeDungeonEvent, sharedImages\)/);
     assert.match(app, /storyRoadBattlePortrait\(battle\.bossName\)/);
     assert.doesNotMatch(app, /image:\s*event\.avatarImage\s*\|\|\s*event\.image/);
-    assert.match(towerFight, /resolveTowerEnemyPortrait\(visual, ENEMY_SPRITE, sharedImages\)/);
+    assert.match(towerFight, /resolveTowerCombatantArt\(visual, sharedImages\)/);
+    assert.match(towerManifest, /resolveTowerEnemyPortrait\(visual, TOWER_ENEMY_PORTRAITS, sharedImages\)/);
 });

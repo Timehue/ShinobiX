@@ -42,9 +42,104 @@ const _readCache = new Map<string, CacheEntry>();
 const _CACHE_MAX_ENTRIES = 5000;
 
 // These prefixes change too rapidly to benefit from caching.
-const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:'];
+const _noCachePrefixes = [
+    // Saves are mutable economy ledgers. Distributed save locks coordinate
+    // writers across processes, but a worker-local cached read inside the lock
+    // can still overwrite a prior worker's committed receipt or unrelated
+    // character field. Every lock holder must therefore read the backing store.
+    'save:',
+    'presence:',
+    'challenges:',
+    'challenge-outgoing:',
+    'challenge-terminal:',
+    'arena-challenge-setup:',
+    // Co-op lobbies and accepted Arena-match recovery records are shared,
+    // mutable coordination state. A worker-local cached snapshot can otherwise
+    // overwrite a newer join/start or hide a terminal reveal from another
+    // worker even while both writers correctly hold the distributed lock.
+    'arena:lobby:',
+    'arena-match-recovery:',
+    // Battle Towers sessions, parties, invites, and battle leases are mutated
+    // behind distributed locks. A lock holder must still bypass its worker-local
+    // L1 so it cannot overwrite a newer turn/roster/lease committed elsewhere.
+    'tower:',
+    'tower-party:',
+    'tower-party-code:',
+    'tower-party-player:',
+    'tower-party-invites:',
+    'tower-invite:',
+    'battle-lock:',
+    'tower-engine-clan-boss:',
+    // Mission progress, active-combat pointers, Clan Boss parties, and the
+    // Weekly Boss aggregate all use lock/CAS based cross-worker mutation. Cache
+    // hits inside those critical sections would turn a valid lock holder into
+    // a stale writer or make lost-ack recovery inspect an obsolete value.
+    'missions:',
+    'mission-combat-',
+    'clan-boss:',
+    'game:weekly-boss-state',
+    // Live combat and settlement sagas must read their backing authority on
+    // every worker. Local writes already invalidate only this process's L1;
+    // these prefixes close the corresponding cross-process stale-read window.
+    'solo-pve:',
+    'ai-fight-',
+    'pet:battle-active:',
+    'pet:ranked-',
+    // Reward-bearing progression and combat bindings.
+    'hg-',
+    'endless-wave-',
+    'story:',
+    'story-combat-binding:',
+    'legacy:',
+    'era:',
+    'game:era-state',
+    // War, Kage, clan, and treasury authority. These rows combine permissions
+    // with plain locked RMW, so even a brief stale read is unsafe.
+    'world:territory:',
+    'world:war:',
+    'shared:sector-war',
+    'shared:village-war:',
+    'game:village-state:',
+    'village:kage:',
+    'village:war-standing:',
+    'clan-war:',
+    'clan-war-pet:',
+    'cw-tilecards:',
+    'clan-seal-pool:',
+    'clan-mentor',
+    // Permanent pet storage, daily mint caps, live card sessions, and ranked
+    // ladders likewise require cross-worker backing-store truth.
+    'pet-sanctuary:',
+    'training-start-count:',
+    'card-clash:',
+    'cc-',
+    'petladder:',
+    'petgauntlet:lb:',
+    'sector-card:',
+    'sector-pet:',
+    'infil:',
+    'infil-active:',
+    // PvP sessions and settlement journals are cross-worker live authority.
+    // The broad prefix also covers bounty and Vanguard fences introduced by
+    // the cohesion hardening, so every owner/help-forward check reaches the
+    // backing store rather than a process-local null or stale owner.
+    'pvp:',
+    'reset-signal:',
+    'admin-lock:',
+    'auth:',
+    'auth-session:',
+    'world:travel-lease:',
+    // Security-sensitive Warfront grants, active leases, decision paths, and
+    // one-use battle tokens must always observe the backing store. A stale
+    // process-local read can otherwise reopen or fork an authorization.
+    'pet:warfront-prepared:',
+    'pet:warfront-active:',
+    'pet:warfront-authorization:',
+    'pet:warfront-council:',
+    'pet:battle-token:',
+];
 
-function _shouldCache(key: string): boolean {
+export function _shouldCache(key: string): boolean {
     return !_noCachePrefixes.some(p => key.startsWith(p));
 }
 
@@ -224,6 +319,52 @@ const pgKv = {
         );
         _cacheWrite(key, value);
         return 'OK';
+    },
+
+    async compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean> {
+        _cacheInvalidate(key);
+        const exp = options?.ex ? expiresAt(options.ex) : null;
+        const db = getPool();
+        let swapped: boolean;
+        if (expected === null) {
+            // One statement handles both allowed absence cases. A conflicting
+            // LIVE row makes the ON CONFLICT WHERE false and changes nothing;
+            // an expired row is atomically replaced while PostgreSQL holds the
+            // conflicting row lock. This avoids requiring a separately-applied
+            // schema RPC on Railway without weakening CAS into get-then-set.
+            const { rows } = await db.query<{ swapped: boolean }>(
+                `INSERT INTO public.kv_store AS current (key, value, expires_at, updated_at)
+                 VALUES ($1, $2::jsonb, $3::timestamptz, now())
+                 ON CONFLICT (key) DO UPDATE
+                     SET value = EXCLUDED.value,
+                         expires_at = EXCLUDED.expires_at,
+                         updated_at = now()
+                     WHERE current.expires_at IS NOT NULL
+                       AND current.expires_at <= now()
+                 RETURNING true AS swapped`,
+                [key, JSON.stringify(value), exp],
+            );
+            swapped = rows[0]?.swapped === true;
+        } else {
+            // Exact full-JSON predecessor match and liveness check happen in the
+            // UPDATE itself. A mismatch/expired row returns no row and preserves
+            // both its value and TTL. On success, even a null expiry is written,
+            // so the replacement TTL is authoritative just like set().
+            const { rows } = await db.query<{ swapped: boolean }>(
+                `UPDATE public.kv_store
+                 SET value = $3::jsonb,
+                     expires_at = $4::timestamptz,
+                     updated_at = now()
+                 WHERE key = $1
+                   AND value = $2::jsonb
+                   AND (expires_at IS NULL OR expires_at > now())
+                 RETURNING true AS swapped`,
+                [key, JSON.stringify(expected), JSON.stringify(value), exp],
+            );
+            swapped = rows[0]?.swapped === true;
+        }
+        if (swapped) _cacheWrite(key, value);
+        return swapped;
     },
 
     async del(...keys: string[]): Promise<number> {
@@ -486,6 +627,19 @@ const supabaseKv = {
         return 'OK';
     },
 
+    async compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean> {
+        const db = getSupabase();
+        const exp = options?.ex ? expiresAt(options.ex) : null;
+        const { data, error } = await db.rpc('kv_compare_set', {
+            p_key: key,
+            p_expected: expected,
+            p_value: value,
+            p_expires_at: exp,
+        });
+        if (error) throw new Error(`kv.compareSet(${key}): ${error.message}`);
+        return data === true;
+    },
+
     async del(...keys: string[]): Promise<number> {
         if (!keys.length) return 0;
         const db = getSupabase();
@@ -703,66 +857,58 @@ async function _diskUnlink(root: string, key: string): Promise<boolean> {
     }
 }
 
-// ─── Disk RMW serialization ───────────────────────────────────────────────────
+// ─── Disk mutation serialization ──────────────────────────────────────────────
 //
-// hset/hdel (and set-nx) on the disk overlay are read-modify-write over a
-// single JSON file: read the whole hash, merge/delete fields, rewrite the file.
-// Unserialized, concurrent writers interleave (both read the same snapshot,
-// then the last write wins) and silently drop each other's fields — reproduced
-// 2026-07-09 as image ids missing from the shared:imgfields:<cat> manifest
-// after parallel POST /api/images publishes, while every image stayed
-// individually servable via its own shared:img:<id> key (a plain set).
-// api/images.ts's "HSET is atomic per-field" contract is enforced HERE.
-// Two layers, both required:
-//   1. An in-process promise chain, keyed module-wide by root+key — covers
-//      concurrent requests inside one Node process, including across BOTH
-//      _makeDiskKv instances (kv's _diskOverlay and the /api/kv proxy's
-//      _diskKvForProxy share the same root).
-//   2. A <keyfile>.lock file created with O_EXCL — covers concurrent
-//      processes; Passenger may run several app processes on one DISK_KV_DIR.
-// Plain set/del stay lock-free: whole-value writes are already atomic via
-// _diskWrite's tmp+rename. Lock files never collide with data: _walkJson only
-// picks *.json, and '<key>.json.lock' doesn't end in '.json'.
+// Every disk writer (plain set/del, NX, hash RMW, and compareSet) participates
+// in one crash-released OS-backed mutex. The old expiring lockfile could be
+// "stolen" from a live but paused process; that process could then resume and
+// overwrite its successor — exactly the stale-writer failure CAS must prevent.
+//
+// SQLite's BEGIN IMMEDIATE lock is released by the OS when a process exits and
+// is never lease-stolen while the holder is merely slow/suspended. Sixty-four
+// shard databases avoid serializing the entire rollback store while bounding
+// lock-file count. A same-process promise chain per shard prevents a synchronous
+// busy wait from blocking the event loop that must finish the current holder.
 
-const _LOCK_STALE_MS = 10_000; // steal a lock older than this (crashed holder)
-const _LOCK_WAIT_MS = 10_000;  // then give up (throw) — caller surfaces a 500, client retries
-
-async function _acquireDiskLock(lockPath: string): Promise<void> {
-    const deadline = Date.now() + _LOCK_WAIT_MS;
-    let delay = 15;
-    for (;;) {
-        try {
-            await _fs.promises.writeFile(lockPath, String(process.pid), { flag: 'wx' });
-            return;
-        } catch (e) {
-            if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-        }
-        const st = await _fs.promises.stat(lockPath).catch(() => null);
-        if (st && Date.now() - st.mtimeMs > _LOCK_STALE_MS) {
-            await _fs.promises.unlink(lockPath).catch(() => {}); // stale — steal it
-            continue;
-        }
-        if (Date.now() >= deadline) {
-            throw new Error(`disk kv: timed out waiting for lock ${lockPath}`);
-        }
-        await new Promise((r) => setTimeout(r, delay));
-        delay = Math.min(delay * 2, 200);
+function _diskLockShardPath(root: string, key: string): string {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < key.length; i += 1) {
+        hash ^= key.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
     }
+    const shard = ((hash >>> 0) & 0x3f).toString(16).padStart(2, '0');
+    return _nodePath.join(root, '.kv-locks', `${shard}.sqlite`);
 }
 
 const _diskRmwChains = new Map<string, Promise<unknown>>();
 
 async function _withDiskKeyLock<T>(root: string, key: string, fn: () => Promise<T>): Promise<T> {
-    const chainKey = JSON.stringify([root, key]); // unambiguous root/key boundary
+    const lockPath = _diskLockShardPath(root, key);
+    const chainKey = _nodePath.resolve(lockPath);
     const prev = _diskRmwChains.get(chainKey) ?? Promise.resolve();
     const run = prev.then(async () => {
-        const lockPath = _keyToPath(root, key) + '.lock';
         await _fs.promises.mkdir(_nodePath.dirname(lockPath), { recursive: true });
-        await _acquireDiskLock(lockPath);
+        // Lazy-load so the active Postgres path remains compatible with any
+        // Node 22 build; the retired disk rollback requires node:sqlite (22.5+)
+        // and fails closed at first use if an operator enables it on older Node.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite');
+        const db = new DatabaseSync(lockPath);
+        let transactionOpen = false;
         try {
-            return await fn();
+            db.exec('PRAGMA busy_timeout = 10000; BEGIN IMMEDIATE;');
+            transactionOpen = true;
+            const result = await fn();
+            db.exec('COMMIT;');
+            transactionOpen = false;
+            return result;
+        } catch (error) {
+            if (transactionOpen) {
+                try { db.exec('ROLLBACK;'); } catch { /* connection close is the final unlock */ }
+            }
+            throw error;
         } finally {
-            await _fs.promises.unlink(lockPath).catch(() => {});
+            db.close();
         }
     });
     // Chain survives rejections (next op still runs); drop the map entry once idle.
@@ -796,6 +942,19 @@ function _patternToRegex(pattern: string): RegExp {
 export interface KvLike {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null>;
+    /**
+     * Atomically replace a live row only when its complete stored JSON value
+     * equals `expected`. `expected === null` means the row must be absent (an
+     * expired row counts as absent). On success, `options.ex` replaces the TTL;
+     * omitting it clears the TTL, exactly like set(). A mismatch changes
+     * neither value nor expiry.
+     *
+     * This is the storage-level fencing primitive for cross-row sagas: the
+     * comparison and write must be one indivisible backend operation. Callers
+     * recover a commit-with-lost-ack by reading back the exact intended value;
+     * adapters therefore must not retry a state-changing CAS automatically.
+     */
+    compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean>;
     del(...keys: string[]): Promise<number>;
     /**
      * Atomically delete `key` only if its stored value still equals `expected`.
@@ -835,6 +994,35 @@ export interface KvLike {
 
 type MemoryKvEntry = { value: unknown; expiresAt: number | null };
 
+/** JSONB-style structural equality (object key order is not significant). */
+function _jsonValueEqual(a: unknown, b: unknown): boolean {
+    const canonical = (value: unknown): string | null => {
+        try {
+            const visit = (node: unknown): unknown => {
+                if (Array.isArray(node)) return node.map(visit);
+                if (node && typeof node === 'object') {
+                    const out: Record<string, unknown> = {};
+                    for (const key of Object.keys(node as Record<string, unknown>).sort()) {
+                        out[key] = visit((node as Record<string, unknown>)[key]);
+                    }
+                    return out;
+                }
+                return node;
+            };
+            // Match JSON/JSONB storage semantics before canonicalizing. This
+            // rejects cycles and normalizes values such as NaN the same way a
+            // JSON transport does.
+            const encoded = JSON.stringify(value);
+            if (encoded === undefined) return null;
+            return JSON.stringify(visit(JSON.parse(encoded)));
+        } catch {
+            return null;
+        }
+    };
+    const left = canonical(a);
+    return left !== null && left === canonical(b);
+}
+
 /**
  * Process-local KV used only by the explicit story/release certification
  * harness. It mirrors the JSON isolation and TTL/NX/hash semantics that the
@@ -869,6 +1057,12 @@ export function _makeMemoryKv(): KvLike {
             if (options?.nx && liveEntry(key)) return null;
             write(key, value, options?.ex);
             return 'OK';
+        },
+        async compareSet(key, expected, value, options) {
+            const entry = liveEntry(key);
+            if (expected === null ? entry !== null : !entry || !_jsonValueEqual(entry.value, expected)) return false;
+            write(key, value, options?.ex);
+            return true;
         },
         async del(...keys) {
             let deleted = 0;
@@ -956,22 +1150,33 @@ export function _makeDiskKv(root: string): KvLike {
         },
         async set(key, value, options) {
             const exp = options?.ex ? expiresAt(options.ex) : null;
-            if (options?.nx) {
-                // Check-then-write — serialize like the other RMW ops so two
-                // concurrent nx claimers can't both observe "absent" and both win.
-                return _withDiskKeyLock(root, key, async () => {
+            // Every whole-value writer participates in the same per-key lock as
+            // compareSet. Otherwise a plain set could slip between CAS's read
+            // and rename and violate the advertised atomic boundary.
+            return _withDiskKeyLock(root, key, async () => {
+                if (options?.nx) {
                     const existing = await _diskRead(root, key);
                     if (existing && !isExpired(existing.expires_at)) return null;
-                    await _diskWrite(root, key, { value, expires_at: exp });
-                    return 'OK' as const;
-                });
-            }
-            await _diskWrite(root, key, { value, expires_at: exp });
-            return 'OK';
+                }
+                await _diskWrite(root, key, { value, expires_at: exp });
+                return 'OK' as const;
+            });
+        },
+        async compareSet(key, expected, value, options) {
+            const exp = options?.ex ? expiresAt(options.ex) : null;
+            return _withDiskKeyLock(root, key, async () => {
+                const existing = await _diskRead(root, key);
+                const live = existing && !isExpired(existing.expires_at) ? existing : null;
+                if (expected === null ? live !== null : !live || !_jsonValueEqual(live.value, expected)) return false;
+                await _diskWrite(root, key, { value, expires_at: exp });
+                return true;
+            });
         },
         async del(...keys) {
             let n = 0;
-            for (const k of keys) if (await _diskUnlink(root, k)) n++;
+            for (const k of keys) {
+                if (await _withDiskKeyLock(root, k, () => _diskUnlink(root, k))) n++;
+            }
             return n;
         },
         async delIfEqual(key, expected) {
@@ -1023,17 +1228,23 @@ export function _makeDiskKv(root: string): KvLike {
             // hsets read the same snapshot and the last write drops the other
             // writers' fields (lost image-manifest ids under parallel publishes).
             return _withDiskKeyLock(root, key, async () => {
-                const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
-                await this.set(key, { ...existing, ...fields });
+                const rec = await _diskRead(root, key);
+                const existing = rec && !isExpired(rec.expires_at) && rec.value && typeof rec.value === 'object' && !Array.isArray(rec.value)
+                    ? rec.value as Record<string, unknown>
+                    : {};
+                await _diskWrite(root, key, { value: { ...existing, ...fields }, expires_at: null });
                 return Object.keys(fields).length;
             });
         },
         async hdel(key, ...fields) {
             if (!fields.length) return 0;
             return _withDiskKeyLock(root, key, async () => {
-                const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
+                const rec = await _diskRead(root, key);
+                const existing = rec && !isExpired(rec.expires_at) && rec.value && typeof rec.value === 'object' && !Array.isArray(rec.value)
+                    ? { ...rec.value as Record<string, unknown> }
+                    : {};
                 for (const f of fields) delete existing[f];
-                await this.set(key, existing);
+                await _diskWrite(root, key, { value: existing, expires_at: null });
                 return fields.length;
             });
         },
@@ -1043,7 +1254,7 @@ export function _makeDiskKv(root: string): KvLike {
 // ─── Remote KV (HTTP client → cPanel proxy) ──────────────────────────────────
 
 const PRODUCTION_KV_PROXY_HOSTS = new Set(['theravensark.com', 'www.theravensark.com']);
-const REMOTE_KV_OPS = new Set(['get', 'set', 'del', 'keys', 'mget', 'hget', 'hset', 'hdel', 'hgetall', 'hkeys']);
+const REMOTE_KV_OPS = new Set(['get', 'set', 'compare-set', 'del', 'keys', 'mget', 'hget', 'hset', 'hdel', 'hgetall', 'hkeys']);
 
 /**
  * A KV proxy receives the bearer-equivalent storage token on every request, so
@@ -1145,6 +1356,16 @@ export function _makeRemoteKv(
             // Plain sets re-apply the same value — retryable.
             return (await call<{ result: 'OK' | null }>('set', { key, value, options }, { retryable: !options?.nx })).result;
         },
+        async compareSet(key, expected, value, options) {
+            // A lost 2xx may mean the swap committed; automatically repeating
+            // would report false against the new value and erase that ambiguity.
+            // Saga callers resolve it with an exact readback instead.
+            return (await call<{ swapped: boolean }>(
+                'compare-set',
+                { key, expected, value, options },
+                { retryable: false },
+            )).swapped;
+        },
         async del(...keys) {
             return (await call<{ count: number }>('del', { keys })).count;
         },
@@ -1230,6 +1451,11 @@ export function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
         },
         async set(key, value, options) {
             return _routesToDisk(key) ? disk.set(key, value, options) : base.set(key, value, options);
+        },
+        async compareSet(key, expected, value, options) {
+            return _routesToDisk(key)
+                ? disk.compareSet(key, expected, value, options)
+                : base.compareSet(key, expected, value, options);
         },
         async del(...keys) {
             const { diskKeys, baseKeys } = split(keys);

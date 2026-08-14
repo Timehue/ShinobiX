@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { TOWER_BATTLE_LOCK_KIND } from '../_tower-battle-guard.js';
 
 /*
  * /api/battle/lock  — POST only, multiplexed by `action`
@@ -101,6 +102,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!BATTLE_ID_RE.test(battleId) || !KIND_RE.test(kind) || !SCREEN_RE.test(screen)) {
                 return res.status(400).json({ error: 'Invalid battle parameters.' });
             }
+            if (kind === TOWER_BATTLE_LOCK_KIND) {
+                return res.status(403).json({
+                    error: 'Battle Towers locks are server-owned.',
+                    errorCode: 'server-owned-lock',
+                });
+            }
             let meta: Record<string, unknown> | undefined;
             if (body.meta && typeof body.meta === 'object' && !Array.isArray(body.meta)) {
                 try {
@@ -114,6 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The read and write share one fail-closed lock, so concurrent
                 // starts cannot both observe an empty record and overwrite it.
                 const existing = await kv.get<BattleLock>(key);
+                if (existing?.kind === TOWER_BATTLE_LOCK_KIND) {
+                    return { lock: existing, alreadyLocked: true };
+                }
                 if (existing && existing.battleId !== battleId) {
                     return { lock: existing, alreadyLocked: true };
                 }
@@ -136,9 +146,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const outcome = String(body.outcome ?? '');
             const resolved = await withKvLock(key, async () => {
                 const existing = await kv.get<BattleLock>(key);
+                if (existing?.kind === TOWER_BATTLE_LOCK_KIND) {
+                    return { version: null as number | null, serverOwned: true };
+                }
                 // Only the matching battleId clears the lock. A mismatch is a
                 // stale/replayed report and must not clear a newer fight.
-                const result: { version: number | null } = { version: null };
+                const result: { version: number | null; serverOwned?: boolean } = { version: null };
                 if (existing && existing.battleId === battleId) {
                     if (outcome === 'loss') {
                         // A cleared-state defeat updates the save and removes the
@@ -164,6 +177,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 return result;
             }, { failClosed: true, ttlSec: 15 });
+            if (resolved.serverOwned) {
+                return res.status(409).json({
+                    ok: false,
+                    error: 'Battle Towers locks clear only when the server run ends or is confirmed missing.',
+                    errorCode: 'server-owned-lock',
+                });
+            }
             return res.status(200).json({
                 ok: true,
                 ...(resolved.version !== null ? { _saveVersion: resolved.version } : {}),

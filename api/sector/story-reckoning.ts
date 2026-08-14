@@ -66,8 +66,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(tokenKey, sealed, { ex: TOKEN_TTL_SECONDS });
                 const activeStoryReckoning = mirrorFor(def, 'task', baseline);
                 const updated = { ...char, activeStoryReckoning };
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed, character: updated }), rec));
-                return { status: 200, body: { ok: true, activeStoryReckoning } };
+                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed, character: updated });
+                await kv.set(saveKey, mergePreservingImages(next, rec));
+                return { status: 200, body: { ok: true, activeStoryReckoning, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
@@ -82,19 +83,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!sealed || sealed.id !== def.id) {
                     if (!sealed && (char.activeStoryReckoning as Record<string, unknown> | null)?.id === def.id) {
                         const updated = { ...char, activeStoryReckoning: null };
-                        await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated }), rec));
-                        return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: null, character: updated } };
+                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
+                        await kv.set(saveKey, mergePreservingImages(next, rec));
+                        return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
                     }
                     return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: char.activeStoryReckoning ?? null, character: char } };
                 }
 
                 if (sealed.stage === 'return') {
-                    return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning: mirrorFor(def, 'return', num(sealed.baseline)), character: char } };
+                    return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning: mirrorFor(def, 'return', num(sealed.baseline)), character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
                 }
                 const current = num(char[def.metric]);
                 if (!storyReckoningTaskComplete(sealed.baseline, current, def.target)) {
-                    if (!durable) await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed }), rec));
-                    return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - sealed.baseline), target: def.target } };
+                    let saveVersion = Number(rec._saveVersion ?? 0);
+                    if (!durable) {
+                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed });
+                        await kv.set(saveKey, mergePreservingImages(next, rec));
+                        saveVersion = Number((next as Record<string, unknown>)._saveVersion ?? 0);
+                    }
+                    return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - sealed.baseline), target: def.target, _saveVersion: saveVersion } };
                 }
                 const inventory = Array.isArray(char.inventory) ? [...(char.inventory as unknown[])] : [];
                 if (ownedItemCount(char, def.dropItemId) < 1) inventory.push(def.dropItemId);
@@ -103,8 +110,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(tokenKey, nextSeal, { ex: TOKEN_TTL_SECONDS });
                 const activeStoryReckoning = mirrorFor(def, 'return', sealed.baseline);
                 const updated = { ...char, inventory, activeStoryReckoning };
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: nextSeal, character: updated }), rec));
-                return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning, character: updated } };
+                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: nextSeal, character: updated });
+                await kv.set(saveKey, mergePreservingImages(next, rec));
+                return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
@@ -120,8 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!sealed || sealed.id !== def.id) {
                     if (!sealed && (char.activeStoryReckoning as Record<string, unknown> | null)?.id === def.id) {
                         const updated = { ...char, activeStoryReckoning: null };
-                        await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated }), rec));
-                        return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: null, character: updated } };
+                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
+                        await kv.set(saveKey, mergePreservingImages(next, rec));
+                        return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
                     }
                     return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: char.activeStoryReckoning ?? null, character: char } };
                 }
@@ -143,8 +152,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const storyTraits = strArray(char.storyTraits);
                 if (!storyTraits.includes(def.completionTrait)) storyTraits.push(def.completionTrait);
                 const updated = { ...char, ryo: totalRyo, fateShards: totalFateShards, questTitles, storyTraits, activeStoryReckoning: null };
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated }), rec));
-                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: def.fateShards, totalFateShards, title: def.title, questTitles, completionTrait: def.completionTrait, activeStoryReckoning: null, character: updated } };
+                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
+                await kv.set(saveKey, mergePreservingImages(next, rec));
+                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: def.fateShards, totalFateShards, title: def.title, questTitles, completionTrait: def.completionTrait, activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
@@ -156,8 +166,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (rec && char) {
                     const updated = { ...char, activeStoryReckoning: null };
-                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated }), rec));
-                    return { status: 200, body: { ok: true, activeStoryReckoning: null, character: updated } };
+                    const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
+                    await kv.set(saveKey, mergePreservingImages(next, rec));
+                    return { status: 200, body: { ok: true, activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
                 }
                 return { status: 200, body: { ok: true } };
             }, { failClosed: true });

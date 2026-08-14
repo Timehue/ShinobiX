@@ -21,7 +21,7 @@ import { hollowGateAugmentEffects } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
 import { requireServerSettlement } from "./server-settlement-gate";
 import { descendHollowGateRun } from "./hollow-gate-combat-api";
-import { maxPets } from "./entitlements";
+import { activeCarriedPets, maxPets } from "./entitlements";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./hollow-gate-event-api";
 import type {
     Character,
@@ -454,7 +454,7 @@ export function resolveHollowGateTile(
                     pushHollowGateLog(`A ${rarity} pet emerges from behind the sealed door: ${encounter.name}.`);
                     setHollowGateEvent({
                         title: `${String(rarity).charAt(0).toUpperCase() + String(rarity).slice(1)} Pet Encounter`,
-                        body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} - Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Carried ${character.pets.length}/${maxPets(character)}; overflow rests in the Sanctuary)`,
+                        body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} - Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Carried ${activeCarriedPets(character).length}/${maxPets(character)}; overflow rests in the Sanctuary)`,
                         kind: "pet_event",
                         choices: [{ label: `Befriend ${encounter.name}`, tone: "primary", onSelect: () => {
                             if (!requireServerSettlement("hollowGatePetBefriend")) return;

@@ -18,11 +18,12 @@ import { normalizeNoticePosts } from "./clan-notices";
 import { CLAN_UPGRADE_MAX_LEVEL } from "../constants/clan";
 import type { ClanData, ClanMemberEntry, ClanTreasury, ClanUpgradeKey, ClanUpgradeLevels, ClanWarRecord, EnhancedClanData, ClanRole } from "../types/clan";
 
-export const clanBoostTiers = [
-    { min: 3, max: 5, percent: 2 },
-    { min: 6, max: 10, percent: 5 },
-    { min: 11, max: 15, percent: 7 },
-    { min: 16, max: Infinity, percent: 10 },
+// Clan XP objective value by roster size. The authoritative server grants full
+// value to every clan; small rosters already complete shared goals more slowly.
+// This is deliberately not a character-XP, stat-training, mission-reward, or
+// ryo boost.
+export const clanXpScaleTiers = [
+    { min: 1, max: Infinity, multiplier: 1 },
 ] as const;
 export function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, items: [] }; }
 export function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrounds: 0, warRoom: 0, treasury: 0, petDen: 0, medicalWing: 0, blacksmith: 0, scoutNetwork: 0 }; }
@@ -36,12 +37,11 @@ export function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): Enh
 export function clanXpNeeded(level: number) { return Math.floor(500 + level * 275 + Math.pow(level, 1.22) * 45); }
 export function addClanXp(data: EnhancedClanData, amount: number): EnhancedClanData { let next = { ...data, xp: data.xp + Math.max(0, Math.floor(amount)) }; while (next.level < 100 && next.xp >= clanXpNeeded(next.level)) next = { ...next, xp: next.xp - clanXpNeeded(next.level), level: next.level + 1 }; return next; }
 // Member-count scaling for clan-XP GAINS — mirrors clanXpMemberScale in
-// api/clan/_mission-catalog.ts (server source of truth). 10–15 members = 1.0×
-// (capped there); small clans dampened so a 1–5 member clan can't rush hall
-// tiers. KEEP IN SYNC with the server. Used by the ClanHall donation path.
-export function clanXpMemberScale(memberCount: number): number { const n = Math.max(0, Math.floor(Number(memberCount) || 0)); if (n <= 2) return 0.2; if (n <= 5) return 0.4; if (n <= 9) return 0.7; return 1; }
+// api/clan/_mission-catalog.ts (server source of truth). Every roster receives
+// full value for a completed objective; small clans already progress more slowly
+// because fewer members contribute. KEEP IN SYNC with the server.
+export function clanXpMemberScale(memberCount: number): number { const n = Math.max(1, Math.floor(Number(memberCount) || 0)); return clanXpScaleTiers.find(tier => n >= tier.min && n <= tier.max)?.multiplier ?? 1; }
 export function scaledClanXp(amount: number, memberCount: number): number { return Math.max(0, Math.floor((Number(amount) || 0) * clanXpMemberScale(memberCount))); }
-export function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.find(tier => memberCount >= tier.min && memberCount <= tier.max)?.percent ?? 0; }
 // Percent-point effect of a clan building at its current level, from the
 // clan-upgrades table. Flat-HP / recon buildings (War Room, Scout Network)
 // return 0 here — they expose their effects via warRoomBonusHp() / scoutIntelTier().

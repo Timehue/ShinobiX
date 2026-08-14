@@ -66,6 +66,9 @@ jobs:
       - name: Release asset references and decodability
         run: npm run test:release-assets
 
+      - name: Tooling handoff drift
+        run: npm run check:tooling-handoffs
+
       - name: Root audit
         run: npm audit --audit-level=high
 
@@ -103,6 +106,39 @@ jobs:
       - name: Cross-browser responsive and accessibility smoke
         working-directory: shinobij.client
         run: npm run test:e2e
+
+      # One built-Express browser process covers the full persisted Academy
+      # journey (including the 390x844 inspect-before-travel seam and real
+      # logout/login) plus two-account Socket.IO reconnect recovery. These are
+      # release contracts, not optional local-only evidence.
+      - name: Built-server first-session and realtime journeys
+        working-directory: shinobij.client
+        run: npm run test:e2e:release-journeys
+
+      - name: Retain built-server journey failures
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-journey-failures-${{ github.run_id }}
+          path: shinobij.client/test-results/live-express/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # The ordinary solo/PvP combat shell has a broader viewport/DPR/zoom
+      # contract than the adaptive smoke. Keep it in the release gate so layout
+      # captures cannot silently become a manual-only certification.
+      - name: Ordinary combat layout matrix
+        working-directory: shinobij.client
+        run: npm run test:e2e:combat-layout
+
+      - name: Retain combat layout evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: combat-layout-evidence-${{ github.run_id }}
+          path: shinobij.client/test-results/combat-layout/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Client audit
         working-directory: shinobij.client

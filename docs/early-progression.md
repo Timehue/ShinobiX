@@ -1,10 +1,12 @@
 # Early-Progression Redesign
 
+> **HISTORICAL DESIGN PROPOSAL — SUPERSEDED FOR CURRENT RUNTIME.** Preserve this document as the pre-implementation rationale; do not use its old XP model, code references, availability statements, or proposed thresholds as current product truth. Character XP is retired, levels now derive from earned stat points, and the Academy onboarding path is shipped. Use [`LIVE_PRODUCT_STATUS.md`](./LIVE_PRODUCT_STATUS.md), [`leveling-without-xp-map.md`](./leveling-without-xp-map.md), and executable runtime/tests for current behavior.
+
 Design doc for improving the new-player experience in Shinobi Journey, from
 account creation through the Genin gate (the first session and the path to
 "hooked"). Companion to `docs/professions.md`.
 
-> **Status:** proposal / not yet implemented.
+> **Original status at time of writing:** proposal / not yet implemented.
 > **Scope:** levels 1–20, first ~3 sessions.
 > **Key assumption (per direction):** design as if the `×45` XP "testing"
 > multiplier is gone — i.e. balance the *real* base curve
@@ -77,8 +79,8 @@ These are settled and constrain everything below:
 | **Layer variable-ratio excitement on reliable progression.** Guaranteed XP/levels + "maybe this one" loot drops. | Hopson, Behavioral Game Design |
 | **Don't end/interrupt the first session abruptly.** Generous early energy; route low-stamina players to a free parallel activity, not a wall. | Mobile Free To Play, energy systems |
 | **No premium pressure early; one meaningful, funded first upgrade.** Curate the first shop view; don't show a wall of unattainable items. | GameAnalytics FTUE tips |
-| **Daily quests are this genre's habit anchor.** Surface a simple scaffold from Day 1, not gated deep. | Naruto Web Game daily-missions writeup |
-| **Rank-ups as ceremonial gates** that celebrate + raise the ceiling + unlock the next system. | Naruto Web Game |
+| **Daily quests are this genre's habit anchor.** Surface a simple scaffold from Day 1, not gated deep. | a rival shinobi browser game daily-missions writeup |
+| **Rank-ups as ceremonial gates** that celebrate + raise the ceiling + unlock the next system. | a rival shinobi browser game |
 
 ---
 
@@ -327,7 +329,7 @@ Genin Exam" call-to-action so players never silently hit an invisible cap.
 Both are already built and are core early-progression spines. Audit + changes:
 
 **Exams (the Logbook checklists, `App.tsx:26283-26332`):** keep the model — it's
-the genre-proven rank-up-as-checklist (the genre leader/Ninpocho). Changes:
+the genre-proven rank-up-as-checklist (the genre leader/a sibling shinobi RPG). Changes:
 - **Add a jutsu-mastery requirement to the Genin exam** — e.g. "raise a jutsu to
   mastery level 3" (combat-driven, ~8 casts). Today the Genin checklist teaches
   stats/missions/AI/explore/awaken but **nothing about the jutsu system**. Ties to
@@ -452,4 +454,4 @@ behavior consistent; keep CORS/headers in sync if any new header is introduced
 - Deconstructor of Fun, *Mid-Core Success Part 1: Core Loops*.
 - UXPin / LogRocket — progressive disclosure.
 - Mobile Free To Play, *Understanding and Eliminating Energy Systems*.
-- Naruto Web Game, *Daily Missions System* — genre daily-quest & rank-up patterns.
+- a rival shinobi browser game, *Daily Missions System* — genre daily-quest & rank-up patterns.

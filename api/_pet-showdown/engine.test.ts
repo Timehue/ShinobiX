@@ -1126,14 +1126,14 @@ test('every sealed pet fields a derived utility technique', () => {
         ['assassin', 'buff'],
         ['tracker', 'debuff'],
     ] as const) {
-        const sealed = sealShowdownPet(makePet('u', { role, rarity: 'standard' }), 'warrior', 30);
+        const sealed = sealShowdownPet(makePet('u', { role, rarity: 'standard' }));
         assert.ok(
             sealed.moves.some((m) => m.kind === wanted),
             `a standard ${role} should field a ${wanted} technique`,
         );
     }
     // Rarity graduates the family rather than only inflating numbers.
-    const legendaryAssassin = sealShowdownPet(makePet('v', { role: 'assassin', rarity: 'legendary' }), 'warrior', 30);
+    const legendaryAssassin = sealShowdownPet(makePet('v', { role: 'assassin', rarity: 'legendary' }));
     assert.ok(legendaryAssassin.moves.some((m) => m.kind === 'mark'), 'a legendary assassin marks instead of buffing');
 });
 

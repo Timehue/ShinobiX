@@ -26,12 +26,20 @@ export function mergePlayerRoster(
 ): PlayerRecord[] {
     const byName = new Map(prev.map((p) => [p.name, p] as const));
     for (const rec of incoming) {
-        const existingChar = byName.get(rec.name)?.character as Character | undefined;
+        const existingRecord = byName.get(rec.name);
+        const existingChar = existingRecord?.character as Character | undefined;
         const mergedChar = normalize({
             ...existingChar,
             ...(rec.character as Character),
         } as Character);
-        byName.set(rec.name, { ...rec, character: mergedChar });
+        byName.set(rec.name, {
+            ...existingRecord,
+            ...rec,
+            character: mergedChar,
+            // Heartbeats intentionally omit the server-projected public roster.
+            // Preserve the last rich snapshot until a new projection arrives.
+            eligiblePets: Array.isArray(rec.eligiblePets) ? rec.eligiblePets : existingRecord?.eligiblePets,
+        });
     }
     return Array.from(byName.values()).slice(0, 100);
 }

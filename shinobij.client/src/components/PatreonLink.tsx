@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Character } from '../types/character';
+import { captureProductEvent } from '../lib/analytics';
 import { isPatreonSubscriber } from '../lib/entitlements';
 
 /*
@@ -63,10 +64,10 @@ const DropletIcon = (
 );
 
 const PERKS: Perk[] = [
-    { label: '15 Jutsu Slots', detail: 'up from 12', icon: ScrollIcon },
-    { label: '5 Pet Companions', detail: 'up from 3', icon: PawIcon },
-    { label: 'Custom Avatar', detail: 'upload your own', icon: MaskIcon },
-    { label: '2 Bloodlines', detail: 'store & swap', icon: DropletIcon },
+    { label: 'Jutsu loadout', detail: 'Base account: 12 equipped · Supporter: 15 equipped (three additional combat options)', icon: ScrollIcon },
+    { label: 'Carried pet roster', detail: 'Base roster: 4 carried pets · Supporter roster: 6 carried pets', icon: PawIcon },
+    { label: 'Custom avatar', detail: 'Supporter: upload your own avatar', icon: MaskIcon },
+    { label: 'Stored custom bloodlines', detail: 'Base account: 1 · Supporter: 2', icon: DropletIcon },
 ];
 
 /** A gold shinobi seal: outer ring + four-point shuriken + center gem. */
@@ -108,6 +109,13 @@ export function PatreonLink({ character }: { character: Character }) {
     const [busy, setBusy] = useState(false);
     const [notice, setNotice] = useState<string | null>(initialNotice);
 
+    useEffect(() => {
+        captureProductEvent('supporter_page_viewed', {
+            screenId: 'supporter-membership',
+            source: 'profile',
+        });
+    }, []);
+
     // Fetch link/subscription status on mount. setState runs only AFTER the
     // await, so it is not a synchronous update inside the effect body.
     useEffect(() => {
@@ -140,6 +148,10 @@ export function PatreonLink({ character }: { character: Character }) {
     }, []);
 
     const startLink = useCallback(async () => {
+        captureProductEvent('patreon_connection_started', {
+            screenId: 'supporter-membership',
+            source: 'supporter-page',
+        });
         setBusy(true);
         setNotice(null);
         try {
@@ -149,8 +161,18 @@ export function PatreonLink({ character }: { character: Character }) {
                 window.location.href = data.url as string;
                 return;
             }
+            captureProductEvent('patreon_connection_failed', {
+                screenId: 'supporter-membership',
+                source: 'oauth-start',
+                errorCategory: 'request-rejected',
+            });
             setNotice(String(data?.error ?? 'Patreon linking is unavailable right now.'));
         } catch {
+            captureProductEvent('patreon_connection_failed', {
+                screenId: 'supporter-membership',
+                source: 'oauth-start',
+                errorCategory: 'network-unavailable',
+            });
             setNotice('Patreon linking is unavailable right now.');
         } finally {
             setBusy(false);

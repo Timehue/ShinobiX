@@ -122,4 +122,18 @@ describe('buildPublicSaveDTO — non-owner allowlist', () => {
         assert.deepEqual(dto.character, {});
         assert.ok(!('secretTop' in dto));
     });
+
+    it('publishes only release-safe creator gameplay surfaces to players', () => {
+        const save = sentinelSave();
+        const creatorEvents = [
+            { id: 'lore', eventKind: 'visualNovel', xpReward: 0, ryoReward: 0, staminaReward: 0, currencyRewards: {}, vnPages: [] },
+            { id: 'reward', eventKind: 'visualNovel', xpReward: 0, ryoReward: 100, staminaReward: 0, currencyRewards: {}, vnPages: [] },
+            { id: 'battle', eventKind: 'visualNovel', xpReward: 0, ryoReward: 0, staminaReward: 0, currencyRewards: {}, vnPages: [{ choices: [{ battle: { opponentId: 'ai' } }] }] },
+        ];
+        save.creatorEvents = creatorEvents;
+        const dto = buildPublicSaveDTO(save, { combat: false, sharedContent: true });
+        assert.deepEqual(dto.creatorEvents, [creatorEvents[0]]);
+        assert.equal('creatorMissions' in dto, false);
+        assert.equal('creatorRaids' in dto, false);
+    });
 });

@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
+import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, gamePasswordPrompt } from "./components/GameAlert";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
@@ -13,10 +14,11 @@ import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
-import { queueCombatMissionClaim, deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
-import { enqueueClaim, removeClaim, useClaimOutboxDrain } from "./lib/claim-outbox";
+import { deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./lib/mission-combat-claim";
+import { useClaimOutboxDrain } from "./lib/claim-outbox";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { mutateDungeonRunServer } from "./lib/dungeon-api";
+import { claimBuiltinEventReward } from "./lib/event-claim-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
@@ -165,7 +167,8 @@ const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ d
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { allProgressMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
-import { postPlayerChallengeNotice } from "./lib/player-api";
+import { postPlayerChallengeTerminal } from "./lib/player-api";
+import { playerRankedAuthorityFromChallenge } from "./lib/player-ranked-authority";
 import { EXAM_LEVEL_GATES } from "./constants/game";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
@@ -190,14 +193,14 @@ const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => 
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, shouldRedirectToHospital } from "./lib/screen-guards";
+import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, shouldRedirectToHospital, setTowerFightRunId, setTowerPvpMatchId, TOWER_FIGHT_STATE_EVENT } from "./lib/screen-guards";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { mergePlayerRoster } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
-import { isPresetAvatar } from "./lib/entitlements";
+import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { damageSectorTerritory, extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
@@ -288,7 +291,6 @@ import {
     AURA_SPHERE_ITEM_ID,
     DUNGEON_VN_ID,
     DUNGEON_KEY_ID,
-    DUNGEON_LEGENDARY_RELIC_ID,
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
@@ -333,7 +335,18 @@ import {
 } from "./lib/elements";
 
 import { isPetOnExpedition, resolveAvailablePetBattlePair } from "./lib/pet";
-import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
+import {
+    arenaMatchOwnedByPlayer,
+    buildAcceptedArenaMatch,
+    ownArenaMatch,
+    type PlayerOwnedArenaMatch,
+    type WarfrontSetup,
+} from "./lib/arena-challenge";
+import {
+    ingestChallengeInboxEntry,
+    recoveryFromOpaqueArenaNotice,
+    type ArenaPvpRecovery,
+} from "./lib/arena-pvp-recovery";
 import { stopBattleMusic } from "./lib/pet-music";
 
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
@@ -351,7 +364,7 @@ import {
 } from "./lib/utils";
 
 import {
-    rankedDelta, applyServerBaseReward, type PvpWinBaseSummary,
+    applyServerBaseReward, type PvpWinBaseSummary,
 } from "./lib/progression";
 
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
@@ -418,18 +431,28 @@ export type DuelChallenge = {
     arenaSize?: 2 | 4;
     challengerTeamIds?: string[];
     responderTeam?: Pet[];
+    challengerWarfrontSetup?: WarfrontSetup;
+    responderWarfrontSetup?: WarfrontSetup;
+    challengerSetupSealed?: boolean;
+    /** Opaque accepted Arena notice: fetch the private canonical reveal through
+     * authenticated GET /api/player/challenge?challengeId=... . */
+    recoveryRequired?: boolean;
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet" | "rankedPet";
+    // Exact player-ranked queue capability. All three fields are server-minted,
+    // preserved through the challenge inbox, and required by session creation.
+    rankedMatchId?: string;
+    rankedSeasonId?: number;
+    rankedSeasonEpoch?: number;
     clanWarPoints?: number;
-    // Pet ranked 1v1 — each side's account-level petRankedRating snapshot at
-    // challenge time, so the winner/loser can compute symmetric Elo deltas
-    // without an extra round-trip. challengerPetRating = the challenge sender.
+    // Legacy ranked-pet challenge snapshots retained only for wire compatibility.
+    // Clients never use them to compute or apply Elo.
     challengerPetRating?: number;
     responderPetRating?: number;
     // Server-minted pet-ranked match token (/api/pet/ranked-start). Minted by
     // the challenger and carried to both sides (rides the accepted-notice
-    // spread) so the petRankedRating swing settles server-side exactly once
-    // (server NX-dedups per token). Absent → local Elo fallback.
+    // spread) for a future server-resolved settlement. Missing authority always
+    // fails closed; there is no local Elo fallback.
     petRankedToken?: string;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
     kageChallengeId?: string;
@@ -463,7 +486,6 @@ export type SharedPvpBattleContext = {
 // Equipment/armor-derived combat stats (armor factor, raw DR, item-bonus sum,
 // PvP loadout) + the active-pet trait helper extracted to ./lib/equipment-stats.
 import {
-    getActivePetTrait,
     getCharacterArmorFactor,
     getCharacterArmorRawDR,
     getEquippedItemBonus,
@@ -1033,7 +1055,9 @@ export function normalizeCharacter(parsed: Character): Character {
         unspentStats: Math.max(0, Math.floor(parsed.unspentStats ?? STARTING_STAT_POINTS)), // two-axis: stored pool, not budget-derived
         equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
         jutsuMastery: parsed.jutsuMastery ?? [],
-        pets: (parsed.pets ?? []).slice(0, 5).map(normalizePet),
+        // Keep every owned pet locally. The server owns the carried-pet cap;
+        // entries beyond it remain preserved overflow for Sanctuary management.
+        pets: (parsed.pets ?? []).map(normalizePet),
         activePetId: parsed.activePetId,
         activePetId2v2: parsed.activePetId2v2,
         boneCharms: parsed.boneCharms ?? 0,
@@ -1542,7 +1566,16 @@ export default function App() {
     }, [character?.name, currentAccountName]);
 
     // Drain the durable combat-claim outbox on login/reconnect (lib/claim-outbox).
-    useClaimOutboxDrain(character?.name, (v) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, v); });
+    useClaimOutboxDrain(character?.name, (snapshot) => {
+        const activeName = characterRef.current?.name.toLowerCase();
+        if (!activeName || activeName !== snapshot.playerName.toLowerCase()
+            || activeName !== snapshot.character.name.toLowerCase()) return;
+        if (snapshot.saveVersion < latestSaveVersionRef.current) return;
+        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, snapshot.saveVersion);
+        setCharacter((current) => current?.name.toLowerCase() === activeName
+            ? snapshot.character
+            : current);
+    });
 
     // ── Achievement unlock detection ───────────────────────────────────────
     // Achievement state is SERVER-OWNED: every generic /api/save overwrites
@@ -1879,8 +1912,9 @@ export default function App() {
             // moment later. Clearing it on the mount effect made refresh-flee
             // possible and prevented the live layout/reconnect path entirely.
             if (restoringSession && !pvpBattleId) return;
-            if (pvpBattleId) {
+            if (pvpBattleId && character?.name) {
                 localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({
+                    owner: accountKey(character.name),
                     pvpBattleId,
                     pvpRole,
                     pvpBattleContext,
@@ -1890,7 +1924,7 @@ export default function App() {
                 localStorage.removeItem(PVP_SESSION_KEY);
             }
         } catch { /* quota / SSR */ }
-    }, [pvpBattleId, pvpRole, pvpBattleContext, restoringSession]);
+    }, [pvpBattleId, pvpRole, pvpBattleContext, restoringSession, character?.name]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [storyFightOpen, setStoryFightOpen] = useState(false); // sealed story-lane fights are body portals, so `screen` never changes — screen-keyed chrome checks this instead
     // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged
@@ -2076,7 +2110,8 @@ export default function App() {
         const CHALLENGE_TIMEOUT_MS = 180000; // 3 minutes — keep in sync with CHALLENGE_TTL in api/player/challenge.ts
         const id = setInterval(() => {
             setDuelChallenges((current) => {
-                const fresh = current.filter((c) => c.battleId || Date.now() - (c.createdAt ?? 0) < CHALLENGE_TIMEOUT_MS);
+                const fresh = current.filter((c) => c.battleId || c.accepted || c.declined
+                    || Date.now() - (c.createdAt ?? 0) < CHALLENGE_TIMEOUT_MS);
                 return fresh.length === current.length ? current : fresh;
             });
         }, 20000);
@@ -2114,8 +2149,25 @@ export default function App() {
         pushLog: pushHollowGateLog,
         buildRunSummary: buildHollowGateRunSummary,
     });
-    const [pendingArenaMatch, setPendingArenaMatch] = useState<{ blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null>(null); // Tactical Arena PvP match → PetArena
+    const [pendingArenaMatch, setPendingArenaMatch] = useState<PlayerOwnedArenaMatch | null>(null); // Tactical Arena PvP match → PetArena
     const [pendingArenaResponse, setPendingArenaResponse] = useState<DuelChallenge | null>(null); // incoming arena challenge → PetArena responder picker
+    const [pendingArenaRecovery, setPendingArenaRecovery] = useState<ArenaPvpRecovery | null>(null); // opaque accepted notice → authenticated reveal
+    // Cross-screen handoffs are private player-owned state. Clear any envelope
+    // from the previous account in the layout phase, before PetArena can paint
+    // or a passive launch effect can consume it for the new identity.
+    useLayoutEffect(() => {
+        const normalized = character?.name.trim().toLowerCase() ?? "";
+        setPendingArenaMatch((current) => current && arenaMatchOwnedByPlayer(current, normalized) ? current : null);
+        setPendingArenaResponse((current) => {
+            if (!current || current.toName.trim().toLowerCase() === normalized) return current;
+            // Routing to PetArena temporarily suppresses the inbox card. If the
+            // account changes before Accept/Decline commits, let the original
+            // player's heartbeat restore that still-live challenge later.
+            dismissedChallengeIdsRef.current.delete(current.id);
+            return null;
+        });
+        setPendingArenaRecovery((current) => current && current.playerName.trim().toLowerCase() === normalized ? current : null);
+    }, [character?.name]);
     // IDs of challenges the user already handled (accepted / declined /
     // consumed an accepted-or-declined notice). Both the realtime push and the
     // heartbeat poll re-merge from the server, which keeps each challenge for a
@@ -2129,6 +2181,12 @@ export default function App() {
         if (!id) return;
         dismissedChallengeIdsRef.current.add(id);
         setDuelChallenges(prev => prev.filter(c => c.id !== id));
+    }, []);
+    const restoreChallengeLocally = useCallback((challenge: DuelChallenge) => {
+        dismissedChallengeIdsRef.current.delete(challenge.id);
+        setDuelChallenges((current) => current.some((candidate) => candidate.id === challenge.id)
+            ? current
+            : [challenge, ...current]);
     }, []);
 
     // Auto-report a clan-war battle result on behalf of the actual
@@ -2246,20 +2304,57 @@ export default function App() {
         } catch { /* sessionStorage may be unavailable */ }
 
         switch (ch.mode) {
-            case "pvp1v1":
             case "pvp2v2": {
-                if (!ch.battleId) {
-                    alert("Battle session not ready yet — refresh and try again.");
+                // The hex-grid engine is 1v1. Do not silently let one duel decide
+                // a four-player result; this mode needs an aggregate two-duel
+                // server protocol before it can safely launch.
+                alert("Clan War 2v2 combat is temporarily unavailable while its two-duel server settlement is completed.");
+                break;
+            }
+            case "pvp1v1": {
+                const p1Name = ch.fromPlayer ?? "";
+                const p2Name = ch.acceptedPlayer ?? "";
+                if (!inferredWarId || !p1Name || !p2Name) {
+                    alert("This accepted Clan War duel is missing its server match details. Refresh and try again.");
                     return;
                 }
-                // Determine role: senders are p1, defenders are p2.
-                setPvpBattleId(ch.battleId);
-                setPvpRole(onFromSide ? "p1" : "p2");
-                setPvpBattleContext({
-                    mode: ch.mode === "pvp2v2" ? "clanWar2v2" : "clanWar1v1",
-                    clanWarChallengeId: ch.id,
-                });
-                setScreen("pvpBattle");
+                void (async () => {
+                    let lastError = "Could not create the authoritative Clan War battle.";
+                    for (let attempt = 0; attempt < 4; attempt += 1) {
+                        if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 300 * attempt));
+                        try {
+                            const response = await fetch("/api/pvp/session", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: stringifyPvpSessionPayload({
+                                    clanWarId: inferredWarId,
+                                    clanWarChallengeId: ch.id,
+                                    baseRewards: true,
+                                    ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
+                                    p1Character: { name: p1Name },
+                                    p2Character: { name: p2Name },
+                                }),
+                            });
+                            const data = await response.json().catch(() => null) as { battleId?: string; session?: PvpSessionState; error?: string } | null;
+                            if (response.ok && data?.battleId && data.session) {
+                                try {
+                                    const raw = sessionStorage.getItem("clanWarChallenge.v1");
+                                    const stashed = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+                                    sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({ ...stashed, battleId: data.battleId }));
+                                } catch { /* optional resume breadcrumb */ }
+                                setPvpSeedSession(data.session);
+                                setPvpBattleId(data.battleId);
+                                setPvpRole(onFromSide ? "p1" : "p2");
+                                setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id });
+                                setScreen("pvpBattle");
+                                return;
+                            }
+                            lastError = data?.error || lastError;
+                            if (response.status !== 409) break;
+                        } catch { /* bounded retry */ }
+                    }
+                    alert(lastError);
+                })();
                 break;
             }
             case "pet1v1":
@@ -2579,9 +2674,14 @@ export default function App() {
                     setDuelChallenges((current) => {
                         const myNameLower = char.name.toLowerCase();
                         const incoming = data.pendingChallenges!
-                            .filter((challenge) => challenge.toName.toLowerCase() === myNameLower)
+                            .filter((challenge) => typeof challenge?.toName === "string"
+                                && challenge.toName.toLowerCase() === myNameLower)
                             .filter((challenge) => !dismissedChallengeIdsRef.current.has(challenge.id))
-                            .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
+                            .map((challenge) => ingestChallengeInboxEntry(
+                                challenge,
+                                (challenger) => normalizeCharacter(challenger as Character),
+                            ) as DuelChallenge | null)
+                            .filter((challenge): challenge is DuelChallenge => Boolean(challenge));
                         if (!incoming.length) return current;
                         const merged = current.filter((existing) => !incoming.some((challenge) => challenge.id === existing.id));
                         return [...merged, ...incoming];
@@ -2672,45 +2772,52 @@ export default function App() {
         }).catch(() => {});
     }
 
-    function declineChallengeGlobal(challenge: DuelChallenge) {
+    async function declineChallengeGlobal(challenge: DuelChallenge) {
+        if (!character || processingChallengeIds.includes(challenge.id)) return;
+        setProcessingChallengeIds((current) => [...current, challenge.id]);
         dismissChallengeLocally(challenge.id);
-        void clearChallengeOnServer(challenge);
-        fetch('/api/player/challenge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                targetName: challenge.fromName,
-                challenge: {
-                    ...challenge,
-                    declined: true,
-                    fromName: character?.name ?? challenge.toName,
-                    toName: challenge.fromName,
-                },
-            }),
-        }).catch(() => {});
+        const terminal: DuelChallenge = {
+            ...challenge,
+            accepted: false,
+            declined: true,
+            fromName: character.name,
+            toName: challenge.fromName,
+        };
+        const committed = await postPlayerChallengeTerminal(challenge, terminal);
+        if (!committed) {
+            restoreChallengeLocally(challenge);
+            alert("That challenge could not be declined because its live authorization changed. It remains in your inbox.");
+        }
+        setProcessingChallengeIds((current) => current.filter((id) => id !== challenge.id));
     }
 
     async function acceptPetChallengeGlobal(challenge: DuelChallenge) {
         if (!character) return;
         if (processingChallengeIds.includes(challenge.id)) return;
+        const myEligiblePets = activeCarriedPets<Pet>(character);
 
         // PvP pet duels are live-only (plan §10) — retire a pre-deploy challenge.
         if (retireStalePetDuel(challenge, duelChallenges, setDuelChallenges)) return;
+        if (challenge.mode === "rankedPet") {
+            dismissChallengeLocally(challenge.id);
+            void clearChallengeOnServer(challenge);
+            alert("Ranked pet battles are temporarily unavailable until server-authoritative matchmaking returns.");
+            return;
+        }
         if (challenge.arenaMatch) { // Tactical Arena PvP — route to PetArena's responder team picker
             const arenaSize = challenge.arenaSize === 2 ? 2 : 4;
-            const availablePets = character.pets.filter((pet) => !isPetOnExpedition(pet)).length;
+            const availablePets = myEligiblePets.filter((pet) => !isPetOnExpedition(pet)).length;
             if (availablePets < arenaSize) {
                 alert(`This ${arenaSize}v${arenaSize} challenge needs ${arenaSize} available pets. You currently have ${availablePets}; pets on expeditions do not count.`);
                 return;
             }
             dismissChallengeLocally(challenge.id);
-            void clearChallengeOnServer(challenge);
             setPendingArenaResponse(challenge);
             setScreen("petArena");
             return;
         }
 
-        const myPet = character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet));
+        const myPet = myEligiblePets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? myEligiblePets.find(pet => !isPetOnExpedition(pet));
         const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
         if (!myPet || !challengerPet || isPetOnExpedition(challengerPet)) {
             alert("Both players need a pet before this pet battle can start.");
@@ -2720,7 +2827,7 @@ export default function App() {
         // Keep 2v2 challenges in their requested mode: unavailable teams are
         // rejected instead of silently falling back to a 1v1 battle.
         const wantsParty = challenge.petParty === true && Array.isArray(challenge.challengerPetIds);
-        const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+        const myAvailable = myEligiblePets.filter(p => !isPetOnExpedition(p));
         const requestedChallengerParty = wantsParty
             ? resolveAvailablePetBattlePair(challenge.challenger.pets, challenge.challengerPetIds!)
             : null;
@@ -2751,8 +2858,6 @@ export default function App() {
 
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         dismissChallengeLocally(challenge.id);
-        await clearChallengeOnServer(challenge);
-        const isRanked = challenge.mode === "rankedPet";
         const acceptedNotice: DuelChallenge = {
             ...challenge,
             accepted: true,
@@ -2760,25 +2865,25 @@ export default function App() {
             toName: challenge.fromName,
             responderPetId: myPet.id,
             responderPet: myPet,
-            // Stamp my pet-ranked rating so the challenger can compute its
-            // symmetric Elo delta when the accepted notice routes it in.
-            ...(isRanked ? { responderPetRating: character.petRankedRating ?? 1000 } : {}),
             ...(doParty && myParty ? {
                 petParty: true,
                 responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
                 responderParty: myParty,
             } : {}),
         };
-        const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
+        // Commit acceptance before deleting the incoming row: the server uses
+        // the challenger's still-live outgoing record as the authorization.
+        const notified = await postPlayerChallengeTerminal(challenge, acceptedNotice);
+        if (!notified) {
+            restoreChallengeLocally(challenge);
+            setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
+            alert(`${challenge.fromName}'s challenge changed or expired before acceptance. It was not started.`);
+            return;
+        }
         const opponentForResume: PetArenaOpponent = {
             owner: challenge.fromName,
             pet: challengerPet,
             battleSeed: challenge.petBattleSeed,
-            // For ranked, the challenger is my opponent — carry their rating
-            // snapshot so my own Elo math has both sides. selfPet locks MY
-            // combatant to the exact pet I just sent as responderPet so the
-            // canonical sim matches the challenger's view of it.
-            ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet, petRankedToken: challenge.petRankedToken } : {}),
             ...(doParty && challengerParty && myParty ? {
                 opponentParty: challengerParty,
                 challengerParty: myParty,
@@ -2788,21 +2893,12 @@ export default function App() {
         // battle on remount instead of silently abandoning it. 5-min TTL.
         // stripDataUrlImages keeps the payload bounded — pet/avatar art
         // gets re-hydrated from sharedImages on remount.
-        //
-        // Ranked battles are NOT persisted: the resume path re-runs
-        // startBattle, and ranked applies the Elo delta purely client-side
-        // (no server-deduped reportKey like the clan-war/PvE win path), so a
-        // refresh would re-award rating. Better to abandon an interrupted
-        // ranked fight than to open a refresh-to-farm-Elo exploit.
-        if (!isRanked) {
-            try {
-                localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
-            } catch { /* private mode / quota — battle will just not resume on refresh */ }
-        }
+        try {
+            localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
+        } catch { /* private mode / quota — battle will just not resume on refresh */ }
         setPendingPetBattleOpponent(opponentForResume);
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
-        if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Coliseum if they do not see the fight.`);
     }
 
     // Fetch full server player list (includes offline players from registry)
@@ -2821,12 +2917,16 @@ export default function App() {
                         for (const incoming of serverPlayers) {
                             if (!incoming.character) continue;
                             const normalized = normalizeCharacter(incoming.character);
+                            const normalizedEligiblePets = Array.isArray(incoming.eligiblePets)
+                                ? normalizeCharacter({ ...normalized, pets: incoming.eligiblePets }).pets
+                                : [];
                             const record: PlayerRecord = {
                                 name: incoming.name || normalized.name,
                                 level: incoming.level ?? normalized.level,
                                 village: incoming.village || normalized.village,
                                 specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty,
                                 character: normalized,
+                                eligiblePets: normalizedEligiblePets,
                                 currentSector: incoming.currentSector ?? 40,
                                 lastSeenAt: incoming.lastSeenAt ?? Date.now(),
                                 sleeping: incoming.sleeping === true,
@@ -2912,21 +3012,40 @@ export default function App() {
         dismissChallengeLocally(accepted.id);
         void clearChallengeOnServer(accepted);
         if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
-            const match = buildAcceptedArenaMatch(accepted);
-            if (match) setPendingArenaMatch(match);
-            else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge. Open the Pet Coliseum if it doesn't start.`);
+            // The public inbox carries only this opaque wake-up marker. Never
+            // touch absent teams/setups before fetching the authenticated
+            // participant-only reveal by challenge id.
+            if (accepted.recoveryRequired === true) {
+                const recovery = recoveryFromOpaqueArenaNotice(accepted, character.name);
+                setPendingArenaMatch(null);
+                if (recovery) setPendingArenaRecovery(recovery);
+                else alert("That Arena acceptance notice was malformed and was not opened. Ask the other player to resend it.");
+            } else {
+                // Compatibility with an authenticated/direct accepted response:
+                // even here the parser fails closed and the envelope owns the
+                // private reveal to this exact normalized account.
+                const match = buildAcceptedArenaMatch(accepted);
+                const owned = match ? ownArenaMatch(match, character.name, accepted.id) : null;
+                if (owned) setPendingArenaMatch(owned);
+                else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge, but its authenticated recovery marker was missing. Ask them to resend rather than starting an unverified replay.`);
+            }
             setScreen("petArena");
             return;
         }
-        if (accepted.mode === "clanWarPet" || accepted.mode === "rankedPet") {
+        if (accepted.mode === "rankedPet") {
+            alert("Ranked pet battles are temporarily unavailable while server-authoritative settlement is completed.");
+            return;
+        }
+        if (accepted.mode === "clanWarPet") {
             if (accepted.responderPet) {
+                const myEligiblePets = activeCarriedPets<Pet>(character);
                 // Reconstruct the challenger's own party from the IDs they
-                // originally sent — character.pets is the authoritative source.
+                // originally sent against the currently entitled carried roster.
                 const myParty: [Pet, Pet] | undefined = (accepted.petParty && accepted.challengerPetIds && character)
                     ? (() => {
                         const [a, b] = accepted.challengerPetIds!;
-                        const p1 = character.pets.find(p => p.id === a);
-                        const p2 = character.pets.find(p => p.id === b && p.id !== a);
+                        const p1 = myEligiblePets.find(p => p.id === a);
+                        const p2 = myEligiblePets.find(p => p.id === b && p.id !== a);
                         return (p1 && p2) ? [p1, p2] as [Pet, Pet] : undefined;
                     })()
                     : undefined;
@@ -2934,13 +3053,6 @@ export default function App() {
                     owner: accepted.fromName,
                     pet: accepted.responderPet,
                     battleSeed: accepted.petBattleSeed,
-                    // Ranked: the responder is my opponent — carry the rating
-                    // they stamped on the accepted notice for my Elo math, and
-                    // lock MY combatant to the pet I originally challenged with
-                    // (challengerPetId) so the canonical sim stays in sync.
-                    ...(accepted.mode === "rankedPet"
-                        ? { ranked: true, opponentRating: accepted.responderPetRating ?? 1000, selfPet: character.pets.find(p => p.id === accepted.challengerPetId), petRankedToken: accepted.petRankedToken }
-                        : {}),
                     ...(accepted.petParty && accepted.responderParty && myParty ? {
                         opponentParty: accepted.responderParty,
                         challengerParty: myParty,
@@ -2949,14 +3061,9 @@ export default function App() {
                 // Mirror of the accept-side persistence: store enough state
                 // so a refresh restores the deterministic battle. Strip data
                 // URLs before serializing — pet art rehydrates from sharedImages.
-                // Ranked is excluded (see acceptPetChallengeGlobal): its Elo
-                // delta is applied client-side without a deduped reportKey, so
-                // a refresh-resume would re-award rating.
-                if (accepted.mode !== "rankedPet") {
-                    try {
-                        localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
-                    } catch { /* ignore */ }
-                }
+                try {
+                    localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
+                } catch { /* ignore */ }
                 setPendingPetBattleOpponent(opponentForResume);
                 setScreen("petArena");
             } else {
@@ -2988,6 +3095,13 @@ export default function App() {
     // not just when the player has already navigated to the Arena.
     async function acceptChallengeGlobal(challenge: DuelChallenge) {
         if (!character || !requireServerSettlement("pvpSession")) return;
+        const rankedAuthority = challenge.mode === "ranked"
+            ? playerRankedAuthorityFromChallenge(challenge)
+            : null;
+        if (challenge.mode === "ranked" && !rankedAuthority) {
+            alert("This ranked challenge is missing its server match proof. Decline it and rejoin the ranked queue.");
+            return;
+        }
         if (processingChallengeIds.includes(challenge.id)) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
@@ -3015,6 +3129,7 @@ export default function App() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: stringifyPvpSessionPayload({
+                    challengeId: challenge.id,
                     // Sector attacks bring current vitals; spar/ranked reset to full.
                     useCurrentVitals: !!challenge.sectorAttack,
                     // Ranked-match markers (audit #7 / Stage 3). When ranked, the
@@ -3025,6 +3140,7 @@ export default function App() {
                     // ranked challenges) sets this — never spar / clan-war / sector.
                     ranked: challenge.mode === "ranked",
                     rankedKind: "player",
+                    ...(rankedAuthority ?? {}),
                     // Server-authoritative base PvP-win reward (audit #7 / Stage 3
                     // Phase 3; PvP-audit #1/#3): the server credits the winner's
                     // base ryo + XP on claim-rewards and the client DEFERS to that
@@ -3081,7 +3197,11 @@ export default function App() {
             const battleId = acceptData.battleId;
             if (acceptData.session) setPvpSeedSession(acceptData.session);
             // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
-            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
+            const notified = await postPlayerChallengeTerminal(challenge, {
+                ...challenge, battleId, accepted: true, declined: false,
+                fromName: character.name, toName: challenge.fromName,
+            });
+            if (!notified) throw new Error("Challenge acceptance was not authorized.");
             setPvpBattleId(battleId);
             setPvpRole("p2");
             setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
@@ -3094,9 +3214,8 @@ export default function App() {
                 }).catch(() => {});
             }
             setScreen("pvpBattle");
-            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
-            setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
+            restoreChallengeLocally(challenge);
             alert(`${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
@@ -3139,9 +3258,10 @@ export default function App() {
             if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
             if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
             if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
-            if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents);
-            if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions);
-            if (snap.creatorRaids) setCreatorRaids(snap.creatorRaids);
+            const contentAdmin = isContentAdminName(snap.character.name);
+            if (snap.creatorEvents) setCreatorEvents(contentAdmin ? snap.creatorEvents : snap.creatorEvents.filter(isReleaseSafeClientEvent));
+            setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
+            setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
             if (snap.creatorCards) setCreatorCards(snap.creatorCards);
             if (snap.creatorItems) setCreatorItems(snap.creatorItems);
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
@@ -3169,13 +3289,15 @@ export default function App() {
                 const raw = localStorage.getItem(PVP_SESSION_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw) as {
+                        owner?: string;
                         pvpBattleId?: string;
                         pvpRole?: "p1" | "p2";
                         pvpBattleContext?: SharedPvpBattleContext;
                         savedAt?: number;
                     };
                     const age = Date.now() - (parsed.savedAt ?? 0);
-                    if (parsed.pvpBattleId && age < 60 * 60 * 1000) {
+                    const expectedOwner = accountKey(String(snap.character.name ?? ""));
+                    if (parsed.owner === expectedOwner && parsed.pvpBattleId && age < 60 * 60 * 1000) {
                         restoredPvpBattleId = parsed.pvpBattleId;
                         setPvpBattleId(parsed.pvpBattleId);
                         if (parsed.pvpRole) setPvpRole(parsed.pvpRole);
@@ -3244,6 +3366,17 @@ export default function App() {
                 // Server battle lock: an unresolved PvE fight cannot be fled by a
                 // refresh, even one that wiped localStorage.
                 if (bootLock && bootLock.screen) {
+                    if (bootLock.kind === "battleTowers") {
+                        // Tower locks are server-owned leases. Never resolve one as a local
+                        // loss or hospitalize: route to authoritative run recovery instead.
+                        const runId = typeof bootLock.meta?.runId === "string" ? bootLock.meta.runId.trim() : "";
+                        if (runId && runId.length <= 128) {
+                            if (bootLock.meta?.mode === "mpvp") setTowerPvpMatchId(runId);
+                            else setTowerFightRunId(runId);
+                        }
+                        setScreen("battleTowers");
+                        return;
+                    }
                     let recentlyResolved = "";
                     try { recentlyResolved = localStorage.getItem(BATTLE_LOCK_RESOLVED_KEY) ?? ""; } catch { /* ignore */ }
                     if (recentlyResolved && recentlyResolved === bootLock.battleId) {
@@ -3697,21 +3830,15 @@ export default function App() {
         return null;
     }
 
-    // Settle a won E/D combat mission server-side. The win parks in the durable
-    // claim outbox FIRST (lib/claim-outbox), so full offline no longer loses it.
-    async function settleCombatMissionClaim(missionKey: string) {
-        if (!character?.name) return;
-        enqueueClaim(character.name, missionKey);
-        const result = await queueCombatMissionClaim(character.name, missionKey);
-        if (!result) return alert("Your mission win couldn't reach the server yet. It's saved on this device and will be registered automatically once you're back online.");
-        removeClaim(character.name, missionKey);
-        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result.saveVersion);
-    }
-
     function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
         const merged = new Map(current.map((item) => [item.id, item]));
         incoming.forEach((item) => merged.set(item.id, item));
         return Array.from(merged.values());
+    }
+
+    function isContentAdminName(raw: unknown): boolean {
+        const name = String(raw ?? "").trim().toLowerCase();
+        return name === "admin 1" || name === "admin 2" || name === "admin1" || name === "admin2";
     }
 
     // Recency-aware variant of mergeById for the shared-admin-content pull. When
@@ -3734,12 +3861,23 @@ export default function App() {
     // Returns true if the published-pet-template registry changed (caller re-normalizes).
     function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
+        const contentAdmin = isContentAdminName(character?.name);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
         if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeJutsusByRecency(prev, sharedCreatorJutsus));
         if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
-        if (snap.creatorEvents) setCreatorEvents((prev) => mergeById(prev, snap.creatorEvents as CreatorEvent[]));
-        if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
-        if (snap.creatorRaids) setCreatorRaids((prev) => mergeById(prev, snap.creatorRaids as CreatorRaid[]));
+        if (snap.creatorEvents) {
+            const incoming = contentAdmin
+                ? snap.creatorEvents as CreatorEvent[]
+                : (snap.creatorEvents as CreatorEvent[]).filter(isReleaseSafeClientEvent);
+            setCreatorEvents((prev) => mergeById(contentAdmin ? prev : prev.filter(isReleaseSafeClientEvent), incoming));
+        }
+        if (contentAdmin) {
+            if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
+            if (snap.creatorRaids) setCreatorRaids((prev) => mergeById(prev, snap.creatorRaids as CreatorRaid[]));
+        } else {
+            setCreatorMissions([]);
+            setCreatorRaids([]);
+        }
         if (snap.creatorCards) setCreatorCards((prev) => mergeById(prev, snap.creatorCards as TileCard[]));
         if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
@@ -4732,9 +4870,10 @@ export default function App() {
         if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
         if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
         if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
-        if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents);
-        if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions);
-        if (snap.creatorRaids) setCreatorRaids(snap.creatorRaids);
+        const contentAdmin = isContentAdminName(snap.character.name);
+        if (snap.creatorEvents) setCreatorEvents(contentAdmin ? snap.creatorEvents : snap.creatorEvents.filter(isReleaseSafeClientEvent));
+        setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
+        setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
         if (snap.creatorCards) setCreatorCards(snap.creatorCards);
         if (snap.creatorItems) setCreatorItems(snap.creatorItems);
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
@@ -4952,6 +5091,10 @@ export default function App() {
     // deletion. setActivePlayer(null) is load-bearing — it clears the persisted
     // password + token (the sync effect only ever passes "", never null).
     function endLocalSession() {
+        // Clear the in-memory battle identity before another account can load.
+        // Otherwise the persistence effect could re-stamp A's unresolved battle
+        // with B's owner after the character state changes.
+        clearPvpBattleState();
         setCharacter(null);
         setCurrentAccountName("");
         setActivePlayer(null);
@@ -5149,11 +5292,16 @@ export default function App() {
     // Battle screens drive their own exits, so this mainly blocks the global bar.
     const inBattleRef = useRef(false);
     useEffect(() => {
-        inBattleRef.current = isUnresolvedBattle({
-            screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, arenaBattleActive, petBattleActive,
-            pendingArenaStoryBattle: !!pendingArenaStoryBattle, pendingEventEncounter: !!pendingEventEncounter,
-            activeDungeonEvent: !!activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle: !!pendingPetBattleOpponent,
-        });
+        const recomputeBattleGuard = () => {
+            inBattleRef.current = isUnresolvedBattle({
+                screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, arenaBattleActive, petBattleActive,
+                pendingArenaStoryBattle: !!pendingArenaStoryBattle, pendingEventEncounter: !!pendingEventEncounter,
+                activeDungeonEvent: !!activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle: !!pendingPetBattleOpponent,
+            });
+        };
+        recomputeBattleGuard();
+        window.addEventListener(TOWER_FIGHT_STATE_EVENT, recomputeBattleGuard);
+        return () => window.removeEventListener(TOWER_FIGHT_STATE_EVENT, recomputeBattleGuard);
     }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
 
     // Server-owned defeat settlement can update the character while a PvE host
@@ -5264,7 +5412,7 @@ export default function App() {
         setScreen(nextScreen);
     }
 
-    function completeTriggeredEvent(event: CreatorEvent) {
+    async function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
             // Interludes: a made choice consumes the beat (persisted) and reports
             // to the server story record; closing without choosing only dismisses
@@ -5281,24 +5429,19 @@ export default function App() {
                     }
                 }).catch(() => undefined);
             }
-            const leveled = gainXp(character, 0); // XP retired — derived-level recompute only
-            const isRewardEvent = event.eventKind !== "visualNovel";
-            const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
-                ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
-                : leveled.inventory;
-            const nextCharacter: Character = {
-                ...applyCurrencyRewards(leveled, event.currencyRewards),
-                ryo: leveled.ryo + event.ryoReward,
-                stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
-                clanEventContrib: (leveled.clanEventContrib ?? 0) + (isRewardEvent ? 1 : 0),
-                clanContribMonth: new Date().toISOString().slice(0, 7),
-                inventory: rewardInventory,
-            };
+            if (event.id === AURA_SPHERE_VN_ID) {
+                const claimed = await claimBuiltinEventReward(character.name, event.id);
+                if (!claimed.character) {
+                    alert(claimed.error || "The Aura Sphere could not be claimed. Try again in a moment.");
+                    return;
+                }
+                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, claimed._saveVersion);
+                setCharacter(claimed.character);
+            }
             // No kageFinale handling here: closing the finale VN without fighting
             // must NOT unlock the Kage system or grant the title. The legitimate
             // consequence path is the battle WIN in completePendingArenaStoryBattle
             // (and StoryBoss.winBossFight for the legacy Hall screen).
-            setCharacter(nextCharacter);
         }
 
         setActiveTriggeredEvent(null);
@@ -5309,7 +5452,7 @@ export default function App() {
         return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
     }
 
-    async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
+    async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent, freeRunToken = "") {
         if (!character || dungeonActionRef.current) return;
         const event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
@@ -5330,7 +5473,8 @@ export default function App() {
                 dungeonActionRef.current = false;
             }
         } else {
-            setActiveDungeonRunToken(null);
+            if (!freeRunToken) return;
+            setActiveDungeonRunToken(freeRunToken);
         }
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
@@ -5455,28 +5599,29 @@ export default function App() {
         setTemporaryStoryAi(null);
         setPendingArenaStoryBattle(null);
         setPendingAiProfileId("");
-        alert("The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
+        alert(character.activeDungeonRun?.entry === "free"
+            ? "The dungeon seal rejected you. You return to your village empty-handed."
+            : "The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
         setScreen("village");
     }
 
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
         const token = activeDungeonRunToken;
-        if (token) {
-            dungeonActionRef.current = true;
-            try {
-                const result = await mutateDungeonRunServer(character.name, "settle", token);
-                latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
-                setCharacter(result.character);
-            } catch (error) {
-                alert(error instanceof Error ? error.message : "The dungeon reward could not be verified.");
-                return;
-            } finally {
-                dungeonActionRef.current = false;
-            }
-        } else {
-            const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
-            setCharacter(rewarded);
+        if (!token) {
+            alert("The dungeon reward could not be verified. Return to the map and discover a new seal.");
+            return;
+        }
+        dungeonActionRef.current = true;
+        try {
+            const result = await mutateDungeonRunServer(character.name, "settle", token);
+            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+            setCharacter(result.character);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "The dungeon reward could not be verified.");
+            return;
+        } finally {
+            dungeonActionRef.current = false;
         }
         setActiveDungeonRunToken(null);
         alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
@@ -5677,7 +5822,7 @@ export default function App() {
     }
     function isActivePetEligibleForHollowGate(): boolean {
         if (!character) return false;
-        const pet = character.pets?.find(p => p.id === character.activePetId);
+        const pet = activeCarriedPets<Pet>(character).find(p => p.id === character.activePetId);
         if (!pet) return false;
         if (isPetOnExpedition(pet)) return false;
         return Boolean(pet.unlockedForPve);
@@ -5955,7 +6100,7 @@ export default function App() {
         const kind: HollowGateCombatKind = opts.isBoss ? "boss" : opts.isAmbush ? "ambush" : opts.isBeast ? "beast" : opts.isElite ? "elite" : "battle";
         const houndPresentation = hollowGateEncounterPresentation(floor, kind);
         const nodeId = opts.nodeId ?? `floor:${floor}:ambush:threat-${hollowGateRun?.playerX ?? 0}-${hollowGateRun?.playerY ?? 0}-${hollowGateRun?.tiles.filter((tile) => tile.resolved).length ?? 0}`;
-        const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
+        const activePet = activeCarriedPets<Pet>(character).find((pet) => pet.id === character.activePetId);
         const petReady = Boolean(activePet?.unlockedForPve && !isPetOnExpedition(activePet));
         if (!opts.forceMode && petReady && activePet) {
             setHollowGateEvent({
@@ -6220,7 +6365,7 @@ export default function App() {
     function completeEventEncounter() {
         const event = pendingEventEncounter?.event;
         setPendingEventEncounter(null);
-        if (event) completeTriggeredEvent(event);
+        if (event) void completeTriggeredEvent(event);
         else setScreen(activeTriggerReturnScreen);
     }
 
@@ -6643,7 +6788,7 @@ export default function App() {
                             }
                             setActiveTriggeredEvent(null);
                         }}
-                        onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
+                        onComplete={() => { void completeTriggeredEvent(activeTriggeredEvent); }}
                         onBattle={startTriggeredEventArenaBattle}
                         onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
                         sharedImages={sharedImages}
@@ -6821,7 +6966,7 @@ export default function App() {
                         screen={screen}
                         activeTraining={activeTraining}
                         currentSector={currentSector}
-                        guidePet={character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? null}
+                        guidePet={activeCarriedPets<Pet>(character)[0] ?? null}
                         sharedImages={sharedImages}
                         setScreen={navigate}
                         updateCharacter={setCharacter}
@@ -6889,7 +7034,7 @@ export default function App() {
                             // next render, so the call below would read the stale value.
                             startTriggeredEventArenaBattle(event, battle, "worldMap");
                         }}
-                        onDungeonFound={() => { void triggerDungeonEncounter("worldMap"); }}
+                        onDungeonFound={(token) => { void triggerDungeonEncounter("worldMap", undefined, token); }}
                         onEnterHollowGate={() => { void enterHollowGateShrine(); }}
                         hollowGateEventConfig={hollowGateEventConfig}
                         onEnterHollowGateEvent={(cfg) => { void enterHollowGateShrine(cfg); }}
@@ -7083,8 +7228,10 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
+
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} pendingArenaRecovery={pendingArenaRecovery} onPendingArenaRecoveryHandled={() => setPendingArenaRecovery(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
+
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
@@ -7092,7 +7239,7 @@ export default function App() {
                     return <DungeonPetBattle character={character} updateCharacter={setCharacter} editablePets={editablePets} enemyOverride={enemyPet} enemyOwner={pendingEventEncounter.event.name} onWin={completeEventEncounter} onLeave={leaveEventEncounter} sharedImages={sharedImages} />;
                 })()}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} onServerVersion={(version) => { const decision = acceptVersionedSnapshot(latestSaveVersionRef.current, version); latestSaveVersionRef.current = decision.latestVersion; return decision.accepted; }} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
+                {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} onServerVersion={(version) => { const decision = acceptVersionedSnapshot(latestSaveVersionRef.current, version); latestSaveVersionRef.current = decision.latestVersion; return decision.accepted; }} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleResolved={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} onBack={goBack} />}
@@ -7131,8 +7278,8 @@ export default function App() {
                         }}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
-                {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} />}
+                {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} onServerVersion={(version) => { latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, version); }} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
@@ -7277,7 +7424,7 @@ export default function App() {
                         onHuntBeastDefeated={completeHuntForAi}
                         missionBattleActive={missionBattleActive}
                         onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
-                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack} onQueueCombatClaim={(missionKey) => { void settleCombatMissionClaim(missionKey); }}
+                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack}
                         exploreAmbushActive={pendingExploreSector !== null}
                         onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}
@@ -7304,14 +7451,6 @@ export default function App() {
                         // Hoisted here so every reward/world-state write below can skip a casual spar.
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        const deathsGate = rewardSector === 99;
-                        const activeTrait = getActivePetTrait(character);
-                        // XP retired — Swift/Death's Gate now boost server-side stat
-                        // growth instead; ryo stays the client-visible base line.
-                        const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGate ? 2 : 1);
-                        const ratingGain = context?.mode === "ranked" && opponent
-                            ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
-                            : 0;
                         // Old point-based clan war system removed — see autoReportClanWarBattleResult below.
                         if (context?.raidKind === "raidPlayer") {
                             damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
@@ -7335,9 +7474,9 @@ export default function App() {
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                         // Spars grant NOTHING (no stats/ryo/currency/scrolls/kills); ranked = no stats.
-                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, 0);
+                        let leveled = !isFriendlyDuel && serverBase ? applyServerBaseReward(character, serverBase) : character;
                         if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
-                        const rewarded = grantTerritoryScrolls(leveled, isFriendlyDuel ? 0 : 5);
+                        const rewarded = leveled;
                         // Vanguard rewards (Honor Seals + profession XP + all the
                         // daily-tracking fields) are granted server-side in
                         // api/pvp/move.ts via grantVanguardRewardsForSession. The
@@ -7351,16 +7490,9 @@ export default function App() {
                             // ryo / fateShards include the war-ground bounty
                             // when it fires; bountyRyo+bountyFateShards are 0
                             // for non-raid wins or when already claimed today.
-                            ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
+                            ryo: rewarded.ryo + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
-                            // The server's claim-rewards already credits the +6 win
-                            // auraDust and returns the post-credit balance, which
-                            // applyServerBaseReward copied onto `rewarded` above —
-                            // so adding 6 again double-counted it. Only grant the
-                            // local +6 when the server sent no auraDust value
-                            // (non-baseRewards casual sessions).
-                            auraDust: (rewarded.auraDust ?? 0)
-                                + (isFriendlyDuel || typeof serverBase?.auraDust === "number" ? 0 : 6),
+                            auraDust: rewarded.auraDust ?? 0,
                             inventory: villageWarRaid.warCrate && !warCrateServerAuthEnabled()
                                 ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID]
                                 : rewarded.inventory,
@@ -7369,18 +7501,14 @@ export default function App() {
                             claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId && !warCrateServerAuthEnabled()
                                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                                 : (rewarded.claimedWarCrateIds ?? []),
-                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
-                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
-                            pvpKillMonth: currentMonthKey(),
+                            totalPvpKills: rewarded.totalPvpKills ?? 0,
+                            monthlyPvpKills: rewarded.monthlyPvpKills ?? 0,
+                            pvpKillMonth: rewarded.pvpKillMonth,
                             // Read-back (audit #7 / Stage 3): when the session is
                             // ranked the server credits the rating via claim-rewards
-                            // and returns it; use that authoritative value. Fall back
-                            // to the local delta only when the server didn't return
-                            // one (claim 503 / offline) so the rating still updates.
-                            // The win counter still increments locally (it converges —
-                            // server +1 from the same base).
-                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : (rewarded.rankedRating ?? 1000) + ratingGain,
-                            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
+                            // and returns it; without that receipt nothing changes.
+                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : (rewarded.rankedRating ?? 1000),
+                            rankedWins: (rewarded.rankedWins ?? 0) + (serverRating?.field === "rankedRating" && serverRating.delta > 0 ? 1 : 0),
                         });
                         // Refetch the player's own save to pick up server-side
                         // Vanguard reward updates (honorSeals, professionXp,
@@ -7481,14 +7609,11 @@ export default function App() {
                                 }
                                 // Sector War: report the loss so the defender's win counts toward the siege (server maps winner by village).
                                 if (pvpBattleContext?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                                if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
-                                const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
+                                if (pvpBattleContext?.mode !== "ranked" || serverRating?.field !== "rankedRating") return;
                                 setCharacter({
                                     ...character,
-                                    // Read-back: prefer the server-credited rating
-                                    // (claim-rewards), fall back to the local delta if
-                                    // it wasn't returned. Loss counter stays local.
-                                    rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : Math.max(0, (character.rankedRating ?? 1000) - loss),
+                                    // Only a server-credited ranked receipt may move Elo.
+                                    rankedRating: serverRating.value,
                                     rankedLosses: (character.rankedLosses ?? 0) + 1,
                                 });
                             }}
@@ -7506,6 +7631,7 @@ export default function App() {
                         setSavedBloodlines={setSavedBloodlines}
                         lockedRank={bloodlineMakerRankLocked}
                         editingBloodline={bloodlineMakerEditingBloodline}
+                        allowOverflowEditing={isAdminAccountName(character.name)}
                         onSaveBloodlines={(nextBloodlines, nextCharacter) => {
                             if (!character || !currentAccountName) return;
                             void pushSaveToServer(nextCharacter ?? character, currentAccountName, { savedBloodlines: nextBloodlines }).catch(() => {});

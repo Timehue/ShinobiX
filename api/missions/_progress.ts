@@ -357,10 +357,61 @@ export type NewbieDailyMission = {
 export type NewbieDailyState = {
     date: string;            // "YYYY-MM-DD" UTC
     missions: NewbieDailyMission[];
+    combatMissionEffects?: NewbieCombatMissionEffect[];
 };
+
+export type NewbieCombatMissionEffect = {
+    version: 1;
+    runId: string;
+    kinds: NewbieMissionKind[];
+    ryoAwarded: number;
+    appliedAt: number;
+    acknowledgedAt?: number;
+};
+
+const MAX_PENDING_NEWBIE_COMBAT_EFFECTS = 40;
+const MAX_SETTLED_NEWBIE_COMBAT_EFFECTS = 64;
+const NEWBIE_DAILY_TTL_SECONDS = 36 * 60 * 60;
+const NEWBIE_COMBAT_EFFECT_RETENTION_MS = NEWBIE_DAILY_TTL_SECONDS * 1000;
 
 function newbieDailyKey(playerName: string): string {
     return `missions:newbie-daily:${playerName}`;
+}
+
+function newbieCombatEffects(state: NewbieDailyState | null | undefined): NewbieCombatMissionEffect[] {
+    return Array.isArray(state?.combatMissionEffects)
+        ? state.combatMissionEffects.filter((entry) => entry?.version === 1
+            && typeof entry.runId === 'string'
+            && entry.runId.length > 0
+            && Number.isSafeInteger(entry.ryoAwarded)
+            && entry.ryoAwarded >= 0
+            && Number.isFinite(entry.appliedAt)
+            && entry.appliedAt > 0
+            && (entry.acknowledgedAt === undefined
+                || (Number.isFinite(entry.acknowledgedAt) && entry.acknowledgedAt > 0)))
+        : [];
+}
+
+function retainedNewbieCombatEffects(
+    state: NewbieDailyState | null | undefined,
+    now = Date.now(),
+): NewbieCombatMissionEffect[] {
+    const effects = newbieCombatEffects(state);
+    const pending = effects.filter((entry) => entry.acknowledgedAt === undefined);
+    const settled = effects
+        .filter((entry) => entry.acknowledgedAt !== undefined
+            && Number(entry.acknowledgedAt) >= now - NEWBIE_COMBAT_EFFECT_RETENTION_MS)
+        .sort((a, b) => Number(b.acknowledgedAt) - Number(a.acknowledgedAt))
+        .slice(0, MAX_SETTLED_NEWBIE_COMBAT_EFFECTS);
+    return [...pending, ...settled];
+}
+
+// An unresolved cross-row effect marker must outlive the ordinary daily cache
+// TTL. Once every marker is acknowledged, the row returns to its normal TTL.
+function newbieDailyWriteOptions(state: NewbieDailyState): { ex: number } | undefined {
+    return newbieCombatEffects(state).some((entry) => entry.acknowledgedAt === undefined)
+        ? undefined
+        : { ex: NEWBIE_DAILY_TTL_SECONDS };
 }
 
 function fromNewbieTemplate(t: NewbieMissionTemplate, dateKey: string): NewbieDailyMission {
@@ -387,11 +438,13 @@ export async function loadOrIssueNewbieDailies(
     const existing = await kv.get<NewbieDailyState>(newbieDailyKey(playerName));
     if (existing && existing.date === today) return existing;
     const picks = pickNewbieMissions(playerName, today);
+    const retainedEffects = retainedNewbieCombatEffects(existing, now.getTime());
     const state: NewbieDailyState = {
         date: today,
         missions: picks.map(t => fromNewbieTemplate(t, today)),
+        ...(retainedEffects.length > 0 ? { combatMissionEffects: retainedEffects } : {}),
     };
-    await kv.set(newbieDailyKey(playerName), state, { ex: 36 * 60 * 60 });
+    await kv.set(newbieDailyKey(playerName), state, newbieDailyWriteOptions(state));
     return state;
 }
 
@@ -451,7 +504,10 @@ export async function reportNewbieEvent(opts: {
             }
             return { ...m, progress: nextProgress };
         });
-        if (changed) await kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
+        if (changed) {
+            const nextState = { ...state, missions: next };
+            await kv.set(dKey, nextState, newbieDailyWriteOptions(nextState));
+        }
         return { ryoAwarded, completed };
     }, { failClosed: true });
 
@@ -459,4 +515,110 @@ export async function reportNewbieEvent(opts: {
         await awardNewbieRyo(playerName, result.ryoAwarded);
     }
     return result;
+}
+
+/**
+ * Apply both new-shinobi combat signals once for an authoritative combat run.
+ * The progress mutation and its run marker share one CAS row. The caller then
+ * credits `ryoAwarded` in the combat settlement's save receipt and acknowledges
+ * this marker, closing both crash orders without trusting a short lock lease.
+ */
+export async function reportNewbieCombatRunOnce(opts: {
+    playerName: string;
+    runId: string;
+    settledAt: number;
+}): Promise<{ applied: boolean; ryoAwarded: number }> {
+    const dKey = newbieDailyKey(opts.playerName);
+    return withKvLock(dKey, async () => {
+        const eventDate = new Date(opts.settledAt);
+        const eventDateKey = utcDateKey(eventDate);
+        const beforeIssue = await kv.get<NewbieDailyState>(dKey);
+        // A run marker pins the earned amount. Replay it before consulting the
+        // player's current profession: choosing a profession after the target
+        // row committed must not erase Ryo that still awaits its save receipt.
+        const priorEffect = newbieCombatEffects(beforeIssue)
+            .find((entry) => entry.runId === opts.runId);
+        if (priorEffect) return { applied: false, ryoAwarded: priorEffect.ryoAwarded };
+        const save = await kv.get<Record<string, unknown>>(`save:${opts.playerName}`);
+        const char = save?.character as Record<string, unknown> | undefined;
+        if (!char || char.profession) return { applied: false, ryoAwarded: 0 };
+        // Never roll a newer daily board backwards while helping an older run
+        // forward. If today's board already replaced the settlement-day board,
+        // the still-unapplied event advances today's board exactly once.
+        const targetDate = beforeIssue && beforeIssue.date > eventDateKey
+            ? new Date(`${beforeIssue.date}T00:00:00.000Z`)
+            : eventDate;
+        await loadOrIssueNewbieDailies(opts.playerName, targetDate);
+        const expected = await kv.get<NewbieDailyState>(dKey);
+        if (!expected || expected.date !== utcDateKey(targetDate)) {
+            throw new Error('newbie-combat-effect-daily-state-unavailable');
+        }
+        const effects = retainedNewbieCombatEffects(expected);
+        const replay = effects.find((entry) => entry.runId === opts.runId);
+        if (replay) return { applied: false, ryoAwarded: replay.ryoAwarded };
+        if (effects.filter((entry) => entry.acknowledgedAt === undefined).length
+            >= MAX_PENDING_NEWBIE_COMBAT_EFFECTS) {
+            throw new Error('newbie-combat-effect-pending-overflow');
+        }
+
+        const kinds: NewbieMissionKind[] = ['newbie-missions', 'newbie-battle-wins'];
+        let ryoAwarded = 0;
+        const now = Date.now();
+        const missions = expected.missions.map((mission) => {
+            if (!kinds.includes(mission.kind) || mission.completedAt) return mission;
+            const nextProgress = mission.progress + 1;
+            if (nextProgress >= mission.target) {
+                ryoAwarded += mission.ryoReward;
+                return { ...mission, progress: mission.target, completedAt: now };
+            }
+            return { ...mission, progress: nextProgress };
+        });
+        const effect: NewbieCombatMissionEffect = {
+            version: 1,
+            runId: opts.runId,
+            kinds,
+            ryoAwarded,
+            appliedAt: now,
+        };
+        const next = { ...expected, missions, combatMissionEffects: [...effects, effect] };
+        let writeError: unknown;
+        let swapped = false;
+        try {
+            swapped = await kv.compareSet(dKey, expected, next, newbieDailyWriteOptions(next));
+        } catch (error) {
+            writeError = error;
+        }
+        const readback = await kv.get<NewbieDailyState>(dKey);
+        const confirmed = newbieCombatEffects(readback).find((entry) => entry.runId === opts.runId);
+        if (swapped || (confirmed && confirmed.ryoAwarded === ryoAwarded)) {
+            return { applied: true, ryoAwarded };
+        }
+        if (writeError) throw writeError;
+        throw new Error('newbie-combat-effect-write-conflict');
+    }, { failClosed: true });
+}
+
+/** Remove only the exact run marker after the save receipt proves its Ryo. */
+export async function acknowledgeNewbieCombatRun(playerName: string, runId: string): Promise<void> {
+    const dKey = newbieDailyKey(playerName);
+    await withKvLock(dKey, async () => {
+        const expected = await kv.get<NewbieDailyState>(dKey);
+        if (!expected) return;
+        const effects = retainedNewbieCombatEffects(expected);
+        const target = effects.find((entry) => entry.runId === runId);
+        if (!target || target.acknowledgedAt !== undefined) return;
+        const nextEffects = retainedNewbieCombatEffects({
+            ...expected,
+            combatMissionEffects: effects.map((entry) => entry.runId === runId
+                ? { ...entry, acknowledgedAt: Date.now() }
+                : entry),
+        });
+        const next = { ...expected, combatMissionEffects: nextEffects };
+        const swapped = await kv.compareSet(dKey, expected, next, newbieDailyWriteOptions(next));
+        if (swapped) return;
+        const readback = await kv.get<NewbieDailyState>(dKey);
+        if (newbieCombatEffects(readback).some((entry) => entry.runId === runId
+            && entry.acknowledgedAt !== undefined)) return;
+        throw new Error('newbie-combat-effect-ack-conflict');
+    }, { failClosed: true });
 }

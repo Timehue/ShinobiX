@@ -36,6 +36,8 @@ export type BetaMetricEvent =
     | 'hollow_gate.run_forfeited'
     | 'hollow_gate.run_settle_replayed'
     | 'clan_boss.assault_settled'
+    | 'tower.run_started'
+    | 'tower.run_settled'
     | 'pvp.settled'
     | 'bank.interest.claimed';
 
