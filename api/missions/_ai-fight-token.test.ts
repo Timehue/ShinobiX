@@ -29,11 +29,18 @@ describe('_ai-fight-token', () => {
         assert.equal(token.opponentId, 'forest-ai:1');
         assert.equal(token.opponentLevel, 42);
         assert.equal(token.battleKind, 'defense');
-        assert.equal(token.redemptionAuthorityVersion, 1);
     });
 
     it('normalizes unknown battle kinds to non-paying practice', () => {
         assert.equal(createAiFightTokenRecord('Player', 'abc123', 123, { battleKind: 'forged' }).battleKind, 'practice');
+    });
+
+    it('seals reconstructed World context separately from client reward fields', () => {
+        const worldContext = { kind: 'hunt-target' as const, sourceId: 'hunt-wild-boar', missionId: 'hunt-wild-boar', sector: 25, stage: 0, displayName: 'Wild Boar', finalStage: true };
+        const token = createAiFightTokenRecord('Player', 'abc123', 123, { battleKind: 'world', worldContext });
+        assert.equal(token.battleKind, 'world');
+        assert.deepEqual(token.worldContext, worldContext);
+        assert.notEqual(token.worldContext, worldContext);
     });
 
     it('cleans token ids for key use', () => {

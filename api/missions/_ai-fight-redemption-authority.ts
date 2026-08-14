@@ -73,7 +73,6 @@ function parsedLegacyCounter(value: unknown): number | null {
     const parsed = Number(value);
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
-
 /** Read the rolling-worker scalar without converting malformed state to zero. */
 export async function readAiFightLegacyDailyCount(
     store: Pick<KvLike, 'get'>,

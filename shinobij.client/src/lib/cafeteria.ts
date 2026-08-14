@@ -28,6 +28,7 @@ export type CafeteriaMealResult = {
     error?: string;
     meal?: CafeteriaMeal;
     character?: Character;
+    _saveVersion?: number;
 };
 
 export async function buyCafeteriaMeal(playerName: string, mealId: CafeteriaMealId): Promise<CafeteriaMealResult> {

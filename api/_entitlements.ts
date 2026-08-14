@@ -45,13 +45,11 @@ export function maxStoredBloodlines(character: unknown): number {
 }
 
 /**
- * Stable pet ids that are eligible for current roster use: combat, breeding,
- * and starting new training or expeditions. Existing active and reserve
- * selections win first so a supporter lapse does not silently switch the
- * player's companions; the remaining slots follow roster order. Extra
- * legacy/lapsed records remain owned in character.pets as preserved overflow
- * until moved through the Sanctuary workflow. Existing sessions may still be
- * collected after a lapse so preservation never traps earned state.
+ * Stable pet ids eligible for current roster use: combat, breeding, and new
+ * training or expeditions. Active selections win first so a supporter lapse
+ * does not silently switch companions; remaining slots follow roster order.
+ * Extra legacy/lapsed records stay owned as preserved overflow until swapped
+ * through the Sanctuary. Existing sessions may still be collected safely.
  */
 export function activeCarriedPetIds(character: unknown, petsOverride?: unknown): string[] {
     const char = character && typeof character === 'object'
@@ -63,9 +61,9 @@ export function activeCarriedPetIds(character: unknown, petsOverride?: unknown):
     const rosterIds = pets
         .map((pet) => pet && typeof pet === 'object' ? String((pet as Record<string, unknown>).id ?? '') : '')
         .filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
-    const prioritized = [String(char.activePetId ?? ''), String(char.activePetId2v2 ?? ''), ...rosterIds]
-        .filter((id, index, ids) => Boolean(id) && rosterIds.includes(id) && ids.indexOf(id) === index);
-    return prioritized.slice(0, maxPets(character));
+    return [String(char.activePetId ?? ''), String(char.activePetId2v2 ?? ''), ...rosterIds]
+        .filter((id, index, ids) => Boolean(id) && rosterIds.includes(id) && ids.indexOf(id) === index)
+        .slice(0, maxPets(character));
 }
 
 export function activeCarriedPets<T = Record<string, unknown>>(character: unknown, petsOverride?: unknown): T[] {
@@ -79,29 +77,6 @@ export function activeCarriedPets<T = Record<string, unknown>>(character: unknow
     return activeCarriedPetIds(character, pets)
         .map((id) => byId.get(id))
         .filter((pet): pet is T => pet !== undefined);
-}
-
-/**
- * Stable ids that occupy the character's currently usable custom-bloodline
- * storage slots. The equipped custom bloodline wins the first slot so a
- * supporter lapse never switches the player's build underneath them; the
- * remaining slots follow stored order. Entries beyond the entitlement cap are
- * retained as preserved overflow, but are not editable/equippable.
- */
-export function activeStoredBloodlineIds(character: unknown, bloodlines: unknown): string[] {
-    if (!Array.isArray(bloodlines)) return [];
-    const ordered = bloodlines
-        .map((bloodline) => bloodline && typeof bloodline === 'object'
-            ? String((bloodline as Record<string, unknown>).id ?? '')
-            : '')
-        .filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
-    const equipped = character && typeof character === 'object'
-        ? String((character as Record<string, unknown>).equippedBloodlineId ?? '')
-        : '';
-    const prioritized = equipped && ordered.includes(equipped)
-        ? [equipped, ...ordered.filter((id) => id !== equipped)]
-        : ordered;
-    return prioritized.slice(0, maxStoredBloodlines(character));
 }
 export function canCustomAvatar(character: unknown): boolean {
     return isPatreonSubscriber(character);

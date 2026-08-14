@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import type { Character } from "../types/character";
 import {
     SCRIBE_ACCEPT_MARKER, SCRIBE_MIN_LEVEL, SCRIBE_WANDERER_ID,
-    scribeEligible, scribeWandererFor, scribeIntroEvent, synthChronicleScribe,
+    claimTravelersCodex, scribeEligible, scribeWandererFor, scribeIntroEvent, synthChronicleScribe,
 } from "./chronicle-scribe";
 
 const asCharacter = (over: Record<string, unknown>): Character =>
@@ -80,10 +80,35 @@ describe("scribeIntroEvent", () => {
         assert.ok(accept!.conclusion && decline!.conclusion, "both choices play a send-off beat");
     });
 
-    it("anchors the lore: the Gate stood above ground, and the record is alive", () => {
+    it("anchors the lore: the Gate was a civic engine and cards are witnessed records", () => {
         const all = scribeIntroEvent("forest").vnPages!.flatMap((p) => p.dialogue).join(" ");
-        assert.match(all, /Hollow Gate .*above ground/i, "the ancient-origin canon must be spoken");
+        assert.match(all, /Sunken Court's last age/i, "the Court-era origin canon must be spoken");
+        assert.match(all, /Hollow Gate was a civic engine/i, "the Gate must be human infrastructure, not a creature or portal");
+        assert.match(all, /record what witnesses saw/i, "cards must be records, not containers");
+        assert.match(all, /choices the Court's ledgers kept erasing/i, "the Chronicle preserves action against edited records");
+        assert.doesNotMatch(all, /came out of it|forced it back under|trapped soul/i);
         assert.match(all, /can't burn what's in a thousand pockets/i, "the why-cards canon must be spoken");
         assert.match(all, /The Chronicle doesn't close/i, "the living-record canon must be spoken");
+    });
+});
+
+describe("claimTravelersCodex", () => {
+    it("keeps starter cards and earlier-deed records distinct for the opening ceremony", async () => {
+        const fakeFetch = async () => new Response(JSON.stringify({
+            ok: true,
+            granted: ["tc-01", "story-story-ai-stormveil-village-4"],
+            starterGranted: ["tc-01"],
+            progressionGranted: ["story-story-ai-stormveil-village-4"],
+            replayed: true,
+            _saveVersion: 37,
+            character: { tileCards: ["tc-01", "story-story-ai-stormveil-village-4"] },
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+        const result = await claimTravelersCodex("Aoi", fakeFetch as typeof fetch);
+        assert.equal(result.ok, true);
+        assert.deepEqual(result.starterGranted, ["tc-01"]);
+        assert.deepEqual(result.progressionGranted, ["story-story-ai-stormveil-village-4"]);
+        assert.equal(result.replayed, true);
+        assert.equal(result._saveVersion, 37);
+        assert.deepEqual(result.tileCards, ["tc-01", "story-story-ai-stormveil-village-4"]);
     });
 });

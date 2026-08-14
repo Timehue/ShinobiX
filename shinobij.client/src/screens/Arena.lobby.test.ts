@@ -5,17 +5,18 @@ import test from "node:test";
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const adaptiveShellCss = readFileSync(new URL("../styles/layout/adaptive-shell.css", import.meta.url), "utf8");
 
-test("the casual Battle Arena lobby never auto-starts a pending AI encounter", () => {
-    const autoStartEffect = arenaSource.match(
-        /useEffect\(\(\) => \{\s*\/\/ A pending AI[\s\S]*?startPrefight\(enemyMaxHp,[\s\S]*?\}, \[directCombat, pendingAiProfile\?\.id, battleStarted\]\);/,
+test("the casual Battle Arena retires pending local-AI breadcrumbs instead of starting combat", () => {
+    const retirementEffect = arenaSource.match(
+        /useEffect\(\(\) => \{[\s\S]{0,220}if \(pendingAiProfileId\) setPendingAiProfileId\(""\);[\s\S]{0,80}\}, \[pendingAiProfileId\]\);/,
     );
 
-    assert.ok(autoStartEffect, "could not find the pending-AI auto-start effect");
-    assert.match(
-        autoStartEffect[0],
-        /if \(!directCombat\) return;/,
-        "pending AI profiles may auto-start only on the dedicated direct-combat route",
+    assert.ok(retirementEffect, "could not find the pending-AI retirement effect");
+    assert.doesNotMatch(
+        retirementEffect[0],
+        /startPrefight|setBattleStarted\(true\)/,
+        "a legacy catalog id must never arm the retired local Arena reducer",
     );
+    assert.doesNotMatch(arenaSource, /\/\/ A pending AI[\s\S]{0,500}startPrefight\(/);
 });
 
 test("the shared mobile shell gives the Battle Arena lobby a vertical touch scroller", () => {

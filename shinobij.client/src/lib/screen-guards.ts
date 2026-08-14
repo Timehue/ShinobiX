@@ -74,6 +74,10 @@ export function shouldRedirectToHospital(
     return hospitalized && screen !== "hospital" && !unresolvedBattle;
 }
 
+export function isHospitalNavigationBlocked(hospitalized: boolean, screen: Screen, nextScreen: Screen): boolean {
+    return hospitalized && screen === "hospital" && nextScreen !== "hospital";
+}
+
 // ─── Battle screens (navigation lock) ───────────────────────────────────────
 //
 // Screens that are battle-only or battle-capable. `arena` and `petArena` ALSO
@@ -116,7 +120,6 @@ export function towerPvpMatchIdFromRunKey(value: string | null | undefined): str
     const matchId = value.slice(TOWER_PVP_RUN_PREFIX.length);
     return /^tpvp-[a-f0-9]{32}$/i.test(matchId) ? matchId : null;
 }
-
 export function hasActiveTowerFight(): boolean {
     try {
         return !!localStorage.getItem(TOWER_RUN_KEY);
@@ -153,6 +156,7 @@ export interface BattleGuardSignals {
     pendingPetBattle: boolean;         // pet PvP just accepted (partial — see note)
     arenaBattleActive: boolean;        // lifted from Arena: any arena fight incl. ranked
     petBattleActive: boolean;          // lifted from PetArena: pet sim in progress
+    missionBattleActive: boolean;      // lifted from Missions: server-owned MissionArenaFight
 }
 
 // True when the player must NOT be allowed to navigate away (they can only
@@ -163,6 +167,8 @@ export interface BattleGuardSignals {
 export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
     if (s.raidBattleKind !== "none") return true; // mission raid / human raid / defense
     switch (s.screen) {
+        case "missions":
+            return s.missionBattleActive;
         case "arena":
         case "battleArena":
         case "arenaDistrict":

@@ -12,7 +12,13 @@ import { hasRecentIpOrFpOverlap, hasRecentIpOrFpOverlapStrict } from '../_player
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
-import { isPlayerRankedV2Session, pvpSessionMayReward, type PvpSession } from './session.js';
+import {
+    isPlayerRankedV2Session,
+    pvpSessionMayGrantProgress,
+    pvpSessionMayReward,
+    sealedWorldRaidAttacker,
+    type PvpSession,
+} from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
@@ -23,6 +29,7 @@ import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
 import { confirmPlayerRankedTerminalEffects } from './_ranked-terminal-effects.js';
 import { boundExactPvpSession } from './_session-mutation.js';
 import { SESSION_TTL } from '../combat-core/constants.js';
+import { settleRaidProgressionWithDailyCap, type CappedRaidProgressionResult } from '../missions/_raid-progression.js';
 
 export { deductUsedItems } from './_consumable-settlement.js';
 
@@ -53,6 +60,22 @@ const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 // 60-min session TTL, so even a slow re-mount can't slip past.)
 
 const CLAIM_TTL_SECONDS = 24 * 60 * 60;
+const MAX_RAID_REPORTS_PER_DAY = 60;
+
+function raidProgressionBody(result: CappedRaidProgressionResult | null) {
+    if (!result) return undefined;
+    return {
+        capped: result.capped,
+        replayed: result.replayed,
+        fetchMissionsCredited: result.fetchMissionsCredited,
+        missionsCompleted: result.settlement?.missionsCompleted ?? [],
+        xpAwarded: result.settlement?.xpAwarded ?? 0,
+        bonusRyo: result.settlement?.bonusRyo ?? 0,
+        bonusSeals: result.settlement?.bonusSeals ?? 0,
+        territoryDamage: result.territoryDamage,
+        sector: result.settlement?.sector,
+    };
+}
 
 function claimKey(playerName: string, battleId: string): string {
     return `pvp:rewarded:${safeName(playerName)}:${battleId}`;
@@ -182,6 +205,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(503).json({
                 error: 'The ranked result is still being confirmed. Retry this claim.',
             });
+        }
+
+        // Settle world-raid progression from the canonical PvP reward claim so
+        // a dropped response cannot lose the client-enqueued report callback.
+        let worldRaidProgression: CappedRaidProgressionResult | null = null;
+        const raidSector = Math.floor(Number(session.rewardSector));
+        const worldAttacker = sealedWorldRaidAttacker(session);
+        if (outcome === 'win'
+            && safeName(winnerName) === playerName
+            && worldAttacker?.side === session.winner
+            && worldAttacker.name === playerName
+            && rewardAuthorized
+            && session.rewardAuthority === 'world'
+            && pvpSessionMayGrantProgress(session)
+            && Number.isSafeInteger(raidSector)
+            && raidSector >= 1
+            && raidSector <= 66) {
+            try {
+                worldRaidProgression = await settleRaidProgressionWithDailyCap({
+                    playerName,
+                    proofId: `pvp-raid:${battleId}`,
+                    proofAt: Math.floor(Number(session.createdAt)),
+                    sector: raidSector,
+                    dailyLimit: MAX_RAID_REPORTS_PER_DAY,
+                });
+            } catch (error) {
+                console.error('[pvp/claim-rewards] world raid progression pending', error);
+                return res.status(503).json({
+                    error: 'The raid settlement is still finalizing. Retry this claim.',
+                });
+            }
         }
 
         // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
@@ -487,6 +541,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     rewardAuthorized,
                     ...(out.rating ? { rating: out.rating } : {}),
                     ...(out.base ? { base: out.base } : {}),
+                    ...(worldRaidProgression ? { raidProgression: raidProgressionBody(worldRaidProgression) } : {}),
+                    ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });
             } catch (creditErr) {
@@ -524,7 +580,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     source: `casual:${outcome}`,
                 });
             }
-            return res.status(200).json({ ok: true, alreadyClaimed, rewardAuthorized, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+            return res.status(200).json({
+                ok: true,
+                alreadyClaimed,
+                rewardAuthorized,
+                ...(worldRaidProgression ? { raidProgression: raidProgressionBody(worldRaidProgression) } : {}),
+                ...(finalChar ? { character: finalChar } : {}),
+                _saveVersion: Number(finalSave?._saveVersion ?? 0),
+            });
         } catch (reserveErr) {
             console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);
             const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);

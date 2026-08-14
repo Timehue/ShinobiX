@@ -5,6 +5,7 @@ import { enforceRateLimitKv } from "../_ratelimit.js";
 import { cors } from "../_utils.js";
 import { withKvLock } from "../_lock.js";
 import { mutatePlayerSave } from "../save/_mutate-player-save.js";
+import { bumpLegacyStats } from "../_legacy-track.js";
 import {
   CARD_CLASH_AI_MIN_WIN_DURATION_MS,
   CARD_CLASH_AI_TOKEN_TTL_SECONDS,
@@ -56,8 +57,53 @@ type SettledReward = {
   result: AiMatchResult;
   ryo: number;
   dailyBonus: boolean;
+  /** A surrender is a terminal receipt, not a paid/completed match. */
+  forfeited?: true;
 };
-type StoredSession = AiMatchSession & { settledReward?: SettledReward };
+type AiLegacyCredit = { receiptId: string; status: "pending" | "done" | "skipped" };
+type StoredSession = AiMatchSession & {
+  settledReward?: SettledReward;
+  legacyCredit?: AiLegacyCredit;
+  endedBy?: "forfeit";
+};
+
+function ensureAiLegacyCredit(session: StoredSession, key: string): boolean {
+  if (session.legacyCredit || !session.settledAt || session.settledReward?.result !== "player") return false;
+  const qualified = session.settledAt - Number(session.createdAt ?? 0) >= CARD_CLASH_AI_MIN_WIN_DURATION_MS;
+  session.legacyCredit = { receiptId: `card-ai:${key}`, status: qualified ? "pending" : "skipped" };
+  return true;
+}
+
+async function repairAiLegacyCredit(session: StoredSession, key: string): Promise<boolean> {
+  const prepared = ensureAiLegacyCredit(session, key);
+  if (session.legacyCredit?.status !== "pending") return prepared;
+  const delivered = await bumpLegacyStats(
+    session.playerName,
+    { cardClashWins: 1 },
+    { receiptId: session.legacyCredit.receiptId, characterForBootstrap: null },
+  );
+  if (!delivered) return prepared;
+  session.legacyCredit.status = "done";
+  return true;
+}
+
+async function authoritativePlayerSnapshot(playerName: string): Promise<{
+  character?: Record<string, unknown>;
+  _saveVersion?: number;
+}> {
+  const record = await kv.get<Record<string, unknown>>(
+    `save:${playerName.trim().toLowerCase()}`,
+  );
+  const character = record?.character;
+  if (!character || typeof character !== "object") return {};
+  const saveVersion = Number(record?._saveVersion);
+  return {
+    character: character as Record<string, unknown>,
+    ...(Number.isFinite(saveVersion) && saveVersion > 0
+      ? { _saveVersion: saveVersion }
+      : {}),
+  };
+}
 
 async function settle(
   session: StoredSession,
@@ -77,6 +123,7 @@ async function settle(
   | { ok: false; status: number; error: string }
 > {
   const winner = session.winner ?? "draw";
+  const forfeited = session.endedBy === "forfeit";
   const quickWin =
     winner === "player" &&
     now - Number(session.createdAt ?? 0) < CARD_CLASH_AI_MIN_WIN_DURATION_MS;
@@ -92,27 +139,36 @@ async function settle(
         : [];
       const prior = redeemed.find((e) => e && typeof e === "object" && e.id === receiptId);
       if (prior?.reward) {
-        return { ok: true as const, character, value: prior.reward };
+        return {
+          ok: true as const,
+          character,
+          value: prior.reward,
+          // Crash recovery after the payout/receipt write but before the
+          // terminal session write must not bump the save again. The receipt
+          // itself is the complete authority for the prior settlement.
+          write: false,
+        };
       }
       const alreadyWonToday =
         String(character.cardClashDailyWinDate ?? "") === today;
-      const reward = quickWin
+      const reward = forfeited || quickWin
         ? { ryo: 0, dailyBonus: false }
         : cardClashAiReward(winner, alreadyWonToday);
       const value: SettledReward = {
         result: winner,
         ryo: reward.ryo,
         dailyBonus: reward.dailyBonus,
+        ...(forfeited ? { forfeited: true as const } : {}),
       };
       const nextCharacter = {
         ...character,
         ryo: num(character.ryo) + reward.ryo,
         cardClashWins:
-          num(character.cardClashWins) + (winner === "player" ? 1 : 0),
+          num(character.cardClashWins) + (!forfeited && winner === "player" ? 1 : 0),
         cardClashLosses:
-          num(character.cardClashLosses) + (winner === "opponent" ? 1 : 0),
+          num(character.cardClashLosses) + (!forfeited && winner === "opponent" ? 1 : 0),
         cardClashDraws:
-          num(character.cardClashDraws) + (winner === "draw" ? 1 : 0),
+          num(character.cardClashDraws) + (!forfeited && winner === "draw" ? 1 : 0),
         cardClashDailyWinDate: reward.dailyBonus
           ? today
           : character.cardClashDailyWinDate,
@@ -148,16 +204,20 @@ async function persistOrSettle(
       body: { ok: true, session: projectAiMatch(session), ...steps },
     };
   }
-  if (session.settledAt)
+  if (session.settledAt) {
+    if (await repairAiLegacyCredit(session, key)) await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+    const snapshot = await authoritativePlayerSnapshot(session.playerName);
     return {
       status: 200 as const,
       body: {
         ok: true,
         session: projectAiMatch(session),
         reward: session.settledReward,
+        ...snapshot,
         ...steps,
       },
     };
+  }
   const now = Date.now();
   if (session.settlementMode === "external") {
     session.settledAt = now;
@@ -174,7 +234,20 @@ async function persistOrSettle(
   }
   session.settledAt = now;
   session.settledReward = paid.reward;
+  ensureAiLegacyCredit(session, key);
+  // Persist the terminal payout and pending Legacy outbox before delivery.
   await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+  if (session.legacyCredit?.status === "pending") {
+    const delivered = await bumpLegacyStats(
+      session.playerName,
+      { cardClashWins: 1 },
+      { receiptId: session.legacyCredit.receiptId, characterForBootstrap: paid.character },
+    );
+    if (delivered) {
+      session.legacyCredit.status = "done";
+      await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+    }
+  }
   return {
     status: 200 as const,
     body: {
@@ -240,17 +313,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 409 as const,
             body: { error: "This duel used retired rules; start a new duel." },
           };
-        if (action === "state")
+        if (action === "state") {
+          if (session.settledAt && await repairAiLegacyCredit(session, key)) {
+            await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+          }
+          const snapshot = session.settledAt
+            ? await authoritativePlayerSnapshot(session.playerName)
+            : {};
           return {
             status: 200 as const,
             body: {
               ok: true,
               session: projectAiMatch(session),
               reward: session.settledReward,
+              ...snapshot,
             },
           };
+        }
         if (action === "forfeit" || action === "retreat") {
-          if (!isDone(session)) forfeit(session);
+          if (!isDone(session)) {
+            // Explicit surrender is economically neutral. Persisting the cause
+            // on the session lets settlement commit a durable zero-value replay
+            // receipt without turning rapid start/forfeit loops into a faucet or
+            // progression counter.
+            session.endedBy = "forfeit";
+            forfeit(session);
+          }
           return persistOrSettle(session, key);
         }
         if (!ACTIONS.has(action))

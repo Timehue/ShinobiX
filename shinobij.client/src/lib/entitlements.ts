@@ -37,20 +37,6 @@ export const PRESET_AVATARS = ['/starter-avatar-one.webp', '/starter-avatar-two.
 export function maxLoadout(character: WithPatreon): number {
     return isPatreonSubscriber(character) ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
 }
-
-/**
- * Project the persisted slot preferences into the jutsu IDs that are currently
- * entitled to enter combat. Lapsed Supporter slots stay in the save after this
- * prefix, but callers must not render or simulate them as active actions.
- */
-export function activeJutsuLoadoutIds(
-    character: WithPatreon & { equippedJutsuIds?: readonly string[] },
-): string[] {
-    return [...(character?.equippedJutsuIds ?? [])]
-        .slice(0, maxLoadout(character))
-        .filter((id): id is string => typeof id === "string" && Boolean(id));
-}
-
 export function maxPets(character: WithPatreon): number {
     return isPatreonSubscriber(character) ? PET_CAP_SUB : PET_CAP_BASE;
 }
@@ -81,47 +67,6 @@ export function activeCarriedPets<T extends { id?: string }>(
     return activeCarriedPetIds(character, pets)
         .map((id) => byId.get(id))
         .filter((pet): pet is T => pet !== undefined);
-}
-
-/**
- * Client mirror of api/_entitlements.ts. The equipped custom bloodline keeps
- * the first active slot on a lapse; additional stored entries above the 1/2
- * entitlement remain visible as preserved, read-only overflow.
- */
-export function activeStoredBloodlineIds(
-    character: WithPatreon & { equippedBloodlineId?: string },
-    bloodlines: ReadonlyArray<{ id?: string }> | null | undefined,
-): string[] {
-    if (!Array.isArray(bloodlines)) return [];
-    const ordered = bloodlines
-        .map((bloodline) => typeof bloodline?.id === "string" ? bloodline.id : "")
-        .filter((id, index, ids) => Boolean(id) && ids.indexOf(id) === index);
-    const equipped = character?.equippedBloodlineId ?? "";
-    const prioritized = equipped && ordered.includes(equipped)
-        ? [equipped, ...ordered.filter((id) => id !== equipped)]
-        : ordered;
-    return prioritized.slice(0, maxStoredBloodlines(character));
-}
-
-/**
- * Apply the Bloodline Maker's newest-first replacement locally without ever
- * slicing away preserved overflow. The server repeats this authority check;
- * this mirror prevents overflow from appearing lost while the save round-trip
- * is in flight.
- */
-export function storedBloodlinesAfterCreate<T extends { id?: string }>(
-    character: WithPatreon & { equippedBloodlineId?: string },
-    bloodlines: readonly T[],
-    created: T,
-): T[] {
-    const activeIds = new Set(activeStoredBloodlineIds(character, bloodlines));
-    const active = bloodlines.filter((bloodline) => activeIds.has(String(bloodline.id ?? "")));
-    const overflow = bloodlines.filter((bloodline) => !activeIds.has(String(bloodline.id ?? "")));
-    const nextActive = [created, ...active]
-        .filter((bloodline, index, entries) => entries.findIndex((entry) => entry.id === bloodline.id) === index)
-        .slice(0, maxStoredBloodlines(character));
-    const nextIds = new Set(nextActive.map((bloodline) => bloodline.id));
-    return [...nextActive, ...overflow.filter((bloodline) => !nextIds.has(bloodline.id))];
 }
 export function canCustomAvatar(character: WithPatreon): boolean {
     return isPatreonSubscriber(character);

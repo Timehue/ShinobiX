@@ -9,6 +9,7 @@ import {
     missionProgressReceiptKey,
     savedAcceptedMissionIds,
 } from './_mission-progress-receipt.js';
+import { serverFieldMissionRun } from './_field-trail.js';
 
 const FIELD_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -57,6 +58,8 @@ export function fieldRaidEvidenceId(proofId: string): string {
  */
 export function acceptedRaidFetchMissions(
     save: Record<string, unknown> | null | undefined,
+    proofAt = Number.POSITIVE_INFINITY,
+    raidSector?: number,
 ): FieldMissionDef[] {
     const character = (save?.character ?? save) as Record<string, unknown> | null | undefined;
     const out: FieldMissionDef[] = [];
@@ -67,7 +70,11 @@ export function acceptedRaidFetchMissions(
         if (HUNT_MISSION_IDS.has(id)) continue;
         const mission = fieldMissionById(id);
         if (!mission || Math.floor(Number(mission.raidCount ?? 0)) <= 0) continue;
+        if (Number.isSafeInteger(raidSector)
+            && Math.floor(Number(mission.targetSector)) !== Math.floor(Number(raidSector))) continue;
         if (!canPlayerReceiveMission(character, mission).ok) continue;
+        const run = serverFieldMissionRun(character, mission.id);
+        if (!run || run.acceptedAt > proofAt) continue;
         out.push(mission);
     }
     return out;
@@ -76,10 +83,11 @@ export function acceptedRaidFetchMissions(
 /**
  * Stamp one proven raid onto every accepted fetch mission's progress receipt.
  *
- * Best-effort and idempotent, mirroring the hunt-kill producer in
- * report-ai-fight: each mission's receipt is its own key under its own
- * fail-closed lock, and a failure on one mission never fails the raid report
- * whose reward/token side effects have already landed.
+ * Durable and idempotent: each mission's receipt is its own key under its own
+ * fail-closed lock. Any failure rejects the producer so report-ai-fight keeps
+ * its retained token/active pointer and returns retryable 503. A retry safely
+ * replays already-written evidence and finishes the remaining receipts before
+ * the raid token is retired.
  *
  * Returns the mission ids that were credited.
  */
@@ -88,34 +96,40 @@ export async function creditFieldRaidProgress(opts: {
     /** The whole save record — acceptedMissionIds lives at its top level. */
     save: Record<string, unknown> | null | undefined;
     proofId: string;
+    /** Server creation time of the battle proof; blocks post-start acceptance. */
+    proofAt?: number;
+    /** Sector sealed into the raid token/PvP session. */
+    raidSector: number;
     now?: number;
 }): Promise<string[]> {
     const proofId = typeof opts.proofId === 'string' ? opts.proofId.trim() : '';
-    if (!opts.playerName || !proofId) return [];
+    const raidSector = Math.floor(Number(opts.raidSector));
+    if (!opts.playerName || !proofId || !Number.isSafeInteger(raidSector)) return [];
 
     const evidenceId = fieldRaidEvidenceId(proofId);
     const credited: string[] = [];
-    for (const mission of acceptedRaidFetchMissions(opts.save)) {
+    const character = (opts.save?.character ?? opts.save) as Record<string, unknown> | null | undefined;
+    const proofAt = Number.isFinite(Number(opts.proofAt)) ? Number(opts.proofAt) : Number.POSITIVE_INFINITY;
+    for (const mission of acceptedRaidFetchMissions(opts.save, proofAt, raidSector)) {
+        const run = serverFieldMissionRun(character, mission.id);
+        if (!run) continue;
         const receiptKey = missionProgressReceiptKey(opts.playerName, mission.id);
-        try {
-            await withKvLock(receiptKey, async () => {
-                const existing = cleanMissionProgressReceipt(await kv.get(receiptKey));
-                const next = applyMissionProgressEvent(existing, {
-                    playerName: opts.playerName,
-                    missionId: mission.id,
-                    missionType: 'field',
-                    kind: 'field-raid',
-                    exploreTarget: Math.floor(Number(mission.exploreCount ?? 0)),
-                    raidTarget: Math.floor(Number(mission.raidCount ?? 0)),
-                    evidenceId,
-                    now: opts.now,
-                });
-                await kv.set(receiptKey, next, { ex: FIELD_RECEIPT_TTL_SECONDS });
-            }, { failClosed: true });
-            credited.push(mission.id);
-        } catch (err) {
-            console.error('[missions/field-raid]', mission.id, err);
-        }
+        await withKvLock(receiptKey, async () => {
+            const existing = cleanMissionProgressReceipt(await kv.get(receiptKey));
+            const next = applyMissionProgressEvent(existing, {
+                playerName: opts.playerName,
+                missionId: mission.id,
+                missionType: 'field',
+                kind: 'field-raid',
+                exploreTarget: Math.floor(Number(mission.exploreCount ?? 0)),
+                raidTarget: Math.floor(Number(mission.raidCount ?? 0)),
+                evidenceId,
+                runId: run.runId,
+                now: opts.now,
+            });
+            await kv.set(receiptKey, next, { ex: FIELD_RECEIPT_TTL_SECONDS });
+        }, { failClosed: true });
+        credited.push(mission.id);
     }
     return credited;
 }

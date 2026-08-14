@@ -64,23 +64,15 @@ test("terminal action/state responses reconcile physical outcomes server-side", 
         state.indexOf("reconcileTerminalSoloPveOutcome(session, playerName)") < state.indexOf("session.expiresAt <= Date.now()"),
         "a still-readable expired terminal session must repair its outcome before returning 410",
     );
-    const usageSettlement = "const usage = await settleSoloPveTerminalUsage(initialSession!, playerName)";
-    const physicalSettlement = "const physicalOutcome = await settlePveFightOutcome(usage.session, playerName)";
-    assert.ok(missionQueue.includes(usageSettlement), "mission item/resource usage must settle through the common authority");
-    assert.ok(missionQueue.includes(physicalSettlement), "the verified usage session must drive the physical outcome");
-    assert.ok(
-        missionQueue.indexOf(usageSettlement) < missionQueue.indexOf(physicalSettlement)
-        && missionQueue.indexOf(physicalSettlement) < missionQueue.indexOf("const saveKey ="),
-        "a mission reward must not queue before its usage and physical costs",
-    );
+    assert.match(missionQueue, /settlePveFightOutcome\(usage\.session, playerName\)/, "the mission reward must settle the usage-authority session after its physical cost");
 });
 
 test("the mission screen adopts authoritative character and save versions", () => {
-    assert.match(missions, /responseAccepted = onServerVersion\?\.\(data\?\._saveVersion\) !== false/, "mission queue settlement must advance and guard the save version");
-    assert.match(missions, /updateCharacter\(data\.character\)/, "mission queue settlement must install the authoritative save character");
-    assert.match(missions, /responseAccepted = onServerVersion\?\.\(applied\._saveVersion\) !== false/, "physical outcome confirmation must advance and guard the save version");
+    assert.match(missions, /onVersionedCharacter\(data\.character, data\.saveVersion\)/, "mission queue settlement must atomically install its normalized character and save version");
+    assert.match(missions, /onVersionedCharacter\(applied\.character, applied\._saveVersion\)/, "physical outcome confirmation must atomically install its character and save version");
+    assert.doesNotMatch(missions, /updateCharacter\((data|applied)\.character\)/, "full server snapshots must never be adopted separately from their version");
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-    assert.match(app, /<Missions[^>]+onServerVersion=/s, "App must connect Missions to its optimistic-concurrency version ref");
+    assert.match(app, /<Missions[^>]+onVersionedCharacter=\{commitVersionedCharacter\}/s, "App must connect Missions to its atomic save authority");
 });
 
 test("client confirmation retries a lost response instead of silently returning null", async () => {

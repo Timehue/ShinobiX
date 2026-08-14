@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { GiBroadsword, GiCrossedSwords, GiMoneyStack, GiPagoda, GiShield, GiTreasureMap } from "react-icons/gi";
 import { visiblePoll } from "../lib/poll";
-import type { Character, ServerPlayerSummary } from "../types/character";
+import type { Character, ServerPlayerSummary, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { NoticePostType } from "../types/clan";
 import type { VillageUpgradeKey, Screen } from "../types/core";
@@ -15,7 +15,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
 import { clampNumber, currentDateKey, currentMonthKey, makeId } from "../lib/utils";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
-import { addItem, ownsItem } from "../lib/inventory";
+import { ownsItem } from "../lib/inventory";
 import { dailyMissionsCompleted } from "../lib/character-progress";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { VILLAGE_UPGRADE_MAX_LEVEL, getBankInterestPercent, getHospitalDiscountPercent, getJutsuTrainingSpeedBonus, getMissionRewardBonus, getPetXpBonus, getShopDiscountPercent, getTownDefenseGuardBonus, getTrainingXpBonus, getVillageUpgrades, villageUpgradeCost, villageUpgradeDefinitions } from "../lib/village-upgrades";
@@ -76,7 +76,7 @@ function warStructureUpkeepWr(level: number): number {
     return lvl <= 0 ? 0 : Math.round(2 * Math.pow(lvl, 1.25));
 }
 
-export function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void; onBack: () => void }) {
+export function TownHall({ character, updateCharacter, onVersionedCharacter, onServerVersion, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onServerVersion: (version: unknown) => boolean; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void; onBack: () => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
@@ -287,9 +287,9 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         }
         try {
             const response = await fetch('/api/village/upgrade', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, key }) });
-            const data = await response.json().catch(() => null) as { character?: Character; cost?: number; level?: number; error?: string } | null;
+            const data = await response.json().catch(() => null) as { character?: Character; cost?: number; level?: number; error?: string; _saveVersion?: number } | null;
             if (!response.ok || !data?.character) return alert(data?.error || 'The village upgrade did not return an updated save. Refresh before retrying.');
-            updateCharacter(data.character);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             updateVillageState(addNotice(`${character.name} spent ${(data.cost ?? cost).toLocaleString()} Honor Seals to upgrade ${upgradeName} to level ${data.level ?? currentLevel + 1}.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
         } catch {
             alert("The village upgrade response was lost. Refresh your save before retrying so you can confirm whether it committed.");
@@ -317,13 +317,13 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         }
         try {
             const response = await fetch('/api/village/hollow-gate-unlock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name }) });
-            const data = await response.json().catch(() => null) as { character?: Character; hollowGateUnlockedUntil?: number; error?: string } | null;
+            const data = await response.json().catch(() => null) as { character?: Character; hollowGateUnlockedUntil?: number; error?: string; _saveVersion?: number } | null;
             if (!response.ok || !data?.character || !data.hollowGateUnlockedUntil) return alert(data?.error || 'The Hollow Gate action did not return an updated save. Refresh before retrying.');
             const until = data.hollowGateUnlockedUntil;
             const notice = wasOpen
                 ? `${character.name} renewed the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine stays open until ${new Date(until).toLocaleDateString()}.`
                 : `${character.name} broke the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine has revealed itself on the World Map until ${new Date(until).toLocaleDateString()}.`;
-            updateCharacter(data.character);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             updateVillageState(addNotice(notice, { ...state, hollowGateUnlockedUntil: until, contributionPoints: state.contributionPoints + 25 }));
         } catch {
             alert("The Hollow Gate response was lost. Refresh your save before retrying so you can confirm whether the seal changed.");
@@ -340,7 +340,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
             if (!result) return;
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
         } finally {
             donateBusyRef.current = false;
@@ -354,7 +354,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
             if (!result) return;
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
         } finally {
             donateBusyRef.current = false;
@@ -368,7 +368,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
             if (!result) return;
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
         } finally {
             donateBusyRef.current = false;
@@ -397,13 +397,11 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
                     amount,
                 }),
             });
+            const data = await r.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
             if (!r.ok) {
-                const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
-            if (villageSendPlayer === character.name) {
-                updateCharacter(prev => prev ? ({ ...prev, [villageSendCurrency]: (prev[villageSendCurrency] ?? 0) + amount } as Character) : prev);
-            }
+            if (villageSendPlayer.trim().toLowerCase() === character.name.trim().toLowerCase() && (!data.character || !onVersionedCharacter(data.character, data._saveVersion))) return;
             updateVillageState(addNotice(`${character.name} gifted ${amount.toLocaleString()} ${villageSendCurrency} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, [villageSendCurrency]: state.treasury[villageSendCurrency] - amount } }));
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
@@ -428,13 +426,11 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
                     itemId: villageSendItemId,
                 }),
             });
+            const data = await r.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
             if (!r.ok) {
-                const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
-            if (villageSendPlayer === character.name) {
-                updateCharacter(prev => prev ? addItem(prev, villageSendItemId, 1) : prev);
-            }
+            if (villageSendPlayer.trim().toLowerCase() === character.name.trim().toLowerCase() && (!data.character || !onVersionedCharacter(data.character, data._saveVersion))) return;
             updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
@@ -497,12 +493,12 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "declare", village: character.village, playerName: character.name }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; challenge?: ServerKageChallenge; character?: Character };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; challenge?: ServerKageChallenge; character?: Character; _saveVersion?: number };
         if (!res.ok || !data.ok) return alert(data.error || "Could not declare the challenge.");
         // Reflect the server-side 500-seal debit locally; the autosave re-asserts
         // the debited balance and the two converge (same pattern as the agenda /
         // map-control reward endpoints).
-        if (data.character) updateCharacter(data.character);
+        if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
         setServerKage(prev => prev ? { ...prev, challenge: data.challenge ?? prev.challenge } : prev);
         alert(`Challenge declared against ${seatedKage}. Catch them online and send the official duel — they must accept it or forfeit the seat.`);
     }
@@ -527,10 +523,10 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     async function supportVillageFocus(focus: string, elderFocusKey: "war" | "trade" | "training") {
         try {
             const response = await fetch('/api/village/elder-focus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, focus: elderFocusKey }) });
-            const data = await response.json().catch(() => null) as { character?: Character; error?: string } | null;
+            const data = await response.json().catch(() => null) as { character?: Character; error?: string; _saveVersion?: number } | null;
             if (!response.ok || !data?.character) return alert(data?.error || 'Could not select that focus.');
             updateVillageState(addNotice(`${character.name} selected the ${focus} elder focus.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
-            updateCharacter(data.character);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
         } catch { alert('Could not reach the server. Try again.'); }
     }
     function updateAnbuAppointmentInput(index: number, value: string) {
@@ -602,7 +598,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         if (agendaClaimed) return alert("You already claimed today's village agenda.");
         // Both personal and treasury rewards are server-authoritative and carry
         // independent durable receipts so an interrupted claim can safely resume.
-        let data: { ok?: boolean; alreadyClaimed?: boolean; treasuryAlreadyClaimed?: boolean; personalAlreadyClaimed?: boolean; error?: string; treasury?: Partial<VillageTreasury>; personal?: { alreadyClaimed?: boolean; granted?: { ryo: number; boneCharms: number; honorSeals: number }; balances?: { ryo: number; boneCharms: number; honorSeals: number } } };
+        let data: { ok?: boolean; alreadyClaimed?: boolean; treasuryAlreadyClaimed?: boolean; personalAlreadyClaimed?: boolean; error?: string; treasury?: Partial<VillageTreasury>; personal?: { alreadyClaimed?: boolean; granted?: { ryo: number; boneCharms: number; honorSeals: number }; balances?: { ryo: number; boneCharms: number; honorSeals: number } }; _saveVersion?: number };
         try {
             const res = await fetch("/api/village/claim-daily-agenda", {
                 method: "POST",
@@ -611,6 +607,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             });
             data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) return alert(data.error || "Could not claim the village agenda. Please try again.");
+            if (!onServerVersion(data._saveVersion)) return;
         } catch {
             return alert("Could not claim the village agenda. Please try again.");
         }
@@ -652,7 +649,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         // gains) and re-assert via autosave — converges with the server write. The
         // contributionPoints credit uses the SERVER sector count, so it can't be
         // inflated past the true owned-sector count.
-        let data: { ok?: boolean; alreadyClaimed?: boolean; error?: string; sectors?: number; granted?: { ryo: number; honorSeals: number; boneCharms: number; fateShards: number }; balances?: { ryo: number; honorSeals: number; boneCharms: number; fateShards: number } };
+        let data: { ok?: boolean; alreadyClaimed?: boolean; error?: string; sectors?: number; granted?: { ryo: number; honorSeals: number; boneCharms: number; fateShards: number }; balances?: { ryo: number; honorSeals: number; boneCharms: number; fateShards: number }; _saveVersion?: number };
         try {
             const res = await fetch("/api/village/claim-map-control", {
                 method: "POST",
@@ -661,6 +658,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             });
             data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) return alert(data.error || "Could not claim the map control reward. Please try again.");
+            if (!onServerVersion(data._saveVersion)) return;
         } catch {
             return alert("Could not claim the map control reward. Please try again.");
         }

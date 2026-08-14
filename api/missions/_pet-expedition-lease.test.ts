@@ -34,7 +34,8 @@ test('legacy protected leases recover conservatively and malformed leases do not
 test('start persists fallback authority and settlement rechecks the exact saved token', () => {
     const start = readFileSync(join(process.cwd(), 'api', 'missions', 'expedition-start.ts'), 'utf8');
     const report = readFileSync(join(process.cwd(), 'api', 'missions', 'report-pet-event.ts'), 'utf8');
-    assert.match(start, /serverSeal: \{ petLevel: sealedPetLevel/);
+    assert.match(start, /serverSeal: \{[\s\S]*petLevel: sealedPetLevel/);
+    assert.match(start, /expeditionStartAllowance: \{ date: today, count: startedToday \+ 1 \}/);
     assert.match(report, /lease\.token !== expeditionReceipt/);
     assert.match(report, /character: current\?\.character \?\? null/);
 });

@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { sanitizeCharacterSave } from './[name].js';
+import {
+    LEGACY_PROGRESSION_CARD_IDS,
+    SAGE_PROGRESSION_CARD_ID,
+    STORY_PROGRESSION_CARD_IDS,
+} from '../card-clash/_progression-cards.js';
 
 const stored = {
     name: 'Player', level: 10, xp: 0, ryo: 0, stats: {},
@@ -20,6 +25,39 @@ describe('generic-save ownership entitlement', () => {
         assert.deepEqual(char.inventory, []);
         assert.deepEqual(char.itemStacks, [{ itemId: 'pet-treat', count: 2 }]);
         assert.deepEqual(char.tileCards, ['tc-01']);
+    });
+
+    it('never lets a stale generic save erase server-earned Chronicle records', () => {
+        const progressionCards = [
+            STORY_PROGRESSION_CARD_IDS[0],
+            'pet-witness-fire',
+            SAGE_PROGRESSION_CARD_ID,
+            LEGACY_PROGRESSION_CARD_IDS[0],
+        ];
+        const existing = {
+            ...stored,
+            tileCards: ['tc-01', ...progressionCards],
+        };
+        const result = sanitizeCharacterSave({ character: {
+            ...stored,
+            // This device last painted before any of the server receipts landed.
+            tileCards: [],
+        } }, { character: existing });
+        const char = result.character as { tileCards: string[] };
+        assert.deepEqual(char.tileCards, progressionCards);
+    });
+
+    it('treats an omitted legacy-client card field as unchanged', () => {
+        const progressionCard = STORY_PROGRESSION_CARD_IDS[0];
+        const existing = {
+            ...stored,
+            tileCards: ['tc-01', 'tc-02', progressionCard],
+        };
+        const incoming = { ...stored } as Record<string, unknown>;
+        delete incoming.tileCards;
+        const result = sanitizeCharacterSave({ character: incoming }, { character: existing });
+        const char = result.character as { tileCards: string[] };
+        assert.deepEqual(char.tileCards, existing.tileCards);
     });
 
     it('rejects new pets and preserves stored combat identity for existing IDs', () => {

@@ -53,12 +53,16 @@ test("generated Monster lore uses Shinobi Journey flavor text instead of roster 
   assert.equal(solarGodBeast.cardClass, "monster");
   assert.equal(
     solarGodBeast.lore,
-    "A fragment of the sun. In the world of Shinobi Journey, its fire chakra blazes through every strike.",
+    "A fragment of the sun. Witnesses say its fire chakra blazes through every strike.",
   );
 
   for (const card of CHRONICLE_CARD_CATALOG) {
     assert.doesNotMatch(card.lore, /ShinobiX/i);
     assert.doesNotMatch(card.lore, /enters the Chronicle|established roster/i);
+  }
+  for (const card of CHRONICLE_CARD_CATALOG.filter((candidate) => candidate.id.startsWith("tc-"))) {
+    assert.doesNotMatch(card.lore, /In the world of Shinobi Journey/i);
+    assert.doesNotMatch(card.lore, /\b(?:starter|beginner|coverage|multi-flips?|board-control|corner card)\b/i);
   }
 });
 

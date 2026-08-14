@@ -6,7 +6,7 @@
  */
 import type React from "react";
 import { gameConfirm } from "./GameAlert";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import {
     MASTERY_TREES, masteryLevel, masteryPointsAvailable, masteryPointsSpent,
     pointsInPath, canIncrement, masteryHasCapstone,
@@ -26,7 +26,7 @@ const PATH_BLURBS: Record<string, string> = {
     trainer: "Train pets faster and smarter.",
 };
 
-export function MasteryPanel({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character) => void }) {
+export function MasteryPanel({ character, onVersionedCharacter }: { character: Character; onVersionedCharacter: VersionedCharacterCommit }) {
     if (!character.profession) return null;
     const paths = MASTERY_TREES[character.profession] ?? [];
     const level = masteryLevel(character);
@@ -36,9 +36,9 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
 
     async function mutateMastery(action: 'invest' | 'respec', nodeId?: string) {
         const response = await fetch('/api/profession/mastery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, nodeId }) });
-        const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
         if (!response.ok || !data?.character) throw new Error(String(data?.error ?? 'Mastery update failed.'));
-        updateCharacter(data.character as Character);
+        if (!onVersionedCharacter(data.character, data._saveVersion)) throw new Error("A newer mastery record is already active.");
     }
 
     async function invest(nodeId: string) {

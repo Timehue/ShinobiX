@@ -25,12 +25,7 @@ export function versionedPlayerRecord(currentRecord: PlayerSaveRecord, nextChara
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 
-/**
- * Exact-CAS save write used by store-injected settlement sagas and their fault
- * tests. A fulfilled `false` is definitive evidence that this writer did not
- * commit. Only a thrown/ambiguous acknowledgement may be recovered from an
- * exact full-record readback.
- */
+/** Exact-CAS save write used by crash-recoverable settlement sagas. */
 export async function writeVersionedPlayerSaveWithStore(
     store: Pick<KvLike, 'get' | 'compareSet'>,
     saveKey: string,

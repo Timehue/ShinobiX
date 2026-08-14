@@ -36,7 +36,7 @@
 | # | Name | Archetype | Verb / mode | Biome | Flavor tie-in |
 |---|---|---|---|---|---|
 | 1 | **Old Mibu of the Tea-Road** | Peddler | Gift | forest / central | — |
-| 2 | **Sister Yuki of the Broken Bell** | Pilgrim | Quest | snow | Healer |
+| 2 | **Sister Yuki of the Broken Bell** | Shrine Keeper | Quest | snow | Healer |
 | 3 | **Kazan the Ashbound** | Toll bandit | Shinobi duel / Rob | volcano | the **nemesis** centerpiece |
 | 4 | **Tomoe & Kuro the Oni-Hound** | Beastmaster | Pet Coliseum | any | Pet Tamer |
 | 5 | **Saji Two-Coins** | Gambler | Card Clash | central / shadow | — |

@@ -48,15 +48,13 @@ import {
  *
  * The client replays the identical (pets, seed, pinned params) through the same
  * engine, so the fight it animates cannot disagree with the recorded outcome.
- * Items are pinned OFF: this asynchronous mode has no item-settlement lease, so
- * an equipped consumable remains equipped and is never represented as charged.
  */
 
 const CEIL_STATS: readonly PetCeilStat[] = ['hp', 'attack', 'defense', 'speed'];
 
 // Seal a player's chosen pet from their save (by id, else active, else first), then
 // clamp the four battle stats to the per-rarity anti-tamper ceiling. Mirrors
-// api/village/sector-pet.ts sealPlayerPet — combat-busy pets cannot be fielded.
+// api/village/sector-pet.ts sealPlayerPet — a pet busy breeding cannot be fielded.
 async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | null> {
     const save = await kv.get<{ character?: { pets?: unknown[]; activePetId?: string } }>(`save:${playerName.toLowerCase()}`);
     const pets = activeCarriedPets<Record<string, unknown>>(save?.character ?? {});
@@ -143,8 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The seed is minted server-side when the challenge is created, so
                 // neither player can shop for a favourable duel.
                 seed: Math.floor(Number(ch.petBattleSeed) || 0) || (now ^ 0x9e3779b9) >>> 0,
-                from: [], to: [], status: 'awaiting-pets', consumablesCharged: false,
-                createdAt: now, updatedAt: now,
+                from: [], to: [], status: 'awaiting-pets', createdAt: now, updatedAt: now,
             };
             if (session.status === 'done') {
                 return { status: 409 as const, body: { error: clanWarPetDeclineMessage('duel-already-resolved'), session: projectForViewer(session, side) } };
@@ -202,7 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const finalized = (outcome as { finalized?: { war: ClanWar; completed: unknown; warJustEnded: boolean } }).finalized;
         if (outcome.status === 200 && finalized) {
             const actorName = identity.admin ? '' : identity.name;
-            const character = await awardFinalizedWarPoints(
+            const awardedSave = await awardFinalizedWarPoints(
                 { war: finalized.war, challenge: finalized.completed, warEnded: finalized.warJustEnded, tentative: false },
                 actorName,
             );
@@ -212,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...outcome.body,
                 warEnded: finalized.warJustEnded,
                 war: finalized.war,
-                character,
+                ...(awardedSave ?? {}),
             });
         }
         return res.status(outcome.status).json(outcome.body);

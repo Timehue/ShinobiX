@@ -48,9 +48,9 @@ export function Village({ character, setScreen }: { character: Character; setScr
                             top: location.mapY,
                             "--facility-accent": location.accent,
                         } as CSSProperties}
-                        onPointerEnter={() => preloadScreen(location.screen)}
-                        onFocus={() => preloadScreen(location.screen)}
-                        onPointerDown={() => preloadScreen(location.screen)}
+                        onPointerEnter={() => preloadScreen(location.screen, character.storyVillage || character.village)}
+                        onFocus={() => preloadScreen(location.screen, character.storyVillage || character.village)}
+                        onPointerDown={() => preloadScreen(location.screen, character.storyVillage || character.village)}
                         onClick={() => setScreen(location.screen)}
                         aria-label={`Enter ${location.name}`}
                     >

@@ -1,8 +1,7 @@
 # ShinobiX Live Product Status
 
-Current authority as of August 11, 2026
-Integrated upstream verification base: `0e1fd8e63d8e65ec8b96dafe0dac857d8e82187a`
-Certified implementation commit: `7791631cb`
+Current authority as of August 7, 2026
+Repository verification base: `59f2d46a59cbf1ec53922b512c57a6067b78bb0a`
 
 This file is the canonical repository authority for current product stage and player-facing availability. Dated launch recommendations, rollout matrices, release notes, and implementation reports are historical evidence; when their availability wording conflicts with this file or executable runtime behavior, this file and the runtime win.
 
@@ -81,6 +80,9 @@ cd shinobij.client
 npm ci
 npm run lint
 npm run build
+# CI's browser gate requires an instrumented public-dummy build. Without this
+# opt-in DSN, reporting is correctly disabled and that one smoke assertion is skipped.
+VITE_SENTRY_DSN=https://public@example.invalid/1 VITE_SENTRY_RELEASE=qa VITE_BUILD_COMMIT=local-qa npm run build
 CI=1 npm run test:e2e
 npm audit --omit=dev --audit-level=high
 ```

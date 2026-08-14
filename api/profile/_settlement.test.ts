@@ -99,6 +99,7 @@ test('handler and client preserve the locked authoritative boundary', () => {
     assert.match(handler, /await mutatePlayerSave\(playerName/);
     assert.match(handler, /enforceRateLimitKv[\s\S]+strict: true/);
     assert.match(client, /fetch\('\/api\/profile\/settle'/);
-    assert.match(screen, /updateCharacter\(result\.character\)/);
+    assert.match(screen, /return onVersionedCharacter\(result\.character, result\._saveVersion\) !== false/,
+        'paid profile actions must report success only after accepting the committed save/version');
     assert.doesNotMatch(screen, /stats: baseStats\(\)/);
 });

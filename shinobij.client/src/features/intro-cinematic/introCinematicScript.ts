@@ -1,8 +1,8 @@
 /*
  * Intro-cinematic script — pure data for the post-account-creation cinematic
- * (features/intro-cinematic/IntroCinematic.tsx). An ancient spirit fox summons
- * the newly created shinobi to a fading waterfall shrine, warns that the
- * Hollow Gate is awakening, gifts the starter companion (the pet-selection
+ * (features/intro-cinematic/IntroCinematic.tsx). A spirit fox draws the newly
+ * created shinobi to a fading waterfall shrine, warns that the human-built
+ * Hollow Gate lattice is active again, gifts the starter companion (the pet-selection
  * beat that used to live in the tutorial's StarterPetSelect overlay), speaks a
  * few lines of village lore (replacing the retired VillageLoreScreen wall of
  * text), and sends the player off with "Please... save this land."
@@ -38,11 +38,12 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "fox", label: "???", text: "Open your eyes, young one. Good. The summons held." },
     { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land. I am the one who called you." },
     { speaker: "fox", text: `I am ${FOX_NAME}, guardian of this shrine since the first torii was raised. What little of me remains, anyway.` },
-    { speaker: "fox", text: "Crossing the veil to reach a soul like yours took the last of my power. Listen well, for I may not have the strength to say this twice." },
-    { speaker: "fox", vision: true, text: "Far beneath this land stands the Hollow Gate. It was sealed before your kind first drew breath. For a thousand years, it slept." },
-    { speaker: "fox", vision: true, rumble: true, text: "It sleeps no longer. It stirs. It hungers. Something, or someone, is feeding it." },
-    { speaker: "fox", text: "My kin held the seal for generations. I am the last of them, and my light is nearly spent. Alone, I cannot hold back what is coming." },
-    { speaker: "fox", text: "That is why I called you. With all that remains of me, I hope you can help this land." },
+    { speaker: "fox", text: "Crossing the veil to reach someone the old lattice could not sort took the last of my power. Listen well, for I may not have the strength to say this twice." },
+    { speaker: "fox", vision: true, text: "Far beneath this land, the Hollow Gate is still running. People of the Sunken Court built it to end famine, war, and winter. It survived them." },
+    { speaker: "fox", vision: true, rumble: true, text: "It does not hunger. It measures. Its four buried intakes are being fed again, and every clean answer costs someone a piece of themselves." },
+    { speaker: "fox", text: "My kin guarded the roads out and remembered the people its records erased. I am the last of them, and my light is nearly spent." },
+    { speaker: "fox", text: "That is why I called you. The lattice tried to name you and failed. That is not destiny. It only means the machine cannot decide what to do with you." },
+    { speaker: "fox", text: "I hope you will help this land, but the choice must remain yours." },
     { speaker: "fox", text: "But I will not send you into this world alone. Five young spirits shelter at this shrine. They are the last I have raised, each carrying one of the five natures." },
     { speaker: "fox", text: "Choose one, {name}. Let it walk beside you where I cannot." },
 ];
@@ -82,7 +83,7 @@ export function buildPostGiftLines(village: string): CinematicLine[] {
         { speaker: "fox", text: "Now, you cannot linger here. The shrine is fading, and the world beyond has need of you." },
         { speaker: "fox", worldReveal: true, text: loreA },
         { speaker: "fox", worldReveal: true, text: loreB },
-        { speaker: "fox", worldReveal: true, text: "Train there. Grow strong, {name}. When the Hollow Gate calls, and it will call, be ready to answer." },
+        { speaker: "fox", worldReveal: true, text: "Train there. Grow strong, {name}. When the Hollow Gate reaches for you, remember: it cannot choose what you become." },
         { speaker: "fox", worldReveal: true, fading: true, text: "My light is going out, {name}. Take my hope with you." },
         { speaker: "fox", worldReveal: true, fading: true, text: "Please... save this land." },
     ];

@@ -1,5 +1,5 @@
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity, react-hooks/immutability, react-hooks/refs */
-import { useState, useEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
@@ -17,7 +17,7 @@ import {
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
-import type { Character, HollowGateEventConfig, PlayerRecord } from "../types/character";
+import type { Character, HollowGateEventConfig, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -35,8 +35,18 @@ import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
-import { WANDERER_PENDING_KEY, type WandererFightResult } from "../lib/wanderer-fight";
+import {
+    WANDERER_FIGHT_SETTLED_EVENT,
+    WANDERER_PENDING_KEY,
+    wandererFightPresentationFromContext,
+    worldFightNeedsDurableFollowUp,
+    type WandererFightPresentation,
+    type WandererFightSettlement,
+} from "../lib/wanderer-fight";
 import { requestAiFight } from "../lib/ai-fight-request";
+import { creatorEventPracticeOpponent } from "../lib/creator-event-practice";
+import { mintAiRaidToken } from "../lib/ai-raid-api";
+import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -66,21 +76,36 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
-import { Button } from "../components/ui/Button";
 import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
-import { befriendWildPet, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
-import { openAncientChest, recordSectorExplore, type ExploreCredit } from "../lib/world-reward-api";
-import { probeFreeDungeonServer } from "../lib/dungeon-api";
+import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
+import {
+    openAncientChest,
+    recordSectorExplore,
+    type ExploreCredit,
+    type ExternalExploreProof,
+    type FieldExploreProgress,
+    type SectorExploreOutcome,
+} from "../lib/world-reward-api";
+import {
+    beginExternalWorldExplore,
+    beginResolvedWorldExplore,
+    beginWorldDiscoveryOperation,
+    beginWorldChestOperation,
+    completeWorldRewardOperation,
+    readPendingWorldRewards,
+    type PendingWorldRewardOperation,
+} from "../lib/world-reward-recovery";
+import { DungeonProbeError, probeFreeDungeonServer } from "../lib/dungeon-api";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
-import { currentDateKey, makeId, sameSector } from "../lib/utils";
+import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
@@ -90,7 +115,7 @@ import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
 import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
-import { defaultVnScene, splitDialogueLine } from "../lib/vn";
+import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { getAllItems } from "../lib/items";
@@ -136,7 +161,7 @@ import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WA
 import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
-import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
+import { isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
@@ -149,8 +174,8 @@ import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
 import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
-import { HUNT_PACK_STAGES, HUNT_PACK_ROUTED_QUALITY, HUNT_PACK_SURVIVED_QUALITY, applyHuntOpening, huntOpeningFor, huntPackMember, huntSignFor, rollHuntAmbush, type HuntChoice } from "../lib/hunt-encounter";
-import { bumpHuntQuality, readHuntQuality } from "../lib/hunt-run-state";
+import { HUNT_PACK_STAGES, huntOpeningFor, huntPackMember, huntSignFor, type HuntChoice } from "../lib/hunt-encounter";
+import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
@@ -158,7 +183,7 @@ import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorArtKey, sectorNam
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
-import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector, walkingRoute } from "../components/WorldWalkFeel";
+import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
@@ -298,6 +323,17 @@ type HuntToast = { id: number; kicker: string; text: string };
 /** The open hunt encounter card: which trail, which beast, and what it's showing. */
 type HuntEncounterState = { trail: ActiveHuntTrail; ai: CreatorAi; sector: number; view: HuntEncounterView };
 
+const WORLD_FIGHT_KIND_BY_MODE: Readonly<Record<string, WorldAiFightKind>> = {
+    single: "wanderer",
+    ambush: "wanderer-ambush",
+    patrol: "patrol",
+    bountyHunter: "bounty-hunter",
+    huntPack: "hunt-pack",
+    huntTarget: "hunt-target",
+    questboss: "questbook-boss",
+    storyReckoning: "story-reckoning",
+};
+
 export function WorldMap({
     setCurrentBiome,
     setScreen,
@@ -307,15 +343,11 @@ export function WorldMap({
     creatorRaids,
     petEncounterVn,
     ancientChestVn,
-    setPendingAiProfileId,
     setPendingPvpOpponent,
     setRaidBattleKind,
-    registerWandererAi,
     setPendingPetBattleOpponent,
     requestCardChallenge,
     recordMissionExplore,
-    recordMissionProgress,
-    setPendingExploreSector,
     playableAis,
     setCurrentWeather,
     playerRoster,
@@ -328,10 +360,10 @@ export function WorldMap({
     sectorAttackPlayer,
     attackSleeper,
     acceptedMissionIds,
+    setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
     sharedImages = {},
-    onStartEventEncounter,
     onDungeonFound,
     onEnterHollowGate,
     hollowGateEventConfig,
@@ -345,6 +377,7 @@ export function WorldMap({
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
     onServerVersion,
+    onVersionedCharacter,
     onLaunchWeeklyBoss,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -355,15 +388,11 @@ export function WorldMap({
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
     ancientChestVn: CreatorEvent;
-    setPendingAiProfileId: (id: string) => void;
     setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
-    registerWandererAi: (ai: CreatorAi) => void;
     setPendingPetBattleOpponent: (o: PetArenaOpponent | null) => void;
     requestCardChallenge: () => void;
-    recordMissionExplore: (sector: number) => void;
-    recordMissionProgress?: (missionId: string, kind: "field-explore" | "field-raid" | "hunt-track" | "hunt-kill") => void;
-    setPendingExploreSector: (sector: number | null) => void;
+    recordMissionExplore: (sector: number, worldExploreRequestId: string, fieldProgress?: FieldExploreProgress[]) => Promise<boolean>;
     playableAis: CreatorAi[];
     setCurrentWeather: (weather: WeatherType) => void;
     playerRoster: PlayerRecord[];
@@ -376,10 +405,10 @@ export function WorldMap({
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
     attackSleeper: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
+    setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     sharedImages?: Record<string, string>;
-    onStartEventEncounter: (event: CreatorEvent, battle?: EventEncounterBattle) => void;
     onDungeonFound: (token: string) => void;
     onEnterHollowGate?: () => void;
     // Active event gate (admin-authored) — shows the event entry in the
@@ -400,7 +429,8 @@ export function WorldMap({
     creatorItems: GameItem[];
     // Adopt the save version returned by a server-settled action (wild-pet
     // befriending), so the next autosave isn't rejected as stale.
-    onServerVersion?: (version?: number) => void;
+    onServerVersion?: (version?: number) => boolean;
+    onVersionedCharacter: VersionedCharacterCommit;
     // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
     // through App's launchWeeklyBossFight so damage → the shared leaderboard and
     // the 3-attempt cap — same path as the "Fight Boss" button.
@@ -414,8 +444,6 @@ export function WorldMap({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
-    const [inspectedMapSector, setInspectedMapSector] = useState<number | null>(null);
-    const mapInspectionRef = useRef<HTMLElement | null>(null);
     // Direction the player walked in from on an edge crossing — drives the brief
     // slide-in on the sector board (cleared right after the animation plays).
     const [sectorEnterDir, setSectorEnterDir] = useState<"north" | "east" | "south" | "west" | null>(null);
@@ -428,39 +456,87 @@ export function WorldMap({
     const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
-
-    useEffect(() => {
-        if (inspectedMapSector == null) return;
-        window.requestAnimationFrame(() => mapInspectionRef.current?.focus());
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key !== "Escape") return;
-            const sector = inspectedMapSector;
-            setInspectedMapSector(null);
-            setRouteHoverSector(null);
-            window.requestAnimationFrame(() => {
-                document.querySelector<HTMLButtonElement>(`[data-map-sector="${sector}"]`)?.focus();
-            });
-        };
-        window.addEventListener("keydown", closeOnEscape);
-        return () => window.removeEventListener("keydown", closeOnEscape);
-    }, [inspectedMapSector]);
+    const aiRaidLaunchInFlight = useRef(false);
+    const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
         builtinHuntMissions
             .filter((mission) => acceptedMissionIds.includes(mission.id) && Boolean(mission.aiProfileId))
             .map((mission) => {
-                const progress = missionProgress[mission.id] ?? 0;
-                const requiredTracks = huntRequiredTracks(mission);
-                if (progress >= requiredTracks) return null;
+                const authoritative = authoritativeHuntStates[mission.id];
+                const progress = authoritative?.progress ?? missionProgress[mission.id] ?? 0;
+                const requiredTracks = authoritative?.requiredTracks ?? huntRequiredTracks(mission);
+                if (authoritative?.claimable || authoritative?.targetDefeated || progress >= requiredTracks) return null;
                 return {
                     mission,
-                    sector: huntTrailSector(mission, progress, character.name),
+                    sector: authoritative?.sector ?? huntTrailSector(mission, progress, playerSlug(character.name)),
                     progress,
                     requiredTracks,
                 };
             })
             .filter((trail): trail is ActiveHuntTrail => Boolean(trail))
-    ), [acceptedMissionIds, missionProgress, character.name]);
+    ), [acceptedMissionIds, authoritativeHuntStates, missionProgress, character.name]);
     const huntTrailForSector = (sector: number) => activeHuntTrails.find((trail) => trail.sector === sector);
+    const acceptedHuntKey = builtinHuntMissions
+        .filter((mission) => acceptedMissionIds.includes(mission.id))
+        .map((mission) => mission.id)
+        .sort()
+        .join("|");
+
+    function adoptHuntProgressMirror(
+        missionId: string,
+        state?: WorldHuntTrailView | null,
+        serverProgress?: Record<string, number>,
+    ) {
+        setMissionProgress((current) => {
+            const next = serverProgress ? { ...serverProgress } : { ...current };
+            const mission = builtinHuntMissions.find((entry) => entry.id === missionId);
+            // Presentation-only completion mirror. Claim authority remains the
+            // server's sealed hunt-target receipt; this merely keeps the normal
+            // Hunter Guild turn-in button reachable after refresh/lost response.
+            if (mission && (state?.claimable || state?.targetDefeated)) {
+                next[missionId] = mission.exploreCount;
+            }
+            return next;
+        });
+    }
+
+    // Hydrate markers from the authoritative trail ledger on every WorldMap
+    // mount/account/accepted-contract change. A pending pack marker deliberately
+    // remains at its decision sector; after settlement the server moves it to the
+    // next lead. This also migrates accepted pre-ledger hunts without an abandon.
+    useEffect(() => {
+        let cancelled = false;
+        const missionIds = acceptedHuntKey ? acceptedHuntKey.split("|") : [];
+        if (missionIds.length === 0) {
+            setAuthoritativeHuntStates({});
+            return () => { cancelled = true; };
+        }
+        void (async () => {
+            const next: Record<string, WorldHuntTrailView> = {};
+            for (const missionId of missionIds) {
+                const result = await postWorldHunt({ playerName: character.name, action: "state", missionId });
+                if (cancelled) return;
+                if (!result.ok) continue;
+                if (result.character) {
+                    if (!onVersionedCharacter(result.character, result._saveVersion)) continue;
+                } else if (onServerVersion?.(result._saveVersion) === false) {
+                    continue;
+                }
+                if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
+                adoptHuntProgressMirror(missionId, result.state, result.missionProgress);
+                if (result.state) next[missionId] = result.state;
+                if (result.migrated && result.state) {
+                    setHuntToast({
+                        id: Date.now(),
+                        kicker: "Trail recalibrated",
+                        text: `The Guild moved an older contract onto its verified ledger. Your fresh lead is in Sector ${result.state.sector}.`,
+                    });
+                }
+            }
+            if (!cancelled) setAuthoritativeHuntStates(next);
+        })();
+        return () => { cancelled = true; };
+    }, [acceptedHuntKey, character.name]);
 
     // Returning from an explore ambush: reopen the sector detail the player was in
     // (set by exploreSector before the fight). One-shot — consumed on this mount so
@@ -701,8 +777,8 @@ export function WorldMap({
     // Sector Wanderers (behind `wanderers.v1`, default OFF). The per-sector cast
     // is deterministic for a 6h window so it doesn't flicker; rendering + movement
     // live in <SectorWanderer>. When an "attack" wanderer reaches the player it
-    // calls startWandererAttack, which launches a fight through the SAME arena AI
-    // path the village-guard raid uses — no new combat/endpoint/currency surface.
+    // calls startWandererAttack, which launches through the same canonical
+    // server-sealed Solo-PvE host as village-guard raids.
     const sectorWanderers = useMemo(
         () => {
             if (!isWanderersEnabled() || selectedSector == null) return [];
@@ -1104,11 +1180,9 @@ export function WorldMap({
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
     // All wanderer combat scales to the PLAYER's level (never impossible). Fending
     // off robbers builds character.robberStreak; at 5, the next bandit springs an
-    // AMBUSH gauntlet — 3 robbers then a boss, back-to-back (your HP carries). The
-    // chain is driven client-side: a localStorage handoff survives the arena trip,
-    // and the Arena stamps the authoritative win/loss onto the handoff record (see
-    // lib/wanderer-fight). Each arena fight pays its own existing (server-safe)
-    // rewards, so there's no new currency surface.
+    // AMBUSH gauntlet — 3 robbers then a boss, back-to-back. The server seals each
+    // wave, owns the streak and outcome, and carries surviving HP plus the exact
+    // one-third recovery between waves. localStorage is presentation recovery only.
 
     function buildRobberAi(level: number, tag: string, stage = 0): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
@@ -1122,49 +1196,78 @@ export function WorldMap({
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
-    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush" | "questboss" | "patrol" | "bountyHunter" | "huntPack", stage: number, sector: number, extra: Record<string, unknown> = {}) {
+    function launchWorldMapFight(
+        ai: CreatorAi,
+        sector: number,
+        worldEncounter: WorldAiFightRequest,
+    ) {
         const b = biomeForSector(sector);
-        registerWandererAi(ai);
         setCurrentSector(sector);
         setCurrentBiome(b);
         setCurrentWeather(weatherForSector(sector, b));
         setPendingPvpOpponent(null);
-        setPendingAiProfileId(ai.id);
-        setRaidBattleKind("raidAi");
-        try {
-            localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode, stage, sector, baselineKills: character.totalAiKills ?? 0, at: Date.now(), ...extra }));
-        } catch { /* private mode — chain just won't auto-continue */ }
-        setScreen("arena");
+        const launched = requestAiFight({
+            opponentId: worldEncounter.sourceId,
+            opponentLevel: ai.level ?? character.level,
+            battleKind: "world",
+            opponentName: ai.name,
+            enemyAvatar: ai.image,
+            sector,
+            returnScreen: "worldMap",
+            worldEncounter,
+        });
+        if (!launched) {
+            alert("The combat host is unavailable. Return to the encounter and try again.");
+        }
     }
     /**
-     * Raid an AI village guard / sector target. `setup` runs on BOTH routes (it is
-     * world state — sector, biome, weather — not battle state); only the local
-     * Arena entry is deferred to `playLocally`, which runs when the server sealed
-     * no encounter.
-     *
-     * Wanderer / quest-boss / story-reckoning fights deliberately do NOT come
-     * through here: their AIs are built at runtime by makeBuiltinAi, so their ids
-     * are absent from the server's profile catalog and could only ever fall back.
-     * Routing them would buy a start round-trip and nothing else.
+     * Raid a published AI village guard / sector target through the same sealed
+     * Solo-PvE host. Runtime World encounters use launchWorldMapFight above.
      */
-    function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void) {
+    async function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void) {
+        if (aiRaidLaunchInFlight.current) return;
+        aiRaidLaunchInFlight.current = true;
         setPendingPvpOpponent(null);
         setup?.();
-        requestAiFight({
-            opponentId: aiId,
-            opponentLevel: level,
-            battleKind: "raidAi",
-            sector,
-        });
+        try {
+            const raidProof = await mintAiRaidToken({ playerName: character.name, opponentId: aiId, sector });
+            if (!raidProof) {
+                alert("The village guard could not be verified. Try the raid again in a moment.");
+                return;
+            }
+            if (raidProof.sector !== sector) {
+                const sealedBiome = biomeForSector(raidProof.sector);
+                setSelectedSector(raidProof.sector);
+                setCurrentSector(raidProof.sector);
+                setCurrentBiome(sealedBiome);
+                setCurrentWeather(weatherForSector(raidProof.sector, sealedBiome));
+            }
+            if (!requestAiFight({
+                opponentId: raidProof.opponentId,
+                opponentLevel: level,
+                battleKind: "raidAi",
+                sector: raidProof.sector,
+                raidToken: raidProof.token,
+            })) {
+                alert("The combat host is unavailable. Return to the sector and try again.");
+            }
+        } finally {
+            aiRaidLaunchInFlight.current = false;
+        }
     }
     function startWandererAttack(w: Wanderer, nemesis = false) {
         if (selectedSector == null) return;
-        coolWanderer(w.id); // you've engaged this bandit — it won't be here to re-fight for a few hours
+        // The sealed World start owns the encounter cooldown. Do not hide or
+        // relocate this NPC before the start ACK: a rejected/offline start must
+        // leave the exact encounter available to retry.
         // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. (A nemesis duel
         // is its own special encounter and skips the ambush.)
         if (!nemesis && (character.robberStreak ?? 0) >= 5) {
-            fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", playerName: character.name }) }).catch(() => { /* ignore */ });
-            launchWandererArenaFight(buildRobberAi(character.level, "amb0", 0), "ambush", 0, selectedSector);
+            launchWorldMapFight(
+                buildRobberAi(character.level, "amb0", 0),
+                selectedSector,
+                { kind: "wanderer-ambush", sourceId: "wanderer-ambush", sector: selectedSector, stage: 0 },
+            );
             return;
         }
         // A lone robber that fights as THIS wanderer — or your returning nemesis,
@@ -1175,7 +1278,11 @@ export function WorldMap({
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
         const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
         ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
-        launchWandererArenaFight(ai, "single", 0, selectedSector, { name, level: lvl, nemesis: !!nem });
+        launchWorldMapFight(
+            ai,
+            selectedSector,
+            { kind: "wanderer", sourceId: nem ? "nemesis" : w.id, sector: selectedSector, stage: 0 },
+        );
     }
     function roadRumorFor(w: Wanderer): string {
         const favor = character.activeWandererFavor;
@@ -1282,13 +1389,12 @@ export function WorldMap({
     }
     function startPatrolFight(w: Wanderer) {
         if (selectedSector == null) return;
-        coolWanderer(w.id);
         const hostile = activeVillageWarsFor(character.village).length > 0;
         const lvl = Math.max(1, Math.min(100, character.level + (hostile ? 3 : 1)));
         const ai = makeBuiltinAi(`wanderer-patrol-${w.id}`, hostile ? `${w.name} Captain` : w.name, "PT", lvl, "Road Patrol", [], hostile ? 7 : 3, undefined, hostile ? "defender" : "balanced");
         ai.image = w.avatarImage || wandererAvatar(w.avatarKey);
         setWandererDialog(null);
-        launchWandererArenaFight(ai, "patrol", 0, selectedSector, { hostile });
+        launchWorldMapFight(ai, selectedSector, { kind: "patrol", sourceId: w.id, sector: selectedSector, stage: 0 });
     }
     function followTracker(w: Wanderer) {
         setWandererDialog({ w, msg: `${w.name} leads you to claw marks, snapped brush, and a beast that wants to test your companion.` });
@@ -1307,43 +1413,77 @@ export function WorldMap({
             }
             return;
         }
-        coolWanderer(w.id, 30 * 60 * 1000);
         const amount = w.bountyAmount ?? gate.bounty?.amount ?? selfBounty?.amount ?? 0;
         const lvl = bountyHunterLevel(character.level, amount);
         const ai = makeBuiltinAi(`bounty-ai-${w.id}`, w.name, "BH", lvl, "Bounty Board", [], Math.min(18, 8 + Math.floor(amount / 100_000)), undefined, "boss");
         ai.image = wandererAvatar("bountyHunter");
         setWandererDialog(null);
-        launchWandererArenaFight(ai, "bountyHunter", 0, selectedSector, { hunterId: w.id, hunterName: w.name, bountyAmount: amount });
+        launchWorldMapFight(ai, selectedSector, { kind: "bounty-hunter", sourceId: w.id, sector: selectedSector, stage: 0 });
     }
-    function launchAmbushStage(stage: number, sector: number) {
+    function launchAmbushStage(stage: number, sector: number, chainId: string) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
         // scaled to the player so the gauntlet is hard, not impossible.
         const ai = stage >= 3 ? buildBossAi(character.level + 3) : buildRobberAi(character.level + stage, `amb${stage}`, stage);
-        launchWandererArenaFight(ai, "ambush", stage, sector);
+        launchWorldMapFight(ai, sector, { kind: "wanderer-ambush", sourceId: "wanderer-ambush", sector, stage, chainId });
     }
-    async function claimAmbushReward() {
+    async function claimAmbushReward(recovering = false): Promise<boolean> {
         try {
             const res = await fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", playerName: character.name }) });
-            const d = await res.json() as { ok?: boolean; reward?: { ryo: number; fateShards: number; boneCharms: number }; totals?: { ryo: number; fateShards: number; boneCharms: number } };
-            if (d.ok && d.reward && d.totals) {
-                updateCharacter(prev => prev ? ({ ...prev, ryo: d.totals!.ryo, fateShards: d.totals!.fateShards, boneCharms: d.totals!.boneCharms, robberStreak: 0 }) : prev);
+            const d = await res.json() as { ok?: boolean; reward?: { ryo: number; fateShards: number; boneCharms: number }; character?: Character; _saveVersion?: number };
+            if (d.ok && d.reward && d.character) {
+                if (!onVersionedCharacter(d.character, d._saveVersion)) return false;
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
-                setTimeout(() => alert(`You overwhelmed the bandits and felled their warlord! Loot: ${parts.join(", ")}.`), 40);
-                return;
+                setTimeout(() => alert(`${recovering ? "Recovered ambush ledger — " : "You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
+                return true;
             }
         } catch { /* fall through to the no-loot message */ }
-        updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
-        setTimeout(() => alert("You overwhelmed the bandits and felled their warlord! The roads are yours again."), 40);
+        if (!recovering) setTimeout(() => alert("The warlord is down, but the loot ledger is still syncing. It will retry when the World Map opens."), 40);
+        return false;
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string; missionId?: string }) {
-        // Prefer the authoritative outcome the Arena stamped on the record; fall back to
-        // the totalAiKills delta only for legacy records written before the stamp existed.
-        const won = p.result ? p.result === "win" : (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
+
+    function clearPendingWorldFollowUp(context: WandererFightSettlement["worldContext"]): void {
+        try {
+            const raw = localStorage.getItem(WANDERER_PENDING_KEY);
+            if (!raw) return;
+            const current = JSON.parse(raw) as WandererFightPresentation;
+            if (current.sourceId === context.sourceId
+                && Number(current.stage) === context.stage
+                && Number(current.sector) === context.sector) {
+                localStorage.removeItem(WANDERER_PENDING_KEY);
+            }
+        } catch { /* private mode has no local recovery marker */ }
+    }
+
+    async function syncHuntTrailAfterPack(missionId: string) {
+        const state = await postWorldHunt({ playerName: character.name, action: "state", missionId });
+        if (!state.ok) return null;
+        if (state.character) {
+            if (!onVersionedCharacter(state.character, state._saveVersion)) return null;
+        } else if (onServerVersion?.(state._saveVersion) === false) {
+            return null;
+        }
+        if (state.acceptedMissionIds) setAcceptedMissionIds(state.acceptedMissionIds);
+        adoptHuntProgressMirror(missionId, state.state, state.missionProgress);
+        setAuthoritativeHuntStates((current) => {
+            if (!state.state) {
+                const next = { ...current };
+                delete next[missionId];
+                return next;
+            }
+            return { ...current, [missionId]: state.state };
+        });
+        return state.state ?? null;
+    }
+
+    function resolveWandererFight(p: WandererFightPresentation, settlement: WandererFightSettlement) {
+        const won = settlement.outcome === "win";
+        const context = settlement.worldContext;
         if (p.mode === "patrol") {
-            if (won) setTimeout(() => alert(p.hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar."), 40);
-            else setTimeout(() => alert(p.hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
+            const hostile = p.hostile ?? / Captain$/i.test(context.displayName);
+            if (won) setTimeout(() => alert(hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar."), 40);
+            else setTimeout(() => alert(hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
             return;
         }
         if (p.mode === "bountyHunter") {
@@ -1357,49 +1497,22 @@ export function WorldMap({
             return;
         }
         if (p.mode === "single") {
-            if (won) {
-                if (p.nemesis) {
-                    // Revenge complete — the rival is gone for good.
-                    updateCharacter({ ...character, wandererNemesis: null, robberStreak: (character.robberStreak ?? 0) + 1 });
-                    setTimeout(() => alert(`You put your rival ${p.name ?? "the bandit"} in the dirt at last. Revenge.`), 40);
-                } else {
-                    const next = (character.robberStreak ?? 0) + 1;
-                    updateCharacter({ ...character, robberStreak: next });
-                    if (next === 5) setTimeout(() => alert("You've fended off 5 robbers. They're gathering against you — the next bandit you cross will spring an ambush."), 40);
-                }
-            } else {
-                const cur = character.wandererNemesis;
-                if (p.nemesis && cur) {
-                    // The rival beats you again and grows bolder.
-                    updateCharacter({ ...character, wandererNemesis: { ...cur, tier: (cur.tier ?? 1) + 1 }, robberStreak: 0 });
-                    setTimeout(() => alert(`${cur.name} bests you again, and grows bolder. This isn't over.`), 40);
-                } else if (!cur && p.name) {
-                    // A bandit who beats you becomes your nemesis — they'll be back.
-                    updateCharacter({ ...character, wandererNemesis: { name: p.name, level: p.level ?? character.level, tier: 1 }, robberStreak: 0 });
-                    setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name — and they'll be back.`), 40);
-                } else if ((character.robberStreak ?? 0) !== 0) {
-                    updateCharacter({ ...character, robberStreak: 0 });
-                }
-            }
+            if (won && p.nemesis) setTimeout(() => alert(`You put your rival ${p.name ?? "the bandit"} in the dirt at last. Revenge.`), 40);
+            else if (!won && p.nemesis) setTimeout(() => alert(`${p.name ?? "Your rival"} bests you again, and grows bolder. This isn't over.`), 40);
+            else if (!won && p.name) setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name — and they'll be back.`), 40);
             return;
         }
         if (p.mode === "ambush") {
             if (!won) {
-                if ((character.robberStreak ?? 0) !== 0) updateCharacter({ ...character, robberStreak: 0 });
                 setTimeout(() => alert("The ambush overwhelmed you. The bandits melt back into the wilds."), 40);
                 return;
             }
-            const nextStage = (p.stage ?? 0) + 1;
-            if (nextStage <= 3) {
-                // Your HP carries across the gauntlet (the arena starts you at
-                // current HP). Catch your breath between waves — restore ~1/3 max
-                // HP — so attrition + the boss can't be an impossible death spiral.
-                const maxHp = character.maxHp ?? 0;
-                const healed = Math.min(maxHp, (character.hp ?? 0) + Math.floor(maxHp / 3));
-                updateCharacter({ ...character, hp: healed });
-                launchAmbushStage(nextStage, p.sector); // 1,2 = more robbers; 3 = the boss
+            if (typeof context.nextStage === "number" && context.chainId && !context.finalStage) {
+                launchAmbushStage(context.nextStage, context.sector, context.chainId);
             } else {
-                claimAmbushReward(); // boss down → server-authoritative loot + reset
+                void claimAmbushReward().then((claimed) => {
+                    if (claimed) clearPendingWorldFollowUp(context);
+                });
             }
             return;
         }
@@ -1409,54 +1522,210 @@ export function WorldMap({
             // being routed alerts it. Either way the CONTRACT is untouched — the
             // trail is not advanced here, so the player still has to track and kill
             // the real beast, and the server's evidence accounting stays intact.
-            const missionId = p.missionId ?? "";
+            const missionId = context.missionId ?? p.missionId ?? context.sourceId;
             if (!won) {
-                if (missionId) bumpHuntQuality(missionId, HUNT_PACK_ROUTED_QUALITY);
-                setTimeout(() => alert("The pack drives you off the trail. Your target heard every second of it."), 40);
+                void syncHuntTrailAfterPack(missionId).then((trail) => {
+                    const lead = trail?.sector;
+                    setTimeout(() => alert(lead
+                        ? `The pack drives you off, but the Guild still has the trail. Regroup, then continue in Sector ${lead}.`
+                        : "The pack drives you off the trail. Return to the Hunter Guild if the lead does not reappear."), 40);
+                });
                 return;
             }
-            const nextStage = (p.stage ?? 0) + 1;
             const mission = builtinHuntMissions.find((m) => m.id === missionId);
             const beast = mission ? playableAis.find((a) => a.id === mission.aiProfileId) : undefined;
-            if (nextStage < HUNT_PACK_STAGES && mission && beast) {
-                // Catch your breath between waves — same 1/3 max-HP restore the
-                // bandit ambush uses, so attrition can't make this a death spiral.
-                const maxHp = character.maxHp ?? 0;
-                updateCharacter({ ...character, hp: Math.min(maxHp, (character.hp ?? 0) + Math.floor(maxHp / 3)) });
-                launchHuntPackStage(mission, beast, nextStage, p.sector);
+            if (typeof context.nextStage === "number" && context.chainId && !context.finalStage && mission && beast) {
+                launchHuntPackStage(mission, beast, context.nextStage, context.sector, context.chainId, context.decisionId);
                 return;
             }
-            // Pack cleared (or its contract vanished mid-chain — abandoned, claimed,
-            // or a wiped save; credit the win rather than stranding the player).
-            if (missionId) bumpHuntQuality(missionId, HUNT_PACK_SURVIVED_QUALITY);
-            setTimeout(() => alert("The last of the pack goes down. Your target is alone now — and it knows it."), 40);
+            void syncHuntTrailAfterPack(missionId).then((trail) => {
+                const lead = trail?.sector;
+                setTimeout(() => alert(lead
+                    ? `The last of the pack goes down. The trail reopens in Sector ${lead}; your target is alone now.`
+                    : "The last of the pack goes down. Your target is alone now — and it knows it."), 40);
+            });
+            return;
+        }
+        if (p.mode === "huntTarget") {
+            const missionId = context.missionId ?? context.sourceId;
+            const mission = builtinHuntMissions.find((entry) => entry.id === missionId);
+            if (won && mission) {
+                // Presentation mirror only. The claim remains gated by the sealed
+                // hunt-target WIN receipt written by report-ai-fight.
+                setMissionProgress((current) => ({ ...current, [mission.id]: mission.exploreCount }));
+                setAuthoritativeHuntStates((current) => {
+                    const next = { ...current };
+                    delete next[mission.id];
+                    return next;
+                });
+                setTimeout(() => alert(`${context.displayName} is down. Return to the Hunter Guild and turn in the contract for your reward.`), 40);
+            } else if (!won) {
+                setTimeout(() => alert(`${context.displayName} escaped. The final trail stays hot for a rematch.`), 40);
+            }
             return;
         }
         if (p.mode === "questboss") {
             // A Quest Book boss stage. On a win the foe-kill counter ticked, so ask
             // the server to advance the epic (it re-checks the sealed baseline). On a
             // loss the epic is NOT lost — the player can retry from the journal.
-            if (won) { void advanceEpic(true); }
+            if (won) {
+                const authoritativeEpic = settlement.character?.activeQuestbook ?? character.activeQuestbook;
+                const stage = questbookStage(context.sourceId, context.stage);
+                const proofRows = ((settlement.character as Character & {
+                    worldAiContextWins?: Array<{ kind?: string; sourceId?: string; stage?: number; sealVersion?: string; proofId?: string }>;
+                } | null | undefined)?.worldAiContextWins ?? []);
+                const waveWins = Math.max(1, proofRows.filter((entry) => entry.kind === "questbook-boss"
+                    && entry.sourceId === context.sourceId
+                    && Number(entry.stage) === context.stage
+                    && entry.sealVersion === context.sealVersion
+                    && !!entry.proofId).length);
+                if (authoritativeEpic?.id === context.sourceId && authoritativeEpic.stage > context.stage) {
+                    setTimeout(() => alert("Stage cleared. The next chapter of your epic opens."), 40);
+                    clearPendingWorldFollowUp(context);
+                    return;
+                }
+                if (authoritativeEpic?.id === context.sourceId
+                    && authoritativeEpic.stage === context.stage
+                    && stage && waveWins < Math.max(1, stage.count)) {
+                    setTimeout(() => alert(`Boss wave recorded: ${waveWins}/${stage.count}. The next wave is ready.`), 40);
+                    clearPendingWorldFollowUp(context);
+                    return;
+                }
+                void advanceEpic(true).then((advanced) => {
+                    if (advanced) clearPendingWorldFollowUp(context);
+                });
+            }
             else { setTimeout(() => alert("The foe stands. Your quest holds — rest, then face them again."), 40); }
         }
         if (p.mode === "storyReckoning") {
             const arc = p.storyReckoningId ? storyReckoningForEventId(p.storyReckoningId) : null;
             if (!arc) return;
-            if (won) { void handleStoryReckoningReport(arc, false); }
+            if (won) {
+                const authoritativeReckoning = settlement.character?.activeStoryReckoning ?? character.activeStoryReckoning;
+                if (authoritativeReckoning?.id === context.sourceId && authoritativeReckoning.stage === "return") {
+                    setTimeout(() => alert(`You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
+                    clearPendingWorldFollowUp(context);
+                    return;
+                }
+                void handleStoryReckoningReport(arc, false).then((reported) => {
+                    if (reported) clearPendingWorldFollowUp(context);
+                });
+            }
             else { setTimeout(() => alert(`${arc.task.targetName} still holds the road. Rest, then try the reckoning again.`), 40); }
         }
     }
-    // On returning to the world map after a bandit fight, resolve the result and
-    // continue any ambush chain. (Early-returns if there's no pending fight.)
+
+    function pendingFollowUpContext(pending: WandererFightPresentation): WorldAiFightContext | null {
+        const kind = WORLD_FIGHT_KIND_BY_MODE[pending.mode];
+        if (!kind) return null;
+        return {
+            kind,
+            sourceId: pending.sourceId,
+            sector: pending.sector,
+            stage: pending.stage,
+            displayName: pending.name ?? pending.hunterName ?? "World encounter",
+            ...(kind === "wanderer-ambush" && pending.stage >= 3 ? { finalStage: true } : {}),
+            ...(pending.missionId ? { missionId: pending.missionId } : {}),
+        };
+    }
+
+    async function recoverUnstampedWorldFollowUp(pending: WandererFightPresentation): Promise<void> {
+        if (pending.playerName.trim().toLowerCase() !== character.name.trim().toLowerCase()) return;
+        if (Date.now() - (pending.at || 0) > 30 * 60 * 1000) return;
+        const context = pendingFollowUpContext(pending);
+        if (!context) return;
+
+        if (pending.mode === "ambush" && pending.stage >= 3) {
+            if (await claimAmbushReward(true)) clearPendingWorldFollowUp(context);
+            return;
+        }
+        if (pending.mode === "questboss") {
+            const epic = character.activeQuestbook;
+            if (!epic || epic.id !== pending.sourceId || epic.stage > pending.stage) {
+                clearPendingWorldFollowUp(context);
+                return;
+            }
+            const proofs = ((character as Character & {
+                worldAiContextWins?: Array<{ kind?: string; sourceId?: string; stage?: number; at?: number; proofId?: string }>;
+            }).worldAiContextWins ?? []).filter((entry) => entry.kind === "questbook-boss"
+                && entry.sourceId === pending.sourceId
+                && Number(entry.stage) === pending.stage
+                && Number(entry.at) >= pending.at
+                && !!entry.proofId);
+            if (proofs.length === 0) return;
+            const stage = questbookStage(pending.sourceId, pending.stage);
+            if (stage && proofs.length < Math.max(1, stage.count)) {
+                clearPendingWorldFollowUp(context);
+                return;
+            }
+            if (await advanceEpic(true)) clearPendingWorldFollowUp(context);
+            return;
+        }
+        if (pending.mode === "storyReckoning") {
+            const arc = storyReckoningForEventId(pending.storyReckoningId ?? pending.sourceId);
+            if (!arc) return;
+            const active = character.activeStoryReckoning;
+            if (!active || active.id !== pending.sourceId || active.stage === "return") {
+                clearPendingWorldFollowUp(context);
+                return;
+            }
+            const proved = ((character as Character & {
+                worldAiContextWins?: Array<{ kind?: string; sourceId?: string; stage?: number; at?: number; proofId?: string }>;
+            }).worldAiContextWins ?? []).some((entry) => entry.kind === "story-reckoning"
+                && entry.sourceId === pending.sourceId
+                && Number(entry.stage) === pending.stage
+                && Number(entry.at) >= pending.at
+                && !!entry.proofId);
+            if (!proved) return;
+            if (await handleStoryReckoningReport(arc, false, true)) clearPendingWorldFollowUp(context);
+        }
+    }
+
+    const worldFightResolverRef = useRef(resolveWandererFight);
+    useLayoutEffect(() => { worldFightResolverRef.current = resolveWandererFight; });
+    // The token-sealed report publishes the result live. localStorage is only the
+    // presentation/chain recovery record; it never supplies an outcome.
     useEffect(() => {
-        let raw: string | null;
-        try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
-        if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string; missionId?: string };
-        try { p = JSON.parse(raw); } catch { return; }
-        if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
-        resolveWandererFight(p);
-    }, []);
+        function consume(settlement: WandererFightSettlement) {
+            if (!settlement?.worldContext) return;
+            const context = settlement.worldContext;
+            let stored: WandererFightPresentation | null = null;
+            try {
+                const raw = localStorage.getItem(WANDERER_PENDING_KEY);
+                if (raw) stored = JSON.parse(raw) as WandererFightPresentation;
+            } catch { /* private mode: derive presentation from the server seal */ }
+            const settledName = settlement.character?.name ?? stored?.playerName ?? "";
+            if (!settledName || settledName.trim().toLowerCase() !== character.name.trim().toLowerCase()) return;
+            if (!settlement.character && stored && Date.now() - (stored.at || 0) > 30 * 60 * 1000) return;
+            const storedMatchesSeal = stored
+                && WORLD_FIGHT_KIND_BY_MODE[stored.mode] === context.kind
+                && stored.sourceId === context.sourceId
+                && Number(stored.stage) === context.stage
+                && Number(stored.sector) === context.sector
+                && Date.now() - (stored.at || 0) <= 30 * 60 * 1000;
+            const p = storedMatchesSeal
+                ? stored!
+                : wandererFightPresentationFromContext(settledName, context);
+            if (!worldFightNeedsDurableFollowUp(settlement)) {
+                try { localStorage.removeItem(WANDERER_PENDING_KEY); } catch { /* private mode */ }
+            }
+            // AiFightHost commits the returned character just before publishing.
+            // Defer the presentation callback one task so this ref points at the
+            // render carrying that authoritative quest/hunt/account state.
+            window.setTimeout(() => worldFightResolverRef.current(p, settlement), 0);
+        }
+        const onSettled = (event: Event) => consume((event as CustomEvent<WandererFightSettlement>).detail);
+        window.addEventListener(WANDERER_FIGHT_SETTLED_EVENT, onSettled);
+        try {
+            const raw = localStorage.getItem(WANDERER_PENDING_KEY);
+            if (raw) {
+                const pending = JSON.parse(raw) as WandererFightPresentation & { settlement?: WandererFightSettlement };
+                if (pending.settlement) consume(pending.settlement);
+                else void recoverUnstampedWorldFollowUp(pending);
+            }
+        } catch { /* private mode */ }
+        return () => window.removeEventListener(WANDERER_FIGHT_SETTLED_EVENT, onSettled);
+    }, [character.name]);
     // Wanderer interaction dialog. `nemesis` flags a bandit encounter that's
     // actually your returning rival. The dialog is the only UI; rewards are
     // server-authoritative.
@@ -1630,7 +1899,7 @@ export function WorldMap({
                 gift?: { ryo: number; fateShards: number; boneCharms: number };
                 totals?: { ryo: number; fateShards: number; boneCharms: number };
             };
-            // Only a REAL answer retires the pilgrim. This used to run
+            // Only a REAL answer retires the road keeper. This used to run
             // unconditionally, so any rejected request — a 5xx, a dropped
             // connection, or the wild-field presence gate refusing a request
             // sent before presence settled — burned the encounter for hours
@@ -1746,12 +2015,11 @@ export function WorldMap({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "claim", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id }),
             });
-            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; character?: Character };
-            if (data.character && !(data.ok && typeof data.totalRyo === "number")) updateCharacter(data.character);
+            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; character?: Character; _saveVersion?: number };
+            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
             if (data.ok && typeof data.totalRyo === "number") {
                 coolNaturalWanderer(w);
-                if (data.character) updateCharacter(data.character);
-                else updateCharacter(prev => prev ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
+                if (!data.character && onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
                 setWandererDialog({ w, msg: `“Well done.” You receive ${data.ryo} ryo.` });
             } else if (data.reason === "incomplete") {
                 setWandererDialog({ w, msg: "“Not yet. The roads are still dangerous.”" });
@@ -1776,10 +2044,10 @@ export function WorldMap({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "abandon", playerName: character.name }),
             });
-            const data = await res.json() as { ok?: boolean; character?: Character };
+            const data = await res.json() as { ok?: boolean; character?: Character; _saveVersion?: number };
             if (!data.ok) throw new Error();
-            if (data.character) updateCharacter(data.character);
-            else updateCharacter(prev => prev ? ({ ...prev, activeWandererQuest: null }) : prev);
+            if (data.character) { if (!onVersionedCharacter(data.character, data._saveVersion)) return; }
+            else if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeWandererQuest: null }) : prev);
             setWandererDialog({ w, msg: "You set the task down." });
         } catch {
             setWandererDialog({ w, msg: "The task could not be abandoned. Try again." });
@@ -1817,15 +2085,16 @@ export function WorldMap({
             }
         } catch { setWandererDialog({ w, msg: "You couldn't reach them." }); }
     }
-    async function advanceEpic(auto = false) {
+    async function advanceEpic(auto = false): Promise<boolean> {
         try {
             const res = await fetch("/api/sector/questbook", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "advance", playerName: character.name }),
             });
-            const data = await res.json() as { ok?: boolean; reason?: string; stage?: number; target?: number; advanced?: boolean; readyToClaim?: boolean; progress?: number; resetToStage?: number; deadline?: number | null };
+            const data = await res.json() as { ok?: boolean; reason?: string; stage?: number; target?: number; advanced?: boolean; readyToClaim?: boolean; progress?: number; resetToStage?: number; deadline?: number | null; _saveVersion?: number };
             const cur = character.activeQuestbook;
             if (data.ok && data.advanced && typeof data.stage === "number" && cur) {
+                if (data._saveVersion != null && onServerVersion?.(data._saveVersion) === false) return false;
                 const entry = questbookEntry(cur.id);
                 const st = entry?.stages[data.stage] ?? null;
                 updateCharacter(prev => {
@@ -1834,9 +2103,12 @@ export function WorldMap({
                     return { ...prev, activeQuestbook: { ...cur, stage: data.stage!, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null } };
                 });
                 setTimeout(() => alert("Stage cleared. The next chapter of your epic opens."), 40);
+                return true;
             } else if (data.ok && data.readyToClaim) {
                 if (!auto) setTimeout(() => alert("The final deed is done — claim your reward from the journal."), 40);
+                return true;
             } else if (data.reason === "expired" && typeof data.resetToStage === "number" && cur) {
+                if (data._saveVersion != null && onServerVersion?.(data._saveVersion) === false) return false;
                 const entry = questbookEntry(cur.id);
                 const st = entry?.stages[data.resetToStage] ?? null;
                 updateCharacter(prev => {
@@ -1849,6 +2121,7 @@ export function WorldMap({
                 alert(`Not yet — ${data.progress ?? 0} / ${data.target ?? "?"} done for this stage.`);
             }
         } catch { if (!auto) alert("You couldn't reach the quest-giver."); }
+        return false;
     }
     async function chooseEpicOption(w: Wanderer, optionKey: string) {
         const cur = character.activeQuestbook;
@@ -1926,7 +2199,7 @@ export function WorldMap({
         if (!stage?.bossId) return;
         const spec = QUEST_BOSSES[stage.bossId];
         if (!spec) return;
-        // Foe-kill boss stages launch the scaled boss in the arena; pet-win stages
+        // Foe-kill boss stages launch the sealed boss in Solo-PvE; pet-win stages
         // are fulfilled in the Pet Coliseum, then advanced from the journal.
         if (stage.metric !== "totalAiKills") { setWandererDialog({ w, msg: "Face this one in the Pet Coliseum, then return to your journal." }); return; }
         let lvl = Math.max(1, Math.min(100, character.level + spec.levelOffset));
@@ -1944,9 +2217,13 @@ export function WorldMap({
         }
         const ai = makeBuiltinAi(`questboss-${stage.bossId}`, bossName, spec.icon, lvl, "Wandering Road", [], bonus, undefined, spec.loadoutId, !!spec.boss);
         ai.image = questBossPortrait(stage.bossId) ?? epicBossPortrait(spec.portraitKey);
-        coolNaturalWanderer(w);
         setWandererDialog(null);
-        launchWandererArenaFight(ai, "questboss", 0, selectedSector, { questbook: true });
+        launchWorldMapFight(
+            ai,
+            selectedSector,
+            // The server derives the active quest stage from its durable seal.
+            { kind: "questbook-boss", sourceId: active.id, sector: selectedSector },
+        );
     }
     function launchStoryReckoningFight(arc: StoryReckoning) {
         if (selectedSector == null || !arc.task.boss) return;
@@ -1954,17 +2231,11 @@ export function WorldMap({
         const lvl = Math.max(1, Math.min(100, character.level + boss.levelOffset));
         const ai = makeBuiltinAi(`story-reckoning-${boss.bossId}`, boss.name, boss.icon, lvl, "Story Reckoning", [], boss.statBonus, undefined, boss.loadoutId, true);
         ai.image = boss.portrait || questBossPortrait(boss.bossId) || WANDERER_BOSS_PORTRAIT;
-        registerWandererAi(ai);
-        setCurrentSector(selectedSector);
-        setCurrentBiome(biomeForSector(selectedSector));
-        setCurrentWeather(weatherForSector(selectedSector, biomeForSector(selectedSector)));
-        setPendingPvpOpponent(null);
-        setPendingAiProfileId(ai.id);
-        setRaidBattleKind("raidAi");
-        try {
-            localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode: "storyReckoning", stage: 0, sector: selectedSector, baselineKills: character.totalAiKills ?? 0, storyReckoningId: arc.id, at: Date.now() }));
-        } catch { /* private mode: the server-sealed task remains retryable */ }
-        setScreen("arena");
+        launchWorldMapFight(
+            ai,
+            selectedSector,
+            { kind: "story-reckoning", sourceId: arc.id, sector: selectedSector, stage: 0 },
+        );
     }
     async function handleStoryReckoningAccept(arc: StoryReckoning) {
         setSelectedCreatorEvent(null);
@@ -1976,48 +2247,50 @@ export function WorldMap({
             setTimeout(() => alert(msg), 40);
             return;
         }
-        if (resp.character) updateCharacter(resp.character);
-        else updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
+        if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
+        else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
         if (arc.task.kind === "hunt") {
             launchStoryReckoningFight(arc);
         } else {
             setTimeout(() => alert(`Reckoning accepted: search the outskirts until you find ${arc.task.targetName}.`), 40);
         }
     }
-    async function handleStoryReckoningReport(arc: StoryReckoning, openPayoff = false) {
+    async function handleStoryReckoningReport(arc: StoryReckoning, openPayoff = false, recovering = false): Promise<boolean> {
         const resp = await reportStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
-            if (resp.character) updateCharacter(resp.character);
+            if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return false;
             if (resp.reason === "incomplete") {
-                setTimeout(() => alert(`Not yet: ${resp.progress ?? 0} / ${resp.target ?? arc.task.target} complete.`), 40);
-            } else {
+                if (!recovering) setTimeout(() => alert(`Not yet: ${resp.progress ?? 0} / ${resp.target ?? arc.task.target} complete.`), 40);
+            } else if (!recovering) {
                 setTimeout(() => alert("The account did not settle. Return to the outskirts and try again."), 40);
             }
-            return;
+            return false;
         }
-        if (resp.character) updateCharacter(resp.character);
-        else updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
+        if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return false; }
+        else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
+        else return false;
         if (openPayoff && selectedSector != null) {
             setCreatorEventPage(0);
             setCreatorEventLine(0);
             setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector)));
         } else {
-            setTimeout(() => alert(`You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
+            setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger — " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
         }
+        return true;
     }
     async function handleStoryReckoningTurnIn(arc: StoryReckoning) {
         const resp = await turnInStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
-            if (resp.character) updateCharacter(resp.character);
+            if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return;
             const msg = resp.reason === "no-item" ? "You do not have the keepsake yet."
                 : resp.reason === "daily-cap" ? "You have settled enough reckonings today. Return tomorrow."
                 : "The reckoning could not be turned in. Try again in a moment.";
             setTimeout(() => alert(msg), 40);
             return;
         }
-        if (resp.character) updateCharacter(resp.character);
-        else updateCharacter(prev => {
-            if (!prev) return prev;
+        if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
+        else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => {
+            if (!prev || prev.name !== character.name) return prev;
             const titles = prev.questTitles ?? [];
             const nextTitles = resp.title && !titles.includes(resp.title) ? [...titles, resp.title] : titles;
             const traits = prev.storyTraits ?? [];
@@ -2044,8 +2317,8 @@ export function WorldMap({
             setWandererDialog({ w, msg: "The reckoning could not be abandoned. Try again." });
             return;
         }
-        if (resp.character) updateCharacter(resp.character);
-        else updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: null }) : prev);
+        if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
+        else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: null }) : prev);
         setWandererDialog({ w, msg: "The reckoning is released." });
     }
     // Tick once a second while a TIMED epic's journal is open so the countdown is live.
@@ -2061,6 +2334,9 @@ export function WorldMap({
     // Befriending spends it; the server owns the roll, the trait, and the roster
     // write, so nothing about this pet is real until that call succeeds.
     const petEncounterToken = useRef("");
+    // Keep the external-explore receipt until the player explicitly Befriends
+    // or Leaves. A refresh during the choice then restages the same sealed pet.
+    const petEncounterExploreOperationId = useRef("");
     const [petBefriendPending, setPetBefriendPending] = useState(false);
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
@@ -2141,20 +2417,6 @@ export function WorldMap({
     // truth — shared with lib/weekly-boss-roam). Kept as a local alias so the
     // rest of this screen is unchanged.
     const sectorPoints = SECTOR_POINTS;
-
-    useEffect(() => {
-        if (!wmZoom.active || !isWildSector(currentSector)) return;
-        const currentPoint = sectorPoints.find((point) => point.id === currentSector);
-        if (!currentPoint) return;
-        let innerFrame = 0;
-        const outerFrame = window.requestAnimationFrame(() => {
-            innerFrame = window.requestAnimationFrame(() => wmZoom.focusPoint(currentPoint.x, currentPoint.y, 2.4));
-        });
-        return () => {
-            window.cancelAnimationFrame(outerFrame);
-            window.cancelAnimationFrame(innerFrame);
-        };
-    }, [currentSector, wmZoom.active, wmZoom.focusPoint]);
 
     // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
     // chip flies the camera to the cluster centroid at a tappable zoom.
@@ -2341,7 +2603,6 @@ export function WorldMap({
         })();
     }
     function triggerTravelPoint(sector: number) {
-        setInspectedMapSector(null);
         // Where you stood in the sector you LEFT, captured before any state moves.
         const originSector = currentSector;
         beginSectorTravel(sector, () => {
@@ -2374,25 +2635,6 @@ export function WorldMap({
         setSectorPlayerPos(road ? road.destinationTile : SECTOR_CENTRE_TILE);
         const splashLabel = regionSplashLabelFor(sector);
         if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
-        });
-    }
-
-    function chooseTravelPoint(sector: number) {
-        if (wmZoom.active) {
-            setInspectedMapSector(sector);
-            setRouteHoverSector(sector);
-            return;
-        }
-        triggerTravelPoint(sector);
-    }
-
-    function closeMapInspection(returnFocus = true) {
-        const sector = inspectedMapSector;
-        setInspectedMapSector(null);
-        setRouteHoverSector(null);
-        if (!returnFocus || sector == null) return;
-        window.requestAnimationFrame(() => {
-            document.querySelector<HTMLButtonElement>(`[data-map-sector="${sector}"]`)?.focus();
         });
     }
 
@@ -2512,28 +2754,331 @@ export function WorldMap({
     // always counted toward the total without paying the ryo line on top.
     // Returns false when the server refused, so the caller shows nothing rather
     // than an outcome the save is about to discard.
-    async function settleExplore(sector: number, credit: ExploreCredit): Promise<boolean> {
-        const settled = await recordSectorExplore(character.name, sector, credit);
+    type SettledExplore = {
+        operation: PendingWorldRewardOperation;
+        outcome?: SectorExploreOutcome;
+        reward?: { sector: number; xp: number; ryo: number };
+    };
+
+    async function settleExplore(
+        sector: number,
+        options: {
+            credit?: ExploreCredit;
+            resolveOutcome?: boolean;
+            externalOutcomeProof?: ExternalExploreProof;
+            petEncounter?: Pet;
+            operationId?: string;
+        },
+    ): Promise<SettledExplore | null> {
+        const operation = options.externalOutcomeProof
+            ? beginExternalWorldExplore(character.name, sector, options.externalOutcomeProof, options.petEncounter, undefined, options.operationId)
+            : beginResolvedWorldExplore(character.name, sector, undefined, options.operationId);
+        const settled = await recordSectorExplore(
+            character.name,
+            sector,
+            options.credit ?? "tile",
+            operation.id,
+            {
+                resolveOutcome: options.resolveOutcome === true,
+                ...(options.externalOutcomeProof ? { externalOutcomeProof: options.externalOutcomeProof } : {}),
+            },
+        );
         if (!settled.character) {
+            if (settled.retryable === false) {
+                completeWorldRewardOperation(character.name, operation.id);
+            }
             alert(settled.error === "daily-limit"
                 ? "Daily tile exploration limit reached (150/150). Resets at midnight UTC."
+                : settled.retryable === false
+                    ? "That expired discovery was safely retired. Explore the sector again to make a new attempt."
                 : "The sector could not be explored right now. Try again in a moment.");
-            return false;
+            return null;
         }
-        const explored = settled.character;
-        // Take the counters from the server (it owns them) but ADD the ryo
-        // rather than adopting its balance, so ryo earned elsewhere since the
-        // last autosave isn't rolled back.
-        updateCharacter(prev => prev ? ({
-            ...prev,
-            ryo: prev.ryo + (settled.reward?.ryo ?? 0),
-            totalTilesExplored: explored.totalTilesExplored ?? prev.totalTilesExplored,
-            dailyTilesExplored: explored.dailyTilesExplored ?? prev.dailyTilesExplored,
-            lastDailyReset: currentDateKey(),
-        }) : prev);
-        onServerVersion?.(settled.saveVersion);
+        // Replay responses contain the already-paid balance. Adopt the full
+        // versioned snapshot; adding the reward again would double it in the UI.
+        if (!onVersionedCharacter(settled.character, settled.saveVersion)) return null;
+        // The same stable receipt proves field-mission progress. Keep the
+        // operation parked until every matching mission explicitly ACKs
+        // `recorded:true`; a dropped 200 response then replays one evidence id.
+        if (!(await recordMissionExplore(sector, operation.id, settled.fieldProgress))) {
+            alert("The tile is safely recorded, but its mission receipt is still syncing. Reopen the map to recover it before exploring again.");
+            return null;
+        }
+        return { operation, outcome: settled.outcome, reward: settled.reward };
+    }
+
+    function stageRecoveredPet(operation: PendingWorldRewardOperation): boolean {
+        const proof = operation.externalOutcomeProof;
+        if (proof?.kind !== "pet" || !operation.petEncounter) return false;
+        petEncounterToken.current = proof.token;
+        petEncounterExploreOperationId.current = operation.id;
+        setPetBefriendPending(false);
+        setActivePetEncounter(operation.petEncounter);
+        setPetVnDone(false);
+        setPetVnPage(0);
+        setPetVnLine(0);
         return true;
     }
+
+    async function settleDiscoveredChest(operation: PendingWorldRewardOperation): Promise<"settled" | "retryable" | "terminal"> {
+        const worldExploreRequestId = operation.kind === "chest"
+            ? operation.worldExploreRequestId
+            : operation.id;
+        if (!worldExploreRequestId) return "terminal";
+        const chestOperation = operation.kind === "chest"
+            ? operation
+            : beginWorldChestOperation(character.name, operation.sector, worldExploreRequestId);
+        const chest = await openAncientChest(
+            character.name,
+            operation.sector,
+            chestOperation.id,
+            worldExploreRequestId,
+        );
+        if (!chest.loot || !chest.character) {
+            if (chest.retryable === false) {
+                completeWorldRewardOperation(character.name, chestOperation.id);
+                completeWorldRewardOperation(character.name, worldExploreRequestId);
+                return "terminal";
+            }
+            return "retryable";
+        }
+        if (!onVersionedCharacter(chest.character, chest.saveVersion)) return "retryable";
+        completeWorldRewardOperation(character.name, chestOperation.id);
+        completeWorldRewardOperation(character.name, worldExploreRequestId);
+        setActiveChest(chest.loot);
+        setChestVnPage(0);
+        setChestVnLine(0);
+        setChestVnDone(false);
+        return "settled";
+    }
+
+    function launchResolvedExploreBattle(sector: number, worldExploreRequestId: string): boolean {
+        setSectorReopen(isWildSector(sector) ? sector : null);
+        return requestAiFight({
+            // The server ignores this suggestion and derives the closest-level
+            // non-boss opponent from the exact exploration receipt.
+            opponentId: "server-explore-opponent",
+            opponentLevel: character.level,
+            battleKind: "explore",
+            opponentName: "Wild Challenger",
+            sector,
+            worldExploreRequestId,
+        });
+    }
+
+    async function recoverResolvedPetOperation(
+        operation: PendingWorldRewardOperation,
+        encounter: Extract<Awaited<ReturnType<typeof startWildPetEncounter>>, { kind: "resolved" }>,
+    ): Promise<boolean> {
+        if (encounter.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+        focusDiscoverySector(encounter.sector);
+        if (encounter.resolution !== "explored-miss") {
+            completeWorldRewardOperation(character.name, encounter.requestId);
+            return true;
+        }
+        const rebound = beginResolvedWorldExplore(character.name, encounter.sector, undefined, encounter.requestId);
+        const explored = await settleExplore(rebound.sector, { resolveOutcome: true, operationId: rebound.id });
+        if (!explored) return false;
+        return (await finishResolvedExplore(explored, false)) !== "blocked";
+    }
+
+    async function recoverPendingExternalDiscovery(
+        operation: PendingWorldRewardOperation,
+        source: "pet" | "dungeon",
+    ): Promise<boolean> {
+        let rebound: PendingWorldRewardOperation;
+        if (source === "pet") {
+            const encounter = await startWildPetEncounter(character.name, operation.sector, operation.id);
+            if (encounter.kind === "resolved") return recoverResolvedPetOperation(operation, encounter);
+            if (encounter.kind === "miss") {
+                if (encounter.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+                focusDiscoverySector(encounter.sector);
+                const miss = beginResolvedWorldExplore(character.name, encounter.sector, undefined, encounter.requestId);
+                const explored = await settleExplore(miss.sector, { resolveOutcome: true, operationId: miss.id });
+                return !!explored && (await finishResolvedExplore(explored, false)) !== "blocked";
+            }
+            if (encounter.kind !== "hit") return false;
+            const requestId = encounter.worldExploreRequestId ?? encounter.requestId;
+            if (requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+            rebound = beginExternalWorldExplore(
+                character.name,
+                encounter.sector,
+                { kind: "pet", token: encounter.token },
+                encounter.pet,
+                undefined,
+                requestId,
+            );
+        } else {
+            let probe;
+            try {
+                probe = await probeFreeDungeonServer(character.name, operation.sector, operation.id);
+            } catch (error) {
+                if (error instanceof DungeonProbeError && !error.retryable) {
+                    completeWorldRewardOperation(character.name, operation.id);
+                    return true;
+                }
+                return false;
+            }
+            if (!onVersionedCharacter(probe.character, probe._saveVersion)) return false;
+            if (probe.resolved) {
+                completeWorldRewardOperation(character.name, operation.id);
+                completeWorldRewardOperation(character.name, probe.requestId);
+                return true;
+            }
+            if (!probe.found) {
+                if (probe.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+                const next = beginWorldDiscoveryOperation(character.name, probe.sector, "pet", undefined, probe.requestId);
+                return (await continueWorldDiscovery(next, false)) !== "blocked";
+            }
+            if (!probe.token) return false;
+            const requestId = probe.worldExploreRequestId ?? probe.requestId;
+            if (requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+            rebound = beginExternalWorldExplore(
+                character.name,
+                probe.sector,
+                { kind: "dungeon", token: probe.token },
+                undefined,
+                undefined,
+                requestId,
+            );
+        }
+        const result = await recordSectorExplore(
+            character.name,
+            rebound.sector,
+            "tile",
+            rebound.id,
+            { externalOutcomeProof: rebound.externalOutcomeProof },
+        );
+        if (!result.character || !onVersionedCharacter(result.character, result.saveVersion)) {
+            if (result.retryable === false) completeWorldRewardOperation(character.name, rebound.id);
+            return false;
+        }
+        if (!(await recordMissionExplore(rebound.sector, rebound.id, result.fieldProgress))) return false;
+        if (source === "pet") return stageRecoveredPet(rebound);
+        if (rebound.externalOutcomeProof?.kind !== "dungeon") return false;
+        onDungeonFound(rebound.externalOutcomeProof.token);
+        completeWorldRewardOperation(character.name, rebound.id);
+        return true;
+    }
+
+    async function recoverPendingWorldRewards(interactive = false): Promise<"none" | "recovered" | "blocked"> {
+        const pending = readPendingWorldRewards(character.name);
+        if (pending.length === 0) return "none";
+        let blocked = false;
+        let recovered = false;
+        let retired = false;
+        for (const operation of pending) {
+            if (!readPendingWorldRewards(character.name).some((current) => current.id === operation.id)) continue;
+            if (operation.kind === "explore") {
+                if (operation.discoveryStage) {
+                    const discovery = await continueWorldDiscovery(operation);
+                    if (discovery === "recovered") {
+                        recovered = true;
+                        break;
+                    }
+                    if (discovery === "retired") retired = true;
+                    else blocked = true;
+                    continue;
+                }
+                const result = await recordSectorExplore(
+                    character.name,
+                    operation.sector,
+                    operation.credit ?? "tile",
+                    operation.id,
+                    {
+                        resolveOutcome: operation.resolveOutcome === true || !operation.externalOutcomeProof,
+                        ...(operation.externalOutcomeProof ? { externalOutcomeProof: operation.externalOutcomeProof } : {}),
+                    },
+                );
+                if (!result.character) {
+                    if (result.error === "pending-pet-discovery" || result.error === "pending-dungeon-discovery") {
+                        const source = result.error === "pending-pet-discovery" ? "pet" : "dungeon";
+                        if (await recoverPendingExternalDiscovery(operation, source)) {
+                            recovered = true;
+                            break;
+                        }
+                    }
+                    if (result.retryable === false) {
+                        completeWorldRewardOperation(character.name, operation.id);
+                        retired = true;
+                    } else {
+                        blocked = true;
+                    }
+                    continue;
+                }
+                if (!onVersionedCharacter(result.character, result.saveVersion)) { blocked = true; continue; }
+                if (await recordMissionExplore(operation.sector, operation.id, result.fieldProgress)) {
+                    if (result.outcome?.kind === "chest") {
+                        const chestState = await settleDiscoveredChest(operation);
+                        if (chestState === "settled") recovered = true;
+                        else if (chestState === "terminal") retired = true;
+                        else blocked = true;
+                    } else if (result.outcome?.kind === "battle") {
+                        if (launchResolvedExploreBattle(operation.sector, operation.id)) {
+                            recovered = true;
+                            // AiFightHost clears the operation only after start
+                            // ACK (or active-session resume), closing the crash gap.
+                            break;
+                        }
+                        blocked = true;
+                    } else if (result.outcome?.kind === "external" && result.outcome.source === "dungeon"
+                        && operation.externalOutcomeProof?.kind === "dungeon") {
+                        onDungeonFound(operation.externalOutcomeProof.token);
+                        completeWorldRewardOperation(character.name, operation.id);
+                        recovered = true;
+                        break;
+                    } else if (result.outcome?.kind === "external" && result.outcome.source === "pet") {
+                        // Never surface a cached token directly. The request receipt
+                        // can reconstruct an expired active pointer, or report that
+                        // the choice already resolved on another device.
+                        if (await recoverPendingExternalDiscovery(operation, "pet")) recovered = true;
+                        else blocked = true;
+                        break;
+                    } else {
+                        completeWorldRewardOperation(character.name, operation.id);
+                        recovered = true;
+                    }
+                } else {
+                    blocked = true;
+                }
+                continue;
+            }
+            const chestState = await settleDiscoveredChest(operation);
+            if (chestState === "settled") recovered = true;
+            else if (chestState === "terminal") retired = true;
+            else blocked = true;
+        }
+        if (interactive && blocked) {
+            alert("A previous World reward is still waiting for the server. It will retry with the same receipt when you reopen the map or reconnect.");
+        } else if (interactive && recovered) {
+            alert("Your previous World reward was recovered from its server receipt. Explore again when you're ready.");
+        } else if (interactive && retired) {
+            alert("An expired World discovery was safely cleared. You can explore again now.");
+        }
+        return blocked ? "blocked" : (recovered || retired) ? "recovered" : "none";
+    }
+
+    useEffect(() => {
+        const activeDungeon = character.activeDungeonRun && typeof character.activeDungeonRun === "object"
+            ? character.activeDungeonRun as Record<string, unknown>
+            : null;
+        const dungeonToken = typeof activeDungeon?.token === "string" ? activeDungeon.token : "";
+        const dungeonSector = Math.floor(Number(activeDungeon?.sector));
+        const boundExploreId = typeof activeDungeon?.exploreReceiptId === "string"
+            ? activeDungeon.exploreReceiptId
+            : undefined;
+        if (activeDungeon?.entry === "free" && dungeonToken && isWildSector(dungeonSector)) {
+            beginExternalWorldExplore(
+                character.name,
+                dungeonSector,
+                { kind: "dungeon", token: dungeonToken },
+                undefined,
+                undefined,
+                boundExploreId,
+            );
+        }
+        void recoverPendingWorldRewards(false);
+    }, [character.name]);
 
     // Async because the tile, the wild-pet roll, and the chest are all settled
     // server-side. The in-flight guard stops a double-click from burning two
@@ -2541,9 +3086,16 @@ export function WorldMap({
     const exploreInFlight = useRef(false);
     async function exploreSector(sector: number) {
         if (exploreInFlight.current) return;
+        exploreInFlight.current = true;
+        const recovered = await recoverPendingWorldRewards(true);
+        if (recovered !== "none") {
+            exploreInFlight.current = false;
+            return;
+        }
         const dailyTiles = character.dailyTilesExplored ?? 0;
         if (dailyTiles >= 150) {
             alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
+            exploreInFlight.current = false;
             return;
         }
         const biome = biomeForSector(sector);
@@ -2552,7 +3104,6 @@ export function WorldMap({
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
-        exploreInFlight.current = true;
         try {
             await resolveExplore(sector);
         } finally {
@@ -2560,134 +3111,140 @@ export function WorldMap({
         }
     }
 
-    async function resolveExplore(sector: number) {
-        if (character.level >= hiddenDungeonVnEvent.levelReq) {
-            try {
-                const probe = await probeFreeDungeonServer(character.name, sector);
-                onServerVersion?.(probe._saveVersion);
-                updateCharacter(prev => prev ? ({
-                    ...prev,
-                    serverFreeDungeonProbeDate: probe.character.serverFreeDungeonProbeDate,
-                    serverFreeDungeonProbesToday: probe.character.serverFreeDungeonProbesToday,
-                    activeDungeonRun: probe.character.activeDungeonRun ?? prev.activeDungeonRun,
-                }) : prev);
-                if (probe.found && probe.token) {
-                    if (!await settleExplore(sector, "tile")) return;
-                    recordMissionExplore(sector);
-                    onDungeonFound(probe.token);
-                    return;
-                }
-            } catch {
-                // A failed authoritative probe means no dungeon is shown. The
-                // ordinary tile can still resolve through its own server-backed
-                // reward paths; there is no local fallback that could mint loot.
-            }
-        }
-        // Wild-pet roll is SERVER-side: /api/pet/encounter-start rolls it, counts
-        // the daily attempt, and seals the pet into a single-use token that
-        // /api/pet/befriend later spends. Rolling it here instead would hand the
-        // pet to the generic save blob, where the save sanitizer rejects any pet
-        // id the stored roster doesn't already have — which is exactly how these
-        // pets used to vanish on the next reload.
-        const petEncounter = await startWildPetEncounter(character.name);
-
-        if (petEncounter) {
-            if (!await settleExplore(sector, "tile")) return;
-            recordMissionExplore(sector);
-
-            petEncounterToken.current = petEncounter.token;
-            setPetBefriendPending(false);
-            setActivePetEncounter(petEncounter.pet);
-            setPetVnDone(false);
-            setPetVnPage(0);
-            setPetVnLine(0);
-            return;
-        }
-
-        // 15% — Ancient Chest found. The server rolls AND banks it in one
-        // locked write (/api/world/open-chest), because the save sanitizer
-        // rejects every tile card and every premium currency a chest can pay:
-        // rolling it here meant the reveal panel showed loot the next reload
-        // erased. Banking at discovery rather than on the claim click also
-        // means walking away from the panel can no longer lose the chest.
-        if (Math.random() < 0.15) {
-            if (!await settleExplore(sector, "tile")) return;
-            recordMissionExplore(sector);
-
-            const chest = await openAncientChest(character.name, sector);
-            if (!chest.loot || !chest.character) {
-                alert(chest.error === "daily-limit"
-                    ? "You have opened every Ancient Chest you can find today."
-                    : "The chest is sealed shut. Try another sector.");
-                return;
-            }
-            const banked = chest.character;
-            updateCharacter(prev => prev ? ({
-                ...prev,
-                ryo: prev.ryo + (chest.loot?.ryo ?? 0),
-                // Currencies and ownership come back absolute — they are all
-                // server-owned, so the server's copy is the only correct one.
-                fateShards: banked.fateShards ?? prev.fateShards,
-                boneCharms: banked.boneCharms ?? prev.boneCharms,
-                auraStones: banked.auraStones ?? prev.auraStones,
-                auraDust: banked.auraDust ?? prev.auraDust,
-                inventory: banked.inventory ?? prev.inventory,
-                tileCards: banked.tileCards ?? prev.tileCards,
-            }) : prev);
-            onServerVersion?.(chest.saveVersion);
-            setActiveChest(chest.loot);
-            setChestVnPage(0);
-            setChestVnLine(0);
-            setChestVnDone(false);
-            return;
-        }
-
-        const battleRoll = Math.random();
-
-        // 80% random AI battle chance — pick AI closest in level to the player.
-        // Boss AIs are excluded from ambush encounters.
-        if (battleRoll <= 0.80 && playableAis.length > 0) {
-            // Village War mercs join the encounter pool when the War Map is on —
-            // peak lv75-100 foes that only surface for high-level explorers (the
-            // level-match below). Inert when the flag is off.
-            const mercPool = isVillageWarMapEnabled() ? mercEncounterAis() : [];
-            const normalAis = [...playableAis.filter(ai => !ai.isBossAi), ...mercPool];
-            const pool = normalAis.length > 0 ? normalAis : playableAis;
-            const sorted = [...pool].sort((a, b) => Math.abs((a.level ?? 1) - character.level) - Math.abs((b.level ?? 1) - character.level));
-            const closestLevel = Math.abs((sorted[0].level ?? 1) - character.level);
-            const levelMatches = sorted.filter(ai => Math.abs((ai.level ?? 1) - character.level) === closestLevel);
-            const randomAi = levelMatches[Math.floor(Math.random() * levelMatches.length)];
-
-            if (!await settleExplore(sector, "tile")) return;
-            // Defer explore-mission credit until the ambush is WON (winBattle).
-            // Losing/fleeing the ambush no longer counts the tile as explored.
-            setPendingExploreSector(sector);
-            // Drop straight into the fight (the Arena pre-fight countdown names the
-            // attacker) — no interstitial popup. Remember the sector so the win's
-            // "Return to Sector" lands the player back here. Only real explorable
-            // sectors (see isWildSector) reopen a detail view; territory/virtual sectors fall
-            // back to the world-map overview.
-            setSectorReopen(isWildSector(sector) ? sector : null);
-            requestAiFight({
-                opponentId: randomAi.id,
-                opponentLevel: randomAi.level ?? character.level,
-                battleKind: "explore",
-                opponentName: randomAi.name,
-                enemyAvatar: randomAi.image,
-                sector,
-            });
-            return;
-        }
-
-        // Nothing else happened on this tile, so it pays the explore ryo — the
-        // 'full' credit. The amount comes from the server (api/world/_explore.ts
-        // holds the canonical formula) rather than being recomputed here.
-        const ryoReward = 10 + Math.floor(sector / 4) + 10 + Math.floor(sector / 10);
-        if (!await settleExplore(sector, "full")) return;
-        recordMissionExplore(sector);
-        alert("Sector " + sector + " explored. +" + ryoReward + " ryo.");
+    function focusDiscoverySector(sector: number) {
+        const discoveryBiome = biomeForSector(sector);
+        setSelectedSector(sector);
+        setCurrentSector(sector);
+        setCurrentBiome(discoveryBiome);
+        setCurrentWeather(weatherForSector(sector, discoveryBiome));
     }
-    function huntSector(sector: number) {
+
+    async function finishResolvedExplore(
+        explored: SettledExplore,
+        interactive: boolean,
+    ): Promise<"recovered" | "blocked" | "retired"> {
+        if (explored.outcome?.kind === "chest") {
+            const chestState = await settleDiscoveredChest(explored.operation);
+            if (interactive && chestState === "retryable") {
+                alert("Your discovered chest is still syncing. Reopen the map to recover it from the same receipt.");
+            } else if (interactive && chestState === "terminal") {
+                alert("That chest discovery expired without a payout and was safely cleared. Explore again to make a new attempt.");
+            }
+            return chestState === "settled" ? "recovered" : chestState === "terminal" ? "retired" : "blocked";
+        }
+        if (explored.outcome?.kind === "battle") {
+            if (launchResolvedExploreBattle(explored.operation.sector, explored.operation.id)) return "recovered";
+            if (interactive) alert("The combat host is unavailable. Reopen the map to resume this sealed encounter.");
+            return "blocked";
+        }
+        completeWorldRewardOperation(character.name, explored.operation.id);
+        if (interactive) {
+            alert(`Sector ${explored.operation.sector} explored. +${Number(explored.reward?.ryo ?? 0)} ryo.`);
+        }
+        return "recovered";
+    }
+
+    async function continueWorldDiscovery(
+        initial: PendingWorldRewardOperation,
+        interactive = false,
+    ): Promise<"recovered" | "blocked" | "retired"> {
+        let operation = initial;
+        if (operation.discoveryStage === "dungeon") {
+            try {
+                const probe = await probeFreeDungeonServer(character.name, operation.sector, operation.id);
+                if (!onVersionedCharacter(probe.character, probe._saveVersion)) return "blocked";
+                if (probe.resolved) {
+                    completeWorldRewardOperation(character.name, operation.id);
+                    completeWorldRewardOperation(character.name, probe.requestId);
+                    return "recovered";
+                }
+                if (probe.found && probe.token) {
+                    const authoritativeId = probe.worldExploreRequestId ?? probe.requestId;
+                    if (authoritativeId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+                    focusDiscoverySector(probe.sector);
+                    const explored = await settleExplore(probe.sector, {
+                        credit: "tile",
+                        externalOutcomeProof: { kind: "dungeon", token: probe.token },
+                        operationId: authoritativeId,
+                    });
+                    if (!explored) return "blocked";
+                    onDungeonFound(probe.token);
+                    completeWorldRewardOperation(character.name, explored.operation.id);
+                    return "recovered";
+                }
+                if (probe.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+                operation = beginWorldDiscoveryOperation(
+                    character.name,
+                    probe.sector,
+                    "pet",
+                    undefined,
+                    probe.requestId,
+                );
+            } catch (error) {
+                if (error instanceof DungeonProbeError && !error.retryable) {
+                    completeWorldRewardOperation(character.name, operation.id);
+                    if (interactive) alert("That dungeon discovery could not commit and was safely retired. Explore again to make a new attempt.");
+                    return "retired";
+                }
+                if (interactive) alert("The hidden-dungeon search is still syncing. Try this exploration again to recover its sealed result.");
+                return "blocked";
+            }
+        }
+
+        if (operation.discoveryStage === "pet") {
+            const petEncounter = await startWildPetEncounter(character.name, operation.sector, operation.id);
+            if (petEncounter.kind === "blocked") {
+                if (!petEncounter.retryable) completeWorldRewardOperation(character.name, operation.id);
+                if (interactive) alert("The wild-pet search is still syncing. Try this exploration again to recover its sealed result.");
+                return petEncounter.retryable ? "blocked" : "retired";
+            }
+            if (petEncounter.kind === "resolved") {
+                return (await recoverResolvedPetOperation(operation, petEncounter)) ? "recovered" : "blocked";
+            }
+            if (petEncounter.kind === "hit") {
+                const authoritativeId = petEncounter.worldExploreRequestId ?? petEncounter.requestId;
+                if (authoritativeId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+                focusDiscoverySector(petEncounter.sector);
+                const explored = await settleExplore(petEncounter.sector, {
+                    credit: "tile",
+                    externalOutcomeProof: { kind: "pet", token: petEncounter.token },
+                    petEncounter: petEncounter.pet,
+                    operationId: authoritativeId,
+                });
+                if (!explored) return "blocked";
+                petEncounterToken.current = petEncounter.token;
+                petEncounterExploreOperationId.current = explored.operation.id;
+                setPetBefriendPending(false);
+                setActivePetEncounter(petEncounter.pet);
+                setPetVnDone(false);
+                setPetVnPage(0);
+                setPetVnLine(0);
+                return "recovered";
+            }
+            if (petEncounter.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+            operation = beginResolvedWorldExplore(character.name, petEncounter.sector, undefined, petEncounter.requestId);
+        }
+
+        const explored = await settleExplore(operation.sector, {
+            resolveOutcome: true,
+            operationId: operation.id,
+        });
+        if (!explored) return "blocked";
+        return finishResolvedExplore(explored, interactive);
+    }
+
+    async function resolveExplore(sector: number) {
+        // Park before the first discovery probe. The same id advances through
+        // dungeon → pet → server-rolled tile outcome, so a lost miss or hit ACK
+        // resumes the exact stage instead of spending another daily attempt.
+        const operation = beginWorldDiscoveryOperation(
+            character.name,
+            sector,
+            character.level >= hiddenDungeonVnEvent.levelReq ? "dungeon" : "pet",
+        );
+        await continueWorldDiscovery(operation, true);
+    }
+    async function huntSector(sector: number) {
         if (!isWildSector(sector)) {
             alert(`Hunting is only available in Sectors 1-${MAX_WILD_SECTOR}.`);
             return;
@@ -2717,24 +3274,87 @@ export function WorldMap({
             return;
         }
 
+        // Reconcile the durable trail before showing a sign or launching combat.
+        // This also recovers a pack decision after refresh/loss without trusting a
+        // client quality roll or an old missionProgress render.
+        const authoritative = await postWorldHunt({
+            playerName: character.name,
+            action: "state",
+            missionId: activeHuntMission.id,
+        });
+        if (!authoritative.ok || !authoritative.state) {
+            if (authoritative.acceptedMissionIds) setAcceptedMissionIds(authoritative.acceptedMissionIds);
+            adoptHuntProgressMirror(activeHuntMission.id, authoritative.state, authoritative.missionProgress);
+            setHuntToast({
+                id: Date.now(),
+                kicker: "Trail unavailable",
+                text: authoritative.error ?? "The Guild no longer has an active trail for this contract.",
+            });
+            return;
+        }
+        if (authoritative.character) {
+            if (!onVersionedCharacter(authoritative.character, authoritative._saveVersion)) return;
+        } else if (onServerVersion?.(authoritative._saveVersion) === false) {
+            return;
+        }
+        if (authoritative.acceptedMissionIds) setAcceptedMissionIds(authoritative.acceptedMissionIds);
+        adoptHuntProgressMirror(activeHuntMission.id, authoritative.state, authoritative.missionProgress);
+        const trailState = authoritative.state;
+        setAuthoritativeHuntStates((current) => ({ ...current, [activeHuntMission.id]: trailState }));
+        if (authoritative.migrated) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "Trail recalibrated",
+                text: `The Guild moved this older contract onto its verified ledger. Your fresh lead is in Sector ${trailState.sector}.`,
+            });
+        }
+        if (trailState.claimable || trailState.targetDefeated) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "Contract complete",
+                text: `${huntAi.name} is already logged as defeated. Return to the Hunter Guild and turn in the contract.`,
+            });
+            return;
+        }
+        if (trailState.sector !== sector) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "The lead moved",
+                text: `The Guild's current trail is in Sector ${trailState.sector}. Follow the paw marker there.`,
+            });
+            return;
+        }
+        const reconciledTrail: ActiveHuntTrail = {
+            mission: activeHuntMission,
+            sector: trailState.sector,
+            progress: trailState.progress,
+            requiredTracks: trailState.requiredTracks,
+        };
+        if (trailState.packPending && !trailState.packSettled && trailState.decisionId) {
+            launchHuntPackStage(activeHuntMission, huntAi, 0, sector, undefined, trailState.decisionId);
+            return;
+        }
+
         // Both branches now open the encounter card instead of acting immediately.
         // Tracking used to advance a counter and silently teleport the player, and
         // the final track cut straight to the Arena behind a toast — no read, no
         // reason, and the beast's portrait never left the contract board.
-        if (!huntReadyForFight(activeHuntMission, activeTrail.progress)) {
+        if (!huntReadyForFight(activeHuntMission, reconciledTrail.progress)) {
             setHuntEncounter({
-                trail: activeTrail,
+                trail: reconciledTrail,
                 ai: huntAi,
                 sector,
-                view: { kind: "track", sign: huntSignFor(activeHuntMission, activeTrail.progress, character.name) },
+                view: { kind: "track", sign: trailState.sign ?? huntSignFor(activeHuntMission, reconciledTrail.progress, playerSlug(character.name)) },
             });
             return;
         }
         setHuntEncounter({
-            trail: activeTrail,
+            trail: reconciledTrail,
             ai: huntAi,
             sector,
-            view: { kind: "confront", opening: huntOpeningFor(readHuntQuality(activeHuntMission.id), huntAi.name) },
+            // The server owns the real opening and rebuilds it at combat start.
+            // This neutral preview discloses no client-authoritative difficulty.
+            view: { kind: "confront", opening: huntOpeningFor(0, huntAi.name) },
         });
     }
 
@@ -2743,24 +3363,41 @@ export function WorldMap({
      * BOUGHT, and it must stick even when the pack then springs), then the ambush
      * roll, then the trail advance.
      */
-    function resolveHuntChoice(encounter: HuntEncounterState, choice: HuntChoice) {
+    async function resolveHuntChoice(encounter: HuntEncounterState, choice: HuntChoice) {
         const { trail, ai, sector } = encounter;
         const mission = trail.mission;
         setHuntEncounter(null);
 
-        if (choice.outcome.quality !== 0) bumpHuntQuality(mission.id, choice.outcome.quality);
+        const decision = await postWorldHunt({
+            playerName: character.name,
+            action: "choose",
+            missionId: mission.id,
+            sector,
+            choiceId: choice.id,
+        });
+        if (!decision.ok) {
+            alert(decision.error ?? "The trail could not be recorded. Try that sign again.");
+            return;
+        }
+        if (decision.character && !onVersionedCharacter(decision.character, decision._saveVersion)) return;
+        else if (!decision.character && onServerVersion?.(decision._saveVersion) === false) return;
+        const nextProgress = decision.progress ?? trail.progress;
+        setMissionProgress((current) => ({ ...current, [mission.id]: Math.max(current[mission.id] ?? 0, nextProgress) }));
+        if (decision.state) setAuthoritativeHuntStates((current) => ({ ...current, [mission.id]: decision.state! }));
 
-        if (rollHuntAmbush(choice.outcome.ambushChance)) {
+        // An idempotent choose retry may echo the original ambush after that pack
+        // already settled. Only the authoritative live pending flag may relaunch it.
+        if (decision.ambush && decision.decisionId && decision.state?.packPending && !decision.state.packSettled) {
             setHuntToast({
                 id: Date.now(),
                 kicker: "The pack breaks first",
                 text: `You are not the hunter here. ${HUNT_PACK_STAGES} of them come out of the scrub at once.`,
             });
-            launchHuntPackStage(mission, ai, 0, sector);
+            launchHuntPackStage(mission, ai, 0, sector, undefined, decision.decisionId);
             return;
         }
 
-        if (!choice.outcome.advances) {
+        if (nextProgress <= trail.progress) {
             setHuntToast({
                 id: Date.now(),
                 kicker: "Trail lost",
@@ -2769,22 +3406,21 @@ export function WorldMap({
             return;
         }
 
-        advanceHuntTrail(trail, ai, sector);
+        advanceHuntTrail({ ...trail, progress: nextProgress - 1 }, ai, sector, decision.nextSector);
     }
 
     /** Advance one track: server ping, local counter, toast, and the travel leg. */
-    function advanceHuntTrail(trail: ActiveHuntTrail, ai: CreatorAi, sector: number) {
+    function advanceHuntTrail(trail: ActiveHuntTrail, ai: CreatorAi, sector: number, authoritativeNextSector?: number) {
         const mission = trail.mission;
         const requiredTracks = trail.requiredTracks;
         const nextProgress = Math.min(requiredTracks, trail.progress + 1);
 
-        recordMissionProgress?.(mission.id, "hunt-track");
-        // Advance the sealed track counter. The kill still has to happen in Arena.
+        // Mirror the server-owned trail counter for immediate UI response.
         setMissionProgress((current) => ({
             ...current,
             [mission.id]: Math.max(nextProgress, current[mission.id] ?? 0),
         }));
-        const nextSector = huntTrailSector(mission, nextProgress, character.name);
+        const nextSector = authoritativeNextSector ?? huntTrailSector(mission, nextProgress, playerSlug(character.name));
         const finalTrackFound = huntReadyForFight(mission, nextProgress);
         setHuntToast({
             id: Date.now(),
@@ -2812,41 +3448,20 @@ export function WorldMap({
         const mission = trail.mission;
         setHuntEncounter(null);
 
-        // Springing the fight also pings hunt-track. The server needs
-        // exploreCount-many evidence ids to allow the claim and the client only
-        // ever sent exactly that many (target-1 tracks + 1 kill) — zero slack, so
-        // ONE dropped POST left the contract permanently unclaimable with no way
-        // to re-track. This spare ping is free: applyMissionProgressEvent caps
-        // hunt-track's exploreCount at target-1, so only a real kill can complete
-        // the receipt. Re-clicking after a loss tops the evidence up again.
-        recordMissionProgress?.(mission.id, "hunt-track");
-
-        // Do not complete progress here; onHuntBeastDefeated does that only after
-        // Arena reports a real win. Losing leaves the trail hot for a rematch.
+        // Keep the board's presentation at the final-track threshold while the
+        // fight is open. Only report-ai-fight's sealed hunt-target WIN writes the
+        // kill receipt and the settlement listener mirrors full progress; a loss
+        // leaves this final lead hot for a rematch.
         setMissionProgress((current) => ({
             ...current,
             [mission.id]: Math.max(trail.requiredTracks - 1, current[mission.id] ?? 0),
         }));
 
-        // applyHuntOpening PRESERVES the ai id, which report-ai-fight matches
-        // against the accepted hunt to stamp the kill receipt. Registering the
-        // clone puts it ahead of the catalog original in the Arena's lookup.
-        registerWandererAi(applyHuntOpening(ai, readHuntQuality(mission.id)));
-        // ⚠ NOT routed to the server arena, and this is load-bearing.
-        // applyHuntOpening is what makes tracking WELL matter: a good trail
-        // corners the beast (less HP, hpFloorExempt) and a bad one enrages it
-        // (+stats). That transform is applied HERE, on the client, from a
-        // client-held quality score. The server builds the encounter from the
-        // catalog profile, so routing this fight would silently delete Hunt
-        // Quality from the Hunter Guild loop — the beast would fight identically
-        // whether you read every sign or blundered in.
-        // Blocked on the SERVER owning hunt quality: it cannot simply be sent,
-        // because "cornered" makes the beast weaker and a client-chosen
-        // difficulty is exactly the authority this migration exists to remove.
-        // Its own progress receipt would have to record the trail's quality.
-        setPendingAiProfileId(ai.id);
-        setRaidBattleKind("raidAi");
-        setScreen("arena");
+        launchWorldMapFight(
+            ai,
+            encounter.sector,
+            { kind: "hunt-target", sourceId: mission.id, sector: encounter.sector, stage: 0 },
+        );
     }
 
     /**
@@ -2854,13 +3469,17 @@ export function WorldMap({
      * across waves) via a `huntPack` mode. Pack members carry derived ids, never
      * the contract beast's — a mook must not be able to stamp the kill receipt.
      */
-    function launchHuntPackStage(mission: CreatorMission, beast: CreatorAi, stage: number, sector: number) {
+    function launchHuntPackStage(mission: CreatorMission, beast: CreatorAi, stage: number, sector: number, chainId?: string, decisionId?: string) {
         const member = huntPackMember(mission, beast.name, stage);
         // Scaled to the player like the bandit gauntlet, and softer than the
         // contract target — these are outriders, not the beast on the poster.
         const pack = makeBuiltinAi(member.id, member.name, beast.icon, Math.max(1, character.level + stage), beast.village, [], 0, undefined, "bruiser");
         pack.image = beast.image || beastPortrait(beast.id);
-        launchWandererArenaFight(pack, "huntPack", stage, sector, { missionId: mission.id });
+        launchWorldMapFight(
+            pack,
+            sector,
+            { kind: "hunt-pack", sourceId: mission.id, sector, stage, ...(chainId ? { chainId } : {}), ...(decisionId ? { decisionId } : {}) },
+        );
     }
     function restInSector(sector: number) {
         const staminaReward = 10 + (sector % 10);
@@ -2915,6 +3534,26 @@ export function WorldMap({
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
         alert(event.name + " complete. " + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character) + ".");
         setSelectedCreatorEvent(null);
+    }
+    function launchCreatorEventFight(event: CreatorEvent, battle?: EventEncounterBattle) {
+        const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character.level);
+        setCurrentBiome(event.biome);
+        setCurrentWeather(weatherForBiome(event.biome));
+        if (!requestAiFight({
+            opponentId: opponent.id,
+            opponentLevel: Math.max(1, event.levelReq || character.level),
+            // Published creator-event battles do not yet have a sealed event
+            // receipt tying combat to the separate VN completion reward. Keep
+            // the canonical Solo-PvE combat preview non-paying until they do.
+            battleKind: "practice",
+            sector: event.targetSector,
+            returnScreen: "worldMap",
+            onResolved: (result) => {
+                if (result.outcome === "win") {
+                    setSelectedCreatorEvent((current) => current?.id === event.id ? null : current);
+                }
+            },
+        })) alert("The sealed practice arena is unavailable. Your event remains open.");
     }
     if (activePetEncounter && !petVnDone) {
         const vn = petEncounterVn;
@@ -3009,16 +3648,22 @@ export function WorldMap({
                             void befriendWildPet(character.name, token).then((result) => {
                                 setPetBefriendPending(false);
                                 if (!result.character) {
-                                    return alert(result.error === "invalid-or-spent-encounter"
-                                            ? "This encounter has expired. Explore again to find another companion."
-                                            : result.error ?? "The pet could not be befriended.");
+                                    if (result.error === "invalid-or-spent-encounter") {
+                                        petEncounterToken.current = "";
+                                        setActivePetEncounter(null);
+                                        window.setTimeout(() => { void recoverPendingWorldRewards(true); }, 0);
+                                        return alert("The Guild is revalidating this pet choice from its sealed discovery receipt.");
+                                    }
+                                    return alert(result.error ?? "The pet could not be befriended.");
                                 }
-                                petEncounterToken.current = "";
-                                setActivePetEncounter(null);
                                 // Adopt the server's persisted character wholesale — a
                                 // locally merged roster would be stripped on the next save.
-                                updateCharacter(result.character);
-                                onServerVersion?.(result.saveVersion);
+                                if (!onVersionedCharacter(result.character, result.saveVersion)) return;
+                                const operationId = petEncounterExploreOperationId.current;
+                                if (operationId) completeWorldRewardOperation(character.name, operationId);
+                                petEncounterExploreOperationId.current = "";
+                                petEncounterToken.current = "";
+                                setActivePetEncounter(null);
                                 const trait = result.trait as PetTrait | null;
                                 const destination = result.destination === "sanctuary" ? "\nYour carried roster was full, so they are resting safely in the Sanctuary." : "";
                                 alert(trait
@@ -3035,8 +3680,27 @@ export function WorldMap({
                         disabled={!petDecisionReady || petBefriendPending}
                         onClick={() => {
                             if (!petDecisionReady || petBefriendPending) return;
-                            petEncounterToken.current = "";
-                            setActivePetEncounter(null);
+                            const token = petEncounterToken.current;
+                            if (!token) return alert("This encounter has expired. Reopen the map to recover it.");
+                            setPetBefriendPending(true);
+                            void declineWildPetEncounter(character.name, token).then((result) => {
+                                setPetBefriendPending(false);
+                                if (!result.ok) {
+                                    if (!result.retryable) {
+                                        petEncounterToken.current = "";
+                                        setActivePetEncounter(null);
+                                        window.setTimeout(() => { void recoverPendingWorldRewards(true); }, 0);
+                                        return alert("The Guild is reconciling this pet choice from its sealed discovery receipt.");
+                                    }
+                                    alert(result.error ?? "The pet is still waiting. Try Leave again when the connection recovers.");
+                                    return;
+                                }
+                                const operationId = petEncounterExploreOperationId.current;
+                                if (operationId) completeWorldRewardOperation(character.name, operationId);
+                                petEncounterExploreOperationId.current = "";
+                                petEncounterToken.current = "";
+                                setActivePetEncounter(null);
+                            });
                         }}
                     >
                         Leave
@@ -3067,7 +3731,7 @@ export function WorldMap({
                 setLineIndex={setCreatorEventLine}
                 onCancel={() => { noteGiverVnClosed(selectedCreatorEvent.id); setSelectedCreatorEvent(null); }}
                 onComplete={() => completeCreatorEvent(selectedCreatorEvent)}
-                onBattle={onStartEventEncounter}
+                onBattle={launchCreatorEventFight}
                 onChoice={(c) => {
                     const ev = selectedCreatorEvent;
                     if (!ev) return;
@@ -3101,11 +3765,24 @@ export function WorldMap({
                         // would grant anyway, then latches starterCardsClaimed.
                         void claimTravelersCodex(character.name).then((resp) => {
                             if (resp.ok) {
+                                // Adopt the mutation version before the local
+                                // mirror changes so an autosave cannot echo the
+                                // pre-claim base and self-conflict with Ihara's
+                                // authoritative codex write.
+                                onServerVersion?.(resp._saveVersion);
                                 updateCharacter(prev => prev ? ({
                                     ...prev,
                                     ...(resp.tileCards ? { tileCards: resp.tileCards } : {}),
                                     starterCardsClaimed: true,
                                 }) : prev);
+                                const recordedDeeds = resp.progressionGranted?.length ?? 0;
+                                if (recordedDeeds > 0) {
+                                    setTravelToast({
+                                        id: Date.now(),
+                                        kicker: "LIVING CHRONICLE",
+                                        text: `Ihara found ${recordedDeeds === 1 ? "one earlier deed" : `${recordedDeeds} earlier deeds`} in the road's surviving accounts and pressed ${recordedDeeds === 1 ? "its record" : "their records"} into your new codex.`,
+                                    });
+                                }
                             } else if (resp.reason === "already-claimed") {
                                 // Self-heal a stale local mirror; the scribe retires.
                                 updateCharacter(prev => prev ? ({ ...prev, starterCardsClaimed: true }) : prev);
@@ -3164,7 +3841,7 @@ export function WorldMap({
         const canBack = creatorEventLine > 0 || creatorEventPage > 0;
         function previousLine() { if (creatorEventLine > 0) return setCreatorEventLine((index) => index - 1); if (creatorEventPage > 0) { const previousPage = pages[creatorEventPage - 1]; setCreatorEventPage((index) => index - 1); setCreatorEventLine(Math.max(0, (previousPage.dialogue.length || 1) - 1)); } }
         function nextLine() { if (creatorEventLine < pageDialogue.length - 1) return setCreatorEventLine((index) => index + 1); if (creatorEventPage < pages.length - 1) { setCreatorEventPage((index) => index + 1); setCreatorEventLine(0); return; } completeCreatorEvent(event); }
-        return <div className="card cinematic-card"><div className="visual-novel admin-vn-play"><div className="vn-header"><div><p className="act-label">ADMIN VISUAL NOVEL EVENT</p><h2>{page.title || event.vnTitle || event.name}</h2></div><div className="vn-progress">Page {creatorEventPage + 1}/{pages.length} | Line {creatorEventLine + 1}/{Math.max(1, pageDialogue.length)}</div></div><div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}><div className="vn-backdrop"><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div><div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div><div className="vn-scene-card">{page.scene || event.vnScene || "An admin-created scene unfolds across the shinobi world."}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={!canBack} onClick={previousLine}>Back</button><button onClick={nextLine}>{creatorEventPage === pages.length - 1 && creatorEventLine >= pageDialogue.length - 1 ? "Complete Event" : "Next"}</button></div></div></div><div className="vn-choice-row"><button onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); }}>Replay Scene</button><button onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); }}>Battle in {biomeLabel(event.biome)}</button><button onClick={() => completeCreatorEvent(event)}>Claim Reward</button></div><div className="vn-reward-strip"><span>Requirement: Level {event.levelReq}</span><span>Reward: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</span></div></div></div>;
+        return <div className="card cinematic-card"><div className="visual-novel admin-vn-play"><div className="vn-header"><div><p className="act-label">ADMIN VISUAL NOVEL EVENT</p><h2>{page.title || event.vnTitle || event.name}</h2></div><div className="vn-progress">Page {creatorEventPage + 1}/{pages.length} | Line {creatorEventLine + 1}/{Math.max(1, pageDialogue.length)}</div></div><div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}><div className="vn-backdrop"><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div><div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div><div className="vn-scene-card">{page.scene || event.vnScene || "An admin-created scene unfolds across the shinobi world."}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={!canBack} onClick={previousLine}>Back</button><button onClick={nextLine}>{creatorEventPage === pages.length - 1 && creatorEventLine >= pageDialogue.length - 1 ? "Complete Event" : "Next"}</button></div></div></div><div className="vn-choice-row"><button onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); }}>Replay Scene</button><button onClick={() => launchCreatorEventFight(event)}>Battle in {biomeLabel(event.biome)}</button><button onClick={() => completeCreatorEvent(event)}>Claim Reward</button></div><div className="vn-reward-strip"><span>Requirement: Level {event.levelReq}</span><span>Reward: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</span></div></div></div>;
     }
     if (activeChest && !chestVnDone) {
         const biome = biomeForSector(selectedSector ?? 40);
@@ -3199,6 +3876,7 @@ export function WorldMap({
         const pageDialogue = page.dialogue;
         const activeLine = pageDialogue[chestVnLine] ?? pageDialogue[0];
         const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
+        const hidePlayerPortrait = hidePlayerPortraitDuringNarration(speaker, "Player");
         const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
         const canBack = chestVnLine > 0 || chestVnPage > 0;
         const isLastPage = chestVnPage >= vnPages.length - 1;
@@ -3235,15 +3913,14 @@ export function WorldMap({
                         <div className="vn-backdrop">
                             {!chestPageImage && <span className="vn-village-silhouette" />}
                         </div>
-                        <div className="vn-character mentor-character">
+                        {hidePlayerPortrait ? null : <div className="vn-character mentor-character">
                             {(() => {
                                 const playerAvatar = sharedImages?.['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || "";
                                 return playerAvatar
                                     ? <img src={playerAvatar} alt={character.name} />
                                     : character.name.slice(0, 2).toUpperCase();
                             })()}
-                        </div>
-                        <div className="vn-character hero-character"><img src="/portraits/narrator.webp" alt="The Narrator" /></div>
+                        </div>}
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -3699,7 +4376,7 @@ export function WorldMap({
                                             sharedImages={sharedImages}
                                             sector={vaultRaid.sector}
                                             targetVillage={vaultRaid.village}
-                                            updateCharacter={updateCharacter}
+                                            onVersionedCharacter={onVersionedCharacter}
                                             onExit={() => setVaultRaid(null)}
                                         />
                                     </Suspense>
@@ -3747,8 +4424,10 @@ export function WorldMap({
                             )}
                             {sageChoiceOpen && sageOffer && (
                                 <SageOfferModal
+                                    key={`${character.name.trim().toLowerCase()}:${sageOffer.spawnedAt}:${sageOffer.status}:${sageOffer.offers.map((entry) => entry.legacyId).join(",")}`}
                                     offer={sageOffer}
                                     playerName={character.name}
+                                    onVersionedCharacter={onVersionedCharacter}
                                     onClose={() => setSageChoiceOpen(false)}
                                     onDeclined={() => {
                                         setSageOffer(null);
@@ -3766,10 +4445,9 @@ export function WorldMap({
                                         setSageOffer(null);
                                         try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
                                     }}
-                                    onAccepted={(legacy) => {
+                                    onAccepted={() => {
                                         setSageOffer(null);
                                         try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
-                                        updateCharacter(prev => prev ? { ...prev, legacy } : prev);
                                     }}
                                 />
                             )}
@@ -4016,13 +4694,7 @@ export function WorldMap({
                                                         <EmissaryTrialPanel
                                                             playerName={character.name}
                                                             emissary={em}
-                                                            onStageUp={(stage, title) => {
-                                                                updateCharacter(prev => prev ? ({
-                                                                    ...prev,
-                                                                    legacy: prev.legacy ? { ...prev.legacy, stage: stage as 1 | 2 | 3 | 4 | 5 } : prev.legacy,
-                                                                    ...(title ? { earnedTitles: Array.from(new Set([...(prev.earnedTitles ?? []), title])) } : {}),
-                                                                }) : prev);
-                                                            }}
+                                                            onVersionedCharacter={onVersionedCharacter}
                                                         />
                                                     )}
                                                     {!character.legacy && character.level >= 50 && (
@@ -4294,12 +4966,10 @@ export function WorldMap({
                                             setCurrentBiome(biome);
                                             setCurrentWeather(sectorWeather);
                                             // sectorAttackPlayer handles its own routing — it sets the
-                                            // screen to "pvpBattle" on a successful session POST and
-                                            // falls back to "arena" only if session creation fails.
-                                            // The redundant setScreen("arena") that used to live here
-                                            // caused a 2–4s flash on the arena page (and the racy
-                                            // arena mount could clobber the pvpBattle context) while
-                                            // the session POST was in flight.
+                                            // screen to "pvpBattle" only after a successful session
+                                            // POST. Keeping navigation in that callback avoids a 2–4s
+                                            // flash and prevents another screen from racing the sealed
+                                            // PvP context while the request is in flight.
                                             sectorAttackPlayer(player);
                                         }}>
                                             <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
@@ -4513,7 +5183,7 @@ export function WorldMap({
                                             }
 
                                             // No guard character — AI fallback
-                                            launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, currentSector);
+                                            launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, virtualSector);
                                         }}
                                     >
                                         🛡️ Challenge Guard
@@ -4613,51 +5283,13 @@ export function WorldMap({
         );
     }
 
-    const mapInspection = inspectedMapSector == null ? null : (() => {
-        const sector = inspectedMapSector;
-        const biome = biomeForSector(sector);
-        const weather = weatherForSector(sector, biome);
-        const territory = loadSectorTerritory(sector);
-        const huntTrail = huntTrailForSector(sector);
-        const shrine = isSectorTracesEnabled() ? shrineForSector(sector) : undefined;
-        const war = activeVillageWarsFor(character.village).find((entry) => entry.warGroundSector === sector && !entry.endedAt);
-        const route = walkingRoute(currentSector, sector);
-        const danger = sector === 99
-            ? "Extreme · open PvP"
-            : war
-                ? "High · active war ground"
-                : sector === weeklyBossSector
-                    ? `High · ${roamingBoss?.bossName ?? "weekly boss"}`
-                    : huntTrail
-                        ? `${huntTrail.mission.rank} hunt trail`
-                        : "Standard wild-sector risk";
-        return {
-            sector,
-            name: sectorName(sector) ?? `Sector ${sector}`,
-            region: sectorRegionName(sector),
-            biome: biomeLabel(biome),
-            weather: weatherEffects[weather].name,
-            danger,
-            owner: territory.ownerClan
-                ? `${territory.ownerClan} · ${territory.ownerVillage}`
-                : "Unclaimed",
-            hunt: huntTrail ? `${huntTrail.mission.name} · ${huntTrail.progress}/${huntTrail.requiredTracks} tracks` : "No active hunt trail",
-            shrine: shrine?.name ?? "No known shrine",
-            route: currentSector === sector
-                ? "You are here"
-                : route
-                    ? `${route.length - 1} road hop${route.length === 2 ? "" : "s"}`
-                    : "Direct travel route",
-        };
-    })();
-
     return (
         <div className="card">
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
                         onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                        label={isWildSector(currentSector) ? `\u2190 Return to ${sectorName(currentSector) ?? `Sector ${currentSector}`}` : "\u2190 Village"}
+                        label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                     />
                     <div className="wm-zoom-controls">
                         <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
@@ -4668,7 +5300,7 @@ export function WorldMap({
             ) : (
                 <BackToVillageButton
                     onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                    label={isWildSector(currentSector) ? `\u2190 Return to ${sectorName(currentSector) ?? `Sector ${currentSector}`}` : "\u2190 Village"}
+                    label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
             {hollowGateMenu && (
@@ -4697,7 +5329,7 @@ export function WorldMap({
                     </div>
                 </div>
             )}
-            {showAttunement && <HollowGateAttunement character={character} updateCharacter={updateCharacter} onClose={() => setShowAttunement(false)} />}
+            {showAttunement && <HollowGateAttunement character={character} onClose={() => setShowAttunement(false)} onVersionedCharacter={onVersionedCharacter} />}
             {/* World-map viewport. Legacy: a horizontal-scroll box on narrow
                 screens. With worldMapZoom.v1 (mobile default): a fit-to-screen
                 pinch / drag zoom surface driven by useWorldMapZoom. */}
@@ -4766,7 +5398,6 @@ export function WorldMap({
                     return (
                     <button
                         key={sector.id}
-                        data-map-sector={sector.id}
                         className={
                             (sector.id === 99
                                 ? "atlas-sector atlas-sector-deaths-gate"
@@ -4777,13 +5408,13 @@ export function WorldMap({
                             + (currentSector === sector.id ? " atlas-sector-current" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
-                        onClick={() => chooseTravelPoint(sector.id)}
+                        onClick={() => triggerTravelPoint(sector.id)}
                         onMouseEnter={() => setRouteHoverSector(sector.id)}
                         onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
                         title={currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle}
                         aria-label={currentSector === sector.id
                             ? `You are here, ${sectorName(sector.id) ?? `Sector ${sector.id}`}`
-                            : `${wmZoom.active ? "Inspect" : "Travel to"} ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
+                            : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                         {sector.id === 99 ? "💀" : sector.id === FESTIVAL_SECTOR ? "☀️" : sector.id}
@@ -4868,52 +5499,6 @@ export function WorldMap({
                 ))}
             </div>
             </div>{/* end world-map-scroll */}
-            {mapInspection && createPortal(
-                <aside
-                    ref={mapInspectionRef}
-                    className="world-map-sector-inspector"
-                    role="dialog"
-                    tabIndex={-1}
-                    aria-labelledby="world-map-sector-inspector-title"
-                >
-                    <header>
-                        <div>
-                            <span>Sector {mapInspection.sector} · {mapInspection.region}</span>
-                            <h2 id="world-map-sector-inspector-title">{mapInspection.name}</h2>
-                        </div>
-                        <Button type="button" variant="ghost" size="sm" className="world-map-sector-inspector__close" aria-label="Close sector details" onClick={() => closeMapInspection()}>×</Button>
-                    </header>
-                    <dl>
-                        <div><dt>Terrain</dt><dd>{mapInspection.biome}</dd></div>
-                        <div><dt>Weather</dt><dd>{mapInspection.weather}</dd></div>
-                        <div><dt>Danger</dt><dd>{mapInspection.danger}</dd></div>
-                        <div><dt>Control</dt><dd>{mapInspection.owner}</dd></div>
-                        <div><dt>Hunt</dt><dd>{mapInspection.hunt}</dd></div>
-                        <div><dt>Shrine</dt><dd>{mapInspection.shrine}</dd></div>
-                        <div><dt>Route</dt><dd>{mapInspection.route}</dd></div>
-                    </dl>
-                    <div className="world-map-sector-inspector__actions">
-                        <Button type="button" variant="ghost" onClick={() => closeMapInspection()}>Keep exploring</Button>
-                        <Button
-                            type="button"
-                            variant="primary"
-                            disabled={isTraveling}
-                            onClick={() => {
-                                const sector = mapInspection.sector;
-                                closeMapInspection(false);
-                                if (currentSector === sector) {
-                                    setSelectedSector(sector);
-                                    return;
-                                }
-                                triggerTravelPoint(sector);
-                            }}
-                        >
-                            {currentSector === mapInspection.sector ? "Enter sector" : `Travel to Sector ${mapInspection.sector}`}
-                        </Button>
-                    </div>
-                </aside>,
-                document.body,
-            )}
             {wmZoom.active && (
                 <div className="wm-village-bar" role="group" aria-label="Jump to region">
                     {WM_CLUSTERS.map((cl) => {
@@ -4965,6 +5550,7 @@ export function WorldMap({
                 const pageDialogue = page.dialogue;
                 const activeLine = pageDialogue[chestVnLine] ?? pageDialogue[0];
                 const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
+                const hidePlayerPortrait = hidePlayerPortraitDuringNarration(speaker, "Player");
                 const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
                 const canBack = chestVnLine > 0 || chestVnPage > 0;
                 const isLastPage = chestVnPage >= vnPages.length - 1;
@@ -5000,8 +5586,7 @@ export function WorldMap({
                                 <div className="vn-backdrop">
                                     {!chestPageImg && <span className="vn-village-silhouette" />}
                                 </div>
-                                <div className="vn-character mentor-character">{character.name.slice(0, 2).toUpperCase()}</div>
-                                <div className="vn-character hero-character"><img src="/portraits/narrator.webp" alt="The Narrator" /></div>
+                                {hidePlayerPortrait ? null : <div className="vn-character mentor-character">{character.name.slice(0, 2).toUpperCase()}</div>}
                                 <div className="vn-scene-card">{page.scene}</div>
                                 <div className="vn-dialogue">
                                     <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>

@@ -10,7 +10,7 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
     RUMOR_MILESTONE_LEVELS, RUMOR_CATEGORIES, rumorArc, rumorForCategory,
-    tavernGossipLine, TAVERN_GOSSIP_COUNT,
+    tavernGossipLine, TAVERN_GOSSIP, TAVERN_GOSSIP_COUNT,
 } from "./legacy-rumors";
 
 // Must match the legacy categories in api/_legacy-defs.ts (LegacyCategory).
@@ -96,5 +96,10 @@ describe("tavern gossip", () => {
         assert.equal(tavernGossipLine("Aoi", 20000), tavernGossipLine("Aoi", 20000), "same day/player is stable");
         const days = new Set(Array.from({ length: 30 }, (_, i) => tavernGossipLine("Aoi", 20000 + i)));
         assert.ok(days.size >= 4, `30 days should surface several distinct lines (got ${days.size})`);
+    });
+    it("keeps the Sage re-offer consistent with the actual player choice", () => {
+        const copy = TAVERN_GOSSIP.join(" ");
+        assert.match(copy, /send the Sage away, but he comes back/i);
+        assert.doesNotMatch(copy, /doesn't ask twice/i);
     });
 });

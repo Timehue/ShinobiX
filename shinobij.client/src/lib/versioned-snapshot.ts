@@ -9,7 +9,7 @@ export type VersionedSnapshotDecision = {
  * been observed; once versioned authority exists, an older response is stale.
  */
 export function acceptVersionedSnapshot(currentVersion: number, incomingVersion: unknown): VersionedSnapshotDecision {
-    if (typeof incomingVersion !== "number" || !Number.isFinite(incomingVersion) || incomingVersion <= 0) {
+    if (typeof incomingVersion !== "number" || !Number.isSafeInteger(incomingVersion) || incomingVersion <= 0) {
         return { accepted: currentVersion <= 0, latestVersion: currentVersion };
     }
     if (incomingVersion < currentVersion) {

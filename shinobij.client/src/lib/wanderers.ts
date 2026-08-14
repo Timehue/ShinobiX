@@ -15,6 +15,7 @@
  *
  * See also docs/sector-wanderers-content.md for the written character voice.
  */
+import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 export type WandererVerb =
     | "attack" | "gift" | "gamble" | "petDuel" | "quest"
@@ -126,7 +127,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         verb: "quest",
         weight: 0.16,
         tellTint: "#8fd0ff",
-        names: ["Old Hermit Roku", "Hermit Kaede", "The Grey Pilgrim", "Master Tobei", "Sister Uzune"],
+        names: ["Old Hermit Roku", "Hermit Kaede", "The Grey Ascetic", "Master Tobei", "Sister Uzune"],
         greetings: [
             "These roads aren't safe, traveler. Lend your blade to a task?",
             "You look capable, and I'm past pretending I can handle this myself. A task, for fair pay?",
@@ -213,7 +214,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     // the synth supplies the real voice/tint from EMISSARY_DEFS.
     "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["The clouds told me you were coming."] },
     "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Don't mind the moths."] },
-    "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Pilgrim Daigo"], greetings: ["Every bead is a fight without a weapon."] },
+    "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Disciple Daigo"], greetings: ["Every bead is a fight without a weapon."] },
     "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["The swords are listening."] },
     "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything's a wager, friend."] },
     "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["Speak softly, or interestingly."] },
@@ -257,7 +258,7 @@ export function isWanderersEnabled(): boolean {
 }
 
 // ── Per-NPC anti-spam cooldown ───────────────────────────────────────────────
-// After a player uses a natural road wanderer (fight a bandit, take a pilgrim's
+// After a player uses a natural road wanderer (fight a bandit, take a road keeper's
 // gift, duel a beast/gambler, or accept/claim from a non-legacy quest sage), that
 // specific NPC goes on cooldown so it can't be farmed. Legacy Sage/emissary NPCs
 // are synthetic and stay out of this path. Keyed by the wanderer's stable id ->
@@ -507,7 +508,7 @@ export function rollWanderers(
 // match the id shape and never relocate (they're server-driven). Keyed, like the
 // cooldowns, by the wanderer's stable id. The whole map self-clears every 6h window
 // (a stale-bucket prune), so it stays tiny.
-const SECTOR_COUNT = 60;
+const SECTOR_COUNT = MAX_WILD_SECTOR;
 
 /** Parse the home sector + window bucket + roster index out of a wanderer id
  *  (`w-<sector>-<dayBucket>-<index>`). Returns null for ids that aren't real

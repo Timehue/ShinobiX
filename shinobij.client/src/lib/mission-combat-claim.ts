@@ -67,9 +67,6 @@ function queueDecision(
     if (!character
         || character.name.toLowerCase() !== playerName.toLowerCase()
         || version === undefined) {
-        // The queue may have committed, but adopting or retiring without its
-        // authoritative snapshot would leave the client on a stale save base.
-        // Keep the run parked; the idempotent replay returns the full snapshot.
         return { queued: false, disposition: "retryable", reason: "authoritative-snapshot-missing" };
     }
     return {
@@ -81,20 +78,6 @@ function queueDecision(
     };
 }
 
-/**
- * Queue the server-side claim for a won combat mission.
- *
- * This is NOT optional bookkeeping: /api/missions/claim-mission rejects the
- * later payout with `not-queued` unless this call minted its durable claim
- * run-bound token, and the local pendingCombatMissionClaims flag can never
- * promote itself into one. The original call site fired this and swallowed
- * every error, which
- * left the player looking at a "Claim Reward" button that could only ever fail.
- *
- * Retries transient failures with backoff. Auth, rate, conflict, network, and
- * server outcomes remain explicitly retryable; only a validated success or a
- * small allowlist of run-invalidating decisions is definitive.
- */
 export async function queueCombatMissionClaim(
     playerName: string,
     missionId: string,
@@ -148,7 +131,6 @@ export async function queueCombatMissionClaim(
     return latestFailure;
 }
 
-/** Player-facing copy for each way deleteServerAccount can fail. */
 export const DELETE_ACCOUNT_ERRORS = {
     auth: "That password was rejected. Your character was NOT deleted.",
     network: "Couldn't reach the server. Your character was NOT deleted — check your connection and try again.",
@@ -159,15 +141,6 @@ export type AccountDeletionResult =
     | { ok: true }
     | { ok: false; reason: "auth" | "server" | "network" };
 
-/**
- * Delete a player's save AND their auth record.
- *
- * Both must succeed before the caller forgets the account locally. If the save
- * is deleted but the auth record survives — or either request fails and the
- * local entry is cleared anyway — the player re-creates the same name and hits a
- * 409 "already exists" against an auth record they can no longer reach. A 404 on
- * either half is success: that half was already gone.
- */
 export async function deleteServerAccount(accountName: string, password: string): Promise<AccountDeletionResult> {
     const slug = accountName.toLowerCase();
     try {
@@ -182,7 +155,7 @@ export async function deleteServerAccount(accountName: string, password: string)
                 body: JSON.stringify({ action: "delete", name: slug, password }),
             }),
         ]);
-        const settled = (r: Response) => r.ok || r.status === 404;
+        const settled = (response: Response) => response.ok || response.status === 404;
         if (settled(saveRes) && settled(authRes)) return { ok: true };
         if (saveRes.status === 401 || authRes.status === 401) return { ok: false, reason: "auth" };
         return { ok: false, reason: "server" };

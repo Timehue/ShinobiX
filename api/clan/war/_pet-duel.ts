@@ -26,10 +26,9 @@ import type { Pet } from '../../_pet-sim/pet-types.js';
 /**
  * Duel parameters PINNED for every clan-war pet battle.
  *
- * These are the values for an asynchronous garrison fight: no PvE mastery
- * multipliers (`isGenericPetOpponent` is false against a player), no items, and
- * no terrain. Consumables must stay inert here because neither owner is present
- * to authorize or atomically settle a charge. KEEP IN SYNC with the client mirror in
+ * These are the values PetArena already uses for a real-player fight: no PvE
+ * mastery multipliers (`isGenericPetOpponent` is false against a player), items
+ * applied, no terrain. KEEP IN SYNC with the client mirror in
  * shinobij.client/src/lib/clan-war-pet-api.ts — the replay must feed the engine
  * exactly these numbers or it will diverge from the recorded result.
  *
@@ -43,7 +42,7 @@ export const CLAN_WAR_PET_DUEL = Object.freeze({
     damageMult: 1,
     hpMult: 1,
     reviveOnce: false,
-    applyItems: false,
+    applyItems: true,
     accuracy: true,
     terrain: null as string | null,
 });
@@ -68,8 +67,6 @@ export interface ClanWarPetSession {
     from: ClanWarPetFighter[];
     to: ClanWarPetFighter[];
     status: 'awaiting-pets' | 'done';
-    /** Async garrison fights never consume an equipped item. Always false. */
-    consumablesCharged: false;
     winner?: ClanWarPetOutcome;
     /** Set once the outcome has been applied to the war record (idempotence). */
     appliedToChallenge?: boolean;
@@ -174,9 +171,6 @@ export function normalizeClanWarPetSession(raw: Partial<ClanWarPetSession> | nul
         from: fighters(raw.from),
         to: fighters(raw.to),
         status: raw.status === 'done' ? 'done' : 'awaiting-pets',
-        // Never trust stored/caller metadata to claim an item charge. This mode
-        // has no item settlement transaction, so the only truthful value is false.
-        consumablesCharged: false,
         winner: raw.winner,
         appliedToChallenge: !!raw.appliedToChallenge,
         createdAt: Math.floor(Number(raw.createdAt) || 0),

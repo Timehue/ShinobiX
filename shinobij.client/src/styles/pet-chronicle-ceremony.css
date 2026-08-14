@@ -1,0 +1,123 @@
+.pet-chronicle-ceremony {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(240, 196, 99, .62);
+    border-radius: 14px;
+    padding: 14px;
+    background:
+        radial-gradient(circle at 12% 20%, rgba(251, 191, 36, .18), transparent 32%),
+        linear-gradient(135deg, rgba(28, 18, 10, .98), rgba(9, 17, 32, .97));
+    box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 16px 42px rgba(0, 0, 0, .36);
+    text-align: left;
+}
+
+.pet-chronicle-ceremony__announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.pet-chronicle-ceremony__seal {
+    position: absolute;
+    right: -14px;
+    bottom: -30px;
+    color: rgba(240, 196, 99, .07);
+    font: 900 8rem/1 Georgia, serif;
+    transform: rotate(-8deg);
+    pointer-events: none;
+}
+
+.pet-chronicle-ceremony__cards {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.pet-chronicle-ceremony__card {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+}
+
+.pet-chronicle-ceremony__card > span {
+    color: #f8d98c;
+    font-size: .66rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.pet-chronicle-ceremony__copy {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+}
+
+.pet-chronicle-ceremony__kicker {
+    margin: 0 0 4px;
+    color: #f8d98c !important;
+    font-size: .66rem !important;
+    font-weight: 900 !important;
+    letter-spacing: .14em;
+}
+
+.pet-chronicle-ceremony h3 {
+    margin: 0 0 7px;
+    color: #fff4cf;
+    font-family: Georgia, serif;
+    font-size: 1.08rem;
+}
+
+.pet-chronicle-ceremony__copy > p:not(.pet-chronicle-ceremony__kicker) {
+    margin: 5px 0;
+    color: #dbe6ef;
+    font-size: .79rem;
+    line-height: 1.45;
+}
+
+.pet-chronicle-ceremony__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.pet-chronicle-ceremony__actions button {
+    min-height: 44px;
+    border: 1px solid rgba(240, 196, 99, .42);
+    border-radius: 9px;
+    padding: 8px 13px;
+    background: rgba(30, 41, 59, .86);
+    color: #f8fafc;
+    font-weight: 800;
+}
+
+.pet-chronicle-ceremony__actions button.primary {
+    border-color: #e7c46b;
+    background: linear-gradient(135deg, #8d6421, #c79b42);
+    color: #100b04;
+}
+
+@media (max-width: 560px) {
+    .pet-chronicle-ceremony { grid-template-columns: 1fr; max-height: 48dvh; overflow-y: auto; }
+    .pet-chronicle-ceremony__cards { justify-content: center; }
+    .pet-chronicle-ceremony__actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .pet-chronicle-ceremony__actions button { width: 100%; }
+}
+
+@media (max-width: 380px) {
+    .pet-chronicle-ceremony__actions { grid-template-columns: 1fr; }
+}

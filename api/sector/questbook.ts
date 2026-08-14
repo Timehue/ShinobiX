@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { worldContextWinProofCount } from '../missions/_world-ai-fight.js';
 import {
     QUEST_BOOK,
     isQuestBookId,
@@ -72,12 +73,28 @@ function mirrorOf(sealed: Sealed) {
     };
 }
 
-async function persist(player: string, saveKey: string, rec: Record<string, unknown>, char: Record<string, unknown>, sealed: Sealed) {
-    await kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS });
+async function persist(player: string, saveKey: string, rec: Record<string, unknown>, char: Record<string, unknown>, sealed: Sealed): Promise<number> {
     const updated = { ...char, activeQuestbook: mirrorOf(sealed) };
     // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
     // so an in-flight epic survives the KV TTL and the Postgres cutover.
-    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: sealed, character: updated }), rec));
+    const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: sealed, character: updated });
+    await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
+    // The save-resident seal is authoritative. Populate the TTL cache only
+    // after that durable write so a cache success + save failure cannot strand
+    // the player behind a 14-day phantom "busy" seal.
+    await kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS }).catch(() => undefined);
+    return Number(nextRecord._saveVersion ?? 0);
+}
+
+function exactBossProofExists(character: Record<string, unknown>, sealed: Sealed, stageIdx: number): boolean {
+    const stage = QUEST_BOOK[sealed.id]?.stages[stageIdx];
+    if (!stage?.bossId || stage.metric !== 'totalAiKills') return true;
+    return worldContextWinProofCount(character, {
+        kind: 'questbook-boss',
+        sourceId: sealed.id,
+        stage: stageIdx,
+        sealVersion: `${sealed.id}:${stageIdx}:${sealed.baseline}:${sealed.at ?? 0}`,
+    }) >= Math.max(1, Math.floor(Number(stage.count) || 1));
 }
 
 type LoadedSeal =
@@ -101,8 +118,9 @@ async function loadSealed(player: string, saveKey: string): Promise<LoadedSeal> 
         await kv.del(questKeyFor(player)).catch(() => undefined);
         if (char.activeQuestbook || rec.activeQuestbookSeal !== undefined) {
             const updated = { ...char, activeQuestbook: null };
-            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }), rec));
-            return { ok: false, result: { status: 200, body: { ok: false, reason: 'none', activeQuestbook: null, character: updated } } };
+            const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated });
+            await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
+            return { ok: false, result: { status: 200, body: { ok: false, reason: 'none', activeQuestbook: null, character: updated, _saveVersion: Number(nextRecord._saveVersion ?? 0) } } };
         }
         return { ok: false, result: { status: 200, body: { ok: false, reason: 'none' } } };
     }
@@ -150,8 +168,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!bandMatches(entry, num(char.level) || 1)) return { status: 200, body: { ok: false, reason: 'band' } };
 
                 const sealed = sealStage(questId, 0, char, {}, Date.now());
-                await persist(playerName, saveKey, rec, char, sealed);
-                return { status: 200, body: { ok: true, id: questId, stage: 0, target: entry.stages[0].count, deadline: sealed.deadline ?? null } };
+                const saveVersion = await persist(playerName, saveKey, rec, char, sealed);
+                return { status: 200, body: { ok: true, id: questId, stage: 0, target: entry.stages[0].count, deadline: sealed.deadline ?? null, _saveVersion: saveVersion } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -175,31 +193,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (stageTimerMs(stage) > 0) {
                     if (!sealed.deadline) {
                         working = { ...sealed, deadline: now + stageTimerMs(stage) };
-                        await persist(playerName, saveKey, rec, char, working);
                     } else if (now > sealed.deadline) {
                         const resetIdx = timerResetStage(entry, stageIdx);
                         const reseal = sealStage(sealed.id, resetIdx, char, choices, now);
-                        await persist(playerName, saveKey, rec, char, reseal);
-                        return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, deadline: reseal.deadline ?? null } };
+                        const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
+                        return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, deadline: reseal.deadline ?? null, _saveVersion: saveVersion } };
                     }
                 }
 
+                const persistMigratedTimer = async (): Promise<Record<string, number>> => {
+                    if (working === sealed) return {};
+                    return { _saveVersion: await persist(playerName, saveKey, rec, char, working) };
+                };
+
                 // Branch: a choice stage advances only via `choose`.
                 if (stageIsChoice(stage) && !choices[stage.key]) {
-                    return { status: 200, body: { ok: false, reason: 'choose', stage: stageIdx } };
+                    return { status: 200, body: { ok: false, reason: 'choose', stage: stageIdx, ...(await persistMigratedTimer()) } };
                 }
 
                 const current = num(char[stage.metric]);
-                if (!questStageComplete(num(working.baseline), current, stage.count)) {
-                    return { status: 200, body: { ok: false, reason: 'incomplete', stage: stageIdx, progress: Math.max(0, current - num(working.baseline)), target: stage.count, deadline: working.deadline ?? null } };
+                if (!exactBossProofExists(char, working, stageIdx)
+                    || !questStageComplete(num(working.baseline), current, stage.count)) {
+                    return { status: 200, body: { ok: false, reason: 'incomplete', stage: stageIdx, progress: Math.max(0, current - num(working.baseline)), target: stage.count, deadline: working.deadline ?? null, ...(await persistMigratedTimer()) } };
                 }
                 if (stageIdx >= finalIdx) {
-                    return { status: 200, body: { ok: true, stage: stageIdx, readyToClaim: true } };
+                    return { status: 200, body: { ok: true, stage: stageIdx, readyToClaim: true, ...(await persistMigratedTimer()) } };
                 }
 
                 const reseal = sealStage(sealed.id, stageIdx + 1, char, choices, now);
-                await persist(playerName, saveKey, rec, char, reseal);
-                return { status: 200, body: { ok: true, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null } };
+                const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
+                return { status: 200, body: { ok: true, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null, _saveVersion: saveVersion } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -222,12 +245,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const now = Date.now();
                 const choices = { ...(sealed.choices ?? {}), [stage.key]: optionKey };
                 if (stageIdx >= finalIdx) {
-                    await persist(playerName, saveKey, rec, char, { ...sealed, choices });
-                    return { status: 200, body: { ok: true, chose: optionKey, readyToClaim: true } };
+                    const saveVersion = await persist(playerName, saveKey, rec, char, { ...sealed, choices });
+                    return { status: 200, body: { ok: true, chose: optionKey, readyToClaim: true, _saveVersion: saveVersion } };
                 }
                 const reseal = sealStage(sealed.id, stageIdx + 1, char, choices, now);
-                await persist(playerName, saveKey, rec, char, reseal);
-                return { status: 200, body: { ok: true, chose: optionKey, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null } };
+                const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
+                return { status: 200, body: { ok: true, chose: optionKey, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null, _saveVersion: saveVersion } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -253,7 +276,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (prior) {
                     await kv.set(doneKeyFor(playerName, sealed.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS }).catch(() => undefined);
                     await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), fateShards: num(prior.fateShards), title: prior.title, standings: prior.standings, clearedRivalry: prior.clearedRivalry === true } };
+                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), fateShards: num(prior.fateShards), title: prior.title, standings: prior.standings, clearedRivalry: prior.clearedRivalry === true, _saveVersion: Number(rec._saveVersion ?? 0) } };
                 }
 
                 const now = Date.now();
@@ -261,15 +284,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (stageTimerMs(stage) > 0 && sealed.deadline && now > sealed.deadline) {
                     const resetIdx = timerResetStage(entry, finalIdx);
                     const reseal = sealStage(sealed.id, resetIdx, char, choices, now);
-                    await persist(playerName, saveKey, rec, char, reseal);
-                    return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count } };
+                    const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
+                    return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, _saveVersion: saveVersion } };
                 }
                 if (stageIsChoice(stage) && !choices[stage.key]) {
                     return { status: 200, body: { ok: false, reason: 'choose', stage: finalIdx } };
                 }
 
                 const current = num(char[stage.metric]);
-                if (!questStageComplete(num(sealed.baseline), current, stage.count)) {
+                if (!exactBossProofExists(char, sealed, finalIdx)
+                    || !questStageComplete(num(sealed.baseline), current, stage.count)) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
                 }
 
@@ -290,10 +314,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null, redeemedQuestbookRuns: [...receipts.slice(-49), receipt] };
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry) updated.wandererNemesis = null;
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }), rec));
+                const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated });
+                await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
                 await kv.del(questKey).catch(() => undefined);
-                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
+                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -307,7 +332,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (rec && char) {
                     const updated = { ...char, activeQuestbook: null };
-                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }), rec));
+                    if (!char.activeQuestbook && rec.activeQuestbookSeal == null) {
+                        return { status: 200, body: { ok: true, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    }
+                    const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated });
+                    await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
+                    return { status: 200, body: { ok: true, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                 }
                 return { status: 200, body: { ok: true } };
             }, { failClosed: true });

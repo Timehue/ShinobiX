@@ -39,7 +39,14 @@ async function trimCache(cache, maxEntries) {
 function withoutRetryParam(rawUrl) {
     const url = new URL(rawUrl);
     url.searchParams.delete('__img_retry');
+    url.searchParams.delete('story-retry');
     return url.href;
+}
+
+function isCacheableHashedAssetResponse(response, pathname) {
+    if (!response.ok) return false;
+    if (!pathname.endsWith('.json')) return true;
+    return (response.headers.get('content-type') || '').toLowerCase().includes('application/json');
 }
 
 function isCacheableImageResponse(response) {
@@ -72,10 +79,13 @@ self.addEventListener('fetch', (event) => {
         event.respondWith((async () => {
             const cache = await caches.open(ASSET_CACHE);
             const cacheKey = withoutRetryParam(url.href);
-            const cached = await cache.match(cacheKey);
+            // An explicit story retry bypasses a possibly malformed immutable
+            // entry, then replaces its canonical key so the repair survives a
+            // later reload. Ordinary content-addressed assets remain cache-first.
+            const cached = url.searchParams.has('story-retry') ? undefined : await cache.match(cacheKey);
             if (cached) return cached;
             const response = await fetch(request);
-            if (response.ok) {
+            if (isCacheableHashedAssetResponse(response, url.pathname)) {
                 const copy = response.clone();
                 event.waitUntil(cache.put(cacheKey, copy).then(() => trimCache(cache, MAX_ASSET_ENTRIES)).catch(() => undefined));
             }

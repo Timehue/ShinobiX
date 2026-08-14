@@ -220,17 +220,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 issued = { token: priorStart.token, runToken: priorRun, offers: priorOffers };
                 return { ok: true as const, character, value: { token: priorStart.token } };
             }
-            const projectedRun = character.hollowGateRun && typeof character.hollowGateRun === 'object'
-                && !Array.isArray(character.hollowGateRun)
-                ? character.hollowGateRun as Record<string, unknown>
-                : null;
-            const projectedToken = typeof projectedRun?.runToken === 'string' ? projectedRun.runToken : '';
-            if (projectedToken) {
-                const activeRun = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, projectedToken));
-                if (activeRun) {
-                    return { ok: false as const, status: 409, error: 'hollow-gate-run-active' };
-                }
-            }
             const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
             const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);
             if (!afterKey) return { ok: false as const, status: 409, error: 'hollow-gate-key-required' };
@@ -365,7 +354,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             if (mutation.error === 'daily-cap') return res.status(200).json({ ok: true, reason: 'daily-cap', token: null });
-            if (mutation.error === 'hollow-gate-run-active') return res.status(409).json({ error: 'Finish or settle the active Hollow Gate dive before starting another.' });
             return res.status(mutation.status).json({ error: mutation.error });
         }
         if (!issued) return res.status(500).json({ error: 'Run token was not issued.' });

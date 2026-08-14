@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "../styles/battle-skin.css";
-import type { Character, BattleHistoryEntry } from "../types/character";
+import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";
 import { fetchTowerState, TowerStateApiError, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
@@ -20,26 +20,25 @@ import { gameConfirm } from "../components/GameAlert";
 // Refresh resume: the tower run is fully server-authoritative — the session lives
 // in tower:<runId> (durable, 30-min TTL renewed on every action). So unlike the
 // arena/endless fights (which snapshot React combat state + a server battle-lock),
-// The only thing this screen persists across a refresh is the runId. While a fight
-// is on the board we store it under TOWER_RUN_KEY; a separate recovery breadcrumb
-// survives an explicit "leave view" so the server run can still be reopened later.
-// On a reload the screen itself is
+// the ONLY thing this screen persists across a refresh is the runId. While a fight
+// is on the board we store it under TOWER_RUN_KEY; on a reload the screen itself is
 // restored (screen-guards' RESTORABLE_SCREENS) and this component re-fetches the
 // live session by that id and drops the player straight back into the fight or its
 // completed result. Transient recovery failures preserve the run id for retry; only
-// an explicit abandon or clean result exit clears the recovery breadcrumb.
+// an explicit recovery stop or confirmed result exit clears it.
 //
-// Presence of the key also IS the "in a fight" signal the nav lock reads.
-// screen-guards owns both the key and the same-tab change event.
+// Presence of the key also IS the "in a fight" signal the nav lock reads
+// (hasActiveTowerFight). lib can't import from screens, so screen-guards keeps a
+// duplicate of this exact key string — keep the two in sync.
 export { TOWER_RUN_KEY };
 export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1";
 
 type View =
     | { phase: "checking"; runId: string }                       // resuming a persisted run
     | { phase: "resumeError"; runId: string; message: string; terminal?: boolean }
-    | { phase: "lobby"; pvpMatchId?: string }                     // pick a floor / resume queue
-    | { phase: "fight"; runId: string; session: TowerSession }   // on the Story/Spire board
-    | { phase: "pvpFight"; match: TowerPvpMatch };                // public exact-2v2 board
+    | { phase: "lobby"; pvpMatchId?: string }                    // pick a floor / resume queue
+    | { phase: "fight"; runId: string; session: TowerSession }  // on the board
+    | { phase: "pvpFight"; match: TowerPvpMatch };               // public exact-2v2 board
 
 function clearFightKey() {
     setTowerFightRunId(null);
@@ -58,14 +57,11 @@ function clearRunKeys() {
     clearRecoveryKey();
 }
 
-// Bound on the resume probe. fetchTowerState rejects fast for the normal failure
-// modes (offline / 404 / 403), but a proxy that accepts then silently holds the
-// connection could hang forever — and the "checking" screen is nav-locked, so
-// without this the player would have no way out. On timeout we surface a retryable
-// recovery state and keep the persisted run id intact.
+// Bound on the resume probe. A proxy can accept then silently hold a request; the
+// timeout enters a recoverable error state without deleting the saved run id.
 const RESUME_TIMEOUT_MS = 12_000;
 
-export function BattleTowers({ character, updateCharacter, sharedImages, hostLoadout, onExit, onRecordBattle }: { character: Character; updateCharacter: (c: Character) => void; sharedImages?: Record<string, string>; hostLoadout?: TowerHostLoadout; onExit: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+export function BattleTowers({ character, updateCharacter, onVersionedCharacter, sharedImages, hostLoadout, onExit, onRecordBattle }: { character: Character; updateCharacter: (c: Character) => void; onVersionedCharacter: VersionedCharacterCommit; sharedImages?: Record<string, string>; hostLoadout?: TowerHostLoadout; onExit: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
     const [view, setView] = useState<View>(() => {
@@ -79,11 +75,8 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
         }
     });
 
-    // Resume a fight that was in progress before a refresh: re-fetch the server
-    // session by its persisted runId. Active and completed sessions both reopen the
-    // fight/result screen; failures enter a retryable state without discarding the
-    // breadcrumb. A single `settled` latch resolves the fetch-vs-timeout race and
-    // ignores a late result after the effect is torn down (unmount / dep change).
+    // Resume active and completed sessions from the persisted run id. The latch
+    // resolves fetch-vs-timeout races; the AbortController rejects late requests.
     const checkingRunId = view.phase === "checking" ? view.runId : null;
     useEffect(() => {
         if (checkingRunId == null) return;
@@ -109,34 +102,28 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
                 const unavailable = error instanceof TowerStateApiError && error.errorCode === "run-unavailable";
                 toError(unavailable
                     ? (error.leaseReleased
-                        ? "The server completed exact recovery and released this run. You can safely return to the Tower lobby."
+                        ? "The server completed recovery and released this run. You can safely return to the Tower lobby."
                         : "This run is no longer available. Its stale recovery link can be cleared safely.")
                     : String((error as Error)?.message || "The run could not be recovered yet."), unavailable);
             });
         return () => { settled = true; controller.abort(); clearTimeout(timer); };
     }, [checkingRunId, character.name]);
 
-    // Persist the active runId while a fight is live so a refresh can resume it; a
-    // hard refresh skips this write, leaving the id for the resume effect above.
-    // Clean exits clear the key directly so it can't linger. Recovery phases skip
-    // this synchronization so the resume probe cannot lose its id before retry.
+    // Preserve the run id through checking, recoverable errors, and the result view.
+    // Only a confirmed result exit or explicit recovery stop clears it.
     useEffect(() => {
-        if (view.phase === "pvpFight") {
-            clearRecoveryKey();
-            setTowerPvpMatchId(view.match.matchId);
-            return;
-        }
-        if (view.phase === "lobby" && view.pvpMatchId) {
-            clearRecoveryKey();
-            setTowerPvpMatchId(view.pvpMatchId);
-            return;
-        }
-        if (view.phase === "checking" || view.phase === "resumeError" || view.phase === "fight") {
-            setTowerFightRunId(view.runId);
-            writeRecoveryKey(view.runId);
-            return;
-        }
-        clearRunKeys();
+        try {
+            if (view.phase === "pvpFight") {
+                clearRecoveryKey();
+                setTowerPvpMatchId(view.match.matchId);
+            } else if (view.phase === "lobby" && view.pvpMatchId) {
+                clearRecoveryKey();
+                setTowerPvpMatchId(view.pvpMatchId);
+            } else if (view.phase === "checking" || view.phase === "resumeError" || view.phase === "fight") {
+                setTowerFightRunId(view.runId);
+                writeRecoveryKey(view.runId);
+            } else clearRunKeys();
+        } catch { /* storage disabled */ }
     }, [view]);
 
     const enterPvpMatch = useCallback((match: TowerPvpMatch) => {
@@ -155,7 +142,8 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
 
     if (view.phase === "checking") {
         return (
-            <div className="arena-fullscreen" role="status" aria-live="polite" aria-busy="true" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: "100dvh", color: "var(--slate-300)" }}>
+            <div className="arena-fullscreen" role="status" aria-live="polite" aria-busy="true"
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: "100dvh", color: "var(--slate-300)" }}>
                 <p className="hint" style={{ margin: 0 }}>Resuming your tower run…</p>
                 {/* Escape hatch: the screen is nav-locked while checking, so give the
                     player a way out if the resume probe is slow/stuck. */}
@@ -197,19 +185,16 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
         return (
             <BattleTowerFight
                 character={character}
-                updateCharacter={updateCharacter}
+                onVersionedCharacter={onVersionedCharacter}
                 sharedImages={sharedImages}
                 hostLoadout={hostLoadout}
                 runId={view.runId}
                 initialSession={view.session}
                 onRecordBattle={onRecordBattle}
                 settleOnAnyDone
-                // Clear the runId synchronously here: the parent's onExit unmounts this
-                // component before the persistence effect could clear it, so without this
-                // the key would linger and trigger a stray "Resuming…" flash next visit.
                 onLeaveActive={() => {
-                    // Leaving the view is not a server abandon. Unlock global navigation
-                    // but keep the independent breadcrumb so reopening Towers reconnects.
+                    // Leaving the view is not a server abandon. Unlock navigation but
+                    // preserve an independent reconnect breadcrumb for this MPvE run.
                     clearFightKey();
                     writeRecoveryKey(view.runId);
                     onExit();
@@ -243,7 +228,6 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
             updateCharacter={updateCharacter}
             hostLoadout={hostLoadout}
             onEnter={(runId, session) => {
-                // Lock global navigation in the same event turn as the lobby action.
                 setTowerFightRunId(runId);
                 writeRecoveryKey(runId);
                 setView({ phase: "fight", runId, session });

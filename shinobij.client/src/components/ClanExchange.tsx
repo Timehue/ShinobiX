@@ -5,7 +5,7 @@ import { clanExchangeItemArt } from "./ClanExchangeItemArt";
 import { CloseButton } from "./ui/CloseButton";
 import { Modal } from "./ui/Modal";
 import clanVaultHero from "../assets/clan-exchange/clan-vault-hero.webp";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { ClanTreasury, EnhancedClanData } from "../types/clan";
 import type { GameItem } from "../types/combat";
 import { cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
@@ -171,11 +171,11 @@ function itemStatus(character: Character, clanData: EnhancedClanData, item: Exch
 
 function applyExchangeResponse(
     result: ClanExchangePurchaseResponse,
-    updateCharacter: Dispatch<SetStateAction<Character | null>>,
+    onVersionedCharacter: VersionedCharacterCommit,
     setClanData: Dispatch<SetStateAction<EnhancedClanData | null>>,
-) {
-    updateCharacter(result.character);
-    if (!result.clan) return;
+): boolean {
+    if (!onVersionedCharacter(result.character, result._saveVersion)) return false;
+    if (!result.clan) return true;
     setClanData((prev) => {
         if (!prev) return prev;
         return enhanceClanData({
@@ -187,20 +187,21 @@ function applyExchangeResponse(
                 : prev.treasury,
         });
     });
+    return true;
 }
 
 export function ClanExchange({
     character,
     clanData,
     allItems,
-    updateCharacter,
+    onVersionedCharacter,
     setClanData,
     children,
 }: {
     character: Character;
     clanData: EnhancedClanData;
     allItems: GameItem[];
-    updateCharacter: Dispatch<SetStateAction<Character | null>>;
+    onVersionedCharacter: VersionedCharacterCommit;
     setClanData: Dispatch<SetStateAction<EnhancedClanData | null>>;
     children?: ReactNode;
 }) {
@@ -234,7 +235,7 @@ export function ClanExchange({
         try {
             const result = await postClanExchangePurchase(character.name, clanData.name, item.id);
             if (!result) return;
-            applyExchangeResponse(result, updateCharacter, setClanData);
+            if (!applyExchangeResponse(result, onVersionedCharacter, setClanData)) return;
             if (result.reveal) setReveal(result.reveal);
             setConfirming(null);
         } finally {

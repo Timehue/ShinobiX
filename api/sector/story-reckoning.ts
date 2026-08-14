@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { worldContextWinProofCount } from '../missions/_world-ai-fight.js';
 import {
     STORY_RECKONINGS,
     STORY_RECKONING_DAILY_CAP,
@@ -63,11 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const baseline = num(char[def.metric]);
                 const sealed: StoryReckoningSeal = { id: def.id, stage: 'task', baseline, at: Date.now() };
-                await kv.set(tokenKey, sealed, { ex: TOKEN_TTL_SECONDS });
                 const activeStoryReckoning = mirrorFor(def, 'task', baseline);
                 const updated = { ...char, activeStoryReckoning };
                 const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed, character: updated });
                 await kv.set(saveKey, mergePreservingImages(next, rec));
+                await kv.set(tokenKey, sealed, { ex: TOKEN_TTL_SECONDS }).catch(() => undefined);
                 return { status: 200, body: { ok: true, activeStoryReckoning, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
@@ -94,7 +95,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning: mirrorFor(def, 'return', num(sealed.baseline)), character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
                 }
                 const current = num(char[def.metric]);
-                if (!storyReckoningTaskComplete(sealed.baseline, current, def.target)) {
+                const exactCombatProof = def.metric !== 'totalAiKills' || worldContextWinProofCount(char, {
+                    kind: 'story-reckoning', sourceId: sealed.id, stage: 0,
+                    sealVersion: `${sealed.id}:${sealed.stage}:${sealed.baseline}:${sealed.at}`,
+                }) >= Math.max(1, Math.floor(def.target));
+                if (!exactCombatProof || !storyReckoningTaskComplete(sealed.baseline, current, def.target)) {
                     let saveVersion = Number(rec._saveVersion ?? 0);
                     if (!durable) {
                         const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed });
@@ -107,11 +112,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (ownedItemCount(char, def.dropItemId) < 1) inventory.push(def.dropItemId);
 
                 const nextSeal: StoryReckoningSeal = { ...sealed, stage: 'return' };
-                await kv.set(tokenKey, nextSeal, { ex: TOKEN_TTL_SECONDS });
                 const activeStoryReckoning = mirrorFor(def, 'return', sealed.baseline);
                 const updated = { ...char, inventory, activeStoryReckoning };
                 const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: nextSeal, character: updated });
                 await kv.set(saveKey, mergePreservingImages(next, rec));
+                await kv.set(tokenKey, nextSeal, { ex: TOKEN_TTL_SECONDS }).catch(() => undefined);
                 return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
@@ -123,6 +128,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rec = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const receipts = Array.isArray(char.redeemedStoryReckonings)
+                    ? char.redeemedStoryReckonings as Array<Record<string, unknown>>
+                    : [];
+                const prior = receipts.find((entry) => entry.questId === def.id);
+                if (prior) {
+                    await kv.del(tokenKey).catch(() => undefined);
+                    return { status: 200, body: {
+                        ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo),
+                        fateShards: num(prior.fateShards), totalFateShards: num(char.fateShards),
+                        title: prior.title, questTitles: strArray(char.questTitles),
+                        completionTrait: prior.completionTrait, activeStoryReckoning: null,
+                        character: char, _saveVersion: Number(rec._saveVersion ?? 0),
+                    } };
+                }
                 const sealed = parseStoryReckoningSeal(rec.activeStoryReckoningSeal)
                     ?? parseStoryReckoningSeal(await kv.get(tokenKey));
                 if (!sealed || sealed.id !== def.id) {
@@ -138,11 +157,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (ownedItemCount(char, def.dropItemId) < 1) return { status: 200, body: { ok: false, reason: 'no-item' } };
 
                 const countKey = `story-reckoning-count:${playerName}:${today}`;
-                if (num(await kv.get<number>(countKey)) >= STORY_RECKONING_DAILY_CAP) {
+                const durableCount = char.storyReckoningRewardDate === today ? num(char.storyReckoningRewardCount) : 0;
+                const compatibilityCount = num(await kv.get<number>(countKey));
+                const claimedToday = Math.max(durableCount, compatibilityCount);
+                if (claimedToday >= STORY_RECKONING_DAILY_CAP) {
                     return { status: 200, body: { ok: false, reason: 'daily-cap' } };
                 }
-                await kv.del(tokenKey).catch(() => undefined);
-                await kv.incr(countKey, { ex: 25 * 60 * 60 });
 
                 const ryo = storyReckoningRyo(char.level, def.weight);
                 const totalRyo = num(char.ryo) + ryo;
@@ -151,9 +171,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!questTitles.includes(def.title)) questTitles.push(def.title);
                 const storyTraits = strArray(char.storyTraits);
                 if (!storyTraits.includes(def.completionTrait)) storyTraits.push(def.completionTrait);
-                const updated = { ...char, ryo: totalRyo, fateShards: totalFateShards, questTitles, storyTraits, activeStoryReckoning: null };
+                const receipt = {
+                    id: `${def.id}:${sealed.at}`, questId: def.id, at: sealed.at,
+                    ryo, fateShards: def.fateShards, title: def.title,
+                    completionTrait: def.completionTrait,
+                };
+                const updated = {
+                    ...char, ryo: totalRyo, fateShards: totalFateShards, questTitles, storyTraits,
+                    activeStoryReckoning: null,
+                    storyReckoningRewardDate: today,
+                    storyReckoningRewardCount: claimedToday + 1,
+                    redeemedStoryReckonings: [...receipts.slice(-39), receipt],
+                };
                 const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
                 await kv.set(saveKey, mergePreservingImages(next, rec));
+                // Cache cleanup/counter mirroring follows the atomic save payout.
+                // A failure here is replay-healed by the durable redemption.
+                await kv.del(tokenKey).catch(() => undefined);
+                await kv.set(countKey, claimedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: def.fateShards, totalFateShards, title: def.title, questTitles, completionTrait: def.completionTrait, activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);

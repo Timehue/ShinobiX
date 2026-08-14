@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity -- polling a server-owned operation projection; Date.now drives display-only countdowns. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClanBossPartyEnvelope } from "../../../shared/clan-boss-operation";
-import type { Character, BattleHistoryEntry } from "../types/character";
+import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { fetchMyRun, type TowerHostLoadout, type TowerSession } from "../lib/towers-api";
 import { visiblePoll } from "../lib/poll";
 import {
@@ -36,12 +36,13 @@ function slug(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRecordBattle }: {
+export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRecordBattle, onVersionedCharacter }: {
     character: Character;
     clanmates: string[];
     hostLoadout?: TowerHostLoadout;
     sharedImages?: Record<string, string>;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const [view, setView] = useState<ClanBossView | null>(null);
     const [partyState, setPartyState] = useState<ClanBossPartyEnvelope | null>(null);
@@ -151,6 +152,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                     initialSession={fight.session}
                     onRecordBattle={onRecordBattle}
                     settleFn={settleClanBossAssault}
+                    onVersionedCharacter={onVersionedCharacter}
                     settleOnAnyDone
                     onExit={() => {
                         setFight(null);

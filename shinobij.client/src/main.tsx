@@ -45,7 +45,8 @@ const legalSlug = (() => {
 const introPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'intro'
 const cinematicVnPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'vn'
 
-createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!)
+root.render(
     <StrictMode>
         {cinematicVnPreview && CinematicVnPreview ? (
             <Suspense fallback={null}>
@@ -69,3 +70,9 @@ createRoot(document.getElementById('root')!).render(
         )}
     </StrictMode>,
 )
+
+// The CSP-safe pre-React watchdog is intentionally outside the app bundle so
+// it can recover failed module/preload requests. Reaching this synchronous line
+// proves the complete entry graph evaluated and React accepted its first render;
+// cancel the bounded failure UI without waiting for App's data/network boot.
+;(window as Window & { __shinobiBootReady?: () => void }).__shinobiBootReady?.()

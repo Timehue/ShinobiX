@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import type React from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
@@ -9,12 +10,13 @@ import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
+import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
 import { beastPortrait, huntMaterialIcon, hunterRankBadge, HUNTER_GUILD_BACKDROP, APEX_CONTRACT_BANNER } from "../data/hunter-art";
-import { clearHuntQuality } from "../lib/hunt-run-state";
 import { huntTrailSector } from "../lib/hunt-trail";
+import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { setSectorReopen } from "../lib/sector-return";
 import {
     APEX_FATE_SHARDS,
@@ -32,35 +34,75 @@ import { countItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { gameConfirm } from "../components/GameAlert";
+import { playerSlug } from "../lib/utils";
 
 export function HunterBoard({
     character,
     updateCharacter,
+    onVersionedCharacter,
+    onServerVersion,
     creatorAis,
     acceptedMissionIds,
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
-    // Was declared in the prop type but never destructured — a leftover from an
-    // older "fight straight from the board" path. The Apex Contract is exactly
-    // that, so it finally has a use.
     setScreen,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    onVersionedCharacter: VersionedCharacterCommit;
+    onServerVersion: (version: unknown) => boolean;
     creatorAis: CreatorAi[];
     acceptedMissionIds: string[];
     setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-    setPendingAiProfileId: (id: string) => void;
-    /** Required for the Apex fight to register as a hunt — see faceApex. */
-    setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     setScreen: (s: Screen) => void;
 }) {
     const hunterRank = character.hunterRank ?? 0;
     const huntCap = dailyHuntCap(character);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
+    const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
+    const huntClaimInFlight = useRef(false);
+    const [claimingHuntId, setClaimingHuntId] = useState<string | null>(null);
+    const acceptedHuntKey = builtinHuntMissions
+        .filter((mission) => acceptedMissionIds.includes(mission.id))
+        .map((mission) => mission.id)
+        .sort()
+        .join("|");
+
+    // The Guild can be opened directly after a refresh, including while a pack
+    // is pending at the sign's decision sector. Reconcile the same durable state
+    // the World Map uses so Go To Sector and Claim never depend on a stale local
+    // progress hash.
+    useEffect(() => {
+        let cancelled = false;
+        const missionIds = acceptedHuntKey ? acceptedHuntKey.split("|") : [];
+        void (async () => {
+            const next: Record<string, WorldHuntTrailView> = {};
+            for (const missionId of missionIds) {
+                const result = await postWorldHunt({ playerName: character.name, action: "state", missionId });
+                if (cancelled || !result.ok) continue;
+                if (result.character) {
+                    if (!onVersionedCharacter(result.character, result._saveVersion)) continue;
+                } else if (!onServerVersion(result._saveVersion)) {
+                    continue;
+                }
+                if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
+                if (result.state) next[missionId] = result.state;
+                setMissionProgress((current) => {
+                    const progress = result.missionProgress ? { ...result.missionProgress } : { ...current };
+                    const mission = builtinHuntMissions.find((entry) => entry.id === missionId);
+                    if (mission && (result.state?.claimable || result.state?.targetDefeated)) {
+                        progress[missionId] = mission.exploreCount;
+                    }
+                    return progress;
+                });
+            }
+            if (!cancelled) setAuthoritativeHuntStates(next);
+        })();
+        return () => { cancelled = true; };
+    }, [acceptedHuntKey, character.name, onServerVersion, onVersionedCharacter, setAcceptedMissionIds, setMissionProgress]);
 
     function invCount(itemId: string) {
         return countItem(character, itemId);
@@ -74,29 +116,57 @@ export function HunterBoard({
             return alert(`You need ${req.qty}x ${HUNT_MATERIAL_NAMES[req.itemId]} to advance your Hunter Rank.`);
         }
         try {
-            updateCharacter(await rankUpHunterServer(character.name));
+            const result = await rankUpHunterServer(character.name);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             alert(`Hunter Rank advanced! You are now a ${HUNTER_RANK_LABELS[hunterRank + 1]}.`);
         } catch (error) {
             alert(error instanceof Error ? error.message : "Hunter Rank advancement failed.");
         }
     }
 
-    function acceptHunt(mission: CreatorMission) {
+    async function acceptHunt(mission: CreatorMission) {
         if (!requireServerSettlement("fieldHuntMissions")) return;
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if ((HUNT_MIN_RANK[mission.rank] ?? 0) > hunterRank) return alert(`Requires Hunter Rank: ${HUNTER_RANK_LABELS[HUNT_MIN_RANK[mission.rank] ?? 0]}.`);
-        if (acceptedMissionIds.includes(mission.id)) return;
-        setAcceptedMissionIds((prev) => [...prev, mission.id]);
-        // Reset tracking to 0 on accept — never inherit a stale value left in the
-        // shared map, which would make the contract instantly (falsely) claimable.
-        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-        // Same reasoning for Hunt Quality: a re-accepted contract starts neutral,
-        // never inheriting the tracking decisions of a previous run.
-        clearHuntQuality(mission.id);
+        // Idempotent on the server. Calling accept for an already-visible legacy
+        // contract lets rollout migration materialize its authoritative trail.
+        const result = await postWorldHunt({ playerName: character.name, action: "accept", missionId: mission.id });
+        if (!result.ok) {
+            // Claimed-today/stale cross-device cards return a cleaned snapshot
+            // even with a conflict status. Adopt it before explaining why this
+            // exact contract cannot be reaccepted.
+            if (result.character) {
+                if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+            } else if (result._saveVersion !== undefined && !onServerVersion(result._saveVersion)) return;
+            if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
+            if (result.missionProgress) setMissionProgress(result.missionProgress);
+            setAuthoritativeHuntStates((current) => {
+                const next = { ...current };
+                if (result.state) next[mission.id] = result.state;
+                else delete next[mission.id];
+                return next;
+            });
+            return alert(result.error ?? "The Guild could not seal this contract. Try again.");
+        }
+        if (result.character) {
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+        } else if (!onServerVersion(result._saveVersion)) return;
+        setAcceptedMissionIds(result.acceptedMissionIds ?? ((prev) => prev.includes(mission.id) ? prev : [...prev, mission.id]));
+        setMissionProgress(result.missionProgress ?? ((prev) => ({ ...prev, [mission.id]: result.progress ?? 0 })));
+        if (result.reason === "already-claimed-today") {
+            setAuthoritativeHuntStates((current) => {
+                const next = { ...current };
+                delete next[mission.id];
+                return next;
+            });
+            return alert("That hunt was already claimed today. The Guild refreshed your ledger instead of accepting it again.");
+        }
+        if (!result.state) return alert("The Guild did not issue an active trail. Reopen the board before hunting this target.");
+        setAuthoritativeHuntStates((current) => ({ ...current, [mission.id]: result.state! }));
         // First lead sits where the world-map paw marker starts (the trail roams
         // inward toward targetSector), so point the player there, not at the beast's
         // final ground.
-        const firstLead = huntTrailSector(mission, 0, character.name);
+        const firstLead = result.state?.sector ?? result.nextSector ?? huntTrailSector(mission, result.progress ?? result.state?.progress ?? 0, playerSlug(character.name));
         alert(`${mission.name} accepted. Your first lead is in Sector ${firstLead} — head there and use Hunt to pick up the trail, then follow the paw marker to the beast.`);
     }
 
@@ -104,9 +174,51 @@ export function HunterBoard({
         return itemIds.map((id) => starterItems.find((i) => i.id === id)?.name ?? id);
     }
 
+    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): boolean {
+        const authoritativeCommit = commitAuthoritativeMissionClaim(result, onVersionedCharacter);
+        if (authoritativeCommit !== null) return authoritativeCommit;
+        if (!onServerVersion(result._saveVersion)) return false;
+        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+        return true;
+    }
+
     async function claimHunt(mission: CreatorMission) {
+        if (huntClaimInFlight.current) return;
+        huntClaimInFlight.current = true;
+        setClaimingHuntId(mission.id);
+        try {
+            await claimHuntOnce(mission);
+        } finally {
+            huntClaimInFlight.current = false;
+            setClaimingHuntId(null);
+        }
+    }
+
+    async function claimHuntOnce(mission: CreatorMission) {
         if (!requireServerSettlement("fieldHuntMissions")) return;
-        const progress = missionProgress[mission.id] ?? 0;
+        let progress = missionProgress[mission.id] ?? 0;
+        // A target WIN receipt may have committed just before a refresh while
+        // the local presentation mirror was still required-1. Probe the durable
+        // trail before refusing the normal explicit turn-in.
+        if (progress < mission.exploreCount) {
+            const trail = await postWorldHunt({ playerName: character.name, action: "state", missionId: mission.id });
+            if (trail.ok) {
+                if (trail.character) {
+                    if (!onVersionedCharacter(trail.character, trail._saveVersion)) return;
+                } else if (!onServerVersion(trail._saveVersion)) {
+                    return;
+                }
+                if (trail.acceptedMissionIds) setAcceptedMissionIds(trail.acceptedMissionIds);
+                if (trail.state) setAuthoritativeHuntStates((current) => ({ ...current, [mission.id]: trail.state! }));
+                progress = trail.state?.claimable || trail.state?.targetDefeated
+                    ? mission.exploreCount
+                    : trail.missionProgress?.[mission.id] ?? trail.state?.progress ?? progress;
+                setMissionProgress((current) => ({
+                    ...(trail.missionProgress ?? current),
+                    [mission.id]: progress,
+                }));
+            }
+        }
         if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
         if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${huntCap}/${huntCap}). Resets at midnight UTC.`);
 
@@ -117,10 +229,9 @@ export function HunterBoard({
         const result = await postClaimMission(character.name, "hunt", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
-            updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+            if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-            clearHuntQuality(mission.id);
             alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
@@ -128,8 +239,23 @@ export function HunterBoard({
             if (result.reason === "already-claimed-today" || result.reason === "already-claimed") {
                 // Server already paid this hunt today — reconcile the local board so a
                 // desynced client stops showing a dead Claim button on a done contract.
-                setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
-                setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
+                const trail = await postWorldHunt({ playerName: character.name, action: "state", missionId: mission.id });
+                if (!trail.ok) {
+                    return alert("The reward is paid, but the Guild is still syncing its receipt. Try Claim again to reconcile it.");
+                }
+                if (trail.character) {
+                    if (!onVersionedCharacter(trail.character, trail._saveVersion)) return;
+                } else if (!onServerVersion(trail._saveVersion)) {
+                    return;
+                }
+                if (trail.acceptedMissionIds) setAcceptedMissionIds(trail.acceptedMissionIds);
+                if (trail.missionProgress) setMissionProgress(trail.missionProgress);
+                setAuthoritativeHuntStates((current) => {
+                    const next = { ...current };
+                    if (trail.state) next[mission.id] = trail.state;
+                    else delete next[mission.id];
+                    return next;
+                });
                 return alert(claimReasonMessage(result.reason, result));
             }
             if (
@@ -156,21 +282,19 @@ export function HunterBoard({
         }
     }
 
-    /**
-     * Drop an accepted contract. Purely local: accepted ids and tracking progress
-     * both live in the save, so removing them here and letting the autosave persist
-     * is acceptHunt in reverse — no reward, no server call. Gives the player an exit
-     * from a contract they no longer want (or a rare receipt desync the self-heal
-     * above didn't catch).
-     */
+    /** Drop an accepted contract through the authoritative trail ledger. */
     // gameConfirm, not the bare global confirm(): the native dialog renders raw browser
     // chrome over the game and skips the focus trap / scroll lock the themed one has.
     // Marked danger — abandoning discards tracking progress.
     async function abandonHunt(mission: CreatorMission) {
         if (!await gameConfirm(`Abandon "${mission.name}"? You'll lose your tracking progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;
-        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
-        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-        clearHuntQuality(mission.id);
+        const result = await postWorldHunt({ playerName: character.name, action: "abandon", missionId: mission.id });
+        if (!result.ok) return alert(result.error ?? "The Guild could not release this contract. Try again.");
+        if (result.character) {
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+        } else if (!onServerVersion(result._saveVersion)) return;
+        setAcceptedMissionIds(result.acceptedMissionIds ?? ((prev) => prev.filter((id) => id !== mission.id)));
+        setMissionProgress(result.missionProgress ?? ((prev) => ({ ...prev, [mission.id]: result.progress ?? 0 })));
     }
 
     // ── Apex Contract ───────────────────────────────────────────────────────
@@ -186,12 +310,8 @@ export function HunterBoard({
         // so nothing about the encounter is modified client-side. That makes it
         // safe to seal.
         //
-        // ⚠ setRaidBattleKind is REQUIRED, not decoration. Without it the fight
-        // registered as neither a mission nor a raid, so Arena.winBattle took its
-        // `isPlainPractice` branch and returned BEFORE reporting — and
-        // report-ai-fight is the only writer of the apex kill receipt. The kill
-        // was never recorded and the purse could never be claimed. The Apex IS a
-        // hunt; every other hunt beast is fought as a raidAi, and now so is this.
+        // `raidAi` is sealed before combat so report-ai-fight can write the Apex
+        // kill receipt. The board never stages a local Arena fallback.
         const apexAiId = apexBeastForWeek(apexWeek).apexAiId;
         requestAiFight({
             opponentId: apexAiId,
@@ -212,7 +332,7 @@ export function HunterBoard({
         const result = await postClaimMission(character.name, "apex", "apex-weekly");
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
-            updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+            if (!applySuccessfulMissionClaim(result)) return;
             alert(`Apex Contract complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
@@ -318,14 +438,19 @@ export function HunterBoard({
                             <div className="hunt-contract-grid">
                                 {missions.map((mission) => {
                                     const accepted = acceptedMissionIds.includes(mission.id);
-                                    const progress = missionProgress[mission.id] ?? 0;
-                                    const complete = progress >= mission.exploreCount;
+                                    const authoritative = authoritativeHuntStates[mission.id];
+                                    const progress = authoritative?.claimable || authoritative?.targetDefeated
+                                        ? mission.exploreCount
+                                        : authoritative?.progress ?? missionProgress[mission.id] ?? 0;
+                                    const complete = authoritative?.claimable === true
+                                        || authoritative?.targetDefeated === true
+                                        || progress >= mission.exploreCount;
                                     // The trail roams inward toward the beast, so the current lead is
                                     // NOT the final targetSector until the last track. Point "Go To
                                     // Sector" at the same sector the world-map paw marker sits on
                                     // (huntTrailSector), not the destination — otherwise the button
                                     // sends the player to an empty sector with no active trail.
-                                    const leadSector = huntTrailSector(mission, progress, character.name);
+                                    const leadSector = authoritative?.sector ?? huntTrailSector(mission, progress, playerSlug(character.name));
                                     const beastAi = creatorAis.find((a) => a.id === mission.aiProfileId);
                                     return (
                                         <div key={mission.id} className="hunt-contract-card">
@@ -365,10 +490,10 @@ export function HunterBoard({
                                                     ? <button onClick={() => acceptHunt(mission)}>Accept Hunt</button>
                                                     : <>
                                                         {complete
-                                                            ? <button onClick={() => claimHunt(mission)}>Claim Reward</button>
+                                                            ? <button disabled={claimingHuntId !== null} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claimingâ€¦" : "Claim Reward"}</button>
                                                             : <button onClick={() => { setSectorReopen(leadSector); setScreen("worldMap"); }}>Go To Sector {leadSector}</button>
                                                         }
-                                                        <button className="danger-button" onClick={() => void abandonHunt(mission)}>Give Up</button>
+                                                        <button className="danger-button" disabled={claimingHuntId !== null} onClick={() => void abandonHunt(mission)}>Give Up</button>
                                                     </>
                                                 }
                                             </div>

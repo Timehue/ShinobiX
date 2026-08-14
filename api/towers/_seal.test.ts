@@ -93,6 +93,42 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         assert.ok((jutsu[0].chakraCost as number) > 0, 'catalog jutsu carries its real chakra cost');
     });
 
+    it('matches the ordinary PvP v2 resource contract for universal Flicker', () => {
+        for (const [level, staminaCost] of [[1, 12], [30, 35]] as const) {
+            const equippedJutsuIds = ['starter-universal-flicker'];
+            const saveChar = {
+                name: 'Hero',
+                level,
+                specialty: 'Ninjutsu',
+                bloodline: 'None',
+                stats: {},
+                equippedJutsuIds,
+            };
+            const sealed = sealTowerFighter(
+                saveChar,
+                { character: saveChar, savedBloodlines: [], creatorJutsus: [] },
+                {},
+                null,
+            );
+            const flicker = (sealed.jutsu as Array<Record<string, unknown>>)
+                .find((jutsu) => jutsu.id === 'starter-universal-flicker');
+
+            assert.ok(flicker, `Flicker remains in the level-${level} server-sealed Tower loadout`);
+            assert.deepEqual(
+                {
+                    ap: flicker.ap,
+                    chakraCost: flicker.chakraCost,
+                    staminaCost: flicker.staminaCost,
+                    cooldown: flicker.cooldown,
+                },
+                // combatResourcesV2 is ordinary PvE/PvP truth: the catalog's legacy
+                // two-bar 25/25 marker becomes one level-scaled discipline cost.
+                { ap: 20, chakraCost: 0, staminaCost, cooldown: 2 },
+                `level-${level} Flicker runtime contract`,
+            );
+        }
+    });
+
     it('DERIVES equipment passives + pvpItems from the save (server-authoritative; ignores client-claimed values)', () => {
         // bloodlineMult / armor* / item*Pct + the equipped-weapon loadout are now
         // DERIVED server-side from the save's equipped bloodline rank + equipped

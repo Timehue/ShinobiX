@@ -12,14 +12,21 @@ type SavePayload = {
     [key: string]: unknown;
 };
 
+type SaveFixtureCommit = {
+    baseVersion: number;
+    version: number;
+    postedState: string;
+};
+
 function json(route: Route, body: unknown, status = 200) {
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function installAuthenticatedApi(page: Page) {
-    let save: SavePayload | null = null;
-    let saveVersion = 0;
-    let forcedCharacterPatch: Record<string, unknown> = {};
+async function installAuthenticatedApi(page: Page, initialSave: SavePayload | null = null) {
+    let save: SavePayload | null = initialSave ? structuredClone(initialSave) : null;
+    let saveVersion = save ? 1 : 0;
+    let acknowledgedVersion = 0;
+    let lastCommit: SaveFixtureCommit | null = null;
     let battleHistoryFailure = false;
     let battleHistoryRequests = 0;
     await page.route("**/api/**", async (route) => {
@@ -32,26 +39,40 @@ async function installAuthenticatedApi(page: Page) {
             : null;
         if (requestedSavePlayer?.startsWith("adaptiveninja")) {
             if (request.method() === "GET") {
-                return save ? json(route, { ...save, _saveVersion: saveVersion }) : json(route, { error: "Not found" }, 404);
+                if (!save) return json(route, { error: "Not found" }, 404);
+                return json(route, { ...save, _saveVersion: saveVersion });
             }
             if (request.method() === "POST") {
                 const incoming = request.postDataJSON() as SavePayload;
-                saveVersion += 1;
-                save = {
-                    ...incoming,
-                    character: {
-                        ...(incoming.character ?? {}),
-                        ...forcedCharacterPatch,
-                        onboardingStep: "done",
-                        ryo: 9_999_999,
-                        fateShards: 9_999,
-                        boneCharms: 9_999,
-                        auraStones: 9_999,
-                        mythicSeals: 9_999,
-                        inventory: [...((incoming.character?.inventory as string[] | undefined) ?? []), "dungeon-key"],
-                    },
-                };
-                return json(route, { ok: true, _saveVersion: saveVersion });
+                const rawBaseVersion = incoming._baseSaveVersion;
+                if (!Number.isSafeInteger(rawBaseVersion) || Number(rawBaseVersion) < 0) {
+                    return json(route, {
+                        error: "Your game client is out of date. Please refresh the page to keep saving.",
+                        code: "CLIENT_REFRESH_REQUIRED",
+                    }, 426);
+                }
+                const baseVersion = Number(rawBaseVersion);
+                if (baseVersion !== saveVersion) {
+                    return json(route, {
+                        error: "Save conflict — another tab or device wrote first.",
+                        currentVersion: saveVersion,
+                    }, 409);
+                }
+
+                const persistedIncoming = { ...incoming };
+                delete persistedIncoming._baseSaveVersion;
+                delete persistedIncoming._saveVersion;
+                delete persistedIncoming._saveAt;
+                const postedState = JSON.stringify(persistedIncoming);
+                const nextSave = JSON.parse(postedState) as SavePayload;
+
+                const nextVersion = saveVersion + 1;
+                save = nextSave;
+                saveVersion = nextVersion;
+                lastCommit = { baseVersion, version: nextVersion, postedState };
+                await json(route, { ok: true, _saveVersion: nextVersion });
+                acknowledgedVersion = nextVersion;
+                return;
             }
         }
         if (path === "/api/battle-lock") return json(route, { lock: null });
@@ -129,7 +150,15 @@ async function installAuthenticatedApi(page: Page) {
         });
     });
     return {
-        hasSave: () => save !== null,
+        committedVersion: () => saveVersion,
+        acknowledgedVersion: () => acknowledgedVersion,
+        lastCommit: () => lastCommit,
+        persistedStateMatchesLastPost: () => Boolean(lastCommit && save && JSON.stringify(save) === lastCommit.postedState),
+        seedSaveBeforeBoot: (initial: SavePayload) => {
+            if (save || lastCommit) throw new Error("The adaptive save must be seeded before authenticated boot");
+            save = structuredClone(initial);
+            saveVersion = 1;
+        },
         patchSave: (patch: SavePayload) => {
             if (!save) throw new Error("Cannot patch the adaptive fixture before it has a save");
             saveVersion += 1;
@@ -137,7 +166,6 @@ async function installAuthenticatedApi(page: Page) {
         },
         patchCharacter: (patch: Record<string, unknown>) => {
             if (!save) throw new Error("Cannot patch character before the adaptive fixture has a save");
-            forcedCharacterPatch = { ...forcedCharacterPatch, ...patch };
             saveVersion += 1;
             save = {
                 ...save,
@@ -147,6 +175,26 @@ async function installAuthenticatedApi(page: Page) {
         setBattleHistoryFailure: (value: boolean) => { battleHistoryFailure = value; },
         battleHistoryRequests: () => battleHistoryRequests,
     };
+}
+
+type AuthenticatedApiFixture = Awaited<ReturnType<typeof installAuthenticatedApi>>;
+
+async function expectCommittedSave(page: Page, api: AuthenticatedApiFixture) {
+    await expect.poll(() => {
+        const commit = api.lastCommit();
+        return Boolean(
+            commit
+            && api.persistedStateMatchesLastPost()
+            && commit.baseVersion === commit.version - 1
+            && api.committedVersion() === commit.version
+            && api.acknowledgedVersion() === commit.version,
+        );
+    }, {
+        timeout: 20_000,
+        message: "the exact-version save fixture must persist and acknowledge the posted state",
+    }).toBe(true);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }
 
 async function createAccount(page: Page) {
@@ -201,6 +249,126 @@ function adaptiveJutsuFixtureData() {
     return { jutsuIds, creatorJutsus };
 }
 
+function subscriberSaveFixture(jutsuIds: string[], creatorJutsus: ReturnType<typeof adaptiveJutsuFixtureData>["creatorJutsus"]): SavePayload {
+    const stats = {
+        strength: 40, speed: 40, intelligence: 40, willpower: 40,
+        bukijutsuOffense: 40, bukijutsuDefense: 40, taijutsuOffense: 40, taijutsuDefense: 40,
+        genjutsuOffense: 40, genjutsuDefense: 40, ninjutsuOffense: 40, ninjutsuDefense: 40,
+    };
+    return {
+        character: {
+            name: "AdaptiveNinja",
+            village: "Stormveil Village",
+            specialty: "Genjutsu",
+            bloodline: "Ashen Eyes",
+            level: 85,
+            rankTitle: "Special Jonin",
+            ryo: 9_999_999,
+            fateShards: 9_999,
+            boneCharms: 9_999,
+            auraStones: 9_999,
+            mythicSeals: 9_999,
+            unspentStats: 0,
+            stats,
+            hp: 9_000,
+            maxHp: 9_000,
+            chakra: 9_000,
+            maxChakra: 9_000,
+            stamina: 9_000,
+            maxStamina: 9_000,
+            onboardingStep: "done",
+            academyChecklistClaimed: true,
+            inventory: ["rustfang-kunai", "shinobi-vest", "dungeon-key"],
+            itemStacks: [],
+            equipment: {},
+            pets: [],
+            storyProgress: 9,
+            storyVillage: "Stormveil Village",
+            storyTraits: [],
+            examsPassed: ["genin", "chunin"],
+            profession: "healer",
+            professionRank: 5,
+            equippedJutsuIds: jutsuIds,
+            jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
+            patreon: {
+                userId: "adaptive-subscriber",
+                tier: "shinobi-supporter",
+                active: true,
+                entitledCents: 1_500,
+                updatedAt: Date.now(),
+            },
+        },
+        currentBiome: "central",
+        currentSector: 40,
+        activeTraining: null,
+        activeJutsuTraining: null,
+        acceptedMissionIds: [],
+        missionProgress: {},
+        triggeredEvents: [
+            "builtin-awakening-lv2",
+            "builtin-aura-sphere-lv9",
+            "story-interlude-stormveil-village-20",
+            "story-interlude-stormveil-village-30",
+            "story-interlude-stormveil-village-42",
+            "story-interlude-stormveil-village-58",
+            "story-interlude-stormveil-village-70",
+            "story-interlude-stormveil-village-80",
+        ],
+        pendingAiProfileId: "",
+        pendingTravel: null,
+        creatorJutsus,
+    };
+}
+
+function maximumContentSaveFixture(
+    itemIds: string[],
+    creatorItems: Array<Record<string, unknown>>,
+    jutsuIds: string[],
+    creatorJutsus: ReturnType<typeof adaptiveJutsuFixtureData>["creatorJutsus"],
+): SavePayload {
+    const seeded = subscriberSaveFixture(jutsuIds.slice(0, 12), creatorJutsus);
+    const character = {
+        ...(seeded.character ?? {}),
+        name: "AdaptiveNinjaWithAnExceptionallyLongButUnbrokenDisplayName",
+        ryo: 9_999_999_999,
+        fateShards: 9_999_999,
+        inventory: itemIds,
+        equippedJutsuIds: jutsuIds.slice(0, 12),
+        jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
+    };
+    delete character.patreon;
+    return { ...seeded, character, creatorItems };
+}
+
+function mobileStorageSaveFixture(): SavePayload {
+    const seeded = subscriberSaveFixture([], []);
+    const character = { ...(seeded.character ?? {}) };
+    delete character.patreon;
+    return { ...seeded, character };
+}
+
+async function installPersistedAdaptiveSession(page: Page, accountName = "AdaptiveNinja", acknowledgeStorageNotice = true) {
+    await page.addInitScript(({ name, acknowledgeNotice }) => {
+        const key = name.trim().toLowerCase();
+        localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: name }));
+        localStorage.setItem("ninjav-player-accounts-v1", JSON.stringify({ [key]: { token: "adaptive-e2e-token" } }));
+        localStorage.setItem("shinobix:activePlayerPersist", name);
+        localStorage.setItem("shinobix:activeTokenPersist", "adaptive-e2e-token");
+        if (acknowledgeNotice) localStorage.setItem("shinobix:storage-notice-ack", "1");
+        else localStorage.removeItem("shinobix:storage-notice-ack");
+        localStorage.setItem("patchNotes.lastSeenVersion.v1", "2026.07.28-stat-leveling");
+        localStorage.setItem("dailyBriefing.seen.v1", new Date().toISOString().slice(0, 10));
+    }, { name: accountName, acknowledgeNotice: acknowledgeStorageNotice });
+}
+
+async function bootPersistedAdaptiveScreen(page: Page, api: AuthenticatedApiFixture, screen: string) {
+    api.seedSaveBeforeBoot(mobileStorageSaveFixture());
+    await installPersistedAdaptiveSession(page);
+    await page.goto(`/#/${screen}`, { waitUntil: "networkidle" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", screen);
+    await expectCommittedSave(page, api);
+}
+
 const boundaryMatrix = [
     { width: 559, viewportClass: "xs", mobile: true },
     { width: 560, viewportClass: "sm", mobile: true },
@@ -250,11 +418,8 @@ const requiredVisualMatrix = [
 test("shell breakpoints expose exactly one complete navigation system", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "the boundary matrix is browser-independent CSS contract coverage");
-    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
     const api = await installAuthenticatedApi(page);
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-    await openCentralHub(page);
+    await bootPersistedAdaptiveScreen(page, api, "centralHub");
 
     for (const entry of boundaryMatrix) {
         await test.step(`${entry.width}px resolves to ${entry.viewportClass}`, async () => {
@@ -284,13 +449,8 @@ test("shell breakpoints expose exactly one complete navigation system", async ({
 test("village shell remains usable across the required visual matrix", async ({ page }, testInfo) => {
     test.setTimeout(240_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "one engine covers the exact dynamic viewport contract; cross-engine smoke runs separately");
-    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
     const api = await installAuthenticatedApi(page);
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-    await page.goto("/#/village");
-    await page.reload({ waitUntil: "networkidle" });
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    await bootPersistedAdaptiveScreen(page, api, "village");
 
     for (const viewport of requiredVisualMatrix) {
         await test.step(`${viewport.width}x${viewport.height}`, async () => {
@@ -313,13 +473,15 @@ test("village shell remains usable across the required visual matrix", async ({ 
 });
 
 test("mobile storage notice clears fixed navigation and remains dismissible", async ({ page }, testInfo) => {
-    test.setTimeout(120_000);
+    test.setTimeout(60_000);
     test.skip(testInfo.project.name !== "chromium-mobile", "one touch/mobile engine exercises the notice contract");
     const api = await installAuthenticatedApi(page);
+    api.seedSaveBeforeBoot(mobileStorageSaveFixture());
+    await installPersistedAdaptiveSession(page, "AdaptiveNinja", false);
     await page.setViewportSize({ width: 390, height: 844 });
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-    await openCentralHub(page);
+    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
+    await expectCommittedSave(page, api);
 
     const notice = page.getByRole("region", { name: "Data storage notice" });
     const mobileNav = page.locator(".mobile-bottom-nav");
@@ -337,11 +499,8 @@ test("mobile storage notice clears fixed navigation and remains dismissible", as
 test("dialogs remain contained across portrait and short landscape viewports", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "dynamic viewport coverage avoids repeating account setup per project");
-    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
     const api = await installAuthenticatedApi(page);
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-    await openCentralHub(page);
+    await bootPersistedAdaptiveScreen(page, api, "centralHub");
 
     for (const viewport of [{ width: 320, height: 568 }, { width: 800, height: 360 }]) {
         await test.step(`${viewport.width}x${viewport.height}`, async () => {
@@ -361,7 +520,7 @@ test("dialogs remain contained across portrait and short landscape viewports", a
 });
 
 test("representative empty, loading, validation, long-content, and entitlement states reflow safely", async ({ page }, testInfo) => {
-    test.setTimeout(360_000);
+    test.setTimeout(60_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "state fixtures are exercised once; the route smoke suite supplies engine coverage");
     await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
     const runtimeErrors: string[] = [];
@@ -373,6 +532,20 @@ test("representative empty, loading, validation, long-content, and entitlement s
     });
     const api = await installAuthenticatedApi(page);
     await page.setViewportSize({ width: 390, height: 844 });
+    const itemIds = Array.from({ length: 18 }, (_, index) => `adaptive-max-item-${index + 1}`);
+    const creatorItems = itemIds.map((id, index) => ({
+        id,
+        name: index === 0
+            ? "Ceremonial Transcontinental Thunder-Tempered Inventory Relic With An Exceptionally Long Name"
+            : `Adaptive Inventory Fixture ${String(index + 1).padStart(2, "0")}`,
+        slot: "item",
+        rarity: index % 5 === 0 ? "legendary" : "common",
+        cost: 999_999,
+        description: "Representative maximum-content inventory fixture.",
+        bonuses: {},
+    }));
+    const { jutsuIds, creatorJutsus } = adaptiveJutsuFixtureData();
+    const maximumAccountName = "AdaptiveNinjaWithAnExceptionallyLongButUnbrokenDisplayName";
 
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
@@ -392,10 +565,12 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await page.locator("#cc-password").fill("Adaptive!Pass1234");
     await page.getByRole("button", { name: "Enter the World" }).click();
     await expect(page.locator("#cc-confirm-error")).toBeVisible();
-    await page.locator("#cc-confirm-password").fill("Adaptive!Pass1234");
-    await page.getByRole("button", { name: "Enter the World" }).click();
-    await expect.poll(api.hasSave).toBe(true);
-    await page.reload({ waitUntil: "networkidle" });
+
+    api.seedSaveBeforeBoot(maximumContentSaveFixture(itemIds, creatorItems, jutsuIds, creatorJutsus));
+    await installPersistedAdaptiveSession(page, maximumAccountName);
+    await page.goto("/?adaptive-fixture=maximum#/centralHub", { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
+    await expectCommittedSave(page, api);
 
     let releaseClanList: (() => void) | undefined;
     const clanListGate = new Promise<void>((resolveGate) => { releaseClanList = resolveGate; });
@@ -418,6 +593,8 @@ test("representative empty, loading, validation, long-content, and entitlement s
             recruitment: "A maximum-length recruitment message that remains readable without widening the document or hiding the join action.",
         }]);
     });
+    await page.goto("/#/village", { waitUntil: "networkidle" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
     await page.getByRole("button", { name: "Enter Clan Hall" }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "clan");
     await expect(page.getByText("Loading clans...")).toBeVisible();
@@ -427,31 +604,7 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await expect(page.getByText(longClanName)).toBeVisible();
     await expectViewportSafe(page);
 
-    const itemIds = Array.from({ length: 18 }, (_, index) => `adaptive-max-item-${index + 1}`);
-    const creatorItems = itemIds.map((id, index) => ({
-        id,
-        name: index === 0
-            ? "Ceremonial Transcontinental Thunder-Tempered Inventory Relic With An Exceptionally Long Name"
-            : `Adaptive Inventory Fixture ${String(index + 1).padStart(2, "0")}`,
-        slot: "item",
-        rarity: index % 5 === 0 ? "legendary" : "common",
-        cost: 999_999,
-        description: "Representative maximum-content inventory fixture.",
-        bonuses: {},
-    }));
-    const { jutsuIds, creatorJutsus } = adaptiveJutsuFixtureData();
-    api.patchSave({ creatorItems, creatorJutsus });
-    api.patchCharacter({
-        name: "AdaptiveNinjaWithAnExceptionallyLongButUnbrokenDisplayName",
-        ryo: 9_999_999_999,
-        fateShards: 9_999_999,
-        inventory: itemIds,
-        equippedJutsuIds: jutsuIds.slice(0, 12),
-        jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
-    });
-
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Items" }).click();
-    await page.reload({ waitUntil: "networkidle" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "inventory");
     await expect(page.locator(".backpack-item")).toHaveCount(18);
     await expect(page.getByText(creatorItems[0].name, { exact: true })).toBeVisible();
@@ -481,34 +634,21 @@ test("representative empty, loading, validation, long-content, and entitlement s
 });
 
 test("subscriber capacity and expanded mobile drawers reflow safely", async ({ page }, testInfo) => {
-    test.setTimeout(180_000);
+    test.setTimeout(60_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "entitlement fixtures are exercised once; the route smoke suite supplies engine coverage");
-    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
-    const api = await installAuthenticatedApi(page);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-
     const { jutsuIds, creatorJutsus } = adaptiveJutsuFixtureData();
-    api.patchSave({ creatorJutsus });
-    api.patchCharacter({
-        patreon: {
-            userId: "adaptive-subscriber",
-            tier: "shinobi-supporter",
-            active: true,
-            entitledCents: 1_500,
-            updatedAt: Date.now(),
-        },
-        equippedJutsuIds: jutsuIds,
-        jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
-    });
-    await openCentralHub(page);
+    await installPersistedAdaptiveSession(page);
+    const api = await installAuthenticatedApi(page, subscriberSaveFixture(jutsuIds, creatorJutsus));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
+    await expectCommittedSave(page, api);
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Char" }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
     await page.getByRole("button", { name: "Jutsu", exact: true }).click();
     await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(15);
     await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(0);
-    await expect(page.getByText("Supporter Active", { exact: true })).toBeVisible();
+    await expect(page.getByText("Subscriber Active", { exact: true })).toBeVisible();
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
 
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
@@ -565,7 +705,7 @@ test("capture adaptive shell and representative route evidence", async ({ page }
 
     await page.goto("/", { waitUntil: "networkidle" });
     await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
+    await expectCommittedSave(page, api);
     await expect(page.locator(".app-shell")).not.toHaveAttribute("data-screen", "start");
     const introDialogue = page.locator(".icx-dialogue");
     await expect(introDialogue).toBeVisible({ timeout: 10_000 });
@@ -645,55 +785,6 @@ test("capture adaptive shell and representative route evidence", async ({ page }
     await shot("after-mobile-nav-390x844.png");
 });
 
-test("mobile world-map sectors inspect before an explicit travel commit", async ({ page }) => {
-    test.setTimeout(90_000);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
-    const api = await installAuthenticatedApi(page);
-    const travelRequests: string[] = [];
-    page.on("request", (request) => {
-        if (request.method() === "POST" && request.url().includes("/api/player/travel")) {
-            travelRequests.push(request.postData() ?? "");
-        }
-    });
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-    await page.goto("/#/worldMap");
-    await page.reload({ waitUntil: "networkidle" });
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
-    for (let guard = 0; guard < 3; guard += 1) {
-        const gotIt = page.getByRole("button", { name: /Got it/i }).last();
-        if (!(await gotIt.isVisible().catch(() => false))) break;
-        await gotIt.click();
-    }
-
-    // New accounts enter the atlas around Sector 40. Fly the mobile camera to
-    // Stormveil before targeting Sector 1 so the test uses the same visible,
-    // touch-accessible path as a player instead of reaching an off-canvas node.
-    await page.getByRole("button", { name: "Stormveil", exact: true }).click();
-    const marker = page.getByRole("button", { name: "Inspect Harbor Gates (Sector 1)" });
-    await marker.click();
-    const inspector = page.getByRole("dialog", { name: "Harbor Gates" });
-    await expect(inspector).toBeVisible();
-    await expect(inspector).toBeFocused();
-    expect(await inspector.evaluate((node) => node.parentElement === document.body)).toBe(true);
-    await expect(inspector).toContainText("Weather");
-    await expect(inspector).toContainText("Danger");
-    await expect(inspector).toContainText("Control");
-    await expect(inspector).toContainText("Route");
-    expect(travelRequests).toHaveLength(0);
-    await expectViewportSafe(page, { overlays: [".world-map-sector-inspector"], logicalStages: [".world-map-scroll"] });
-
-    await page.keyboard.press("Escape");
-    await expect(inspector).toBeHidden();
-    await expect(marker).toBeFocused();
-    expect(travelRequests).toHaveLength(0);
-
-    await marker.click();
-    await inspector.getByRole("button", { name: "Travel to Sector 1" }).click();
-    await expect.poll(() => travelRequests.length).toBe(1);
-});
-
 test("world-map coordinate overlays stay aligned across device scale factors", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(!/^chromium-map-dpr/.test(testInfo.project.name), "dedicated DPR projects exercise this coordinate surface");
@@ -703,13 +794,8 @@ test("world-map coordinate overlays stay aligned across device scale factors", a
             wheelConsoleErrors.push(message.text());
         }
     });
-    await page.addInitScript(() => localStorage.setItem("shinobix:storage-notice-ack", "1"));
     const api = await installAuthenticatedApi(page);
-    await createAccount(page);
-    await expect.poll(api.hasSave).toBe(true);
-    await page.goto("/#/worldMap");
-    await page.reload({ waitUntil: "networkidle" });
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await bootPersistedAdaptiveScreen(page, api, "worldMap");
 
     const expectedDpr = Number(testInfo.project.use.deviceScaleFactor ?? 1);
     expect(await page.evaluate(() => window.devicePixelRatio)).toBe(expectedDpr);

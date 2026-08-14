@@ -43,6 +43,7 @@ import {
 import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import type { VersionedCharacterCommit } from "../types/character";
 
 function chronicleInventorySummary(id: string): string {
     const card = getChronicleCard(id);
@@ -68,6 +69,7 @@ export function Inventory({
     updateCharacter,
     creatorItems,
     creatorCards,
+    onVersionedCharacter,
 }: {
     character: Character;
     // Accepts a plain replacement OR a functional updater (computing the next
@@ -78,6 +80,7 @@ export function Inventory({
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorItems: GameItem[];
     creatorCards: TileCard[];
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<null | {
         entry: string;
@@ -293,6 +296,7 @@ export function Inventory({
                 ok?: boolean;
                 element?: string;
                 character?: Character;
+                _saveVersion?: number;
                 error?: string;
             };
             if (!response.ok || !data.ok) {
@@ -301,7 +305,7 @@ export function Inventory({
             }
             const canonicalElement = data.element ?? element;
             if (data.character) {
-                updateCharacter(data.character);
+                if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             } else {
                 updateCharacter((prev) => prev
                     ? {
@@ -357,12 +361,13 @@ export function Inventory({
                 const data = await response.json().catch(() => null) as {
                     error?: string;
                     character?: Character;
+                    _saveVersion?: number;
                     reward?: { honorSeals?: number; boneCharms?: number; gotDungeonKey?: boolean };
                 } | null;
                 if (!response.ok || !data?.character || !data.reward) {
                     throw new Error(data?.error || "War crate could not be opened.");
                 }
-                updateCharacter(data.character);
+                if (!onVersionedCharacter(data.character, data._saveVersion)) return;
                 setSelectedInventoryItem(null);
                 const honorGain = Math.max(0, Number(data.reward.honorSeals) || 0);
                 const charmGain = Math.max(0, Number(data.reward.boneCharms) || 0);
@@ -421,7 +426,7 @@ export function Inventory({
         const equipmentSlot = selected.source === "equipped" && selected.equipmentSlot ? normalizeEquipmentSlot(selected.equipmentSlot) : undefined;
         const result = await settleInventorySale(character.name, item.id, selected.source, qty, equipmentSlot);
         if (!result.ok) return alert(result.error);
-        updateCharacter(result.character);
+        if (!onVersionedCharacter(result.character, result._saveVersion)) return;
         setSelectedInventoryItem(null);
     }
 

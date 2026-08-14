@@ -7,8 +7,8 @@
  * portaled to <body>, reusing the RankUpCelebration visual chrome so the
  * game's big moments share one language.
  */
-import { createPortal } from "react-dom";
-import { type LegacyRarity } from "../lib/legacy";
+import { type ChronicleRecordReceipt, type LegacyRarity } from "../lib/legacy";
+import { Modal } from "./ui/Modal";
 import "./RankUpCelebration.css";
 
 const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
@@ -26,6 +26,8 @@ export type LegacyMomentData =
          *  is the player's category emissary (the actual trial overseer);
          *  omitted at acceptance, when the Wandering Sage himself speaks. */
         speaker?: { name: string; portrait: string };
+        /** Server-confirmed Chronicle grant, announced without mutating cards. */
+        chronicleRecord?: ChronicleRecordReceipt;
     }
     | {
         mode: "stage-up";
@@ -36,27 +38,66 @@ export type LegacyMomentData =
         badge: string | null;
         grantedTitle: string | null;
         text: string;
+        /** Server-confirmed Chronicle grant, announced without mutating cards. */
+        chronicleRecord?: ChronicleRecordReceipt;
     };
 
-export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; onClose: () => void }) {
+function ChronicleRecordNotice({ receipt }: { receipt?: ChronicleRecordReceipt }) {
+    if (!receipt) return null;
+    return (
+        <section
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style={{ margin: "12px 0 0", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(240,196,99,.52)", background: "rgba(240,196,99,.09)", textAlign: "left" }}
+        >
+            <h3 style={{ margin: 0, color: "var(--gold)", fontSize: ".78rem", letterSpacing: ".04em" }}>
+                {receipt.heading}
+            </h3>
+            <p style={{ margin: "4px 0 0", color: "var(--slate-200)", fontSize: ".74rem", lineHeight: 1.45 }}>
+                {receipt.message}
+            </p>
+        </section>
+    );
+}
+
+export function LegacyMoment({
+    moment,
+    onClose,
+    dismissible = true,
+}: {
+    moment: LegacyMomentData;
+    onClose: () => void;
+    /** Optional ceremonies may close with Escape/backdrop; required beats use only their explicit action. */
+    dismissible?: boolean;
+}) {
     // Rank is owner-only — every legacy ceremony uses the same legacy accent.
     const color = "var(--purple-400)";
-    return createPortal(
-        <div
-            className="rankup-backdrop"
-            role="dialog" aria-modal="true"
-            aria-label={moment.mode === "trial-start" ? `Trial begins: ${moment.kindName}` : `Legacy stage up: ${moment.stageName}`}
-            onClick={onClose}
-        >
-            {moment.mode === "trial-start" && (
-                <img
-                    src="/scenes/legacy-trial.png" alt=""
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.28, pointerEvents: "none" }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                />
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            bare
+            size="md"
+            ariaLabel={moment.mode === "trial-start" ? `Trial begins: ${moment.kindName}` : `Legacy stage up: ${moment.stageName}`}
+            disableBackdropClose={!dismissible}
+            disableEscapeClose={!dismissible}
+            backdropClassName={`rankup-backdrop${dismissible ? "" : " legacy-moment-required"}`}
+            backdropDecoration={(
+                <>
+                    {moment.mode === "trial-start" && (
+                        <img
+                            src="/scenes/legacy-trial.png" alt=""
+                            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.28, pointerEvents: "none" }}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                    )}
+                    <div className="rankup-rays" aria-hidden="true" />
+                </>
             )}
-            <div className="rankup-rays" aria-hidden="true" />
-            <div className="rankup-card" onClick={(e) => e.stopPropagation()} style={{ borderColor: `${color}88` }}>
+            className="rankup-card legacy-moment-card"
+        >
+            <div className="legacy-moment-content">
                 {moment.mode === "trial-start" ? (
                     <>
                         <div className="rankup-kicker" style={{ color }}>A Trial Begins</div>
@@ -80,7 +121,8 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                         {moment.hint && (
                             <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "10px 0 0" }}>{moment.hint}</p>
                         )}
-                        <button type="button" className="rankup-continue" onClick={onClose} autoFocus>Face It</button>
+                        <ChronicleRecordNotice receipt={moment.chronicleRecord} />
+                        <button type="button" className="rankup-continue" onClick={onClose}>Face It</button>
                     </>
                 ) : (
                     <>
@@ -110,11 +152,11 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                         <p style={{ fontSize: ".79rem", color: "var(--slate-200)", fontStyle: "italic", lineHeight: 1.5, margin: "12px 0 0" }}>
                             “{moment.text}”
                         </p>
-                        <button type="button" className="rankup-continue" onClick={onClose} autoFocus>Continue</button>
+                        <ChronicleRecordNotice receipt={moment.chronicleRecord} />
+                        <button type="button" className="rankup-continue" onClick={onClose}>Continue</button>
                     </>
                 )}
             </div>
-        </div>,
-        document.body,
+        </Modal>
     );
 }

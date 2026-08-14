@@ -1,16 +1,18 @@
+import { createHash } from 'node:crypto';
 import type { TowerPvpActionType } from '../../shared/tower-pvp.js';
 import { activeActor } from './_tower-session.js';
 import {
     applyAction,
     endTurn,
-    isTowerActionType,
     runAiUntilHuman,
     type TowerAction,
 } from './_engine.js';
+import { isTowerActionType } from './_action-types.js';
 import { makeRng } from './_sim.js';
 import {
     commitTowerActionMetadata,
     inspectTowerActionCommand,
+    rememberTowerActionMetadata,
     towerActionVersion,
 } from './_action-idempotency.js';
 import {
@@ -57,6 +59,29 @@ const PUBLIC_ACTION_TYPES = new Set<TowerPvpActionType>([
     'move', 'dash', 'attack', 'jutsu', 'weapon', 'heal', 'cleanse', 'clear', 'wait', 'forfeit',
 ]);
 
+function towerPvpCommandFingerprint(
+    input: TowerPvpActionInput,
+    actorId: string,
+): string {
+    const intent: Record<string, unknown> = {
+        matchId: input.matchId,
+        actorId,
+        slug: input.slug,
+        type: input.type,
+    };
+    if (input.type === 'move' || input.type === 'dash') intent.tile = Number(input.tile);
+    else if (input.type === 'attack' || input.type === 'clear') intent.targetId = String(input.targetId ?? '');
+    else if (input.type === 'jutsu') {
+        intent.jutsuId = String(input.jutsuId ?? '');
+        if (input.targetId !== undefined) intent.targetId = String(input.targetId);
+        if (input.tile !== undefined) intent.tile = Number(input.tile);
+    } else if (input.type === 'weapon') {
+        intent.targetId = String(input.targetId ?? '');
+        if (input.itemId) intent.itemId = String(input.itemId);
+    }
+    return createHash('sha256').update(JSON.stringify(intent)).digest('hex');
+}
+
 function actionFrom(
     input: TowerPvpActionInput,
     actorId: string,
@@ -64,15 +89,15 @@ function actionFrom(
 ): TowerAction {
     const token = moveToken ? { token: moveToken } : {};
     switch (input.type) {
-        case 'move': return { actorId, type: 'move', tile: Math.floor(Number(input.tile)), ...token };
-        case 'dash': return { actorId, type: 'dash', tile: Math.floor(Number(input.tile)), ...token };
+        case 'move': return { actorId, type: 'move', tile: Number(input.tile), ...token };
+        case 'dash': return { actorId, type: 'dash', tile: Number(input.tile), ...token };
         case 'attack': return { actorId, type: 'attack', targetId: String(input.targetId ?? ''), ...token };
         case 'jutsu': return {
             actorId,
             type: 'jutsu',
             jutsuId: String(input.jutsuId ?? ''),
             ...(input.targetId !== undefined ? { targetId: String(input.targetId) } : {}),
-            ...(input.tile !== undefined ? { tile: Math.floor(Number(input.tile)) } : {}),
+            ...(input.tile !== undefined ? { tile: Number(input.tile) } : {}),
             ...token,
         };
         case 'weapon': return {
@@ -87,11 +112,6 @@ function actionFrom(
         case 'clear': return { actorId, type: 'clear', targetId: String(input.targetId ?? ''), ...token };
         default: return { actorId, type: 'wait', ...token };
     }
-}
-
-function rememberForfeitToken(match: StoredTowerPvpMatch, token: string | undefined): void {
-    if (!token) return;
-    match.combat.recentMoveTokens = [...(match.combat.recentMoveTokens ?? []), token].slice(-64);
 }
 
 function isTerminalMatch(match: StoredTowerPvpMatch): boolean {
@@ -112,10 +132,12 @@ export async function applyTowerPvpCommand(
         const member = towerPvpMember(match, input.slug);
         if (!member) return { status: 403, applied: false, replayed: false, reason: 'not-a-member', match, currentVersion: match.version };
         assertTowerPvpVersionInvariant(match);
+        const commandFingerprint = towerPvpCommandFingerprint(input, member.actorId);
 
         const command = inspectTowerActionCommand(match.combat, {
             moveToken: input.moveToken,
             expectedVersion: input.expectedVersion,
+            commandFingerprint,
         });
         if (command.status === 'invalid-token') {
             return { status: 400, applied: false, replayed: false, reason: 'invalid-move-token', match, currentVersion: command.currentVersion };
@@ -125,6 +147,9 @@ export async function applyTowerPvpCommand(
         }
         if (command.status === 'replay') {
             return { status: 200, applied: true, replayed: true, match, currentVersion: command.currentVersion };
+        }
+        if (command.status === 'conflict') {
+            return { status: 409, applied: false, replayed: false, reason: 'move-token-conflict', match, currentVersion: command.currentVersion };
         }
         if (command.status === 'stale') {
             return { status: 409, applied: false, replayed: false, reason: 'stale-version', match, currentVersion: command.currentVersion };
@@ -163,7 +188,7 @@ export async function applyTowerPvpCommand(
             if (!forfeitTowerPvpActor(match, input.slug, now)) {
                 return { status: 409, applied: false, replayed: false, reason: 'cannot-forfeit', match, currentVersion: match.version };
             }
-            rememberForfeitToken(match, command.moveToken);
+            rememberTowerActionMetadata(match.combat, command.moveToken, commandFingerprint);
             if (isTerminalMatch(match)) terminal = match;
             await writeTowerPvpMatch(match, deps);
             return { status: 200, applied: true, replayed: false, match, currentVersion: match.version };
@@ -185,7 +210,7 @@ export async function applyTowerPvpCommand(
             runAiUntilHuman(match.combat, TOWER_PVP_FLOOR, rng);
         }
         match.combat.turnStartedAt = now;
-        commitTowerActionMetadata(match.combat, command.moveToken);
+        commitTowerActionMetadata(match.combat, command.moveToken, commandFingerprint);
         match.version = towerActionVersion(match.combat);
         match.updatedAt = now;
         projectTowerPvpTerminal(match);

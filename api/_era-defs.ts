@@ -129,7 +129,7 @@ export const ERA_DEFS: readonly EraDef[] = [
         lore: 'Somewhere out there, a shinobi is about to do something no one has ever done. The world is holding its breath.',
         chronicle: [
             'A hooded elder with violet eyes has been seen on the roads, watching certain shinobi a moment too long.',
-            'Eight strangers — a storm-caller, a masked mother, an iron pilgrim, a blade-keeper, a duel-broker, a hollow warden, a lantern-bearer, a mapless cartographer — walk the sectors with questions of their own.',
+            'Eight strangers — a storm-caller, a masked mother, an iron disciple, a blade-keeper, a duel-broker, a hollow warden, a lantern-bearer, a mapless cartographer — walk the sectors with questions of their own.',
             'The world is keeping score now: every mission, duel, and dive feeds something that has not happened yet.',
         ],
         banner: '/legacy/eras/era-5-mythic-legacies.webp',

@@ -3,6 +3,29 @@ import { isWildSector } from '../../shared/sector-geo.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
 
+export type SectorExploreOutcome =
+    | { kind: 'chest'; reservationDate?: string; reservationOrdinal?: number }
+    | { kind: 'battle' }
+    | { kind: 'external'; source: 'dungeon' | 'pet' }
+    | { kind: 'none' };
+
+/**
+ * The exploration result is authority, not presentation.  Keep the authored
+ * World Map odds here so a caller cannot turn every paid tile into its most
+ * profitable branch.  Pet and dungeon discovery are resolved before this
+ * endpoint; this is the final chest -> battle -> quiet-tile sequence.
+ */
+export function rollSectorExploreOutcome(
+    random: () => number,
+    chestAvailable = true,
+): SectorExploreOutcome {
+    const unit = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
+    const chestRoll = unit();
+    if (chestAvailable && chestRoll < 0.15) return { kind: 'chest' };
+    if (unit() <= 0.80) return { kind: 'battle' };
+    return { kind: 'none' };
+}
+
 export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: number; ryo: number } | null {
     const sector = Math.floor(Number(sectorRaw));
     // Bounds come from the shared world registry, not a literal: the 2026-07

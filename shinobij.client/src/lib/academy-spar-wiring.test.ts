@@ -40,11 +40,18 @@ test("the bus never invokes client combat when no host is mounted", () => {
 test("the host reports a sealed-start failure without local combat", () => {
     const subscribe = host.indexOf("return onStoryBossFightRequest((theme)");
     assert.notEqual(subscribe, -1, "the host must still subscribe to the fight bus");
-    const start = host.slice(subscribe, subscribe + 1200);
+    const start = host.slice(subscribe, subscribe + 1800);
     assert.match(start, /startAcademySparCombat\(/, "the spar must start its own sealed endpoint");
-    assert.match(start, /\.catch\(\(error\) => alert/);
+    const failure = start.slice(start.indexOf(".catch((error) =>"), start.indexOf(".finally(() =>"));
+    assert.match(failure, /mountedRef\.current/);
+    assert.match(failure, /startRequestIdRef\.current === requestId/);
+    assert.match(failure, /activePlayerKeyRef\.current === originatingPlayerKey/);
+    assert.ok(
+        failure.indexOf("activePlayerKeyRef.current === originatingPlayerKey") < failure.indexOf("alert("),
+        "a stale Academy start failure must not alert after the player switches accounts",
+    );
     assert.doesNotMatch(start, /playLocally|TowerSession|towerArenaTransport/);
-    assert.match(start, /startAcademySparCombat\(\{ playerName \}\)/);
+    assert.match(start, /startAcademySparCombat\(\{ playerName: originatingPlayerName \}\)/);
 });
 
 test("a sealed spar keeps its coaching and skips the chapter presentation", () => {
@@ -70,23 +77,22 @@ test("the onboarding modal stands down while the sealed fight is on screen", () 
     assert.match(app, /screen !== "arena" && !storyFightOpen/, "the coach must hide for the sealed spar as well as the local one");
 });
 
-test("coaching progress advances only after the server applies the lesson action", () => {
+test("coaching progress follows authoritative success and never gates a move", () => {
     const sendStart = arena.indexOf("async function send(");
     const send = arena.slice(sendStart, arena.indexOf("function resetTargeting", sendStart));
-    const response = send.indexOf("const res = await transport.submitAction");
-    const appliedBranch = send.indexOf("if (res.applied)");
-
-    assert.ok(response >= 0, "the lesson action must still be submitted to combat authority");
-    assert.ok(appliedBranch > response, "tutorial state must only be considered after the server responds");
-    assert.doesNotMatch(
-        send.slice(0, appliedBranch),
-        /setSparAttacked\(true\)|setSparCasted\(true\)/,
-        "submitting a rejected action must not complete its lesson",
-    );
-    const success = send.slice(appliedBranch, send.indexOf("} else {", appliedBranch));
-    assert.match(success, /action\.type === "attack"\) setSparAttacked\(true\)/);
-    assert.match(success, /action\.type === "jutsu"\) setSparCasted\(true\)/);
-
+    const responseStart = send.indexOf("const res = await transport.submitAction");
+    const rejectionStart = send.indexOf("if (!res.applied)");
+    const successStart = send.indexOf("} else {", rejectionStart);
+    const catchStart = send.indexOf("} catch", successStart);
+    assert.ok(responseStart >= 0, "the lesson action must still be submitted to combat authority");
+    assert.ok(rejectionStart > responseStart && successStart > rejectionStart && catchStart > successStart,
+        "tutorial state must be considered only after the server distinguishes rejection from success");
+    const rejectionBranch = send.slice(rejectionStart, successStart);
+    const successBranch = send.slice(successStart, catchStart);
+    assert.doesNotMatch(rejectionBranch, /setSpar(?:Attacked|Casted)\(true\)/,
+        "rejected intent must not advance the tutorial");
+    assert.match(successBranch, /if \(action\.type === "attack"\) setSparAttacked\(true\)/);
+    assert.match(successBranch, /if \(action\.type === "jutsu"\) setSparCasted\(true\)/);
     // The flags remain display-only: they may react to an accepted move, but
     // they must never decide whether a real action is sent.
     assert.doesNotMatch(send, /if \(sparAttacked|if \(sparCasted/, "coaching state must never gate a combat move");

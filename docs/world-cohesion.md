@@ -9,36 +9,53 @@
 
 ## The canon (say it in one line)
 
-**The Hollow burns archives first, so the villages press their legends into
-cards — you can't burn what's in everyone's pockets.**
+**Combat makes the deed; companions witness it; the Chronicle preserves it; a
+Legacy is the pattern a shinobi chooses to repeat.**
 
-Deep canon (established by the Chronicle Scribe event, 2026-07-23): the
-Chronicle **predates the villages** — the first scribes began pressing cards
-in the age when the **Hollow Gate still stood above ground**, recording what
-came out of it and the shinobi who forced it back under. The Chronicle is a
-**living record**: it grows and changes as the world does ("A Kage falls, we
-press the card. Your beast makes a name on the sand, we press that too. The
-Chronicle doesn't close."). The **traveler's codex** — the 40-card teaching
-set — was traditionally handed to every academy graduate; the wars broke the
+The Hollow Gate is not an ancient creature or portal. People of the Sunken
+Court built it as part of a civic optimizer meant to end famine, war, and
+winter. The **Ancients** were the people of that era. The **Withheld** were the
+Ancients who refused cession when the Court tried to extract and regularize a
+defining choice. Their resistance left one hundred recognizable action
+patterns: the **one hundred Legacies**, represented by the hundred glyphs.
+
+A Legacy is never a Bloodline, soul, reincarnation, ancestor, or person living
+inside a descendant. It is a pattern repeated freely in action and confirmed
+by witnesses. The Sage and emissaries recognize patterns; they do not choose a
+person's fate or install a Legacy.
+
+The Chronicle **predates the villages**. Its first scribes recorded people,
+beasts, places, and choices during the Sunken Court's final age, especially the
+deeds the Court's edited records would otherwise erase. It remains a **living
+record**: it grows and changes as the world does ("A Kage falls, we press the
+card. Your beast makes a name on the sand, we press that too. The Chronicle
+doesn't close."). A card is a portable record, never a trapped soul or the
+living being itself. The archive-burning explanation remains the villages'
+plainest modern reason for distributing that record: you cannot burn what is
+kept in everyone's pockets. The **traveler's codex**, the 40-card teaching set,
+was traditionally handed to every academy graduate; the wars broke the
 tradition, so scribes like Ihara now deliver it on the road.
 
-- **Combat makes legends.** The story's war against the Hollow (corrupted
-  Kage, the Gate, the Seal beneath Central) is where the world's legends come
-  from.
-- **The coliseum proves beasts.** The pets you befriend are the wild breeds of
-  the sectors; the Pet Coliseum is where a beast earns a *name*. The Chronicle
-  scribes watch the sand.
-- **The Chronicle records both.** Every card depicts something real: story
-  bosses (`monsterFromStory` — "Kage / Hollow" and "Story Combatant"
-  families), Legacy deeds (`monsterFromLegacy` — "Legacy Incarnation"), wild
-  beasts and shinobi (tile cards), even the Wandering Sage himself. A
-  Chronicle Showdown is two collectors arguing history with the records.
-- **The Legacy system is the oral wing of the same idea.** The Hall of Legends
-  carves names in stone; the Chronicle prints them on paper; the Sage and his
-  eight emissaries decide who's worth either.
+- **Story combat creates the evidence.** Under pressure, the player makes the
+  mercy, refusal, ambition, endurance, or other choice that can repeat a
+  Legacy's pattern. The unclassifiable player is not chosen by the Gate.
+- **Companions are living witnesses.** A bonded beast shares the road, reacts
+  to the player's choices, and can prove its own character in pet battles. The
+  Coliseum is where a beast earns a name; Chronicle scribes watch the sand.
+- **The Chronicle preserves the evidence.** Every card depicts something real:
+  story bosses (`monsterFromStory`, "Kage / Hollow" and "Story Combatant"
+  families), Legacy patterns (`monsterFromLegacy`, "Legacy Pattern"), wild
+  beasts and shinobi (tile cards), even the Wandering Sage himself. A Chronicle
+  Showdown is two collectors arguing history with portable records.
+- **The Legacy system interprets the evidence.** The Hall of Legends carves
+  witnessed names and deeds in stone; the Chronicle distributes them on paper;
+  the Sage and eight emissaries compare a shinobi's repeated choices to the
+  hundred patterns. The final choice still belongs to the player.
 
-This was already true *mechanically* (the card generators literally mint cards
-from story bosses and legacy deeds) — the 2026-07 pass made the world SAY it.
+The catalog builds Chronicle entries from story bosses, all one hundred Legacy
+patterns, the Wandering Sage, and five fixed Living Witness companion records.
+Server settlement grants them from verified deeds only; cohesion copy must
+describe those entries as records, not as beings or souls contained in cards.
 
 ## Where the canon is voiced (the wired surfaces)
 
@@ -49,7 +66,7 @@ from story bosses and legacy deeds) — the 2026-07 pass made the world SAY it.
 | Road wanderers | `shinobij.client/src/lib/wanderers.ts` | Gambler carries a Chronicle deck; tracker points hunts at your beast |
 | Legacy emissaries | `shinobij.client/src/lib/legacy-emissaries.ts` | Kesshi: scribes + odds = history; Hollow Warden: saw the first Kage turn; Ojii: coliseum beast earning its card |
 | Mode guides | `shinobij.client/src/data/guides.ts` | Coliseum = where sector breeds prove themselves; Chronicle = the villages' answer to the Hollow |
-| Generated card lore | `shared/chronicle-duel.ts` `storyLoreFor` | Story-boss cards carry diegetic flavor (village + Hollow), never level/chapter meta |
+| Generated card lore | `shared/chronicle-duel.ts` `monsterLoreFromSource`, `monsterFromLegacy`, `storyLoreFor` | Mechanical tile-card copy becomes witnessed field lore; Legacy cards record patterns; story-boss cards stay diegetic and never use level/chapter meta |
 | Chronicle Scribe event | `shinobij.client/src/lib/chronicle-scribe.ts` + `api/card-clash/claim-starter.ts` | One-time roaming NPC (Scribe Ihara, level 17+): teaches the card game in-fiction and hands over the traveler's codex (the existing starter floor, delivered with ceremony) |
 | Card-game lock | `shinobij.client/src/lib/chronicle-lock.ts` + `api/card-clash/_starter-cards.ts` `chronicleUnlocked` | The Chronicle is SEALED until Ihara's codex: Card Hall + Shop packs locked client-side; AI duels, PvP queue join, and both pack endpoints gated server-side. World-embedded card encounters (dungeon tiles via externalStakes, clan war tilecards, sector-card) stay open so nothing dead-ends |
 
@@ -90,6 +107,10 @@ The 2026-07 pass replaced "AI riddle" voice with human voice. Keep it that way:
   `.chronicle-scribe-note` under the hall header — "The scribes will tell you
   straight: our archives kept burning. So we print the history on cards now —
   you can't burn ten thousand pockets."
-- The story road-events/reckonings layer never mentions the coliseum or the
-  Chronicle; if it's ever unlocked for edits, one gossip-style nod each way
-  would close the last seam.
+- ~~The three modes had no durable shared progression receipt~~ **DONE
+  2026-08-11** (this worktree): verified story clears press their exact boss
+  record; ten authoritative arena wins let the participating companion establish
+  a fixed Living Witness record; Chronicle wins feed the Legacy activity record;
+  Sage acceptance and Awakening press the Sage and matching Legacy records.
+  Every grant is server-derived, exact-once, response-replayable, excluded from
+  packs, and presented through Ihara's receipt ceremonies.

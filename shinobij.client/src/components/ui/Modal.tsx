@@ -9,11 +9,20 @@ export interface ModalProps {
   title?: ReactNode;
   /** Accessible name for a bare dialog whose visible title is rendered by the caller. */
   ariaLabel?: string;
+  /** IDs for caller-rendered visible title/description in a bare dialog. */
+  ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
   size?: "sm" | "md" | "lg";
   /** Hide the default header (title + close). Caller renders its own chrome. */
   bare?: boolean;
   /** Disable closing on backdrop click (e.g. required choices). */
   disableBackdropClose?: boolean;
+  /** Disable Escape dismissal while still containing it inside this modal. */
+  disableEscapeClose?: boolean;
+  /** Optional ceremony/theming class applied to the portaled backdrop. */
+  backdropClassName?: string;
+  /** Decorative backdrop content rendered outside the semantic dialog card. */
+  backdropDecoration?: ReactNode;
   className?: string;
   children: ReactNode;
 }
@@ -74,20 +83,27 @@ export function Modal({
   onClose,
   title,
   ariaLabel,
+  ariaLabelledBy,
+  ariaDescribedBy,
   size = "md",
   bare = false,
   disableBackdropClose = false,
+  disableEscapeClose = false,
+  backdropClassName = "",
+  backdropDecoration,
   className = "",
   children,
 }: ModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const disableEscapeCloseRef = useRef(disableEscapeClose);
   const titleId = useId();
   useBodyScrollLock(open);
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
-  }, [onClose]);
+    disableEscapeCloseRef.current = disableEscapeClose;
+  }, [disableEscapeClose, onClose]);
 
   // Deliberately separate from the focus/key effect below so caller re-renders
   // cannot re-push an outer modal while an inner one is still open.
@@ -129,8 +145,9 @@ export function Modal({
       // Tab while it is open.
       if (openModals[openModals.length - 1] !== titleId) return;
       if (e.key === "Escape") {
-        e.stopPropagation();
-        onCloseRef.current();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!disableEscapeCloseRef.current) onCloseRef.current();
       }
       if (e.key === "Tab") {
         const items = focusables();
@@ -163,17 +180,19 @@ export function Modal({
 
   return createPortal(
     <div
-      className="ui-modal-backdrop"
+      className={`ui-modal-backdrop ${backdropClassName}`.trim()}
       role="presentation"
       onClick={disableBackdropClose ? undefined : onClose}
     >
+      {backdropDecoration}
       <div
         ref={cardRef}
         className={`ui-modal-card ui-modal-card--${size}${bare ? " ui-modal-card--bare" : ""} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title != null ? titleId : undefined}
-        aria-label={title == null ? (ariaLabel ?? "Dialog") : undefined}
+        aria-labelledby={ariaLabelledBy ?? (title != null ? titleId : undefined)}
+        aria-describedby={ariaDescribedBy}
+        aria-label={ariaLabelledBy == null && title == null ? (ariaLabel ?? "Dialog") : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >

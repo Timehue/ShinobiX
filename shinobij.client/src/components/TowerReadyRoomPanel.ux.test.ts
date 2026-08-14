@@ -17,15 +17,21 @@ test("Ready Room presents distinct host, join, current-squad, and secondary-invi
     assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.tower-ready-room-paths,[\s\S]{0,90}?\.tower-ready-room-roster\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
 });
 
-test("Ready Room keeps the authoritative bound Story encounter and artwork visible", () => {
-    assert.match(panel, /import \{ resolveTowerStoryArt \} from "\.\.\/lib\/tower-art-manifest"/);
+test("Ready Room keeps the authoritative bound Story encounter visible", () => {
     assert.match(panel, /party\?\.binding\.mode === "story" && storyFloorMeta\?\.id === party\.binding\.floor/);
-    assert.match(panel, /--tower-ready-room-mission-art/);
     assert.match(panel, /aria-labelledby="tower-ready-room-mission-title"/);
+    assert.match(panel, /aria-describedby=\{boundStoryFloor \? "tower-ready-room-mission-details" : undefined\}/);
     assert.match(panel, /readyRoomObjectiveLabel\(boundStoryFloor\.objective\)/);
+    assert.match(panel, /readyRoomPaceLabel\(boundStoryFloor\)/);
+    assert.match(panel, /readyRoomEnemyLabel\(boundStoryFloor\)/);
     assert.match(lobby, /const readyRoomBinding = activeReadyRoom\?\.binding;/);
     assert.match(lobby, /const readyRoomStoryFloor = readyRoomBinding\?\.mode === "story"/);
     assert.match(lobby, /storyFloorMeta=\{readyRoomStoryFloor\}/);
+});
+
+test("Ready Room keeps authored Story artwork visible", () => {
+    assert.match(panel, /import \{ resolveTowerStoryArt \} from "\.\.\/lib\/tower-art-manifest"/);
+    assert.match(panel, /--tower-ready-room-mission-art/);
     assert.match(css, /\.tower-ready-room-binding\.has-art\s*\{[\s\S]{0,420}?var\(--tower-ready-room-mission-art\)/);
     assert.match(css, /@media \(prefers-reduced-data: reduce\)[\s\S]{0,180}?\.tower-ready-room-binding\.has-art[\s\S]{0,70}?background-image:\s*none/);
 });

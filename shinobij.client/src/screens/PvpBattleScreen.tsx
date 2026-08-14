@@ -12,6 +12,7 @@ import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
+import { BattlefieldActor } from "../components/BattlefieldActor";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
@@ -28,12 +29,11 @@ import { CombatInstance } from "../components/CombatInstance";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
-import { BattlefieldActor } from "../components/BattlefieldActor";
-import { adjustedCombatApCost } from "../lib/combat-action-display";
+import { activeBarrierTilesForDisplay, combatActionAvailability } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
-import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
+import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
-import { minActionCost } from "../lib/combat-affordability";
+import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
@@ -54,7 +54,7 @@ import {
 } from "../App";
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
-import { postPvpRewardClaim } from "../lib/pvp-reward-claim";
+import { postPvpRewardClaim, type PvpRewardClaimConfirmed } from "../lib/pvp-reward-claim";
 import { earnedStatPoints } from "../lib/stats";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
@@ -64,6 +64,7 @@ import { earnedStatPoints } from "../lib/stats";
 // smooth continuous walk.
 const PATH_STEP_MS = 130;
 const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
+const PVP_MAX_ACTIONS = 5;
 
 // XP retired: the HUD "power" dossier stat is total earned stat points
 // (allocated above base + any unspent pool the combat snapshot carries).
@@ -174,6 +175,7 @@ export function PvpBattleScreen({
     onExit,
     onViewBattleRecord,
     onRecordBattle,
+    onRewardClaim,
 }: {
     character: Character;
     battleId: string;
@@ -193,8 +195,10 @@ export function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
-    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary) => void;
-    onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
+    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed) => void;
+    onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }, claim?: PvpRewardClaimConfirmed) => void;
+    /** Adopt the claim's versioned snapshot/progression on both first response and replay. */
+    onRewardClaim?: (claim: PvpRewardClaimConfirmed) => void;
     onResolved?: () => void;
     onExit?: (target: Screen) => void;
     /** Opens the durable read-only record for a finished battle. */
@@ -229,6 +233,7 @@ export function PvpBattleScreen({
         setSession(seedSession);
     }, [seedSession, battleId]);
     const [submitting, setSubmitting] = useState(false);
+    const submitInFlightRef = useRef(false);
     const [selectedActionId, setSelectedActionId] = useState<"move" | undefined>(undefined);
     const [pendingJutsuId, setPendingJutsuId] = useState("");
     const [pendingJutsuDirect, setPendingJutsuDirect] = useState<Jutsu | null>(null);
@@ -732,6 +737,7 @@ export function PvpBattleScreen({
                     ? "Combat rewards settled by the server."
                     : "Official result verified; no generic payout for this mode.");
         setPvpRewardClaimState("confirmed");
+        onRewardClaim?.(result);
         if (result.alreadyClaimed) return;
 
         const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
@@ -739,8 +745,8 @@ export function PvpBattleScreen({
         // Unsanctioned sessions confirm with no reward authority. Do not let
         // their callbacks mutate missions, bounties, wars, or ranking.
         if (result.rewardAuthorized || effectiveIsSpar) {
-            if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base);
-            else onLoss?.(opponent, result.rating);
+            if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base, result);
+            else onLoss?.(opponent, result.rating, result);
         }
     }
 
@@ -786,15 +792,40 @@ export function PvpBattleScreen({
         }));
     }, [session?.status, session?.winner]);
 
-    // Auto-pass when my turn starts but I can't afford the cheapest action
-    const pvpMyAp = session ? (role === "p1" ? session.ap.p1 : session.ap.p2) : 100;
+    // Auto-pass is derived only from the current authoritative snapshot. This
+    // deliberately excludes target/range legality, which remains owned by the
+    // board and server, but includes every deterministic paid-action gate.
+    const pvpSnapshotFighter = session ? (role === "p1" ? session.p1 : session.p2) : null;
+    const pvpSnapshotCooldowns = session ? (role === "p1" ? session.cooldowns.p1 : session.cooldowns.p2) : {};
+    const pvpSnapshotJutsu = pvpSnapshotFighter && Array.isArray(pvpSnapshotFighter.character?.jutsu)
+        ? pvpSnapshotFighter.character.jutsu as Jutsu[]
+        : equippedJutsu;
+    const pvpSnapshotItems = pvpSnapshotFighter && Array.isArray(pvpSnapshotFighter.character?.pvpItems)
+        ? pvpSnapshotFighter.character.pvpItems as GameItem[]
+        : equippedItems;
+    const pvpSnapshotCharges = session
+        ? (session as { itemCharges?: Record<"p1" | "p2", Record<string, number>> }).itemCharges?.[role]
+        : undefined;
+    const pvpHasAffordablePaidAction = Boolean(session && pvpSnapshotFighter && hasAffordablePvpPaidAction({
+        statuses: pvpSnapshotFighter.statuses,
+        round: session.round,
+        availableAp: role === "p1" ? session.ap.p1 : session.ap.p2,
+        availableChakra: pvpSnapshotFighter.chakra,
+        availableStamina: pvpSnapshotFighter.stamina,
+        cooldowns: pvpSnapshotCooldowns,
+        actionsThisTurn: session.actionsThisTurn,
+        jutsu: pvpSnapshotJutsu,
+        items: pvpSnapshotItems,
+        itemCharges: pvpSnapshotCharges,
+        rankedItemsDisabled: playerRankedV2ItemsDisabled,
+    }));
     useEffect(() => {
-        if (!session || session.status === "done" || session.activePlayer !== role) return;
-        if (pvpMyAp < pvpMinActionCost()) {
+        if (!session || session.status === "done" || session.activePlayer !== role || submitting || pvpPrefightCountdown !== null) return;
+        if (!pvpHasAffordablePaidAction) {
             const t = setTimeout(() => submitAction("wait"), 500);
             return () => clearTimeout(t);
         }
-    }, [session?.activePlayer, pvpMyAp]);  
+    }, [session?.status, session?.activePlayer, role, pvpHasAffordablePaidAction, submitting, pvpPrefightCountdown]);
 
     // Per-turn round timer — auto-passes turn at 0. The countdown itself now
     // lives in <CombatRoundTimer> (rendered below) so its 1s tick re-renders
@@ -998,13 +1029,19 @@ export function PvpBattleScreen({
     const boardOppPos = session ? (role === "p1" ? session.p2.pos : session.p1.pos) : -1;
     const jutsuRange = pendingJutsuDirect ? Math.max(1, Number(pendingJutsuDirect.range) || 1) : 0;
     const allTiles = useMemo(() => Array.from({ length: gridWidth * gridHeight }, (_, i) => i), [gridWidth, gridHeight]);
-    const moveAdjacentTiles = useMemo(() => new Set(selectedActionId === "move" ? pvpHexNeighbors(boardMyPos).filter(t => t !== boardOppPos) : []), [selectedActionId, boardMyPos, boardOppPos]);
+    const pvpBarrierTiles = useMemo(
+        () => session
+            ? activeBarrierTilesForDisplay([...session.p1.statuses, ...session.p2.statuses], session.round, gridWidth * gridHeight)
+            : new Set<number>(),
+        [session?.p1.statuses, session?.p2.statuses, session?.round, gridWidth, gridHeight],
+    );
+    const moveAdjacentTiles = useMemo(() => new Set(selectedActionId === "move" ? pvpHexNeighbors(boardMyPos).filter(t => t !== boardOppPos && !pvpBarrierTiles.has(t)) : []), [selectedActionId, boardMyPos, boardOppPos, pvpBarrierTiles]);
     // Range glow + opponent click-target are for jutsu that reach the enemy. A
     // self/buff jutsu only ever targets the caster's own tile (selfTargetTile
     // below), so exclude it here — otherwise the enemy hex would light up and a
     // click on the enemy would fire a self-buff at the wrong tile.
     const jutsuRangeTiles = useMemo(() => new Set(pendingJutsuDirect && !pvpIsSelfTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, jutsuRange, allTiles]);
-    const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && t !== boardOppPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, boardOppPos, jutsuRange, allTiles]);
+    const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && t !== boardOppPos && !pvpBarrierTiles.has(t) && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, boardOppPos, jutsuRange, allTiles, pvpBarrierTiles]);
     // Hover-reactive by design: only THIS Set recomputes as the cursor moves over a
     // ground target's range; the rest of the board stays memoized.
     const groundJutsuAffectedTiles = useMemo(() => {
@@ -1109,6 +1146,11 @@ export function PvpBattleScreen({
         setPendingJutsuDirect(null);
     }
 
+    function clearSubmittedPvpJutsu(jutsuId: string) {
+        setPendingJutsuId(current => current === jutsuId ? "" : current);
+        setPendingJutsuDirect(current => current?.id === jutsuId ? null : current);
+    }
+
     function armPendingPvpJutsu(jutsu: Jutsu) {
         setPendingJutsuId(jutsu.id);
         setPendingJutsuDirect(jutsu);
@@ -1171,40 +1213,49 @@ export function PvpBattleScreen({
     const weaponRangeTilesSet = new Set(pendingWeapon ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= pvpWeaponRange) : []);
     const basicAttackRangeTiles = new Set(pendingBasicAttack ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= 1) : []);
 
-    const pvpAdjustedApCost = (base: number) => adjustedCombatApCost(me.statuses, base);
-
-    function pvpMinActionCost() {
-        // Every action cost MUST flow through pvpAdjustedApCost so the
-        // client's "can I afford anything?" check agrees with the server's
-        // adjustedCost in api/pvp/move.ts. Under Lag (+50% AP cost), the
-        // bare 40 / j.ap / i.apCost numbers don't match what the server
-        // will actually charge — leading to "send move, server rejects,
-        // UI looks frozen" before the round timer fires auto-wait.
-        const costs = [
-            pvpAdjustedApCost(30), // move / dash
-            pvpAdjustedApCost(40), // basic attack
-            ...sessionEquippedJutsu.map(j => pvpAdjustedApCost(j.ap ?? 40)),
-            ...pvpEquippedWeapons.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
-            // Thrown weapons (slot 'thrown', AP 20) go through the same weapon
-            // action — they were missing here, so the turn auto-passed with 20 AP
-            // left even though a 20-AP throwable was still usable. Depleted
-            // consumables/throwables (0 sealed charges left) are excluded so an
-            // empty supply doesn't keep a dead turn alive.
-            ...(!playerRankedV2ItemsDisabled
-                ? pvpEquippedThrown.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 40))
-                : []),
-            ...(!playerRankedV2ItemsDisabled
-                ? pvpEquippedConsumables.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 35))
-                : []),
-        ];
-        // Fold via the shared reducer (lib/combat-affordability) — keep the PvE
-        // twin (pveMinActionCost in Arena) in sync when adding actions.
-        return minActionCost(costs);
-    }
+    const pvpActionAvailability = (
+        baseAp: number,
+        options: {
+            chakraCost?: number;
+            staminaCost?: number;
+            cooldownRemaining?: number;
+            element?: string;
+            apModifierMode?: "stack" | "first-active";
+        } = {},
+    ) => combatActionAvailability({
+        statuses: me.statuses,
+        round: session.round,
+        apModifierMode: "first-active",
+        baseAp,
+        availableAp: myAp,
+        availableChakra: me.chakra,
+        availableStamina: me.stamina,
+        actionsThisTurn: session.actionsThisTurn,
+        maxActions: PVP_MAX_ACTIONS,
+        ...options,
+    });
+    const pvpAdjustedApCost = (base: number) => pvpActionAvailability(base).apCost;
+    const pvpJutsuActionAvailability = (
+        baseAp: number,
+        options: {
+            chakraCost?: number;
+            staminaCost?: number;
+            cooldownRemaining?: number;
+            element?: string;
+        } = {},
+    ) => pvpActionAvailability(baseAp, { ...options, apModifierMode: "stack" });
+    const pvpAdjustedJutsuApCost = (base: number) => pvpJutsuActionAvailability(base).apCost;
+    const basicAttackAvailability = pvpActionAvailability(40, { staminaCost: 10 });
+    const moveAvailability = pvpActionAvailability(30);
+    const healAvailability = pvpActionAvailability(60, { chakraCost: 10, cooldownRemaining: myCooldowns.basicHeal ?? 0 });
+    const clearAvailability = pvpActionAvailability(60, { cooldownRemaining: myCooldowns.clear ?? 0 });
+    const cleanseAvailability = pvpActionAvailability(60, { cooldownRemaining: myCooldowns.cleanse ?? 0 });
+    const fleeAvailability = pvpActionAvailability(100);
 
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
-        if (submitting || done) return;
+        if (submitInFlightRef.current || done) return;
         if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
+        submitInFlightRef.current = true;
         setSubmitting(true);
         // Hard timeout on the move request. Without this a hung/stalled fetch
         // (slow server, a non-JSON error page that never finishes, a dropped
@@ -1267,28 +1318,25 @@ export function PvpBattleScreen({
                     return;
                 }
                 setSession(data);
+                // Clear only the technique this response actually applied. A
+                // late response must never erase a different technique armed
+                // after it was submitted.
+                if (pvpAction === "jutsu" && pvpJutsuId) clearSubmittedPvpJutsu(pvpJutsuId);
                 setPvpRoundTimerKey(k => k + 1);
                 if (data.activePlayer !== role) {
                     clearPendingPvpJutsu(); setSelectedActionId(undefined);
                     setPendingBasicAttack(false); setPendingWeaponId("");
-                } else if (data.status !== "done") {
-                    // Still my turn — check if I can afford anything
-                    const newAp = role === "p1" ? data.ap.p1 : data.ap.p2;
-                    if (newAp < pvpMinActionCost()) {
-                        setTimeout(() => submitAction("wait"), 500);
-                    }
                 }
             } else {
                 // Server rejected the move (400/409/429/etc.). Previously
                 // this was silently swallowed — the UI looked frozen until
                 // the round timer expired. Now: surface the error in the
-                // combat log AND clear pending selections so the player
-                // can pick a different action immediately.
+                // combat log while retaining the pending jutsu so the player
+                // can retry or choose a different legal target.
                 const errData = await res.json().catch(() => ({} as Record<string, unknown>));
                 const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
                 console.warn("[pvp/move]", res.status, errMsg);
                 setSession(prev => prev ? { ...prev, log: [...prev.log, `⚠️ ${errMsg}`].slice(-60) } : prev);
-                clearPendingPvpJutsu();
                 setSelectedActionId(undefined);
                 setPendingBasicAttack(false);
                 setPendingWeaponId("");
@@ -1301,7 +1349,7 @@ export function PvpBattleScreen({
                 setSession(prev => prev ? { ...prev, log: [...prev.log, "⚠️ Move timed out — try again or your turn will auto-pass."].slice(-60) } : prev);
             }
         }
-        finally { clearTimeout(moveTimeout); setSubmitting(false); }
+        finally { clearTimeout(moveTimeout); submitInFlightRef.current = false; setSubmitting(false); }
     }
 
     function handleTileClick(tileIdx: number) {
@@ -1310,15 +1358,15 @@ export function PvpBattleScreen({
             setSelectedActionId(undefined); submitAction("move", tileIdx); return;
         }
         if (pendingJutsuId && pendingJutsu && pvpIsSelfTargetJutsu(pendingJutsu) && tileIdx === myPos) {
-            const jId = pendingJutsuId; clearPendingPvpJutsu();
+            const jId = pendingJutsuId;
             submitAction("jutsu", undefined, jId); return;
         }
         if (pendingJutsuId && pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu) && groundJutsuTiles.has(tileIdx)) {
-            const jId = pendingJutsuId; clearPendingPvpJutsu();
+            const jId = pendingJutsuId;
             submitAction("jutsu", tileIdx, jId); return;
         }
         if (pendingJutsuId && jutsuRangeTiles.has(tileIdx) && tileIdx === oppPos) {
-            const jId = pendingJutsuId; clearPendingPvpJutsu();
+            const jId = pendingJutsuId;
             submitAction("jutsu", tileIdx, jId); return;
         }
         if (pendingBasicAttack && basicAttackRangeTiles.has(tileIdx) && tileIdx === oppPos) {
@@ -1404,12 +1452,12 @@ export function PvpBattleScreen({
     combatHotkeyRef.current = {
         active: isMyTurn && !submitting && !done && !amSpectator,
         actions: {
-            a: () => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); },
-            m: () => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); },
-            h: () => void submitAction("basicHeal"),
-            c: () => void submitAction("clear"),
-            x: () => void submitAction("cleanse"),
-            f: () => void submitAction("flee"),
+            a: () => { if (basicAttackAvailability.affordable) { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); } },
+            m: () => { if (moveAvailability.affordable) { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); } },
+            h: () => { if (healAvailability.affordable) void submitAction("basicHeal"); },
+            c: () => { if (clearAvailability.affordable) void submitAction("clear"); },
+            x: () => { if (cleanseAvailability.affordable) void submitAction("cleanse"); },
+            f: () => { if (fleeAvailability.affordable) void submitAction("flee"); },
             w: () => void submitAction("wait"),
             " ": () => void submitAction("wait"),
             escape: () => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(undefined); },
@@ -1651,9 +1699,10 @@ export function PvpBattleScreen({
                                         const ty = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
                                         const isMyTile = i === myPos;
                                         const isOppTile = i === oppPos;
+                                        const isBarrier = pvpBarrierTiles.has(i);
                                         const canMove = moveAdjacentTiles.has(i) ||
                                             Boolean(pendingJutsu && pvpIsMoveJutsu(pendingJutsu) && groundJutsuTiles.has(i));
-                                        const isJutsuRange = jutsuRangeTiles.has(i) || weaponRangeTilesSet.has(i) || basicAttackRangeTiles.has(i);
+                                        const isJutsuRange = !isBarrier && (jutsuRangeTiles.has(i) || weaponRangeTilesSet.has(i) || basicAttackRangeTiles.has(i));
                                         const isGroundTarget = groundJutsuTiles.has(i);
                                         const isGroundAffected = groundJutsuAffectedTiles.has(i) || opponentJutsuAffectedTiles.has(i);
                                         const activeGroundEffect = activeGroundEffects.find(effect => effect.tiles.includes(i));
@@ -1667,7 +1716,7 @@ export function PvpBattleScreen({
                                             (!!pendingWeapon && i === oppPos && weaponRangeTilesSet.has(i)) ||
                                             (pendingBasicAttack && i === oppPos && basicAttackRangeTiles.has(i));
                                         const isSelfTarget = i === selfTargetTile;
-                                        const tileOccupant = isMyTile ? "your position" : isOppTile ? `${opp.name} position` : "empty";
+                                        const tileOccupant = isBarrier ? "Barrier wall, impassable" : isMyTile ? "your position" : isOppTile ? `${opp.name} position` : "empty";
                                         const tilePurpose = isPendingTarget || isSelfTarget
                                             ? "target"
                                             : isGroundTarget
@@ -1681,7 +1730,7 @@ export function PvpBattleScreen({
                                         return (
                                             <button
                                                 key={i}
-                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}${isSelfTarget ? " jutsu-self-target-tile" : ""}`}
+                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${isBarrier ? " combat-barrier-tile" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}${isSelfTarget ? " jutsu-self-target-tile" : ""}`}
                                                 aria-label={tileLabel}
                                                 style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                                 // Only a ground-target jutsu consumes hoveredPvpTile (impact
@@ -1690,7 +1739,9 @@ export function PvpBattleScreen({
                                                 onMouseEnter={() => { if (pvpIsGroundTargetJutsu(pendingJutsu)) setHoveredPvpTile(i); }}
                                                 onMouseLeave={() => { if (hoveredPvpTile !== null) setHoveredPvpTile(null); }}
                                                 onClick={() => handleTileClick(i)}
-                                            />
+                                            >
+                                                {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span> : null}
+                                            </button>
                                         );
                                     })
                                 )}
@@ -1701,37 +1752,37 @@ export function PvpBattleScreen({
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
 
-                    {/* Action bar stays visible on the opponent's turn (dimmed +
-                        non-interactive) so the player can review their kit and plan.
-                        submitAction also guards isMyTurn, so nothing can fire. */}
+                    {/* Action bar stays visible on the opponent's turn so the player
+                        can review their kit and plan. Individual action controls use
+                        the native disabled state; inspect/help controls remain usable. */}
                     {!done && !amSpectator && (
-                        <CombatCommandBar style={isMyTurn ? undefined : { opacity: 0.55, pointerEvents: "none" }}>
+                        <CombatCommandBar style={isMyTurn ? undefined : { opacity: 0.55 }}>
                             <button className={pendingBasicAttack ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
-                                disabled={submitting || myAp < 40 || me.stamina < 10}>
-                                <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>40 AP | 10 SP | R1</small>
+                                disabled={!isMyTurn || submitting || !basicAttackAvailability.affordable}>
+                                <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{basicAttackAvailability.apCost} AP | 10 SP | R1</small>
                             </button>
                             <button className={selectedActionId === "move" ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
-                                disabled={submitting || myAp < pvpAdjustedApCost(30)}>
-                                <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{pvpAdjustedApCost(30)} AP / tile</small>
+                                disabled={!isMyTurn || submitting || !moveAvailability.affordable}>
+                                <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAvailability.apCost} AP / tile</small>
                             </button>
                             <button onClick={() => submitAction("basicHeal")}
-                                disabled={submitting || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10 || myAp < 60}>
-                                <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>60 AP | 10 CP | CD {myCooldowns.basicHeal ?? 0}</small>
+                                disabled={!isMyTurn || submitting || !healAvailability.affordable}>
+                                <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{healAvailability.apCost} AP | 10 CP | CD {myCooldowns.basicHeal ?? 0}</small>
                             </button>
                             <button onClick={() => submitAction("clear")}
-                                disabled={submitting || (myCooldowns.clear ?? 0) > 0 || myAp < 60}>
-                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>60 AP | CD {myCooldowns.clear ?? 0}</small>
+                                disabled={!isMyTurn || submitting || !clearAvailability.affordable}>
+                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP | CD {myCooldowns.clear ?? 0}</small>
                             </button>
                             <button onClick={() => submitAction("cleanse")}
-                                disabled={submitting || (myCooldowns.cleanse ?? 0) > 0 || myAp < 60}>
-                                <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>60 AP | CD {myCooldowns.cleanse ?? 0}</small>
+                                disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
+                                <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{cleanseAvailability.apCost} AP | CD {myCooldowns.cleanse ?? 0}</small>
                             </button>
-                            <button onClick={() => submitAction("flee")} disabled={submitting || myAp < 100}>
-                                <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>100 AP | 50%</small>
+                            <button onClick={() => submitAction("flee")} disabled={!isMyTurn || submitting || !fleeAvailability.affordable}>
+                                <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{fleeAvailability.apCost} AP | 50%</small>
                             </button>
-                            <button onClick={() => submitAction("wait")} disabled={submitting}>
+                            <button onClick={() => submitAction("wait")} disabled={!isMyTurn || submitting}>
                                 <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small>
                             </button>
                         </CombatCommandBar>
@@ -1787,27 +1838,42 @@ export function PvpBattleScreen({
                                 👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
                             </p>
                         ) : (
-                            <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6, pointerEvents: "none" }}>
-                                {/* Action grid stays visible (dimmed + non-interactive) on the
-                                     opponent's turn so the player can review jutsu / weapons /
-                                     consumables / throwables and strategize. */}
+                            <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6 }}>
+                                {/* Cast/use controls are natively disabled while waiting, but
+                                     detail buttons stay interactive for planning. */}
                                 {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedThrown.length === 0 && pvpEquippedConsumables.length === 0 ? (
                                     <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
                                     <div className="combat-equipped-jutsu-grid">
                                         {/* ── Jutsu cards ── */}
                                         {sessionEquippedJutsu.map(j => {
-                                            const onCooldown = (myCooldowns[j.id] ?? 0) > 0;
+                                            const cooldownRemaining = myCooldowns[j.id] ?? 0;
+                                            const availability = pvpJutsuActionAvailability(j.ap ?? 40, {
+                                                chakraCost: j.chakraCost ?? 0,
+                                                staminaCost: j.staminaCost ?? 0,
+                                                cooldownRemaining,
+                                                element: j.element,
+                                            });
+                                            const onCooldown = availability.onCooldown;
                                             const isArmed = pendingJutsuId === j.id;
+                                            const title = [
+                                                j.name,
+                                                `${availability.apCost} AP`,
+                                                `Range ${j.range}`,
+                                                availability.chakraCost > 0 ? `${availability.chakraCost} CP` : "",
+                                                availability.staminaCost > 0 ? `${availability.staminaCost} SP` : "",
+                                                availability.sealed ? "Elementally sealed" : "",
+                                                onCooldown ? `CD ${cooldownRemaining}` : "",
+                                            ].filter(Boolean).join(" | ");
                                             return (
                                                 <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
-                                                    {onCooldown && <span className="combat-cd-badge" title={`${myCooldowns[j.id]} turn(s) until ready`}>{myCooldowns[j.id]}</span>}
+                                                    {onCooldown && <span className="combat-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}>{cooldownRemaining}</span>}
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={onCooldown ? `${j.name} cooldown: ${myCooldowns[j.id]} turns` : `${j.name} | ${j.ap} AP | Range ${j.range}`}
+                                                        title={title}
                                                         onClick={() => !onCooldown && selectJutsu(j)}
-                                                        disabled={submitting || onCooldown || myAp < pvpAdjustedApCost(j.ap ?? 40)}
+                                                        disabled={!isMyTurn || submitting || !availability.affordable}
                                                     >
                                                         <span className="combat-jutsu-thumb">
                                                             <strong className="combat-jutsu-fallback-icon">{fallbackIcon(j)}</strong>
@@ -1817,7 +1883,17 @@ export function PvpBattleScreen({
                                                         {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                             shows as the corner pip. Dropping it keeps the cost line
                                                             inside the card without truncating. */}
-                                                        <CombatJutsuMeta character={character} jutsu={j} statuses={me.statuses} activeCooldown={myCooldowns[j.id] ?? 0} />
+                                                        <CombatJutsuMeta
+                                                            character={character}
+                                                            jutsu={j}
+                                                            statuses={me.statuses}
+                                                            round={session.round}
+                                                            activeCooldown={cooldownRemaining}
+                                                            sealedResourceCosts={{
+                                                                chakraCost: j.chakraCost ?? 0,
+                                                                staminaCost: j.staminaCost ?? 0,
+                                                            }}
+                                                        />
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         id={`pvp-combat-detail-trigger-jutsu-${j.id}`}
@@ -1837,12 +1913,13 @@ export function PvpBattleScreen({
                                         {pvpEquippedWeapons.map(item => {
                                             const slot = normalizeEquipmentSlot(item.slot);
                                             const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
-                                            const apCost = item.apCost ?? 40;
                                             const isArmed = pendingWeaponId === item.id;
                                             // Named (hand) weapons honour their CD server-side — grey
                                             // out + show the remaining turns, matching the jutsu cards.
                                             const wCd = myCooldowns[item.id] ?? 0;
-                                            const onCooldown = wCd > 0;
+                                            const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
+                                            const apCost = availability.apCost;
+                                            const onCooldown = availability.onCooldown;
                                             return (
                                                 <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                     {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
@@ -1851,7 +1928,7 @@ export function PvpBattleScreen({
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                         title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
                                                         onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={submitting || myAp < apCost || onCooldown}>
+                                                        disabled={!isMyTurn || submitting || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
                                                         </span>
@@ -1878,7 +1955,6 @@ export function PvpBattleScreen({
                                             && <p className="combat-action-hint">Consumables and thrown weapons are disabled in Player Ranked during the V2 rollout.</p>}
                                         {pvpEquippedThrown.map(item => {
                                             const wRange = item.weaponRange ?? 4;
-                                            const apCost = item.apCost ?? 40;
                                             const isArmed = pendingWeaponId === item.id;
                                             const chargesLeft = pvpItemChargesLeft(item.id);
                                             const depleted = chargesLeft != null && chargesLeft <= 0;
@@ -1886,7 +1962,9 @@ export function PvpBattleScreen({
                                             // Thrown weapons also honour their CD server-side — grey
                                             // out + show the remaining turns like the jutsu cards.
                                             const wCd = myCooldowns[item.id] ?? 0;
-                                            const onCooldown = wCd > 0;
+                                            const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
+                                            const apCost = availability.apCost;
+                                            const onCooldown = availability.onCooldown;
                                             return (
                                                 <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                     {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
@@ -1895,7 +1973,7 @@ export function PvpBattleScreen({
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                         title={playerRankedV2ItemsDisabled ? "Disabled in Player Ranked V2" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
                                                         onClick={() => { if (onCooldown || playerRankedV2ItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={playerRankedV2ItemsDisabled || submitting || myAp < apCost || depleted || onCooldown}>
+                                                        disabled={!isMyTurn || playerRankedV2ItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🎯</strong>}
                                                         </span>
@@ -1918,7 +1996,6 @@ export function PvpBattleScreen({
 
                                         {/* ── Consumable cards (red) ── */}
                                         {pvpEquippedConsumables.map(item => {
-                                            const apCost = item.apCost ?? 35;
                                             const chargesLeft = pvpItemChargesLeft(item.id);
                                             const depleted = chargesLeft != null && chargesLeft <= 0;
                                             const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
@@ -1927,7 +2004,9 @@ export function PvpBattleScreen({
                                             // the weapon cards. Restore-only potions carry no CD, so
                                             // wCd stays 0 and they never grey for this reason.
                                             const wCd = myCooldowns[item.id] ?? 0;
-                                            const onCooldown = wCd > 0;
+                                            const availability = pvpActionAvailability(item.apCost ?? 35, { cooldownRemaining: wCd });
+                                            const apCost = availability.apCost;
+                                            const onCooldown = availability.onCooldown;
                                             return (
                                                 <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                     {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
@@ -1936,7 +2015,7 @@ export function PvpBattleScreen({
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                         title={playerRankedV2ItemsDisabled ? "Disabled in Player Ranked V2" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
                                                         onClick={() => { if (onCooldown || playerRankedV2ItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                        disabled={playerRankedV2ItemsDisabled || submitting || myAp < apCost || depleted || onCooldown}>
+                                                        disabled={!isMyTurn || playerRankedV2ItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
                                                         </span>
@@ -1968,7 +2047,7 @@ export function PvpBattleScreen({
                                             <div className="combat-jutsu-detail-grid">
                                                 <span><strong>Type:</strong> Bukijutsu</span>
                                                 <span><strong>Rarity:</strong> {w.rarity}</span>
-                                                <span><strong>AP Cost:</strong> {w.apCost ?? 40}</span>
+                                                <span><strong>AP Cost:</strong> {pvpAdjustedApCost(w.apCost ?? 40)}</span>
                                                 <span><strong>Range:</strong> {wRange}</span>
                                                 <span><strong>Effect Power:</strong> {w.weaponEp ?? 15}</span>
                                                 {w.weaponCooldown != null && w.weaponCooldown > 0 && <span><strong>Cooldown:</strong> {w.weaponCooldown} round(s)</span>}
@@ -1995,12 +2074,12 @@ export function PvpBattleScreen({
                                             <div className="combat-jutsu-detail-grid">
                                                 <span><strong>Type:</strong> {inspectedJutsu.type}</span>
                                                 <span><strong>Element:</strong> {inspectedJutsu.element}</span>
-                                                <span><strong>AP:</strong> {inspectedJutsu.ap}</span>
+                                                <span><strong>AP:</strong> {pvpAdjustedJutsuApCost(inspectedJutsu.ap ?? 40)}</span>
                                                 <span><strong>Range:</strong> {inspectedJutsu.range}</span>
                                                 <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
                                                 <span><strong>Cooldown:</strong> {inspectedJutsu.cooldown}</span>
-                                                <span><strong>Chakra Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "chakra", character.level, character.specialty, mastery.level)}</span>
-                                                <span><strong>Stamina Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "stamina", character.level, character.specialty, mastery.level)}</span>
+                                                <span><strong>Chakra Cost:</strong> {Math.max(0, Number(inspectedJutsu.chakraCost) || 0)}</span>
+                                                <span><strong>Stamina Cost:</strong> {Math.max(0, Number(inspectedJutsu.staminaCost) || 0)}</span>
                                             </div>
                                             {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}

@@ -39,7 +39,7 @@ import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { JUTSU_TRAINING_CAP } from "../constants/game";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 
 // "2h 14m 03s" / "14m 03s" countdown for the Active Training box.
@@ -51,7 +51,7 @@ function formatTrainingRemaining(ms: number): string {
     return `${h > 0 ? `${h}h ` : ""}${h > 0 ? m.toString().padStart(2, "0") : m}m ${s.toString().padStart(2, "0")}s`;
 }
 
-export function Training({ character, updateCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
+export function Training({ character, onVersionedCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
     const [trainingBusy, setTrainingBusy] = useState(false);
     const trainingBusyRef = useRef(false);
@@ -98,9 +98,9 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         setTrainingBusy(true);
         try {
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
-            const data = await res.json().catch(() => ({}));
+            const data = await res.json().catch(() => ({})) as { token?: string; character?: Character; activeTraining?: ActiveTraining; _saveVersion?: number; error?: string };
             if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) throw new Error(String(data?.error ?? 'Training could not be started.'));
-            updateCharacter(data.character as Character);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining as ActiveTraining);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be started. Please retry.');
@@ -123,10 +123,10 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         try {
             if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}). Stamina already spent is not refunded.`))) return;
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token, cancel: true }) });
-            const data = await res.json().catch(() => ({}));
+            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be cancelled.'));
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining ?? null);
-            updateCharacter({ ...character, ...data.character });
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}`);
         } catch (err) {
@@ -146,10 +146,10 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         setTrainingBusy(true);
         try {
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token }) });
-            const data = await res.json().catch(() => ({}));
+            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; cap?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be collected.'));
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining ?? null);
-            updateCharacter({ ...character, ...data.character });
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const cap = Math.max(0, Math.floor(Number(data.cap) || 0));
             alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}). Rank up to train it higher.`}`);
@@ -425,6 +425,7 @@ function JutsuSealPanel({
 export function JutsuTrainingHall({
     character,
     updateCharacter,
+    onVersionedCharacter,
     savedBloodlines,
     creatorJutsus,
     activeJutsuTraining,
@@ -433,6 +434,7 @@ export function JutsuTrainingHall({
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    onVersionedCharacter: VersionedCharacterCommit;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     activeJutsuTraining: ActiveJutsuTraining | null;
@@ -528,7 +530,7 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: jutsuTrainingBonus });
             if (!result.character) return rejectJutsuAction(result.error);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({
                 tone: "success",
@@ -554,7 +556,7 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken });
             if (!result.character) return rejectJutsuAction(result.error);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
         } finally {
@@ -573,7 +575,7 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken });
             if (!result.character) return rejectJutsuAction(result.error);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `Training cancelled. ${result.refund ?? refund} ryo returned.` });
         } finally {
@@ -595,7 +597,7 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'finish', { serverToken: activeJutsuTraining.serverToken });
             if (!result.character) return rejectJutsuAction(result.error);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
         } finally {
@@ -629,7 +631,7 @@ export function JutsuTrainingHall({
                 trainingBonusPct: jutsuTrainingBonus,
             });
             if (!result.character) return rejectJutsuAction(result.error);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `${selectedJutsu.name} is queued and already paid for.` });
         } finally {
@@ -648,7 +650,7 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'cancel-queue', { serverToken: activeJutsuTraining.serverToken });
             if (!result.character) return rejectJutsuAction(result.error);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `Queued lesson removed. ${result.refund ?? queued.ryoCost} ryo returned.` });
         } finally {

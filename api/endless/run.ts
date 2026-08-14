@@ -8,7 +8,6 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
-import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
 import { cashOutEndless, recordEndlessWin, startEndlessRun, type EndlessRun } from './_run.js';
 import {
@@ -58,14 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runToken = cleanToken(body.runToken);
         const waveRunId = cleanWaveRunId(body.waveRunId);
-        let usageSession = action === 'settle' && waveRunId
-            ? await readSoloPveSession(waveRunId)
-            : null;
-        if (usageSession) {
-            const usage = await settleSoloPveTerminalUsage(usageSession, playerName);
-            if (!usage.ok) return res.status(usage.status).json({ error: usage.error });
-            usageSession = usage.session;
-        }
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ character }) => {
             if (action === 'start') {
                 const started = startEndlessRun(character, randomUUID().replace(/-/g, ''), dayKey());
@@ -128,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (!waveRunId) return { ok: false as const, status: 409, error: 'missing-endless-wave-session' };
             const binding = await kv.get<EndlessWaveBinding>(endlessWaveBindingKey(waveRunId));
-            const session = usageSession ?? await readSoloPveSession(waveRunId);
+            const session = await readSoloPveSession(waveRunId);
             const validation = validateTerminalEndlessWave({
                 binding,
                 session,

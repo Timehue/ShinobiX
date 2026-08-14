@@ -1,0 +1,18 @@
+.ui-modal-card.chronicle-tutorial-modal-shell {
+  max-width: 760px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chronicle-tutorial-modal-shell .chronicle-tutorial {
+  box-sizing: border-box;
+  max-width: none;
+}
+
+@media (max-width: 760px) {
+  .chronicle-tutorial-modal-shell .chronicle-tutorial {
+    max-height: none;
+    overflow: visible;
+  }
+}

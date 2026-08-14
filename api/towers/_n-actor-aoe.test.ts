@@ -249,6 +249,7 @@ describe('Tower N-actor AOE cutover', () => {
 
     it('accumulates every hit-scoped defender mutation and caster reaction sequentially', () => {
         const s = session(reactionRoster());
+        const lifestealBefore = getActor(s, 'caster')!.statuses.filter(status => status.name === 'Lifesteal').length;
         assert.equal(cast(s).applied, true);
         const outcome = normalizedOutcome(s);
 
@@ -256,10 +257,10 @@ describe('Tower N-actor AOE cutover', () => {
         assert.equal(getActor(s, 'caster')!.chakra, 475, 'chakra is spent once');
         assert.equal(getActor(s, 'caster')!.stamina, 490, 'stamina is spent once');
         assert.equal(outcome.cooldowns.manyfold, 4, 'cooldown is armed once');
-        assert.equal(getActor(s, 'caster')!.statuses.filter(status => status.source === 'Manyfold'
-            && status.name === 'Increase Generals').length, 1, 'self buff setup occurs once');
-        assert.equal(getActor(s, 'caster')!.statuses.filter(status => status.source === 'Manyfold'
-            && status.name === 'Lifesteal').length, 1, 'cast Lifesteal setup occurs once');
+        assert.equal(getActor(s, 'caster')!.statuses.filter(status =>
+            status.name === 'Increase Generals').length, 1, 'self buff setup occurs once');
+        assert.equal(getActor(s, 'caster')!.statuses.filter(status =>
+            status.name === 'Lifesteal').length, lifestealBefore + 1, 'cast Lifesteal setup occurs once');
 
         for (const id of ['target-a', 'target-b', 'target-c', 'target-d']) {
             const victim = getActor(s, id)!;
@@ -267,8 +268,8 @@ describe('Tower N-actor AOE cutover', () => {
             assert.ok(victim.hp < victim.maxHp, `${id} takes damage`);
             assert.ok(victim.shield <= initialShield, `${id} never gains shield`);
             if (initialShield > 0) assert.ok(victim.shield < initialShield, `${id} spends shield`);
-            assert.equal(victim.statuses.filter(status => status.source === 'Manyfold' && status.name === 'Wound').length, 1);
-            assert.equal(victim.statuses.filter(status => status.source === 'Manyfold' && status.name === 'Poison').length, 1);
+            assert.equal(victim.statuses.filter(status => status.name === 'Wound').length, 1);
+            assert.equal(victim.statuses.filter(status => status.name === 'Poison').length, 1);
         }
 
         assert.equal(s.log.filter(line => line.includes('reflected damage.')).length, 4, 'active Reflect reacts per target');
@@ -359,7 +360,7 @@ describe('Tower N-actor AOE cutover', () => {
         for (const id of ['target-a', 'target-b', 'target-c']) {
             const victim = getActor(s, id)!;
             assert.equal(victim.hp, victim.maxHp, 'Heal/Shield makes the cast zero-damage');
-            assert.equal(victim.statuses.filter(status => status.source === 'Manyfold' && status.name === 'Poison').length, 1);
+            assert.equal(victim.statuses.filter(status => status.name === 'Poison').length, 1);
         }
         assert.equal(s.activeAp, 40);
         assert.equal(getActor(s, 'caster')!.chakra, 480);

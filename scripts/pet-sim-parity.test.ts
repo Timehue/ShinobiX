@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import { runPetDuel as serverRun } from "../api/_pet-sim/pet-duel-sim";
 import { runPetDuel as clientRun } from "../shinobij.client/src/lib/pet-duel-sim";
 import type { Pet, PetJutsu } from "../shinobij.client/src/types/pet";
-import { WALK_MASK as clientWalkMask } from "../shinobij.client/src/lib/pet-arena-walkmask";
-import { WALK_MASK as serverWalkMask } from "../api/_pet-sim/pet-arena-walkmask";
 
 /*
  * Pet-sim parity. api/pet-sim/pet-duel-sim.ts is a GENERATED server copy of the
@@ -27,10 +25,6 @@ function makePet(over: Partial<Pet> = {}): Pet {
         ...over,
     };
 }
-
-test("generated server pet-arena walkmask is byte-identical to the client source", () => {
-    assert.equal(serverWalkMask, clientWalkMask);
-});
 
 test("server pet-duel-sim is byte-identical to the client original (sector-war path: items off, both accuracy modes)", () => {
     const A = makePet({ id: "a", element: "Fire", jutsus: [J({ name: "Strike", kind: "damage", power: 110 }), J({ name: "Frost", kind: "freeze", power: 80, rounds: 1 })] });

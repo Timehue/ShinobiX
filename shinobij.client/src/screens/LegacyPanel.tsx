@@ -4,10 +4,10 @@
  * and a deliberately VAGUE "strongest paths" reading (bucketed tiers from
  * the server — never raw counters or thresholds; the mystery rule).
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import {
-    fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
+    buildChronicleRecordReceipt, fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
     useLegacyAvailability, TRIAL_STAT_LABELS, eraAgeName,
     type LegacyStatusView, type LegacyDefView, type CharacterLegacy,
 } from "../lib/legacy";
@@ -80,12 +80,10 @@ function codexChipStyle(active: boolean): React.CSSProperties {
     };
 }
 
-export function LegacyPanel({ character, onLegacyChanged }: {
+export function LegacyPanel({ character, onVersionedCharacter }: {
     character: Character;
-    /** Fired after a server-confirmed legacy change (accept elsewhere / stage-up
-     *  here) with the fresh server legacy + any granted title, so the host can
-     *  sync the client character (aura, title picker) without a relog. */
-    onLegacyChanged?: (legacy?: Character["legacy"], grantedTitle?: string | null) => void;
+    /** Applies the authoritative full save snapshot and version. */
+    onVersionedCharacter: (character: Character, saveVersion: number) => boolean | void;
 }) {
     const enabled = useLegacyAvailability();
     const [status, setStatus] = useState<LegacyStatusView | null>(null);
@@ -105,16 +103,39 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     const [codexCategory, setCodexCategory] = useState<string | null>(null);
     // Flag-off mounts have nothing to load; they render the null branch below.
     const [loaded, setLoaded] = useState(!enabled);
+    const mountedRef = useRef(true);
+    const statusRequestRef = useRef(0);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            statusRequestRef.current += 1;
+        };
+    }, []);
 
     const reload = useCallback(() => {
-        void fetchLegacyStatus(character.name).then((s) => { setStatus(s); setLoaded(true); });
-    }, [character.name]);
+        const request = ++statusRequestRef.current;
+        void fetchLegacyStatus(character.name).then((s) => {
+            if (!mountedRef.current || request !== statusRequestRef.current) return;
+            if (s?.character && typeof s._saveVersion === "number"
+                && onVersionedCharacter(s.character, s._saveVersion) === false) {
+                // The response belongs to this mounted account, but a newer
+                // authoritative snapshot already won while it was in flight.
+                // Do not render status derived from the rejected older save.
+                setLoaded(true);
+                return;
+            }
+            setStatus(s);
+            setLoaded(true);
+        });
+    }, [character.name, onVersionedCharacter]);
 
     useEffect(() => {
         if (!enabled) return;
         reload();
         void fetchLegacyDefinitions().then((d) => {
-            if (d) setDefs(new Map(d.legacies.map((l) => [l.id, l])));
+            if (mountedRef.current && d) setDefs(new Map(d.legacies.map((l) => [l.id, l])));
         });
     }, [enabled, reload]);
 
@@ -131,6 +152,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
         setBusy(true);
         if (action === "start" || action === "reroll") {
             const result = action === "start" ? await trialStart(character.name) : await trialReroll(character.name);
+            if (!mountedRef.current) return;
             if (result?.ok && result.trial && def) {
                 // The trial-giver is the emissary serving this Legacy's category
                 // (the in-world overseer), not the Sage — attribute the charge to
@@ -152,8 +174,20 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                 });
             }
         } else {
-            const result = await trialComplete(character.name);
+            const result = await trialComplete(character.name, status?.trial?.id);
+            if (!mountedRef.current) return;
             if (result?.ok && result.legacy && def) {
+                if (!result.character || typeof result._saveVersion !== "number") {
+                    setTrialNote("Your trial is sealed, but the Hall's updated record did not arrive. Refresh before continuing.");
+                    setBusy(false);
+                    return;
+                }
+                if (onVersionedCharacter(result.character, result._saveVersion) === false) {
+                    setTrialNote("A newer character record is already active; this older trial reply was ignored.");
+                    setBusy(false);
+                    return;
+                }
+                const chronicleRecord = buildChronicleRecordReceipt(result.chronicleCards, "legacy-awakening", def.name);
                 setMoment({
                     mode: "stage-up",
                     stage: result.legacy.stage,
@@ -163,15 +197,17 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     badge: def.badge,
                     grantedTitle: result.title ?? null,
                     text: result.completion ?? "Your legacy deepens.",
+                    ...(chronicleRecord ? { chronicleRecord } : {}),
                 });
-                onLegacyChanged?.(result.legacy as Character["legacy"], result.title ?? null);
             } else if (result?.reason === "incomplete") {
                 setTrialNote("The trial is not finished yet — the objectives below still wait.");
-                setTimeout(() => setTrialNote(null), 5000);
+                setTimeout(() => { if (mountedRef.current) setTrialNote(null); }, 5000);
             }
         }
-        setBusy(false);
-        reload();
+        if (mountedRef.current) {
+            setBusy(false);
+            reload();
+        }
     }
 
     return (
@@ -459,7 +495,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                             </div>
                         </div>
                     ))}
-                    {trialNote && <p style={{ fontSize: ".74rem", color: "#fbbf24", margin: "0 0 6px" }}>{trialNote}</p>}
+                    {trialNote && <p role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: ".74rem", color: "#fbbf24", margin: "0 0 6px" }}>{trialNote}</p>}
                     <button disabled={busy} onClick={() => void handleTrial("complete")} style={{ width: "100%", marginTop: 4 }}>
                         {status.trial.objectives.every((o) => o.done) ? "Complete the Trial" : "Check Progress"}
                     </button>

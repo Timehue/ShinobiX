@@ -91,44 +91,6 @@ function storedSave(): Record<string, unknown> {
             legacy: { id: 'sage', stage: 1, titles: ['Sage Ascendant'] },
             redeemedCrafts: ['craft-1'], redeemedNamedForges: [],
             serverSettlementReceipts: { pvp: ['r-1'] },
-            petRankedSettlementStamp: {
-                settlementId: `pet-ranked-${'a'.repeat(48)}`,
-                fingerprint: 'pet-rating-winner',
-                rating: { field: 'petRankedRating', value: 1012, delta: 12 },
-                settledAt: 1_750_000_000_000,
-            },
-            playerRankedSettlementStamp: {
-                'player-ranked-12345678-1234-4123-8123-1234567890ab': {
-                    fingerprint: 'd'.repeat(64),
-                    seasonId: 1,
-                    role: 'winner',
-                    settledAt: 1_750_000_000_000,
-                    ratingAfter: 1062,
-                },
-            },
-            vanguardRewardSettlementStamp: {
-                version: 'vanguard-reward-settlement-v1', state: 'settled',
-                ownerId: '12345678-1234-4123-8123-1234567890ab',
-                fingerprint: '4'.repeat(64), authorityFingerprint: '5'.repeat(64),
-                battleId: 'pvp-golden', winner: 'goldenmaster', loser: 'rival',
-                expectedSaveVersion: 7, createdAt: 1_750_000_000_000,
-                settledAt: 1_750_000_000_100, recoverUntil: 1_750_604_800_100,
-                outcome: { granted: true, seals: 2, xp: 100 },
-            },
-            settledHollowGateCombatIds: ['hollow-run-1'],
-            hollowGateCombatSettlements: [{ runId: 'hollow-run-1', fingerprint: '0'.repeat(64), committedAt: 1 }],
-            soloPveCompanionSettlements: [{ sessionId: 'run-1', fingerprint: 'a'.repeat(64), chargedAt: 1 }],
-            soloPveItemSettlements: [{ markerId: 'run-1:move-1', fingerprint: 'b'.repeat(64), chargedAt: 2 }],
-            aiFightRewardSettlements: {
-                version: 1,
-                receipts: [{ token: 'ServerToken1', fingerprint: 'c'.repeat(64), mintedAt: 1, expiresAt: 2, settledAt: 1, xp: 100, ryo: 75, capped: false, dailyCount: 1 }],
-                dailyCounts: [{ date: '2026-08-10', count: 1, updatedAt: 1 }],
-            },
-            weeklyBossStartSettlements: [{ runId: 'weekly-run-1', fingerprint: 'e'.repeat(64), chargedAt: 1, recoverUntil: 2 }],
-            weeklyBossUsageSettlements: [{ version: 1, runId: 'weekly-run-1', playerName: 'GoldenMaster', weekKey: '2026-W32', aiId: 'boss-ai', bossStartedAt: 1, damage: 250, fingerprint: 'f'.repeat(64), settledAt: 1, recoverUntil: 2 }],
-            weeklyBossPayoutSettlements: [{ version: 1, weekKey: '2026-W32', aiId: 'boss-ai', fingerprint: 'a'.repeat(64), ryo: 500, gotCore: true, gotKey: true, creditedAt: 1, recoverUntil: 2 }],
-            combatMissionClaimSettlements: [{ version: 1, runId: 'mission-run-1', missionId: 'mission-1', rewardFingerprint: '1'.repeat(64), settledAt: 1, result: { completion: 'daily' } }],
-            bountySagaStamp: { sagaId: 'bounty-saga-1', operation: 'PLACE', settledAt: 3 },
             weaponElements: { 'rustfang-kunai': 'fire' },
             clanPoints: 10, weeklyClanPoints: 2, weeklyClanPointsWeek: '2026-W01',
             lifetimeClanPoints: 10, clanPointHistory: [], clanExchangePurchases: [],
@@ -187,43 +149,6 @@ function incomingAutosave(): Record<string, unknown> {
         storyProgress: 9,
         redeemedCrafts: [],                   // attempt to clear a receipt ledger
         serverSettlementReceipts: {},
-        petRankedSettlementStamp: {
-            settlementId: `pet-ranked-${'b'.repeat(48)}`,
-            fingerprint: 'pet-rating-loser',
-            rating: { field: 'petRankedRating', value: 999999, delta: 999999 },
-            settledAt: 1,
-        },
-        playerRankedSettlementStamp: {
-            'player-ranked-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa': {
-                fingerprint: 'f'.repeat(64),
-                seasonId: 99,
-                role: 'winner',
-                settledAt: 1,
-                ratingAfter: 999999,
-            },
-        },
-        vanguardRewardSettlementStamp: {
-            version: 'vanguard-reward-settlement-v1', state: 'settled',
-            ownerId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-            fingerprint: '6'.repeat(64), authorityFingerprint: '7'.repeat(64),
-            battleId: 'pvp-forged', winner: 'goldenmaster', loser: 'mallory',
-            expectedSaveVersion: 1, createdAt: 1, settledAt: 2, recoverUntil: 3,
-            outcome: { granted: true, seals: 999999, xp: 999999 },
-        },
-        settledHollowGateCombatIds: ['forged-hollow-run'],
-        hollowGateCombatSettlements: [{ runId: 'forged-hollow-run', fingerprint: '9'.repeat(64), committedAt: 1 }],
-        soloPveCompanionSettlements: [],
-        soloPveItemSettlements: [{ markerId: 'forged:move', fingerprint: 'c'.repeat(64), chargedAt: 1 }],
-        aiFightRewardSettlements: {
-            version: 1,
-            receipts: [{ token: 'ForgedToken1', fingerprint: 'd'.repeat(64), mintedAt: 1, expiresAt: 2, settledAt: 1, xp: 999, ryo: 999, capped: false, dailyCount: 999 }],
-            dailyCounts: [{ date: '2026-08-10', count: 999, updatedAt: 1 }],
-        },
-        weeklyBossStartSettlements: [{ runId: 'weekly-forged', fingerprint: 'f'.repeat(64), chargedAt: 1, recoverUntil: 2 }],
-        weeklyBossUsageSettlements: [{ version: 1, runId: 'weekly-forged', playerName: 'GoldenMaster', weekKey: '2099-W99', aiId: 'forged', bossStartedAt: 1, damage: 999999, fingerprint: '0'.repeat(64), settledAt: 1, recoverUntil: 2 }],
-        weeklyBossPayoutSettlements: [{ version: 1, weekKey: '2099-W99', aiId: 'forged', fingerprint: 'b'.repeat(64), ryo: 999999, gotCore: true, gotKey: true, creditedAt: 1, recoverUntil: 2 }],
-        combatMissionClaimSettlements: [{ version: 1, runId: 'mission-forged', missionId: 'mission-1', rewardFingerprint: '2'.repeat(64), settledAt: 1, result: { completion: 'daily' } }],
-        bountySagaStamp: { sagaId: 'forged-saga', operation: 'CLAIM', settledAt: 1 },
         warGroundBountyDate: '2019-06-06',    // backdate attempt
         lastDailyReset: '2019-01-01',         // backdate attempt
         // Tamper: roster/loadout.
@@ -356,44 +281,6 @@ describe('server-ledger fields survive a tampered autosave (scenarios 13/16)', (
         const c = charOf(autosaveOut());
         assert.deepEqual(c.redeemedCrafts, ['craft-1'], 'receipt ledgers cannot be cleared');
         assert.deepEqual(c.serverSettlementReceipts, { pvp: ['r-1'] });
-        assert.deepEqual(c.petRankedSettlementStamp, {
-            settlementId: `pet-ranked-${'a'.repeat(48)}`,
-            fingerprint: 'pet-rating-winner',
-            rating: { field: 'petRankedRating', value: 1012, delta: 12 },
-            settledAt: 1_750_000_000_000,
-        });
-        assert.deepEqual(c.playerRankedSettlementStamp, {
-            'player-ranked-12345678-1234-4123-8123-1234567890ab': {
-                fingerprint: 'd'.repeat(64),
-                seasonId: 1,
-                role: 'winner',
-                settledAt: 1_750_000_000_000,
-                ratingAfter: 1062,
-            },
-        });
-        assert.deepEqual(c.vanguardRewardSettlementStamp, {
-            version: 'vanguard-reward-settlement-v1', state: 'settled',
-            ownerId: '12345678-1234-4123-8123-1234567890ab',
-            fingerprint: '4'.repeat(64), authorityFingerprint: '5'.repeat(64),
-            battleId: 'pvp-golden', winner: 'goldenmaster', loser: 'rival',
-            expectedSaveVersion: 7, createdAt: 1_750_000_000_000,
-            settledAt: 1_750_000_000_100, recoverUntil: 1_750_604_800_100,
-            outcome: { granted: true, seals: 2, xp: 100 },
-        });
-        assert.deepEqual(c.settledHollowGateCombatIds, ['hollow-run-1']);
-        assert.deepEqual(c.hollowGateCombatSettlements, [{ runId: 'hollow-run-1', fingerprint: '0'.repeat(64), committedAt: 1 }]);
-        assert.deepEqual(c.soloPveCompanionSettlements, [{ sessionId: 'run-1', fingerprint: 'a'.repeat(64), chargedAt: 1 }]);
-        assert.deepEqual(c.soloPveItemSettlements, [{ markerId: 'run-1:move-1', fingerprint: 'b'.repeat(64), chargedAt: 2 }]);
-        assert.deepEqual(c.aiFightRewardSettlements, {
-            version: 1,
-            receipts: [{ token: 'ServerToken1', fingerprint: 'c'.repeat(64), mintedAt: 1, expiresAt: 2, settledAt: 1, xp: 100, ryo: 75, capped: false, dailyCount: 1 }],
-            dailyCounts: [{ date: '2026-08-10', count: 1, updatedAt: 1 }],
-        });
-        assert.deepEqual(c.weeklyBossStartSettlements, [{ runId: 'weekly-run-1', fingerprint: 'e'.repeat(64), chargedAt: 1, recoverUntil: 2 }]);
-        assert.deepEqual(c.weeklyBossUsageSettlements, [{ version: 1, runId: 'weekly-run-1', playerName: 'GoldenMaster', weekKey: '2026-W32', aiId: 'boss-ai', bossStartedAt: 1, damage: 250, fingerprint: 'f'.repeat(64), settledAt: 1, recoverUntil: 2 }]);
-        assert.deepEqual(c.weeklyBossPayoutSettlements, [{ version: 1, weekKey: '2026-W32', aiId: 'boss-ai', fingerprint: 'a'.repeat(64), ryo: 500, gotCore: true, gotKey: true, creditedAt: 1, recoverUntil: 2 }]);
-        assert.deepEqual(c.combatMissionClaimSettlements, [{ version: 1, runId: 'mission-run-1', missionId: 'mission-1', rewardFingerprint: '1'.repeat(64), settledAt: 1, result: { completion: 'daily' } }]);
-        assert.deepEqual(c.bountySagaStamp, { sagaId: 'bounty-saga-1', operation: 'PLACE', settledAt: 3 });
         assert.equal(c.warGroundBountyDate, '2020-01-01', 'daily stamps cannot be backdated');
         assert.equal(c.lastDailyReset, '2020-01-02', 'daily reset stamps are monotonic-forward');
         assert.equal(c.totalPvpKills, 4, 'lifetime counters have zero client delta');
@@ -548,8 +435,6 @@ describe('public projections (scenarios 8/9/10)', () => {
         assert.equal(c.bankRyo, undefined);
         assert.equal(c.unlockedAchievements, undefined);
         assert.equal(c.inventory, undefined);
-        assert.equal(c.playerRankedSettlementStamp, undefined, 'private ranked settlement truth is stripped');
-        assert.equal(c.vanguardRewardSettlementStamp, undefined, 'private Vanguard settlement truth is stripped');
         assert.deepEqual(c.equippedJutsuIds, ['ashen-eyes-blood-gaze'], 'loadout survives');
         assert.deepEqual(c.stats, FULL_STATS, 'stats survive for combat');
         assert.equal(proj.acceptedMissionIds, undefined, 'mission state stripped at top level');

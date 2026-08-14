@@ -19,7 +19,7 @@ import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
 import { GameIcon } from "./icons/GameIcon";
 import { BackToVillageButton } from "./BackToVillageButton";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { openCardPack, type CardPackType } from "../lib/card-pack";
@@ -33,11 +33,11 @@ import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { Modal } from "./ui/Modal";
 
 function ShopBase({
-    character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel, onServerVersion,
+    character, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel, onVersionedCharacter,
 }: {
-    character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[];
+    character: Character; creatorItems: GameItem[];
     title: string; subtitle: string; filterRarities: GameItem["rarity"][];
-    currency?: "ryo" | "fateShards"; onBack: () => void; backLabel?: string; onServerVersion?: (version: number) => void;
+    currency?: "ryo" | "fateShards"; onBack: () => void; backLabel?: string; onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
     // Bulk-buy quantity for capped consumables/throwables/potions. Reset to 1
@@ -145,8 +145,7 @@ function ShopBase({
             });
             const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
             if (!response.ok || !result?.character) return alert(result?.error || AMBIGUOUS_ACTION_MESSAGE);
-            if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
 
             // Keep the popup open for capped consumables so the player can watch the
             // owned/cap count update and keep buying; close it for one-off gear.
@@ -438,7 +437,7 @@ function ShopBase({
 // and stay in sync with api/card-clash/_pack.ts.
 const PACK_BASE_COST: Record<CardPackType, number> = { standard: 250, epic: 10, legendary: 30 };
 
-function CardPackSection({ character, updateCharacter, currency, creatorCards, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onServerVersion?: (version: number) => void }) {
+function CardPackSection({ character, currency, creatorCards, onVersionedCharacter }: { character: Character; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onVersionedCharacter: VersionedCharacterCommit }) {
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
     const [packBusy, setPackBusy] = useState(false);
@@ -470,8 +469,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
             const ownedBefore = ownedChronicleCounts(character.tileCards);
             const result = await openCardPack(character.name, packType);
             if (!result.ok || !result.character || !result.cards) return alert(result.error || "Could not open the card pack.");
-            if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
-            updateCharacter(result.character);
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setPackReveal({ nonce: makeId(), packType, cards: result.cards, ownedBefore });
         } finally {
             packBusyRef.current = false;
@@ -539,31 +537,29 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
     );
 }
 
-export function Shop({ character, updateCharacter, creatorItems, creatorCards, onBack, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onServerVersion?: (version: number) => void }) {
+export function Shop({ character, creatorItems, creatorCards, onBack, onVersionedCharacter }: { character: Character; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit }) {
     return (
         <>
             <ShopBase
                 character={character}
-                updateCharacter={updateCharacter}
                 creatorItems={creatorItems}
                 title="Shop"
                 subtitle="Standard gear for everyday shinobi."
                 filterRarities={["common", "uncommon", "rare", "epic"]}
                 currency="ryo"
                 onBack={onBack}
-                onServerVersion={onServerVersion}
+                onVersionedCharacter={onVersionedCharacter}
             />
-            <CardPackSection character={character} updateCharacter={updateCharacter} currency="ryo" creatorCards={creatorCards} onServerVersion={onServerVersion} />
+            <CardPackSection character={character} currency="ryo" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} />
         </>
     );
 }
 
-export function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCards, onBack, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onServerVersion?: (version: number) => void }) {
+export function GrandMarketplace({ character, creatorItems, creatorCards, onBack, onVersionedCharacter }: { character: Character; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit }) {
     return (
         <>
             <ShopBase
                 character={character}
-                updateCharacter={updateCharacter}
                 creatorItems={creatorItems}
                 title="Grand Marketplace"
                 subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards"
@@ -571,9 +567,9 @@ export function GrandMarketplace({ character, updateCharacter, creatorItems, cre
                 currency="fateShards"
                 onBack={onBack}
                 backLabel="← Central Hub"
-                onServerVersion={onServerVersion}
+                onVersionedCharacter={onVersionedCharacter}
             />
-            <CardPackSection character={character} updateCharacter={updateCharacter} currency="fateShards" creatorCards={creatorCards} onServerVersion={onServerVersion} />
+            <CardPackSection character={character} currency="fateShards" creatorCards={creatorCards} onVersionedCharacter={onVersionedCharacter} />
         </>
     );
 }

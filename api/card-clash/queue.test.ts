@@ -114,3 +114,114 @@ test("Free-Play queue requires authentication and mints one shared participant p
   assert.equal(bravoMatch.opponent, "alpha");
   assert.equal(bravoMatch.p1, false);
 });
+
+test("leave removes an unmatched player immediately", async () => {
+  store.clear();
+  await call({ name: "alpha", action: "join" });
+
+  const left = await call({ name: "alpha", action: "leave" });
+  assert.equal(left.statusCode, 200);
+  assert.deepEqual(left.body, {
+    inQueue: false,
+    queueSize: 0,
+    match: null,
+    reason: "left",
+  });
+
+  const poll = await call({ name: "alpha", action: "poll" });
+  assert.equal((poll.body as { inQueue: boolean }).inQueue, false);
+  assert.equal((poll.body as { reason: string }).reason, "not-queued");
+});
+
+test("leave racing a completed pairing cancels both durable handoffs", async () => {
+  store.clear();
+  await call({ name: "alpha", action: "join" });
+  await call({ name: "bravo", action: "join" });
+  const paired = await call({ name: "alpha", action: "poll" });
+  const matchId = (paired.body as { match: { matchId: string } }).match.matchId;
+
+  const canceled = await call({ name: "bravo", action: "leave" });
+  assert.equal(canceled.statusCode, 200);
+  assert.equal((canceled.body as { canceledMatchId?: string }).canceledMatchId, matchId);
+  assert.equal(store.has(`card-clash:queue:match:alpha`), false);
+  assert.equal(store.has(`card-clash:queue:match:bravo`), false);
+  assert.equal(store.has(`cc-pair:${matchId}`), false);
+
+  const alphaPoll = await call({ name: "alpha", action: "poll" });
+  assert.equal((alphaPoll.body as { match: unknown }).match, null);
+  assert.equal((alphaPoll.body as { reason: string }).reason, "not-queued");
+});
+
+test("poll reports an expired lease instead of pretending the player is still queued", async () => {
+  store.clear();
+  store.set("card-clash:queue", [{
+    name: "alpha",
+    level: 1,
+    joinedAt: Date.now() - 61_000,
+    lastSeen: Date.now() - 61_000,
+  }]);
+
+  const poll = await call({ name: "alpha", action: "poll" });
+  assert.equal(poll.statusCode, 200);
+  assert.deepEqual(poll.body, {
+    inQueue: false,
+    queueSize: 0,
+    match: null,
+    reason: "not-queued",
+  });
+});
+
+test("concurrent opposite-side polls converge on one pair without orphaning either handoff", async () => {
+  store.clear();
+  await call({ name: "alpha", action: "join" });
+  await call({ name: "bravo", action: "join" });
+
+  const [alphaPoll, bravoPoll] = await Promise.all([
+    call({ name: "alpha", action: "poll" }),
+    call({ name: "bravo", action: "poll" }),
+  ]);
+  assert.equal(alphaPoll.statusCode, 200);
+  assert.equal(bravoPoll.statusCode, 200);
+  const alphaMatch = (alphaPoll.body as { match: { matchId: string } }).match;
+  const bravoMatch = (bravoPoll.body as { match: { matchId: string } }).match;
+  assert.equal(alphaMatch.matchId, bravoMatch.matchId);
+
+  const pairKeys = [...store.keys()].filter((key) => key.startsWith("cc-pair:"));
+  assert.deepEqual(pairKeys, [`cc-pair:${alphaMatch.matchId}`]);
+  assert.equal(
+    (store.get("card-clash:queue:match:alpha") as { matchId?: string })?.matchId,
+    alphaMatch.matchId,
+  );
+  assert.equal(
+    (store.get("card-clash:queue:match:bravo") as { matchId?: string })?.matchId,
+    alphaMatch.matchId,
+  );
+  assert.deepEqual(store.get("card-clash:queue"), []);
+});
+
+test("pairing fails closed under a held storage lock and leaves the whole handoff untouched", async () => {
+  store.clear();
+  const queued = [
+    { name: "alpha", level: 20, joinedAt: Date.now(), lastSeen: Date.now() },
+    { name: "bravo", level: 20, joinedAt: Date.now(), lastSeen: Date.now() },
+  ];
+  store.set("card-clash:queue", queued);
+  store.set("lock:card-clash:queue", "other-worker");
+
+  const blocked = await call({ name: "alpha", action: "poll" });
+  assert.equal(blocked.statusCode, 503);
+  assert.match(String((blocked.body as { error?: string }).error), /busy/i);
+  assert.deepEqual(store.get("card-clash:queue"), queued, "neither queued participant may be consumed");
+  assert.equal(store.has("card-clash:queue:match:alpha"), false);
+  assert.equal(store.has("card-clash:queue:match:bravo"), false);
+  assert.deepEqual(
+    [...store.keys()].filter((key) => key.startsWith("cc-pair:")),
+    [],
+    "no shared proof may exist without both handoffs",
+  );
+
+  store.delete("lock:card-clash:queue");
+  const recovered = await call({ name: "alpha", action: "poll" });
+  assert.equal(recovered.statusCode, 200);
+  assert.ok((recovered.body as { match?: { matchId?: string } }).match?.matchId);
+});

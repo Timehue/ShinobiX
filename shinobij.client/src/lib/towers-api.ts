@@ -11,7 +11,17 @@ import type { Character } from '../types/character';
 
 export type TowerSide = 'squad' | 'enemy' | 'npc';
 
-export type TowerStatus = { name: string; rounds: number; kind?: 'positive' | 'negative'; percent?: number; amount?: number };
+export type TowerStatus = {
+    name: string;
+    /** Server-authored jutsu, weapon, zone, or Tower grid policy that created the status. */
+    source?: string;
+    rounds: number;
+    activeRound?: number;
+    kind?: 'positive' | 'negative';
+    percent?: number;
+    amount?: number;
+    discipline?: 'Taijutsu' | 'Bukijutsu' | 'Genjutsu' | 'Ninjutsu';
+};
 
 export type TowerActor = {
     id: string;

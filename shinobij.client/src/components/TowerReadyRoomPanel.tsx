@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { visiblePoll } from "../lib/poll";
 import { isRealtimeConnected, onStatus, onTowerKick } from "../lib/presence-socket";
+import { resolveTowerStoryArt } from "../lib/tower-art-manifest";
 import {
     fetchTowerParty,
     fetchTowerState,
@@ -17,7 +18,6 @@ import {
     type TowerPartyView,
     type TowerSession,
 } from "../lib/towers-api";
-import { resolveTowerStoryArt } from "../lib/tower-art-manifest";
 import type { Character } from "../types/character";
 import { canStartTowerRoomPoll, isTowerRoomResponseCurrent, reconcileTowerRoomEnvelope, type TowerRoomResultMode } from "../lib/tower-party-state";
 import { gameConfirm } from "./GameAlert";
@@ -155,6 +155,18 @@ function bindingLabel(binding: TowerPartyBinding): string {
 
 function readyRoomObjectiveLabel(objective: string): string {
     return READY_ROOM_OBJECTIVE_LABEL[objective] ?? objective.replace(/-/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function readyRoomPaceLabel(floor: TowerFloorMeta): string {
+    if (floor.objective === "protect-npc") return `Hold ${floor.roundBudget} rounds`;
+    if (floor.objective === "survive") return `Survive ${floor.roundBudget} rounds`;
+    return `Par / score pace · ${floor.roundBudget} rounds`;
+}
+
+function readyRoomEnemyLabel(floor: TowerFloorMeta): string {
+    const starting = `${floor.enemyCount} starting combatant${floor.enemyCount === 1 ? "" : "s"}`;
+    const phaseCount = floor.phaseReinforcementCount ?? 0;
+    return phaseCount > 0 ? `${starting} + ${phaseCount} phase reinforcements` : starting;
 }
 
 function invitationSizeLabel(invitation: TowerPartyInvitationView): string {
@@ -615,6 +627,7 @@ export function TowerReadyRoomPanel({
                     <article
                         className={`tower-ready-room-binding${boundStoryArt ? " has-art" : ""}`}
                         aria-labelledby="tower-ready-room-mission-title"
+                        aria-describedby={boundStoryFloor ? "tower-ready-room-mission-details" : undefined}
                         data-art-fallback={boundStoryArt?.kind === "fallback" ? "true" : undefined}
                         style={boundStoryArt ? { ["--tower-ready-room-mission-art" as string]: `url(${boundStoryArt.src})` } : undefined}
                     >
@@ -624,7 +637,9 @@ export function TowerReadyRoomPanel({
                                 {bindingLabel(party.binding)}{boundStoryFloor ? ` · ${boundStoryFloor.name}` : ""}
                             </h3>
                             {boundStoryFloor ? (
-                                <small>{readyRoomObjectiveLabel(boundStoryFloor.objective)} · {boundStoryFloor.biome.replace(/\b\w/g, character => character.toUpperCase())} biome · Chapter {boundStoryFloor.chapter ?? 1}</small>
+                                <small id="tower-ready-room-mission-details">
+                                    {readyRoomObjectiveLabel(boundStoryFloor.objective)} · {readyRoomPaceLabel(boundStoryFloor)} · {readyRoomEnemyLabel(boundStoryFloor)} · {boundStoryFloor.biome.replace(/\b\w/g, character => character.toUpperCase())} biome · Chapter {boundStoryFloor.chapter ?? 1}
+                                </small>
                             ) : <small>Leave this room before choosing a different floor.</small>}
                             <TowerRoomExpiry key={party.id} expiresAt={party.expiresAt} />
                         </div>

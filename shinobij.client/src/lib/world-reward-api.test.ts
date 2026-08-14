@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { openAncientChest, recordSectorExplore } from "./world-reward-api";
 
 /*
  * Regression guard: world-map rewards must be settled by the server.
@@ -21,19 +22,65 @@ function source(relativeUrl: string): string {
 }
 
 describe("world-map reward settlement", () => {
+    test("explore and chest requests preserve the exact outcome proof", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        const bodies: Record<string, unknown>[] = [];
+        globalThis.fetch = (async (_input, init) => {
+            bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+            return new Response(JSON.stringify(bodies.length === 1
+                ? { character: { name: "Rill", redeemedSectorExplorations: [] }, _saveVersion: 3, replayed: true, outcome: { kind: "battle" }, reward: { sector: 61, xp: 0, ryo: 0 }, fieldProgress: [{ missionId: "field-61", runId: "runproof123", exploreCount: 2, replayed: true }] }
+                : { character: { name: "Rill" }, _saveVersion: 4, loot: { xp: 0, ryo: 80 } }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }) as typeof fetch;
+        try {
+            const explored = await recordSectorExplore("Rill", 61, "tile", "exploreproof123", { resolveOutcome: true });
+            assert.equal(explored.outcome?.kind, "battle");
+            assert.deepEqual(explored.fieldProgress, [{ missionId: "field-61", runId: "runproof123", exploreCount: 2, replayed: true }],
+                "durable proof must project exact field progress even after the character's 150-row receipt window rolls over");
+            await openAncientChest("Rill", 61, "chestoperation123", "exploreproof123");
+            assert.deepEqual(bodies, [
+                { playerName: "Rill", sector: 61, credit: "tile", requestId: "exploreproof123", resolveOutcome: true },
+                { playerName: "Rill", sector: 61, requestId: "chestoperation123", worldExploreRequestId: "exploreproof123" },
+            ]);
+        } finally {
+            globalThis.fetch = realFetch;
+        }
+    });
+
+    test("definitive expired proof retires while transport/server failures remain retryable", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        const replies = [
+            new Response(JSON.stringify({ error: "missing-pet-discovery" }), { status: 409, headers: { "Content-Type": "application/json" } }),
+            new Response(JSON.stringify({ error: "pending-pet-discovery" }), { status: 409, headers: { "Content-Type": "application/json" } }),
+            new Response(JSON.stringify({ error: "temporary" }), { status: 503, headers: { "Content-Type": "application/json" } }),
+        ];
+        globalThis.fetch = (async () => replies.shift()!) as typeof fetch;
+        try {
+            const expired = await recordSectorExplore("Rill", 41, "tile", "expiredproof123", { externalOutcomeProof: { kind: "pet", token: "petproof123" } });
+            const pending = await recordSectorExplore("Rill", 41, "tile", "pendingproof123", { externalOutcomeProof: { kind: "pet", token: "petproof123" } });
+            const transient = await openAncientChest("Rill", 41, "chestoperation123", "exploreproof123");
+            assert.equal(expired.retryable, false);
+            assert.equal(pending.retryable, true);
+            assert.equal(transient.retryable, true);
+        } finally {
+            globalThis.fetch = realFetch;
+        }
+    });
+
     test("exploring a tile is counted by the server on every branch", () => {
         const worldMap = source("../screens/WorldMap.tsx");
-        // Four outcome branches count the tile without paying ryo, and the
-        // no-outcome branch pays it. Miss one and the tile silently stops
-        // counting toward totalTilesExplored — which gates the rank exams.
-        assert.equal(
-            (worldMap.match(/settleExplore\(sector, "tile"\)/g) ?? []).length, 4,
-            "dungeon, pet, chest and ambush branches must each count the tile",
-        );
-        assert.ok(
-            worldMap.includes('settleExplore(sector, "full")'),
-            "the no-outcome branch must claim the explore ryo",
-        );
+        assert.match(worldMap, /beginWorldDiscoveryOperation\([\s\S]{0,180}character\.level >= hiddenDungeonVnEvent\.levelReq \? "dungeon" : "pet"/,
+            "a stable operation must be parked before any discovery probe");
+        assert.match(worldMap, /settleExplore\(operation\.sector, \{[\s\S]{0,100}resolveOutcome: true,[\s\S]{0,100}operationId: operation\.id/,
+            "the server must roll the final chest/battle/quiet outcome using the same probe receipt");
+        assert.match(worldMap, /probeFreeDungeonServer\(character\.name, operation\.sector, operation\.id\)/);
+        assert.match(worldMap, /startWildPetEncounter\(character\.name, operation\.sector, operation\.id\)/);
+        assert.match(worldMap, /externalOutcomeProof: \{ kind: "dungeon", token: probe\.token \}/);
+        assert.match(worldMap, /externalOutcomeProof: \{ kind: "pet", token: petEncounter\.token \}/);
+        assert.doesNotMatch(worldMap, /Math\.random\(\) < 0\.15|battleRoll|randomAi/,
+            "the client must not choose a profitable exploration outcome or opponent");
         assert.ok(
             !/totalTilesExplored:\s*\(character\.totalTilesExplored/.test(worldMap),
             "the client must not increment totalTilesExplored — the sanitizer freezes it",
@@ -43,8 +90,8 @@ describe("world-map reward settlement", () => {
     test("the Ancient Chest is rolled and banked by the server", () => {
         const worldMap = source("../screens/WorldMap.tsx");
         assert.ok(
-            worldMap.includes("openAncientChest(character.name, sector)"),
-            "the chest must be rolled by /api/world/open-chest",
+            /openAncientChest\([\s\S]{0,180}chestOperation\.id,[\s\S]{0,80}worldExploreRequestId/.test(worldMap),
+            "the chest must bind its payout to the exact server-rolled discovery",
         );
         assert.ok(
             !worldMap.includes("function rollAncientChest("),
@@ -59,18 +106,34 @@ describe("world-map reward settlement", () => {
         }
     });
 
+    test("explore and mission progress share one durable operation receipt", () => {
+        const worldMap = source("../screens/WorldMap.tsx");
+        const app = source("../App.tsx");
+        assert.match(worldMap, /recordSectorExplore\([\s\S]{0,160}operation\.id/);
+        assert.match(worldMap, /await recordMissionExplore\(sector, operation\.id, settled\.fieldProgress\)/);
+        assert.match(worldMap, /await recordMissionExplore\(operation\.sector, operation\.id, result\.fieldProgress\)/,
+            "reload recovery must retain the receipt until mission progress ACKs");
+        assert.match(worldMap, /battleKind: "explore",[\s\S]{0,180}worldExploreRequestId,/,
+            "the server-rolled battle must start from that same receipt");
+        assert.match(app, /worldExploreRequestId/);
+        assert.match(app, /result\?\.recorded !== true[\s\S]{0,80}return false/);
+        assert.match(app, /if \(fieldProgress\)[\s\S]{0,500}setAcceptedMissionIds[\s\S]{0,500}setMissionProgress/,
+            "the exact explore replay must hydrate cross-device mission UI without trusting stale accepted ids");
+        assert.doesNotMatch(app, /pendingExploreSector|setPendingExploreSector/,
+            "field exploration is proven by the tile receipt, not a later local combat callback");
+    });
+
     test("the village-war mission reward is claimed from the server", () => {
         const logbook = source("../screens/Logbook.tsx");
         const call = logbook.indexOf("claimWarMissionServer(character.name, index)");
         assert.notEqual(call, -1, "the war mission must settle through /api/village/war-mission");
-        assert.ok(
-            logbook.indexOf("updateCharacter(settled.character)", call) > call,
-            "the server's persisted character must be adopted",
-        );
+        const adopt = logbook.indexOf("onVersionedCharacter(settled.character, settled.saveVersion)", call);
+        assert.ok(adopt > call, "the server's character and save version must be adopted atomically");
+        assert.equal(logbook.indexOf("updateCharacter(settled.character)", call), -1, "war rewards must not split character adoption from its save version");
         // The war damage runs only after the reward commits — otherwise a
         // refused claim would still chip the enemy village.
         const damage = logbook.indexOf("applyVillageWarMissionDamage(", call);
-        assert.ok(damage > logbook.indexOf("updateCharacter(settled.character)", call),
+        assert.ok(damage > adopt,
             "war damage must follow the reward, not precede it");
 
         const worldState = source("./world-state.ts");
