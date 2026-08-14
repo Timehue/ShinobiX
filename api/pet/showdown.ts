@@ -542,6 +542,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
             }
+            if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             /*
              * HOLLOW GATE HANDSHAKE. A bound bout mints the receipt the run's
              * settlement endpoint consumes — on a LOSS as well as a win, because
@@ -550,13 +551,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              * finishing turn cannot rewrite a decided encounter, and the receipt
              * is keyed by session id, so the session the player fought IS the
              * handle they settle with — nothing client-supplied in between.
+             *
+             * Minted AFTER the finished session is persisted: the receipt
+             * points at this session id, so the thing it points to has to be
+             * durable first. Same discipline as the paid-receipt write.
              */
             const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, session.sessionId));
             if (hgBinding && session.outcome) {
                 await mintHollowGatePetReceipt(playerName, session.sessionId, hgBinding, session.outcome);
                 settlement = { ...settlement, hollowGate: { runId: hgBinding.runId, petReceipt: session.sessionId } };
             }
-            if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });
         }
 
