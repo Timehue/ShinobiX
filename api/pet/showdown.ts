@@ -299,6 +299,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, state: viewOf(session) });
         }
 
+        if (action === 'arena') {
+            /*
+             * THE PAID ARENA BOUT — the Coliseum's reward loop, on the Showdown
+             * engine. This is deliberately a SEPARATE entry from 'start', and
+             * the difference is the whole reason the split exists:
+             *
+             *   start  — you choose the tier and the fight, without limit. That
+             *            is sparring: rewardEligible false, no counters, no cap
+             *            consumed. (See settleShowdownWin.)
+             *   arena  — the ARENA matches you. You do not pick the tier, the
+             *            opponent is scaled to you, the daily cap is enforced,
+             *            and a win pays. A player-chosen tier here would make
+             *            the faucet a difficulty slider.
+             *
+             * Everything that decides the payout is SEALED into the session at
+             * kickoff and never read from the request body afterwards — the
+             * mint-token pattern this repo requires for client-reported
+             * rewards. settleShowdownWin pays from session.sealedOpponentLevel
+             * and nothing else.
+             */
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-arena', 20, 60_000, identity.name))) return;
+            const format: ShowdownFormat = body.format === '2v2' ? '2v2' : body.format === '3v3' ? '3v3' : '1v1';
+            const size = SHOWDOWN_FORMAT_SIZE[format];
+            const teamSize = showdownTeamSize(format);
+            const petIds: string[] = Array.isArray(body.petIds)
+                ? body.petIds.map((v: unknown) => String(v)).slice(0, teamSize)
+                : [];
+            if (petIds.length < size || new Set(petIds).size !== petIds.length) {
+                return res.status(400).json({ error: `Pick at least ${size} distinct pets for ${format} (up to ${teamSize} with a bench).` });
+            }
+
+            const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const myChar = mySave?.character as Record<string, unknown> | undefined;
+            if (!myChar) return res.status(404).json({ error: 'No save found.' });
+            const myPets = Array.isArray(myChar.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
+            const chosen = petIds
+                .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
+                .filter(Boolean) as unknown as Pet[];
+            if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your roster.' });
+
+            // Same busy gating as the practice entry: a pet that is breeding,
+            // training or away cannot be fielded.
+            const breedingParents = activeBreedingParentIds(myChar);
+            const now = Date.now();
+            for (const pet of chosen) {
+                if (breedingParents.has(String(pet.id))) return res.status(409).json({ error: `${pet.name} is in the breeding barn.` });
+                if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return res.status(409).json({ error: `${pet.name} is away on an expedition.` });
+                if (pet.training && Number(pet.training.endsAt ?? 0) > now) return res.status(409).json({ error: `${pet.name} is mid-training.` });
+            }
+
+            // The cap is checked BEFORE the fight, not only at settlement. A
+            // capped player would otherwise fight a full bout and be told at
+            // the end that it was never going to pay.
+            const today = utcDateKey();
+            const dailyPetWins = String(myChar.lastDailyReset ?? '') === today ? Number(myChar.dailyPetWins ?? 0) : 0;
+            if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
+                return res.status(409).json({ error: 'You have hit the daily arena win limit. Come back tomorrow.', capped: true });
+            }
+
+            // The ARENA picks the opposition, scaled to the team you brought —
+            // never a tier from the body, which would let a player dial the
+            // faucet's difficulty down and farm it.
+            const avgLevel = Math.round(chosen.reduce((sum, p) => sum + (Number(p.level) || 1), 0) / Math.max(1, chosen.length));
+            const tier: ShowdownTier = avgLevel >= 60 ? 'champion' : avgLevel >= 30 ? 'warrior' : 'scrapper';
+            const seed = randomInt(1, 0x7fffffff);
+            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed);
+            if (enemyPets.length !== chosen.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
+
+            const sessionId = randomUUID().replace(/-/g, '');
+            const session = createShowdownSession({
+                sessionId, playerName, format, tier, seed,
+                playerPets: chosen, enemyPets, enemyTeamName: teamName,
+                // SEALED: this bout pays. The reward magnitude rides on
+                // sealedOpponentLevel, which createShowdownSession derives from
+                // the enemy team the server just built.
+                rewardEligible: true,
+            });
+            armTurnDeadline(session);
+            await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            return res.status(200).json({ ok: true, state: viewOf(session), dailyPetWins, dailyCap: DAILY_ARENA_WIN_CAP });
+        }
+
         const sessionIdRaw = String(body.sessionId ?? '').trim();
         if (!/^[A-Za-z0-9]{8,64}$/.test(sessionIdRaw)) {
             return res.status(400).json({ error: 'Invalid session id.' });

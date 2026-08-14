@@ -64,21 +64,44 @@ describe('showdown reward eligibility is sealed at start', () => {
 });
 
 describe('showdown.ts wires practice as unpaid', () => {
-    it('starts every session reward-INELIGIBLE', () => {
+    it('keeps PRACTICE unpaid and confines payment to the arena entry', () => {
+        // Two entry points, and the split IS the reward design:
+        //   'start' — you choose the tier and the fight, without limit. Sparring.
+        //   'arena' — the arena matches you, the daily cap is enforced, it pays.
+        // The comment this test used to carry said "until a live entry point
+        // exists". That entry point now exists, so the assertion moves from
+        // "nothing pays" to "exactly one thing pays, and it is the right one".
         indexOfOrFail('rewardEligible: false');
-        assert.equal(
-            src.includes('rewardEligible: true'),
-            false,
-            'no start path may seal itself eligible until a live (world-initiated) entry point exists',
-        );
+        indexOfOrFail('rewardEligible: true');
+
+        const eligible = src.match(/rewardEligible: true/g) ?? [];
+        assert.equal(eligible.length, 1, 'exactly one entry point may seal a session as paying');
+
+        const practiceAt = indexOfOrFail("action === 'start'");
+        const arenaAt = indexOfOrFail("action === 'arena'");
+        const paidSeal = src.indexOf('rewardEligible: true');
+        const practiceSeal = src.indexOf('rewardEligible: false');
+        assert.ok(paidSeal > arenaAt, 'the paying seal belongs to the arena entry');
+        assert.ok(practiceSeal > practiceAt && practiceSeal < arenaAt, 'the practice entry seals itself unpaid');
+    });
+
+    it('never lets the paying entry take its tier or skip its cap', () => {
+        // The payout rides on sealedOpponentLevel, derived from the opponent the
+        // SERVER builds. A body-supplied tier would let a player dial the
+        // opposition down and farm the faucet at full price.
+        const arenaAt = indexOfOrFail("action === 'arena'");
+        const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
+        assert.equal(/body\.tier/.test(arenaBlock), false, 'the arena entry must not read a tier from the body');
+        assert.ok(/const tier: ShowdownTier = avgLevel/.test(arenaBlock), 'its tier is derived from the team brought');
+        assert.ok(arenaBlock.includes('DAILY_ARENA_WIN_CAP'), 'it checks the daily cap BEFORE the fight, not only at settlement');
     });
 
     it('never takes eligibility from the request body', () => {
         // The whole point of sealing at start is that the client cannot argue
         // for its own payout. Any read off `body` here would defeat it.
         assert.equal(/body\.rewardEligible/.test(src), false, 'eligibility must never be read from the body');
-        assert.equal(/rewardEligible\s*[:=]\s*(?!false\b)[A-Za-z_$]/.test(src), false,
-            'eligibility must be a literal at the start site, not a variable a request can steer');
+        assert.equal(/rewardEligible\s*[:=]\s*(?!true\b|false\b)[A-Za-z_$]/.test(src), false,
+            'eligibility must be a literal at each seal site, not a variable a request can steer');
     });
 
     it('short-circuits an ineligible win BEFORE taking the save lock', () => {
