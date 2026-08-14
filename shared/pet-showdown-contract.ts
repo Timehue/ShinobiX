@@ -362,6 +362,11 @@ export const SHOWDOWN_STATUS_CANCELS: Readonly<Record<string, readonly string[]>
  *  HP%, then combined stamina%, then the speed arrow (a seeded coin). Attrition
  *  still bleeds from SHOWDOWN_ATTRITION_START, so the last stretch before the
  *  judge is a closing fight, not a stall. */
+/** Paid arena wins allowed per UTC day. ONE definition: the settle path floors
+ *  it, the arena entry refuses a bout past it, and the lobby tells the player
+ *  the number — all from here, so the three can never disagree. */
+export const SHOWDOWN_DAILY_WIN_CAP = 100;
+
 export const SHOWDOWN_TURN_CAP = 25;
 export type ShowdownJudgeReason = "pets" | "hp" | "stamina" | "speed";
 

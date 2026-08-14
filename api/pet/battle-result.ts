@@ -1,3 +1,4 @@
+import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -33,7 +34,9 @@ import {
 // client-resolved, but bare result-only reward posts no longer pay out.
 
 const ARENA_WIN_RATE_LIMIT = 5_000;   // ms — one win per 5s per player
-const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
+// The faucet ceiling lives in the shared contract so the server, the arena
+// entry and the lobby copy all read one number.
+const DAILY_ARENA_WIN_CAP = SHOWDOWN_DAILY_WIN_CAP;
 // In-save receipt window. Derived from the cap so it is never narrower than the
 // faucet it records: a hardcoded width silently becomes too small the day
 // someone raises DAILY_ARENA_WIN_CAP. (Twin constant in pet/showdown.ts — the
