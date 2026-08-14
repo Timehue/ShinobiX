@@ -1,3 +1,4 @@
+import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -67,7 +68,9 @@ import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared
  */
 
 const SESSION_TTL_SECONDS = 45 * 60;
-const DAILY_ARENA_WIN_CAP = 100;   // shared faucet with the legacy coliseum cap
+// The faucet ceiling lives in the shared contract so the server, the arena
+// entry and the lobby copy all read one number.
+const DAILY_ARENA_WIN_CAP = SHOWDOWN_DAILY_WIN_CAP;
 // In-save receipt window. Derived from the cap so it is never narrower than the
 // faucet it records: a hardcoded width silently becomes too small the day
 // someone raises DAILY_ARENA_WIN_CAP. (Twin constant in pet/battle-result.ts —

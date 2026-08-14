@@ -93,6 +93,8 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   centralHub: archive,
   petArena: atFacility(companion, "pet-yard"),
   petShowdown: atFacility(companion, "pet-yard"),
+  // The paid Coliseum bout shares the Showdown presentation — same arena.
+  petColiseum: atFacility(companion, "pet-yard"),
   petLadder: atFacility(companion, "pet-yard"),
   home: atFacility(companion, "home"),
   pets: atFacility(companion, "pet-yard"),

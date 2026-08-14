@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
@@ -2146,12 +2147,21 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             )}
 
-            {/* The Coliseum entry. Not gated: the turn-based battle is not an
-                alternative to the legacy sim, it IS this mode. */}
+            {/* THE COLISEUM. One mode, two doors:
+                  • the Coliseum bout — the arena matches you, the daily win cap
+                    applies, and a win pays. This is the reward loop.
+                  • Training Grounds — pick your own tier and fight without
+                    limit. Sparring: it pays nothing and moves no counters.
+                Both run the same turn-based engine; the difference is who
+                chooses the fight and whether it pays. */}
             <div className="menu pet-coliseum-entry" style={{ marginBottom: 12 }}>
+                <button className="pet-coliseum-enter" onClick={() => setScreen("petColiseum")}>
+                    <span>🏟️ Enter the Coliseum</span>
+                    <small>The arena picks your challenger and the purse is real — cinematic turn-based 1v1 · 2v2 · 3v3, up to {SHOWDOWN_DAILY_WIN_CAP} paid wins a day.</small>
+                </button>
                 <button className="pet-coliseum-enter" onClick={() => setScreen("petShowdown")}>
-                    <span>🏟️ Pet Showdown</span>
-                    <small>The flagship battle — cinematic turn-based 1v1 · 2v2 · 3v3. Command every strike.</small>
+                    <span>🥋 Training Grounds</span>
+                    <small>Choose your own opposition and drill as long as you like. No purse, no limit.</small>
                 </button>
             </div>
 

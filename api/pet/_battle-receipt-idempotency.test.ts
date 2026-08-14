@@ -28,11 +28,32 @@ const read = (rel: string) => readFileSync(join(process.cwd(), 'api', 'pet', rel
 const showdownSrc = read('showdown.ts');
 const coliseumSrc = read('battle-result.ts');
 
-/** Read a `const NAME = <int literal products>;` out of a handler. */
+const contractSrc = readFileSync(
+    join(process.cwd(), 'shared', 'pet-showdown-contract.ts'),
+    'utf8',
+);
+
+/**
+ * Read a compile-time constant's VALUE out of a handler.
+ *
+ * Accepts either a literal (`const N = 100;`) or an alias of a shared-contract
+ * constant (`const N = SHOWDOWN_DAILY_WIN_CAP;`), resolving the alias to its
+ * literal. The point of this helper is that the number is fixed at build time
+ * and knowable here — not that it is spelled out twice. The daily cap is now
+ * defined once in the contract precisely so the two handlers and the lobby copy
+ * cannot drift; following the alias keeps this test honest about the real value
+ * instead of forcing the duplication back.
+ */
 function sourceConstant(src: string, name: string): number {
-    const match = new RegExp(`const ${name} = ([0-9_ *]+);`).exec(src);
-    assert.ok(match, `${name} must be a plain numeric constant`);
-    return match[1].split('*').reduce((acc, part) => acc * Number(part.replace(/_/g, '').trim()), 1);
+    const literal = new RegExp(`const ${name} = ([0-9_ *]+);`).exec(src);
+    if (literal) {
+        return literal[1].split('*').reduce((acc, part) => acc * Number(part.replace(/_/g, '').trim()), 1);
+    }
+    const alias = new RegExp(`const ${name} = ([A-Z_][A-Z0-9_]*);`).exec(src);
+    assert.ok(alias, `${name} must be a compile-time constant (a literal, or an alias of one)`);
+    const shared = new RegExp(`export const ${alias[1]} = ([0-9_ *]+);`).exec(contractSrc);
+    assert.ok(shared, `${name} aliases ${alias[1]}, which must be a numeric constant in the shared contract`);
+    return shared[1].split('*').reduce((acc, part) => acc * Number(part.replace(/_/g, '').trim()), 1);
 }
 
 // ── Behaviour ───────────────────────────────────────────────────────────────

@@ -30,6 +30,7 @@ import {
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_FORMAT_SIZE,
     showdownTeamSize,
+    startArenaBout,
     type ShowdownCommand,
     type ShowdownFormat,
     type ShowdownStateView,
@@ -95,8 +96,17 @@ const TIERS: { id: ShowdownTier; label: string; icon: GameIconName; blurb: strin
     { id: "champion", label: "Champion", icon: "medal", blurb: "Apex beasts. Bring your best." },
 ];
 
-export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange }: {
+export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange, bout = "practice" }: {
     character: Character;
+    /** Which kind of bout this screen opens.
+     *
+     *  "practice" — you pick the tier and fight without limit. Pays nothing.
+     *  "arena"    — the Coliseum's reward loop: the ARENA matches you, the
+     *               daily win cap applies, and a win pays. No tier picker,
+     *               because a chosen tier on a paying path is a difficulty
+     *               slider bolted to a faucet (the server derives it and would
+     *               ignore one anyway). */
+    bout?: "practice" | "arena";
     updateCharacter: (next: Character) => void;
     setScreen: (screen: Screen) => void;
     sharedImages: Record<string, string>;
@@ -197,7 +207,9 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         if (starting || selected.length < size) return;
         setStarting(true);
         setError(null);
-        const result = await startShowdown(character.name, format, tier, selected);
+        const result = bout === "arena"
+            ? await startArenaBout(character.name, format, selected)
+            : await startShowdown(character.name, format, tier, selected);
         setStarting(false);
         if ("error" in result) {
             setError(result.error);
@@ -206,7 +218,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         setBattle({ state: result.state, key: battleKey.current++ });
         writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
         setSignals(true, true);
-    }, [starting, selected, size, character.name, format, tier, setSignals]);
+    }, [starting, selected, size, character.name, format, tier, bout, setSignals]);
 
     const activeSession = battle?.state.sessionId ?? null;
 
@@ -275,7 +287,11 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         ))}
                     </div>
                 </div>
-                <div className="showdown-config-block">
+                {/* The tier picker is PRACTICE-only. On the paying path the arena
+                    matches you — the server derives the tier from the team you
+                    bring and ignores anything sent — so offering the control
+                    here would promise a choice that does not exist. */}
+                {bout === "practice" && <div className="showdown-config-block">
                     <h3>Opposition</h3>
                     <div className="showdown-choice-row">
                         {TIERS.map((t) => (
@@ -290,7 +306,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                             </button>
                         ))}
                     </div>
-                </div>
+                </div>}
             </div>
 
             {/* The rules the battle never gets a chance to teach — especially

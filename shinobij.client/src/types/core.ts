@@ -47,6 +47,7 @@ export type Screen =
     | "centralHub"
     | "petArena"
     | "petShowdown"
+    | "petColiseum"   // the PAID arena bout (Showdown engine, reward loop)
     | "petLadder"
     | "home"
     | "pets"
