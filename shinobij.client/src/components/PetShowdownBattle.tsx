@@ -172,10 +172,13 @@ const STATUS_GLYPH: Record<string, ShowdownIconName> = {
     burn: "pyre", wound: "rend", stun: "bind", freeze: "frost", confuse: "daze",
     debuff: "wane", buff: "wax", shield: "aegis", mark: "mark", slow: "drag",
     haste: "haste", crush: "crush", taunt: "provoke", steadfast: "steadfast",
+    // The bench is what a root denies, so the bench is what it wears.
+    movelock: "bench",
 };
 
-/** Plain English for every status the view can actually carry. `movelock` and
- *  `tauntGuard` are unreachable (the engine renames/filters them). */
+/** Plain English for every status the view can actually carry. `tauntGuard` is
+ *  unreachable (the engine renames it in 1v1). `movelock` USED to be unreachable
+ *  too — the engine aliased it to `slow` — until it became a real trap. */
 const STATUS_TITLE: Record<string, string> = {
     burn: "Burning — takes damage each round",
     wound: "Wounded — bleeds each round and heals for less",
@@ -187,6 +190,7 @@ const STATUS_TITLE: Record<string, string> = {
     shield: "Shielded — absorbs incoming damage",
     mark: "Marked — the next hit lands harder",
     slow: "Slowed — acts later in the round",
+    movelock: "Trapped — cannot switch out",
     haste: "Hastened — acts earlier in the round",
     crush: "Crushed — defence lowered",
     taunt: "Taunting — draws single-target attacks",
