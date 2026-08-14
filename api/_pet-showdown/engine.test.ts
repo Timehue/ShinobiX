@@ -30,6 +30,9 @@ import { buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
 import {
     SHOWDOWN_ATTRITION_START,
     SHOWDOWN_TURN_CAP,
+    SHOWDOWN_BENCH_SIZE,
+    SHOWDOWN_FORMAT_SIZE,
+    showdownTeamSize,
     SHOWDOWN_ELEMENT_ADVANTAGE,
     SHOWDOWN_ELEMENT_DISADVANTAGE,
     SHOWDOWN_METER_MAX,
@@ -1350,4 +1353,34 @@ test('a trap stops a voluntary switch but not a forced rotation', () => {
     addStatus(session, victim, 'movelock', 2, 1, []);
     resolveShowdownRound(session, [{ kind: 'move', petId: 'att', moveIndex: 2, targetId: victim.id }], []);
     assert.ok(victim.benched, 'a forced rotation still throws a trapped pet out');
+});
+
+test('every format brings the same bench: field + 2 reserves', () => {
+    // Owner ruling. The bench used to be whatever a flat 3-pet team cap left
+    // over, so it SHRANK as the format grew — two reserves at 1v1, one at 2v2,
+    // none at 3v3 — which made switching, forced rotation and trapping real
+    // tactics in the smallest format and absent from the largest.
+    for (const format of ['1v1', '2v2', '3v3'] as const) {
+        const field = SHOWDOWN_FORMAT_SIZE[format];
+        assert.equal(showdownTeamSize(format), field + SHOWDOWN_BENCH_SIZE, `${format} team size`);
+        const team = Array.from({ length: showdownTeamSize(format) }, (_, i) => makePet(`p${i}`));
+        const session = makeSession(team, team.map((_, i) => makePet(`e${i}`)), 5150, format);
+        assert.equal(session.player.filter((p) => !p.benched).length, field, `${format} fields ${field}`);
+        assert.equal(session.player.filter((p) => p.benched).length, SHOWDOWN_BENCH_SIZE, `${format} benches ${SHOWDOWN_BENCH_SIZE}`);
+    }
+});
+
+test('a 2v2 team can rotate through both reserves', () => {
+    // The concrete thing the old sizing made impossible: 2v2 had ONE reserve,
+    // so a second pivot did not exist.
+    const team = Array.from({ length: 4 }, (_, i) => makePet(`p${i}`));
+    const session = makeSession(team, Array.from({ length: 4 }, (_, i) => makePet(`e${i}`)), 77, '2v2');
+    const reserves = session.player.filter((p) => p.benched);
+    assert.equal(reserves.length, 2);
+    const [first, second] = reserves;
+    const fielded = session.player.filter((p) => !p.benched);
+    resolveShowdownRound(session, [{ kind: 'switch', petId: fielded[0].id, benchPetId: first.id }], []);
+    assert.ok(!first.benched, 'the first reserve came in');
+    resolveShowdownRound(session, [{ kind: 'switch', petId: fielded[1].id, benchPetId: second.id }], []);
+    assert.ok(!second.benched, 'and the second reserve could follow');
 });
