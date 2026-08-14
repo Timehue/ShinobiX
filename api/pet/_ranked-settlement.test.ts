@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
+import { PET_RANKED_ENGINE_VERSION } from './_ranked-engine.js';
 import {
     derivePetRankedSettlement,
     petRankedSettlementId,
@@ -64,7 +65,7 @@ const resolved: ServerResolvedPetRankedToken = {
     ...unresolved,
     resolution: {
         authority: 'server-engine-v1',
-        engineVersion: 'pet-duel-sim-ranked-v1',
+        engineVersion: PET_RANKED_ENGINE_VERSION,
         winner: 'b',
         resolvedAt: 200,
         engineDigest: '0123456789abcdef'.repeat(4),

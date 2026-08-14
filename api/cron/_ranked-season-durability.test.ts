@@ -1,3 +1,4 @@
+import { PET_RANKED_ENGINE_VERSION } from '../pet/_ranked-engine.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
@@ -42,7 +43,7 @@ const token: ServerResolvedPetRankedToken = {
     bPetId: 'bravo-pet',
     resolution: {
         authority: 'server-engine-v1',
-        engineVersion: 'pet-duel-sim-ranked-v1',
+        engineVersion: PET_RANKED_ENGINE_VERSION,
         winner: 'a',
         resolvedAt: NOW + 1,
         engineDigest: 'abcdef0123456789'.repeat(4),

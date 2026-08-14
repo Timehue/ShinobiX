@@ -45,7 +45,12 @@ export type ClanWarPetOutcome = 'from-wins' | 'to-wins' | 'draw';
 
 export interface ClanWarPetFighter {
     name: string;
+    /** The champion this player sent. */
     pet: Pet;
+    /** Their full 2v2+bench roster, sealed at submit (owner ruling: war duels
+     *  are 2v2 with two reserves). Absent on sessions written before the team
+     *  change — readers fall back to `pet`. */
+    team?: Pet[];
 }
 
 export interface ClanWarPetSession {
@@ -91,8 +96,12 @@ function warInputOf(session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 
         seed: session.seed,
         fromName: session.from[0]?.name || 'Challengers',
         toName: session.to[0]?.name || 'Defenders',
-        fromPets: session.from.map((f) => f.pet),
-        toPets: session.to.map((f) => f.pet),
+        // A side's roster is every sealed team its players sent, in submission
+        // order — so a pet2v2 (two players a side) fields both champions and
+        // their reserves, and a pet1v1 fields one player's full team. The
+        // engine takes the first two onto the field and benches the rest.
+        fromPets: session.from.flatMap((f) => (f.team?.length ? f.team : [f.pet])),
+        toPets: session.to.flatMap((f) => (f.team?.length ? f.team : [f.pet])),
         terrain: null,
     };
 }
@@ -174,7 +183,11 @@ export function normalizeClanWarPetSession(raw: Partial<ClanWarPetSession> | nul
     const fighters = (v: unknown): ClanWarPetFighter[] =>
         (Array.isArray(v) ? v : [])
             .filter((f): f is ClanWarPetFighter => !!f && typeof f === 'object' && !!(f as ClanWarPetFighter).pet)
-            .map((f) => ({ name: String(f.name ?? '').trim(), pet: f.pet }))
+            .map((f) => ({
+                name: String(f.name ?? '').trim(),
+                pet: f.pet,
+                team: Array.isArray(f.team) ? f.team.filter(Boolean) : undefined,
+            }))
             .slice(0, petsPerSide(mode));
     return {
         warId,
