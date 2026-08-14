@@ -61,6 +61,30 @@ export async function startShowdown(
     return { state: data.state };
 }
 
+/**
+ * Start a PAID arena bout — the Coliseum's reward loop.
+ *
+ * Deliberately separate from `startShowdown`, which is unlimited practice and
+ * pays nothing. The arena matches you: the server picks the opposition scaled
+ * to the team you bring, enforces the daily win cap up front, and seals the
+ * payout into the session. No tier is sent, because a chosen tier on a paying
+ * path is a difficulty slider on a faucet.
+ */
+export async function startArenaBout(
+    playerName: string,
+    format: ShowdownFormat,
+    petIds: string[],
+): Promise<{ state: ShowdownStateView; dailyPetWins?: number; dailyCap?: number } | { error: string; capped?: boolean }> {
+    const r = await post({ action: "arena", playerName, format, petIds });
+    if (!r) return { error: "Network error — could not reach the arena." };
+    const data = await r.json().catch(() => null) as
+        { state?: ShowdownStateView; error?: string; capped?: boolean; dailyPetWins?: number; dailyCap?: number } | null;
+    if (!r.ok || !data?.state) {
+        return { error: data?.error ?? "The arena gate is closed right now.", capped: data?.capped };
+    }
+    return { state: data.state, dailyPetWins: data.dailyPetWins, dailyCap: data.dailyCap };
+}
+
 export type ShowdownTurnResult = ShowdownTurnResponse | { expired: true } | null;
 
 /** Submit one round of commands. Retries once on a 503 (lock contention).
