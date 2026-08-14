@@ -1,0 +1,200 @@
+# Pet Coliseum — retiring the legacy duel sim
+
+**Status:** scope only, nothing implemented. Written 2026-08-14, after the Pet
+Showdown rebuild (rounds 1–47) shipped to main at `7b7c91ba4`.
+
+**The question this answers:** "did you retire the old Pet Coliseum and tie
+everything together with the new one?" No. The new turn-based battle shipped
+*additive* — it sits above the legacy entry on the Arena screen, shares the
+reward spine, and touches nothing else. This document scopes finishing the job.
+
+---
+
+## 0. Naming, so the rest of this is readable
+
+Three names that this repo's code blurs together:
+
+| Name | What it means here |
+|---|---|
+| **Pet Coliseum** | The **mode** — the arena battle. It is *supposed to be* the new turn-based system. The screen still calls the new entry "Pet Showdown" and the old one "Enter the Coliseum", which is the confusion this document exists to end. |
+| **The legacy duel sim** | The **implementation** currently sitting under the Coliseum mode: `pet-duel-cinematic`, `pet-duel-sim`, `pet-duel-doctrine`, `pet-duel-live`, `pet-duel-lockstep`, and `PetColiseum.tsx`. **This is the thing being retired.** |
+| **Warfront / Tactical Arena** | A **separate game mode**. Lane war, positional, its own engine (`pet-warfront-sim`, `pet-board-sim`, walkmask/map/strategy). Not a remnant of the Coliseum, not a migration target, not in scope. |
+
+The mode is not being retired. The **sim underneath it** is, so that the
+Coliseum mode is the turn-based battle everywhere it appears instead of in one
+of two places depending on which button you press.
+
+---
+
+## 1. What is actually left to do
+
+The new engine already runs the Coliseum mode when you enter through the Pet
+Showdown button. Four other places still enter the Coliseum mode through the
+legacy sim:
+
+| Entry | Server path | Currently resolves via |
+|---|---|---|
+| Arena exhibition ("Enter the Coliseum") | `pet/battle-start` → `pet/battle-result` | `runPetDuel` / `runPetPartyDuel` |
+| Pet Ladder — duel challenges | Ranked journal, replay `kind: "coliseum"` | `runPetDuelCinematic`, byte-identical client replay |
+| Hollow Gate pet duels | `pet/battle-result` + run-bound receipt | `runPetDuelCinematic` / `createLiveDuel` |
+| Clan War pet1v1 / pet2v2 | `clan/war/pet.ts` → `_pet-duel.ts` | Deterministic auto-resolve from `(pets, seed)` |
+| Live pet PvP | Lockstep | `pet-duel-lockstep.ts` |
+
+That is the whole job: five entries onto one engine, then delete the sim
+(~19,200 lines across the client originals, the server mirror, and the view).
+
+**Note on the Ladder:** it stores two replay kinds — `"coliseum"` duels *and*
+Warfront matches. Only the duel kind is in scope; the Warfront rows keep their
+reader untouched. The Ladder spans both modes because it ranks both, which is
+correct and stays that way.
+
+---
+
+## 2. What stays, and why that is not a compromise
+
+`api/_pet-sim/` and `scripts/gen-pet-sim.mjs` **survive this work**, because
+Warfront and Tactical Arena are a different mode and still need their mirror
+and their parity tests. Nothing about that is unfinished business — the
+generator simply ends up mirroring one engine instead of two.
+
+Concretely, after Phase 5 the mirror still carries `pet-warfront-sim`,
+`pet-board-sim`, `gauntlet-sim`, the walkmask/map/strategy files, and the shared
+`pet-types` / `pet-config` substrate that both modes read.
+
+---
+
+## 3. What makes the port cheap, and what makes it expensive
+
+**Cheap — the engine already has the pieces:**
+
+- `resolveShowdownRound()` already returns a `ShowdownEvent[]` — a persistable
+  event log. The replay format the Ladder needs mostly exists.
+- `session.pvp` + `turnDeadlineAt` already exist, so live PvP has a successor.
+- The new engine is server-authoritative with **no client mirror**, so each
+  ported entry *removes* a parity surface instead of adding one.
+- The reward spine is already shared: `totalPetWins`, `dailyPetWins` (the
+  100/day faucet), the public `pets` leaderboard, the questbook counter, and
+  `rewardEligible` sealed at start.
+
+**Expensive, and this is the real cost:**
+
+- **Every ported entry changes its balance.** The two engines produce different
+  outcomes from the same pets. Ladder standings, Hollow Gate difficulty, and
+  clan-war pet win rates all shift the day they port. Unavoidable — so it gets
+  planned, not discovered.
+- **Stored replays.** Ladder journals hold `kind: "coliseum"` rows produced by
+  the old sim. Dual-read is the safe answer; never migrate rows in place.
+- **Auto-resolve does not exist yet.** `chooseShowdownAiCommands(session)` picks
+  for the enemy side only. Clan war needs both sides driven headlessly and
+  deterministically.
+
+---
+
+## 4. Phase plan
+
+Each phase lands behind its own flag, default OFF until verified, then flipped ON
+with a kill-switch — so a bad port is one revert, not five. The numbering is a
+real dependency order: Phase 0 blocks everything, and Phase 5 cannot start until
+1–4 have soaked.
+
+### Phase 0 — Foundations (blocking; no player-visible change)
+
+1. **Headless deterministic resolve.** Generalize `chooseShowdownAiCommands` to
+   pick for either side, and add a loop-to-verdict resolver. Must be pure over
+   `(pets, seed)` so clan war stays re-derivable.
+2. **Replay envelope.** Define the stored shape (`kind: "showdown"`, seed,
+   sealed teams, `ShowdownEvent[]`) and a reader that plays a stored log with no
+   live session. The existing coliseum reader stays untouched beside it.
+3. **Regression harness.** Run N seeded matchups on both engines and report
+   win-rate deltas per element and role — the instrument that turns every later
+   balance shift into a measured number.
+
+*Sizing: one focused session. No flag needed — nothing is wired.*
+
+### Phase 1 — Arena exhibition
+
+Point `battle-start` / `battle-result` at a session on the new engine; delete the
+`runPetDuel` path from those two handlers only. Lowest risk: it already shares
+the reward spine, receipts and the daily cap, and Phase 0's harness quantifies
+the balance move before it ships.
+
+*Sizing: one session. Flag: `petArenaShowdown.v1`.*
+
+### Phase 2 — Pet Ladder (duel challenges only)
+
+New challenges resolve on the new engine and store `kind: "showdown"`; existing
+rows keep playing through the coliseum reader. Warfront rows untouched.
+
+*Sizing: one to two sessions — the dual-read and the journal shape are the work.*
+*Flag: `petLadderShowdown.v1`.*
+
+### Phase 3 — Hollow Gate duels
+
+Port the duel, preserve the run-bound receipt handshake exactly
+(`hollowGatePetResultKey`, one-use, consumed by the Hollow Gate settlement
+endpoint). That receipt is the anti-cheat boundary and must not be re-derived —
+only its producer changes.
+
+*Sizing: one session. Flag: `hollowGateShowdown.v1`.*
+
+### Phase 4 — Clan War pet duels
+
+Uses Phase 0's headless resolve. The invariant to hold: the client passes no
+commands and the server re-derives the same verdict from `(pets, seed)`.
+
+*Sizing: one session. Flag: `clanWarShowdown.v1`.*
+
+### Phase 5 — Deletion and collapse
+
+Only after 1–4 are ON and soaked:
+
+- Remove the "Enter the Coliseum" card from `PetArena.tsx`. One mode, one entry,
+  and it should probably stop being called two different things in the UI.
+- Delete the legacy duel sim: `pet-duel-sim`, `pet-duel-cinematic`,
+  `pet-duel-doctrine`, `pet-duel-live`, `pet-duel-lockstep`, and the duel path in
+  `PetColiseum.tsx` (~19,200 lines).
+- Drop `pet-duel-*` from the `gen-pet-sim.mjs` file list; **keep the generator**
+  for Warfront.
+- Retire `pet-cinematic-parity.test.ts` and the duel half of
+  `pet-sim-parity.test.ts`. Every Warfront parity test stays.
+- `PetColiseum.tsx` is 9,724 lines and also serves board modes — audit imports
+  first. Likely a carve, not a file removal.
+
+*Sizing: one to two sessions, mostly verification.*
+
+---
+
+## 5. Risks
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Balance shifts in four live entries | **High** | Phase 0 harness measures the delta before each flip; flags allow a per-entry revert |
+| Hollow Gate receipt regression | **High** (anti-cheat) | Change the producer only; receipt shape, TTL and single-use semantics frozen |
+| Clan war determinism break | **High** | Headless resolve pure over `(pets, seed)`; regression test re-derives a known verdict |
+| Stored ladder replays unplayable | Medium | Dual-read; never migrate rows in place |
+| Daily faucet pressure (`dailyPetWins` 100/day shared) | Medium | Ported entries must not become newly reward-eligible; audit `rewardEligible` per entry |
+| Pet busy/lease flags diverge | Medium | The new engine must take the same `_pet-busy` / `_active-battle-lease` locks the duel path takes |
+| `PetColiseum.tsx` carve breaks board modes | Medium | Phase 5 audits imports before deleting anything |
+
+---
+
+## 6. Out of scope, stated once
+
+Warfront, Tactical Arena, Gauntlet board runs, and the Ladder's Warfront
+replays. Separate mode, separate engine, separate balance. Untouched.
+
+A pet's kit in the Coliseum is still *derived at seal* and will still differ from
+that pet's kit in Warfront. Unifying that means editing the shared catalog, which
+is a different decision with blast radius across every mode.
+
+---
+
+## 7. Decisions needed before Phase 0
+
+1. **Balance:** is a win-rate shift in Ladder / Hollow Gate / clan war acceptable
+   as the cost of one engine, or should each port be tuned back toward its
+   current curve? (Tuning back roughly doubles each phase.)
+2. **Ladder history:** dual-read old replays (recommended), or accept that
+   pre-port replays stop playing?
+3. **Order:** ship Phase 1 alone first and let it soak on live before committing
+   to 2–4?
