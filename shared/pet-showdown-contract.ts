@@ -262,6 +262,46 @@ export const SHOWDOWN_STAB_MULT = 1.15;
  *  condition and sits outside the cap. */
 export const SHOWDOWN_MAX_STATUSES = 2;
 
+/* ── Arena weather (the VGC pillar) ──────────────────────────────────────────
+ * Champions/VGC weather is a damage multiplier that PERSISTS between turns and
+ * is overwritten by the next setter — the one board state both trainers fight
+ * over. Ours keys off our own five-element wheel: a weather boosts its own
+ * element and dampens the element that COUNTERS it (Pokémon's sun/rain pair:
+ * sun boosts Fire, weakens Water).
+ *
+ * Numbers are deliberately below Pokémon's ±50%: our wheel already swings
+ * 1.5/0.75 and STAB adds 1.15 on top, so a half-strength weather would let a
+ * matched attacker triple-dip. Measured at 1.18/0.88 the setter's lost turn is
+ * paid back over the window without deciding the fight on setup alone. */
+export const SHOWDOWN_WEATHER_ROUNDS = 4;
+export const SHOWDOWN_WEATHER_BOOST = 1.18;
+export const SHOWDOWN_WEATHER_DAMPEN = 0.88;
+
+/** Live arena weather. `until` is the last round it applies on. */
+export interface ShowdownWeather {
+    element: string;
+    until: number;
+}
+
+/** Protect, Champions rule: a full block of the round, but leaning on it
+ *  fails — the second consecutive use is a wasted turn. Ours is binary rather
+ *  than Pokémon's 1/3-chance ladder because a turn-based pet duel with a
+ *  25-round cap can't absorb a coin-flip on a defensive commitment. */
+export const SHOWDOWN_PROTECT_ROUNDS = 1;
+
+/** Floor power for a control/utility technique the catalog authored at 0.
+ *  Those price at the 10-EN stamina floor — persistent disruption for the cost
+ *  of a breath, which is exactly the fault the round-28 legendary surgery
+ *  removed by hand. Floored here so the whole roster is priced the same way. */
+export const SHOWDOWN_UTILITY_POWER_FLOOR = 70;
+
+/** No technique may cost more than this fraction of the caster's OWN full
+ *  stamina pool. SHOWDOWN_COST_MAX is a roster-wide ceiling sized against an
+ *  assumed smallest pool of 88; pools are derived from bulk, so a glass caster
+ *  can sit well under that and be handed a move it can only ever overdraft
+ *  into (Eclipse Kitsune: pool 66, haymaker 78, measured 3.7%). */
+export const SHOWDOWN_COST_POOL_FRACTION = 0.82;
+
 /** Status interactions, Temtem-style: applying the key removes the listed
  *  kinds outright (fire thaws, frost smothers, a burst of speed shakes off the
  *  slow). The interaction runs BEFORE the two-slot cap, so a thaw never evicts
@@ -387,6 +427,9 @@ export interface ShowdownStateView {
      *  sessions — absent for the practice AI entry, so the client shows no
      *  countdown there. When it lapses the round resolves with defaults. */
     turnDeadline?: number;
+    /** Standing arena weather, if any — the element it favours and how many
+     *  rounds remain. Drives the HUD chip and the arena's visual climate. */
+    weather?: { element: string; roundsLeft: number };
 }
 
 /** Effectiveness callout the presentation layer banners on impact. */

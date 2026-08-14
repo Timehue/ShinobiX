@@ -686,13 +686,6 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         [gltf.scene, gltf.animations, config, quality, element, persistentAtlas, surfaceTreatment],
     );
     const mixer = useMemo(() => prepared.clips.length ? new THREE.AnimationMixer(prepared.surface) : null, [prepared]);
-    // Per-species phase for the idle_2 quirk cycle — hashed from the rig's
-    // own numbers so it needs no impure init and no stored state.
-    const idleQuirkPhase = useMemo(() => {
-        let h = Math.round(config.targetHeight * 97) + config.profile.length * 31;
-        for (const c of prepared.clips) h = (h * 31 + Math.round(c.duration * 50)) | 0;
-        return ((h >>> 0) % 930) / 100;
-    }, [config, prepared.clips]);
     const outlineMixer = useMemo(() => prepared.clips.length && prepared.outline ? new THREE.AnimationMixer(prepared.outline) : null, [prepared]);
     const activeClip = useRef<THREE.AnimationClip | null>(null);
     const activeFamily = useRef<CombatAnimationFamily>("idle");
@@ -804,17 +797,17 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // planted launch, airborne read, and landing; seals stay lower than paws.
         const dodgeHeight = dodgeArc * config.targetHeight * (aquaticSeal ? 0.075 : config.profile === "heavy" ? 0.085 : 0.13);
         if (mixer) {
-            let clip = combatClip(prepared.clips, f, config.profile);
+            const clip = combatClip(prepared.clips, f, config.profile);
             const family = combatAnimationFamily(f);
-            // LIVING idle: the roster ships a second idle take (idle_2) that
-            // combat never played outside victory. Every ~9s of idle the pet
-            // breaks its loop with one quirk cycle — a head toss, a shake —
-            // phased per species so a field of pets never syncs. Pure function
-            // of the presentation clock; replays render identically.
-            if (authoredCombatRig && clip && !f.victorious && !f.casting && normalizedClipName(clip) === "idle"
-                && ((timeline + idleQuirkPhase) % 9.3) < 1.55) {
-                clip = findClip(prepared.clips, ["idle_2"]) ?? clip;
-            }
+            // NO idle_2 QUIRK. Round 38 broke the idle loop every ~9s with the
+            // rig's second idle take to keep pets alive between beats; owner
+            // reported models visibly deforming during it. idle_2 is not a
+            // universal "alternate idle" — on several rigs it is a rear-up /
+            // wings-out pose authored for another context (the same reason
+            // combatClip already refuses it for quadruped casting), so
+            // crossfading into it mid-loop mangles the silhouette. The species
+            // personality players actually read comes from the procedural
+            // hero-pose layer, which is rig-safe; this take is left alone.
             const oneShot = family === "death" || family === "dodge" || family === "hit" || family === "attack" || family === "victory";
             const enteringOneShot = oneShot && activeFamily.current !== family;
             const phaseWindow = attackClipWindow(f.motion);
