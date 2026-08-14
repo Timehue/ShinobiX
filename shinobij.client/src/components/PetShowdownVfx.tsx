@@ -242,8 +242,11 @@ interface SetPieceLayer {
     /** Mirror the art horizontally so repeated sprites don't read as clones. */
     flip?: boolean;
     /** Painted sprites render normal-blended by default; bolts opt back into
-     *  additive so they FLASH. (Flipbook accents are always additive.) */
+     *  additive so they FLASH. (Flipbook accents are additive unless
+     *  normalBlend is set — the Blender-baked smoke/mist atlases carry DARK
+     *  body that additive blending would erase.) */
     add?: boolean;
+    normalBlend?: boolean;
 }
 
 /** "The arena floor becomes the element" — the single biggest ingredient of
@@ -310,13 +313,17 @@ const SUPER_SET_PIECES: Record<string, SetPieceLayer[]> = {
     // the grounded dust, the final spark pop. The structures themselves live
     // in PetShowdownVfx3d.
     Fire: [
-        { frames: "fire", scale: 3.4, aspect: 1.4, delay: 0.45, y0: 1.0, y1: 2.2, travel: 0, spin: 0, grow: 1.5 },
+        // Blender-baked Mantaflow plume: real simulated smoke with a burning
+        // core rises over the shader flame crown (normal-blended — the dark
+        // smoke body would vanish under additive).
+        { frames: "plume", scale: 4.2, aspect: 1.0, delay: 0.3, y0: 1.4, y1: 2.7, travel: 0, spin: 0, grow: 1.35, normalBlend: true },
         { frames: "lava", scale: 4.0, aspect: 0.6, delay: 0.3, y0: 0.25, y1: 0.3, travel: 0, spin: 0, grow: 1.45 },
     ],
     Water: [
         { sprite: "tsunami", scale: 10.5, aspect: 0.667, delay: 0, y0: 0.6, y1: 1.2, travel: 1, spin: 0, grow: 1.26, sway: 0.03, tint: "#e6f6ff" },
         { sprite: "tsunami", scale: 7.2, aspect: 0.667, delay: 0.22, y0: 0.45, y1: 0.9, travel: 1, spin: 0, grow: 1.2, flip: true, tint: "#bfe6ff" },
         { frames: "water", scale: 4.2, aspect: 0.5, delay: 0.52, y0: 0.3, y1: 0.7, travel: 0, spin: 0, grow: 1.5, tint: "#e8f8ff" },
+        { frames: "mist", scale: 3.6, aspect: 1.0, delay: 0.5, y0: 0.5, y1: 1.7, travel: 0, spin: 0, grow: 1.45, normalBlend: true },
     ],
     Wind: [
         { frames: "vortex", scale: 3.2, aspect: 0.9, delay: 0.08, y0: 0.3, y1: 0.5, travel: 0, spin: 3.2, grow: 1.5, tint: "#c8ffe9" },
@@ -404,7 +411,7 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
                     // Painted hero art keeps its true values (foam whites, flame
                     // cores) under normal blending; flipbook accents and bolts
                     // glow additive.
-                    blending={layer.sprite && !layer.add ? THREE.NormalBlending : THREE.AdditiveBlending}
+                    blending={(layer.sprite || layer.normalBlend) && !layer.add ? THREE.NormalBlending : THREE.AdditiveBlending}
                     toneMapped={false}
                     side={THREE.DoubleSide}
                 />

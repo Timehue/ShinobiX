@@ -699,7 +699,15 @@ export interface KindAccentSpawn {
     durationMs: number;
 }
 
-const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "ringsUp" | "stars" | "wave" | "dome" | "drip"> = {
+const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "ringsUp" | "stars" | "wave" | "dome" | "drip" | "burst" | "bind"> = {
+    // `damage` is the most-thrown kind in the entire catalog (159 authored
+    // techniques) and had NO accent of its own — the plain strike was the one
+    // move family with no identity beyond its impact burst. It gets the anime
+    // shockwave ring at the victim's chest.
+    damage: "burst",
+    // `movelock` (48 authored) reads as a SNARE: rings clamping inward at the
+    // legs with the dust drawn in behind them.
+    movelock: "bind",
     crush: "slam",
     wound: "slash",
     lacerate: "slash",
@@ -876,13 +884,34 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: stri
                     const s = 0.9 + Math.min(1, t * 2.4) * 0.45;
                     mesh.current.scale.set(s, s, s);
                     mat.current.opacity = 0.4 * (t < 0.16 ? t / 0.16 : Math.max(0, (1 - t) / 0.6));
+                } else if (family === "burst") {
+                    // The plain strike's shockwave: a fast ring blowing out
+                    // horizontally at the victim's chest, gone in a blink.
+                    const k = Math.min(1, t * 2.6);
+                    const ke = 1 - (1 - k) * (1 - k);
+                    mesh.current.position.set(spawn.x, 1.15, spawn.z);
+                    mesh.current.rotation.set(-Math.PI / 2, 0, 0);
+                    const s = 0.45 + ke * 2.1;
+                    mesh.current.scale.set(s, s, s);
+                    mat.current.opacity = 0.75 * (1 - ke);
+                } else if (family === "bind") {
+                    // The snare CLAMPS: the ring contracts onto the legs and
+                    // holds a moment before releasing.
+                    const k = Math.min(1, t * 1.9);
+                    const ke = 1 - (1 - k) * (1 - k);
+                    mesh.current.position.set(spawn.x, 0.42, spawn.z);
+                    mesh.current.rotation.set(-Math.PI / 2, 0, 0);
+                    const s = 2.2 - ke * 1.45;
+                    mesh.current.scale.set(s, s, s);
+                    mat.current.opacity = 0.7 * (t < 0.14 ? t / 0.14 : Math.max(0, (1 - t) / 0.55));
                 } else {
                     mesh.current.visible = false;
                 }
             }
         }
         if (pts.current && ptsMat.current) {
-            const wantPts = family === "stars" || family === "drip" || family === "slam";
+            const wantPts = family === "stars" || family === "drip" || family === "slam"
+                || family === "burst" || family === "bind";
             pts.current.visible = show && wantPts;
             if (show && wantPts) {
                 const attr = pts.current.geometry.attributes.position as THREE.BufferAttribute;
@@ -899,6 +928,18 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: stri
                         pos[i * 3] = spawn.x + Math.cos(p.angle) * p.r * 0.7;
                         pos[i * 3 + 1] = Math.max(0.1, 1.5 - cycle * 1.5);
                         pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * p.r * 0.7;
+                    } else if (family === "burst") {
+                        // Sparks thrown outward at chest height with the ring.
+                        const d = p.r * (0.25 + ease * 2.0);
+                        pos[i * 3] = spawn.x + Math.cos(p.angle) * d;
+                        pos[i * 3 + 1] = 1.05 + Math.sin(Math.min(1, t * 2) * Math.PI) * 0.45 * p.phase;
+                        pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * d;
+                    } else if (family === "bind") {
+                        // Dust drawn INWARD behind the clamping ring.
+                        const d = p.r * (1.9 - ease * 1.4);
+                        pos[i * 3] = spawn.x + Math.cos(p.angle) * d;
+                        pos[i * 3 + 1] = 0.18 + Math.sin(Math.min(1, t) * Math.PI) * 0.3;
+                        pos[i * 3 + 2] = spawn.z + Math.sin(p.angle) * d;
                     } else {
                         const d = p.r * (0.3 + ease * 2.2);
                         pos[i * 3] = spawn.x + Math.cos(p.angle) * d;
@@ -907,7 +948,7 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: stri
                     }
                 }
                 attr.needsUpdate = true;
-                ptsMat.current.color.set(family === "drip" ? "#c084fc" : family === "stars" ? "#ffe86b" : "#d8b083");
+                ptsMat.current.color.set(family === "drip" ? "#c084fc" : family === "stars" ? "#ffe86b" : family === "bind" ? "#a5b4fc" : family === "burst" ? glow : "#d8b083");
                 ptsMat.current.opacity = 0.85 * (t < 0.15 ? t / 0.15 : Math.max(0, (1 - t) / 0.4));
             }
         }
