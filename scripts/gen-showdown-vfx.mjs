@@ -100,34 +100,10 @@ const JOBS = [
     },
 ];
 
-// — full arena backdrops with the crowd PAINTED IN (no composite band) —
-// These wrap the showdown bowl cylinder (r19, BackSide, MirroredRepeat ×2.5),
-// so each must read as a frieze: even repeating rhythm, no single landmark,
-// eye-level in the lower third. Written to assets/coliseum/<stage>-bg-crowd.webp
-// and wired via STAGES in PetShowdownBattle only — legacy screens keep the old art.
-const ARENA_COMPOSITION = "interior wall of a colossal fantasy battle arena seen from the arena floor at its center, lower third is a carved barrier wall below the stands, middle band is three packed tiers of tiny cheering anime spectators painted at soft distance focus so no single face draws the eye, upper portion rises into the arena's architecture, even repeating rhythm of pillars and stands with no single unique landmark so the panorama tiles seamlessly, wide panoramic frieze composition filling the full canvas";
-const ARENA_JOBS = [
-    {
-        slug: "arena-coliseum", kind: "arena", size: "1536x1024", quality: "high",
-        prompt: `${ARENA_COMPOSITION}, warm sandstone and vermilion-lacquered wood, strings of glowing paper lanterns between the tiers, festival banners, golden-hour light, distant warm haze`,
-    },
-    {
-        slug: "arena-grove", kind: "arena", size: "1536x1024", quality: "high",
-        prompt: `${ARENA_COMPOSITION}, stands grown from living wood and moss-covered stone, a canopy of glowing green leaves above, drifting spores of light, dappled emerald forest light`,
-    },
-    {
-        slug: "arena-frost", kind: "arena", size: "1536x1024", quality: "high",
-        prompt: `${ARENA_COMPOSITION}, tiers carved from blue glacier ice and pale stone, spectators bundled in furs, frost-blue lantern glow, aurora light playing over the upper wall, cold crystalline air`,
-    },
-    {
-        slug: "arena-storm", kind: "arena", size: "1536x1024", quality: "high",
-        prompt: `${ARENA_COMPOSITION}, dark iron and slate tiers under a boiling violet storm sky, the crowd lit by flickers of distant lightning, storm-lantern glow in amber against the gloom`,
-    },
-    {
-        slug: "arena-volcano", kind: "arena", size: "1536x1024", quality: "high",
-        prompt: `${ARENA_COMPOSITION}, tiers of black obsidian and scorched bronze, rivers of ember glow in the wall seams, the crowd silhouetted against deep red volcanic light, drifting embers in the air`,
-    },
-];
+// (Crowd-integrated arena backdrops were generated here once and REVERTED
+// by owner ruling 2026-08-13 — painted spectators read as blobs in close-ups.
+// Do not re-add an ARENA_JOBS block.)
+const ARENA_JOBS = [];
 
 const ARENA_DIR = path.join(CLIENT, "src", "assets", "coliseum");
 

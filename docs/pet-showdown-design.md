@@ -1483,6 +1483,31 @@ takeovers. This round ports that grammar:
 Verified on the bench at 1×: the fire super's channel (glyph + orb rings +
 takeover), the strike flight, and the climate holding the arena warm after.
 
+## Round 40 — corrections and depth (2026-08-13)
+
+Three owner rulings landed mid-round:
+- **Crowd-integrated backdrops REVERTED** ("the people watching art style
+  looks stupid"): STAGES points back at the original `-bg` scenery; the five
+  `-bg-crowd` files are deleted and the generator's arena block is retired
+  with a do-not-re-add note. The crowd exists only as confetti moments.
+- **The Garchomp still is SWORDS DANCE, a buff** — the vertical light-shaft
+  cage moved from big-hit impacts to the stat-up accent (buff/haste; heals
+  keep soft rings). Fixing that exposed a real bug: kind accents were
+  spawned inside the damage>0 branch, so an actual buff (0 damage) could
+  never fire its own accent. Accents now spawn per-target for ANY landed
+  effect (damage, heal, or applied); streaks/debris stay damage-gated.
+- **Send-out ruling**: run in, run out, no ball ceremony — already the
+  shipped behavior (gallop-in + tunnel-out + landing dust); pinned so no
+  one adds flourish later.
+
+Depth work from the new Surf reference: the water floor takeover carries a
+deep-blue multiply tint (`#9cc4de`) — reference water is dark under its
+foam, not turquoise; the wave shell's crest END and base now feather out
+(the arc's last texture column drew a hard line across the frame); and
+NEAR-FADE everywhere — set-piece layers and wave shells dissolve as the
+camera closes inside 2-4 units, so an action cut landing inside a piece can
+never show a textured plane edge-on as a pane of glass.
+
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified
