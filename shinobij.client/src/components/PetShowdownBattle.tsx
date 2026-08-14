@@ -82,34 +82,34 @@ const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
 
 // ── Arena roster: five painted stages, picked per session. ──────────────────
-// Showdown wraps the `-bg-crowd` backdrops: the same five stages repainted with
-// the spectator tiers PAINTED INTO the bowl wall (gen-showdown-vfx.mjs) — one
-// coherent painting per stage instead of a crowd band composited over art that
-// was never drawn for it. Legacy screens keep the original `-bg` files.
+// Crowd-integrated backdrops were tried (round 34) and REVERTED by owner
+// ruling (2026-08-13): the painted spectators read as blobs in close-ups.
+// The stages keep the original scenery art; the crowd exists only as the
+// confetti-eruption moments.
 const STAGES = {
     coliseum: {
         floor: new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/coliseum-bg-crowd.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href,
         ember: "#ff7a35", ambient: "#8fc7ff",
     },
     grove: {
         floor: new URL("../assets/coliseum/grove-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/grove-bg-crowd.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/grove-bg.webp", import.meta.url).href,
         ember: "#9fe7a0", ambient: "#bfe9c9",
     },
     frost: {
         floor: new URL("../assets/coliseum/frost-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/frost-bg-crowd.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/frost-bg.webp", import.meta.url).href,
         ember: "#9fd8ff", ambient: "#cfe9ff",
     },
     storm: {
         floor: new URL("../assets/coliseum/storm-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/storm-bg-crowd.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/storm-bg.webp", import.meta.url).href,
         ember: "#ffe24a", ambient: "#9aa7d8",
     },
     volcano: {
         floor: new URL("../assets/coliseum/volcano-floor.webp", import.meta.url).href,
-        bg: new URL("../assets/coliseum/volcano-bg-crowd.webp", import.meta.url).href,
+        bg: new URL("../assets/coliseum/volcano-bg.webp", import.meta.url).href,
         ember: "#ff5a2c", ambient: "#ffb08a",
     },
 } as const;
@@ -2384,35 +2384,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         if (!reducedMotion && event.super && !target.splash && target.id !== event.actorId) {
                             setClimate({ element: event.element, since: performance.now() });
                         }
-                        // The moveset reads: every kind family stages its
-                        // identity on the victim (or the caster for self
-                        // kinds); big contacts also throw frame-crossing
-                        // streaks, and crushes kick real debris.
-                        if (!reducedMotion && !target.splash) {
-                            const at = posRef.current.get(target.id);
-                            const from = posRef.current.get(event.actorId);
-                            if (at) {
-                                const [kx, , kz] = at;
-                                const len = from ? Math.hypot(kx - from[0], kz - from[2]) || 1 : 1;
-                                const dirX = from ? (kx - from[0]) / len : 0;
-                                const dirZ = from ? (kz - from[2]) / len : 1;
-                                if (kindAccentFamily(event.moveKind)) {
-                                    const kKey = popupKey.current++;
-                                    setKindFx((list) => [...list.slice(-7), { key: kKey, kind: event.moveKind, element: event.element, x: kx, z: kz, dirX, dirZ, startedAt: performance.now(), durationMs: 1000 / speed }]);
-                                    window.setTimeout(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
-                                }
-                                if (target.damage > 0 && (event.super || event.weight === "heavy" || target.ko)) {
-                                    const sKey = popupKey.current++;
-                                    setStreakFx((list) => [...list.slice(-5), { key: sKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 750 / speed, heavy: event.super || target.ko }]);
-                                    window.setTimeout(() => setStreakFx((list) => list.filter((s) => s.key !== sKey)), 1100 / speed);
-                                }
-                                if (target.damage > 0 && (event.moveKind === "crush" || (event.element === "Earth" && (event.super || event.weight === "heavy")))) {
-                                    const dKey = popupKey.current++;
-                                    setDebrisFx((list) => [...list.slice(-4), { key: dKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 1300 / speed, heavy: event.super || event.weight === "heavy" }]);
-                                    window.setTimeout(() => setDebrisFx((list) => list.filter((d) => d.key !== dKey)), 1700 / speed);
-                                }
-                            }
-                        }
                         // ONE impact, not two systems: a staged cast fuses its
                         // on-pet detonation with the hero art — bigger, and
                         // timed to the moment the piece ARRIVES (the wave
@@ -2471,6 +2442,36 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     if (target.applied && target.damage === 0 && target.heal === 0) {
                         addPopup(target.id, String(target.applied).toUpperCase(), "status");
                         spawnFlipbook(target.id, impactFlipbookKey(event.element, target.applied, false), 1.9, 620);
+                    }
+                    // The moveset reads — PER-TARGET scope, not inside the
+                    // damage branch: a buff deals 0 damage, and gating the kind
+                    // accent on damage meant the Swords Dance shaft cage could
+                    // never fire for an actual stat-up. Accents fire for any
+                    // landed effect; streaks and debris stay damage-gated.
+                    if (!reducedMotion && !target.splash && (target.damage > 0 || target.heal > 0 || target.applied)) {
+                        const at = posRef.current.get(target.id);
+                        const from = posRef.current.get(event.actorId);
+                        if (at) {
+                            const [kx, , kz] = at;
+                            const len = from ? Math.hypot(kx - from[0], kz - from[2]) || 1 : 1;
+                            const dirX = from ? (kx - from[0]) / len : 0;
+                            const dirZ = from ? (kz - from[2]) / len : 1;
+                            if (kindAccentFamily(event.moveKind)) {
+                                const kKey = popupKey.current++;
+                                setKindFx((list) => [...list.slice(-7), { key: kKey, kind: event.moveKind, element: event.element, x: kx, z: kz, dirX, dirZ, startedAt: performance.now(), durationMs: 1000 / speed }]);
+                                window.setTimeout(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
+                            }
+                            if (target.damage > 0 && (event.super || event.weight === "heavy" || target.ko)) {
+                                const sKey = popupKey.current++;
+                                setStreakFx((list) => [...list.slice(-5), { key: sKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 750 / speed, heavy: event.super || target.ko }]);
+                                window.setTimeout(() => setStreakFx((list) => list.filter((s) => s.key !== sKey)), 1100 / speed);
+                            }
+                            if (target.damage > 0 && (event.moveKind === "crush" || (event.element === "Earth" && (event.super || event.weight === "heavy")))) {
+                                const dKey = popupKey.current++;
+                                setDebrisFx((list) => [...list.slice(-4), { key: dKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 1300 / speed, heavy: event.super || event.weight === "heavy" }]);
+                                window.setTimeout(() => setDebrisFx((list) => list.filter((d) => d.key !== dKey)), 1700 / speed);
+                            }
+                        }
                     }
                     anyKo = anyKo || target.ko;
                     applyToDisplay(setDisplay, target.id, (d) => ({

@@ -132,6 +132,21 @@ function waterShellTexture(): THREE.CanvasTexture {
         }
         // The shell's lane-width ends dissolve into spray instead of cutting.
         fadeEdgesY(ctx, w, h, 0.14);
+        // And the arc's crest END feathers out too — the open cylinder's last
+        // texture column otherwise draws a hard straight line across the
+        // frame where the shell geometry stops.
+        ctx.globalCompositeOperation = "destination-out";
+        const crest = ctx.createLinearGradient(w * 0.9, 0, w, 0);
+        crest.addColorStop(0, "rgba(0,0,0,0)");
+        crest.addColorStop(1, "rgba(0,0,0,1)");
+        ctx.fillStyle = crest;
+        ctx.fillRect(w * 0.9, 0, w * 0.1, h);
+        const base = ctx.createLinearGradient(0, 0, w * 0.08, 0);
+        base.addColorStop(0, "rgba(0,0,0,1)");
+        base.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = base;
+        ctx.fillRect(0, 0, w * 0.08, h);
+        ctx.globalCompositeOperation = "source-over";
     });
 }
 
@@ -333,7 +348,7 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
     }, []);
     const width = spawn.superCast ? 9.5 : 6.8;
     const radius = spawn.superCast ? 2.6 : 2.0;
-    useFrame(() => {
+    useFrame((state) => {
         if (!group.current || !mat.current) return;
         const t = pieceT(spawn);
         if (t < 0 || t >= 1) {
@@ -355,7 +370,12 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
         // ref (mutating the useMemo binding trips react-hooks/immutability).
         const shellMap = mat.current.map;
         if (shellMap) shellMap.offset.x = -t * 2.2;
-        mat.current.opacity = t < 0.12 ? t / 0.12 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 0.96;
+        // Near-fade: a camera cut inside the shell must never see the arc's
+        // plane edge as a pane of glass — the shell dissolves as the lens
+        // closes in (same policy as the flat set-piece layers).
+        const camD = state.camera.position.distanceTo(group.current.position);
+        const nearFade = Math.min(1, Math.max(0, (camD - 2) / 2.6));
+        mat.current.opacity = (t < 0.12 ? t / 0.12 : t > 0.7 ? Math.max(0, (1 - t) / 0.3) : 0.96) * nearFade;
         if (mat2.current) mat2.current.opacity = mat.current.opacity * 0.55;
     });
     return (
@@ -817,6 +837,22 @@ export function kindAccentFamily(kind: string): string | null {
 function AccentRing({ spawn, up }: { spawn: KindAccentSpawn; up: boolean }) {
     const refs = useRef<Array<THREE.Mesh | null>>([]);
     const mats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const shaftRefs = useRef<Array<THREE.Group | null>>([]);
+    const shaftMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    // The Swords Dance grammar: a stat-up wraps the pet in a CAGE of golden
+    // light shafts rising with the rings. Buffs and hastes only — heals keep
+    // the soft rings alone.
+    const SHAFTS = up && spawn.kind !== "heal" ? 6 : 0;
+    const shaftParams = useMemo(() => {
+        const rand = seededRand(spawn.key * 59 + 11);
+        return Array.from({ length: SHAFTS }, () => ({
+            angle: rand() * Math.PI * 2,
+            r: 0.5 + rand() * 0.45,
+            h: 2.2 + rand() * 1.3,
+            w: 0.1 + rand() * 0.11,
+            delay: rand() * 0.16,
+        }));
+    }, [spawn.key, SHAFTS]);
     useFrame(() => {
         const t = (performance.now() - spawn.startedAt) / spawn.durationMs;
         for (let i = 0; i < 3; i++) {
@@ -831,6 +867,23 @@ function AccentRing({ spawn, up }: { spawn: KindAccentSpawn; up: boolean }) {
             m.scale.set(s, s, s);
             mm.opacity = 0.7 * Math.sin(Math.PI * k);
         }
+        shaftParams.forEach((p, i) => {
+            // Position the BILLBOARD GROUP, never the mesh inside it — an
+            // offset mesh orbits when the billboard turns (the round-34 bug).
+            const g = shaftRefs.current[i], mm = shaftMats.current[i];
+            if (!g || !mm) return;
+            const k = (t - p.delay) / 0.62;
+            if (t < 0 || k < 0 || k >= 1) { g.visible = false; return; }
+            g.visible = true;
+            const rise = 1 - (1 - k) * (1 - k);
+            g.position.set(
+                spawn.x + Math.cos(p.angle) * p.r,
+                p.h * 0.5 * (0.55 + rise * 0.5),
+                spawn.z + Math.sin(p.angle) * p.r,
+            );
+            g.scale.set(1, 0.55 + rise * 0.6, 1);
+            mm.opacity = 0.75 * (k < 0.2 ? k / 0.2 : (1 - k) / 0.8);
+        });
     });
     const tint = up ? (spawn.kind === "heal" ? "#6ee7a0" : "#ffe9a0") : "#b48ef0";
     return (
@@ -840,6 +893,14 @@ function AccentRing({ spawn, up }: { spawn: KindAccentSpawn; up: boolean }) {
                     <ringGeometry args={[0.78, 0.92, 40]} />
                     <meshBasicMaterial ref={(el) => { mats.current[i] = el; }} color={tint} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
                 </mesh>
+            ))}
+            {shaftParams.map((p, i) => (
+                <Billboard key={`s${i}`} ref={(el) => { shaftRefs.current[i] = el; }} visible={false} lockX lockZ>
+                    <mesh>
+                        <planeGeometry args={[p.w, p.h]} />
+                        <meshBasicMaterial ref={(el) => { shaftMats.current[i] = el; }} color="#ffdf8a" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} side={THREE.DoubleSide} />
+                    </mesh>
+                </Billboard>
             ))}
         </group>
     );
