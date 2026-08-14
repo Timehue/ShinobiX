@@ -40,7 +40,10 @@ const TOKEN_TTL_SECONDS = 15 * 60;
 
 const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
 
-function buildServerHollowHound(activePet: Pet, floorRaw: unknown, requestedId: string, kind: HollowGateHoundKind): Pet {
+/** The Hollow Hound the SERVER builds for a Hollow Gate pet encounter, scaled
+ *  off the player's own pet. Exported so the Showdown arena entry fields the
+ *  identical opponent — one definition, so the two paths cannot drift. */
+export function buildServerHollowHound(activePet: Pet, floorRaw: unknown, requestedId: string, kind: HollowGateHoundKind): Pet {
     const floor = Math.max(1, Math.min(5, Math.floor(Number(floorRaw) || 1)));
     const difficulty = Math.min(1.06, 0.90 + Math.max(0, floor - 1) * 0.04);
     return {
