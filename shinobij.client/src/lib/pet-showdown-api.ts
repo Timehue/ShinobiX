@@ -85,6 +85,36 @@ export async function startArenaBout(
     return { state: data.state, dailyPetWins: data.dailyPetWins, dailyCap: data.dailyCap };
 }
 
+/**
+ * An AUTHORED encounter — the relic-dungeon Rare Beast Seal, or an
+ * admin-authored VN choice with a pet battle in it.
+ *
+ * The descriptor is a SELECTOR, never an opponent. A dungeon seal names the
+ * player's own server-minted run token; an authored VN battle names the event
+ * and the authored (petId, difficulty) pair identifying which choice it is. The
+ * server rebuilds the beast from its own copy of the authored content, so no
+ * statline, level, kit or name for the opponent is ever sent from here — which
+ * is exactly what kept these two fights on the old client-local sim.
+ *
+ * These bouts pay nothing. The dungeon's rewards come from its run settlement
+ * and the event's from its completion.
+ */
+export type ShowdownEncounterRef =
+    | { kind: "dungeon-seal"; runToken: string }
+    | { kind: "story-event"; eventId: string; petId: string; difficulty?: string };
+
+export async function startAuthoredEncounter(
+    playerName: string,
+    petId: string,
+    encounter: ShowdownEncounterRef,
+): Promise<{ state: ShowdownStateView } | { error: string }> {
+    const r = await post({ action: "encounter", playerName, petIds: [petId], encounter });
+    if (!r) return { error: "Network error — the seal did not answer." };
+    const data = await r.json().catch(() => null) as { state?: ShowdownStateView; error?: string } | null;
+    if (!r.ok || !data?.state) return { error: data?.error ?? "This encounter cannot be fought right now." };
+    return { state: data.state };
+}
+
 export type ShowdownTurnResult = ShowdownTurnResponse | { expired: true } | null;
 
 /** Submit one round of commands. Retries once on a 503 (lock contention).

@@ -213,7 +213,11 @@ describe('both handlers wire the durable receipt in the safe order', () => {
 describe('every showdown action is rate limited', () => {
     // state and forfeit shipped without limits while start and turn had them,
     // so an unauthenticated-shaped loop could hammer the session store for free.
-    const ACTIONS = ['start', 'turn', 'state', 'forfeit'] as const;
+    // EVERY action belongs in this list — the two session-minting entries that
+    // landed after it (arena, encounter) are the expensive ones, since each
+    // writes a session and the authored entry also reads the admin content
+    // catalog.
+    const ACTIONS = ['start', 'arena', 'encounter', 'turn', 'state', 'forfeit'] as const;
 
     const branchFor = (action: string): string => {
         const start = indexOfOrFail(showdownSrc, 'showdown.ts', `action === '${action}'`);
