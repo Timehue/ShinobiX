@@ -457,7 +457,13 @@ function findClip(clips: readonly THREE.AnimationClip[], candidates: readonly st
 
 function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame, profile: PetCombatModelConfig["profile"]): THREE.AnimationClip | null {
     if (frame.motion === "dead") return findClip(clips, ["death"]);
-    if (frame.victorious) return findClip(clips, ["idle_2", "idle"]);
+    // Victory holds the GROUNDED idle, never idle_2. Same reason the quirk was
+    // pulled and the same reason casting refuses it below: idle_2 is not a
+    // universal "alternate idle" — on several rigs it is a rear-up / wings-out
+    // pose authored for another context, and it deformed models on screen. The
+    // celebration is carried by the procedural victory arc (petVictoryArcHeight
+    // + victoryLift), which is rig-safe and reads on every profile.
+    if (frame.victorious) return findClip(clips, ["idle", "walk"]);
     // Keep the authored attack take alive from anticipation through follow-through.
     // Previously `windup -> strike -> recover` reset/cross-faded the same clip on
     // every state edge, so only its first few frames ever appeared in battle.
@@ -480,12 +486,15 @@ function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame,
         return findClip(clips, ["walk", "swimming_normal", "gallop"]);
     }
     if (frame.casting) {
-        // The shared quadruped `idle_2` take lifts both forelegs and rocks the
-        // chest backward. Looping it for a buff made foxes look like rocking
-        // horses, especially during longer named casts. Hold the grounded idle;
-        // the authored VFX and pose layer already provide the casting tell.
-        if (profile === "quadruped") return findClip(clips, ["idle", "walk"]);
-        return findClip(clips, ["idle_2", "swimming_impulse", "idle"]);
+        // EVERY profile holds the grounded idle while channelling. The quadruped
+        // carve-out was right for the wrong reason: `idle_2` lifts the forelegs
+        // and rocks the chest back on the shared rig, which made foxes look like
+        // rocking horses — but that pose misreads on the OTHER profiles too. An
+        // avian sage channelling its weather technique (Forest Hawk) was the
+        // model the owner reported as mangled. The casting tell already comes
+        // from the glyph, the charge orb and the hero-pose layer, none of which
+        // touch the skeleton.
+        return findClip(clips, ["idle", "walk", "swimming_normal"]);
     }
     return findClip(clips, ["idle", "swimming_normal", "idle_2"]);
 }

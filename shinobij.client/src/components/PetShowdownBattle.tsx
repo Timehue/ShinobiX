@@ -82,6 +82,11 @@ const PLAYER_Z = 4.1;
 const ENEMY_Z = -4.1;
 const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
+/** KO withdrawal: how long a fallen body may lie in its slot before it leaves
+ *  regardless of the queue (the queue normally moves it on sooner), and how
+ *  long the sink-out itself takes. */
+const KO_MAX_HOLD_MS = 2400;
+const KO_SINK_MS = 480;
 
 // ── Arena roster: five painted stages, picked per session. ──────────────────
 // Crowd-integrated backdrops were tried (round 34) and REVERTED by owner
@@ -723,12 +728,15 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         let targetLook = new THREE.Vector3(0, 0.9, -0.6);
         let nextShot = "wide";
         let cutOnChange = false;
+        // Every body that is IN the shot, for the framing floor below.
+        const bodies: THREE.Vector3[] = [];
         if (beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const actorPos = posRef.current.get(beat.event.actorId);
             const victimPos = beat.event.targets[0] ? posRef.current.get(beat.event.targets[0].id) : undefined;
             if (actorPos) {
                 const a = new THREE.Vector3(...actorPos);
                 const b = victimPos ? new THREE.Vector3(...victimPos) : a;
+                bodies.push(a, b);
                 const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
                 // Deterministic shot seed: the QUEUE INDEX, so a replay of the
                 // same script picks the same framings every time.
@@ -749,14 +757,14 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                         const dirS = b.clone().sub(a).setY(0).normalize();
                         const perpS = new THREE.Vector3(-dirS.z, 0, dirS.x);
                         targetPos = mid.clone()
-                            .add(perpS.multiplyScalar(6.4 - swoop * 1.6))
-                            .setY(3.4 + swoop * 0.6);
+                            .add(perpS.multiplyScalar(7.6 - swoop * 1.2))
+                            .setY(4.0 + swoop * 0.6);
                         targetLook = (reduced || frac >= 0.45 ? b : a).clone().setY(1.1);
                     } else {
                         // Player signature: the shoulder swoop into the impact
                         // (kept as a continuous move — the letterbox moment).
-                        const behind = a.clone().sub(b).normalize().multiplyScalar(3.4);
-                        targetPos = a.clone().add(behind).add(new THREE.Vector3(1.6 - swoop * 1.1, 2.0 + swoop * 0.6, 0));
+                        const behind = a.clone().sub(b).normalize().multiplyScalar(6.8);
+                        targetPos = a.clone().add(behind).add(new THREE.Vector3(2.2 - swoop * 1.1, 3.0 + swoop * 0.8, 0));
                         targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
                     }
                 } else {
@@ -783,26 +791,31 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                             // the lane keeps YOUR pets' backs toward the lens.
                             const mid = a.clone().lerp(b, 0.5);
                             targetPos = mid.clone()
-                                .add(perp.clone().multiplyScalar(variant === 1 ? -6.2 : 6.2))
-                                .setY(enemyActing ? (variant === 2 ? 4.2 : 3.4) : variant === 2 ? 3.4 : 2.6);
+                                .add(perp.clone().multiplyScalar(variant === 1 ? -7.4 : 7.4))
+                                .setY(enemyActing ? (variant === 2 ? 4.6 : 3.8) : variant === 2 ? 3.8 : 3.0);
                             targetLook = mid.clone().setY(1.2);
                         } else {
-                            const lateral = perp.clone().multiplyScalar(variant === 1 ? -1.5 : 1.5);
+                            const lateral = perp.clone().multiplyScalar(variant === 1 ? -1.9 : 1.9);
                             targetPos = a.clone()
-                                .sub(dir.clone().multiplyScalar(variant === 2 ? 4.2 : 3.4))
+                                .sub(dir.clone().multiplyScalar(variant === 2 ? 6.4 : 5.6))
                                 .add(lateral)
-                                .setY(variant === 2 ? 2.6 : 1.9);
+                                .setY(variant === 2 ? 3.1 : 2.4);
                             targetLook = b.clone().setY(1.2);
                         }
                     } else {
                         const variant = (v >> 3) % 3;
                         nextShot = `strike:${beat.index}:${variant}`;
-                        // A heavy or lethal blow pushes the lens in close.
-                        const sideDist = heavy ? 3.2 : 4.8;
-                        const height = heavy ? 1.7 : 2.3;
+                        // A heavy or lethal blow pushes the lens IN — but only
+                        // relatively. The old close numbers (3.2 side / 1.7 high)
+                        // were authored against a mid-sized pet; on a big species
+                        // they buried the lens in the body and the hit read as a
+                        // wall of texture. Heavy is now "closer than a normal
+                        // strike", not "inside the creature".
+                        const sideDist = heavy ? 5.6 : 6.8;
+                        const height = heavy ? 2.2 : 2.6;
                         targetPos = b.clone()
                             .add(perp.clone().multiplyScalar(variant === 1 ? -sideDist : sideDist))
-                            .add(dir.clone().multiplyScalar(variant === 2 ? -2.6 : -1.6))
+                            .add(dir.clone().multiplyScalar(variant === 2 ? -3.2 : -2.2))
                             .setY(variant === 2 ? height + 0.6 : height);
                         targetLook = b.clone().setY(1.05);
                     }
@@ -813,9 +826,10 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
             const inPos = posRef.current.get(beat.event.inId);
             if (inPos) {
                 const p = new THREE.Vector3(...inPos);
+                bodies.push(p);
                 nextShot = `switch:${beat.index}`;
                 cutOnChange = true;
-                targetPos = p.clone().add(new THREE.Vector3(3.6, 2.4, 3.6));
+                targetPos = p.clone().add(new THREE.Vector3(5.0, 3.0, 5.0));
                 targetLook = p.clone().setY(1.1);
             }
         } else if (beat.event && beat.event.t === "end") {
@@ -826,9 +840,10 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
             const at = focusId ? posRef.current.get(focusId) : undefined;
             if (at) {
                 const p = new THREE.Vector3(...at);
+                bodies.push(p);
                 nextShot = "end";
                 const th = (now - beat.startedAt) * 0.00045;
-                targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 4.2, 2.6, Math.cos(th) * 4.2));
+                targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 6.0, 3.0, Math.cos(th) * 6.0));
                 targetLook = p.clone().setY(1.15);
             }
         }
@@ -848,6 +863,30 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
             targetPos.x += Math.sin(now * 0.00013) * 1.1;
             targetPos.y += Math.sin(now * 0.00009 + 1.7) * 0.35;
         }
+        // FRAMING FLOOR. Every shot above is authored as an offset in world
+        // units, but the roster's models are not one size — a hawk and a turtle
+        // duck sit in the same slot at wildly different volumes, and the tight
+        // variants put the lens inside the bigger ones (the subject filled the
+        // frame as an unreadable wall of texture). Two floors fix it for the
+        // whole roster without per-shot tuning: the framed subject is never
+        // nearer than SUBJECT_MIN, and NO body in the shot — including the
+        // caster the lens swoops past — is nearer than BODY_MIN.
+        const SUBJECT_MIN = 7.6;
+        const BODY_MIN = 6.0;
+        const view = targetPos.clone().sub(targetLook);
+        if (view.lengthSq() < 0.01) view.set(0, 2, 6);
+        const viewDir = view.clone().normalize();
+        if (view.length() < SUBJECT_MIN) {
+            targetPos.copy(targetLook).add(viewDir.clone().multiplyScalar(SUBJECT_MIN));
+        }
+        // Dolly straight back along the same view vector until every body is
+        // clear — this preserves the authored angle, it only loosens the lens.
+        for (let i = 0; i < 8; i++) {
+            let closest = Infinity;
+            for (const body of bodies) closest = Math.min(closest, targetPos.distanceTo(body));
+            if (closest >= BODY_MIN) break;
+            targetPos.add(viewDir.clone().multiplyScalar(BODY_MIN - closest + 0.15));
+        }
         // Portrait phones: pull back ALONG THE LOOK VECTOR. Scaling the raw
         // position would also scale the height, sending low variants into the
         // ceiling and high ones through the backdrop.
@@ -856,9 +895,11 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
             targetPos.add(targetPos.clone().sub(targetLook).normalize().multiplyScalar(3.4));
         }
         // Containment: never below the floor, never outside the arena shell
-        // (floor radius 14, backdrop wall just beyond).
+        // (floor radius 14, backdrop wall at 19). Raised from 13 with the
+        // framing floor above — a pushed-back shot has to be allowed to
+        // actually reach its new distance or the clamp undoes the fix.
         targetPos.y = Math.max(FLOOR_Y + 1.0, targetPos.y);
-        if (targetPos.length() > 13) targetPos.setLength(13);
+        if (targetPos.length() > 16.5) targetPos.setLength(16.5);
         pos.current.lerp(targetPos, 0.055);
         look.current.lerp(targetLook, 0.075);
         camera.position.copy(pos.current);
@@ -911,6 +952,15 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const standing = useRef<[number, number, number] | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
+    /** When this pet went down (0 = standing) and the beat it fell on, which
+     *  together decide when the body withdraws from the field. */
+    const koAt = useRef(0);
+    const koBeat = useRef(-1);
+    /** When the withdrawal itself started (0 = not yet). */
+    const koSinkAt = useRef(0);
+    /** False until the first frame, so a match resumed with a pet already down
+     *  starts withdrawn instead of replaying an exit it never earned. */
+    const mounted = useRef(false);
     const [modelFailed, setModelFailed] = useState(false);
     // Species performance identity (pet-hero-moves): the stalk idles, charger
     // drives and dragon looms authored for the coliseum were NEVER wired into
@@ -968,13 +1018,46 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.speed = 0;
         f.casting = false;
 
+        // KO WITHDRAWAL. The fallen body holds where it dropped through the
+        // fall and the KO ritual — that beat is the point — and then LEAVES.
+        // A corpse parked in its slot for the rest of the match reads as a bug,
+        // clutters the lane the survivors fight in, and is the one thing both
+        // Pokémon and Temtem clear the instant the ceremony is over. It sinks
+        // and shrinks out rather than popping, so the exit is still a beat.
+        if (ko) {
+            if (!koAt.current) {
+                koAt.current = now;
+                koBeat.current = beat.index;
+                // Already down when this fighter first mounted (a resumed
+                // match): start withdrawn — there is no ritual to honour.
+                if (!mounted.current) koSinkAt.current = now - KO_SINK_MS;
+            }
+            // The exit is keyed off the ARENA MOVING ON — the beat this pet
+            // died on giving way to the next — so it lands on the same cadence
+            // at every playback speed instead of a wall-clock guess. The
+            // ceiling covers the case where the queue drains to a stop and
+            // waits on your orders: the body still leaves before you command.
+            if (!koSinkAt.current && (beat.index !== koBeat.current || now - koAt.current > KO_MAX_HOLD_MS)) {
+                koSinkAt.current = now;
+            }
+        } else if (koAt.current) {
+            koAt.current = 0;
+            koSinkAt.current = 0;
+            koBeat.current = -1;
+        }
+        mounted.current = true;
+        const koSink = koSinkAt.current
+            ? Math.max(0, Math.min(1, (now - koSinkAt.current) / KO_SINK_MS))
+            : 0;
+        const withdrawn = koSink >= 1;
+
         // A reserve parked at its off-stage tunnel is not drawn: the roster
         // lives on the field, and the bench exists only as the gallop that
         // brings one in. `walking` is the whole state machine — the pop-in
         // happens exactly when a switch hands the reserve a field slot and the
         // chase starts, and the pop-out when a pulled pet reaches the tunnel.
         if (group.current) {
-            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko);
+            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko) && !withdrawn;
         }
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
@@ -1078,7 +1161,13 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.faceZ = faceZ;
         f.victorious = victorious && !ko;
         f.desperate = !ko && displayHp / Math.max(1, info.view.maxHp) < 0.25;
-        if (group.current) group.current.position.set(px, py, pz);
+        if (group.current) {
+            // The withdrawal rides on the group transform, so it composes with
+            // whatever pose the death clip left the rig in.
+            const ease = koSink * koSink;
+            group.current.position.set(px, py - ease * 1.7, pz);
+            group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55));
+        }
 
         // Impact burst: an expanding, fading shockwave ring at the feet for
         // ~0.45s after a landed hit. Driven entirely off fx.hitAt — no re-render.
