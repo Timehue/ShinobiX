@@ -728,6 +728,11 @@ const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "rings
     slow: "ringsDown",
     buff: "ringsUp",
     haste: "ringsUp",
+    // `move` is the SAME mechanic as haste (the engine stores it as one) and is
+    // carried by every species in the catalog, so it was the most-thrown kind
+    // in the game with no accent at all — the lookup runs on the move's OWN
+    // kind, not the status it stores as, so the alias did not cover it.
+    move: "ringsUp",
     heal: "ringsUp",
     lifesteal: "drip",
     dot: "drip",
