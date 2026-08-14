@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import sanctuaryArt from "../assets/pet-home/companion-sanctuary.webp";
 import { ultraPetTraits } from "../data/pet-config";
-import { captureProductEvent } from "../lib/analytics";
 import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
 import { petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { fetchPetSanctuary, transferPetSanctuary, type PetSanctuaryFilters, type PetSanctuaryItem } from "../lib/pet-sanctuary-api";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet } from "../types/pet";
 import { gameConfirm } from "./GameAlert";
 
@@ -28,12 +27,17 @@ function storedLabel(storedAt: number): string {
     return `Arrived ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(storedAt)}`;
 }
 
-export function PetSanctuary({ character, updateCharacter, onServerVersion, sharedImages }: {
+export function PetSanctuary({ character, updateCharacter, onVersionedCharacter, onServerVersion, sharedImages }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    onVersionedCharacter?: VersionedCharacterCommit;
     onServerVersion: (version: number) => void;
     sharedImages: Record<string, string>;
 }) {
+    const commitServerCharacter = (nextCharacter: Character, version: number): boolean => {
+        if (onVersionedCharacter) return onVersionedCharacter(nextCharacter, version);
+        onServerVersion(version); updateCharacter(nextCharacter); return true;
+    };
     const [items, setItems] = useState<PetSanctuaryItem[]>([]);
     const [total, setTotal] = useState(0);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -55,13 +59,6 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
     const selectedDepositPetId = character.pets.some((pet) => pet.id === depositPetId)
         ? depositPetId
         : character.pets[0]?.id ?? "";
-
-    useEffect(() => {
-        captureProductEvent("sanctuary_overflow_explanation_viewed", {
-            screenId: "companion-sanctuary",
-            source: "pet-home",
-        });
-    }, []);
 
     const load = useCallback(async (mode: "replace" | "append", cursor?: string | null, signal?: AbortSignal) => {
         const request = ++requestRef.current;
@@ -94,8 +91,7 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
         setBusyPetId(pet.id); setMessage("");
         try {
             const result = await transferPetSanctuary({ playerName: character.name, petId: pet.id, action: "to-sanctuary" });
-            onServerVersion(result._saveVersion);
-            updateCharacter(result.character);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             await load("replace");
             setMessage(`${petDisplayName(result.pet)} is resting safely in the Sanctuary.`);
         } catch (error) { setMessage((error as Error).message); }
@@ -107,8 +103,7 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
         setBusyPetId(item.pet.id); setMessage("");
         try {
             const result = await transferPetSanctuary({ playerName: character.name, petId: item.pet.id, action: "to-roster" });
-            onServerVersion(result._saveVersion);
-            updateCharacter(result.character);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setItems((current) => current.filter((entry) => entry.pet.id !== item.pet.id));
             setTotal((current) => Math.max(0, current - 1));
             setMessage(`${petDisplayName(result.pet)} joined your carried roster.`);
@@ -123,7 +118,7 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
         setBusyPetId(item.pet.id); setMessage("");
         try {
             const result = await transferPetSanctuary({ playerName: character.name, petId: item.pet.id, action: "release" });
-            onServerVersion(result._saveVersion);
+            if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setItems((current) => current.filter((entry) => entry.pet.id !== item.pet.id));
             setTotal((current) => Math.max(0, current - 1));
             setMessage(`${name} was released.`);
@@ -134,12 +129,12 @@ export function PetSanctuary({ character, updateCharacter, onServerVersion, shar
     return <section className="pet-sanctuary" aria-labelledby="pet-sanctuary-title">
         <div className="pet-sanctuary-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(3,8,18,.94),rgba(3,8,18,.38) 62%,rgba(3,8,18,.72)),linear-gradient(0deg,rgba(3,8,18,.92),transparent 55%),url(${sanctuaryArt})` }}>
             <div><span className="pet-home-kicker">Unlimited bonded-companion preserve</span><h2 id="pet-sanctuary-title">Companion Sanctuary</h2><p>Companions beyond your carried roster rest here safely. Captures and hatches arrive automatically whenever your battle-ready spaces are full.</p></div>
-            <div className="pet-sanctuary-ledger" aria-label="Companion capacity"><span><b>{eligibleCarried.length}/{carriedCapacity}</b> Carried</span>{preservedOverflowCount > 0 && <span><b>{preservedOverflowCount}</b> Preserved overflow</span>}<span><b>{total}</b> Sanctuary</span><strong>No ownership cap</strong></div>
+            <div className="pet-sanctuary-ledger" aria-label="Companion capacity"><span><b>{eligibleCarried.length}/{carriedCapacity}</b> Combat-carried</span>{preservedOverflowCount > 0 ? <span><b>{preservedOverflowCount}</b> Preserved overflow</span> : null}<span><b>{total}</b> Sanctuary</span><strong>No ownership cap</strong></div>
         </div>
 
         <div className="pet-sanctuary-manager">
-            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Base carries 4; Supporter carries 6. Overflow stays owned but cannot fight, breed, or start new training or expeditions. Store a carried pet to promote the next one. Sanctuary pets rest outside all activities.</p></div>
-            <label><span>Owned roster companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No roster companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)}{eligibleCarriedIds.has(pet.id) ? " · Carried" : " · Preserved overflow"}</option>)}</select></label>
+            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Stored companions cannot enter PvE, Tactical Arena, Coliseum, training, expeditions, or breeding until returned to your carried roster.</p></div>
+            <label><span>Owned companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No owned companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)} · {eligibleCarriedIds.has(pet.id) ? "Carried" : "Preserved overflow"}</option>)}</select></label>
             <button type="button" className="pet-home-primary" disabled={!selectedDepositPetId || Boolean(busyPetId)} onClick={() => void moveToSanctuary()}>{busyPetId === selectedDepositPetId ? "Preparing habitat…" : "Move to Sanctuary"}</button>
         </div>
         {message && <p className="pet-sanctuary-message" role="status">{message}</p>}

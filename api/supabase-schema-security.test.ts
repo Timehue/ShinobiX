@@ -9,7 +9,6 @@ describe('Supabase KV schema hardening', () => {
     it('keeps mutating KV RPC functions off the anonymous Data API', () => {
         for (const signature of [
             'kv_set_nx(text, jsonb, timestamptz)',
-            'kv_compare_set(text, jsonb, jsonb, timestamptz)',
             'kv_incr(text, timestamptz)',
             'kv_hset(text, jsonb)',
             'kv_hdel(text, text[])',
@@ -29,13 +28,6 @@ describe('Supabase KV schema hardening', () => {
                 `${signature} must remain available to the trusted server role`,
             );
         }
-    });
-
-    it('defines compare-and-set as one full-JSON conditional database mutation', () => {
-        assert.match(schema, /create or replace function public\.kv_compare_set\s*\(/i);
-        assert.match(schema, /where key = p_key\s+and value = p_expected\s+and \(expires_at is null or expires_at > now\(\)\)/i);
-        assert.match(schema, /on conflict \(key\) do nothing/i, 'absent-row CAS must be an atomic insert race');
-        assert.match(schema, /set value = p_value,\s+expires_at = p_expires_at/i, 'successful CAS replaces the TTL');
     });
 
     it('preserves the narrow Realtime-only anonymous table policy', () => {

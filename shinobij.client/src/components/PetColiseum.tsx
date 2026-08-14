@@ -17,7 +17,7 @@
  * petBattleSprite → sharedImages), or a procedural placeholder in the dev
  * harness. Model availability is gated by lib/pet-3d-models.ts.
  */
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
@@ -1205,6 +1205,7 @@ export type PetColiseumProps = {
     onExit: () => void;
     settlementStatus?: PetBattleSettlementStatus;
     onRetrySettlement?: () => void;
+    resultSupplement?: ReactNode;
     sharedImages?: Record<string, string>;
     playerRecord?: PetBattleRecord;
     enemyRecord?: PetBattleRecord;
@@ -1213,7 +1214,7 @@ export type PetColiseumProps = {
 export function PetColiseum({
     playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, result,
     obstacles, tiles, onReplay, onFightAgain, onExit, settlementStatus, onRetrySettlement,
-    sharedImages = {}, playerRecord, enemyRecord,
+    resultSupplement, sharedImages = {}, playerRecord, enemyRecord,
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
@@ -1687,6 +1688,7 @@ export function PetColiseum({
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(5,7,13,0.55)" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: result === "Victory" ? "#4ade80" : result === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{result}</div>
+                        {resultSupplement}
                         {settlementStatus === "pending" && <p style={{ color: "#fde68a", fontWeight: 800 }}>Sealing the Hollow Hound result…</p>}
                         {settlementStatus === "error" && (
                             <div style={{ marginTop: 10 }}>
@@ -7325,6 +7327,8 @@ export type PetColiseumDuelProps = {
     onFightAgain?: () => void;
     settlementStatus?: PetBattleSettlementStatus;
     onRetrySettlement?: () => void;
+    /** Optional server-settled reward ceremony, mounted only with the result. */
+    resultSupplement?: ReactNode;
     onExit: () => void;
 };
 
@@ -7338,7 +7342,7 @@ const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).sta
 const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
     !!d && typeof (d as { safeTick?: number }).safeTick === "number";
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, resultSupplement, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
     const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
@@ -7438,11 +7442,68 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const outcomeSent = useRef(false);
     const [ended, setEnded] = useState(false);
     const [resultVisible, setResultVisible] = useState(false);
+    const resultDialogRef = useRef<HTMLDivElement>(null);
     const finishScheduled = useRef(false);
     const resultTimer = useRef<number | null>(null);
     useEffect(() => () => {
         if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
     }, []);
+    useEffect(() => {
+        if (!resultVisible) return;
+        const dialog = resultDialogRef.current;
+        const combatRoot = dialog?.closest<HTMLElement>("[data-testid='pet-duel-root']");
+        if (!dialog || !combatRoot) return;
+        const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const background = Array.from(combatRoot.children)
+            .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== dialog)
+            .map((element) => ({ element, inert: element.inert, ariaHidden: element.getAttribute("aria-hidden") }));
+        for (const snapshot of background) {
+            snapshot.element.inert = true;
+            snapshot.element.setAttribute("aria-hidden", "true");
+        }
+        const focusables = () => Array.from(dialog.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"));
+        const focusDialog = () => (focusables()[0] ?? dialog).focus();
+        const frame = window.requestAnimationFrame(focusDialog);
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return;
+            }
+            if (event.key !== "Tab") return;
+            const items = focusables();
+            if (!items.length) {
+                event.preventDefault();
+                dialog.focus();
+                return;
+            }
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+        const onFocusIn = (event: FocusEvent) => {
+            if (!dialog.contains(event.target as Node)) focusDialog();
+        };
+        window.addEventListener("keydown", onKeyDown, true);
+        document.addEventListener("focusin", onFocusIn, true);
+        return () => {
+            window.cancelAnimationFrame(frame);
+            window.removeEventListener("keydown", onKeyDown, true);
+            document.removeEventListener("focusin", onFocusIn, true);
+            for (const snapshot of background) {
+                snapshot.element.inert = snapshot.inert;
+                if (snapshot.ariaHidden === null) snapshot.element.removeAttribute("aria-hidden");
+                else snapshot.element.setAttribute("aria-hidden", snapshot.ariaHidden);
+            }
+            queueMicrotask(() => { if (previouslyFocused?.isConnected) previouslyFocused.focus(); });
+        };
+    }, [resultVisible]);
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
@@ -8657,8 +8718,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             )}
 
             {resultVisible && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
-                    <div style={{ width: mobileQa ? "calc(100% - 26px)" : "min(620px,88vw)", padding: mobileQa ? "22px 16px" : "30px 34px", textAlign: "center", border: "1px solid rgba(251,191,36,.35)", borderRadius: 22, background: "linear-gradient(180deg,rgba(8,11,22,.94),rgba(15,23,42,.9))", boxShadow: "0 24px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08)", animation: "petBattleResult 850ms cubic-bezier(.16,.84,.24,1) both" }}>
+                <div ref={resultDialogRef} role="dialog" aria-modal="true" aria-label={`${resultLabel}: Pet Coliseum result`} tabIndex={-1} style={{ position: "absolute", inset: 0, zIndex: 40, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", overscrollBehavior: "contain", padding: "max(13px, env(safe-area-inset-top)) max(13px, env(safe-area-inset-right)) max(13px, env(safe-area-inset-bottom)) max(13px, env(safe-area-inset-left))", boxSizing: "border-box", background: "rgba(3,7,18,0.72)" }}>
+                    <div style={{ width: "min(620px, 100%)", margin: "auto", padding: mobileQa ? "22px 16px" : "30px 34px", boxSizing: "border-box", textAlign: "center", border: "1px solid rgba(251,191,36,.35)", borderRadius: 22, background: "linear-gradient(180deg,rgba(8,11,22,.98),rgba(15,23,42,.96))", boxShadow: "0 24px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08)", animation: "petBattleResult 850ms cubic-bezier(.16,.84,.24,1) both" }}>
                         <div style={{ color: "#cbd5e1", font: "900 12px/1 Inter, system-ui, sans-serif", letterSpacing: ".22em", textTransform: "uppercase", marginBottom: 8 }}>{resultLabel} · Pet Coliseum</div>
                         <div style={{ font: `900 ${mobileQa ? 42 : 58}px/.95 var(--font-display), Inter, system-ui, sans-serif`, color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 0 24px currentColor, 0 4px 16px #000", textTransform: "uppercase" }}>
                             {battleWinnerName ? `${battleWinnerName} wins!` : "Draw!"}
@@ -8666,6 +8727,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", marginTop: 10 }}>
                             {duel.result === "win" ? "Your bond carried the arena." : duel.result === "loss" ? "The opposing pet claims the arena." : "Neither pet yields the arena."}
                         </div>
+                        {resultSupplement}
                         {settlementStatus === "pending" && (
                             <div role="status" style={{ color: "#fde68a", font: "800 13px Inter, system-ui, sans-serif", marginTop: 12 }}>
                                 Sealing the Hollow Hound result…

@@ -166,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             //       locally but the save validator reverted the discharge,
             //       so players paid ryo for nothing. Now the server applies
             //       both the charge AND the discharge in one transaction.
-            if (!targetHospitalized) return res.status(400).json({ error: 'Player is not hospitalized.' });
+            if (!targetHospitalized) return res.status(200).json({ ok: true, kind: 'self', chargedRyo: 0, alreadyDischarged: true, character: targetChar, _saveVersion: Number(targetRecord._saveVersion ?? 0) });
             const until = Number(targetChar.hospitalizedUntil ?? 0);
             const timerExpired = !until || Date.now() >= until;
             const selfIsHealer = targetChar.profession === 'healer';
@@ -217,6 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             kind: 'self',
                             chargedRyo: 0,
                             alreadyDischarged: true,
+                            character: freshChar,
                             _saveVersion: Number(fresh._saveVersion ?? 0),
                         },
                     };
@@ -264,6 +265,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ok: true,
                         kind: 'self',
                         chargedRyo: freshChargedRyo,
+                        character: healed.character,
                         _saveVersion: Number((versioned as Record<string, unknown>)._saveVersion ?? 0),
                     },
                 };

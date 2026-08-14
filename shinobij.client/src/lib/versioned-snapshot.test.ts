@@ -31,3 +31,9 @@ test("unversioned legacy snapshots cannot replace established versioned state", 
         { value: "legacy-late" },
     ]), "current");
 });
+
+test("malformed versions never become established authority", () => {
+    for (const version of [NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1, 0, -1, "9", null]) {
+        assert.deepEqual(acceptVersionedSnapshot(7, version), { accepted: false, latestVersion: 7 });
+    }
+});

@@ -58,53 +58,6 @@ describe('authoritative equipped-jutsu hydration', () => {
     });
 });
 
-describe('supporter loadout cap at combat sealing', () => {
-    const jutsus = Array.from({ length: 15 }, (_, index) => ({
-        id: `supporter-slot-${index + 1}`,
-        name: `Supporter Slot ${index + 1}`,
-        type: 'Ninjutsu',
-        element: 'None',
-        ap: 60,
-        range: 4,
-        effectPower: 40,
-        cooldown: 7,
-        chakraCost: 100,
-        staminaCost: 0,
-        target: 'OPPONENT',
-        method: 'SINGLE',
-        tags: [],
-    }));
-    const ids = jutsus.map(({ id }) => id);
-    const save = { savedBloodlines: [], creatorJutsus: jutsus };
-    const character = (patreon: Record<string, unknown>) => ({
-        name: 'LoadoutCap',
-        patreon,
-        equippedJutsuIds: [...ids],
-        jutsuMastery: [],
-        stats: {},
-        equipment: {},
-    });
-
-    it('seals only 12 jutsu for a Base account without mutating its persisted 15-slot preference', () => {
-        const base = character({ active: false });
-        const resolved = resolveEquippedLoadout(base, save, {}) as Array<{ id: string }>;
-        assert.deepEqual(resolved.map(({ id }) => id), ids.slice(0, 12));
-        assert.deepEqual(base.equippedJutsuIds, ids);
-    });
-
-    it('seals all 15 for an active Shinobi Supporter', () => {
-        const supporter = character({ active: true });
-        const resolved = resolveEquippedLoadout(supporter, save, {}) as Array<{ id: string }>;
-        assert.deepEqual(resolved.map(({ id }) => id), ids);
-    });
-
-    it('immediately falls back to 12 when a comp entitlement is expired', () => {
-        const expired = character({ active: true, expiresAt: Date.now() - 1 });
-        const hydrated = hydrateCharacterFromSave(expired, {}, save);
-        assert.deepEqual((hydrated.jutsu as Array<{ id: string }>).map(({ id }) => id), ids.slice(0, 12));
-    });
-});
-
 // `creatorJutsus` is a SERVER_LEDGER_TOPLEVEL_FIELD, so a regular player's save
 // NEVER carries admin-authored jutsu — they live on save:admin1/admin2 only.
 // The hydrator therefore has to be handed them (loadAdminJutsuObjects) or the

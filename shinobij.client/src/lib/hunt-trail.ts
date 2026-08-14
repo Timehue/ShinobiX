@@ -30,7 +30,9 @@ function trailCandidates(targetSector: number): number[] {
         // Skip the festival sector — it is an event stage, not huntable ground.
         // (This used to read `!== 35`, the festival's PRE-renumbering id, which
         // has meant "Glacier Bridge" since the 2026-07 reorg.)
-        .filter((sector) => isWildSector(sector) && sector !== FESTIVAL_SECTOR)
+        // Authored hunt leads intentionally stay on the original 1..60 contract
+        // ground even though general World encounters also accept sectors 61..66.
+        .filter((sector) => sector <= 60 && isWildSector(sector) && sector !== FESTIVAL_SECTOR)
         .filter((sector) => sector !== target && biomeForWorldSector(sector) === biome)
         .sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
     return sameBiome.length > 0 ? sameBiome : [target];

@@ -9,6 +9,9 @@ import test from "node:test";
 // to the tower shell (which showed "Floor 9200 · defeat boss" tower chrome).
 const host = readFileSync(new URL("./StoryBossFightHost.tsx", import.meta.url), "utf8");
 const missionFight = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
+const storyApi = readFileSync(new URL("../lib/story-combat-api.ts", import.meta.url), "utf8");
+const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const battleCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 
 test("StoryBossFightHost renders MissionArenaFight, not the tower shell", () => {
     assert.match(host, /<MissionArenaFight/, "the host must render MissionArenaFight");
@@ -35,4 +38,64 @@ test("MissionArenaFight accepts the story presentation props the host passes", (
     assert.match(missionFight, /renderResult\?:/, "the arena shell must accept a result-overlay override");
     // Display-only invariant: the story flavor never touches the reward path.
     assert.match(missionFight, /storyTheme\?\.backdropImage/, "the story backdrop must be display-only chrome");
+});
+
+test("story wins keep the sealed run open until the authoritative reward settles", () => {
+    assert.match(
+        host,
+        /renderResult=\{\(\{ won, settleState, settleResult, retry \}\) =>/,
+        "the story renderer must retain MissionArenaFight's run-scoped retry callback",
+    );
+    assert.match(host, /settleState === "failed"[\s\S]*?<button onClick=\{retry\}>Retry Reward<\/button>/);
+    assert.match(
+        host,
+        /disabled=\{settleState !== "settled" \|\| !result\} onClick=\{closeFight\}>Continue<\/button>/,
+        "a chapter win must not discard its runId while settlement is pending or failed",
+    );
+    assert.match(
+        host,
+        /disabled=\{won && \(settleState !== "settled" \|\| !result\)\} onClick=\{closeFight\}>Continue<\/button>/,
+        "the Academy spar must preserve its sealed run until its reward settles too",
+    );
+});
+
+test("story settlement surfaces newly pressed Living Chronicle records", () => {
+    assert.match(storyApi, /chronicleCards\?:\s*string\[\]/);
+    assert.match(host, /result\.chronicleCards\?\.length/);
+    assert.match(host, /Living Chronicle \u00b7 Ihara records the witnessed fall of \{theme\.bossName\}/);
+});
+
+test("story result overlays expose modal semantics", () => {
+    assert.equal((host.match(/<RequiredStoryResultDialog/g) ?? []).length, 3);
+    assert.match(host, /role=\{revealed \? "dialog" : undefined\}/);
+    assert.match(host, /aria-modal=\{revealed \? "true" : undefined\}/);
+    assert.match(host, /dialog\.closest<HTMLElement>\("\.combat-instance"\)/);
+    assert.match(host, /Array\.from\(document\.body\.children\)/);
+    assert.match(host, /element\.inert = true/);
+    assert.match(host, /event\.key !== "Tab"/);
+    assert.match(host, /event\.key === "Escape"[\s\S]*?event\.preventDefault\(\)[\s\S]*?event\.stopImmediatePropagation\(\)/);
+    assert.match(host, /returnFocus\?\.isConnected/);
+    assert.match(battleCss, /\.story-fight-complete \{[\s\S]*?align-items: flex-start;[\s\S]*?overflow-y: auto;[\s\S]*?overscroll-behavior: contain;/);
+    assert.match(battleCss, /\.story-fight-complete-card \{[\s\S]*?box-sizing: border-box;[\s\S]*?margin: auto 0;/);
+});
+
+test("story starts and settlements stay bound to their originating account", () => {
+    assert.match(host, /originatingPlayerName:\s*string/);
+    assert.match(host, /startRequestIdRef\.current !== requestId/,
+        "an invalidated start response must not open a fight for the next account");
+    assert.match(host, /activePlayerKeyRef\.current !== originatingPlayerKey/,
+        "every async phase must compare against the currently mounted player");
+    assert.match(host, /startStoryBossCombat\(\{ playerName: originatingPlayerName \}\)/);
+    assert.match(host, /settleStoryBossCombat\(\{ playerName: originatingPlayerName, runId \}\)/);
+    assert.match(host, /reportPveFightOutcome\(runId, originatingPlayerName\)/);
+    assert.doesNotMatch(host, /playerName:\s*settlingPlayer|reportPveFightOutcome\(runId, settlingPlayer\)/,
+        "the arena child must not be able to retarget an old run at the current account");
+
+    const finale = app.slice(
+        app.indexOf("function handleServerStoryBossSettled"),
+        app.indexOf("function startTriggeredEventArenaBattle"),
+    );
+    assert.match(finale, /saveConflictAccountKey\(finaleCharacter\.name\) !== saveConflictAccountKey\(result\.character\.name\)/,
+        "a rejected old-account result must never run finale effects against characterRef.current");
+    assert.ok(finale.indexOf("saveConflictAccountKey(finaleCharacter.name)") < finale.indexOf("unlockVillageKageSystem("));
 });

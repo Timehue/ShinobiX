@@ -38,6 +38,7 @@ export const RightMenu = memo(function RightMenu({
     logoutPlayer,
     characterName,
     characterVillage,
+    storyVillage,
     characterClan,
     profession,
     screen,
@@ -47,6 +48,7 @@ export const RightMenu = memo(function RightMenu({
     logoutPlayer: () => void;
     characterName: string;
     characterVillage: string;
+    storyVillage: string;
     characterClan: string;
     profession: Profession | null;
     screen: Screen;
@@ -115,7 +117,7 @@ export const RightMenu = memo(function RightMenu({
                                 <h4 id={`right-menu-${group.id}`}>{group.label}</h4>
                                 <div className="right-menu-section-grid">
                                     {group.items.map(([target, label, Icon]) => (
-                                        <button key={target} aria-current={screen === target ? "page" : undefined} onClick={() => guardedNavigate(target)} onPointerDown={() => preloadScreen(target)} title={target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
+                                        <button key={target} aria-current={screen === target ? "page" : undefined} onClick={() => guardedNavigate(target)} onPointerDown={() => preloadScreen(target, storyVillage)} title={target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
                                             <Icon size={16} />{target === "professions" && profession ? PROFESSION_LABEL[profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
                                         </button>
                                     ))}

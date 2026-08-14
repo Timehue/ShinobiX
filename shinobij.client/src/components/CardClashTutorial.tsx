@@ -5,23 +5,23 @@ import {
   getChronicleCard,
   type ChronicleDisplayCard,
 } from "../lib/chronicle-duel";
+import { Modal } from "./ui/Modal";
+import "../styles/card-clash-tutorial.css";
 
 export function CardClashTutorial({ onClose }: { onClose: () => void }) {
   const smokeBomb = getChronicleCard(
     "chronicle-smoke-bomb",
   ) as ChronicleDisplayCard;
   return (
-    <div
-      className="chronicle-tutorial-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Shinobi Chronicle Showdown tutorial"
-      onClick={onClose}
+    <Modal
+      open
+      onClose={onClose}
+      bare
+      size="lg"
+      ariaLabel="Shinobi Chronicle Showdown tutorial"
+      className="chronicle-tutorial-modal-shell"
     >
-      <div
-        className="chronicle-tutorial"
-        onClick={(event) => event.stopPropagation()}
-      >
+      <div className="chronicle-tutorial">
         <ChronicleCardView card={smokeBomb} />
         <div className="chronicle-tutorial__body">
           <small>
@@ -52,6 +52,6 @@ export function CardClashTutorial({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AdminRole, Biome, JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank, Screen } from "../types/core";
-import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary } from "../types/character";
+import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary, VersionedCharacterCommit } from "../types/character";
 import type { ArmorQuality, EquipmentSlot, GameItem, Jutsu, ReviewBloodline, SavedBloodline, Stats } from "../types/combat";
 import type { AiAction, AiCondition, AiLoadoutId, AiRecentAction, AiResource, AiRule, AiTarget, CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -31,8 +31,10 @@ import { petRarityOrder } from "../data/pet-config";
 import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { isWildSpawnable } from "../lib/pet-balance";
 import { PRIMARY_SUBROLE, type PetRole } from "../lib/pet-roles";
-import { storylines } from "../data/storylines";
 import { storyToCreatorEvent } from "../lib/story-trigger";
+import { STORY_CONTENT_VILLAGES, type StoryContentPayload } from "../lib/story-content-contract";
+import { loadStoryContent, refreshStoryContent } from "../lib/story-content-loader";
+import { StoryContentLoadError } from "../lib/story-content-loader-core";
 import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, allocatedStatPoints, baseStats, capStat, earnedForLevel, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, normalizeStats, reconcileCharacterStatBudget } from "../lib/stats";
@@ -49,6 +51,7 @@ import { clampNumber, makeId } from "../lib/utils";
 import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeJutsuTags, percentageTags } from "../lib/tags";
 import { petDisplayName } from "../lib/pet";
+import { maxPets } from "../lib/entitlements";
 import { rankTitleForLevel } from "../lib/character-progress";
 import { aiJutsuLoadout, aiLoadoutFromJutsus, aiLoadoutLabels, blankAiRule, buildBasicCombatAiRules, builtinAis, normalizeAiProfile, starterAiProfile } from "../lib/combat-ai";
 import {
@@ -74,7 +77,6 @@ import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
-import { maxPets } from "../lib/entitlements";
 
 type EditableVnPage = {
     title: string;
@@ -103,6 +105,7 @@ const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? `/pet
 export function AdminPanel({
     character,
     updateCharacter,
+    onVersionedCharacter,
     creatorJutsus,
     setCreatorJutsus,
     creatorAis,
@@ -150,6 +153,7 @@ export function AdminPanel({
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     creatorJutsus: Jutsu[];
     setCreatorJutsus: (jutsus: Jutsu[]) => void;
     creatorAis: CreatorAi[];
@@ -414,11 +418,11 @@ export function AdminPanel({
                 headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: JSON.stringify({ playerName: character.name, itemId: item.id, requestId }),
             });
-            const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; character?: Character };
+            const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; character?: Character; _saveVersion?: unknown };
             if (!response.ok || !data.ok || !data.character) {
                 return alert(data.error || "The item could not be granted.");
             }
-            updateCharacter(data.character);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             alert(`${item.name} added to your inventory.`);
         } catch {
             alert("The item could not be granted. Please try again.");
@@ -788,6 +792,39 @@ export function AdminPanel({
     // tabs, the underlying actions would 401.
     const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation', 'legacy']);
     const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation" | "legacy" | "diagnostics">("jutsuBloodlines");
+    const [adminStoryContent, setAdminStoryContent] = useState<StoryContentPayload[]>([]);
+    const [adminStoryStatus, setAdminStoryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+    const [adminStoryError, setAdminStoryError] = useState("");
+    const [adminStoryStaleDeployment, setAdminStoryStaleDeployment] = useState(false);
+    const adminStoryRequestRef = useRef<Promise<StoryContentPayload[]> | null>(null);
+    const adminStoryEpochRef = useRef(0);
+    function requestAdminStoryContent(fresh = false) {
+        if (!fresh && adminStoryContent.length === STORY_CONTENT_VILLAGES.length) return Promise.resolve(adminStoryContent);
+        if (adminStoryRequestRef.current) return adminStoryRequestRef.current;
+        const epoch = ++adminStoryEpochRef.current;
+        setAdminStoryStatus("loading");
+        setAdminStoryError("");
+        setAdminStoryStaleDeployment(false);
+        const request = Promise.all(STORY_CONTENT_VILLAGES.map((village) => fresh ? refreshStoryContent(village) : loadStoryContent(village)));
+        adminStoryRequestRef.current = request;
+        void request.then((content) => {
+            if (adminStoryEpochRef.current !== epoch) return;
+            setAdminStoryContent(content);
+            setAdminStoryStatus("ready");
+        }, (error: unknown) => {
+            if (adminStoryEpochRef.current !== epoch) return;
+            setAdminStoryError(error instanceof Error ? error.message : "The village chronicles could not be loaded.");
+            setAdminStoryStaleDeployment(error instanceof StoryContentLoadError && error.staleDeployment);
+            setAdminStoryStatus("error");
+        }).finally(() => {
+            if (adminStoryEpochRef.current === epoch) adminStoryRequestRef.current = null;
+        });
+        return request;
+    }
+    useEffect(() => {
+        if (activeAdminPanel === "visualNovels" && adminStoryStatus === "idle") void requestAdminStoryContent();
+    }, [activeAdminPanel, adminStoryStatus]);
+    useEffect(() => () => { adminStoryEpochRef.current += 1; }, []);
     // Clamp the active tab whenever the role flips OR a refresh restored
     // a forbidden tab from React's initial state.
     useEffect(() => {
@@ -981,12 +1018,12 @@ export function AdminPanel({
         if (pmGivePetId) {
             const pet = editablePets.find(p => p.id === pmGivePetId);
             const existing = (char.pets as unknown[] | undefined) ?? [];
-            const petCapacity = maxPets(char as Character);
+            const petCapacity = maxPets(char as Pick<Character, "patreon">);
             if (pet && existing.length < petCapacity) {
                 const cloned = { ...pet, id: `${pet.id}-${Date.now()}` };
                 char.pets = [...existing, cloned];
             } else if (pet) {
-                alert(`${pmTargetName} already has ${petCapacity} carried pets. Cannot give another.`);
+                alert(`${pmTargetName} already has ${petCapacity} carried pets. Move one to the Sanctuary before giving another.`);
             }
         }
         // Give currencies
@@ -1381,7 +1418,7 @@ export function AdminPanel({
         hiddenDungeonVnEvent,
         awakeningLv2VnEvent,
         auraSphereLv9VnEvent,
-        ...Object.entries(storylines).flatMap(([village, steps]) => steps.map((step, index) => storyToCreatorEvent(step, village, index))),
+        ...adminStoryContent.flatMap(({ village, chapters }) => chapters.map((step, index) => storyToCreatorEvent(step, village, index))),
     ];
     const allEditableEvents = [
         ...builtInVisualNovels.filter((builtIn) => !creatorEvents.some((event) => event.id === builtIn.id)),
@@ -2258,7 +2295,7 @@ export function AdminPanel({
                 <button className={activeAdminPanel === "eventsRaids" ? "active" : ""} onClick={() => { setActiveAdminPanel("eventsRaids"); setEventKind("reward"); }}>
                     Events / Missions / Raids
                 </button>
-                <button className={activeAdminPanel === "visualNovels" ? "active" : ""} onClick={() => { setActiveAdminPanel("visualNovels"); setEventKind("visualNovel"); }}>
+                <button className={activeAdminPanel === "visualNovels" ? "active" : ""} onPointerDown={() => { void requestAdminStoryContent(); }} onFocus={() => { void requestAdminStoryContent(); }} onClick={() => { setActiveAdminPanel("visualNovels"); setEventKind("visualNovel"); }}>
                     Visual Novels
                 </button>
                 <button className={activeAdminPanel === "aiCreator" ? "active" : ""} onClick={() => setActiveAdminPanel("aiCreator")}>
@@ -2658,7 +2695,16 @@ export function AdminPanel({
                 </div>
             )}
 
-            {activeAdminPanel === "visualNovels" && (
+            {activeAdminPanel === "visualNovels" && adminStoryStatus !== "ready" && (
+                <div className="admin-subpanel" role={adminStoryStatus === "error" ? "alert" : "status"}>
+                    <h3>{adminStoryStatus === "error" ? "Village chronicles unavailable" : "Opening village chronicles…"}</h3>
+                    <p>{adminStoryStatus === "error" ? adminStoryError : "Loading the four source-authoritative story archives for editing."}</p>
+                    {adminStoryStatus === "error" && (adminStoryStaleDeployment
+                        ? <button type="button" onClick={() => window.location.reload()}>Reload Latest Game</button>
+                        : <button type="button" onClick={() => { void requestAdminStoryContent(true); }}>Retry Chronicle Load</button>)}
+                </div>
+            )}
+            {activeAdminPanel === "visualNovels" && adminStoryStatus === "ready" && (
                 <div className="admin-subpanel">
                     <div className="admin-panel-heading">
                         <h3>Visual Novel Editor</h3>
@@ -4072,7 +4118,7 @@ export function AdminPanel({
                 </div>
             )}
 
-            {(activeAdminPanel === "eventsRaids" || activeAdminPanel === "visualNovels") && (
+            {(activeAdminPanel === "eventsRaids" || (activeAdminPanel === "visualNovels" && adminStoryStatus === "ready")) && (
                 <div className="admin-subpanel">
                     <h3>{activeAdminPanel === "visualNovels" ? "Visual Novel Library" : "Event Library"}</h3>
                     <section className="summary-box">
@@ -4123,7 +4169,7 @@ export function AdminPanel({
                     </section>
                 </div>
             )}
-            {activeAdminPanel === "visualNovels" && (() => {
+            {activeAdminPanel === "visualNovels" && adminStoryStatus === "ready" && (() => {
                 const galleryVns: { id: string; label: string; pages: { title: string; image?: string }[]; isPet?: boolean; isChest?: boolean }[] = [];
                 if (petEncounterVn.vnPages?.length) {
                     galleryVns.push({ id: "sys-pet-encounter", label: "🐾 Pet Encounter VN", pages: petEncounterVn.vnPages, isPet: true });

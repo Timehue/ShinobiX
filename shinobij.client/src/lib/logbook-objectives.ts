@@ -4,9 +4,9 @@
  * Chunin), and two optional prestige ceremonies (Jonin and Special Jonin). Each objective is a list of requirements, each
  * with a current progress and a target.
  *
- * This is the single source of truth for permanent Logbook progression goals.
- * Live "what next" direction comes from the server-authored Activity Spine; a
- * persistent breadcrumb may use this builder only as an explicit offline fallback.
+ * This is the single source of truth shared by the Logbook screen (which renders
+ * every objective and lets the player claim them) and the Daily Briefing modal
+ * (which surfaces just the one objective the player is currently working toward).
  * Pure — no world-state/cache imports — so it stays unit-testable; the two
  * environment-specific facts the save can't carry (whether the built-in exam AIs
  * still exist, and the player's seated-Kage / Elder standing) are passed in by

@@ -140,6 +140,7 @@ import awakeningRollHandler from './api/awakening/roll.js';
 import bloodlinesForgeHandler from './api/bloodlines/forge.js';
 import cardClashOpenPackHandler from './api/card-clash/open-pack.js';
 import cardClashClaimStarterHandler from './api/card-clash/claim-starter.js';
+import cardClashSyncProgressionHandler from './api/card-clash/sync-progression.js';
 import craftForgeHandler from './api/craft/forge.js';
 import craftNamedHandler from './api/craft/named.js';
 import dungeonRunHandler from './api/dungeon/run.js';
@@ -152,6 +153,7 @@ import hollowGateAttuneHandler from './api/hollow-gate/attune.js';
 import hollowGateLockedDoorHandler from './api/hollow-gate/locked-door.js';
 import hunterRankUpHandler from './api/hunter/rank-up.js';
 import petBefriendHandler from './api/pet/befriend.js';
+import petEncounterDeclineHandler from './api/pet/encounter-decline.js';
 import petChooseStarterHandler from './api/pet/choose-starter.js';
 import petEncounterStartHandler from './api/pet/encounter-start.js';
 import petProgressHandler from './api/pet/progress.js';
@@ -242,6 +244,8 @@ import missionsReportPvpWinHandler   from './api/missions/report-pvp-win.js';
 import missionsReportPetEventHandler from './api/missions/report-pet-event.js';
 import missionsAiFightStartHandler   from './api/missions/ai-fight-start.js';
 import missionsReportAiFightHandler  from './api/missions/report-ai-fight.js';
+import missionsHuntTrailHandler      from './api/missions/hunt-trail.js';
+import missionsFieldTrailHandler     from './api/missions/field-trail.js';
 import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.js';
 import missionsCombatStartHandler from './api/missions/combat-start.js';
@@ -291,8 +295,6 @@ import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petWarfrontStartHandler from './api/pet/warfront-start.js';
-import petWarfrontCouncilHandler from './api/pet/warfront-council.js';
-import petWarfrontForfeitHandler from './api/pet/warfront-forfeit.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
 import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
@@ -518,10 +520,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // default with room to spare.
 const jsonBig = express.json({ limit: '50mb' });
 const jsonSave = express.json({ limit: '1mb' });
-const jsonChallenge = express.json({ limit: '512kb' });
 const jsonDefault = express.json({ limit: '5mb' });
-const urlEncodedChallenge = express.urlencoded({ extended: true, limit: '512kb' });
-const urlEncodedDefault = express.urlencoded({ extended: true, limit: '5mb' });
 // The Patreon webhook must verify an HMAC-MD5 over the EXACT raw request body,
 // so this parser stashes the raw Buffer on req.rawBody. The capture runs ONLY
 // for that one path — every other request skips it. See api/patreon/webhook.ts.
@@ -537,13 +536,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     switch (classifyBodyLimit(req.path)) {
         case 'big':  return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
-        case 'challenge': return jsonChallenge(req, res, next);
         default:     return jsonDefault(req, res, next);
     }
 });
-app.use((req, res, next) => classifyBodyLimit(req.path) === 'challenge'
-    ? urlEncodedChallenge(req, res, next)
-    : urlEncodedDefault(req, res, next));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Per-request correlation id — a short, greppable token on every request,
 // echoed in the x-request-id response header (visible in the browser network
@@ -905,24 +901,6 @@ async function runDbHealthProbe(): Promise<{
         const nxKey = `health:probe:nx:${tag}`;
         checks.setNx = (await kv.set(nxKey, token, { nx: true, ex: 60 })) === 'OK';
         await kv.del(nxKey).catch(() => undefined);
-
-        // Full-value atomic CAS (required by cross-row economy sagas). Probe a
-        // mismatch first to prove it cannot overwrite, then the exact-success
-        // path. A missing kv_compare_set schema RPC fails deep readiness before
-        // payout traffic reaches an unsafe/partially-migrated deployment.
-        const casKey = `health:probe:cas:${tag}`;
-        const casBefore = { probe: token, version: 1 };
-        const casAfter = { probe: token, version: 2 };
-        await kv.set(casKey, casBefore, { ex: 60 });
-        checks.compareSetMismatch = (await kv.compareSet(
-            casKey,
-            { probe: token, version: 0 },
-            { probe: token, version: 999 },
-            { ex: 60 },
-        )) === false && JSON.stringify(await kv.get(casKey)) === JSON.stringify(casBefore);
-        checks.compareSet = (await kv.compareSet(casKey, casBefore, casAfter, { ex: 60 })) === true
-            && JSON.stringify(await kv.get(casKey)) === JSON.stringify(casAfter);
-        await kv.del(casKey).catch(() => undefined);
 
         // kv_hset / kv_hdel RPCs.
         const hashKey = `health:probe:hash:${tag}`;
@@ -1347,6 +1325,8 @@ route('/missions/report-pvp-win',   missionsReportPvpWinHandler);
 route('/missions/report-pet-event', missionsReportPetEventHandler);
 route('/missions/ai-fight-start',   missionsAiFightStartHandler);
 route('/missions/report-ai-fight',  missionsReportAiFightHandler);
+route('/missions/hunt-trail',       missionsHuntTrailHandler);
+route('/missions/field-trail',      missionsFieldTrailHandler);
 route('/missions/claim-mission',    missionsClaimMissionHandler);
 route('/missions/queue-combat-claim', missionsQueueCombatClaimHandler);
 route('/missions/combat-start', missionsCombatStartHandler);
@@ -1413,8 +1393,6 @@ route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/warfront-start', petWarfrontStartHandler);
-route('/pet/warfront-council', petWarfrontCouncilHandler);
-route('/pet/warfront-forfeit', petWarfrontForfeitHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
 route('/weapon/apply-elemental-core', applyElementalCoreHandler);
@@ -1465,6 +1443,7 @@ route('/awakening/roll', awakeningRollHandler);
 route('/bloodlines/forge', bloodlinesForgeHandler);
 route('/card-clash/open-pack', cardClashOpenPackHandler);
 route('/card-clash/claim-starter', cardClashClaimStarterHandler);
+route('/card-clash/sync-progression', cardClashSyncProgressionHandler);
 route('/craft/forge', craftForgeHandler);
 route('/craft/named', craftNamedHandler);
 route('/dungeon/run', dungeonRunHandler);
@@ -1476,6 +1455,7 @@ route('/hollow-gate/forge-key', hollowGateForgeKeyHandler);
 route('/hollow-gate/locked-door', hollowGateLockedDoorHandler);
 route('/hunter/rank-up', hunterRankUpHandler);
 route('/pet/befriend', petBefriendHandler);
+route('/pet/encounter-decline', petEncounterDeclineHandler);
 route('/pet/choose-starter', petChooseStarterHandler);
 route('/pet/encounter-start', petEncounterStartHandler);
 route('/pet/progress', petProgressHandler);

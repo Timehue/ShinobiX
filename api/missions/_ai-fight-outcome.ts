@@ -113,7 +113,9 @@ export function resolveAiFightOutcome(session: AiFightSession | null | undefined
  * fight resolve".
  */
 export function aiFightPaysReward(outcome: AiFightOutcome, battleKind: string | undefined): boolean {
-    return outcome === 'win' && battleKind !== 'practice';
+    // Dungeon Warden combat proves the later Dungeon settlement; paying the
+    // ordinary AI purse here would double-pay the same run.
+    return outcome === 'win' && battleKind !== 'practice' && battleKind !== 'dungeon';
 }
 
 /** The Academy spar's sealed session (api/story/spar-start.ts). */

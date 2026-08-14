@@ -1,5 +1,9 @@
 import { applyDerivedLevel } from '../_xp-engine.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
+import {
+    grantChronicleProgressionCards,
+    storyProgressionCardId,
+} from '../card-clash/_progression-cards.js';
 
 type StoryOpponentProof = { opponentId?: string };
 
@@ -47,7 +51,7 @@ export function storyOpponentId(village: string, level: number): string {
 export const ACADEMY_SPAR_OPPONENT_ID = 'academy-spar-dummy';
 
 export type StorySettlement =
-    | { ok: true; character: PlayerCharacter; progress: number; xp: number; statPoints: number; ryo: number; auraDust: number; finale: boolean; title?: string }
+    | { ok: true; character: PlayerCharacter; progress: number; xp: number; statPoints: number; ryo: number; auraDust: number; finale: boolean; title?: string; chronicleCards?: string[] }
     | { ok: false; status: number; error: string };
 
 export function applyAcademySparSettlement(character: PlayerCharacter, proof: StoryOpponentProof): StorySettlement {
@@ -119,5 +123,24 @@ export function applyStoryBossSettlement(
             inventory: inventory.includes('hollow-gate-key') ? inventory : [...inventory, 'hollow-gate-key'],
         } : {}),
     };
-    return { ok: true, character: next, progress: progress + 1, xp: 0, statPoints: reward.statPoints, ryo: reward.ryo, auraDust: 12, finale, ...(title ? { title } : {}) };
+    // The Chronicle stays sealed until Scribe Ihara's level-17 ceremony. Once
+    // opened, every verified first-clear presses its exact boss record in the
+    // same authoritative settlement. Earlier clears are backfilled when the
+    // codex is claimed (api/card-clash/_starter-cards.ts).
+    const cardId = storyProgressionCardId(proof.opponentId);
+    const chronicle = character.starterCardsClaimed === true && cardId
+        ? grantChronicleProgressionCards(next, [cardId])
+        : { character: next as Record<string, unknown>, granted: [] as string[] };
+    return {
+        ok: true,
+        character: chronicle.character as PlayerCharacter,
+        progress: progress + 1,
+        xp: 0,
+        statPoints: reward.statPoints,
+        ryo: reward.ryo,
+        auraDust: 12,
+        finale,
+        chronicleCards: chronicle.granted,
+        ...(title ? { title } : {}),
+    };
 }

@@ -5,9 +5,12 @@ import { CHRONICLE_CARD_CATALOG } from '../../../shared/chronicle-duel.js';
 export type MarketplaceCardRarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type ChronicleMarketplaceCard = { rarity: MarketplaceCardRarity };
 
-// Story and Legacy cards are progression unlocks, never pack/shop rolls.
+// Story, Legacy, and living-witness cards are progression unlocks, never
+// pack/shop rolls.
 const PACKABLE = CHRONICLE_CARD_CATALOG.filter(
-    (card) => !card.id.startsWith('story-') && !card.id.startsWith('legacy-'),
+    (card) => !card.id.startsWith('story-')
+        && !card.id.startsWith('legacy-')
+        && !card.id.startsWith('pet-witness-'),
 );
 
 export const BUILTIN_CLASH: Record<string, ChronicleMarketplaceCard> = Object.fromEntries(

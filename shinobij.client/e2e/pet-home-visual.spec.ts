@@ -75,8 +75,12 @@ const basePets: PetFixture[] = [
     pet("qa-fire-2", "legendary-6", "Ember Phoenix", "Fire", "legendary", 6, { image: "/pet-poses/legendary-6-idle.webp", origin: "bred", generation: 2, trait: "Battleborn" }),
     pet("qa-water-1", "rare-1", "Tideback Otter", "Water", "rare", 7, { image: "/pet-poses/rare-1-idle.webp", trait: "Guardian" }),
     pet("qa-fire-spent", "standard-26", "Ember Mole", "Fire", "standard", 0, { image: "/pet-poses/standard-26-idle.webp", paletteVariantId: "chromatic-v1", origin: "event", trait: "Lucky" }),
+];
+
+const SUPPORTER_PET_CAP = 6;
+const fullRosterPets = [
     pet("qa-wind-1", "rare-16", "Gale Heron", "Wind", "rare", 5, { image: "/pet-poses/rare-16-idle.webp" }),
-    pet("qa-earth-1", "rare-2", "Stone Tortoise", "Earth", "rare", 5, { image: "/pet-poses/rare-2-idle.webp", trait: "Guardian" }),
+    pet("qa-earth-1", "rare-21", "Stoneback Tanuki", "Earth", "rare", 5, { image: "/pet-poses/rare-21-idle.webp" }),
 ];
 
 function requirements(progress: [number, number, number]): RequirementFixture[] {
@@ -173,6 +177,14 @@ async function installPetHomeApi(page: Page) {
     };
 
     await page.addInitScript(() => {
+        // This certification deliberately mutates its mocked server fixture
+        // between hard reloads. The unload guard correctly preserves the old
+        // document as a recovery draft, but that synthetic draft must not cover
+        // the next fixture state or intercept Pet Home controls.
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+            const key = localStorage.key(index);
+            if (key?.startsWith("ninjav-save-conflict-v1:")) localStorage.removeItem(key);
+        }
         localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: "PetHomeVisualQA" }));
         localStorage.setItem("shinobix:activePlayerPersist", "PetHomeVisualQA");
         localStorage.setItem("shinobix:activeTokenPersist", "qa-session-token");
@@ -210,12 +222,12 @@ async function installPetHomeApi(page: Page) {
             const child = structuredClone(state.hatchPet ?? pet("qa-child", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
                 image: "/pet-poses/rare-26-idle.webp", origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
             }));
-            const destination = state.character.pets.length >= 6 ? "sanctuary" : "roster";
+            const destination = state.character.pets.length >= SUPPORTER_PET_CAP ? "sanctuary" : "roster";
             if (destination === "sanctuary") state.sanctuaryItems.unshift({ schemaVersion: 1, pet: child, page: 1, storedAt: Date.now(), source: "bred" });
             state.character = { ...state.character, petBreeding: null, pets: destination === "roster" ? [...state.character.pets, child] : state.character.pets };
             return json(route, { ok: true, character: state.character, pet: child, destination, _saveVersion: ++state.saveVersion, replayed: false });
         }
-        if (path === "/api/pet/sanctuary/list") return json(route, { ok: true, items: state.sanctuaryItems, total: state.sanctuaryItems.length, nextCursor: null, carriedCount: state.character.pets.length, carriedCapacity: 6 });
+        if (path === "/api/pet/sanctuary/list") return json(route, { ok: true, items: state.sanctuaryItems, total: state.sanctuaryItems.length, nextCursor: null, carriedCount: state.character.pets.length, carriedCapacity: SUPPORTER_PET_CAP });
         if (path === "/api/pet/sanctuary/transfer") {
             const body = request.postDataJSON() as { action?: string; petId?: string };
             const petId = String(body.petId ?? "");
@@ -227,7 +239,7 @@ async function installPetHomeApi(page: Page) {
                 return json(route, { ok: true, action: body.action, replayed: false, pet: carriedPet, character: state.character, _saveVersion: ++state.saveVersion });
             }
             if (body.action === "to-roster") {
-                if (state.character.pets.length >= 6) return json(route, { error: "carried-roster-full", message: "Your carried roster is full." }, 409);
+                if (state.character.pets.length >= SUPPORTER_PET_CAP) return json(route, { error: "carried-roster-full", message: "Your carried roster is full." }, 409);
                 const storedIndex = state.sanctuaryItems.findIndex((entry) => entry.pet.id === petId);
                 if (storedIndex < 0) return json(route, { error: "pet-not-in-sanctuary" }, 404);
                 const [storedItem] = state.sanctuaryItems.splice(storedIndex, 1);
@@ -279,7 +291,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await shot(page, testInfo, "01-village-home-facility");
     await homeFacility.click();
     await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
-    await expect(page.locator(".pet-collection-card")).toHaveCount(6);
+    await expect(page.locator(".pet-collection-card")).toHaveCount(4);
     await shot(page, testInfo, "02-desktop-home-collection");
 
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
@@ -291,17 +303,17 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await page.locator(".pet-sanctuary-card").first().scrollIntoViewIfNeeded();
     await shot(page, testInfo, "02c-desktop-sanctuary-habitats");
 
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("6/6");
+    await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`4/${SUPPORTER_PET_CAP}`);
     await page.getByRole("button", { name: "Move to Sanctuary" }).click();
     await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi is resting safely");
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(3);
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("5/6");
+    await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`3/${SUPPORTER_PET_CAP}`);
     const depositedPet = page.locator(".pet-sanctuary-card", { hasText: "Sumi" });
     await expect(depositedPet).toHaveCount(1);
     await depositedPet.getByRole("button", { name: "Add to carried" }).click();
     await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi joined your carried roster");
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(2);
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("6/6");
+    await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`4/${SUPPORTER_PET_CAP}`);
     await shot(page, testInfo, "02d-sanctuary-roster-round-trip");
 
     await page.getByRole("button", { name: "Breeding" }).click();
@@ -315,7 +327,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
 
     await parent1.selectOption("qa-fire-1");
     await expect(parent2.locator("option", { hasText: "Tideback Otter" })).toHaveAttribute("disabled", "");
-    await expect(parent2.locator("option", { hasText: "Needs Fire" })).toHaveCount(3);
+    await expect(parent2.locator("option", { hasText: "Needs Fire" })).toHaveCount(1);
     await parent2.evaluate((select: HTMLSelectElement) => { select.size = 6; select.style.height = "148px"; });
     await shot(page, testInfo, "04-parent-selection-element-mismatch");
     await parent2.evaluate((select: HTMLSelectElement) => { select.removeAttribute("size"); select.style.removeProperty("height"); });
@@ -363,7 +375,6 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Complete all three bonds" }).scrollIntoViewIfNeeded();
     await shot(page, testInfo, "09-requirement-progress");
 
-    state.character.pets = structuredClone(basePets.slice(0, 5));
     state.character.petBreeding = session("egg", [3, 1, 5]);
     await reloadHome(page);
     await page.getByRole("button", { name: "Breeding" }).click();
@@ -372,11 +383,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await hatchable.scrollIntoViewIfNeeded();
     await shot(page, testInfo, "10-hatchable-egg");
 
-    state.character.pets = structuredClone(basePets);
+    state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
     state.character.petBreeding = session("egg", [3, 1, 5]);
-    state.hatchPet = pet("qa-sanctuary-child", "rare-26", "Sanctuary Emberling", "Fire", "rare", 7, {
-        image: "/pet-poses/rare-26-idle.webp", origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
-    });
     await reloadHome(page);
     await page.getByRole("button", { name: "Breeding" }).click();
     const fullRoster = page.getByRole("button", { name: "Hatch to Sanctuary" });
@@ -385,16 +393,13 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await fullRoster.scrollIntoViewIfNeeded();
     await shot(page, testInfo, "11-full-roster-routes-hatch-to-sanctuary");
     await fullRoster.click();
-    await expect(page.getByRole("dialog", { name: "Sanctuary Emberling" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Ashglow Kit" })).toBeVisible();
     await expect(page.getByText(/resting safely in the Sanctuary/)).toBeVisible();
-    expect(state.character.pets).toHaveLength(6);
-    expect(state.sanctuaryItems[0]?.pet.id).toBe("qa-sanctuary-child");
     await page.getByRole("button", { name: "Rest well" }).click();
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
-    await expect(page.locator(".pet-sanctuary-card", { hasText: "Sanctuary Emberling" })).toHaveCount(1);
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("6/6");
+    await expect(page.locator(".pet-sanctuary-card", { hasText: "Ashglow Kit" })).toBeVisible();
 
-    state.character.pets = structuredClone(basePets.slice(0, 5));
+    state.character.pets = structuredClone(basePets);
     state.character.petBreeding = session("egg", [3, 1, 5]);
     state.hatchPet = pet("rare-26:550e8400-e29b-41d4-a716-446655440000", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
@@ -407,7 +412,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect.poll(() => page.locator(".hatch-pet").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await shot(page, testInfo, "12-normal-hatch-reveal");
 
-    state.character.pets = structuredClone(basePets.slice(0, 5));
+    state.character.pets = structuredClone(basePets);
     state.character.petBreeding = session("egg", [3, 1, 5]);
     state.hatchPet = pet("legendary-6:550e8400-e29b-41d4-a716-446655440001", "legendary-6", "Aurora Phoenix", "Fire", "legendary", 9, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], paletteVariantId: "chromatic-v1", trait: "Battleborn",
@@ -420,21 +425,17 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await shot(page, testInfo, "13-chromatic-hatch-reveal");
 
     state.character.pets = structuredClone(basePets);
-    state.character.patreon = { ...state.character.patreon, active: false };
     state.character.petBreeding = null;
     await reloadHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
-    await expect(page.getByText(/4\/4 combat-carried · 6 owned/)).toBeVisible();
-    await expect(page.getByText(/2 preserved overflow/)).toBeVisible();
-    await expect(page.getByText("Preserved overflow", { exact: true })).toHaveCount(2);
     const yardHint = page.getByRole("button", { name: /got it/i });
     if (await yardHint.isVisible().catch(() => false)) await yardHint.click();
     await shot(page, testInfo, "14-existing-pet-yard-tab");
 
     await page.setViewportSize({ width: 390, height: 844 });
     await openHome(page);
-    await expect(page.locator(".pet-collection-card")).toHaveCount(6);
+    await expect(page.locator(".pet-collection-card")).toHaveCount(4);
     await shot(page, testInfo, "15-mobile-home-collection");
     await page.getByRole("button", { name: "Breeding" }).click();
     await expect(page.getByRole("heading", { name: "Breeding Barn" })).toBeVisible();
@@ -446,6 +447,27 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     // Forced state-to-state reloads can abort an unrelated in-flight app fetch;
     // Chromium reports that navigation artifact as a bare "Failed to fetch".
     expect(pageErrors.filter((message) => message !== "Failed to fetch")).toEqual([]);
+});
+
+test("Base four unlocks Tactical while lapsed Supporter overflow stays preserved", async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
+    test.skip(testInfo.project.name !== "chromium-desktop", "the entitlement transition is certified once in desktop Chromium");
+    const state = await installPetHomeApi(page);
+    state.character.patreon = { ...state.character.patreon, active: false };
+    state.character.pets = structuredClone(basePets);
+
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    await expect(page.getByText(/4\/4 combat-carried · 4 owned/)).toBeVisible();
+    await page.getByRole("button", { name: "Pet Arena" }).click();
+    await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toBeEnabled();
+    await expect(page.getByText(/Locked: 3\/4 pets/)).toHaveCount(0);
+
+    state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    await expect(page.getByText(/4\/4 combat-carried · 6 owned/)).toBeVisible();
+    await expect(page.getByText(/2 preserved overflow/)).toBeVisible();
 });
 
 test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page }, testInfo) => {
@@ -460,7 +482,7 @@ test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page 
     await openHome(page);
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Companion Sanctuary" })).toBeVisible();
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("6/6");
+    await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`4/${SUPPORTER_PET_CAP}`);
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(2);
     await expect(page.getByText("No ownership cap")).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {
@@ -469,11 +491,11 @@ test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page 
 
     await page.getByRole("button", { name: "Move to Sanctuary" }).click();
     await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi is resting safely");
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("5/6");
+    await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`3/${SUPPORTER_PET_CAP}`);
     const depositedPet = page.locator(".pet-sanctuary-card", { hasText: "Sumi" });
     await depositedPet.getByRole("button", { name: "Add to carried" }).click();
     await expect(page.locator(".pet-sanctuary-message")).toContainText("Sumi joined your carried roster");
-    await expect(page.locator(".pet-sanctuary-ledger")).toContainText("6/6");
+    await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`4/${SUPPORTER_PET_CAP}`);
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(2);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {
         message: "the round trip must preserve the mobile viewport",

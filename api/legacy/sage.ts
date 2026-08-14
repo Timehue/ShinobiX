@@ -1,19 +1,28 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
 import { currentEraNumber } from '../_era.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from '../pvp/_legacy-jutsu-catalog.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legacy-score.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
-import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, trialProgress, nextTrialKind, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
-import { recordAudit } from '../_audit.js';
-import { announce, addHallEntry } from '../_announce.js';
+import {
+    legacyAcceptedKey, trialProgress, trialIntroFor,
+    type CharacterLegacy,
+} from '../_legacy-core.js';
+import { storyKeyFor, type StoryRecord } from '../_story-record.js';
+import {
+    AURA_STONES_BY_RARITY,
+    commitLegacyAcceptance,
+    deliverLegacyAcceptanceEffects,
+    ensureAcceptanceTrial,
+    recoverLegacyAcceptance,
+    type LegacyAcceptanceMarker,
+} from './_acceptance.js';
 
 /*
  * /api/legacy/sage — the Wandering Sage.
@@ -84,11 +93,9 @@ function signaturePreview(legacyId: string): SignaturePreview | null {
 }
 // Aura Stones granted once when a legacy is first accepted, by (server-only)
 // rarity. The amount is a soft prestige boon — the player receives the stones
-// but is NEVER told the rank (rank is owner-only). Granted exactly-once via the
-// legacy:aura-granted NX marker so a crash-retry can't double-pay.
-const AURA_STONES_BY_RARITY: Record<string, number> = { mythic: 10, legendary: 8, rare: 5, basic: 3 };
-const auraGrantKey = (p: string) => `legacy:aura-granted:${p}`;
-
+// but is NEVER told the rank (rank is owner-only). The in-save acceptance
+// receipt commits atomically with the balance; the old marker is read-only
+// migration evidence for accepts completed before that receipt shipped.
 function homeSector(village: unknown, requested: unknown): number {
     const want = Math.floor(num(requested));
     if (want >= 1 && want <= 99) return want;
@@ -119,16 +126,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── GET: current offer + legacy state ───────────────────────────────
         if (isGet) {
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'legacy-sage-get', 20, 60_000, identity.name))) return;
+            const recovery = await recoverLegacyAcceptance(playerName);
+            if (recovery.status === 'missing') return res.status(404).json({ error: 'Save not found.' });
+            if (recovery.status === 'invalid-marker') {
+                return res.status(409).json({ error: 'The sealed Legacy record is invalid.', reason: 'invalid-seal' });
+            }
+            if (recovery.status === 'conflict') {
+                return res.status(409).json({ error: 'The sealed Legacy conflicts with the save.', reason: 'legacy-save-conflict' });
+            }
             const [offer, accepted, rec] = await Promise.all([
                 kv.get<SageOffer>(offerKey(playerName)),
-                kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName)),
+                kv.get<LegacyAcceptanceMarker>(legacyAcceptedKey(playerName)),
                 kv.get<Record<string, unknown>>(`save:${playerName}`),
             ]);
-            const legacy = ((rec?.character as Record<string, unknown> | undefined)?.legacy ?? null) as CharacterLegacy | null;
+            const character = (rec?.character ?? null) as Record<string, unknown> | null;
+            const legacy = (character?.legacy ?? null) as CharacterLegacy | null;
             return res.status(200).json({
                 offer: offer && offer.status === 'spawned' ? offer : null,
                 legacy,
                 sealed: Boolean(accepted),
+                repaired: recovery.status === 'ok' && recovery.repaired,
+                effectsPending: recovery.status === 'ok' && recovery.effectsPending,
+                ...(recovery.status === 'ok' && recovery.repaired
+                    ? { character, _saveVersion: Number(rec?._saveVersion) || 0 }
+                    : {}),
             });
         }
 
@@ -171,9 +192,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (rolls > dailyRollCap) return res.status(200).json({ spawn: false, reason: 'daily-cap' });
             }
 
-            const stats = await getLegacyStats(playerName, char);
+            const [stats, storyRecord] = await Promise.all([
+                getLegacyStats(playerName, char),
+                kv.get<StoryRecord>(storyKeyFor(playerName)),
+            ]);
             const village = typeof char.village === 'string' ? char.village : null;
-            const evals = evaluateAllLegacies(stats, { level, village, overlay });
+            const evals = evaluateAllLegacies(stats, {
+                level,
+                village,
+                overlay,
+                storyLanes: storyRecord?.lanes ?? null,
+            });
             const offers = pickSageOffers(evals);
             if (offers.length === 0) {
                 return res.status(200).json({ spawn: false, reason: 'not-eligible' });
@@ -244,39 +273,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // player was sealed the moment the marker landed, and this path
                 // finishes the job even after the offer expired (verification
                 // finding: the old order could seal a player with NO legacy).
-                const sealed = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
+                let sealed = await kv.get<LegacyAcceptanceMarker>(legacyAcceptedKey(playerName));
+                const replayingSealedAcceptance = Boolean(sealed);
                 if (sealed && sealed.legacyId !== legacyId) {
                     return { status: 409, body: { ok: false, reason: 'sealed', legacyId: sealed.legacyId } };
                 }
-                // Idempotency guard: if the save ALREADY carries this legacy the
-                // accept fully succeeded before — return the current state and
-                // touch NOTHING. Without this, re-POSTing accept (stale second
-                // tab, curl) would reset a stage-5 player to stage 1, wipe
-                // legacy.titles, overwrite a live bind/prove/mythic trial with a
-                // fresh awaken trial, and let awaken announcements + Era V
-                // counters be replayed in a loop (verification finding). The
-                // stage-1 write below runs only for the genuine crash-repair
-                // case: sealed marker present, save write missing/mismatched.
+                // Idempotency/repair guard: a save already carrying this Legacy
+                // is never reset. The path may still atomically migrate a missing
+                // acceptance receipt or recreate the initial trial after a
+                // response-loss crash, then returns the current versioned save.
                 if (sealed) {
                     const recNow = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const charNow = (recNow?.character ?? null) as Record<string, unknown> | null;
                     const legacyNow = (charNow?.legacy ?? null) as CharacterLegacy | null;
                     if (legacyNow && legacyNow.legacyId === legacyId) {
-                        // A retry can still owe the mythic Hall entry (crash
-                        // AFTER the save write but BEFORE the entry minted) —
-                        // its NX key makes this exactly-once, so run it here
-                        // too rather than letting the early return skip it
-                        // forever (final-gate finding).
-                        if (def.rarity === 'mythic') {
-                            await addHallEntry({
-                                entryType: 'mythic_legacy_claim',
-                                title: `${def.name} — Claimed`,
-                                description: `${playerName} accepted the ${def.name}. Their path is sealed forever.`,
-                                player: playerName, legacyId, rarity: def.rarity,
-                            }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
+                        const replaySave = await commitLegacyAcceptance(
+                            playerName,
+                            legacyNow,
+                            AURA_STONES_BY_RARITY[def.rarity] ?? 0,
+                            now,
+                        );
+                        if (replaySave.status === 'missing') return { status: 404, body: { error: 'Save not found.' } };
+                        if (replaySave.status === 'conflict') {
+                            return { status: 409, body: { ok: false, reason: 'legacy-save-conflict' } };
                         }
-                        const trialNow = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
-                        return { status: 200, body: { ok: true, legacy: legacyNow, trial: trialNow ?? null, repaired: false } };
+                        const replayTrial = await ensureAcceptanceTrial(
+                            playerName,
+                            def,
+                            replaySave.legacy,
+                            replaySave.character,
+                            now,
+                        );
+                        const replayOffer = await kv.get<SageOffer>(offerKey(playerName));
+                        if (replayOffer && replayOffer.status !== 'accepted') {
+                            await kv.set(offerKey(playerName), {
+                                ...replayOffer,
+                                status: 'accepted',
+                                acceptedAt: replaySave.receipt.committedAt,
+                                acceptedLegacyId: legacyId,
+                            }, { ex: OFFER_TTL_SECONDS });
+                        }
+                        const effectsDelivered = await deliverLegacyAcceptanceEffects(
+                            playerName,
+                            sealed.actor || playerName,
+                            def,
+                            replaySave.receipt,
+                        );
+                        return {
+                            status: 200,
+                            body: {
+                                ok: true,
+                                legacy: replaySave.legacy,
+                                trial: replayTrial.trial
+                                    ? { ...replayTrial.trial, objectives: trialProgress(replayTrial.trial, replayTrial.stats) }
+                                    : null,
+                                intro: replayTrial.trial ? trialIntroFor(def, replayTrial.trial.kind) : undefined,
+                                chronicleCards: replaySave.receipt.chronicleCards,
+                                character: replaySave.character,
+                                _saveVersion: Number(replaySave.record._saveVersion) || 0,
+                                repaired: replaySave.changed || replayTrial.created,
+                                effectsPending: !effectsDelivered,
+                            },
+                        };
                     }
                 }
                 if (!sealed) {
@@ -288,80 +346,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return { status: 200, body: { ok: false, reason: 'not-offered' } };
                     }
                     // The one-legacy-forever constraint: an atomic NX marker.
-                    const claimed = await kv.set(legacyAcceptedKey(playerName), { legacyId, ts: now }, { nx: true });
+                    // Preserve the acceptance era and actor inside the durable
+                    // recovery source before any save write can fail.
+                    const marker: LegacyAcceptanceMarker = {
+                        legacyId,
+                        ts: now,
+                        eraBorn: await currentEraNumber(),
+                        actor: identity.admin ? 'admin' : playerName,
+                    };
+                    const claimed = await kv.set(legacyAcceptedKey(playerName), marker, { nx: true });
                     if (claimed !== 'OK') {
-                        const raced = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
+                        const raced = await kv.get<LegacyAcceptanceMarker>(legacyAcceptedKey(playerName));
                         if (raced?.legacyId !== legacyId) {
                             return { status: 409, body: { ok: false, reason: 'sealed', legacyId: raced?.legacyId ?? null } };
                         }
+                        sealed = raced;
+                    } else {
+                        sealed = marker;
                     }
                 }
 
-                const trialKind = nextTrialKind(1)!;
                 // Stamp the world era this legacy is taken up in — permanent, pins
                 // the accomplishment to the timeline ("taken up in the Age of ...").
-                const eraBorn = await currentEraNumber();
-                const legacy: CharacterLegacy = { legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [] };
+                const eraBorn = sealed?.eraBorn ?? await currentEraNumber();
+                const legacy: CharacterLegacy = { legacyId, stage: 1, acceptedAt: sealed?.ts ?? now, eraBorn, titles: [] };
                 const auraReward = AURA_STONES_BY_RARITY[def.rarity] ?? 0;
-                const saveOut = await withKvLock<boolean>(`save:${playerName}`, async () => {
-                    const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                    const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                    if (!rec || !char) return false;
-                    let updated: Record<string, unknown> = { ...char, legacy };
-                    // Aura Stones boon — exactly-once (NX marker survives a crash
-                    // between this save write and any retry, so the repair path
-                    // still pays if the first attempt died before granting).
-                    if (auraReward > 0) {
-                        const granted = await kv.set(auraGrantKey(playerName), { legacyId, amount: auraReward, ts: now }, { nx: true });
-                        if (granted === 'OK') updated = { ...updated, auraStones: num(char.auraStones) + auraReward };
-                    }
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                    return true;
-                }, { failClosed: true });
-                if (!saveOut) return { status: 404, body: { error: 'Save not found.' } };
-
-                const stats = await getLegacyStats(playerName);
-                const objectives = trialObjectivesFor(def, trialKind);
-                const trial: LegacyTrial = {
-                    legacyId, kind: trialKind, startedAt: now, attempt: 1,
-                    baselines: Object.fromEntries(objectives.map((o) => [o.stat, num(stats[o.stat])])),
-                    objectives,
-                };
-                await kv.set(legacyTrialKey(playerName), trial);
+                const saveOut = await commitLegacyAcceptance(playerName, legacy, auraReward, now);
+                if (saveOut.status === 'missing') return { status: 404, body: { error: 'Save not found.' } };
+                if (saveOut.status === 'conflict') {
+                    return { status: 409, body: { ok: false, reason: 'legacy-save-conflict' } };
+                }
+                const trialOut = await ensureAcceptanceTrial(playerName, def, saveOut.legacy, saveOut.character, now);
+                const trial = trialOut.trial;
+                const stats = trialOut.stats;
                 // Mark the offer consumed if it still exists (a crash-repair
                 // accept may arrive after the offer record expired — fine).
                 const offerNow = await kv.get<SageOffer>(offerKey(playerName));
                 if (offerNow) {
                     await kv.set(offerKey(playerName), { ...offerNow, status: 'accepted', acceptedAt: now, acceptedLegacyId: legacyId }, { ex: OFFER_TTL_SECONDS });
                 }
-                await appendLegacyEvent(playerName, { type: 'offer-accepted', key: legacyId });
-                if (!sealed) await bumpSageMetric('accepts');
-                await recordAudit({
-                    actor: identity.admin ? 'admin' : playerName, domain: 'legacy', action: 'legacy.accept',
-                    entityType: 'legacy', entityId: legacyId, meta: { rarity: def.rarity },
-                });
+                if (!replayingSealedAcceptance) await bumpSageMetric('accepts');
+                const effectsDelivered = await deliverLegacyAcceptanceEffects(
+                    playerName,
+                    sealed.actor || playerName,
+                    def,
+                    saveOut.receipt,
+                );
                 // Mythic acceptance is world history: announcement + Hall entry.
                 // The Hall entry runs on EVERY path (its NX key makes it exactly-
                 // once, so a crash-repair accept still mints the permanent entry
                 // — previously the !sealed guard skipped it forever after a
-                // mid-accept crash; verification finding). The announcement has
-                // no NX, so it stays gated to the first, non-repair pass.
-                if (def.rarity === 'mythic') {
-                    if (!sealed) {
-                        await announce({
-                            type: 'mythic_legacy', importance: 'mythic',
-                            title: 'MYTHIC LEGACY CLAIMED',
-                            message: `${playerName} accepted the ${def.name}. From this moment, their path is sealed forever.`,
-                            player: playerName, legacyId,
-                        });
-                    }
-                    await addHallEntry({
-                        entryType: 'mythic_legacy_claim',
-                        title: `${def.name} — Claimed`,
-                        description: `${playerName} accepted the ${def.name}. Their path is sealed forever.`,
-                        player: playerName, legacyId, rarity: def.rarity,
-                    }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
-                }
+                // mid-accept crash; verification finding).
                 // The auto-started first trial ships with the Sage's charge so
                 // the client can open the trial ceremony immediately —
                 // objectives DECORATED ({progress, done}) like every other
@@ -369,7 +404,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // TrialView contract clients render).
                 return {
                     status: 200,
-                    body: { ok: true, legacy, trial: { ...trial, objectives: trialProgress(trial, stats) }, intro: trialIntroFor(def, trialKind) },
+                    body: {
+                        ok: true,
+                        legacy: saveOut.legacy,
+                        trial: trial ? { ...trial, objectives: trialProgress(trial, stats) } : null,
+                        intro: trial ? trialIntroFor(def, trial.kind) : undefined,
+                        chronicleCards: saveOut.receipt.chronicleCards,
+                        character: saveOut.character,
+                        _saveVersion: Number(saveOut.record._saveVersion) || 0,
+                        repaired: replayingSealedAcceptance && (saveOut.changed || trialOut.created),
+                        effectsPending: !effectsDelivered,
+                    },
                 };
             }, { failClosed: true });
 

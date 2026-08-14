@@ -28,14 +28,7 @@ export function activeBreedingParentIds(character: Record<string, unknown>, now 
     return new Set(session.parentIds);
 }
 
-/**
- * Busy states that make a carried pet unavailable for combat selection.
- *
- * Training and expedition records remain busy until their dedicated collect
- * flows clear them, even when their timers have elapsed. Breeding is different:
- * the parents unlock when its timer completes so a lost collect acknowledgement
- * cannot strand them indefinitely.
- */
+/** Busy states that make a currently carried pet unavailable for combat. */
 export function petCombatBusyReason(
     character: Record<string, unknown>,
     pet: Record<string, unknown>,

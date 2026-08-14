@@ -302,15 +302,6 @@ body {
   .storage-notice {
     inset-block-end: calc(var(--shell-mobile-nav-height) + var(--sp-2) + env(safe-area-inset-bottom, 0px));
   }
-
-  .storage-notice :where(a, button) {
-    min-block-size: var(--touch-target-min);
-  }
-
-  .storage-notice a {
-    display: inline-flex;
-    align-items: center;
-  }
 }
 
 @media (max-width: 800px) {

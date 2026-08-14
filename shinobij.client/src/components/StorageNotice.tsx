@@ -66,7 +66,7 @@ const link: CSSProperties = {
 
 const button: CSSProperties = {
     flex: "0 0 auto",
-    minHeight: "var(--touch-target-min)",
+    minHeight: 38,
     padding: "8px 22px",
     borderRadius: 8,
     border: "1px solid rgba(250, 204, 21, 0.6)",

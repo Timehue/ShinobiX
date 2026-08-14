@@ -47,11 +47,12 @@ async function commitPlayerPurchase(args: {
             return { ok: false as const, status: FAILURE_STATUS[result.code] ?? 400, error: result.error };
         }
 
+        const nextRecord = bumpSaveVersion({ ...playerRec, character: result.character });
         await kv.set(
             args.playerSaveKey,
-            mergePreservingImages(bumpSaveVersion({ ...playerRec, character: result.character }), playerRec),
+            mergePreservingImages(nextRecord, playerRec),
         );
-        return { ok: true as const, result };
+        return { ok: true as const, result, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
     }, { failClosed: true });
 }
 
@@ -59,17 +60,18 @@ async function refundPlayerTreasuryPurchase(args: {
     playerSaveKey: string;
     itemId: string;
     now: Date;
-}): Promise<boolean> {
+}): Promise<{ refunded: boolean; _saveVersion?: number }> {
     return await withKvLock(args.playerSaveKey, async () => {
         const playerRec = await kv.get<Record<string, unknown>>(args.playerSaveKey);
         const character = (playerRec?.character ?? null) as Record<string, unknown> | null;
-        if (!playerRec || !character) return false;
+        if (!playerRec || !character) return { refunded: false };
         const refunded = refundClanExchangeTreasuryPurchase({ character, itemId: args.itemId, now: args.now });
+        const nextRecord = bumpSaveVersion({ ...playerRec, character: refunded });
         await kv.set(
             args.playerSaveKey,
-            mergePreservingImages(bumpSaveVersion({ ...playerRec, character: refunded }), playerRec),
+            mergePreservingImages(nextRecord, playerRec),
         );
-        return true;
+        return { refunded: true, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
     }, { failClosed: true });
 }
 
@@ -121,9 +123,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } catch (creditErr) {
                     console.error(`[clan/exchange/purchase] TREASURY CREDIT FAILED after point spend - refunding ${itemId} for ${playerName} in clan "${clan}":`, creditErr);
                     let refunded = false;
+                    // Only acknowledge the refund version after its write is
+                    // confirmed. A lost write acknowledgement is deliberately
+                    // left without a guessed stamp so the next save refetches.
+                    let refundSaveVersion: number | undefined;
                     let refundError: string | undefined;
                     try {
-                        refunded = await refundPlayerTreasuryPurchase({ playerSaveKey, itemId, now: purchaseNow });
+                        const refund = await refundPlayerTreasuryPurchase({ playerSaveKey, itemId, now: purchaseNow });
+                        refunded = refund.refunded;
+                        refundSaveVersion = refund._saveVersion ?? refundSaveVersion;
                     } catch (refundErr) {
                         refundError = refundErr instanceof Error ? refundErr.message : String(refundErr);
                         console.error(`[clan/exchange/purchase] TREASURY CREDIT REFUND FAILED - ${itemId} for ${playerName} in clan "${clan}":`, refundErr);
@@ -143,6 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return {
                         ok: false as const,
                         status: 503,
+                        _saveVersion: refundSaveVersion,
                         error: refunded
                             ? 'The clan treasury credit could not be saved, so your Clan Points were refunded. Please retry in a moment.'
                             : 'Clan Points were spent, but the clan treasury credit could not be saved. An admin can reconcile it; please do not retry this purchase.',
@@ -156,7 +165,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId, now: purchaseNow });
             })();
 
-        if (!purchase.ok) return res.status(purchase.status).json({ error: purchase.error });
+        if (!purchase.ok) {
+            return res.status(purchase.status).json({
+                error: purchase.error,
+                ...('_saveVersion' in purchase ? { _saveVersion: purchase._saveVersion } : {}),
+            });
+        }
 
         await kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${playerName}:${Date.now()}`, {
             ts: Date.now(),
@@ -171,6 +185,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
             ok: true,
             character: purchase.result.character,
+            // Echo the stamp from the exact purchase record committed under the
+            // save lock. A later read could observe an unrelated newer write.
+            _saveVersion: purchase._saveVersion,
             clan: {
                 xp: purchase.result.clanData.xp,
                 level: purchase.result.clanData.level,

@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import {
     achievementPatchFromSync,
     achievementSyncSignature,
@@ -8,6 +9,7 @@ import {
     planAchievementSync,
     releaseAchievementSync,
     syncedToastIds,
+    versionedAchievementMutationFromSync,
 } from "./achievement-sync.js";
 
 const plan = (over: Partial<Parameters<typeof planAchievementSync>[0]> = {}) => planAchievementSync({
@@ -198,6 +200,56 @@ describe("achievementPatchFromSync", () => {
         const patch = achievementPatchFromSync({ character: { unlockedAchievements: ["a"] } });
         assert.ok(patch);
         assert.equal("earnedTitles" in patch!, false, "must not clobber local titles with undefined");
+    });
+});
+
+describe("versionedAchievementMutationFromSync", () => {
+    it("REGRESSION: a new-account v2 achievement backfill becomes the next autosave base", () => {
+        // First full save committed v1. The automatic achievement backfill then
+        // mutated that stored save to v2 before the dirty autosave ran.
+        const liveCharacter = {
+            name: "CohesionQA812",
+            level: 1,
+            storyProgress: 0,
+            tileCards: [],
+            pendingLocalChoice: "protect-this-unrelated-local-field",
+        };
+        const mutation = versionedAchievementMutationFromSync(liveCharacter, {
+            _saveVersion: 2,
+            character: {
+                unlockedAchievements: [],
+                achievementUnlockedAt: {},
+                earnedTitles: [],
+                ryo: 100,
+                fateShards: 0,
+            },
+        });
+
+        assert.ok(mutation);
+        assert.equal(mutation._saveVersion, 2, "the next full save must echo v2, not the stale first-save v1");
+        assert.equal(mutation.character.pendingLocalChoice, liveCharacter.pendingLocalChoice,
+            "an in-flight server reply must not replace unrelated live progress");
+        assert.deepEqual(mutation.character.unlockedAchievements, []);
+        assert.equal(({ ...mutation.character, _baseSaveVersion: mutation._saveVersion })._baseSaveVersion, 2);
+    });
+
+    it("fails closed when a character-bearing mutation omits its authoritative version", () => {
+        assert.equal(versionedAchievementMutationFromSync(
+            { name: "CohesionQA812" },
+            { character: { unlockedAchievements: [] } },
+        ), null);
+    });
+
+    it("wires the automatic achievement response through App's atomic character+version gate", () => {
+        const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+        const start = app.indexOf("const data = await res.json() as AchievementSyncResponse;");
+        const end = app.indexOf("} catch", start);
+        assert.ok(start >= 0 && end > start, "achievement response block must remain discoverable");
+        const responseBlock = app.slice(start, end);
+        assert.match(responseBlock, /versionedAchievementMutationFromSync\(characterRef\.current, data\)/);
+        assert.match(responseBlock, /commitVersionedCharacter\(mutation\.character, mutation\._saveVersion\)/);
+        assert.doesNotMatch(responseBlock, /setCharacter\(/,
+            "split character-only adoption recreates the v1-to-v2 first-session conflict");
     });
 });
 

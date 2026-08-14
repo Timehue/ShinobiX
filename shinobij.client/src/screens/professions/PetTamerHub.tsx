@@ -21,17 +21,18 @@ import {
     petTamerTrainingSpeedPct,
     petTamerExpeditionMult,
 } from "../../App";
+import type { VersionedCharacterCommit } from "../../types/character";
 
 const ACCENT = "#84cc16";
 
 export function PetTamerHub({
     character,
-    updateCharacter,
+    onVersionedCharacter,
     setScreen,
     onBack,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     setScreen: (s: Screen) => void;
     onBack: () => void;
 }) {
@@ -97,7 +98,7 @@ export function PetTamerHub({
             </div>
 
             <DailyProfessionMissions character={character} />
-            <MasteryPanel character={character} updateCharacter={updateCharacter} />
+            <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />
         </div>
     );
 }

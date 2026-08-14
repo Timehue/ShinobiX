@@ -11,11 +11,13 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { gainXp } from '../_xp-engine.js';
 import { withKvLock } from '../_lock.js';
 import {
+    AI_FIGHT_TOKEN_TTL_SECONDS,
     aiFightTokenKey,
     cleanAiFightToken,
     validateAiFightRewardClaim,
     type AiFightToken,
 } from './_ai-fight-token.js';
+import { settleRaidAiToken } from './_generic-ai-fight-authority.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
 import { compareWriteSoloPveSession, readSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSession } from '../solo-pve/_session.js';
@@ -31,12 +33,13 @@ import {
     type AiFightOutcome,
     type AiFightSession,
 } from './_ai-fight-outcome.js';
-import { huntMissionByAiProfileId } from './_mission-catalog.js';
+import { huntMissionByAiProfileId, huntMissionById } from './_mission-catalog.js';
 import {
     applyMissionProgressEvent,
     cleanMissionProgressReceipt,
     missionProgressReceiptKey,
     savedAcceptedMissionIds,
+    savedMissionProgress,
 } from './_mission-progress-receipt.js';
 import {
     APEX_RECEIPT_TTL_SECONDS,
@@ -45,7 +48,7 @@ import {
     isApexBeastForWeek,
     isoWeekKey,
 } from './_apex-contract.js';
-import { creditFieldRaidProgress } from './_field-raid-progress.js';
+import { settleRaidProgression, type RaidProgressionSettlement } from './_raid-progression.js';
 import {
     aiFightDailyCounterKey,
     aiFightRedemptionFingerprint,
@@ -56,8 +59,21 @@ import {
     reserveAiFightDailyOrdinal,
     type AiFightRedemption,
 } from './_ai-fight-redemption-authority.js';
+import {
+    applyWorldAiDurableProgression,
+    applyWorldAiFightSettlement,
+    cleanWorldAiActivePointer,
+    settleWorldAiChainStage,
+    WORLD_AI_BOUNTY_COOLDOWN_SECONDS,
+    worldAiActiveKey,
+    worldAiBountyCooldownKey,
+    worldHuntKillEvidenceId,
+} from './_world-ai-fight.js';
+import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
+import { applyDungeonWardenSettlement } from '../dungeon/_ai-fight.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
+const genericAiFightActiveKey = (playerName: string) => `ai-fight-active:${playerName}`;
 
 // Settles ONE AI fight against its single-use token from /api/missions/ai-fight-start.
 // The token seals opponentId, battleKind, the reward ceilings and (when the fight
@@ -86,7 +102,24 @@ const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 // The payout, the secondary rewards and the physical outcome all land in ONE
 // mutatePlayerSave, so a win cannot bank its reward while losing the damage it
 // cost. The field-raid/hunt/apex progress receipts are written after it,
-// best-effort, and never fail an already-applied reward.
+// idempotent settlement pass. Durable mission proofs must finish before the
+// retained token/active pointer is released, so a retry heals partial effects.
+
+function worldHuntTargetWasCommitted(
+    character: Record<string, unknown>,
+    context: WorldAiFightContext | null,
+    proofId: string,
+): boolean {
+    if (context?.kind !== 'hunt-target' || !context.missionId || !context.huntRunId) return false;
+    const trails = character.serverHuntTrails;
+    if (!trails || typeof trails !== 'object' || Array.isArray(trails)) return false;
+    const trail = (trails as Record<string, unknown>)[context.missionId];
+    if (!trail || typeof trail !== 'object' || Array.isArray(trail)) return false;
+    const value = trail as Record<string, unknown>;
+    return value.runId === context.huntRunId
+        && value.targetDefeated === true
+        && value.targetProofId === worldHuntKillEvidenceId(proofId);
+}
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -123,6 +156,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? peeked.sessionId
             : '';
         const sealedBattleKind = peeked?.battleKind ?? 'practice';
+        const sealedRaidTokenId = typeof peeked?.raidTokenId === 'string' ? peeked.raidTokenId : '';
+        const sealedSector = Math.floor(Number(peeked?.sector));
+        const sealedWorldContext: WorldAiFightContext | null = peeked?.worldContext ?? null;
         if (!sealedSessionId) {
             return res.status(409).json({ error: 'AI fight token has no standalone combat authority.', outcome: 'unknown' });
         }
@@ -153,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const paysReward = aiFightPaysReward(outcome, sealedBattleKind);
         const requestedDailyDate = utcDateKey();
         let dailyCounterKey = aiFightDailyCounterKey(playerName, requestedDailyDate);
-        const result = await mutatePlayerSave(playerName, async ({ character }) => {
+        const result = await mutatePlayerSave(playerName, async ({ character, record }) => {
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
                 ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number } =>
                     !!entry && typeof entry === 'object' && typeof (entry as { token?: unknown }).token === 'string')
@@ -216,9 +252,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     capped: prior.capped === true,
                     dailyCount: Math.max(0, Math.floor(Number(prior.dailyCount) || 0)),
                 };
+                const migratedWorld = sealedWorldContext
+                    ? applyWorldAiFightSettlement(character, sealedWorldContext, outcome, aiFightToken)
+                    : character;
+                const migratedProgression = sealedWorldContext
+                    ? applyWorldAiDurableProgression(record, migratedWorld, sealedWorldContext, outcome)
+                    : { character: migratedWorld };
                 return {
                     ok: true as const,
-                    character: commitAiFightRedemptionAuthority(character, authority, migrated, { counterAlreadyCommitted: true }),
+                    character: commitAiFightRedemptionAuthority(migratedProgression.character, authority, migrated, { counterAlreadyCommitted: true }),
+                    ...(migratedProgression.recordPatch ? { recordPatch: migratedProgression.recordPatch } : {}),
                     value: { ...migrated, replayed: true },
                 };
             }
@@ -236,11 +279,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // the counter is a REWARD counter, and a defeat earned no reward.
             if (!paysReward) {
                 const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now());
+                const dungeonSettled = sealedBattleKind === 'dungeon'
+                    ? applyDungeonWardenSettlement({
+                        character: settled,
+                        dungeonRunToken: tokenData.dungeonRunToken,
+                        opponentId: tokenData.opponentId,
+                        proofId: aiFightToken,
+                        outcome,
+                    })
+                    : { ok: true as const, character: settled };
+                if (!dungeonSettled.ok) {
+                    return { ok: false as const, status: 409, error: dungeonSettled.error };
+                }
+                const worldSettled = sealedWorldContext
+                    ? applyWorldAiFightSettlement(dungeonSettled.character, sealedWorldContext, outcome, aiFightToken)
+                    : dungeonSettled.character;
+                const worldProgression = sealedWorldContext
+                    ? applyWorldAiDurableProgression(record, worldSettled, sealedWorldContext, outcome)
+                    : { character: worldSettled };
                 const redemption: AiFightRedemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
-                const withLegacyReceipt = { ...settled, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
+                const withLegacyReceipt = { ...worldProgression.character, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
                 return {
                     ok: true as const,
                     character: commitAiFightRedemptionAuthority(withLegacyReceipt, authority, redemption),
+                    ...(worldProgression.recordPatch ? { recordPatch: worldProgression.recordPatch } : {}),
                     value: { ...redemption, replayed: false },
                 };
             }
@@ -259,12 +321,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // can never bank the reward while losing the damage it cost (or the
             // other way round). No-op on the local-fallback track, which has no
             // session to read an HP from.
-            const nextCharacter = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now());
+            const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now());
+            const nextCharacter = sealedWorldContext
+                ? applyWorldAiFightSettlement(physicallySettled, sealedWorldContext, outcome, aiFightToken)
+                : physicallySettled;
+            const worldProgression = sealedWorldContext
+                ? applyWorldAiDurableProgression(record, nextCharacter, sealedWorldContext, outcome)
+                : { character: nextCharacter };
             const redemption: AiFightRedemption = { token: aiFightToken, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount };
-            const withLegacyReceipt = { ...nextCharacter, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
+            const withLegacyReceipt = { ...worldProgression.character, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
+            const worldHunt = sealedWorldContext?.kind === 'hunt-target'
+                && sealedWorldContext.missionId
+                && worldHuntTargetWasCommitted(withLegacyReceipt, sealedWorldContext, aiFightToken)
+                ? huntMissionById(sealedWorldContext.missionId)
+                : undefined;
+            const missionProgress = savedMissionProgress(record);
             return {
                 ok: true as const,
                 character: commitAiFightRedemptionAuthority(withLegacyReceipt, authority, redemption),
+                ...(worldHunt || worldProgression.recordPatch ? {
+                    recordPatch: {
+                        ...(worldProgression.recordPatch ?? {}),
+                        ...(worldHunt ? { missionProgress: { ...missionProgress, [worldHunt.id]: Math.max(1, Math.floor(Number(worldHunt.exploreCount) || 1)) } } : {}),
+                    },
+                } : {}),
                 value: { ...redemption, replayed: false },
             };
         });
@@ -343,13 +423,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // showed the win. Stamp the proven raid from the same AI-fight token
         // whose sealed session supplied the WIN. The helper hashes the proof and
         // deduplicates it, so retries cannot count one fight twice.
-        const fetchMissionsCredited = paysReward && sealedBattleKind === 'raidAi'
-            ? await creditFieldRaidProgress({
-                playerName,
-                save: result.record as Record<string, unknown> | undefined,
-                proofId: `ai-fight:${aiFightToken}`,
-            })
-            : [];
+        let durableSideEffectError: unknown = null;
+        let fetchMissionsCredited: string[] = [];
+        let raidProgression: RaidProgressionSettlement | null = null;
+        let raidProgressionReplayed = false;
+        let finalCharacter = result.character as Record<string, unknown>;
+        let finalSaveVersion = result._saveVersion;
+        try {
+            if (paysReward && sealedBattleKind === 'raidAi' && sealedRaidTokenId && !sealedWorldContext) {
+                const progression = await settleRaidProgression({
+                    playerName,
+                    proofId: `ai-fight:${aiFightToken}`,
+                    proofAt: Number(peeked?.mintedAt ?? 0),
+                    sector: sealedSector,
+                });
+                raidProgression = progression.settlement;
+                raidProgressionReplayed = progression.replayed;
+                fetchMissionsCredited = progression.settlement.fetchMissionsCredited;
+                finalCharacter = progression.character;
+                finalSaveVersion = progression._saveVersion;
+            }
+        } catch (error) {
+            durableSideEffectError = error;
+        }
         // ── Hunt-kill producer ───────────────────────────────────────────────
         // A validated win against a hunt's beast (opponentId sealed at fight start)
         // stamps that accepted hunt's kill onto its progress receipt so claim-mission
@@ -357,8 +453,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // tracking already done (applyMissionProgressEvent only flips huntKill once
         // exploreCount has reached target-1). Best-effort + idempotent (the sealed
         // token id dedups), and never fails the already-applied reward.
-        if (paysReward && !reward.replayed && sealedOpponentId) {
-            const hunt = huntMissionByAiProfileId(sealedOpponentId);
+        if (paysReward && sealedOpponentId) {
+            const hunt = sealedWorldContext?.kind === 'hunt-target'
+                && sealedWorldContext.missionId
+                && worldHuntTargetWasCommitted(result.character as Record<string, unknown>, sealedWorldContext, aiFightToken)
+                ? huntMissionById(sealedWorldContext.missionId)
+                : !sealedWorldContext ? huntMissionByAiProfileId(sealedOpponentId) : undefined;
             // acceptedMissionIds is a top-level save-record field, not a character
             // one — reading it off result.character always found nothing, so the
             // kill receipt was never stamped and no hunt could be claimed.
@@ -371,12 +471,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const next = applyMissionProgressEvent(existing, {
                             playerName, missionId: hunt.id, missionType: 'hunt', kind: 'hunt-kill',
                             exploreTarget: Math.floor(Number(hunt.exploreCount ?? 0)), raidTarget: 0,
-                            evidenceId: `huntkill_${aiFightToken}`.slice(0, 96),
+                            evidenceId: worldHuntKillEvidenceId(aiFightToken),
                         });
                         await kv.set(receiptKey, next, { ex: HUNT_RECEIPT_TTL_SECONDS });
                     }, { failClosed: true });
                 } catch (e) {
-                    console.error('[report-ai-fight hunt-kill]', e);
+                    durableSideEffectError = durableSideEffectError ?? e;
                 }
             }
         }
@@ -387,7 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // client cannot re-report an older Apex to farm the purse. The claim
         // still gates on rank/level and stamps apexWeekClaimed, so this receipt
         // alone can never pay twice. Best-effort — never fails a paid reward.
-        if (paysReward && !reward.replayed && sealedOpponentId.startsWith('apex-ai-')) {
+        if (paysReward && !sealedWorldContext && sealedOpponentId.startsWith('apex-ai-')) {
             try {
                 const rc = result.character as Record<string, unknown> | undefined;
                 const weekKey = isoWeekKey(new Date());
@@ -395,12 +495,86 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(apexKillReceiptKey(playerName, weekKey), { playerName, weekKey, apexAiId: sealedOpponentId, at: Date.now() }, { ex: APEX_RECEIPT_TTL_SECONDS });
                 }
             } catch (e) {
-                console.error('[report-ai-fight apex-kill]', e);
+                durableSideEffectError = durableSideEffectError ?? e;
             }
         }
+        if (sealedWorldContext) {
+            try {
+                await settleWorldAiChainStage(playerName, sealedWorldContext, outcome, aiFightToken);
+                if (sealedWorldContext.kind === 'bounty-hunter') {
+                    await kv.set(worldAiBountyCooldownKey(playerName, sealedWorldContext.sourceId), {
+                        until: Date.now() + WORLD_AI_BOUNTY_COOLDOWN_SECONDS * 1_000,
+                        proofId: aiFightToken,
+                    }, { ex: WORLD_AI_BOUNTY_COOLDOWN_SECONDS });
+                }
+            } catch (error) {
+                durableSideEffectError = durableSideEffectError ?? error;
+            }
+        }
+        if (!sealedWorldContext && sealedBattleKind === 'raidAi' && sealedRaidTokenId) {
+            try {
+                await settleRaidAiToken({
+                    store: kv,
+                    playerName,
+                    raidTokenId: sealedRaidTokenId,
+                    aiFightToken,
+                    sessionId: sealedSessionId,
+                    outcome,
+                    ttlSeconds: AI_FIGHT_TOKEN_TTL_SECONDS,
+                });
+            } catch (error) {
+                durableSideEffectError = durableSideEffectError ?? error;
+            }
+        }
+        if (durableSideEffectError) {
+            // Token + active pointer remain available, so the identical report
+            // replay can heal every idempotent progress receipt after a crash.
+            return res.status(503).json({
+                error: 'AI encounter settlement is still finalizing. Retry with the same token.',
+                outcome,
+                retryable: true,
+                ...(sealedWorldContext ? { worldContext: sealedWorldContext } : {}),
+            });
+        }
+
+        const activeKey = sealedWorldContext ? worldAiActiveKey(playerName) : genericAiFightActiveKey(playerName);
+        await withKvLock(activeKey, async () => {
+            if (sealedWorldContext) {
+                const active = cleanWorldAiActivePointer(await kv.get(activeKey));
+                if (active?.token === aiFightToken) await kv.del(activeKey);
+                return;
+            }
+            const active = await kv.get<{ token?: unknown }>(activeKey);
+            if (active?.token === aiFightToken) await kv.del(activeKey);
+        }, { failClosed: true });
         // `outcome` lets the client's result card state what actually happened
         // instead of assuming a win — a forfeit and a loss read differently.
-        return res.status(200).json({ ok: true, outcome, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, fetchMissionsCredited, character: result.character, _saveVersion: result._saveVersion });
+        return res.status(200).json({
+            ok: true,
+            outcome,
+            xp: reward.xp,
+            ryo: reward.ryo,
+            capped: reward.capped,
+            dailyCount,
+            fetchMissionsCredited,
+            ...(raidProgression ? { raidProgression: {
+                fetchMissionsCredited: raidProgression.fetchMissionsCredited,
+                missionsCompleted: raidProgression.missionsCompleted,
+                xpAwarded: raidProgression.xpAwarded,
+                bonusRyo: raidProgression.bonusRyo,
+                bonusSeals: raidProgression.bonusSeals,
+                territoryDamage: raidProgression.territoryDamage,
+                sector: raidProgression.sector,
+                replayed: raidProgressionReplayed,
+            } } : {}),
+            character: finalCharacter,
+            _saveVersion: finalSaveVersion,
+            ...(sealedBattleKind === 'dungeon' ? {
+                dungeonRunToken: peeked?.dungeonRunToken ?? null,
+                dungeonRun: finalCharacter.activeDungeonRun ?? null,
+            } : {}),
+            ...(sealedWorldContext ? { worldContext: sealedWorldContext } : {}),
+        });
     } catch (err) {
         console.error('[missions/report-ai-fight]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -240,10 +240,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         if (lockResult.status === 200) {
             const actorName = identity.admin ? '' : identity.name;
-            const awardedCharacter = await awardFinalizedWarPoints(lockResult.body as Record<string, unknown>, actorName);
+            const awardedSave = await awardFinalizedWarPoints(lockResult.body as Record<string, unknown>, actorName);
             await awardWarEndClanXp((lockResult.body as { war?: ClanWar }).war)
                 .catch((e) => console.error('[clan/war/report] clan-xp award failed', e));
-            return res.status(lockResult.status).json({ ...(lockResult.body as Record<string, unknown>), character: awardedCharacter });
+            return res.status(lockResult.status).json({ ...(lockResult.body as Record<string, unknown>), ...(awardedSave ?? {}) });
         }
         return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {

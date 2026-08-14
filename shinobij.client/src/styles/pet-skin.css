@@ -1142,7 +1142,7 @@
 .expedition-result-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: var(--z-modal);
     background: rgba(2, 6, 23, 0.82);
     backdrop-filter: blur(6px);
     /* Scroll when the inner result modal is taller than the viewport
@@ -1234,13 +1234,4 @@
     }
     .expedition-result-title { font-size: 1rem; }
     .expedition-result-story { font-size: 0.84rem; }
-}
-.wf-deployment-card {
-  color: inherit;
-  text-align: left;
-}
-
-.wf-deployment-card.active {
-  border-color: #67e8f9;
-  box-shadow: 0 0 0 2px #67e8f933;
 }

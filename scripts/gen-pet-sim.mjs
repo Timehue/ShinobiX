@@ -60,11 +60,8 @@ let petConfig = read("data/pet-config.ts")
         'import {\n    TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,\n    WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,\n} from "./_game-consts.js";');
 write("pet-config.ts", "data/pet-config.ts", petConfig);
 
-// 4. Pet-arena walkmask + its compact, environment-neutral RLE decoder.
-write("pet-arena-mask-rle.ts", "lib/pet-arena-mask-rle.ts", read("lib/pet-arena-mask-rle.ts"));
-const walkMask = read("lib/pet-arena-walkmask.ts")
-    .replace(/from "\.\/pet-arena-mask-rle"/g, 'from "./pet-arena-mask-rle.js"');
-write("pet-arena-walkmask.ts", "lib/pet-arena-walkmask.ts", walkMask);
+// 4. pet-arena-walkmask.ts → copy verbatim (it imports nothing).
+write("pet-arena-walkmask.ts", "lib/pet-arena-walkmask.ts", read("lib/pet-arena-walkmask.ts"));
 
 // 5. pet-duel-sim.ts → pet-duel-sim.ts (redirect its 4 imports).
 let sim = read("lib/pet-duel-sim.ts")
@@ -95,7 +92,6 @@ write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);
 //    outcome. The sim meets the cross-engine determinism contract (no
 //    sin/cos/atan2/hypot — see its header), so any browser reproduces byte-for-
 //    byte on the server. Only import rewrites; ArenaRole/ArenaSlot are inlined.
-write("pet-warfront-strategy.ts", "lib/pet-warfront-strategy.ts", read("lib/pet-warfront-strategy.ts"));
 write("pet-warfront-mask-baked.ts", "lib/pet-warfront-mask-baked.ts", read("lib/pet-warfront-mask-baked.ts"));
 const wfMap = read("lib/pet-warfront-map.ts")
     .replace(/from "\.\/pet-warfront-mask-baked"/g, 'from "./pet-warfront-mask-baked.js"');
@@ -104,7 +100,6 @@ const wfSim = read("lib/pet-warfront-sim.ts")
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
     .replace(/import type \{ ArenaRole, ArenaSlot \} from "\.\/pet-arena-sim";/,
         'type ArenaRole = "defender" | "tracker" | "assassin" | "sage";\ninterface ArenaSlot { pet: Pet; role: ArenaRole; }')
-    .replace(/from "\.\/pet-warfront-strategy"/g, 'from "./pet-warfront-strategy.js"')
     .replace(/from "\.\/pet-warfront-map"/g, 'from "./pet-warfront-map.js"');
 write("pet-warfront-sim.ts", "lib/pet-warfront-sim.ts", wfSim);
 
@@ -141,10 +136,10 @@ const doctrine = read("lib/pet-duel-doctrine.ts")
 write("pet-duel-doctrine.ts", "lib/pet-duel-doctrine.ts", doctrine);
 
 // Sanity: no client-only import paths may survive into the server copy.
-const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-mask-rle"', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-strategy"', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-arena-mask-rle.ts", "pet-arena-walkmask.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-strategy.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts"]) {
+const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }
 
-console.log("gen-pet-sim: wrote api/_pet-sim deterministic pet sim, arena-mask, and Warfront modules");
+console.log("gen-pet-sim: wrote api/_pet-sim/{pet-types,_game-consts,pet-config,pet-arena-walkmask,pet-duel-sim,pet-duel-cinematic}.ts");

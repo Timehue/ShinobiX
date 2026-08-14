@@ -99,7 +99,9 @@ test('every shipped Hollow Gate shard relic uses the idempotent server run path'
 test('augment choice is run-locked and gameplay cannot race ahead of it', () => {
     const choose = source('api', 'hollow-gate', 'choose-augment.ts');
     assert.match(choose, /withKvLock\(key/);
-    assert.match(choose, /chosenAugment: augmentDisplay/);
+    assert.match(choose, /const chosenAugment = augmentDisplay\(AUGMENT_CATALOG\[chosenAugmentId\]\)/);
+    assert.match(choose, /hollowGateRun:\s*\{[\s\S]*?\.\.\.savedRun,[\s\S]*?chosenAugment,[\s\S]*?\}/,
+        'the canonical augment display must be committed into the locked run');
     for (const file of ['step.ts', 'event.ts', 'combat-start.ts', 'descend.ts', 'use-consumable.ts']) {
         assert.match(source('api', 'hollow-gate', file), /!run\.chosenAugmentId/, `${file} must require the sealed choice`);
     }

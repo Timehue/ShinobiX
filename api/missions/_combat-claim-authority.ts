@@ -18,7 +18,6 @@ export interface CombatMissionClaimToken {
     rewardFingerprint: string;
     wonAt: number;
 }
-
 export interface CombatMissionClaimResult {
     reward: {
         xpBoosted: number;

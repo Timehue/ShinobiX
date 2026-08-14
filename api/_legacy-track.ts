@@ -43,6 +43,15 @@ export type LegacyStats = Partial<Record<LegacyStatKey, number>> & {
     /** Last time ANY suspicion flag was raised — drives the slow decay that
      *  lets honest CGNAT / shared-device false positives self-heal. */
     lastSuspicionAt?: number;
+    /** Exact-once receipts for cross-system authoritative settlements. */
+    activityReceipts?: string[];
+    /**
+     * Receipts whose source can be replayed after the rolling activity window.
+     * Story first-clears are finite canonical milestones, so retaining them is
+     * both small and necessary for lifetime exact-once behavior.
+     */
+    durableActivityReceipts?: string[];
+    /** Recoverable post-payout effects owned by mission combat run IDs. */
     combatMissionEffects?: Array<{
         version: 1;
         runId: string;
@@ -81,6 +90,8 @@ export type LegacyEvent = {
     ts: number;
     type: string;          // 'first-clear' | 'offer-declined' | 'offer-accepted' | 'trial-complete' | ...
     key?: string;
+    /** Stable server settlement receipt for retry-safe event delivery. */
+    receiptId?: string;
     meta?: Record<string, unknown>;
 };
 
@@ -91,6 +102,39 @@ const EVENTS_CAP = 200;
 // distinct real victims to cycle one out, which the IP/FP + level-gap gates
 // already catch as alts.
 const REPEAT_KILLS_CAP = 300;
+const ACTIVITY_RECEIPTS_CAP = 256;
+
+export function hasLegacyActivityReceipt(
+    stats: LegacyStats,
+    receiptId: string,
+): boolean {
+    return Boolean(receiptId) && (
+        stats.activityReceipts?.includes(receiptId) === true
+        || stats.durableActivityReceipts?.includes(receiptId) === true
+    );
+}
+
+export function appendLegacyActivityReceipt(
+    stats: LegacyStats,
+    receiptId: string,
+    durable = false,
+): LegacyStats {
+    if (!receiptId) return stats;
+    if (durable) {
+        return {
+            ...stats,
+            durableActivityReceipts: [
+                receiptId,
+                ...(stats.durableActivityReceipts ?? []).filter((id) => id !== receiptId),
+            ],
+        };
+    }
+    return {
+        ...stats,
+        activityReceipts: [receiptId, ...(stats.activityReceipts ?? []).filter((id) => id !== receiptId)]
+            .slice(0, ACTIVITY_RECEIPTS_CAP),
+    };
+}
 
 const num = (v: unknown): number => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -224,8 +268,9 @@ export type LegacyStatDeltas = Partial<Record<LegacyStatKey, number>>;
 /**
  * Apply counter deltas (sum for totals, max for best-ever stats). Best-effort:
  * catches everything and never throws into the settle endpoint that called it.
- * The light lock (fail-open) only narrows the read-modify-write race window —
- * a rarely-lost increment is acceptable for progression counters.
+ * The RMW lock fails closed: exact-once receipts and progression must never be
+ * overwritten by an unlocked concurrent writer. Durable callers use the
+ * boolean result to retain their pending outbox and retry later.
  */
 export async function bumpLegacyStats(
     playerName: string,
@@ -239,14 +284,24 @@ export async function bumpLegacyStats(
         suspicion?: boolean;
         /** 'win' extends the rolling streak (and bestKillStreak); 'reset' zeroes it. */
         streak?: 'win' | 'reset';
+        /** Stable server receipt; when present, the entire delta is exact-once. */
+        receiptId?: string;
+        /** Preserve a finite milestone receipt beyond the rolling activity window. */
+        durableReceipt?: boolean;
     },
-): Promise<void> {
-    if (!legacyEnabled()) return;
-    if (!playerName) return;
+): Promise<boolean> {
+    if (!legacyEnabled()) return true;
+    if (!playerName) return false;
+    let completed = false;
     try {
         await withKvLock(legacyStatsKey(playerName), async () => {
             const stats = await getLegacyStats(playerName, opts?.characterForBootstrap ?? null);
-            const next: LegacyStats = { ...stats, updatedAt: Date.now() };
+            const receiptId = typeof opts?.receiptId === 'string' ? opts.receiptId.trim().slice(0, 160) : '';
+            if (hasLegacyActivityReceipt(stats, receiptId)) {
+                completed = true;
+                return;
+            }
+            let next: LegacyStats = { ...stats, updatedAt: Date.now() };
             let pvpWeight = 1;
             if (opts?.pvpLevelGap !== undefined && opts.pvpLevelGap >= LEVEL_GAP_ZERO) pvpWeight = 0;
             if (opts?.pvpTarget) {
@@ -302,6 +357,9 @@ export async function bumpLegacyStats(
             } else if (opts?.streak === 'reset') {
                 next.winStreak = 0;
             }
+            if (receiptId) {
+                next = appendLegacyActivityReceipt(next, receiptId, opts?.durableReceipt === true);
+            }
             await kv.set(legacyStatsKey(playerName), next);
             // Surface flagged players on the admin suspects queue (dedup,
             // newest-first, capped). Own lock on the GLOBAL list — two
@@ -321,17 +379,15 @@ export async function bumpLegacyStats(
                     }, { ttlSec: 5 });
                 } catch { /* best-effort */ }
             }
-        }, { ttlSec: 5 });
+            completed = true;
+        }, { ttlSec: 5, failClosed: true });
     } catch (err) {
         console.error(`[legacy-track] bump failed for ${playerName}:`, err instanceof Error ? err.message : err);
     }
+    return completed;
 }
 
-/**
- * Run-idempotent mission counters. The counter deltas and unresolved run marker
- * share one CAS row; the claim receipt is stamped next, then acknowledges the
- * marker. This makes either crash order help-forward without double counting.
- */
+/** Apply mission/PvE legacy counters exactly once for a sealed combat run. */
 export async function bumpLegacyStatsForCombatRunOnce(
     playerName: string,
     runId: string,
@@ -345,8 +401,7 @@ export async function bumpLegacyStatsForCombatRunOnce(
         if (!expected) throw new Error('legacy-combat-effect-stats-unavailable');
         const effects = combatMissionEffects(expected);
         if (effects.some((entry) => entry.runId === runId)) return false;
-        if (effects.filter((entry) => entry.acknowledgedAt === undefined).length
-            >= MAX_PENDING_COMBAT_MISSION_EFFECTS) {
+        if (effects.filter((entry) => entry.acknowledgedAt === undefined).length >= MAX_PENDING_COMBAT_MISSION_EFFECTS) {
             throw new Error('legacy-combat-effect-pending-overflow');
         }
         const next: LegacyStats = { ...expected, updatedAt: Date.now() };
@@ -416,6 +471,7 @@ export async function reconcileLegacyStatsFromSave(
         const MIRRORS: Array<[LegacyStatKey, string]> = [
             ['tilesExplored', 'totalTilesExplored'],
             ['petDuelWins', 'totalPetWins'],
+            ['cardClashWins', 'cardClashWins'],
             ['endlessTowerBest', 'endlessTowerBestWave'],
             ['arenaTournaments', 'totalTournamentsCompleted'],
         ];
@@ -442,7 +498,7 @@ export async function reconcileLegacyStatsFromSave(
                 next.updatedAt = Date.now();
                 await kv.set(legacyStatsKey(playerName), next);
             }
-        }, { ttlSec: 5 });
+        }, { ttlSec: 5, failClosed: true });
     } catch (err) {
         console.error(`[legacy-track] reconcile failed for ${playerName}:`, err instanceof Error ? err.message : err);
     }
@@ -452,14 +508,20 @@ export async function reconcileLegacyStatsFromSave(
 export async function appendLegacyEvent(
     playerName: string,
     ev: Omit<LegacyEvent, 'ts'>,
-): Promise<void> {
-    if (!legacyEnabled()) return;
+): Promise<boolean> {
+    if (!legacyEnabled()) return true;
     try {
         const key = legacyEventsKey(playerName);
-        const list = (await kv.get<LegacyEvent[]>(key)) ?? [];
-        const next = [{ ts: Date.now(), ...ev }, ...(Array.isArray(list) ? list : [])].slice(0, EVENTS_CAP);
-        await kv.set(key, next);
+        await withKvLock(key, async () => {
+            const list = (await kv.get<LegacyEvent[]>(key)) ?? [];
+            const current = Array.isArray(list) ? list : [];
+            if (ev.receiptId && current.some((entry) => entry.receiptId === ev.receiptId)) return;
+            const next = [{ ts: Date.now(), ...ev }, ...current].slice(0, EVENTS_CAP);
+            await kv.set(key, next);
+        }, { failClosed: true });
+        return true;
     } catch (err) {
         console.error(`[legacy-track] event append failed for ${playerName}:`, err instanceof Error ? err.message : err);
+        return false;
     }
 }

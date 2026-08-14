@@ -50,13 +50,19 @@ function addWarPointEvent(events: Map<string, WarPointEvent[]>, player: string, 
     events.set(key, [...(events.get(key) ?? []), event]);
 }
 
-async function applyWarPointEvents(player: string, events: WarPointEvent[]): Promise<Record<string, unknown> | undefined> {
+export type WarPointSaveEcho = { character: Record<string, unknown>; _saveVersion: number };
+
+async function applyWarPointEvents(player: string, events: WarPointEvent[]): Promise<WarPointSaveEcho | undefined> {
     let character: Record<string, unknown> | undefined;
+    let saveVersion: number | undefined;
     for (const event of events) {
         const award = await awardClanPointsToPlayerSave(player, event.source, event.amount, event.metadata);
-        if (award.found) character = award.character;
+        if (award.found) {
+            character = award.character;
+            saveVersion = award._saveVersion;
+        }
     }
-    return character;
+    return character && saveVersion !== undefined ? { character, _saveVersion: saveVersion } : undefined;
 }
 
 /**
@@ -64,7 +70,7 @@ async function applyWarPointEvents(player: string, events: WarPointEvent[]): Pro
  * the caller can echo it back in the response (the other participants' saves are
  * written too, but their clients pick the change up on their next load).
  */
-export async function awardFinalizedWarPoints(body: Record<string, unknown>, actorName: string): Promise<Record<string, unknown> | undefined> {
+export async function awardFinalizedWarPoints(body: Record<string, unknown>, actorName: string): Promise<WarPointSaveEcho | undefined> {
     if (body.tentative) return undefined;
     const war = body.war as ClanWar | undefined;
     const challenge = body.challenge as ClanChallenge | undefined;

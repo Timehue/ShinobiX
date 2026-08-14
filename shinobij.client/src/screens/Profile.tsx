@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 // Currency lines reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
@@ -10,7 +10,7 @@ import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/
 import { ANIMATED_MAX_MB, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { PatreonLink } from "../components/PatreonLink";
-import { activeJutsuLoadoutIds, maxLoadout, canCustomAvatar } from "../lib/entitlements";
+import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuLoadoutPanel } from "../components/JutsuLoadoutPanel";
 import { NindoEditor } from "../components/NindoEditor";
@@ -31,7 +31,6 @@ import { getAllJutsus, playerLensDiscipline } from "../App";
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
-import { placeNewJutsuPreservingDormant } from "../lib/jutsu-loadout-preferences";
 
 type ProfileDossierRow = {
     label: string;
@@ -53,6 +52,7 @@ export function Profile({
     creatorItems,
     onDeleteCharacter,
     onOpenBattle,
+    onVersionedCharacter,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -62,6 +62,7 @@ export function Profile({
     onDeleteCharacter?: () => void;
     /** Opens the durable read-only battle record (Screen "battleLog"). */
     onOpenBattle?: (battleId: string) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const [feedingAura, setFeedingAura] = useState(false);
@@ -120,14 +121,9 @@ export function Profile({
                 // rejects (server enforces a 2 MB decoded cap + data-URL-only).
                 // Fail closed. (#15)
                 const apply = async (img: string) => {
-                    let publishError = "Your avatar couldn't be saved. Please try again.";
-                    const ok = await publishSharedImage(
-                        'avatar:' + character.name.toLowerCase(),
-                        img,
-                        (message) => { publishError = message; },
-                    );
+                    const ok = await publishSharedImage('avatar:' + character.name.toLowerCase(), img);
                     if (!ok) {
-                        alert(publishError);
+                        alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
                         return;
                     }
                     updateCharacter((prev) => prev ? ({ ...prev, avatarImage: img }) : prev);
@@ -170,8 +166,7 @@ export function Profile({
             alert(result.error);
             return false;
         }
-        updateCharacter(result.character);
-        return true;
+        return onVersionedCharacter(result.character, result._saveVersion) !== false;
     }
 
     async function runProfileMutation(action: () => Promise<boolean>): Promise<boolean> {
@@ -251,7 +246,7 @@ export function Profile({
             const response = await fetch('/api/player/profile-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, value }) });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data?.character) { alert(String(data?.error ?? AMBIGUOUS_ACTION_MESSAGE)); return false; }
-            updateCharacter(data.character as Character); return true;
+            return onVersionedCharacter(data.character as Character, data._saveVersion) !== false;
         } catch {
             alert(AMBIGUOUS_ACTION_MESSAGE);
             return false;
@@ -350,18 +345,15 @@ export function Profile({
         }
 
         const loadoutCap = maxLoadout(character);
-        const ids = placeNewJutsuPreservingDormant(
-            character.equippedJutsuIds,
-            id,
-            loadoutCap,
-            slotIndex < loadoutCap ? slotIndex : undefined,
-        );
-        if (!ids) {
+        if (character.equippedJutsuIds.length >= loadoutCap) {
             alert(loadoutCap < 15
-                ? `Your ${loadoutCap} active slots are full. Select one to replace; dormant preferences stay preserved.`
+                ? `You can only equip ${loadoutCap} jutsu. Link your Patreon (Shinobi Supporter) to equip 15.`
                 : "You can only equip 15 jutsu.");
             return;
         }
+
+        const ids = [...character.equippedJutsuIds];
+        ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
         updateCharacter({
             ...character,
             equippedJutsuIds: ids,
@@ -396,9 +388,6 @@ export function Profile({
     const disciplineLabel = playerLensDiscipline(character);
     const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
     const currentTitleLabel = character.customTitle || character.storyTitle || "";
-    const jutsuLoadoutCap = maxLoadout(character);
-    const activeJutsuCount = activeJutsuLoadoutIds(character).length;
-    const dormantJutsuCount = Math.max(0, character.equippedJutsuIds.length - jutsuLoadoutCap);
     // XP is retired: level progress is earned stat points vs the next threshold.
     const xpLabel = character.level >= MAX_LEVEL
         ? "MAX"
@@ -419,7 +408,7 @@ export function Profile({
             title: "Progress",
             rows: [
                 { label: "Growth", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "stat points toward next level", tone: "gold" },
-                { label: "Jutsu", value: `${formatAmount(activeJutsuCount)}/${jutsuLoadoutCap}`, detail: dormantJutsuCount > 0 ? `${dormantJutsuCount} dormant Supporter preference${dormantJutsuCount === 1 ? "" : "s"} preserved` : "active combat loadout", tone: activeJutsuCount > 0 ? "village" : "neutral" },
+                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
             ],
         },
@@ -874,17 +863,9 @@ export function Profile({
             <section className="profile-overview-panel" style={{ display: 'block' }}>
                 <h3 style={{ marginTop: 0 }}>Legacy</h3>
                 <LegacyPanel
+                    key={character.name.trim().toLowerCase()}
                     character={character}
-                    onLegacyChanged={(legacy, grantedTitle) => {
-                        // Sync the client character so the avatar aura, stage,
-                        // and title picker update without a relog (the server
-                        // save already carries these; this mirrors it).
-                        updateCharacter(prev => prev ? ({
-                            ...prev,
-                            ...(legacy ? { legacy } : {}),
-                            ...(grantedTitle ? { earnedTitles: Array.from(new Set([...(prev.earnedTitles ?? []), grantedTitle])) } : {}),
-                        }) : prev);
-                    }}
+                    onVersionedCharacter={onVersionedCharacter}
                 />
             </section>
             </div>

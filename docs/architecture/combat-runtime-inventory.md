@@ -2,23 +2,30 @@
 
 Baseline: ShinobiX `b815be4fe0088735df444fd7a1464c5e0c3bfa48` on 2026-08-04.
 Reference only: a third-party shinobi RPG at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`.
+WorldMap authority inventory re-verified on 2026-08-13.
 
 This is the executable-truth matrix for the solo-PvE cutover. The companion
 machine inventory lives in `scripts/combat-runtime-inventory.mjs`; its test
-checks Express registration, handler imports, client callers, and completion
-claims. “Local” below means the normal Arena client resolver, not a server
-combat session.
+checks Express registration, handler imports, client callers, and terminal
+migration claims. `migrated` and `complete` are both terminal: either label
+requires the current runtime to equal its target and requires active callers
+for its action and state routes. “Local” below means the normal Arena client
+resolver, not a server combat session.
 
 | Player-facing mode | Start / action / state | Client host | Session / keyspace | Authority and settlement | Current → target | Migration / rollback |
 |---|---|---|---|---|---|---|
 | Casual PvP | `pvp/session` / `pvp/move` / `pvp/session` | `PvpBattleScreen` | `PvpSession`, `pvp:<battleId>` | Save-sealed fighters; server actions, winner, vitals, items, rewards/history | PvP → PvP | Keep. Never fall back to a rewarding local result. |
 | Ranked PvP | `pvp/ranked-queue` then PvP routes | `Arena` queue + `PvpBattleScreen` | `PvpSession`, `pvp:<battleId>` | PvP owns matchmaking, turns, AFK/forfeit, rating, reward, receipts | PvP → PvP | Keep. Fail closed if session creation/settlement is unavailable. |
 | Direct player challenges | `pvp/session` / `pvp/move` / `pvp/session` | `Arena` + `PvpBattleScreen` | `PvpSession`, `pvp:<battleId>` | Same PvP authority and claim receipt | PvP → PvP | Keep. |
-| Generic catalog AI | `missions/ai-fight-start` / `solo-pve/action` / `solo-pve/state` | `AiFightHost` → runtime-neutral `MissionArenaFight` | `SoloPveSession`, `solo-pve:<sessionId>` plus runtime-discriminated AI token | Mandatory server session owns actions/outcome/vitals/items/companion costs; settlement writes terminal receipt | solo-PvE | Migrated. Start/profile/storage failures fail closed and never mint an unbound token. |
-| Temporary / creator AI | Generic start only after the profile is published in builtin/admin server content | `AiFightHost` | Same solo session/token | Unknown IDs are rejected; no persistent result is accepted from preview/client combat | published solo-PvE or explicit no-reward preview | Persistent generic launch sites now require publication. |
-| Hunts / apex hunts | Generic AI routes | `WorldMap` request bus → `AiFightHost` | Same solo session/token | Generic settlement also applies hunt/world callbacks from sealed token context | solo-PvE | Generic/apex path migrated; tracked-hunt opening quality remains a separate gap until its modifier is server-sealed. |
-| Explore ambushes | Generic AI routes | `WorldMap` → `AiFightHost` | Same solo session/token | Server owns outcome and surviving HP; request retains the explored sector for callbacks | solo-PvE | Migrated; failures do not run local combat. |
-| Village guards / published wanderers | Generic AI routes | `WorldMap` → `AiFightHost` | Same solo session/token plus world context | Winner, HP, items and companion usage are server-owned | solo-PvE | Published generic path migrated; runtime-authored wanderer variants still require server profile authoring. |
+| Generic catalog AI | `missions/ai-fight-start` / `solo-pve/action` / `solo-pve/state` | `AiFightHost` → runtime-neutral `MissionArenaFight` | `SoloPveSession`, `solo-pve:<sessionId>` plus runtime-discriminated AI token | Mandatory server session owns actions/outcome/vitals/items/companion costs; settlement writes an exact token receipt | solo-PvE | Migrated. This is the generic published-profile contract used outside the World-context rows below; start/profile/storage failures fail closed and never mint an unbound token. |
+| Temporary / creator AI | Generic start only after the profile is published in builtin/admin server content | `AiFightHost` | Same solo session/token | Unknown IDs are rejected; no persistent result is accepted from preview/client combat | published solo-PvE or explicit no-reward preview → same | Persistent generic launch sites require publication; preview remains explicitly non-rewarding. |
+| World-context hunt trails | `missions/hunt-trail` lifecycle, then `missions/ai-fight-start` with identity-only `hunt-pack` / `hunt-target`; Solo action/state | `HunterBoard` + `WorldMap` → `AiFightHost` | Solo session/token + `world-ai-active:<player>` + save-owned hunt trail, chain, proof, and pending handoff | Server reconstructs the accepted mission, trail sector/choice, pack stage, target, quality and opening. Settlement owns chain progression, loss/rematch state, exact target proof, Mission Hall progress, and replay. | solo-PvE → solo-PvE | Migrated. Accept/state/choose/abandon and combat settlement are server-owned; a generic AI kill cannot satisfy the hunt turn-in. |
+| World-context wanderers | `missions/ai-fight-start` with identity-only `wanderer`, `wanderer-ambush`, `patrol`, `bounty-hunter`, `questbook-boss`, or `story-reckoning`; Solo action/state | `WorldMap` → `AiFightHost` | Solo session/token + World active pointer + durable chain/outcome handoffs and exact context proofs | Server reconstructs profile, level, stage, sector, quest/story seal and cooldown from saved state; settlement applies world progression and recoverable follow-ups exactly once. | solo-PvE → solo-PvE | Migrated. Runtime-authored opponents are no longer client profiles, and refresh/lost-response recovery retains their sealed context. |
+| Generic Apex hunts | Generic start with a server-published `apex-ai-*` profile; Solo action/state | `HunterBoard` → `AiFightHost` | Solo session/token + generic active pointer + weekly Apex receipt | Solo owns combat and physical costs; generic settlement verifies the sealed rostered Apex before writing the weekly kill proof. | solo-PvE → solo-PvE | Migrated through the generic-catalog contract. This is intentionally not a World-context hunt trail. |
+| Generic explore ambushes | Generic start with `battleKind: explore`; Solo action/state | `WorldMap` → `AiFightHost` | Solo session/token + generic active pointer with sealed sector | Solo owns outcome, surviving HP, items and companion costs; settlement replays from its token and retains the sector for the explore callback. | solo-PvE → solo-PvE | Migrated through the generic-catalog contract; failures never run rewarding local combat. |
+| Generic village-guard raids | Generic start with `battleKind: raidAi`; Solo action/state | `WorldMap` → `AiFightHost` | Solo session/token + generic active pointer + raid progress proof | A server-published guard is sealed at start. Solo owns combat, while settlement derives the field-raid proof from that sealed win and deduplicates retries. | solo-PvE → solo-PvE | Migrated through the generic-catalog contract. Natural wanderers use the separate World-context row above. |
+| Dungeon Warden | `missions/ai-fight-start` with `battleKind: dungeon` + exact `dungeonRunToken`; Solo action/state | `Dungeon` / `App` → `AiFightHost` | Solo session/token + server-owned active dungeon run | Server reconstructs the Warden and scaling from the sealed run. A win stamps the exact run proof; loss remains retryable; generic purse settlement is suppressed. | solo-PvE → solo-PvE | Migrated. Legacy local-Arena dungeon snapshots are retired into the authoritative run instead of resumed. |
+| Creator-event practice fights | `missions/ai-fight-start` with `battleKind: practice`; Solo action/state | `WorldMap` / `App` → `AiFightHost` | Solo session/token; no progression payout | Published, release-safe encounter identity is sealed by the server. Combat outcome is canonical, while the separate narrative continuation remains non-rewarding. | solo-PvE → solo-PvE | Migrated. Rewardful or battle-bearing creator content remains admin preview only, and no player-facing local-Arena result can mint rewards. |
 | E/D combat missions | `missions/combat-start` / `solo-pve/action` / `solo-pve/state` | `Missions` → runtime-neutral `MissionArenaFight` | Solo session + `mission-combat-binding:<runId>` + `mission-combat-active:<player>:<mission>` | Solo session owns outcome/vitals/items; binding, active recovery pointer, and Mission Hall receipt own lifecycle/reward | solo-PvE | Migrated; start is idempotent across refresh, lost settle responses replay from durable proof, the rewarding legacy-client claim exception is removed, and failures fail closed. |
 | C/B/A/S combat missions | `missions/combat-start` / `solo-pve/action` / `solo-pve/state` | `Missions` → runtime-neutral `MissionArenaFight` | Solo session + `mission-combat-binding:<runId>` + `mission-combat-active:<player>:<mission>` | Solo session owns enemy/actions/winner/vitals/items; binding, active recovery pointer, and Mission Hall receipt own lifecycle/reward | solo-PvE | Migrated with binding/reward fingerprint retained; refresh and lost-response retries reuse coherent durable state. |
 | Academy spar | `story/spar-start` / `solo-pve/action` / `solo-pve/state` | `StoryBossFightHost` → runtime-neutral `MissionArenaFight` + `SparCoach` | Solo session + story-combat binding | Solo session owns winner; Academy settle exclusively owns scripted win HP and onboarding reward | solo-PvE | Migrated; binding resume and the single HP writer are preserved. |
@@ -45,3 +52,18 @@ binding and a durable one-time receipt for reward/progression. Reconnect reads
 No rewarding local fallback is permitted. Rollback disables or retries the
 server start/settle path and preserves existing bindings; it never asks the
 client to attest a win.
+
+WorldMap callers additionally declare one of two inventory contracts:
+
+- `world-context`: the client sends stable identity only. The server rebuilds
+  the opponent and progression context from the save, then seals both into the
+  Solo session/token. Hunt opening, chain state, quest/story proof, and rewards
+  cannot be supplied by the client.
+- `generic-catalog`: Apex, explore, and village-guard raid launchers select a
+  server-published catalog profile and a bounded battle kind. Their canonical
+  Solo outcome is redeemed through the generic token receipt and any owning
+  progress proof is derived from that sealed result.
+
+These descriptors are ratcheted in the machine inventory. A removed descriptor,
+an unknown/`partial-*` status, a runtime mismatch, or a missing Solo action/state
+caller fails the focused inventory test.

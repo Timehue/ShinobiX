@@ -4,6 +4,7 @@ import {
     type ServerSettlementReceipt,
 } from '../_settlement-receipts.js';
 import type { SettlementCard, SettlementItem } from './_catalog.js';
+import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 export type ShopCurrency = 'ryo' | 'fateShards';
@@ -26,7 +27,6 @@ const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
 const FATE_RARITIES = new Set(['legendary', 'mythic']);
 const MAX_STACK = 9999;
 const MAX_INVENTORY = 500;
-const MAX_TILE_CARDS = 10_000;
 
 type StoredItems = { inventory: string[]; stacks: Map<string, number> };
 
@@ -216,7 +216,7 @@ export function applyCardPackPurchase(
         return { ok: false, status: 409, error: 'Stored card collection is invalid. Contact support.' };
     }
     const owned = [...(character.tileCards as string[] | undefined ?? [])];
-    if (owned.length + pack.count > MAX_TILE_CARDS) return { ok: false, status: 409, error: 'Your card collection is full.' };
+    if (!canAppendPackableChronicleCards(owned, pack.count)) return { ok: false, status: 409, error: 'Your card collection is full.' };
     const balance = whole(character[pack.currency]);
     if (balance === null) return { ok: false, status: 409, error: 'Stored currency balance is invalid. Contact support.' };
     const totalCost = discountedShopCost(pack.cost, shopDiscountPercent(character, pack.currency));

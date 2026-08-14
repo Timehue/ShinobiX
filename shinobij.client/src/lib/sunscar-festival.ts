@@ -23,6 +23,7 @@ export type SunscarDiceResult = {
     dailyCap?: number;
     cost?: number;
     character?: Character;
+    _saveVersion?: unknown;
 };
 
 export type MiraaOutcome = "win" | "loss" | "draw" | "forfeit";
@@ -37,6 +38,7 @@ export type MiraaStartResult = {
     bet?: number;
     balanceRyo?: number;
     character?: Character;
+    _saveVersion?: unknown;
 };
 
 export type MiraaResult = {
@@ -48,6 +50,7 @@ export type MiraaResult = {
     credit?: number;
     balanceRyo?: number;
     character?: Character;
+    _saveVersion?: unknown;
 };
 
 async function postSunscar<T>(body: Record<string, unknown>, fallback: string): Promise<T & { ok: boolean; error?: string }> {

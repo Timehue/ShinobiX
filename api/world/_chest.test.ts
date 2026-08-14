@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyAncientChestLoot, rollAncientChestLoot } from './_chest.js';
+import { applyAncientChestLoot, rollAncientChestLoot, settleAncientChestLoot } from './_chest.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 function sequence(...values: number[]) { let i = 0; return () => values[i++] ?? 0; }
@@ -57,5 +57,24 @@ describe('ancient chest settlement', () => {
     it('allows repeated stackable treat drops', () => {
         const next = applyAncientChestLoot({ level: 1, xp: 0, inventory: ['pet-treat'], tileCards: [] }, { xp: 50, itemId: 'pet-treat' });
         assert.deepEqual(next.inventory, ['pet-treat', 'pet-treat']);
+    });
+
+    it('replaces an over-cap card with an explicit Fate Shard before writing the receipt', () => {
+        const full = Array.from({ length: 1_200 }, (_, index) => `owned-${index}`);
+        const settled = settleAncientChestLoot(
+            { level: 1, xp: 0, fateShards: 2, tileCards: full },
+            { xp: 0, ryo: 50, cardId: 'tc-01' },
+        );
+        assert.equal(settled.loot.cardId, undefined);
+        assert.equal(settled.loot.fateShards, 1);
+        assert.equal(settled.character.fateShards, 3);
+        assert.deepEqual(settled.character.tileCards, full);
+
+        const room = settleAncientChestLoot(
+            { level: 1, xp: 0, tileCards: full.slice(0, 1_199) },
+            { xp: 0, cardId: 'tc-01' },
+        );
+        assert.equal(room.loot.cardId, 'tc-01');
+        assert.equal((room.character.tileCards as string[]).length, 1_200);
     });
 });

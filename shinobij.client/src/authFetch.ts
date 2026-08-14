@@ -251,15 +251,48 @@ function adoptRefreshedToken(response: Response): Response {
     return response;
 }
 
-function observeSaveVersion(response: Response): Response {
+export type SaveVersionEventDetail = {
+    version: number;
+    accountName: string | null;
+    source: "full-save" | "mutation";
+};
+
+export function buildSaveVersionEventDetail(
+    data: unknown,
+    accountName: string | null,
+    source: SaveVersionEventDetail["source"],
+): SaveVersionEventDetail | null {
+    if (!data || typeof data !== "object") return null;
+    const record = data as Record<string, unknown>;
+    // Character-bearing responses must be adopted through the App's atomic
+    // character+version commit. Advancing only the version here could let a
+    // dropped/unmounted screen leave stale local character data at the new base.
+    if (record.character && typeof record.character === "object") return null;
+    if (!Number.isSafeInteger(record._saveVersion) || Number(record._saveVersion) <= 0) return null;
+    return { version: Number(record._saveVersion), accountName, source };
+}
+
+function isFullSaveRequest(input: RequestInfo | URL): boolean {
+    try {
+        const path = typeof input === "string"
+            ? new URL(input, window.location.href).pathname
+            : input instanceof URL
+                ? input.pathname
+                : new URL(input.url, window.location.href).pathname;
+        return path === "/api/save" || path.startsWith("/api/save/");
+    } catch {
+        return false;
+    }
+}
+
+function observeSaveVersion(response: Response, accountName: string | null, input: RequestInfo | URL): Response {
     try {
         const contentType = response.headers.get('content-type') ?? '';
         if (!contentType.toLowerCase().includes('application/json')) return response;
         void response.clone().json().then((data: unknown) => {
-            if (!data || typeof data !== 'object') return;
-            const version = Number((data as Record<string, unknown>)._saveVersion);
-            if (!Number.isFinite(version)) return;
-            window.dispatchEvent(new CustomEvent(SAVE_VERSION_EVENT, { detail: { version } }));
+            const detail = buildSaveVersionEventDetail(data, accountName, isFullSaveRequest(input) ? "full-save" : "mutation");
+            if (!detail) return;
+            window.dispatchEvent(new CustomEvent(SAVE_VERSION_EVENT, { detail }));
         }).catch(() => undefined);
     } catch {
         /* response clone / JSON parse unavailable — ignore */
@@ -402,7 +435,8 @@ export function installAuthFetch(): void {
             // token, or a manual admin header we normalized above). The admin
             // credential is already resolved on newHeaders — attach nothing else.
             newInit.headers = newHeaders;
-            return observeSaveVersion(adoptRefreshedToken(await originalFetch(input, newInit)));
+            const requestAccountName = newHeaders.get('x-player-name');
+            return observeSaveVersion(adoptRefreshedToken(await originalFetch(input, newInit)), requestAccountName, input);
         }
 
         // We do NOT gate on admin here: if the operator is ALSO signed in as their
@@ -425,6 +459,7 @@ export function installAuthFetch(): void {
             if (!newHeaders.has('x-player-password')) newHeaders.set('x-player-password', _memPassword);
         }
         newInit.headers = newHeaders;
+        const requestAccountName = newHeaders.get('x-player-name');
 
         const response = await originalFetch(input, newInit);
 
@@ -452,7 +487,7 @@ export function installAuthFetch(): void {
                 }
             }
         }
-        return observeSaveVersion(response);
+        return observeSaveVersion(response, requestAccountName, input);
     };
 }
 

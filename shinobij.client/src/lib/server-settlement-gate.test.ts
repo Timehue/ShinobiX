@@ -14,8 +14,13 @@ function source(relativeUrl: string): string {
 function functionSlice(fileSource: string, name: string): string {
     const start = fileSource.indexOf(`function ${name}`);
     assert.notEqual(start, -1, `${name} must exist`);
-    const next = fileSource.indexOf("\n    function ", start + 12);
-    return fileSource.slice(start, next === -1 ? fileSource.length : next);
+    const lineStart = fileSource.lastIndexOf("\n", start) + 1;
+    const indentation = fileSource.slice(lineStart, start).match(/^\s*/)?.[0] ?? "";
+    const escapedIndentation = indentation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const remainder = fileSource.slice(start + 12);
+    const nextMatch = remainder.match(new RegExp(`\\n${escapedIndentation}(?:async\\s+)?function\\s+`));
+    const next = nextMatch?.index == null ? fileSource.length : start + 12 + nextMatch.index;
+    return fileSource.slice(start, next);
 }
 
 function assertGuardBefore(
@@ -72,12 +77,12 @@ describe("server settlement policy", () => {
         assert.ok((profile.match(/requireServerSettlement\("profileFateShardTitle"\)/g) ?? []).length >= 3);
 
         const shop = source("../components/Shop.tsx");
-        assertGuardBefore(shop, "buy", "shopPurchase", "updateCharacter(");
-        assertGuardBefore(shop, "openPack", "shopCardPack", "updateCharacter(");
+        assertGuardBefore(shop, "buy", "shopPurchase", "fetch('/api/shop/purchase'");
+        assertGuardBefore(shop, "openPack", "shopCardPack", "openCardPack(");
 
         const inventory = source("../screens/Inventory.tsx");
         assertGuardBefore(inventory, "consumeItem", "warCrateOpen", "openWarCrate(");
-        assertGuardBefore(inventory, "sellSelectedItem", "inventorySale", "updateCharacter(");
+        assertGuardBefore(inventory, "sellSelectedItem", "inventorySale", "settleInventorySale(");
 
         const app = source("../App.tsx");
         assertGuardBefore(app, "enterHollowGateShrine", "hollowGateRun", "setHollowGateRun(");
@@ -91,8 +96,8 @@ describe("server settlement policy", () => {
         assert.doesNotMatch(hollowTile, /const updated = \{ \.\.\.character, pets:/, "Hollow Gate befriend must never mint a pet locally");
 
         const petYard = source("../screens/PetYard.tsx");
-        assertGuardBefore(petYard, "startTraining", "petTraining", "updateCharacter(");
-        assertGuardBefore(petYard, "collectTraining", "petTraining", "updateCharacter(");
+        assertGuardBefore(petYard, "startTraining", "petTraining", "runPetProgress(");
+        assertGuardBefore(petYard, "collectTraining", "petTraining", "runPetProgress(");
 
         const attunement = source("../components/HollowGateAttunement.tsx");
         assertGuardBefore(attunement, "buy", "hollowGateAttunement", "buyHollowGateAttunementServer(");
@@ -101,15 +106,27 @@ describe("server settlement policy", () => {
         const hub = source("../screens/CentralHub.tsx");
         assertGuardBefore(hub, "forgeNamedWeapon", "creatorItemCraft", "setCreatorItems(");
         assertGuardBefore(hub, "forgeNamedArmor", "creatorItemCraft", "setCreatorItems(");
-        assertGuardBefore(hub, "craftExistingWeapon", "creatorItemCraft", "updateCharacter(");
-        assertGuardBefore(hub, "craftExistingArmor", "creatorItemCraft", "updateCharacter(");
-        assertGuardBefore(hub, "craftRecipe", "creatorItemCraft", "updateCharacter(");
-        assertGuardBefore(hub, "craftHollowGateKeyWithDungeonKeys", "creatorItemCraft", "updateCharacter(");
-        assertGuardBefore(hub, "craftHollowGateKeyWithFateShards", "creatorItemCraft", "updateCharacter(");
-        assertGuardBefore(hub, "forgeRelicFromFragments", "creatorItemCraft", "updateCharacter(");
+        assertGuardBefore(hub, "craftExistingWeapon", "creatorItemCraft", "forgeServer(");
+        assertGuardBefore(hub, "craftExistingArmor", "creatorItemCraft", "forgeServer(");
+        assertGuardBefore(hub, "craftRecipe", "creatorItemCraft", "forgeServer(");
+        assertGuardBefore(hub, "craftHollowGateKeyWithDungeonKeys", "creatorItemCraft", "forgeHollowGateKeyServer(");
+        assertGuardBefore(hub, "craftHollowGateKeyWithFateShards", "creatorItemCraft", "forgeHollowGateKeyServer(");
+        assertGuardBefore(hub, "forgeRelicFromFragments", "creatorItemCraft", "forgeServer(");
 
         const missions = source("../screens/Missions.tsx");
-        assertGuardBefore(missions, "acceptFetchMission", "fieldHuntMissions", "setAcceptedMissionIds(");
+        assertGuardBefore(missions, "acceptFetchMission", "fieldHuntMissions", "postFieldTrail(");
+        const fieldTrailAdoptionStart = missions.indexOf("const adoptFieldTrail = useCallback");
+        const fieldTrailAdoption = missions.slice(fieldTrailAdoptionStart, missions.indexOf("const acceptedFieldMissionKey", fieldTrailAdoptionStart));
+        assert.match(fieldTrailAdoption, /!result\.character \|\| !onVersionedCharacter\(result\.character, result\._saveVersion\)/,
+            "field contracts must adopt the versioned character before projecting acceptance");
+        assert.match(fieldTrailAdoption, /result\.acceptedMissionIds[\s\S]*setAcceptedMissionIds\(result\.acceptedMissionIds\)/);
+        assert.match(fieldTrailAdoption, /result\.missionProgress[\s\S]*setMissionProgress\(result\.missionProgress\)/);
+        const fieldAccept = functionSlice(missions, "acceptFetchMission");
+        const fieldAcceptRequest = fieldAccept.indexOf("await postFieldTrail(");
+        const fieldAcceptAdoption = fieldAccept.indexOf("adoptFieldTrail(result)");
+        const fieldAcceptSuccessBranches = fieldAccept.indexOf("if (!result.ok)");
+        assert.ok(fieldAcceptRequest >= 0 && fieldAcceptAdoption > fieldAcceptRequest && fieldAcceptSuccessBranches > fieldAcceptAdoption,
+            "field acceptance must adopt authoritative state before any success or reason branch");
         assertGuardBefore(missions, "claimFetchMission", "fieldHuntMissions", "postClaimMission(");
         const missionStart = functionSlice(missions, "startMissionBattle");
         const missionServerStart = missionStart.indexOf('fetch("/api/missions/combat-start"');
@@ -118,9 +135,14 @@ describe("server settlement policy", () => {
         assert.doesNotMatch(missionStart, /setPendingAiProfileId\(/, "combat missions must not fall back to the local AI profile path");
 
         const hunter = source("../screens/HunterBoard.tsx");
-        assertGuardBefore(hunter, "rankUp", "fieldHuntMissions", "updateCharacter(");
+        assertGuardBefore(hunter, "rankUp", "fieldHuntMissions", "rankUpHunterServer(");
+        assert.match(hunter, /onVersionedCharacter\(result\.character, result\._saveVersion\)/, "Hunter Rank must atomically adopt the versioned mutation");
+        const hunterApi = source("./hunter-rank-api.ts");
+        assert.match(hunterApi, /return \{ character: data\.character, _saveVersion: data\._saveVersion \}/, "the Hunter client must preserve the server save receipt");
         assertGuardBefore(hunter, "acceptHunt", "fieldHuntMissions", "setAcceptedMissionIds(");
-        assertGuardBefore(hunter, "claimHunt", "fieldHuntMissions", "postClaimMission(");
+        assert.match(functionSlice(hunter, "claimHunt"), /await claimHuntOnce\(mission\)/,
+            "the single-flight Claim button must delegate to the guarded settlement");
+        assertGuardBefore(hunter, "claimHuntOnce", "fieldHuntMissions", "postClaimMission(");
 
         const bank = source("../screens/Bank.tsx");
         assertGuardBefore(bank, "moveRyo", "bankDeposit", "fetch(\"/api/bank/transfer\"");
@@ -152,12 +174,12 @@ describe("server settlement policy", () => {
 
     test("timed jutsu training and background queue settlement cannot mutate locally", () => {
         const training = source("../screens/Training.tsx");
-        assertGuardBefore(training, "startPaidJutsuTraining", "timedJutsuTraining", "updateCharacter(");
-        assertGuardBefore(training, "completePaidJutsuTraining", "timedJutsuTraining", "updateCharacter(");
-        assertGuardBefore(training, "cancelPaidJutsuTraining", "timedJutsuTraining", "updateCharacter(");
-        assertGuardBefore(training, "finishWithRyo", "timedJutsuTraining", "updateCharacter(");
-        assertGuardBefore(training, "queueNextJutsuTraining", "timedJutsuTrainingQueue", "updateCharacter(");
-        assertGuardBefore(training, "cancelQueuedJutsuTraining", "timedJutsuTrainingQueue", "updateCharacter(");
+        assertGuardBefore(training, "startPaidJutsuTraining", "timedJutsuTraining", "mutateJutsuRyoTraining(");
+        assertGuardBefore(training, "completePaidJutsuTraining", "timedJutsuTraining", "mutateJutsuRyoTraining(");
+        assertGuardBefore(training, "cancelPaidJutsuTraining", "timedJutsuTraining", "mutateJutsuRyoTraining(");
+        assertGuardBefore(training, "finishWithRyo", "timedJutsuTraining", "mutateJutsuRyoTraining(");
+        assertGuardBefore(training, "queueNextJutsuTraining", "timedJutsuTrainingQueue", "mutateJutsuRyoTraining(");
+        assertGuardBefore(training, "cancelQueuedJutsuTraining", "timedJutsuTrainingQueue", "mutateJutsuRyoTraining(");
 
         const queue = source("./jutsu-training-queue.ts");
         const gate = queue.indexOf('isServerSettlementReady("timedJutsuTrainingQueue")');

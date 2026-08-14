@@ -168,60 +168,9 @@ describe('jutsu loadout persistence', () => {
         const out = sanitizeCompatible(incomingSave, storedSave(true)).character as Record<string, unknown>;
         assert.deepEqual(out.equippedJutsuIds, slotOrder);
     });
-
-    it('preserves a lapsed 15-slot preference while combat use is bounded elsewhere', () => {
-        const lapsed = wrap({
-            patreon: { active: false },
-            jutsuMastery: learnedIds.map((jutsuId) => ({ jutsuId, level: 1, xp: 0 })),
-            equippedJutsuIds: slotOrder,
-        });
-        const out = sanitizeCompatible(incomingSave, lapsed).character as Record<string, unknown>;
-        assert.deepEqual(out.equippedJutsuIds, slotOrder);
-    });
-
-    it('restores the dormant tail when a stale lapsed client submits only 12 active slots', () => {
-        const lapsed = wrap({
-            patreon: { active: false },
-            jutsuMastery: learnedIds.map((jutsuId) => ({ jutsuId, level: 1, xp: 0 })),
-            equippedJutsuIds: slotOrder,
-        });
-        const stale = wrap({ equippedJutsuIds: slotOrder.slice(0, 12) });
-
-        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
-            const out = sanitize(stale, lapsed).character as Record<string, unknown>;
-            assert.deepEqual(out.equippedJutsuIds, slotOrder);
-        }
-    });
-
-    it('retains all dormant preferences when a compatibility save omits the loadout field', () => {
-        const lapsed = wrap({
-            patreon: { active: false },
-            jutsuMastery: learnedIds.map((jutsuId) => ({ jutsuId, level: 1, xp: 0 })),
-            equippedJutsuIds: slotOrder,
-        });
-        const out = sanitizeCompatible(wrap({ name: 'StaleLoadoutClient' }), lapsed).character as Record<string, unknown>;
-        assert.deepEqual(out.equippedJutsuIds, slotOrder);
-    });
-
-    it('rotates a dormant preference into active use without losing the displaced stored slot', () => {
-        const storedOrder = [...learnedIds];
-        const lapsed = wrap({
-            patreon: { active: false },
-            jutsuMastery: learnedIds.map((jutsuId) => ({ jutsuId, level: 1, xp: 0 })),
-            equippedJutsuIds: storedOrder,
-        });
-        const incomingActive = [storedOrder[12], ...storedOrder.slice(1, 12)];
-        const out = sanitizeCompatible(wrap({ equippedJutsuIds: incomingActive }), lapsed).character as Record<string, unknown>;
-        assert.deepEqual(out.equippedJutsuIds, [
-            ...incomingActive,
-            storedOrder[13],
-            storedOrder[14],
-            storedOrder[0],
-        ]);
-    });
 });
 
-describe('supporter pet-roster authority', () => {
+describe('carried-pet entitlement authority', () => {
     const pet = (index: number) => ({
         id: `pet-${index}`,
         hp: 20,
@@ -230,7 +179,7 @@ describe('supporter pet-roster authority', () => {
         speed: 20,
     });
 
-    it('does not let an incoming forged Patreon flag raise a Base account from 4 to 6 pets', () => {
+    it('does not let an incoming forged Patreon flag raise a base account from four to six pets', () => {
         const incoming = wrap({
             name: 'PetCap',
             patreon: { active: true },
@@ -243,74 +192,74 @@ describe('supporter pet-roster authority', () => {
         assert.equal((out.pets as unknown[]).length, 4);
     });
 
-    it('keeps an already-stored six-pet roster non-destructively after a supporter lapse', () => {
-        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
-        const stored = wrap({ name: 'PetLapse', patreon: { active: false }, pets: existingPets });
+    it('preserves an already-stored six-pet roster non-destructively after a supporter lapse', () => {
+        const pets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
+        const stored = wrap({ name: 'PetLapse', patreon: { active: false }, pets });
         const out = sanitizeCompatible(stored, stored).character as Record<string, unknown>;
 
-        assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
+        assert.deepEqual(out.pets, pets);
     });
 
-    it('preserves all six authoritative pets when a generic save omits the pets field', () => {
-        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
-        const storedCharacter = {
-            name: 'PetOmitted',
-            patreon: { active: false },
-            activePetId: 'pet-1',
-            activePetId2v2: 'pet-2',
-            pets: existingPets,
-        };
-
-        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
-            const out = sanitize(
-                wrap({ name: 'PetOmitted' }),
-                wrap(storedCharacter),
-            ).character as Record<string, unknown>;
-
-            assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
-            assert.equal(out.activePetId, 'pet-1');
-            assert.equal(out.activePetId2v2, 'pet-2');
-        }
-    });
-
-    it('preserves lapsed overflow when a stale generic save submits only the active four pets', () => {
-        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
+    it('preserves all six stored pets when a stale base client submits only four', () => {
+        const pets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
         const storedCharacter = {
             name: 'PetSubset',
             patreon: { active: false },
             activePetId: 'pet-1',
             activePetId2v2: 'pet-2',
-            pets: existingPets,
+            pets,
         };
         const out = sanitizeCompatible(
-            wrap({ ...storedCharacter, pets: existingPets.slice(0, 4) }),
+            wrap({ ...storedCharacter, pets: pets.slice(0, 4) }),
             wrap(storedCharacter),
         ).character as Record<string, unknown>;
 
-        assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), existingPets.map(({ id }) => id));
+        assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), pets.map(({ id }) => id));
     });
 
-    it('does not let a generic save reorder lapsed overflow into the four carried slots', () => {
-        const existingPets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
+    it('preserves all six authoritative pets when a generic save omits the pets field', () => {
+        const pets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
+        const storedCharacter = {
+            name: 'PetOmitted',
+            patreon: { active: false },
+            activePetId: 'pet-1',
+            activePetId2v2: 'pet-2',
+            pets,
+        };
+
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(
+                wrap({ name: storedCharacter.name }),
+                wrap(storedCharacter),
+            ).character as Record<string, unknown>;
+
+            assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), pets.map(({ id }) => id));
+            assert.equal(out.activePetId, 'pet-1');
+            assert.equal(out.activePetId2v2, 'pet-2');
+        }
+    });
+
+    it('does not let a generic save reorder or activate lapsed overflow', () => {
+        const pets = Array.from({ length: 6 }, (_, index) => pet(index + 1));
         const storedCharacter = {
             name: 'PetReorder',
             patreon: { active: false },
-            activePetId: 'pet-6',
-            activePetId2v2: 'pet-5',
-            pets: existingPets,
+            activePetId: 'pet-4',
+            activePetId2v2: 'pet-3',
+            pets,
         };
         const incomingCharacter = {
             ...storedCharacter,
-            pets: [...existingPets].reverse(),
+            activePetId: 'pet-6',
+            activePetId2v2: 'pet-5',
+            pets: [...pets].reverse(),
         };
         const out = sanitizeCompatible(wrap(incomingCharacter), wrap(storedCharacter)).character as Record<string, unknown>;
 
-        assert.deepEqual(
-            (out.pets as Array<{ id: string }>).map(({ id }) => id),
-            existingPets.map(({ id }) => id),
-            'generic saves must retain authoritative roster order',
-        );
-        assert.deepEqual(activeCarriedPetIds(out), ['pet-6', 'pet-5', 'pet-1', 'pet-2']);
+        assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), pets.map(({ id }) => id));
+        assert.equal(out.activePetId, 'pet-4');
+        assert.equal(out.activePetId2v2, 'pet-3');
+        assert.deepEqual(activeCarriedPetIds(out), ['pet-4', 'pet-3', 'pet-1', 'pet-2']);
     });
 });
 

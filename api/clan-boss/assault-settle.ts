@@ -17,7 +17,6 @@ import { completeParty } from './_party.js';
 import { announce } from '../_announce.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
-import { releaseClanBossBattleMarkers } from '../towers/_battle-lease.js';
 
 /*
  * POST /api/clan-boss/assault-settle — bank a FINISHED clan-boss assault into the
@@ -209,7 +208,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const finalCharacter = finalPlayerRecord?.character as Record<string, unknown> | undefined;
         if (finalCharacter) awardedCharacter = finalCharacter;
 
-        await releaseClanBossBattleMarkers(runId, party);
         return res.status(outcome.status).json({
             ...(outcome.body as Record<string, unknown>),
             consumables,

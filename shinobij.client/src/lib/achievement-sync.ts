@@ -126,6 +126,7 @@ export function releaseAchievementSync(gate: AchievementSyncGate): void {
 
 /** Shape of the /api/achievements/sync reply (only the fields we consume). */
 export interface AchievementSyncResponse {
+    _saveVersion?: unknown;
     character?: {
         unlockedAchievements?: unknown;
         achievementUnlockedAt?: unknown;
@@ -173,6 +174,34 @@ export function achievementPatchFromSync(data: AchievementSyncResponse | null | 
         patch.fateShards = character.fateShards;
     }
     return patch;
+}
+
+export type VersionedAchievementMutation<TCharacter extends object> = {
+    character: TCharacter & AchievementPatch;
+    _saveVersion: number;
+};
+
+/**
+ * Build the atomic character+version adoption for an achievement mutation.
+ *
+ * The endpoint returns the stored character, but the player can make unrelated
+ * local changes while that request is in flight. Merge only the server-owned
+ * achievement/wallet patch onto the current live character, and require the
+ * matching authoritative save version. Advancing either half by itself makes
+ * the next autosave stale (and used to produce a false conflict on account
+ * creation, where the first save was v1 and the immediate backfill became v2).
+ */
+export function versionedAchievementMutationFromSync<TCharacter extends object>(
+    currentCharacter: TCharacter | null | undefined,
+    data: AchievementSyncResponse | null | undefined,
+): VersionedAchievementMutation<TCharacter> | null {
+    const patch = achievementPatchFromSync(data);
+    const saveVersion = data?._saveVersion;
+    if (!currentCharacter || !patch || !Number.isSafeInteger(saveVersion) || Number(saveVersion) <= 0) return null;
+    return {
+        character: { ...currentCharacter, ...patch },
+        _saveVersion: Number(saveVersion),
+    };
 }
 
 /** Ids the server reports as newly unlocked by this sync (toast candidates). */

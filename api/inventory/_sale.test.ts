@@ -73,5 +73,6 @@ test('sale route and inventory screen use authenticated locked settlement', () =
     assert.match(route, /strict: true/);
     assert.match(helper, /'\/api\/inventory\/sell'/);
     assert.match(screen, /settleInventorySale\(character\.name/);
-    assert.match(screen, /updateCharacter\(result\.character\)/);
+    assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
+        'the authoritative sale snapshot must be accepted before closing the item action');
 });

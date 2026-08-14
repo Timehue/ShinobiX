@@ -15,7 +15,7 @@
 
 import type { Character } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
-import { villageBiomeMap } from "../data/storylines";
+import { villageBiomeMap } from "../data/village-biomes";
 import { storyEpiloguesByVillage, type StoryEpilogueDef } from "../data/story-epilogues";
 
 /**

@@ -16,7 +16,6 @@ export type CombatEventTarget = CombatEventActor | 'tile' | null;
 
 export type CombatEventStatus = {
     name: string;
-    source?: string;
     kind: 'positive' | 'negative';
     rounds: number;
     activeRound?: number;
@@ -192,7 +191,6 @@ function statuses(value: unknown): CombatEventStatus[] {
         if (!name) return [];
         return [{
             name,
-            ...(typeof source.source === 'string' ? { source: text(source.source, 80) } : {}),
             kind: source.kind === 'positive' ? 'positive' as const : 'negative' as const,
             rounds: Math.max(0, Math.floor(number(source.rounds))),
             ...(Number.isFinite(Number(source.activeRound)) ? { activeRound: Math.max(0, Math.floor(number(source.activeRound))) } : {}),

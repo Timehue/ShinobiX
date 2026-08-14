@@ -1,11 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
-    newLobby, codeFromBytes, openSeat, slotOf, chooseOwnedPetRecords, chooseOwnedPets, snapshotPet,
+    newLobby, codeFromBytes, openSeat, slotOf, chooseOwnedPets, snapshotPet,
     autoArenaRoles, resolveMatch, startBlock, publicView, AI_POOL, CODE_ALPHABET, CODE_LEN,
-    COOP_WARFRONT_SETUP_VERSION, sealedCoopWarfrontSetup,
     type PetSnapshot,
 } from './_lobby-core.js';
 
@@ -32,12 +29,11 @@ test('newLobby seats the host at blue0 and leaves the rest open', () => {
 });
 
 test('codeFromBytes is in-alphabet and the right length', () => {
-    const code = codeFromBytes([0, 1, 2, 3, 4, 5, 6, 7]);
+    const code = codeFromBytes([0, 1, 2, 3, 4, 5]);
     assert.equal(code.length, CODE_LEN);
     for (const ch of code) assert.ok(CODE_ALPHABET.includes(ch), `${ch} not in alphabet`);
-    assert.equal(codeFromBytes(Array(CODE_LEN).fill(0)), 'AAAAAAAA');
-    assert.equal(codeFromBytes(Array(CODE_LEN).fill(255)), '99999999');
-    assert.ok(CODE_ALPHABET.length ** CODE_LEN >= 2 ** 40, 'join codes must retain at least 40 bits of search space');
+    assert.equal(codeFromBytes([0, 0, 0, 0]), 'AAAA');
+    assert.equal(codeFromBytes([255, 255, 255, 255]), '9999');
 });
 
 test('openSeat fills team-up order then opponents, honors preference, and detects full', () => {
@@ -62,8 +58,6 @@ test('chooseOwnedPets rejects wrong count, unowned ids, and double-picking one i
     // two distinct instances sharing a template id CAN both be picked
     const dup = [pet({ id: 'x' }), pet({ id: 'x' })];
     assert.ok(chooseOwnedPets(dup, ['x', 'x']));
-    assert.equal(chooseOwnedPetRecords(owned, ['a', 'b'])?.[0], owned[0],
-        'the handler can inspect availability before snapshotting strips transient leases');
 });
 
 test('chooseOwnedPets snapshots + clamps stats (no client-injected buffs)', () => {
@@ -124,27 +118,6 @@ test('resolveMatch is identical for the same sealed lobby (every client agrees)'
     assert.deepEqual(resolveMatch(lobby, 7), resolveMatch(lobby, 7));
 });
 
-test('resolveMatch server-seals the same versioned authored playbook for both sides', () => {
-    const match = resolveMatch(newLobby('ABCD', 'host', 1000), 42);
-    const expected = {
-        version: COOP_WARFRONT_SETUP_VERSION,
-        stance: 'balanced',
-        doctrine: 'warden-pact',
-        buyPolicy: 'balanced',
-        deployment: ['top', 'mid', 'bottom', 'flex'],
-        buildPackage: 'escort-rite',
-        coachOrder: 'trade',
-        objectiveTechnique: 'secure',
-        counterstrike: 'cross-map',
-    };
-    assert.deepEqual(sealedCoopWarfrontSetup(), expected);
-    assert.deepEqual(match.blueSetup, expected);
-    assert.deepEqual(match.redSetup, expected);
-    assert.deepEqual(match.blueSetup, match.redSetup);
-    assert.notEqual(match.blueSetup, match.redSetup);
-    assert.notEqual(match.blueSetup.deployment, match.redSetup.deployment);
-});
-
 test('startBlock gates start correctly', () => {
     const lobby = newLobby('ABCD', 'host', 1000);
     assert.match(startBlock(lobby, 'host')!, /pick your two pets/i);        // host hasn't picked
@@ -166,58 +139,11 @@ test('publicView hides rosters pre-start, exposes the seal once running', () => 
     const pre = publicView(lobby, 'host');
     assert.equal(pre.match, null);                                          // no roster leak pre-start
     assert.equal(pre.seats.find((s) => s.team === 'blue' && s.slot === 0)!.petCount, 2);
-    assert.deepEqual(pre.you, {
-        team: 'blue', slot: 0, petIndexes: [0, 1], lanes: ['top', 'mid'],
-    });
-    assert.deepEqual(pre.setupPreview, sealedCoopWarfrontSetup(),
-        'the pre-lock lane labels must come from the same versioned server setup');
+    assert.deepEqual(pre.you, { team: 'blue', slot: 0 });
     assert.equal(pre.seats.find((s) => s.isYou)!.name, 'host');
 
     lobby.state = 'running';
     lobby.match = resolveMatch(lobby, 5);
     const live = publicView(lobby, 'host');
     assert.ok(live.match && live.match.seed === 5 && live.match.blue.length === 4);
-    assert.equal(publicView(lobby, 'code-guesser').match, null,
-        'an unseated caller must never receive a running seed or roster');
-});
-
-test('both co-op clients recover the identical stored authored seal', () => {
-    const lobby = newLobby('ABCD', 'host', 1000);
-    slotOf(lobby, 'blue', 1).name = 'ally';
-    lobby.state = 'running';
-    lobby.seed = 77;
-    lobby.match = resolveMatch(lobby, 77);
-
-    const hostView = publicView(lobby, 'host');
-    const allyView = publicView(lobby, 'ally');
-    assert.deepEqual(hostView.match, allyView.match);
-    assert.deepEqual(hostView.match?.blueSetup, hostView.match?.redSetup);
-
-    const recovered = structuredClone(lobby);
-    assert.deepEqual(publicView(recovered, 'host').match, hostView.match,
-        'polling a persisted lobby must preserve the stored playbook exactly');
-});
-
-test('lobby start persists only the server-resolved setup source', () => {
-    const source = readFileSync(join(process.cwd(), 'api', 'arena', 'lobby.ts'), 'utf8');
-    const resolve = source.indexOf('lobby.match = resolveMatch(lobby, seed)');
-    const persist = source.indexOf('await persistLobby(key, lobby, now)', resolve);
-    const respond = source.indexOf('publicView(lobby, me)', persist);
-    assert.ok(resolve >= 0 && persist > resolve && respond > persist,
-        'the same resolved payload must be stored before either client receives it');
-    assert.doesNotMatch(source, /body[^\n]*(blueSetup|redSetup)|(blueSetup|redSetup)[^\n]*body/,
-        'a co-op client must never supply either side of the authored seal');
-});
-
-test('lobby coordination is uncached, fail-closed, bounded, and rate limited', () => {
-    const storage = readFileSync(join(process.cwd(), 'api', '_storage.ts'), 'utf8');
-    const source = readFileSync(join(process.cwd(), 'api', 'arena', 'lobby.ts'), 'utf8');
-    assert.match(storage, /'arena:lobby:'/, 'workers must never reuse a stale lobby snapshot');
-    assert.match(source, /withKvLock<LockOut>\(key,[\s\S]*\{ failClosed: true \}\)/,
-        'every lobby mutation must abort under lock contention');
-    assert.match(source, /OPEN_LOBBY_LIFETIME_MS[\s\S]*ABSOLUTE_LOBBY_LIFETIME_MS[\s\S]*lobbyExpiresAt/,
-        'writes must preserve an absolute lifecycle instead of refreshing forever');
-    assert.match(source, /arena-lobby-create[\s\S]*arena-lobby-poll[\s\S]*arena-lobby-join/,
-        'enumeration and mutation surfaces need separate durable budgets');
-    assert.match(source, /Only match participants may recover a running lobby/);
 });

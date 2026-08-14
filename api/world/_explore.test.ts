@@ -1,9 +1,29 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applySectorExploreReward, DAILY_SECTOR_EXPLORE_LIMIT, sectorExploreReward } from './_explore.js';
+import {
+    applySectorExploreReward,
+    DAILY_SECTOR_EXPLORE_LIMIT,
+    rollSectorExploreOutcome,
+    sectorExploreReward,
+} from './_explore.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 describe('sector exploration settlement', () => {
+    it('server-selects the authored chest, battle, and quiet outcomes', () => {
+        const sequence = (...values: number[]) => {
+            let index = 0;
+            return () => values[index++] ?? 0;
+        };
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.149)), { kind: 'chest' });
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.15, 0.80)), { kind: 'battle' });
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.99, 0.8001)), { kind: 'none' });
+        assert.deepEqual(
+            rollSectorExploreOutcome(sequence(0.01, 0.20), false),
+            { kind: 'battle' },
+            'a capped chest falls through to the battle roll',
+        );
+    });
+
     it('uses the canonical sector formula and rejects out-of-world sectors', () => {
         // Character XP retired: the old xp line (20 + sector/5) folds into ryo
         // — sector 25: ryo (10+6) + (10+2) = 28, xp always 0.

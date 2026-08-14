@@ -12,14 +12,24 @@ test("the opponent's turn does not replace the PvP jutsu or battle-log area", ()
 
     assert.match(
         source,
-        /<CombatCommandBar style=\{isMyTurn \? undefined : \{ opacity: 0\.55, pointerEvents: "none" \}\}/,
-        "basic actions should remain visible but non-interactive while waiting",
+        /<CombatCommandBar style=\{isMyTurn \? undefined : \{ opacity: 0\.55 \}\}/,
+        "basic actions should remain visible while waiting",
     );
     assert.match(
         source,
-        /<div style=\{isMyTurn \? \{ display: "contents" \} : \{ opacity: 0\.6, pointerEvents: "none" \}\}>/,
+        /<div style=\{isMyTurn \? \{ display: "contents" \} : \{ opacity: 0\.6 \}\}>/,
         "the equipped jutsu and item grid should remain visible while waiting",
     );
+    assert.doesNotMatch(source, /opacity: 0\.(?:55|6), pointerEvents: "none"/,
+        "waiting-state containers must not block usable inspect/help controls");
+    const commandBar = source.slice(source.indexOf("<CombatCommandBar style="), source.indexOf("</CombatCommandBar>"));
+    assert.equal((commandBar.match(/disabled=\{!isMyTurn \|\|/g) ?? []).length, 7,
+        "all seven command actions must expose a real opponent-turn disabled state");
+    const actionGrid = source.slice(source.indexOf('<div style={isMyTurn ? { display: "contents" }'), source.indexOf("{inspectedWeaponId &&"));
+    assert.equal((actionGrid.match(/disabled=\{!isMyTurn \|\|/g) ?? []).length, 4,
+        "jutsu, weapon, thrown, and consumable action buttons must be disabled while waiting");
+    assert.doesNotMatch(actionGrid, /className="combat-jutsu-help"[\s\S]{0,500}?disabled=/,
+        "detail/help buttons must remain available for planning on the opponent's turn");
     assert.match(source, /<BattleTabBar tab=\{battleTabs\.tab\}/, "the battle-log tab must remain available");
 
     // The removed panel also exposed a manual AFK-claim button. PvP already
