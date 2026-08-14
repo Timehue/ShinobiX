@@ -20,32 +20,23 @@
  * Mirrors api/village/sector-pet.ts, which does this for the Sector War.
  */
 
-import { runPetDuelCinematic, runPetPartyDuelCinematic } from '../../_pet-sim/pet-duel-cinematic.js';
+import { resolveWarDuel, type WarDuelInput } from '../../_pet-showdown/war-duel.js';
+import type { ShowdownReplayScript } from '../../../shared/pet-showdown-contract.js';
 import type { Pet } from '../../_pet-sim/pet-types.js';
 
-/**
- * Duel parameters PINNED for every clan-war pet battle.
- *
- * These are the values PetArena already uses for a real-player fight: no PvE
- * mastery multipliers (`isGenericPetOpponent` is false against a player), items
- * applied, no terrain. KEEP IN SYNC with the client mirror in
- * shinobij.client/src/lib/clan-war-pet-api.ts — the replay must feed the engine
- * exactly these numbers or it will diverge from the recorded result.
- *
- * `accuracy` is pinned DELIBERATELY. The client reads it from
- * `petAccuracyEnabled()` → localStorage, so today two players with different
- * toggles compute DIFFERENT winners for the same clan-war fight. `true` is the
- * client's unset default, so pinning it here keeps the fight players already
- * experience while making it reproducible on the server.
+/*
+ * The pinned duel parameters (CLAN_WAR_PET_DUEL) retire with the legacy sim.
+ * What survives, reconciled with main's items-on change ("the values PetArena
+ * already uses for a real-player fight"):
+ *   - GEAR APPLIES. These are two real players' pets; sealShowdownPet applies
+ *     equipped PvP gear exactly as the live arena does.
+ *   - CONSUMABLES STAY INERT. An async garrison fight has no settlement
+ *     transaction — neither owner is present to authorize a charge — so a
+ *     consumable firing here would be a benefit that never costs the item.
+ *     The seal strips only that slot (see war-duel.ts).
+ *   - The `accuracy` pin is moot on Showdown: there is no client-toggleable
+ *     accuracy, so the per-device divergence it guarded against cannot exist.
  */
-export const CLAN_WAR_PET_DUEL = Object.freeze({
-    damageMult: 1,
-    hpMult: 1,
-    reviveOnce: false,
-    applyItems: true,
-    accuracy: true,
-    terrain: null as string | null,
-});
 
 export type ClanWarPetMode = 'pet1v1' | 'pet2v2';
 /** Which side of the challenge a fighter is on. `from` = the challenging clan. */
@@ -68,6 +59,11 @@ export interface ClanWarPetSession {
     to: ClanWarPetFighter[];
     status: 'awaiting-pets' | 'done';
     winner?: ClanWarPetOutcome;
+    /** Which combat engine decided this session. Sessions resolved before the
+     *  Showdown cutover carry no stamp; the watch endpoint refuses those, since
+     *  a Showdown re-derivation of a legacy-decided fight would show a battle
+     *  whose winner can disagree with the recorded one. */
+    engine?: 'showdown';
     /** Set once the outcome has been applied to the war record (idempotence). */
     appliedToChallenge?: boolean;
     createdAt: number;
@@ -85,28 +81,45 @@ export function isReadyToResolve(session: Pick<ClanWarPetSession, 'mode' | 'from
     return session.from.length >= need && session.to.length >= need;
 }
 
+/** The one place the session's stored fields become a war-duel input, so the
+ *  resolver and the watch script derive from EXACTLY the same values. */
+function warInputOf(session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to'>): WarDuelInput {
+    return {
+        // Deterministic label from the seed — never a clock, never an id the
+        // two call sites could disagree on.
+        sessionId: `clanwar:${session.seed}`,
+        seed: session.seed,
+        fromName: session.from[0]?.name || 'Challengers',
+        toName: session.to[0]?.name || 'Defenders',
+        fromPets: session.from.map((f) => f.pet),
+        toPets: session.to.map((f) => f.pet),
+        terrain: null,
+    };
+}
+
 /**
- * Run the duel. `from` is the engine's "player" side and `to` the "enemy" side, so
- * the winner maps straight onto the challenge result. Pure and deterministic given
- * (pets, seed) — the client replay calls the identical function with the identical
- * inputs.
+ * Run the duel on the Showdown engine. `from` is the engine's "player" side and
+ * `to` the "enemy" side, so the winner maps straight onto the challenge result.
+ * Pure and deterministic given (pets, seed).
+ *
+ * Never returns 'draw': Showdown's round-cap judge always decides (pets left,
+ * then HP, then stamina, then speed). The 'draw' member stays in the outcome
+ * type only for sessions recorded by the legacy engine.
  */
 export function resolveClanWarPetDuel(
     session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to'>,
 ): ClanWarPetOutcome {
-    const p = CLAN_WAR_PET_DUEL;
-    const result = session.mode === 'pet2v2'
-        ? runPetPartyDuelCinematic(
-            session.from[0].pet, session.from[1]?.pet ?? null,
-            session.to[0].pet, session.to[1]?.pet ?? null,
-            session.seed, p.damageMult, p.hpMult, p.reviveOnce, p.applyItems, p.accuracy,
-        )
-        : runPetDuelCinematic(
-            session.from[0].pet, session.to[0].pet,
-            session.seed, p.damageMult, p.hpMult, p.reviveOnce, p.applyItems, p.accuracy, p.terrain,
-        );
-    // A null winner is the engine's timeout/both-alive case → a genuine draw.
-    return result.winner === 'player' ? 'from-wins' : result.winner === 'enemy' ? 'to-wins' : 'draw';
+    return resolveWarDuel(warInputOf(session)).outcome === 'from' ? 'from-wins' : 'to-wins';
+}
+
+/** Re-derive the watchable script for a resolved session. The caller must have
+ *  checked `session.engine === 'showdown'` — deriving a script for a
+ *  legacy-decided session would show a fight with a potentially different
+ *  winner than the war record. */
+export function clanWarPetDuelScript(
+    session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to'>,
+): ShowdownReplayScript {
+    return resolveWarDuel(warInputOf(session)).script;
 }
 
 /** Storage key for a challenge's pet session. */
@@ -171,6 +184,7 @@ export function normalizeClanWarPetSession(raw: Partial<ClanWarPetSession> | nul
         from: fighters(raw.from),
         to: fighters(raw.to),
         status: raw.status === 'done' ? 'done' : 'awaiting-pets',
+        engine: raw.engine === 'showdown' ? 'showdown' : undefined,
         winner: raw.winner,
         appliedToChallenge: !!raw.appliedToChallenge,
         createdAt: Math.floor(Number(raw.createdAt) || 0),

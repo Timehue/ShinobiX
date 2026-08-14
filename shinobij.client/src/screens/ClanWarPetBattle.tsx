@@ -1,26 +1,26 @@
 import { useCallback } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
-import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
-import { PetDuelReplayScreen, type PetDuelReplayView } from "../components/PetDuelReplayScreen";
+import { PetDuelReplayScreen } from "../components/PetDuelReplayScreen";
 import { activeCarriedPets } from "../lib/entitlements";
 import {
     submitClanWarPet,
     clanWarPetState,
+    clanWarPetWatch,
     clanWarPetSideOf,
-    CLAN_WAR_PET_DUEL,
     type ClanWarPetSession,
 } from "../lib/clan-war-pet-api";
 
 /*
  * Clan War "Pet" challenge screen (pet1v1 / pet2v2).
  *
- * Both sides field a pet; the server resolves the DETERMINISTIC duel and finalizes
- * the challenge itself (api/clan/war/pet.ts → api/_pet-sim, the parity-guarded
- * mirror of this very engine). This screen REPLAYS the same (pets, seed, pinned
- * params) so the fight it animates cannot disagree with the recorded outcome. No
- * win/loss is ever reported from here — /api/clan/war/report refuses
- * client-reported pet results outright.
+ * Both sides field a pet; the server resolves the duel on the SHOWDOWN engine
+ * and finalizes the challenge itself (api/clan/war/pet.ts). The decided fight
+ * is then WATCHED: the server re-derives its own event log and this screen
+ * plays it through the same cinematic arena a live Showdown uses, so what you
+ * watch cannot disagree with the recorded outcome. No win/loss is ever
+ * reported from here — /api/clan/war/report refuses client-reported pet
+ * results outright.
  */
 
 type Stash = {
@@ -55,23 +55,9 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
                 submitErrorText: "Could not send your pet into battle.",
                 fetchState: async () => (await clanWarPetState(warId, challengeId)).session ?? null,
                 submit: (petId) => submitClanWarPet(warId, challengeId, petId),
-                // MUST mirror api/clan/war/_pet-duel.ts resolveClanWarPetDuel exactly —
-                // this replay reproduces the winner the server already recorded.
-                replay: (s): PetDuelReplayView | null => {
-                    if (s.status !== "done" || !s.from.length || !s.to.length) return null;
-                    const p = CLAN_WAR_PET_DUEL;
-                    const result = s.mode === "pet2v2"
-                        ? runPetPartyDuelCinematic(
-                            s.from[0].pet, s.from[1]?.pet ?? null,
-                            s.to[0].pet, s.to[1]?.pet ?? null,
-                            s.seed, p.damageMult, p.hpMult, p.reviveOnce, p.applyItems, p.accuracy,
-                        )
-                        : runPetDuelCinematic(
-                            s.from[0].pet, s.to[0].pet,
-                            s.seed, p.damageMult, p.hpMult, p.reviveOnce, p.applyItems, p.accuracy, p.terrain,
-                        );
-                    return { playerPet: s.from[0].pet, enemyPet: s.to[0].pet, seed: s.seed, result };
-                },
+                // The server owns the fight; this screen only plays its script.
+                resolved: (s) => s.status === "done" && !!s.from.length && !!s.to.length,
+                watch: () => clanWarPetWatch(warId, challengeId),
                 banner: (s) => s.winner === "draw"
                     ? "The pet battle ended in a draw — no clan-war damage."
                     : mySide && s.winner === `${mySide}-wins`

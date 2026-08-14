@@ -1,33 +1,17 @@
 /*
- * Clan-war PET battle — client API + the pinned duel parameters.
+ * Clan-war PET battle — client API.
  *
  * Clan-war pet results are SERVER-AUTHORITATIVE: both sides field a pet through
- * /api/clan/war/pet, the server runs the deterministic duel and finalizes the
- * challenge itself, and /api/clan/war/report refuses a client-reported pet result.
- * This screen never reports a winner — it only replays what the server recorded.
+ * /api/clan/war/pet, the server resolves the duel on the Showdown engine and
+ * finalizes the challenge itself, and /api/clan/war/report refuses a
+ * client-reported pet result. The client never re-runs anything — a decided
+ * fight is WATCHED via the `watch` action, which returns the server's own
+ * re-derived script. (The pinned mirror parameters that used to live here died
+ * with the client mirror: there is no second engine left to keep in sync.)
  */
 
 import type { Pet } from "../types/pet";
-
-/**
- * Duel parameters PINNED for every clan-war pet battle.
- * MUST match api/clan/war/_pet-duel.ts CLAN_WAR_PET_DUEL exactly — the replay
- * feeds these to the same engine, so any drift makes the animated fight disagree
- * with the recorded result.
- *
- * `accuracy` is pinned rather than read from petAccuracyEnabled(): that helper
- * reads localStorage, so two players with different toggles used to compute
- * DIFFERENT winners for the same clan-war fight. `true` is the unset default, so
- * pinning it preserves the fight players already experience.
- */
-export const CLAN_WAR_PET_DUEL = Object.freeze({
-    damageMult: 1,
-    hpMult: 1,
-    reviveOnce: false,
-    applyItems: true,
-    accuracy: true,
-    terrain: null as string | null,
-});
+import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 
 export type ClanWarPetMode = "pet1v1" | "pet2v2";
 export type ClanWarPetOutcome = "from-wins" | "to-wins" | "draw";
@@ -43,6 +27,9 @@ export type ClanWarPetSession = {
     to: ClanWarPetFighter[];
     status: "awaiting-pets" | "done";
     winner?: ClanWarPetOutcome;
+    /** Stamped 'showdown' on every duel decided after the engine cutover; a
+     *  session without it predates the cutover and cannot be replayed. */
+    engine?: "showdown";
     createdAt: number;
     updatedAt: number;
 };
@@ -68,6 +55,17 @@ export function submitClanWarPet(warId: string, challengeId: string, petId: stri
 /** Read the session (drives the waiting state + the replay). */
 export function clanWarPetState(warId: string, challengeId: string): Promise<PetResponse> {
     return post({ action: "state", warId, challengeId });
+}
+
+/** Fetch the watchable script for a decided duel (null = not watchable). */
+export async function clanWarPetWatch(warId: string, challengeId: string): Promise<ShowdownReplayScript | null> {
+    const r = await fetch("/api/clan/war/pet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "watch", warId, challengeId }),
+    });
+    const data = await r.json().catch(() => ({})) as { script?: ShowdownReplayScript };
+    return r.ok && data.script ? data.script : null;
 }
 
 /** Which side of the challenge a player is on, for banner wording. */

@@ -23,6 +23,7 @@ import {
     clanWarPetDeclineMessage,
     normalizeClanWarPetSession,
     resolveClanWarPetDuel,
+    clanWarPetDuelScript,
     isReadyToResolve,
     petsPerSide,
     sideOfPlayer,
@@ -113,6 +114,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!side && !identity.admin) return res.status(403).json({ error: clanWarPetDeclineMessage('not-a-participant') });
             return res.status(200).json({ session: projectForViewer(session, side) });
         }
+        if (action === 'watch') {
+            // Same read auth as `state`. Returns the full derived match — the
+            // client plays it back in spectator mode and resolves nothing.
+            const [session, war] = await Promise.all([
+                kv.get<Partial<ClanWarPetSession>>(sessionKey).then(normalizeClanWarPetSession),
+                kv.get<ClanWar>(warKey),
+            ]);
+            if (!session) return res.status(404).json({ error: 'No pet battle session yet.' });
+            const ch = war?.pendingChallenges.find(c => c.id === challengeId)
+                ?? war?.completedChallenges?.find(c => c.id === challengeId);
+            const side = ch ? sideOfPlayer(me, ch) : null;
+            if (!side && !identity.admin) return res.status(403).json({ error: clanWarPetDeclineMessage('not-a-participant') });
+            if (session.status !== 'done') return res.status(409).json({ error: 'This pet battle has not been decided yet.' });
+            if (session.engine !== 'showdown') {
+                // Decided by the retired engine before the cutover. Re-deriving
+                // it on Showdown could show a different winner than the record,
+                // so the fight is not watchable — the banner still tells the
+                // story, and these sessions age out on their 2h TTL.
+                return res.status(409).json({ error: 'This battle predates the new arena and cannot be replayed.' });
+            }
+            return res.status(200).json({ script: clanWarPetDuelScript(session) });
+        }
         if (action !== 'submit') return res.status(400).json({ error: `Unknown action: ${action}` });
 
         // Everything below mutates: serialize on the SESSION so two submissions can't
@@ -169,6 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Both sides are in → resolve deterministically and finalize the challenge.
             session.winner = resolveClanWarPetDuel(session);
             session.status = 'done';
+            session.engine = 'showdown';
 
             const finalized = await withKvLock(warKey, async () => {
                 const fresh = await kv.get<ClanWar>(warKey);

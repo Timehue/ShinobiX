@@ -159,6 +159,9 @@ export function joinSectorPet(playerName: string, sectorWarId: string, petId: st
 export function sectorPetState(playerName: string, sectorWarId: string) {
     return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId });
 }
+export function sectorPetWatch(playerName: string, sectorWarId: string) {
+    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId });
+}
 export function setSectorWinCondition(playerName: string, village: string, sector: number, winCondition: WinCondition) {
     return postJson("/api/village/war-win-condition", { playerName, village, sector, winCondition });
 }
