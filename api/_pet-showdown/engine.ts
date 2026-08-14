@@ -348,7 +348,10 @@ export const KIND_FX: Record<string, KindFx> = {
     debuff:    { mult: 0.4,  rounds: 2, blurb: 'Weakens foe ATK 2 rounds' },
     mark:      { mult: 0.4,  rounds: 3, blurb: 'Next hit on the foe hits harder' },
     slow:      { mult: 0.4,  rounds: 2, blurb: 'Slows the foe 2 rounds' },
-    movelock:  { mult: 0.4,  rounds: 2, store: 'slow', blurb: 'Slows the foe 2 rounds' },
+    // A TRAP, not a second slow. See the resolution branch: `movelock` was an
+    // alias of `slow` down to the identical blurb, so a root read as a duller
+    // copy of a move the game already had.
+    movelock:  { mult: 0.4,  rounds: 2, blurb: 'Traps the foe — it cannot switch out' },
     buff:      { mult: 0,    rounds: 2, blurb: 'Raises your ATK' },
     haste:     { mult: 0,    rounds: 2, blurb: 'Raises your speed' },
     move:      { mult: 0,    rounds: 2, store: 'haste', blurb: 'Raises your speed' },
@@ -1865,9 +1868,26 @@ function executeMove(
                     }
                     break;
                 case 'slow':
+                    if (applyOffensiveHit(target, KIND_FX.slow.mult, 'slow') && !target.ko) {
+                        addStatus(session, target, storedStatusKind(kind), KIND_FX.slow.rounds, 0.75, reactions);
+                    }
+                    break;
                 case 'movelock':
-                    if (applyOffensiveHit(target, 0.4, 'slow') && !target.ko) {
-                        addStatus(session, target, storedStatusKind(kind), 2, 0.75, reactions);
+                    // A ROOT. It used to be an alias of `slow` — same power,
+                    // same duration, same blurb — so twelve species carried a
+                    // "movelock" that was a duller copy of a move the game
+                    // already had, and the client's own status table noted the
+                    // kind was unreachable because the engine renamed it away.
+                    // A root is positional in origin, but unlike push/pull it
+                    // has an exact slot-game meaning: you cannot leave. That
+                    // only became worth having once push/pull made the bench a
+                    // real resource — now the two answer each other, and a trap
+                    // denies the rotation a cornered pet is counting on.
+                    // Deliberately does NOT stop a FORCED rotation: being
+                    // trapped means you cannot walk away, not that you cannot
+                    // be thrown.
+                    if (applyOffensiveHit(target, KIND_FX.movelock.mult, 'movelock') && !target.ko) {
+                        addStatus(session, target, 'movelock', KIND_FX.movelock.rounds, 1, reactions);
                     }
                     break;
                 case 'push':
@@ -2001,8 +2021,11 @@ export function resolveShowdownRound(
             if (command.kind !== 'switch') continue;
             const team = side === 'player' ? session.player : session.enemy;
             // A winded pet cannot switch out — the overdraft's stolen turn
-            // must be PAID, not dodged by rotating to the bench.
-            const out = team.find((p) => p.id === command.petId && !p.ko && !p.benched && !p.winded);
+            // must be PAID, not dodged by rotating to the bench. A TRAPPED pet
+            // (movelock) cannot either: that is the whole effect.
+            const out = team.find((p) => p.id === command.petId
+                && !p.ko && !p.benched && !p.winded
+                && !p.statuses.some((s) => s.kind === 'movelock'));
             const inbound = team.find((p) => p.id === command.benchPetId && !p.ko && p.benched);
             if (!out || !inbound) continue;
             out.benched = true;
