@@ -71,26 +71,47 @@ describe('showdown.ts wires practice as unpaid', () => {
         // The comment this test used to carry said "until a live entry point
         // exists". That entry point now exists, so the assertion moves from
         // "nothing pays" to "exactly one thing pays, and it is the right one".
-        // Exactly TWO seal sites exist, and each is pinned to its entry:
-        //   practice → the literal false
-        //   arena    → `!hollowGate`, i.e. it pays UNLESS the bout is bound to a
-        //              Hollow Gate run, which pays through the run's own
-        //              settlement instead. Paying both would be a double faucet.
+        // Exactly THREE seal sites exist, and each is pinned to its entry:
+        //   practice  → the literal false
+        //   arena     → `!hollowGate`, i.e. it pays UNLESS the bout is bound to a
+        //               Hollow Gate run, which pays through the run's own
+        //               settlement instead. Paying both would be a double faucet.
+        //   encounter → the literal false. An authored encounter (dungeon Rare
+        //               Beast Seal, admin-authored VN pet battle) decides an
+        //               OUTCOME; its rewards belong to the dungeon run's own
+        //               settlement and the event's completion.
         const seals = [...src.matchAll(/rewardEligible: ([^,\n]+)/g)].map((m) => m[1].trim());
-        assert.deepEqual(seals, ['false', '!hollowGate'], 'only these two seal forms may exist, in this order');
+        assert.deepEqual(seals, ['false', '!hollowGate', 'false'], 'only these three seal forms may exist, in this order');
 
         const practiceAt = indexOfOrFail("action === 'start'");
         const arenaAt = indexOfOrFail("action === 'arena'");
+        const encounterAt = indexOfOrFail("action === 'encounter'");
         const paidSeal = src.indexOf('rewardEligible: !hollowGate');
         const practiceSeal = src.indexOf('rewardEligible: false');
-        assert.ok(paidSeal > arenaAt, 'the paying seal belongs to the arena entry');
+        const encounterSeal = src.indexOf('rewardEligible: false', arenaAt);
+        assert.ok(paidSeal > arenaAt && paidSeal < encounterAt, 'the paying seal belongs to the arena entry');
         assert.ok(practiceSeal > practiceAt && practiceSeal < arenaAt, 'the practice entry seals itself unpaid');
+        assert.ok(encounterSeal > encounterAt, 'the authored-encounter entry seals itself unpaid');
+
+        // An authored encounter must never take the opponent from the request —
+        // that is the whole reason it took this long to port. It names WHICH
+        // authored fight it is in; the server rebuilds the opponent from its own
+        // content. A stat, level or kit read off the body here would reopen the
+        // surface the mint-token pattern exists to close.
+        const encounterBlock = src.slice(encounterAt, src.indexOf('const sessionIdRaw', encounterAt));
+        for (const forbidden of ['body.hp', 'body.attack', 'body.defense', 'body.speed', 'body.level', 'body.enemy', 'body.opponent', 'body.tier']) {
+            assert.equal(encounterBlock.includes(forbidden), false, `the authored entry must not read ${forbidden}`);
+        }
+        assert.ok(/buildDungeonSealBeast|buildAuthoredEventBeast/.test(encounterBlock),
+            'its opponent comes from the server-side authored-encounter builders');
+        assert.ok(encounterBlock.includes('dungeonSealRunIssue'),
+            'and a dungeon seal is gated on the player\'s own active run');
 
         // `hollowGate` must be SERVER-derived — built only after the run token
         // and combat binding validate — never lifted from the body. A client
         // can therefore make itself ineligible (harmless) but can never argue
         // itself INTO a payout.
-        const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
+        const arenaBlock = src.slice(arenaAt, encounterAt);
         assert.ok(/hollowGate = \{ runId, petIds/.test(arenaBlock), 'the binding is constructed server-side');
         assert.ok(arenaBlock.includes('validateHollowGatePetClaim'), 'and only after the run claim validates');
     });
@@ -100,7 +121,7 @@ describe('showdown.ts wires practice as unpaid', () => {
         // SERVER builds. A body-supplied tier would let a player dial the
         // opposition down and farm the faucet at full price.
         const arenaAt = indexOfOrFail("action === 'arena'");
-        const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
+        const arenaBlock = src.slice(arenaAt, indexOfOrFail("action === 'encounter'"));
         assert.equal(/body\.tier/.test(arenaBlock), false, 'the arena entry must not read a tier from the body');
         assert.ok(/const tier: ShowdownTier = avgLevel/.test(arenaBlock), 'its tier is derived from the team brought');
         assert.ok(arenaBlock.includes('DAILY_ARENA_WIN_CAP'), 'it checks the daily cap BEFORE the fight, not only at settlement');

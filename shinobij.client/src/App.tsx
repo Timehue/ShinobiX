@@ -667,7 +667,6 @@ import {
     applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
-    scaleEventPetOpponent,
 } from "./lib/pet-balance";
 import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
 export { gainPetXp, collectPetTraining };
@@ -705,7 +704,9 @@ function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
 function normalizePet(pet: Pet): Pet {
     return normalizePetTemplate(pet, petPool);
 }
-// eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance.
+// eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance,
+// and no longer have a caller: an authored VN pet battle is scaled by the SERVER
+// (api/pet/_authored-encounter.ts), which is a port of those two functions.
 // starterBloodlineOffense moved to ./data/jutsu (imported back above).
 
 // Tag tables + tag-name/effect helpers extracted to ./lib/tags. They are
@@ -6811,9 +6812,8 @@ export default function App() {
                     <DungeonEncounter
                         event={activeDungeonEvent}
                         character={character}
-                        updateCharacter={setCharacter}
                         creatorCards={creatorCards}
-                        editablePets={editablePets}
+                        runToken={activeDungeonRunToken ?? character.activeDungeonRun?.token ?? ""}
                         stage={dungeonStage}
                         pageIndex={dungeonPage}
                         lineIndex={dungeonLine}
@@ -7234,11 +7234,25 @@ export default function App() {
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
-                {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
-                    const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
-                    const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);
-                    return <DungeonPetBattle character={character} updateCharacter={setCharacter} editablePets={editablePets} enemyOverride={enemyPet} enemyOwner={pendingEventEncounter.event.name} onWin={completeEventEncounter} onLeave={leaveEventEncounter} sharedImages={sharedImages} />;
-                })()}
+                {/* An authored VN pet battle. The opponent is no longer scaled here:
+                    the server reads the same authored row out of its own copy of the
+                    event and builds the beast from it, so this passes a SELECTOR
+                    (which authored fight) rather than a statline. */}
+                {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (
+                    <DungeonPetBattle
+                        character={character}
+                        encounter={{
+                            kind: "story-event",
+                            eventId: pendingEventEncounter.event.id,
+                            petId: pendingEventEncounter.battle?.petId ?? "",
+                            difficulty: pendingEventEncounter.battle?.difficulty,
+                        }}
+                        enemyOwner={pendingEventEncounter.event.name}
+                        onWin={completeEventEncounter}
+                        onLeave={leaveEventEncounter}
+                        sharedImages={sharedImages}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleEnd={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} />}

@@ -220,6 +220,11 @@ honestly left.
 | Pet Ladder (coliseum) | scored + `coliseumScript` from the same inputs |
 | Arena exhibition | new **paid** `arena` entry: arena-matched, cap checked up front |
 | Hollow Gate | arena bout bound to the run, minting the identical `hg-pet-result` receipt |
+| Dungeon seal + authored VN pet battles | `encounter` entry: the server rebuilds the opponent from a selector (§9) |
+
+**Read §8 before trusting this table.** Every row here is true of the SERVER.
+Three of them have no client wiring, so the fight a player actually plays is
+still the legacy engine.
 
 Format ruling applied: every war duel is **2v2 with a 2-pet bench**
 (`WAR_DUEL_FORMAT`), teams filled from the owner's roster behind the champion
@@ -232,23 +237,83 @@ counters). Same engine behind both.
 
 ### NOT done — and why each is non-trivial
 
-1. **`DungeonPetBattle`** (story/event encounters + the dungeon seal). Still a
-   client-local duel. The blocker is not effort but TRUST SHAPE: it fights an
-   `enemyOverride` supplied by the caller (authored story data), and Showdown
-   has no entry that accepts a caller-specified opponent. Adding one means a
-   server endpoint taking opponent stats from the client — a new surface that
-   needs its own authority design (authored-encounter ids resolved server-side,
-   not raw stats over the wire). These fights never touch
-   `battle-start`/`battle-result`; they report through an `onWin` callback, so
-   this is a PRESENTATION port, not a reward one.
+1. ~~**`DungeonPetBattle`**~~ — **DONE 2026-08-14.** See §9 below.
 
 2. **`PetArena`'s legacy machinery.** `startBattle`, `mintCasualPetBattleToken`
    and `reportPetBattle` still serve the PvP and party paths woven through a
-   2,570-line screen. The paid AI exhibition has moved to the Coliseum entry;
-   these remain for player-vs-player.
+   2,570-line screen. **This item is bigger than this line made it sound — see
+   §8, which is what the screen actually still runs.**
 
-3. **Deleting the sim.** Only safe once 1 and 2 land. `api/pet-ladder/_duel-sim.ts`
-   is ALREADY orphaned (no live importer) and can go first, independently.
+3. **Deleting the sim.** Only safe once 1 and 2 land.
+   ~~`api/pet-ladder/_duel-sim.ts` is ALREADY orphaned~~ — **deleted 2026-08-14**
+   (`256e64232`), along with `_walkmask.ts`, its only reader. The rest of the
+   deletion still waits on item 2.
+
+---
+
+## 8. What `PetArena.tsx` still runs — read this before planning item 2
+
+Written 2026-08-14 after tracing every branch of `startBattle`. The "Done" table
+in §7 above is accurate about the **server**, and that is the trap: three of its
+rows have **no client wiring**, so what a player actually plays is still the
+legacy engine. `PetArena.tsx` imports nothing from `pet-showdown-api` — only the
+daily-cap constant.
+
+| Path | Server | Client |
+|---|---|---|
+| Casual AI 1v1 / 2v2 party | Coliseum entry exists (`arena`) | PetArena still runs `runPetDuelCinematic` / `runPetPartyDuelCinematic` |
+| Hollow Gate pet duel | `pet/showdown` `arena` accepts a `hollowGate` binding and mints the identical `hg-pet-result` receipt | **NOTHING CALLS IT.** `startArenaBout` has no `hollowGate` parameter, and `hollow-gate-app-flow.ts` `launchPetFight` still sends the player to `petArena`, which mints a `battle-start` token and fights the legacy sim |
+| Ranked 1v1 | genuinely server-authoritative — `ranked-start` decides the winner at mint (`_ranked-engine.ts` `resolveWarDuel`, `showdown-ranked-v2`) and settlement pays from the sealed resolution | PetArena still runs `runPetDuelCinematic` locally and shows ITS result. The two engines can disagree, so a player can watch a victory and be rated a loss |
+| PvP / clan-war 1v1 and 2v2 | not ported | client-resolved, both clients deriving the same fight from the seed |
+
+So item 2 is four ports, not one, and they are not equally hard:
+
+- **Hollow Gate** is the cheapest by far — the server entry, its receipt and its
+  reward-boundary test already exist and are green. The work is entirely client:
+  give `startArenaBout` the binding, host `PetShowdownBattle` on the shrine
+  screen, and settle the Gate with the session id as the receipt.
+- **Ranked** is a PRESENTATION-only port and should arguably jump the queue: the
+  fix is to play the server's decided script instead of re-simulating, which
+  removes a live can-disagree bug rather than moving balance.
+- **Casual AI** duplicates what the Coliseum entry already does; retiring
+  PetArena's own AI exhibition is mostly deletion.
+- **PvP / clan party** is the real remainder, and needs either live PvP on the
+  engine (`session.pvp` + `turnDeadlineAt` exist and are dormant) or headless
+  resolution both clients read back.
+
+---
+
+## 9. The authored-encounter port (item 1) — how the trust problem was solved
+
+The blocker was never effort: `DungeonPetBattle` fights an opponent the caller
+supplies (a random rare beast for the relic dungeon's third seal, an
+admin-authored boss for a VN choice), and Showdown had no entry that would take
+one. Posting the opponent's stats would have been a new surface of exactly the
+kind this repo forbids.
+
+The answer is that the request carries a **selector, never an opponent**:
+
+- **Dungeon Rare Beast Seal** — the client sends its own server-minted dungeon
+  RUN TOKEN. The server checks the run is the caller's, checks its Warden is
+  already down (seal 3 behind seal 1 — an ordering only the dungeon screen's
+  stage machine used to enforce), and derives the beast from
+  `hash(player:runToken)` over the server pet catalog. A reload cannot reroll it.
+- **Authored VN pet battle** — the client sends the event id plus the authored
+  `(petId, difficulty)` pair naming which choice it is standing in. The server
+  reads that event out of `save:admin1` / `save:admin2` / published content
+  (`api/_admin-event-catalog.ts`, the same dual-read shape as the AI catalog),
+  finds the authored row, and builds the boss from it.
+
+Both scale with ports of the client formulas (`scaleEventPetOpponent` +
+`capPetStats`, and the dungeon boost block) so the ENGINE is the only thing that
+changed. Both seal `rewardEligible` false: these bouts decide an OUTCOME, and the
+rewards stay where they were — the dungeon run's own settle endpoint and the
+event's completion. Format is 1v1 with **no bench**, because handing the player
+three pets against a single authored boss would move the difficulty far more
+than the engine swap does.
+
+The reward-boundary test now pins three seal forms rather than two, and asserts
+the authored entry reads no stat, level or tier off the body.
 
 ### Guardrails added along the way, worth keeping
 
