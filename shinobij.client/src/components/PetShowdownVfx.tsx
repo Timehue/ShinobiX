@@ -259,13 +259,17 @@ interface FloorTakeover {
     spin: number;
     /** Growth over life — spreading cracks, rising flood. */
     grow: number;
+    /** Multiply tint over the painted disc — the reference water reads DEEP
+     *  blue under its foam, not turquoise; a darkening tint buys that depth
+     *  without regenerating the art. */
+    tint?: string;
 }
 
 const FLOOR_TAKEOVERS: Record<string, FloorTakeover> = {
     // Scale 30: the square plane's edge midpoints land at r15, past the r14
     // floor circle, so the painted disc's own soft fade is the only edge the
     // camera can ever see (26 left a straight texture cut on the near floor).
-    Water: { sprite: "floor-water", scale: 30, opacity: 0.9, spin: 0.06, grow: 1.06 },
+    Water: { sprite: "floor-water", scale: 30, opacity: 0.92, spin: 0.06, grow: 1.06, tint: "#9cc4de" },
     Fire: { sprite: "floor-lava", scale: 30, opacity: 0.88, spin: 0, grow: 1.1 },
     Wind: { sprite: "floor-wind", scale: 30, opacity: 0.72, spin: 0.45, grow: 1.08 },
     Earth: { sprite: "floor-earth", scale: 30, opacity: 0.92, spin: 0, grow: 1.12 },
@@ -333,7 +337,7 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
     const group = useRef<THREE.Group>(null);
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
-    useFrame(() => {
+    useFrame((state) => {
         if ((!textures && !sprite) || !group.current || !mesh.current || !mat.current) return;
         const life = (performance.now() - spawn.startedAt) / spawn.durationMs;
         // The layer's own clock starts after its stagger and fills its `dur`
@@ -374,7 +378,12 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
         const s = (1 + (layer.grow - 1) * ease) * flick;
         mesh.current.scale.set(layer.flip ? -s : s, s, 1);
         mesh.current.rotation.z = layer.spin * t * Math.PI * 2 + (layer.sway ? Math.sin(t * 11) * layer.sway : 0);
-        mat.current.opacity = t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1;
+        // NEAR-FADE: an action-camera cut can land INSIDE a big piece, where a
+        // textured plane reads as a hard-edged pane of glass. Pieces dissolve
+        // as the lens closes in, so no cut can ever show a plane's edge.
+        const camD = state.camera.position.distanceTo(group.current.position);
+        const nearFade = Math.min(1, Math.max(0, (camD - 1.6) / 2.4));
+        mat.current.opacity = (t < 0.14 ? t / 0.14 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * nearFade;
     });
     if (!textures && !sprite) return null;
     // Hero sprites face the lens FULLY (no axis lock): the action camera's high
@@ -433,7 +442,7 @@ function FloorTakeoverMesh({ spawn, floor, presence }: { spawn: SetPieceSpawn; f
     return (
         <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]} visible={false}>
             <planeGeometry args={[1, 1]} />
-            <meshBasicMaterial ref={mat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+            <meshBasicMaterial ref={mat} color={floor.tint ?? "#ffffff"} transparent opacity={0} depthWrite={false} toneMapped={false} />
         </mesh>
     );
 }
