@@ -26,7 +26,9 @@ import {
 
 export const ERA_STATE_KEY = 'game:era-state';
 const contribKey = (m: EraMetric) => `era:contrib:${m}`;
+const contributionReceiptKey = (m: EraMetric) => `era:contrib-receipts:${m}`;
 const idempotentContribKey = (m: EraMetric) => `era:contrib-idempotent:${m}`;
+const RECEIPT_BACKED_METRICS = new Set<EraMetric>(['legaciesAwakened']);
 const triggerKey = (id: string) => `era:trigger:${id}`;
 
 type IdempotentEraContributionState = {
@@ -56,27 +58,25 @@ function parseIdempotentContributions(value: unknown): IdempotentEraContribution
     const compactedTotal = Number(raw.compactedTotal);
     const pending = Array.isArray(raw.pending) ? raw.pending : [];
     const settled = Array.isArray(raw.settled) ? raw.settled : [];
+    const validPending = pending.every((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+        && (entry as Record<string, unknown>).version === 1
+        && typeof (entry as Record<string, unknown>).receiptId === 'string'
+        && Boolean((entry as Record<string, unknown>).receiptId)
+        && Number.isSafeInteger(Number((entry as Record<string, unknown>).amount))
+        && Number((entry as Record<string, unknown>).amount) > 0
+        && Number((entry as Record<string, unknown>).appliedAt) > 0);
+    const validSettled = settled.every((entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+        && (entry as Record<string, unknown>).version === 1
+        && typeof (entry as Record<string, unknown>).receiptId === 'string'
+        && Boolean((entry as Record<string, unknown>).receiptId)
+        && Number.isSafeInteger(Number((entry as Record<string, unknown>).amount))
+        && Number((entry as Record<string, unknown>).amount) > 0
+        && Number((entry as Record<string, unknown>).appliedAt) > 0
+        && Number((entry as Record<string, unknown>).acknowledgedAt) > 0);
     if (raw.version !== 1 || !Number.isSafeInteger(compactedTotal) || compactedTotal < 0
         || pending.length > MAX_PENDING_IDEMPOTENT_CONTRIBUTIONS
         || settled.length > MAX_SETTLED_IDEMPOTENT_CONTRIBUTIONS
-        || pending.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry)
-            || (entry as Record<string, unknown>).version !== 1
-            || typeof (entry as Record<string, unknown>).receiptId !== 'string'
-            || !(entry as Record<string, unknown>).receiptId
-            || !Number.isSafeInteger(Number((entry as Record<string, unknown>).amount))
-            || Number((entry as Record<string, unknown>).amount) <= 0
-            || !Number.isFinite(Number((entry as Record<string, unknown>).appliedAt))
-            || Number((entry as Record<string, unknown>).appliedAt) <= 0)
-        || settled.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry)
-            || (entry as Record<string, unknown>).version !== 1
-            || typeof (entry as Record<string, unknown>).receiptId !== 'string'
-            || !(entry as Record<string, unknown>).receiptId
-            || !Number.isSafeInteger(Number((entry as Record<string, unknown>).amount))
-            || Number((entry as Record<string, unknown>).amount) <= 0
-            || !Number.isFinite(Number((entry as Record<string, unknown>).appliedAt))
-            || Number((entry as Record<string, unknown>).appliedAt) <= 0
-            || !Number.isFinite(Number((entry as Record<string, unknown>).acknowledgedAt))
-            || Number((entry as Record<string, unknown>).acknowledgedAt) <= 0)) {
+        || !validPending || !validSettled) {
         throw new Error('era-idempotent-contribution-corrupt');
     }
     const parsed: IdempotentEraContributionState = {
@@ -96,10 +96,8 @@ function parseIdempotentContributions(value: unknown): IdempotentEraContribution
             acknowledgedAt: Number((entry as Record<string, unknown>).acknowledgedAt),
         })),
     };
-    const receiptIds = [...parsed.pending, ...parsed.settled].map((entry) => entry.receiptId);
-    if (new Set(receiptIds).size !== receiptIds.length) {
-        throw new Error('era-idempotent-contribution-corrupt');
-    }
+    const ids = [...parsed.pending, ...parsed.settled].map((entry) => entry.receiptId);
+    if (new Set(ids).size !== ids.length) throw new Error('era-idempotent-contribution-corrupt');
     return parsed;
 }
 
@@ -128,9 +126,20 @@ export async function getEraState(): Promise<EraState> {
 export async function readEraContributions(): Promise<Record<EraMetric, number>> {
     const out = {} as Record<EraMetric, number>;
     for (const m of ERA_METRICS) {
-        const legacyTotal = Math.max(0, Math.floor(Number(await kv.get(contribKey(m))) || 0));
+        const raw = Math.max(0, Math.floor(Number(await kv.get(contribKey(m))) || 0));
+        // Receipt-backed contributions use one hash field per authoritative
+        // settlement. HSET is atomic at the field level, so a retry overwrites
+        // the same field rather than incrementing twice, and a crash cannot
+        // strand a pre-claimed marker ahead of the actual contribution.
+        const receiptMap = RECEIPT_BACKED_METRICS.has(m)
+            ? await kv.hgetall<Record<string, unknown>>(contributionReceiptKey(m))
+            : null;
+        const receipted = Object.values(receiptMap ?? {}).reduce<number>(
+            (sum, value) => sum + Math.max(0, Math.floor(Number(value) || 0)),
+            0,
+        );
         const exact = parseIdempotentContributions(await kv.get(idempotentContribKey(m)));
-        out[m] = legacyTotal + exact.compactedTotal
+        out[m] = raw + receipted + exact.compactedTotal
             + exact.pending.reduce((sum, entry) => sum + entry.amount, 0);
     }
     return out;
@@ -165,38 +174,55 @@ export async function bumpEraContribution(metric: EraMetric, n = 1): Promise<voi
     }
 }
 
-/** Atomic run-idempotent contribution lane used by crash-recoverable sagas. */
-export async function bumpEraContributionOnce(metric: EraMetric, receiptId: string, n = 1): Promise<boolean> {
-    if (!legacyEnabled() || !receiptId || !Number.isSafeInteger(n) || n <= 0) return false;
-    const key = idempotentContribKey(metric);
-    return withKvLock(key, async () => {
-        const expected = await kv.get<unknown>(key);
-        const state = parseIdempotentContributions(expected);
-        if ([...state.pending, ...state.settled].some((entry) => entry.receiptId === receiptId)) return false;
-        if (state.pending.length >= MAX_PENDING_IDEMPOTENT_CONTRIBUTIONS) {
-            throw new Error('era-idempotent-contribution-pending-overflow');
-        }
-        const next: IdempotentEraContributionState = {
-            ...state,
-            pending: [...state.pending, { version: 1, receiptId, amount: n, appliedAt: Date.now() }],
-        };
-        let writeError: unknown;
-        let swapped = false;
-        try {
-            swapped = await kv.compareSet(key, expected ?? null, next);
-        } catch (error) {
-            writeError = error;
-        }
-        const readback = parseIdempotentContributions(await kv.get(key));
-        if (swapped || [...readback.pending, ...readback.settled].some((entry) => entry.receiptId === receiptId)) return true;
-        if (writeError) throw writeError;
-        throw new Error('era-idempotent-contribution-write-conflict');
-    }, { failClosed: true });
+/** Exact-once contribution for a durable server settlement. The receipt and
+ * value are the same atomic hash-field write; unlike NX-then-INCR there is no
+ * crash window that can either lose or double-count the contribution. */
+export async function bumpEraContributionOnce(
+    metric: EraMetric,
+    receiptId: string,
+    n = 1,
+): Promise<boolean> {
+    if (!legacyEnabled() || n <= 0) return true;
+    const id = receiptId.trim().slice(0, 200);
+    if (!id) return false;
+    if (!RECEIPT_BACKED_METRICS.has(metric)) {
+        const key = idempotentContribKey(metric);
+        return withKvLock(key, async () => {
+            const expected = await kv.get<unknown>(key);
+            const state = parseIdempotentContributions(expected);
+            if ([...state.pending, ...state.settled].some((entry) => entry.receiptId === id)) return false;
+            if (state.pending.length >= MAX_PENDING_IDEMPOTENT_CONTRIBUTIONS) {
+                throw new Error('era-idempotent-contribution-pending-overflow');
+            }
+            const next: IdempotentEraContributionState = {
+                ...state,
+                pending: [...state.pending, { version: 1, receiptId: id, amount: n, appliedAt: Date.now() }],
+            };
+            let writeError: unknown;
+            let swapped = false;
+            try {
+                swapped = await kv.compareSet(key, expected ?? null, next);
+            } catch (error) {
+                writeError = error;
+            }
+            const readback = parseIdempotentContributions(await kv.get(key));
+            if (swapped || [...readback.pending, ...readback.settled].some((entry) => entry.receiptId === id)) return true;
+            if (writeError) throw writeError;
+            throw new Error('era-idempotent-contribution-write-conflict');
+        }, { failClosed: true });
+    }
+    try {
+        await kv.hset(contributionReceiptKey(metric), { [id]: Math.max(1, Math.floor(n)) });
+        return true;
+    } catch (err) {
+        console.error(`[era] receipt contribution failed (${metric}):`, err instanceof Error ? err.message : err);
+        return false;
+    }
 }
 
-/** Compact an applied receipt only after the owning settlement stamps success. */
+/** Compact a cross-row contribution only after its owning save receipt lands. */
 export async function acknowledgeEraContribution(metric: EraMetric, receiptId: string): Promise<void> {
-    if (!legacyEnabled()) return;
+    if (!legacyEnabled() || RECEIPT_BACKED_METRICS.has(metric)) return;
     const key = idempotentContribKey(metric);
     await withKvLock(key, async () => {
         const expected = await kv.get<unknown>(key);
@@ -207,10 +233,8 @@ export async function acknowledgeEraContribution(metric: EraMetric, receiptId: s
             version: 1,
             compactedTotal: state.compactedTotal + receipt.amount,
             pending: state.pending.filter((entry) => entry.receiptId !== receiptId),
-            settled: [{
-                ...receipt,
-                acknowledgedAt: Date.now(),
-            }, ...state.settled].slice(0, MAX_SETTLED_IDEMPOTENT_CONTRIBUTIONS),
+            settled: [{ ...receipt, acknowledgedAt: Date.now() }, ...state.settled]
+                .slice(0, MAX_SETTLED_IDEMPOTENT_CONTRIBUTIONS),
         };
         const swapped = await kv.compareSet(key, expected ?? null, next);
         if (swapped) return;
@@ -302,8 +326,8 @@ export async function getEraViews(): Promise<EraView[]> {
 export async function recordEraTrigger(
     kind: EraTriggerKind,
     credited: { player: string; village?: string },
-): Promise<void> {
-    if (!legacyEnabled()) return;
+): Promise<boolean> {
+    if (!legacyEnabled()) return true;
     try {
         const state = await getEraState();
         for (const def of ERA_DEFS) {
@@ -315,8 +339,10 @@ export async function recordEraTrigger(
             await kv.set(triggerKey(def.id), { player: credited.player, village: credited.village, ts: Date.now() } satisfies EraTriggerRecord, { nx: true });
             await checkEraUnlocks();
         }
+        return true;
     } catch (err) {
         console.error('[era] trigger record failed:', err instanceof Error ? err.message : err);
+        return false;
     }
 }
 

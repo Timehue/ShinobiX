@@ -21,6 +21,7 @@ import {
 import { bumpEraContribution } from '../_era.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 type FavorRecord = {
     id: string;
@@ -47,7 +48,7 @@ function cleanShortText(v: unknown, fallback: string): string {
 }
 
 function sectorFrom(v: unknown): number {
-    return Math.max(1, Math.min(60, int(v) || 1));
+    return Math.max(1, Math.min(MAX_WILD_SECTOR, int(v) || 1));
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -110,7 +111,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         boneCharms: num(char.boneCharms) + offer.boneCharms,
                     };
                     const used = withWandererUseState(spent, wandererId, now, sector);
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: used.character }), rec));
+                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return {
                         status: 200,
                         body: {
@@ -119,6 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             totals: { ryo: used.character.ryo, boneCharms: used.character.boneCharms },
                             cooldownUntil: used.cooldownUntil,
                             moveToSector: used.moveToSector,
+                            _saveVersion: Number(nextRecord._saveVersion ?? 0),
                         },
                     };
                 }
@@ -143,7 +146,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         stamina: Math.max(num(char.stamina), num(char.maxStamina)),
                     };
                     const used = withWandererUseState(healed, wandererId, now, sector);
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: used.character }), rec));
+                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return {
                         status: 200,
                         body: {
@@ -157,6 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             },
                             cooldownUntil: used.cooldownUntil,
                             moveToSector: used.moveToSector,
+                            _saveVersion: Number(nextRecord._saveVersion ?? 0),
                         },
                     };
                 }
@@ -181,7 +186,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 await kv.set(favorKey, favor, { ex: FAVOR_TTL_SECONDS });
                 const used = withWandererUseState({ ...char, activeWandererFavor: favor }, wandererId, now, sector);
-                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: used.character }), rec));
+                const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
+                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
                     status: 200,
                     body: {
@@ -189,6 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         favor,
                         cooldownUntil: used.cooldownUntil,
                         moveToSector: used.moveToSector,
+                        _saveVersion: Number(nextRecord._saveVersion ?? 0),
                     },
                 };
             }, { failClosed: true });
@@ -213,15 +220,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
                 if (!favor || favor.id !== favorId) {
+                    if (!char.activeWandererFavor) {
+                        return { status: 200, body: { ok: false, reason: 'none', _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    }
                     const cleared = { ...char, activeWandererFavor: null };
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: cleared }), rec));
-                    return { status: 200, body: { ok: false, reason: 'none' } };
+                    const nextRecord = bumpSaveVersion({ ...rec, character: cleared });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                    return { status: 200, body: { ok: false, reason: 'none', _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                 }
                 if (num(favor.expiresAt) <= now) {
                     await kv.del(favorKey).catch(() => undefined);
                     const cleared = { ...char, activeWandererFavor: null };
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: cleared }), rec));
-                    return { status: 200, body: { ok: false, reason: 'expired' } };
+                    const nextRecord = bumpSaveVersion({ ...rec, character: cleared });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                    return { status: 200, body: { ok: false, reason: 'expired', _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                 }
                 if (sector !== favor.targetSector) {
                     return { status: 200, body: { ok: false, reason: 'wrong-sector', favor } };
@@ -234,13 +246,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
                     activeWandererFavor: null,
                 };
-                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                const nextRecord = bumpSaveVersion({ ...rec, character: updated });
+                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
                     status: 200,
                     body: {
                         ok: true,
                         reward,
                         totals: { ryo: updated.ryo, boneCharms: updated.boneCharms },
+                        _saveVersion: Number(nextRecord._saveVersion ?? 0),
                     },
                 };
             }, { failClosed: true });

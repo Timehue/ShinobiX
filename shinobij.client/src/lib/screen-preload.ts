@@ -24,6 +24,7 @@
  * runs on click).
  */
 import type { Screen } from "../types/core";
+import { isStoryContentVillage } from "./story-content-contract";
 
 // nav Screen name → the module App.tsx lazy-loads that screen from. Only the
 // screens reachable from the nav menus are listed; anything else is a no-op.
@@ -74,7 +75,12 @@ export function canPreloadScreen(screen: Screen): boolean {
  * Best-effort warm of a screen's lazy chunk. Safe to call on every pointer-down;
  * a repeat call after the chunk is cached is a cheap no-op. Never throws.
  */
-export function preloadScreen(screen: Screen): void {
+export function preloadScreen(screen: Screen, storyVillage?: string): void {
+    if ((screen === "storyHall" || screen === "storyBoss") && storyVillage && isStoryContentVillage(storyVillage)) {
+        // Start the validated payload beside the screen chunk. Import and fetch
+        // dedupe with the eventual Suspense read; neither blocks other routes.
+        void import("./story-content-loader").then(({ preloadStoryContent }) => preloadStoryContent(storyVillage)).catch(() => undefined);
+    }
     const load = SCREEN_PRELOADERS[screen];
     if (!load || preloadPromises.has(screen)) return;
     try {

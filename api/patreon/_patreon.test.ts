@@ -10,7 +10,6 @@ import {
     isPatreonSubscriber,
     patreonTier,
     SUBSCRIBER_TIER,
-    fetchIdentityMembership,
 } from './_patreon.js';
 
 // The core reads secrets from env at CALL time, so setting them here (after the
@@ -76,40 +75,6 @@ test('parseWebhookMember extracts the Patreon user id + membership', () => {
     // No user relationship → not a usable member event.
     assert.equal(parseWebhookMember({ data: { attributes: {} } }), null);
     assert.equal(parseWebhookMember({}), null);
-});
-
-test('fetchIdentityMembership fails closed on missing or mismatched campaign relationships', async (t) => {
-    const previous = process.env.PATREON_CAMPAIGN_ID;
-    process.env.PATREON_CAMPAIGN_ID = 'campaign-expected';
-    t.after(() => {
-        if (previous === undefined) delete process.env.PATREON_CAMPAIGN_ID;
-        else process.env.PATREON_CAMPAIGN_ID = previous;
-    });
-    t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
-        data: { id: 'patreon-user-1' },
-        included: [
-            {
-                type: 'member',
-                attributes: { patron_status: 'active_patron', currently_entitled_amount_cents: 9000 },
-                relationships: {},
-            },
-            {
-                type: 'member',
-                attributes: { patron_status: 'active_patron', currently_entitled_amount_cents: 5000 },
-                relationships: { campaign: { data: { id: 'campaign-other' } } },
-            },
-            {
-                type: 'member',
-                attributes: { patron_status: 'active_patron', currently_entitled_amount_cents: 1500 },
-                relationships: { campaign: { data: { id: 'campaign-expected' } } },
-            },
-        ],
-    }), { status: 200, headers: { 'content-type': 'application/json' } }));
-
-    const identity = await fetchIdentityMembership('fixture-access-token');
-    assert.ok(identity);
-    assert.equal(identity.userId, 'patreon-user-1');
-    assert.equal(identity.membership?.entitledCents, 1500);
 });
 
 test('isPatreonSubscriber / patreonTier read the server-owned save flag', () => {

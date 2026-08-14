@@ -11,8 +11,8 @@ import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
 import { sectorExitById } from '../shared/sector-links';
+import { SHRINE_DEFS } from '../shared/shrines';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth';
-import { petArenaStaticIsolationPlugin } from './build/pet-arena-static-graph';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
@@ -380,7 +380,6 @@ setInterval(() => {
 export default defineConfig({
     plugins: [
         plugin(),
-        petArenaStaticIsolationPlugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({
             // Skip SVGs (already tiny, svgo isn't installed) and WebP. The
@@ -390,10 +389,7 @@ export default defineConfig({
             // Pet QA turnarounds and generation proofs are already final review
             // artifacts. Processing thousands of them concurrently can exhaust
             // Windows' file-handle limit; none are shipped by the live build.
-            // Jutsu-FX frames are pixel art. They are emitted under assets/fx
-            // (see assetFileNames below) and must remain byte-exact instead of
-            // going through the decorative-art PNG palette/quality pass.
-            exclude: /(?:[\\/]pet-models[\\/](?:qa|roster-concepts|proofs|sources|roster-references)[\\/])|(?:^|[\\/])assets[\\/]fx[\\/]|(?:\.(?:svg|webp)$)/i,
+            exclude: /(?:[\\/]pet-models[\\/](?:qa|roster-concepts|proofs|sources|roster-references)[\\/])|(?:\.(?:svg|webp)$)/i,
             // Compress PNGs — background images drop from ~2.5–3.5 MB to
             // ~250–600 KB. Quality dropped from 78 → 70: at 70 the visual
             // difference on decorative game art is imperceptible, but
@@ -550,16 +546,9 @@ export default defineConfig({
                 type DevSign = { id: string; name: string; tile: number; text: string; at: number; sparks: number; sparkedBy: string[] };
                 const devSigns = new Map<number, DevSign[]>();
                 const devShrines = new Map<string, { total: number; weekTotal: number; topWeek: { name: string; amount: number }[] }>();
-                // Keyed by the 2026-07 region-block sector numbers (shared/shrines.ts
-                // SHRINE_DEFS is the source of truth — keep these in sync).
-                const DEV_SHRINE_SECTORS: Record<number, { id: string; name: string; theme: string; village?: string; region: string; lore: string; blessing: string }> = {
-                    15: { id: 'heartwood', name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village', region: 'the Ashen Leaf Deepwood', lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.', blessing: 'May your roots hold and your leaves reach.' },
-                    4: { id: 'tide', name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village', region: 'the Stormveil Heights', lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.', blessing: 'May the tide carry your burdens out.' },
-                    31: { id: 'frostveil', name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village', region: 'the Frostreach Shelf', lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.', blessing: 'May the cold keep what you cherish.' },
-                    23: { id: 'moonwell', name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village', region: 'the Moonshadow Wilds', lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.', blessing: 'May the moon light the path you hide.' },
-                    56: { id: 'hollowgate', name: 'Hollow Warden Shrine', theme: 'hollow-gate', region: 'the Pilgrim’s Approach', lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.', blessing: 'May the Gate stay shut behind you.' },
-                    44: { id: 'ancients', name: 'Shrine of the Ancients', theme: 'ancients', region: 'the Watchruin Ridge', lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.', blessing: 'May the Ancients find their path in you.' },
-                };
+                const DEV_SHRINE_SECTORS = Object.fromEntries(
+                    SHRINE_DEFS.map(({ sector, ...definition }) => [sector, definition]),
+                );
                 const devShrineTier = (total: number) => total >= 2_000_000 ? 4 : total >= 500_000 ? 3 : total >= 100_000 ? 2 : total >= 25_000 ? 1 : 0;
                 const shrineView = (sector: number) => {
                     const def = DEV_SHRINE_SECTORS[sector];
@@ -1060,6 +1049,9 @@ export default defineConfig({
         }
     },
     build: {
+        // Retained build metadata lets the size gate measure each lazy route's
+        // real static closure instead of guessing from chunk filenames.
+        manifest: true,
         // runtimePublicAssetsPlugin performs the filtered copy. Leaving Vite's
         // blanket copy enabled would ship multi-gigabyte pet authoring sources.
         copyPublicDir: false,
@@ -1076,18 +1068,6 @@ export default defineConfig({
                 propertyReadSideEffects: false,
             },
             output: {
-                assetFileNames(assetInfo) {
-                    const isJutsuFxFrame = assetInfo.originalFileNames.some((fileName) =>
-                        /(?:^|\/)assets\/fx\//.test(fileName.replace(/\\/g, '/')),
-                    );
-                    return isJutsuFxFrame
-                        ? 'assets/fx/[name]-[hash][extname]'
-                        : 'assets/[name]-[hash][extname]';
-                },
-                // Oxc's final bundle pass removes production-only console calls
-                // and catches cross-module simplifications the per-module pass
-                // cannot see. Runtime error reporting remains owned by Sentry.
-                minify: { compress: { dropConsole: true }, mangle: true, codegen: true },
                 // Pull React + ReactDOM into their own vendor chunk so they
                 // can be cached independently of app code. The app bundle
                 // changes constantly; React itself rarely does, so users

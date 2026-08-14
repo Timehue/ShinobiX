@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { isDeepStrictEqual } from 'node:util';
 import { withKvLock } from '../_lock.js';
 import { kv, type KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
@@ -8,7 +7,6 @@ export const PET_SANCTUARY_SCHEMA_VERSION = 1;
 export const PET_SANCTUARY_PAGE_SIZE = 24;
 export const PET_SANCTUARY_LIST_LIMIT = 24;
 export const PET_SANCTUARY_LIST_MAX_LIMIT = 48;
-const PET_SANCTUARY_REMOVAL_REPLAY_TTL_SECONDS = 24 * 60 * 60;
 
 export type PetSanctuarySource = 'wild' | 'bred' | 'roster';
 
@@ -46,12 +44,6 @@ type PetSanctuaryMeta = {
     total: number;
     lastPage: number;
     revision: number;
-};
-
-type PetSanctuaryRemovalReceipt = {
-    schemaVersion: typeof PET_SANCTUARY_SCHEMA_VERSION;
-    item: PetSanctuaryItem;
-    removedAt: number;
 };
 
 export type PetSanctuaryFilters = {
@@ -92,7 +84,6 @@ export function petSanctuaryToken(playerName: string, petId: string): string {
 
 const petSanctuaryItemKeyFromToken = (playerName: string, token: string) => `${sanctuaryPrefix(playerName)}:item:${token}`;
 const petSanctuaryItemKey = (playerName: string, petId: string) => petSanctuaryItemKeyFromToken(playerName, petSanctuaryToken(playerName, petId));
-const petSanctuaryRemovalKey = (playerName: string, petId: string) => `${sanctuaryPrefix(playerName)}:removed:${petSanctuaryToken(playerName, petId)}`;
 
 function text(value: unknown, max = 96): string {
     return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -145,100 +136,27 @@ async function repairExistingItem(
     store: KvLike,
     playerName: string,
     existing: PetSanctuaryItem,
-    currentPet: Record<string, unknown>,
-    source: PetSanctuarySource,
 ): Promise<PetSanctuaryItem> {
-    const petId = text(currentPet.id);
+    const petId = text(existing.pet?.id);
     if (!petId) return existing;
     const metaKey = petSanctuaryMetaKey(playerName);
     const meta = normalizedMeta(await store.get<PetSanctuaryMeta>(metaKey));
-    const assignedPage = Math.max(1, finiteWhole(existing.page, Math.max(1, meta.lastPage)));
-    const scanLastPage = Math.max(meta.lastPage, assignedPage);
-    const pageNumbers = Array.from({ length: scanLastPage }, (_, index) => index + 1);
-    const rawPages = pageNumbers.length
-        ? await store.mget<[PetSanctuaryPage]>(...pageNumbers.map((page) => petSanctuaryPageKey(playerName, page)))
-        : [];
-    const originalPages = new Map<number, PetSanctuaryPage>();
-    const pages = new Map<number, PetSanctuaryPage>();
-    const originalPetPositions = new Map<number, number>();
-    pageNumbers.forEach((pageNumber, index) => {
-        const normalized = normalizedPage(rawPages[index], pageNumber);
-        const originalPosition = normalized.entries.findIndex((entry) => entry.petId === petId);
-        if (originalPosition >= 0) {
-            originalPetPositions.set(
-                pageNumber,
-                normalized.entries.slice(0, originalPosition).filter((entry) => entry.petId !== petId).length,
-            );
-        }
-        originalPages.set(pageNumber, structuredClone(normalized));
-        pages.set(pageNumber, {
-            ...normalized,
-            // A deterministic item has one index location. Remove every stale
-            // copy first; the current snapshot is inserted exactly once below.
-            entries: normalized.entries.filter((entry) => entry.petId !== petId),
-        });
-    });
-
-    // Normally the item returns to its originally assigned page. If another
-    // deposit filled that page after an interrupted write, use the newest page
-    // with room (or open a new one) instead of creating an oversized page whose
-    // final entry would be truncated by normalizedPage().
-    let pageNumber = assignedPage;
-    if ((pages.get(pageNumber)?.entries.length ?? PET_SANCTUARY_PAGE_SIZE) >= PET_SANCTUARY_PAGE_SIZE) {
-        const newestWithRoom = [...pageNumbers].reverse().find((candidate) =>
-            (pages.get(candidate)?.entries.length ?? PET_SANCTUARY_PAGE_SIZE) < PET_SANCTUARY_PAGE_SIZE,
-        );
-        pageNumber = newestWithRoom ?? scanLastPage + 1;
-    }
-    if (!pages.has(pageNumber)) {
-        const empty = normalizedPage(null, pageNumber);
-        originalPages.set(pageNumber, structuredClone(empty));
-        pages.set(pageNumber, empty);
-    }
-
-    const refreshed: PetSanctuaryItem = {
-        schemaVersion: PET_SANCTUARY_SCHEMA_VERSION,
-        pet: structuredClone(currentPet),
-        page: pageNumber,
-        storedAt: finiteWhole(existing.storedAt),
-        source,
-    };
-    const targetEntries = pages.get(pageNumber)!.entries;
-    const originalPosition = originalPetPositions.get(pageNumber);
-    const insertionPoint = originalPosition === undefined
-        ? targetEntries.length
-        : Math.min(originalPosition, targetEntries.length);
-    targetEntries.splice(insertionPoint, 0, indexEntry(playerName, refreshed.pet, refreshed.storedAt, refreshed.source));
-
-    let changed = !isDeepStrictEqual(existing, refreshed);
-    if (changed) await store.set(petSanctuaryItemKey(playerName, petId), refreshed);
-
-    for (const [candidate, page] of pages) {
-        if (isDeepStrictEqual(originalPages.get(candidate), page)) continue;
-        await store.set(petSanctuaryPageKey(playerName, candidate), page);
-        changed = true;
-    }
-
-    // Metadata is derived from the repaired index rather than incremented from
-    // a possibly stale counter. This closes the lost-ack boundary where item +
-    // page were durable but meta still said total=0, causing list() to hide the
-    // pet and a transfer retry to remove its roster copy.
-    let total = 0;
-    let lastPage = 0;
-    for (const [candidate, page] of pages) {
-        total += page.entries.length;
-        if (page.entries.length) lastPage = Math.max(lastPage, candidate);
-    }
-    if (meta.total !== total || meta.lastPage !== lastPage) changed = true;
-    if (changed) {
+    const pageNumber = Math.max(1, finiteWhole(existing.page, Math.max(1, meta.lastPage)));
+    const pageKey = petSanctuaryPageKey(playerName, pageNumber);
+    const page = normalizedPage(await store.get<PetSanctuaryPage>(pageKey), pageNumber);
+    if (!page.entries.some((entry) => entry.petId === petId)) {
+        page.entries.push(indexEntry(playerName, existing.pet, existing.storedAt, existing.source));
+        await store.set(pageKey, page);
         await store.set(metaKey, {
-            schemaVersion: PET_SANCTUARY_SCHEMA_VERSION,
-            total,
-            lastPage,
+            ...meta,
+            total: meta.total + 1,
+            lastPage: Math.max(meta.lastPage, pageNumber),
             revision: meta.revision + 1,
         } satisfies PetSanctuaryMeta);
+    } else if (pageNumber > meta.lastPage) {
+        await store.set(metaKey, { ...meta, lastPage: pageNumber, revision: meta.revision + 1 } satisfies PetSanctuaryMeta);
     }
-    return refreshed;
+    return existing;
 }
 
 /** Core storage primitive. Callers serialize it with the sanctuary meta lock. */
@@ -254,7 +172,7 @@ export async function storePetInSanctuaryCore(
     if (!playerName || !petId) throw new Error('invalid-sanctuary-pet');
     const itemKey = petSanctuaryItemKey(playerName, petId);
     const existing = await store.get<PetSanctuaryItem>(itemKey);
-    if (existing?.pet) return { item: await repairExistingItem(store, playerName, existing, pet, source), replayed: true };
+    if (existing?.pet) return { item: await repairExistingItem(store, playerName, existing), replayed: true };
 
     const metaKey = petSanctuaryMetaKey(playerName);
     const meta = normalizedMeta(await store.get<PetSanctuaryMeta>(metaKey));
@@ -299,59 +217,32 @@ export async function removePetFromSanctuaryCore(store: KvLike, playerNameRaw: s
     const petId = text(petIdRaw);
     if (!playerName || !petId) return null;
     const itemKey = petSanctuaryItemKey(playerName, petId);
-    const removalKey = petSanctuaryRemovalKey(playerName, petId);
-    const [current, priorRemoval] = await Promise.all([
-        store.get<PetSanctuaryItem>(itemKey),
-        store.get<PetSanctuaryRemovalReceipt>(removalKey),
-    ]);
-    const item = current?.pet ? current : priorRemoval?.item;
+    const item = await store.get<PetSanctuaryItem>(itemKey);
     if (!item?.pet) return null;
-
-    // Persist the return value before changing the index. If any later write is
-    // durable but its acknowledgement is lost, the retry can finish the same
-    // deterministic removal and return the same pet instead of a false 404.
-    if (current?.pet) {
-        await store.set(removalKey, {
-            schemaVersion: PET_SANCTUARY_SCHEMA_VERSION,
-            item: structuredClone(current),
-            removedAt: Date.now(),
-        } satisfies PetSanctuaryRemovalReceipt, { ex: PET_SANCTUARY_REMOVAL_REPLAY_TTL_SECONDS });
+    const pageNumber = Math.max(1, finiteWhole(item.page, 1));
+    const pageKey = petSanctuaryPageKey(playerName, pageNumber);
+    const page = normalizedPage(await store.get<PetSanctuaryPage>(pageKey), pageNumber);
+    const nextEntries = page.entries.filter((entry) => entry.petId !== petId);
+    const wasIndexed = nextEntries.length !== page.entries.length;
+    if (wasIndexed) await store.set(pageKey, { ...page, entries: nextEntries } satisfies PetSanctuaryPage);
+    await store.del(itemKey);
+    if (wasIndexed) {
+        const metaKey = petSanctuaryMetaKey(playerName);
+        const meta = normalizedMeta(await store.get<PetSanctuaryMeta>(metaKey));
+        let lastPage = meta.lastPage;
+        // Keep pagination bounded after a player releases the newest habitats.
+        // Empty historical pages inside the collection are harmless, but an
+        // empty tail should never force every future list request to scan it.
+        if (pageNumber === lastPage && nextEntries.length === 0) {
+            while (lastPage > 0) {
+                lastPage -= 1;
+                if (lastPage === 0) break;
+                const prior = normalizedPage(await store.get<PetSanctuaryPage>(petSanctuaryPageKey(playerName, lastPage)), lastPage);
+                if (prior.entries.length) break;
+            }
+        }
+        await store.set(metaKey, { ...meta, total: Math.max(0, meta.total - 1), lastPage, revision: meta.revision + 1 } satisfies PetSanctuaryMeta);
     }
-
-    const metaKey = petSanctuaryMetaKey(playerName);
-    const meta = normalizedMeta(await store.get<PetSanctuaryMeta>(metaKey));
-    const itemPage = Math.max(1, finiteWhole(item.page, 1));
-    const scanLastPage = Math.max(meta.lastPage, itemPage);
-    const pageNumbers = Array.from({ length: scanLastPage }, (_, index) => index + 1);
-    const rawPages = pageNumbers.length
-        ? await store.mget<[PetSanctuaryPage]>(...pageNumbers.map((page) => petSanctuaryPageKey(playerName, page)))
-        : [];
-    const pages = pageNumbers.map((pageNumber, index) => normalizedPage(rawPages[index], pageNumber));
-
-    let indexChanged = false;
-    for (const page of pages) {
-        const nextEntries = page.entries.filter((entry) => entry.petId !== petId);
-        if (nextEntries.length === page.entries.length) continue;
-        page.entries = nextEntries;
-        indexChanged = true;
-        await store.set(petSanctuaryPageKey(playerName, page.page), page);
-    }
-
-    // Derive metadata from the durable index rather than decrementing a counter.
-    // That makes a retry safe after either the page or meta acknowledgement was
-    // lost and also repairs duplicate historical index entries in one pass.
-    const total = pages.reduce((sum, page) => sum + page.entries.length, 0);
-    const lastPage = pages.reduce((last, page) => page.entries.length ? Math.max(last, page.page) : last, 0);
-    if (indexChanged || meta.total !== total || meta.lastPage !== lastPage) {
-        await store.set(metaKey, {
-            schemaVersion: PET_SANCTUARY_SCHEMA_VERSION,
-            total,
-            lastPage,
-            revision: meta.revision + 1,
-        } satisfies PetSanctuaryMeta);
-    }
-
-    if (current?.pet) await store.del(itemKey);
     return item;
 }
 

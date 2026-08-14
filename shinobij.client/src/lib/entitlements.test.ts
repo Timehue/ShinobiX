@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { activeCarriedPetIds, activeCarriedPets, activeJutsuLoadoutIds, activeStoredBloodlineIds, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines, storedBloodlinesAfterCreate } from "./entitlements";
+import { activeCarriedPetIds, activeCarriedPets, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines, PET_CAP_BASE } from "./entitlements";
+import { TACTICAL_ARENA_PET_REQUIREMENT } from "./pet";
 
 describe("client supporter entitlement mirror", () => {
     const supporter: Parameters<typeof maxLoadout>[0] = {
@@ -20,14 +21,8 @@ describe("client supporter entitlement mirror", () => {
         assert.equal(maxPets(supporter), 6);
     });
 
-    it("keeps lapsed jutsu preferences dormant without deleting them", () => {
-        const equippedJutsuIds = Array.from({ length: 15 }, (_, index) => `jutsu-${index + 1}`);
-        assert.deepEqual(activeJutsuLoadoutIds({ equippedJutsuIds }), equippedJutsuIds.slice(0, 12));
-        assert.deepEqual(
-            activeJutsuLoadoutIds({ ...supporter, equippedJutsuIds }),
-            equippedJutsuIds,
-        );
-        assert.equal(equippedJutsuIds.length, 15, "the projection must not mutate saved preferences");
+    it("lets every account carry the full Tactical Arena team", () => {
+        assert.ok(PET_CAP_BASE >= TACTICAL_ARENA_PET_REQUIREMENT);
     });
 
     it("matches the canonical avatar and bloodline perks", () => {
@@ -37,34 +32,12 @@ describe("client supporter entitlement mirror", () => {
         assert.equal(maxStoredBloodlines(supporter), 2);
     });
 
-    it("mirrors equipped-first active storage while preserving overflow", () => {
-        const stored = [{ id: "first" }, { id: "equipped" }, { id: "legacy-overflow" }];
-        assert.deepEqual(activeStoredBloodlineIds({ equippedBloodlineId: "equipped" }, stored), ["equipped"]);
-        assert.deepEqual(
-            activeStoredBloodlineIds({ ...supporter, equippedBloodlineId: "equipped" }, stored),
-            ["equipped", "first"],
-        );
-        assert.equal(stored.length, 3);
-    });
-
-    it("keeps lapsed overflow in local state when a Base account replaces its active bloodline", () => {
-        const stored = [{ id: "active" }, { id: "preserved-overflow" }];
-        assert.deepEqual(
-            storedBloodlinesAfterCreate({ equippedBloodlineId: "active" }, stored, { id: "replacement" }),
-            [{ id: "replacement" }, { id: "preserved-overflow" }],
-        );
-        assert.deepEqual(
-            storedBloodlinesAfterCreate(supporter, [{ id: "first" }], { id: "second" }),
-            [{ id: "second" }, { id: "first" }],
-        );
-    });
-
-    it("mirrors the stable 4/6 carried-pet projection without dropping overflow", () => {
+    it("keeps six owned pets while projecting only the entitled carried roster", () => {
         const pets = Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index + 1}` }));
-        const lapsed = { activePetId: "pet-6", activePetId2v2: "pet-5", pets };
-        assert.deepEqual(activeCarriedPetIds(lapsed), ["pet-6", "pet-5", "pet-1", "pet-2"]);
-        assert.deepEqual(activeCarriedPets(lapsed).map(({ id }) => id), ["pet-6", "pet-5", "pet-1", "pet-2"]);
-        assert.equal(pets.length, 6);
-        assert.equal(activeCarriedPets({ ...lapsed, ...supporter }).length, 6);
+        const character = { pets, activePetId: "pet-6", activePetId2v2: "pet-5" };
+        assert.deepEqual(activeCarriedPetIds(character), ["pet-6", "pet-5", "pet-1", "pet-2"]);
+        assert.deepEqual(activeCarriedPets(character).map(({ id }) => id), ["pet-6", "pet-5", "pet-1", "pet-2"]);
+        assert.equal(activeCarriedPets({ ...character, ...supporter }).length, 6);
+        assert.equal(character.pets.length, 6);
     });
 });

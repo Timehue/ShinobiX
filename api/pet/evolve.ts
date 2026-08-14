@@ -7,7 +7,6 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { checkEvolve, evolvePet, type PetLike } from './_evolution.js';
 import { activeBreedingParentIds } from './_pet-busy.js';
-import { claimPetLifecycleLease } from './_active-battle-lease.js';
 
 // Server-authoritative starter-pet evolution.
 //
@@ -49,11 +48,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!bodyNameMatchesAuth(identity, playerName)) {
             return res.status(403).json({ error: 'Can only evolve your own pets.' });
         }
-        const lifecycleLease = await claimPetLifecycleLease(kv, playerName, 'evolve');
-        if (!lifecycleLease) {
-            return res.status(409).json({ error: 'pet-is-in-active-battle', message: 'Finish or settle your active pet battle before evolving a companion.' });
-        }
-        try {
 
         const saveKey = `save:${playerName}`;
 
@@ -118,9 +112,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(status).json({ error: rej.message, code: rej.code });
         }
         return res.status(200).json(result);
-        } finally {
-            await lifecycleLease.release();
-        }
     } catch (err) {
         console.error('[pet/evolve]', err);
         return res.status(500).json({ error: 'Internal server error.' });

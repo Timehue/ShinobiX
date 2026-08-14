@@ -86,6 +86,18 @@ test('village affinity boosts score but never grants eligibility', () => {
     assert.equal(under.eligible, false, 'affinity cannot rescue an unmet floor');
 });
 
+test('server-recorded story choices only break ties between already-earned paths', () => {
+    const pet = LEGACY_BY_ID.get('beast-friend')!;
+    const stats: LegacyStats = { petDuelWins: 10 };
+    const witnessed = evaluateLegacy(pet, stats, { storyLanes: { good: 4, neutral: 1, bad: 0 } });
+    const unaligned = evaluateLegacy(pet, stats, { storyLanes: { good: 0, neutral: 4, bad: 1 } });
+    assert.equal(witnessed.eligible, true);
+    assert.equal(unaligned.eligible, true);
+    assert.ok(witnessed.score > unaligned.score, 'choice history is a modest fit signal');
+    const unmet = evaluateLegacy(pet, {}, { storyLanes: { good: 99, neutral: 0, bad: 0 } });
+    assert.equal(unmet.eligible, false, 'story affinity never waives an activity floor');
+});
+
 test('threshold overlay retunes a floor without a deploy', () => {
     const def = LEGACY_BY_ID.get('proven-fighter')!;
     const ev = evaluateLegacy(def, { pvpWins: 20 }, { overlay: { thresholds: { 'proven-fighter': { pvpWins: 30 } } } });

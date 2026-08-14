@@ -9,10 +9,11 @@
  */
 
 import { setSafeRecordValue } from '../_utils.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 export const WANDERER_ENCOUNTER_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 export const WANDERER_ENCOUNTER_COOLDOWN_SECONDS = Math.ceil(WANDERER_ENCOUNTER_COOLDOWN_MS / 1000);
-export const WANDERER_SECTOR_COUNT = 60;
+export const WANDERER_SECTOR_COUNT = MAX_WILD_SECTOR;
 
 export type NaturalWandererId = { sector: number; dayBucket: number; index: number };
 
@@ -134,24 +135,31 @@ export async function claimWandererUseCooldown(
     playerName: string,
     wandererId: string,
     nowMs: number,
+    proofId?: string,
 ): Promise<WandererCooldownClaim> {
     if (!parseNaturalWandererId(wandererId)) return { ok: false, reason: 'invalid-wanderer' };
 
     const key = wandererUseCooldownKey(playerName, wandererId);
-    const existing = await kv.get<{ cooldownUntil?: unknown } | number>(key);
+    const existing = await kv.get<{ cooldownUntil?: unknown; proofId?: unknown } | number>(key);
     const existingUntil = typeof existing === 'number' ? existing : num(existing?.cooldownUntil);
     if (existingUntil > nowMs) {
+        if (proofId && typeof existing === 'object' && existing?.proofId === proofId) {
+            return { ok: true, cooldownUntil: existingUntil };
+        }
         return { ok: false, reason: 'cooldown', cooldownUntil: existingUntil };
     }
 
     const cooldownUntil = nowMs + WANDERER_ENCOUNTER_COOLDOWN_MS;
-    const claimed = await kv.set(key, { cooldownUntil }, {
+    const claimed = await kv.set(key, { cooldownUntil, ...(proofId ? { proofId } : {}) }, {
         ex: WANDERER_ENCOUNTER_COOLDOWN_SECONDS,
         nx: true,
     });
     if (claimed === 'OK') return { ok: true, cooldownUntil };
 
-    const raced = await kv.get<{ cooldownUntil?: unknown } | number>(key);
+    const raced = await kv.get<{ cooldownUntil?: unknown; proofId?: unknown } | number>(key);
     const racedUntil = typeof raced === 'number' ? raced : num(raced?.cooldownUntil);
+    if (proofId && typeof raced === 'object' && raced?.proofId === proofId && racedUntil > nowMs) {
+        return { ok: true, cooldownUntil: racedUntil };
+    }
     return { ok: false, reason: 'cooldown', cooldownUntil: racedUntil > nowMs ? racedUntil : undefined };
 }

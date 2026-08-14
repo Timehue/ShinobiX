@@ -12,8 +12,10 @@ import {
 process.env.ADMIN_PASSWORD = "cc-ai-test-admin";
 process.env.SUPABASE_URL ??= "http://localhost:1";
 process.env.SUPABASE_SERVICE_KEY ??= "x";
+process.env.ENABLE_LEGACY = "1";
 
 const store = new Map<string, unknown>();
+let failLegacyWrites = 0;
 const clone = (value: unknown) =>
   value === undefined || value === null ? null : structuredClone(value);
 function fakeReq(body: unknown) {
@@ -55,6 +57,10 @@ before(async () => {
   >;
   kv.get = async (key: string) => clone(store.get(key));
   kv.set = async (key: string, value: unknown, options?: { nx?: boolean }) => {
+    if (key.startsWith("legacy:stats:") && failLegacyWrites > 0) {
+      failLegacyWrites -= 1;
+      throw new Error("injected AI Legacy write outage");
+    }
     if (options?.nx && store.has(key)) return null;
     store.set(key, clone(value));
     return "OK";
@@ -119,12 +125,15 @@ test("AI start grants starter utility once and creates current rules state", asy
     assert.ok(copies <= deckLimitForCard(id), `${id} starter copies must remain legal`);
 });
 
-test("forfeit settles the server-computed loss once", async () => {
+test("immediate forfeit commits one durable zero-value receipt without economy or progression credit", async () => {
   store.clear();
   store.set("save:quit", {
     character: {
       name: "Quit",
-      ryo: 0,
+      ryo: 17,
+      cardClashWins: 3,
+      cardClashLosses: 4,
+      cardClashDraws: 2,
       tileCards: CHRONICLE_FIXED_FALLBACK_DECK,
     },
   });
@@ -134,6 +143,8 @@ test("forfeit settles the server-computed loss once", async () => {
     deck: CHRONICLE_FIXED_FALLBACK_DECK,
   });
   const matchId = (started.body as { matchId: string }).matchId;
+  const sessionKey = `cc-ai:${matchId}`;
+  const activeSession = structuredClone(store.get(sessionKey));
   const first = await call(aiMove, { matchId, action: "forfeit" });
   assert.equal(first.statusCode, 200);
   assert.equal(
@@ -141,13 +152,91 @@ test("forfeit settles the server-computed loss once", async () => {
     "opponent",
   );
   assert.equal(
-    (first.body as { reward: { result: string; ryo: number } }).reward.ryo,
-    5,
+    (first.body as { reward: { result: string; ryo: number; forfeited?: boolean } }).reward.ryo,
+    0,
   );
-  assert.equal(character("quit").ryo, 5);
+  assert.equal(
+    (first.body as { reward: { forfeited?: boolean } }).reward.forfeited,
+    true,
+  );
+  const afterFirst = character("quit");
+  assert.equal(afterFirst.ryo, 17);
+  assert.equal(afterFirst.cardClashWins, 3);
+  assert.equal(afterFirst.cardClashLosses, 4);
+  assert.equal(afterFirst.cardClashDraws, 2);
+  assert.equal(store.get("legacy:stats:quit"), undefined);
+  assert.equal(
+    (afterFirst.redeemedCardClashAiSessions as unknown[]).length,
+    1,
+    "the neutral surrender still needs a durable response-loss receipt",
+  );
+  const committedSave = structuredClone(store.get("save:quit"));
+
+  // Model a process dying after the save receipt committed but before the
+  // terminal session marker landed. Replaying the surrender must discover the
+  // in-save receipt, repair the session, and leave the save byte-for-byte alone.
+  store.set(sessionKey, activeSession);
+  const crashRecovery = await call(aiMove, { matchId, action: "forfeit" });
+  assert.equal(crashRecovery.statusCode, 200);
+  assert.deepEqual(store.get("save:quit"), committedSave, "receipt recovery cannot version-bump the save");
+
   const replay = await call(aiMove, { matchId, action: "forfeit" });
   assert.equal(replay.statusCode, 200);
-  assert.equal(character("quit").ryo, 5, "terminal replay cannot pay twice");
+  assert.deepEqual(store.get("save:quit"), committedSave, "terminal replay cannot rewrite or progress the save");
+  assert.equal(character("quit").ryo, 17, "terminal replay cannot pay");
+});
+
+test("lost terminal responses reconcile from action and state replays", async () => {
+  store.clear();
+  store.set("save:reconcile", {
+    character: {
+      name: "Reconcile",
+      ryo: 0,
+      tileCards: CHRONICLE_FIXED_FALLBACK_DECK,
+    },
+  });
+  const started = await call(aiStart, {
+    playerName: "reconcile",
+    difficulty: "medium",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+  });
+  const matchId = (started.body as { matchId: string }).matchId;
+
+  // Treat this successful response as lost after the server committed it.
+  const terminal = await call(aiMove, { matchId, action: "forfeit" });
+  assert.equal(terminal.statusCode, 200);
+  const authoritative = store.get("save:reconcile") as {
+    character: Record<string, unknown>;
+    _saveVersion: number;
+  };
+
+  const stateReplay = await call(aiMove, { matchId, action: "state" });
+  assert.equal(stateReplay.statusCode, 200);
+  assert.deepEqual(
+    (stateReplay.body as { character: Record<string, unknown> }).character,
+    authoritative.character,
+  );
+  assert.equal(
+    (stateReplay.body as { _saveVersion: number })._saveVersion,
+    authoritative._saveVersion,
+  );
+
+  const actionReplay = await call(aiMove, { matchId, action: "forfeit" });
+  assert.equal(actionReplay.statusCode, 200);
+  assert.deepEqual(
+    (actionReplay.body as { character: Record<string, unknown> }).character,
+    authoritative.character,
+  );
+  assert.equal(
+    (actionReplay.body as { _saveVersion: number })._saveVersion,
+    authoritative._saveVersion,
+  );
+  assert.equal(character("reconcile").ryo, 0, "reconciliation cannot turn a surrendered receipt into payment");
+  assert.equal(
+    (character("reconcile").redeemedCardClashAiSessions as unknown[]).length,
+    1,
+    "state/action replay uses the one committed neutral receipt",
+  );
 });
 
 test("external encounter stakes never mint Card Hall rewards or counters", async () => {
@@ -172,6 +261,48 @@ test("external encounter stakes never mint Card Hall rewards or counters", async
   assert.equal((ended.body as { reward?: unknown }).reward, undefined);
   assert.equal(character("seal").ryo, 9);
   assert.equal(character("seal").cardClashLosses, 2);
+});
+
+test("AI terminal Legacy credit repairs on a later state poll exactly once", async () => {
+  store.clear();
+  store.set("save:repair", {
+    character: { name: "Repair", ryo: 0, tileCards: CHRONICLE_FIXED_FALLBACK_DECK },
+  });
+  const started = await call(aiStart, {
+    playerName: "repair",
+    difficulty: "medium",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+  });
+  const matchId = (started.body as { matchId: string }).matchId;
+  const key = `cc-ai:${matchId}`;
+  const session = store.get(key) as {
+    createdAt: number;
+    state: { status: string; winner: string | null };
+    status: string;
+    winner?: string;
+    settledAt?: number;
+    settledReward?: { result: string; ryo: number; dailyBonus: boolean };
+    legacyCredit?: { receiptId: string; status: string };
+  };
+  session.state.status = "complete";
+  session.state.winner = "p1";
+  session.status = "done";
+  session.winner = "player";
+  session.settledAt = session.createdAt + 20_000;
+  session.settledReward = { result: "player", ryo: 0, dailyBonus: false };
+  session.legacyCredit = { receiptId: `card-ai:${key}`, status: "pending" };
+  store.set(key, session);
+  failLegacyWrites = 1;
+
+  assert.equal((await call(aiMove, { matchId, action: "state" })).statusCode, 200);
+  assert.equal((store.get(key) as { legacyCredit: { status: string } }).legacyCredit.status, "pending");
+  assert.equal(store.get("legacy:stats:repair"), undefined);
+
+  await call(aiMove, { matchId, action: "state" });
+  assert.equal((store.get(key) as { legacyCredit: { status: string } }).legacyCredit.status, "done");
+  assert.equal((store.get("legacy:stats:repair") as { cardClashWins?: number }).cardClashWins, 1);
+  await call(aiMove, { matchId, action: "state" });
+  assert.equal((store.get("legacy:stats:repair") as { cardClashWins?: number }).cardClashWins, 1);
 });
 
 test("unknown and retired action vocabulary is rejected", async () => {

@@ -16,7 +16,6 @@ import type {
     ServerArenaStatus,
     ServerArenaTransport,
 } from "../lib/server-arena-runtime";
-import { presentSoloActionRejection } from "../lib/solo-action-rejection";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
@@ -35,7 +34,12 @@ import {
     PlainCombatBattleLog,
 } from "../components/CombatHudLayout";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
-import { adjustedCombatApCost } from "../lib/combat-action-display";
+import {
+    activeBarrierTilesForDisplay,
+    adjustedCombatApCost,
+    combatRejectionMessage,
+    isElementallySealedForDisplay,
+} from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
 import { isImageAvatar } from "../lib/avatar";
@@ -47,6 +51,7 @@ import { getAllJutsus } from "../App";
 import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
+import { unavailableCompanionSummonCopy } from "../lib/companion-summon-copy";
 
 // The board token is a CIRCULAR orb (same treatment as the player/enemy), so the
 // pet's PORTRAIT is the right art. petCardImage reaches for the un-clipped
@@ -61,7 +66,7 @@ function petOrbPortrait(pet: Pet, shared: Record<string, string>): string {
 }
 import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
-import { tagMatchesName } from "../lib/tags";
+import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
 import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
@@ -91,7 +96,7 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 // squad rail, pylons, hazards, or spire chrome to draw.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
-type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; tags?: Array<{ name?: string }> };
+type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; tags?: Array<{ name?: string }> };
 type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; weaponRange?: number; apCost?: number };
 
 const ORB = 52;             // matches Arena.tsx ORB — orbs centre over the hex
@@ -106,13 +111,15 @@ const BIOME_SCHOOL: Record<string, string> = { forest: "Taijutsu", snow: "Bukiju
 function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
     return Boolean(j) && Array.isArray(j!.tags) && j!.tags.some(t => tagMatchesName(t?.name ?? "", "Move"));
 }
-const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j) && j!.target === "SELF";
+const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j)
+    && !isMoveJutsu(j)
+    && j!.target !== "EMPTY_GROUND"
+    && (j!.target === "SELF" || !pvpAffectsOpponent(j!));
 
 // Runtime status → CombatSideHud status shape (it requires an explicit kind).
-function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; source?: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
+function hudStatuses(statuses: ServerArenaStatus[] | undefined): { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[] {
     return (statuses ?? []).map((s) => ({
         name: s.name,
-        source: s.source,
         rounds: s.rounds,
         amount: s.amount,
         percent: s.percent,
@@ -131,6 +138,7 @@ export function MissionArenaFight({
     creatorItems,
     settleFn,
     onExit,
+    onBattleResolved,
     storyTheme,
     coach,
     renderResult,
@@ -158,6 +166,8 @@ export function MissionArenaFight({
      *  story pays the chapter reward). Its resolved value is handed to renderResult. */
     settleFn: (runId: string, playerName: string) => Promise<unknown>;
     onExit: () => void;
+    /** Lift terminal state to hosts that pause global navigation, regen, and autosave. */
+    onBattleResolved?: () => void;
     /** Story-boss presentation (display-only — never touches stats or rewards):
      *  chapter backdrop art, a chapter label, and boss "barks" spoken at fight
      *  start and as the boss's HP falls. See lib/story-fight-theme.ts. */
@@ -217,6 +227,7 @@ export function MissionArenaFight({
     const [selWeaponId, setSelWeaponId] = useState<string>("");
     const [busy, setBusy] = useState(false);
     const [reject, setReject] = useState<string | null>(null);
+    const actionInFlightRef = useRef(false);
     const settledRef = useRef(false);
     // Settlement of a WON run is what actually mints the durable server-side
     // claim token (api/missions/queue-combat-claim). Until it lands, the Mission
@@ -286,22 +297,40 @@ export function MissionArenaFight({
     const gateHazards = new Set(gateDirective?.hazardTiles ?? []);
     const gateSafe = new Set(gateDirective?.safeTiles ?? []);
 
+    const adoptAuthoritativeSession = useCallback((incoming: ServerArenaSession) => {
+        setSession(current => {
+            const currentVersion = current.runtimeVersion;
+            const incomingVersion = incoming.runtimeVersion;
+            if (currentVersion !== undefined && incomingVersion !== undefined && incomingVersion < currentVersion) return current;
+            return incoming;
+        });
+    }, []);
+
     // Reconnect: always pull the latest revision once after mounting.
     useEffect(() => {
-        transport.fetchState(runId, me).then(setSession).catch(() => {});
-    }, [runId, me, transport]);
+        let alive = true;
+        transport.fetchState(runId, me)
+            .then(next => { if (alive) adoptAuthoritativeSession(next); })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, [runId, me, transport, adoptAuthoritativeSession]);
 
     // While it is NOT our turn, poll so we see the enemy's moves and learn the
     // instant it is our turn again. A poll also nudges the server's AFK auto-pass.
     useEffect(() => {
         if (session.status !== "active" || myTurn) return;
         let alive = true;
+        let requestInFlight = false;
         const id = setInterval(() => {
-            if (document.visibilityState === "hidden") return;
-            transport.fetchState(runId, me).then(s => { if (alive) setSession(s); }).catch(() => {});
+            if (document.visibilityState === "hidden" || requestInFlight) return;
+            requestInFlight = true;
+            transport.fetchState(runId, me)
+                .then(next => { if (alive) adoptAuthoritativeSession(next); })
+                .catch(() => {})
+                .finally(() => { requestInFlight = false; });
         }, 2500);
         return () => { alive = false; clearInterval(id); };
-    }, [session.status, myTurn, runId, me, transport]);
+    }, [session.status, myTurn, runId, me, transport, adoptAuthoritativeSession]);
 
     // Auto-settle the win (queue the claim). Losses/draws pay nothing — the run
     // just resolves and the player exits back to the Mission Hall.
@@ -318,13 +347,14 @@ export function MissionArenaFight({
                 const result = await settleFn(runId, me);
                 setSettleResult(result);
                 setSettleState("settled");
+                onBattleResolved?.();
                 return;
             } catch {
                 if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
             }
         }
         setSettleState("failed");
-    }, [runId, me, settleFn]);
+    }, [runId, me, settleFn, onBattleResolved]);
 
     useEffect(() => {
         const done = session.status === "done";
@@ -344,8 +374,10 @@ export function MissionArenaFight({
     useEffect(() => {
         if (session.status !== "done" || outcomeReportedRef.current || !outcomeFn) return;
         outcomeReportedRef.current = true;
-        void outcomeFn(runId, me).catch(() => { /* the run simply costs nothing */ });
-    }, [session.status, runId, me, outcomeFn]);
+        void outcomeFn(runId, me).then(() => {
+            if (session.winner !== "squad") onBattleResolved?.();
+        }).catch(() => { /* the run simply costs nothing */ });
+    }, [session.status, session.winner, runId, me, outcomeFn, onBattleResolved]);
 
     // Reflection log (display-only): record the fight once it resolves (win OR loss)
     // so it shows on Profile → Battles. De-duped by runId, so a refresh on the result
@@ -462,6 +494,12 @@ export function MissionArenaFight({
     const actionsUsed = myTurn ? session.actionsThisTurn : 0;
     const outOfActions = actionsUsed >= MAX_ACTIONS;
     const myChakra = myActor?.chakra ?? 0;
+    const myStamina = myActor?.stamina ?? 0;
+    const adjustedActionAp = (base: number) => adjustedCombatApCost(myActor?.statuses, base, session.round);
+    const attackAp = adjustedActionAp(ATTACK_AP);
+    const moveAp = adjustedActionAp(MOVE_AP);
+    const utilityAp = adjustedActionAp(UTILITY_AP);
+    const fleeAp = adjustedActionAp(100);
     const healCd = Number(myActor?.cooldowns?.basicHeal ?? 0);
     const clearCd = Number(myActor?.cooldowns?.clear ?? 0);
     const cleanseCd = Number(myActor?.cooldowns?.cleanse ?? 0);
@@ -469,6 +507,29 @@ export function MissionArenaFight({
 
     const armedWeapon = mode === "weapon" ? myWeapons.find(x => x.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
+    const occupiedTiles = useMemo(
+        () => new Set(session.actors.filter(actor => actor.hp > 0).map(actor => actor.pos)),
+        [session.actors],
+    );
+    const barrierTiles = useMemo(
+        () => activeBarrierTilesForDisplay(
+            session.actors.flatMap(actor => actor.statuses),
+            session.round,
+            w * h,
+        ),
+        [session.actors, session.round, w, h],
+    );
+    const impassableTiles = useMemo(
+        () => new Set([...session.map.blockedTiles, ...barrierTiles]),
+        [session.map.blockedTiles, barrierTiles],
+    );
+    // Solo PvE EMPTY_GROUND means exactly that: no terrain, barrier, fighter, or
+    // companion may occupy the selected centre. Tower intentionally uses a
+    // different occupied-centre policy and does not consume this set.
+    const unavailableGroundTiles = useMemo(
+        () => new Set([...impassableTiles, ...occupiedTiles]),
+        [impassableTiles, occupiedTiles],
+    );
 
     // Whether the (single) enemy is reachable by the currently-armed action.
     const enemyInRange = (() => {
@@ -480,9 +541,7 @@ export function MissionArenaFight({
     // Adjacent open tiles for a plain Move.
     const moveTiles = (() => {
         if (mode !== "move" || !myActor) return new Set<number>();
-        const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
-        const blocked = new Set(session.map.blockedTiles);
-        return new Set(towerNeighbors(myPos, w, h).filter(t => !occupied.has(t) && !blocked.has(t)));
+        return new Set(towerNeighbors(myPos, w, h).filter(t => !occupiedTiles.has(t) && !impassableTiles.has(t)));
     })();
 
     // Reach highlight for an armed jutsu/weapon (or Flicker landing tiles).
@@ -491,9 +550,7 @@ export function MissionArenaFight({
         if (mode === "jutsu") {
             const inRange = towerTilesInRange(myPos, Math.max(1, Number(selJutsu?.range ?? 1)), w, h);
             if (isMoveJutsu(selJutsu)) {
-                const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
-                const blocked = new Set(session.map.blockedTiles);
-                return new Set([...inRange].filter(t => t !== myPos && !occupied.has(t) && !blocked.has(t)));
+                return new Set([...inRange].filter(t => t !== myPos && !occupiedTiles.has(t) && !impassableTiles.has(t)));
             }
             return inRange;
         }
@@ -502,24 +559,27 @@ export function MissionArenaFight({
     })();
 
     async function send(action: ServerArenaAction) {
-        if (busy) return;
+        if (actionInFlightRef.current) return;
+        actionInFlightRef.current = true;
         setBusy(true); setReject(null);
         try {
             const res = await transport.submitAction(runId, me, session, action);
-            setSession(res.session);
-            if (res.applied) {
-                // Display-only tutorial progress follows authoritative success;
-                // an out-of-range or otherwise rejected attempt keeps its lesson.
+            adoptAuthoritativeSession(res.session);
+            if (!res.applied) {
+                // Keep the action armed after a soft rejection so the player can
+                // choose another legal target without finding the card again.
+                setReject(combatRejectionMessage(res.reason));
+            } else {
+                resetTargeting();
+                // Tutorial guidance follows authoritative success, never intent.
                 if (action.type === "attack") setSparAttacked(true);
                 if (action.type === "jutsu") setSparCasted(true);
-            } else {
-                setReject(presentSoloActionRejection(res.reason));
             }
         } catch (e) {
-            setReject(presentSoloActionRejection(String((e as Error)?.message ?? e)));
+            setReject(combatRejectionMessage(String((e as Error)?.message ?? e)));
         } finally {
+            actionInFlightRef.current = false;
             setBusy(false);
-            setMode("idle"); setSelJutsu(null); setSelWeaponId("");
         }
     }
 
@@ -528,8 +588,13 @@ export function MissionArenaFight({
     function onTileClick(tile: number) {
         if (!myTurn || busy) return;
         if (mode === "move" && moveTiles.has(tile)) { void send({ type: "move", tile }); return; }
-        // Ground-target jutsu → place the zone on a non-blocked tile in range.
-        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && rangeTiles.has(tile) && !session.map.blockedTiles.includes(tile)) {
+        // Movement jutsu resolve through the canonical jutsu action with their
+        // validated open destination; they are not the basic Move command.
+        if (mode === "jutsu" && selJutsu?.id && isMoveJutsu(selJutsu) && rangeTiles.has(tile)) {
+            void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
+        }
+        // Ground-target jutsu → place the zone on an actually empty legal tile.
+        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && rangeTiles.has(tile) && !unavailableGroundTiles.has(tile)) {
             void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
         }
         // Self-cast jutsu → click your OWN ninja.
@@ -548,6 +613,7 @@ export function MissionArenaFight({
     function armJutsu(j: JutsuLike) {
         if (busy || !myTurn) return;
         const same = selJutsu?.id === j.id;
+        setReject(null);
         setSelJutsu(same ? null : j);
         setSelWeaponId("");
         setMode(same ? "idle" : "jutsu");
@@ -555,6 +621,7 @@ export function MissionArenaFight({
     function armWeapon(id: string) {
         if (busy || !myTurn) return;
         const same = selWeaponId === id && mode === "weapon";
+        setReject(null);
         setSelWeaponId(same ? "" : id);
         setSelJutsu(null);
         setMode(same ? "idle" : "weapon");
@@ -573,6 +640,8 @@ export function MissionArenaFight({
     // Portrait-first (see petOrbPortrait) — `pet.image` alone misses published art.
     const companionPetId = String(companion?.character?.visual ?? "");
     const companionPet = companionPetId ? (character.pets ?? []).find((p) => p.id === companionPetId) : undefined;
+    const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
+    const unavailableCompanionCopy = unavailableCompanionSummonCopy(activePet);
     const companionImage = companionPet ? petOrbPortrait(companionPet, sharedImages ?? {}) : "";
     const companionRoundsLeft = Number(companion?.character?.companionRoundsLeft ?? 0);
 
@@ -613,17 +682,11 @@ export function MissionArenaFight({
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu?.name ?? "the zone"}.` :
         mode === "jutsu" && selJutsu ? `Click ${enemyName} to cast ${selJutsu?.name ?? "it"}.` : "";
 
-    // `.combat-main-area` is a FIXED-track grid on every tier (battle-skin.css) and
-    // its bands are placed by `order` (AP 1, terrain 2, board 3, commands 4, …).
-    // An extra child with the default `order: 0` therefore sorts AHEAD of all of
-    // them and claims row 1, shoving every band down one track — the terrain strip
-    // inherits the board's minmax(300px, 1fr) row and the board collapses into the
-    // command bar's `auto` row (measured: 362px → 30px). Arena hit this with its
-    // rookie tip and fixed it with `has-rookie-tip`, which adds the extra track on
-    // each tier. Do the same here, and keep BOTH conditional lines in one wrapper
-    // so the grid only ever gains the single row that class reserves.
+    // Keep this feedback band present before, during, and after targeting. Toggling
+    // the grid child used to resize the board row; useBoardScale observed that
+    // change and visibly zoomed the battlefield on every jutsu click.
     const showTargetingHint = myTurn && !!targetingHint;
-    const hasActionNotice = !!reject || showTargetingHint;
+    const actionNotice = reject || (showTargetingHint ? targetingHint : "");
 
     const playerAp = myTurn ? session.activeAp : (done ? 0 : 100);
     const enemyAp = enemyActive ? session.activeAp : (done ? 0 : 100);
@@ -664,7 +727,7 @@ export function MissionArenaFight({
                     </div>
                 </div>
             )}
-            <CombatHudLayout hasActionNotice={hasActionNotice}>
+            <CombatHudLayout hasActionNotice>
                 {/* Player dossier */}
                 <CombatSideHud
                     name={me}
@@ -790,22 +853,30 @@ export function MissionArenaFight({
                                     const { left, top } = towerHexPixel(i, w);
                                     const isMoveTile = moveTiles.has(i);
                                     const isRangeTile = (mode === "weapon" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu) && !isMoveJutsu(selJutsu) && selJutsu?.target !== "EMPTY_GROUND")) && rangeTiles.has(i);
-                                    const isGroundTile = mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" && rangeTiles.has(i) && !session.map.blockedTiles.includes(i);
+                                    const isGroundTile = mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" && !isMoveJutsu(selJutsu) && rangeTiles.has(i) && !unavailableGroundTiles.has(i);
                                     const isFlickerTile = mode === "jutsu" && isMoveJutsu(selJutsu) && rangeTiles.has(i);
                                     const isEnemyTarget = enemy != null && i === enemyPos && enemyInRange && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu) && selJutsu?.target !== "EMPTY_GROUND" && !isMoveJutsu(selJutsu)));
                                     const isSelfTarget = mode === "jutsu" && isSelfCastJutsu(selJutsu) && i === myPos;
-                                    const tileOccupant = i === myPos
-                                        ? "your position"
-                                        : i === enemyPos
-                                            ? `${enemyName} position`
-                                            : companion && i === companion.pos
-                                                ? `${companion.name} position`
-                                                : "empty";
+                                    const isBarrier = barrierTiles.has(i);
+                                    const isBlockedTerrain = session.map.blockedTiles.includes(i);
+                                    const tileOccupant = isBarrier
+                                        ? "Barrier wall, impassable"
+                                        : isBlockedTerrain
+                                            ? "impassable terrain"
+                                            : i === myPos
+                                                ? "your position"
+                                                : i === enemyPos
+                                                    ? `${enemyName} position`
+                                                    : companion && i === companion.pos
+                                                        ? `${companion.name} position`
+                                                        : "empty";
                                     const tilePurpose = isEnemyTarget || isSelfTarget
                                         ? "target"
+                                        : isFlickerTile
+                                            ? "jutsu move destination"
                                         : isGroundTile
                                             ? "ground target"
-                                            : isMoveTile || isFlickerTile
+                                            : isMoveTile
                                                 ? "move target"
                                                 : isRangeTile
                                                     ? "in range"
@@ -822,17 +893,21 @@ export function MissionArenaFight({
                                         isSelfTarget ? "jutsu-target-tile jutsu-self-target-tile" : "",
                                         gateHazards.has(i) ? "hg-hazard-tile" : "",
                                         gateSafe.has(i) ? "hg-safe-tile" : "",
+                                        isBarrier ? "combat-barrier-tile" : "",
+                                        isBlockedTerrain ? "combat-blocked-tile" : "",
                                     ].filter(Boolean).join(" ");
                                     return (
                                         <button
                                             key={i}
+                                            type="button"
                                             data-tile={i}
                                             className={cls}
                                             aria-label={tileLabel}
                                             style={{ left: `${left}px`, top: `${top}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                             onClick={() => onTileClick(i)}
                                         >
-                                            {i === myPos ? ""
+                                            {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span>
+                                                : i === myPos ? ""
                                                 : i === enemyPos ? ""
                                                     : (companion && i === companion.pos) ? (isImageAvatar(companionImage) ? "" : companion.name.slice(0, 2).toUpperCase())
                                                         : ""}
@@ -844,30 +919,34 @@ export function MissionArenaFight({
                     </div>
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
 
-                    {/* ONE grid child (see hasActionNotice above) — a rejection and an
-                        armed-action hint can be on screen together, and two bare
-                        children would take two tracks the grid has not reserved. */}
-                    {hasActionNotice && (
-                        <div className="combat-action-notice">
-                            {reject && <div className="rookie-combat-tip" role="alert" style={{ borderColor: "var(--danger)" }}><strong>Can't do that</strong><span>{reject}</span></div>}
-                            {showTargetingHint && <div className="combat-targeting-hint">{targetingHint}</div>}
+                    {/* This fixed-height slot never unmounts: changing its message
+                        must not resize (and therefore auto-zoom) the board. */}
+                    <div className="combat-action-notice">
+                        <div
+                            className={`combat-targeting-hint${reject ? " is-error" : ""}`}
+                            role={reject ? "alert" : "status"}
+                            aria-live={reject ? "assertive" : "polite"}
+                            aria-atomic="true"
+                        >
+                            {reject && <strong>Can't do that</strong>}
+                            <span>{actionNotice || "\u00a0"}</span>
                         </div>
-                    )}
+                    </div>
 
                     <CombatCommandBar>
                         <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
-                            disabled={busy || !myTurn || outOfActions || myAp < ATTACK_AP || !enemy || enemy.hp <= 0}
+                            disabled={busy || !myTurn || outOfActions || myAp < attackAp || myStamina < 10 || !enemy || enemy.hp <= 0}
                             title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
-                            className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{ATTACK_AP} AP | R1</small></button>
+                            className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP | 10 SP | R1</small></button>
                         <button className={mode === "move" ? "selected-action" : ""}
-                            disabled={busy || !myTurn || outOfActions || myAp < MOVE_AP}
-                            onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{MOVE_AP} AP / tile</small></button>
+                            disabled={busy || !myTurn || outOfActions || myAp < moveAp}
+                            onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP / tile</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "heal" }); }}
-                            disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < UTILITY_AP}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{UTILITY_AP} AP | CD {healCd}</small></button>
+                            disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP | 10 CP | CD {healCd}</small></button>
                         <button onClick={() => { resetTargeting(); if (enemy) void send({ type: "clear", targetId: enemy.id }); }}
-                            disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < UTILITY_AP || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{UTILITY_AP} AP | CD {clearCd}</small></button>
+                            disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP | CD {clearCd}</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
-                            disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < UTILITY_AP}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{UTILITY_AP} AP | CD {cleanseCd}</small></button>
+                            disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP | CD {cleanseCd}</small></button>
                         <button
                             onClick={() => { resetTargeting(); void send({ type: "summon" }); }}
                             disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed}
@@ -877,7 +956,7 @@ export function MissionArenaFight({
                                     ? `Summon ${session.pendingCompanion.name}`
                                     : session.companionUsed
                                         ? "Your pet summon was already used in this fight"
-                                        : "Choose an eligible active PvE pet in the Pet Yard"}
+                                        : unavailableCompanionCopy.title}
                         >
                             <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
                             <span>Summon Pet</span>
@@ -887,13 +966,13 @@ export function MissionArenaFight({
                                     ? session.pendingCompanion.name
                                     : session.companionUsed
                                         ? "Already used"
-                                        : "No eligible active pet"}</small>
+                                        : unavailableCompanionCopy.short}</small>
                         </button>
                         <button
-                            disabled={busy || !myTurn || outOfActions || myAp < 100 || retreatSealed}
-                            title={retreatSealed ? "Berserker's Gamble seals retreat." : "Attempt to escape for 100 AP and 10% max HP. Failure continues the fight."}
+                            disabled={busy || !myTurn || outOfActions || myAp < fleeAp || retreatSealed}
+                            title={retreatSealed ? "Berserker's Gamble seals retreat." : `Attempt to escape for ${fleeAp} AP and 10% max HP. Failure continues the fight.`}
                             onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
-                        ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : "100 AP · escape roll"}</small></button>
+                        ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : `${fleeAp} AP · escape roll`}</small></button>
                         <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                     </CombatCommandBar>
 
@@ -906,6 +985,11 @@ export function MissionArenaFight({
                                     const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
                                     const onCd = cd > 0;
                                     const armed = selJutsu?.id === j.id;
+                                    const ap = adjustedActionAp(Number(j.ap ?? 0));
+                                    const chakra = Number(j.chakraCost ?? 0);
+                                    const stamina = Number(j.staminaCost ?? 0);
+                                    const sealed = isElementallySealedForDisplay(myActor?.statuses, j.element, session.round);
+                                    const affordable = myAp >= ap && myChakra >= chakra && myStamina >= stamina && !onCd && !sealed;
                                     const Icon = jutsuIcon(j.type);
                                     const art = jutsuArt(j);
                                     return (
@@ -914,15 +998,15 @@ export function MissionArenaFight({
                                             <button
                                                 type="button"
                                                 className={`combat-jutsu-button ${armed ? "selected-action" : ""} ${onCd ? "jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || onCd || myAp < adjustedCombatApCost(myActor?.statuses, Number(j.ap ?? 0))}
-                                                title={`${j.name} | ${j.ap} AP | Range ${j.range}`}
+                                                disabled={busy || !myTurn || outOfActions || !affordable}
+                                                title={`${j.name} | ${ap} AP | Range ${j.range}${chakra ? ` | ${chakra} CP` : ""}${stamina ? ` | ${stamina} SP` : ""}${sealed ? " | Elementally sealed" : ""}${onCd ? ` | CD ${cd}` : ""}`}
                                                 onClick={() => armJutsu(j)}
                                             >
                                                 <span className="combat-jutsu-thumb">{art ? <img src={art} alt={j.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
                                                 <span className="combat-jutsu-name">{j.name}</span>
                                                 {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                     shows as the corner pip. */}
-                                                <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} activeCooldown={cd} />
+                                                <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} />
                                             </button>
                                         </div>
                                     );
@@ -931,6 +1015,7 @@ export function MissionArenaFight({
                                     const onCd = cd > 0;
                                     const armed = selWeaponId === item.id && mode === "weapon";
                                     const out = thrown && left <= 0;
+                                    const ap = adjustedActionAp(Number(item.apCost ?? ATTACK_AP));
                                     const Icon = thrown ? GiTargeted : GiCrossedSwords;
                                     const art = itemArt(item);
                                     return (
@@ -939,13 +1024,13 @@ export function MissionArenaFight({
                                             <button
                                                 type="button"
                                                 className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || onCd || out || myAp < Number(item.apCost ?? ATTACK_AP)}
-                                                title={out ? `${item.name} — none left` : `${item.name} | ${item.apCost ?? ATTACK_AP} AP | R${range}`}
+                                                disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
+                                                title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
                                                 onClick={() => armWeapon(item.id ?? "")}
                                             >
                                                 <span className="combat-jutsu-thumb combat-item-thumb">{art ? <img src={art} alt={item.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
                                                 <span className="combat-jutsu-name">{item.name}</span>
-                                                <span className="combat-jutsu-info">{item.apCost ?? ATTACK_AP} AP | R{range}{thrown ? ` | ×${left === Infinity ? "∞" : left}` : ""}</span>
+                                                <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left === Infinity ? "∞" : left}` : ""}</span>
                                             </button>
                                         </div>
                                     );
@@ -953,6 +1038,7 @@ export function MissionArenaFight({
                                 {myConsumables.map(({ item, left, cd }) => {
                                     const onCd = cd > 0;
                                     const out = left <= 0;
+                                    const ap = adjustedActionAp(Number(item.apCost ?? 35));
                                     const art = itemArt(item);
                                     const Icon = String(item.slot ?? "").includes("potion") ? GiHealthPotion : GiBriefcase;
                                     return (
@@ -961,13 +1047,13 @@ export function MissionArenaFight({
                                             <button
                                                 type="button"
                                                 className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${onCd ? " jutsu-on-cooldown" : ""}`}
-                                                disabled={busy || !myTurn || outOfActions || onCd || out || myAp < Number(item.apCost ?? UTILITY_AP)}
-                                                title={out ? `${item.name} — none left` : `${item.name} | Use`}
+                                                disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
+                                                title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
                                                 onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
                                             >
                                                 <span className="combat-jutsu-thumb combat-item-thumb">{art ? <img src={art} alt={item.name} /> : <strong><Icon size={22} aria-hidden="true" /></strong>}</span>
                                                 <span className="combat-jutsu-name">{item.name}</span>
-                                                <span className="combat-jutsu-info">Use | ×{left}</span>
+                                                <span className="combat-jutsu-info">{ap} AP | Use | ×{left}</span>
                                             </button>
                                         </div>
                                     );

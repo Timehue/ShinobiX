@@ -1,5 +1,6 @@
 import { gainXp } from '../_xp-engine.js';
 import { isWildSector } from '../../shared/sector-geo.js';
+import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 
 export const DAILY_ANCIENT_CHEST_LIMIT = 23;
 export type AncientChestLoot = {
@@ -68,4 +69,28 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         inventory: loot.itemId && (stackable || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
         tileCards: loot.cardId && !tileCards.includes(loot.cardId) ? [...tileCards, loot.cardId] : tileCards,
     };
+}
+
+/**
+ * Resolve capacity before the chest receipt is written. A player at the card
+ * ceiling receives an explicit Fate Shard replacement instead of being told a
+ * card was granted only for a later full-save sanitizer to discard it.
+ */
+export function settleAncientChestLoot(character: Record<string, unknown>, rolled: AncientChestLoot): {
+    character: Record<string, unknown>;
+    loot: AncientChestLoot;
+} {
+    const tileCards = Array.isArray(character.tileCards)
+        ? (character.tileCards as unknown[]).filter((id): id is string => typeof id === 'string')
+        : [];
+    const addsUniqueCard = typeof rolled.cardId === 'string' && !tileCards.includes(rolled.cardId);
+    if (!addsUniqueCard || canAppendPackableChronicleCards(tileCards, 1)) {
+        return { character: applyAncientChestLoot(character, rolled), loot: rolled };
+    }
+    const loot: AncientChestLoot = {
+        ...rolled,
+        cardId: undefined,
+        fateShards: (rolled.fateShards ?? 0) + 1,
+    };
+    return { character: applyAncientChestLoot(character, loot), loot };
 }

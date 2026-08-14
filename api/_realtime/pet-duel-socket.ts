@@ -59,12 +59,7 @@ const doctrineOf = (pets: unknown[]): PetDoctrine =>
     parseDoctrine((pets[0] as { doctrine?: unknown } | undefined)?.doctrine);
 const rosters = new Map<string, { p1: Seat; p2: Seat }>();
 
-/**
- * Resolve only the requested ids from the server-owned save projection. The
- * browser still chooses its team and order, but never supplies combat stats,
- * equipment, jutsu, or disconnect doctrine. One-pet 2v2 remains valid because
- * the existing client deliberately treats the second slot as optional.
- */
+/** Resolve requested ids from the server-owned, entitlement-active roster. */
 export function sealAuthoritativePetRoster(
     character: unknown,
     requestedPets: unknown,
@@ -85,9 +80,7 @@ export function sealAuthoritativePetRoster(
     const char = character && typeof character === 'object'
         ? character as Record<string, unknown>
         : {};
-    if (sealed.some((pet) => petCombatBusyReason(char, pet as unknown as Record<string, unknown>))) {
-        return null;
-    }
+    if (sealed.some((pet) => petCombatBusyReason(char, pet as unknown as Record<string, unknown>))) return null;
     return sealed;
 }
 
@@ -181,8 +174,6 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
             return socket.emit('petduel:error', { error: 'Your carried pets could not be verified.' });
         }
         if (!pets?.length) return socket.emit('petduel:error', { error: 'Choose an eligible carried pet.' });
-        // The save read yields to the event loop. Re-check the live/session state
-        // so two near-simultaneous challenges cannot both create a duel.
         if (!onlineStore.get(to)) return socket.emit('petduel:error', { error: 'That player is not online.' });
         if (sessionForPlayer(name)) return socket.emit('petduel:error', { error: 'You are already in a duel.' });
         if (sessionForPlayer(to)) return socket.emit('petduel:error', { error: 'That player is already in a duel.' });
@@ -216,15 +207,12 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
         let defenderPets: Pet[] | null;
         try {
             [challengerPets, defenderPets] = await Promise.all([
-                // Re-resolve the challenger's selected ids too: entitlement,
-                // ownership, stats, and busy state may have changed since invite.
                 loadAuthoritativePetRoster(pending.p1.name, pendingSeat.p1.pets, pending.mode),
                 loadAuthoritativePetRoster(name, p.pets, pending.mode),
             ]);
         } catch {
             return socket.emit('petduel:error', { error: 'Your carried pets could not be verified.' });
         }
-        // The invite may have lapsed or been declined while storage was read.
         const s = sessionFor(p.id);
         if (!s || s.status !== 'pending' || sideOf(s, name) !== 'p2') {
             return socket.emit('petduel:error', { error: 'That challenge is no longer open.' });

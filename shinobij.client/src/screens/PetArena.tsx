@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useLayoutEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
@@ -7,7 +7,10 @@ import type { Pet } from "../types/pet";
 import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
-import { scorePetMatchup } from "../lib/pet-battle-sim";
+import { PetHomeTabs } from "../components/PetHomeTabs";
+import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
+import { PetChronicleProgress } from "../components/PetChronicleProgress";
+import { petFramePace, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
@@ -24,86 +27,48 @@ import {
     petDisplayName,
     pickArenaTeam,
 } from "../lib/pet";
-import { derivePetRole, ROLE_META, type PetRole } from "../lib/pet-roles";
+import { derivePetRole, ROLE_META, ROLE_BEATS, type PetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { ELEMENT_ICON } from "../lib/element-icons";
 import { primePetSfx } from "../lib/pet-sfx";
-import { primeWarfrontAudio } from "../lib/warfront-audio";
 import { startBattleMusic } from "../lib/pet-music";
+import { petArenaBackLabel, petArenaReturnScreen, petArenaStartIssue } from "../lib/pet-arena-entry";
+import {
+    petChronicleCeremonyFromSettlement,
+    petChronicleProgressFromSettlement,
+    type PetChronicleCeremonyReceipt,
+    type PetChronicleProgressReceipt,
+    type PetChronicleSettlementPayload,
+} from "../lib/pet-chronicle-ceremony";
+import { clearPetBattleConsumables } from "../lib/pet-battle-consumables";
+import {
+    isPetArenaPlayerScopeActive,
+    normalizePetArenaVersionDecision,
+    parseWarfrontRewardSeal,
+    responseBelongsToPetArenaPlayer,
+    type PetArenaPlayerScope,
+    type PetArenaServerVersionDecision,
+    type PetArenaServerVersionResult,
+    type WarfrontRewardSeal,
+} from "../lib/pet-arena-settlement";
+import { rankedDelta } from "../lib/progression";
 import { makeId } from "../lib/utils";
 import { genericPetArenaOpponents, isGenericPetOpponent, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import {
     petTamerPveMultiplier,
     type DuelChallenge,
 } from "../App";
+import type { PetArenaFrame } from "../types/pet-arena";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
-import {
-    arenaMatchOwnedByPlayer,
-    arenaSizeOf,
-    buildAcceptedArenaMatch,
-    buildResponderArenaMatch,
-    sharedWarfrontSetup,
-    stripInlinePetImages,
-    WF_BUILD_PACKAGES,
-    WF_COACH_ORDERS,
-    WF_COUNTERSTRIKES,
-    WF_DEPLOYMENT_LANES,
-    WF_OBJECTIVE_TECHNIQUES,
-    WF_SETUP_DOCTRINES,
-    WF_SETUP_STANCES,
-    WF_SHARED_BUY_POLICIES,
-    type ArenaTeam,
-    type PlayerOwnedArenaMatch,
-    type WarfrontSetup,
-} from "../lib/arena-challenge";
+import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { activeCarriedPets } from "../lib/entitlements";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import { settleHollowGateCombat, type HollowGateCombatSettleResult } from "../lib/hollow-gate-combat-api";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
-import { wfThemeForVillage } from "../lib/pet-warfront-theme";
-import {
-    arenaSelectionCount,
-    assignArenaSelectionSlot,
-    clearArenaSelectionSlot,
-    isExactAvailableArenaSelection,
-    nextOpenArenaSlot,
-    normalizeArenaSelection,
-} from "../lib/arena-selection";
-import { PlayerRequestOwner, normalizePlayerIdentity } from "../lib/player-request-owner";
-import {
-    clearArenaPvpRecovery,
-    readArenaPvpRecovery,
-    recoveredChallengeMatches,
-    writeArenaPvpRecovery,
-    type ArenaPvpRecovery,
-} from "../lib/arena-pvp-recovery";
-import {
-    clearPreparedWarfrontContract,
-    parsePreparedWarfrontContract,
-    readPreparedWarfrontContract,
-    writePreparedWarfrontContract,
-    type PreparedWarfrontContract,
-} from "../lib/warfront-prepared-seed";
-import {
-    clearPendingWarfrontSettlement,
-    parseWarfrontTerminalReceipt,
-    isSafeExpiredWarfrontExit,
-    readPendingWarfrontSettlement,
-    warfrontEarlyRetryDelay,
-    warfrontTerminalReceiptMatchesPlayer,
-    warfrontTerminalReceiptMessage,
-    writePendingWarfrontSettlement,
-    WARFRONT_EARLY_RETRY_CUSHION_MS,
-    type PendingWarfrontSettlement,
-    type WarfrontTerminalReceipt,
-} from "../lib/warfront-pending-settlement";
-import type {
-    WarfrontChoice, WarfrontRoundChoice, WarfrontRoundDecision, WarfrontResult, WfBuildPackage, WfBuyPolicy,
-    WfCoachOrder, WfCounterstrike, WfObjectiveTechnique, WfOpeningDeployment,
-} from "../lib/pet-warfront-sim";
-import { WF_STANCES, WF_DOCTRINES, type WfStance, type WfDoctrine } from "../lib/pet-warfront-strategy";
+import { wfThemeForVillage } from "../lib/pet-warfront-map";
+import { WF_STANCES, WF_DOCTRINES, type WfBuyPolicy, type WfStance, type WfDoctrine } from "../lib/pet-warfront-sim";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
 import duelFire from "../assets/coliseum/duel-fire.webp";
@@ -111,6 +76,7 @@ import duelWater from "../assets/coliseum/duel-water.webp";
 import duelWind from "../assets/coliseum/duel-wind.webp";
 import duelLightning from "../assets/coliseum/duel-lightning.webp";
 import duelEarth from "../assets/coliseum/duel-earth.webp";
+import "../styles/pet-home.css";
 
 // Cinematic-duel hero banner matched to the selected pet's element. Falls back
 // to the generic blue-vs-red showdown for None / unknown elements.
@@ -150,38 +116,6 @@ function MatchupHint({ element }: { element?: string }) {
 }
 
 const ROLE_ORDER: PetRole[] = ["defender", "assassin", "tracker", "sage"];
-const WARFRONT_ROLE_FIT: Record<PetRole, string> = {
-    defender: "Frontline",
-    sage: "Sustain",
-    tracker: "Range",
-    assassin: "Burst",
-};
-
-const WARFRONT_DEPLOYMENT_SLOTS = [
-    { id: "top", label: "Top", mark: "T", forecast: "Holds the upper route and meets the first side-lane pressure." },
-    { id: "mid", label: "Mid", mark: "M", forecast: "Anchors the shortest route to Sigils and the Hollow Gate." },
-    { id: "bottom", label: "Bottom", mark: "B", forecast: "Holds the lower route and protects the second approach." },
-    { id: "flex", label: "Flex", mark: "F", forecast: "Roams after the opening lock to reinforce, hunt, or contest." },
-] as const;
-const WARFRONT_OPENING_DEPLOYMENT: WfOpeningDeployment = ["top", "mid", "bottom", "flex"];
-type WfPlaybookId = "hold-turn" | "blood-hunt" | "objective-control";
-const WARFRONT_PLAYBOOKS: ReadonlyArray<{
-    id: WfPlaybookId;
-    icon: string;
-    label: string;
-    summary: string;
-    tradeoff: string;
-    buyPolicy: Exclude<WfBuyPolicy, "off">;
-    buildPackage: WfBuildPackage;
-    coachOrder: WfCoachOrder;
-    objectiveTechnique: WfObjectiveTechnique;
-    counterstrike: WfCounterstrike;
-    requiredRoles: readonly PetRole[];
-}> = [
-    { id: "hold-turn", icon: "🛡", label: "Hold & Turn", summary: "Absorb pressure, own the objective, then counter-push.", tradeoff: "Safest frontline; gives up early chase pressure.", buyPolicy: "defense", buildPackage: "hold-line", coachOrder: "contest", objectiveTechnique: "zone", counterstrike: "fortify", requiredRoles: ["defender"] },
-    { id: "blood-hunt", icon: "🗡", label: "Blood Hunt", summary: "Create picks and turn a shutdown into a fast breach.", tradeoff: "Highest burst; riskiest in a grouped objective fight.", buyPolicy: "offense", buildPackage: "blood-hunt", coachOrder: "ambush", objectiveTechnique: "hijack", counterstrike: "bounty-hunt", requiredRoles: ["assassin"] },
-    { id: "objective-control", icon: "◆", label: "Objective Control", summary: "Sustain escorts and trade lanes around predictable Sigils.", tradeoff: "Best map control; slower direct structure damage.", buyPolicy: "balanced", buildPackage: "escort-rite", coachOrder: "trade", objectiveTechnique: "secure", counterstrike: "cross-map", requiredRoles: ["sage", "tracker"] },
-] as const;
 
 // Tactical-Arena "battle plan" — a composition read-out + coaching hint that
 // fills the space beside the team picker. Pure: derives role counts / element
@@ -197,13 +131,13 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
         if (p.element && p.element !== "None") elements.add(p.element);
     }
     const avg = pets.length ? Math.round(levelSum / pets.length) : 0;
-    const fullCoverage = pets.length > 0 && counts.defender > 0 && counts.sage > 0 && counts.tracker > 0 && counts.assassin > 0;
+    const balanced = pets.length > 0 && counts.defender > 0 && counts.sage > 0 && counts.tracker > 0 && counts.assassin > 0;
     const hint = !pets.length ? "Pick your squad below — your role coverage shows up here."
         : counts.defender === 0 ? "No Defender — add one to hold the front line and soak hits."
         : counts.sage === 0 ? "No Sage — without a healer your squad has no sustain."
         : counts.tracker === 0 ? "No Tracker — you have no ranged pressure to chip from afar."
         : counts.assassin === 0 ? "No Assassin — add burst to finish low targets."
-        : "All four battlefield jobs are covered. Final strength still depends on lane fit, kits, elements, and level.";
+        : "Balanced squad — all four roles covered. Strong all-round comp!";
     return (
         <div className="pet-pick-panel pet-battle-plan">
             <h4 className="bp-title">🧭 Battle Plan</h4>
@@ -215,46 +149,44 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
                             <img src={ROLE_ICON[r]} alt="" aria-hidden="true" />
                             <span className="bp-role-name">{m.label}</span>
                             <span className="bp-role-count">×{counts[r]}</span>
-                            <span className="bp-role-beats" style={{ fontSize: 10, opacity: 0.8, whiteSpace: "nowrap" }}>{WARFRONT_ROLE_FIT[r]}</span>
+                            <span className="bp-role-beats" title={`Strong vs ${ROLE_META[ROLE_BEATS[r]].label} (role counter)`} style={{ fontSize: 10, opacity: 0.8, whiteSpace: "nowrap" }}>▲ {ROLE_META[ROLE_BEATS[r]].label}</span>
                         </div>
                     );
                 })}
             </div>
-            <p className={`pet-matchup-hint ${fullCoverage ? "good" : "warn"}`} style={{ marginTop: 10 }}>{hint}</p>
+            <p className={`pet-matchup-hint ${balanced ? "good" : "warn"}`} style={{ marginTop: 10 }}>{hint}</p>
             <div className="bp-stats">
                 <span>Squad <strong>{pets.length}/{size}</strong></span>
                 <span>Avg Lv <strong>{avg || "—"}</strong></span>
                 <span>Elements <strong>{elements.size ? [...elements].map((e) => <ElIcon key={e} el={e} size={15} />) : "—"}</strong></span>
             </div>
             <div className="bp-tips">
-                <div>🏁 Win lanes, break Guardian Totems, then shatter the rival Ward Seal.</div>
+                <div>🏁 Break the enemy Ward Seal before time runs out.</div>
                 <div>🧠 Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
-                <div>🧭 Top, Mid, and Bottom hold their named routes for 40s; Flex responds across the map.</div>
                 <div>⚡ Element edge ±15%: Fire▸Wind▸Lightning▸Earth▸Water▸Fire.</div>
             </div>
         </div>
     );
 }
 
+// HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
+// load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
+const loadPetColiseum = () => import("../components/PetColiseum");
 const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-model-preload")
     .then((module) => module.preloadPetColiseumModels(pets));
-// Every current Coliseum route uses the continuous duel engine. Keep its Three.js
-// presentation lazy; the retired round-frame renderer no longer ships here.
-const PetColiseumDuel = lazyWithRetry(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
+const PetColiseum = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseum })));
+// Continuous-duel renderer (the new authoritative PvE engine, behind
+// petDuelEngine.v1) — same lazy chunk, mounted instead of PetColiseum when the
+// flag is on for a non-ranked fight.
+const PetColiseumDuel = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseumDuel })));
 // Hollow Warfront — the lane-war game mode that REPLACED the capture-scroll
 // Tactical Arena (Ward Seal objective, Guardian Totems, the Hollow Gate breach,
 // bounty coins + the 30 s War Council). Own lazy chunk (three-heavy).
 const PetWarfrontMatch = lazyWithRetry(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
-const preloadWarfrontExperience = (pets: readonly Pet[]) => {
-    void Promise.all([
-        import("../components/PetWarfrontMatch"),
-        import("../lib/pet-model-preload").then((module) => module.preloadPetWarfrontModels(pets)),
-    ]).catch(() => undefined);
-};
 // Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
 // state + its own fight), so it's lazy-loaded and never touches the duel/arena state here.
 const PetGauntlet = lazyWithRetry(() => import("../components/PetGauntlet").then((m) => ({ default: m.PetGauntlet })));
-// Co-op lobby (play the Tactical Arena 4v4 with friends) — lazy; pulls the arena chunk.
+// Co-op lobby (play the Hollow Warfront 4v4 with friends) — lazy; pulls the arena chunk.
 const ArenaCoopLobby = lazyWithRetry(() => import("../components/ArenaCoopLobby").then((m) => ({ default: m.ArenaCoopLobby })));
 
 // Build the arena slots from each pet's NATIVE role (pet.role, set by
@@ -265,264 +197,151 @@ function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
     return pets.slice(0, Math.max(1, count)).map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
 }
 
-function WarfrontChoiceButtons<T extends string>({ label, items, value, onSelect, disabled, maxWidth = 620 }: {
-    label: string;
-    items: readonly { id: T; icon?: string; label: string; desc?: string }[];
-    value: T;
-    onSelect: (value: T) => void;
-    disabled?: boolean;
-    maxWidth?: number;
-}) {
-    return (
-        <div role="group" aria-label={label} className="pet-arena-mode-toggle" style={{ maxWidth, marginTop: 6, flexWrap: "wrap" }}>
-            {items.map((item) => <button key={item.id} type="button" disabled={disabled} aria-pressed={value === item.id} title={item.desc} className={value === item.id ? "active" : ""} onClick={() => onSelect(item.id)}>{item.icon} {item.label}</button>)}
-        </div>
-    );
-}
-
-function storedChoice<T extends string>(key: string, values: ReadonlySet<T>, fallback: T): T {
-    try {
-        const value = localStorage.getItem(key) as T | null;
-        return value && values.has(value) ? value : fallback;
-    } catch { return fallback; }
-}
-
-function saveChoice<T extends string>(key: string, value: T, setValue: (next: T) => void): void {
-    setValue(value);
-    try { localStorage.setItem(key, value); } catch { /* storage disabled */ }
-}
-
-async function postWarfront<T>(path: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<[Response, T | null]> {
-    const response = await fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal,
-    });
-    return [response, await response.json().catch(() => null) as T | null];
-}
-
-function abortableDelay(delayMs: number, signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-        if (signal.aborted) {
-            reject(new DOMException("Request aborted", "AbortError"));
-            return;
-        }
-        const timer = window.setTimeout(() => {
-            signal.removeEventListener("abort", onAbort);
-            resolve();
-        }, delayMs);
-        const onAbort = () => {
-            window.clearTimeout(timer);
-            reject(new DOMException("Request aborted", "AbortError"));
-        };
-        signal.addEventListener("abort", onAbort, { once: true });
-    });
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-    value !== null && typeof value === "object" && !Array.isArray(value);
-
-type WarfrontAuthoredSetup = {
-    deployment: WfOpeningDeployment;
-    buildPackage: WfBuildPackage;
-    coachOrder: WfCoachOrder;
-    objectiveTechnique?: WfObjectiveTechnique;
-    counterstrike?: WfCounterstrike;
+type PetBattleSettlementResponse = PetChronicleSettlementPayload & {
+    ok?: boolean;
+    error?: string;
+    character?: Character;
+    reward?: number;
+    balances?: { ryo: number };
+    totalPetWins?: number;
+    dailyPetWins?: number;
+    capped?: boolean;
+    hollowGate?: boolean;
+    outcome?: "win" | "loss" | "draw";
+    petReceipt?: string;
+    reason?: string;
+    _saveVersion?: number;
 };
-type WarfrontPlaybackSetup = Omit<WarfrontSetup, "buyPolicy" | "objectiveTechnique" | "counterstrike"> & { buyPolicy: WfBuyPolicy } & WarfrontAuthoredSetup;
-type SharedWarfrontPlaybackSetup = WarfrontSetup & Required<Pick<WarfrontAuthoredSetup, "objectiveTechnique" | "counterstrike">>;
-type ActiveWarfrontMatch = {
+
+type CasualPetBattleSeal = {
+    token: string;
+    seed: number;
+    reportKey: string;
+    playerPets?: Pet[];
+    opponentPets?: Pet[];
+    battleConfig?: CasualPetBattleConfig;
+};
+
+type CasualPetBattleConfig = {
+    mode: "1v1" | "2v2";
+    seed: number;
+    damageMult: number;
+    hpMult: number;
+    revive: boolean;
+    applyItems: boolean;
+    accuracy: boolean;
+    terrain: string | null;
+};
+
+function parseCasualPetBattleConfig(
+    value: unknown,
+    expectedMode: CasualPetBattleConfig["mode"],
+    expectedSeed: number,
+): CasualPetBattleConfig | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const config = value as Partial<CasualPetBattleConfig>;
+    if (config.mode !== expectedMode || config.seed !== expectedSeed
+        || !Number.isFinite(Number(config.damageMult)) || Number(config.damageMult) <= 0 || Number(config.damageMult) > 10
+        || !Number.isFinite(Number(config.hpMult)) || Number(config.hpMult) <= 0 || Number(config.hpMult) > 10
+        || typeof config.revive !== "boolean"
+        || typeof config.applyItems !== "boolean"
+        || typeof config.accuracy !== "boolean"
+        || (config.terrain !== null && typeof config.terrain !== "string")) return null;
+    return config as CasualPetBattleConfig;
+}
+
+function parseSealedCasualPets(value: unknown, expectedIds: readonly string[]): Pet[] | null {
+    if (!Array.isArray(value) || value.length !== expectedIds.length) return null;
+    const pets = value.filter((entry): entry is Pet => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+        const pet = entry as Partial<Pet>;
+        return typeof pet.id === "string" && typeof pet.name === "string"
+            && Number.isFinite(Number(pet.hp)) && Number(pet.hp) > 0
+            && Number.isFinite(Number(pet.attack)) && Number(pet.attack) > 0
+            && Number.isFinite(Number(pet.defense)) && Number(pet.defense) >= 0
+            && Number.isFinite(Number(pet.speed)) && Number(pet.speed) > 0
+            && Array.isArray(pet.jutsus)
+            && !("image" in pet) && !("bodyImage" in pet);
+    });
+    if (pets.length !== expectedIds.length
+        || pets.some((pet, index) => pet.id !== expectedIds[index])) return null;
+    return pets;
+}
+
+function restoreSealedPetCosmetics(sealed: Pet, local: Pet | undefined): Pet {
+    return {
+        ...sealed,
+        ...(local?.image ? { image: local.image } : {}),
+        ...(local?.bodyImage ? { bodyImage: local.bodyImage } : {}),
+    };
+}
+
+type PetSettlementStatus = "pending" | "error" | "settled";
+type PetSettlementKind = "tactical" | "party" | "ranked" | "casual";
+
+type PetSettlementAttempt = {
+    id: string;
+    kind: PetSettlementKind;
+    label: string;
+    scope: PetArenaPlayerScope;
+    status: PetSettlementStatus;
+    running: boolean;
+    run: () => Promise<boolean>;
+};
+
+type PetSettlementPresentation = Pick<PetSettlementAttempt, "id" | "kind" | "label" | "scope" | "status"> & {
+    detail?: string;
+};
+
+type WarfrontMatch = {
     blue: ArenaSlot[];
     red: ArenaSlot[];
     seed: number;
     vsAi: boolean;
-    blueSetup: WarfrontPlaybackSetup;
-    redSetup?: SharedWarfrontPlaybackSetup;
-    localTeam: ArenaTeam;
-    reportKey?: string;
-    prepareToken?: string;
-    committedChoices?: WarfrontRoundChoice[];
-    difficulty?: WarfrontDifficultyDisclosure;
-    rewardModel?: WarfrontRewardModel;
+    scope: PetArenaPlayerScope;
+    buyPolicy: WfBuyPolicy;
+    stance: WfStance;
+    doctrine: WfDoctrine;
+    opponentStance: WfStance;
+    opponentDoctrine: WfDoctrine;
 };
-type WarfrontRewardState = {
-    phase: "idle" | "minting" | "ready" | "settling" | "settled" | "error";
-    message: string;
-    retry: "mint" | "settle" | null;
-};
-type AuthorizedWarfrontMatch = {
-    token: string;
-    seed: number;
-    reportKey: string;
-    rewardEligible: boolean;
-    blue: ArenaSlot[];
-    red: ArenaSlot[];
-    setup: WarfrontPlaybackSetup;
-    redSetup: SharedWarfrontPlaybackSetup;
-    committedChoices: WarfrontRoundChoice[];
-    difficulty: WarfrontDifficultyDisclosure;
-    rewardModel: WarfrontRewardModel;
-};
-type WarfrontDifficultyDisclosure = {
-    version: 1;
-    band: "rookie" | "veteran" | "elite";
-    label: "Rising Squad" | "Veteran Front" | "Elite Warfront";
-    playerPower: number;
-    opponentPower: number;
-};
-type WarfrontRewardModel = {
-    kind: "coach-completion" | "competitive-outcome";
-    currency: "ryo";
-    amount: number;
-    dailyCap: number;
-    outcomeIndependent: boolean;
-};
-type WarfrontLifecycle = {
-    epoch: number;
-    normalizedPlayerName: string;
-    active: boolean;
-};
-type WarfrontAsyncAttempt = {
-    epoch: number;
-    playerName: string;
-    normalizedPlayerName: string;
-    battleToken?: string;
-    controller: AbortController;
-};
-type WarfrontSettlementRetryTimer = {
-    epoch: number;
-    normalizedPlayerName: string;
-    battleToken: string;
-    id: number;
-};
-const normalizeWarfrontPlayerName = (playerName: string): string => playerName.trim().toLowerCase();
-const AUTHORIZED_ARENA_ROLES = new Set<ArenaRole>(["defender", "tracker", "assassin", "sage"]);
-let lastArenaChallengeCreatedAt = 0;
 
-function nextArenaChallengeCreatedAt(): number {
-    lastArenaChallengeCreatedAt = Math.max(Date.now(), lastArenaChallengeCreatedAt + 1);
-    return lastArenaChallengeCreatedAt;
+function settlementErrorMessage(error: unknown): string {
+    return error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : "The arena could not record this result. Your battle seal is safe to retry.";
 }
 
-function parseAuthorizedWarfrontSlots(value: unknown): ArenaSlot[] | null {
-    if (!Array.isArray(value) || value.length !== 4) return null;
-    const slots: ArenaSlot[] = [];
-    for (const entry of value) {
-        if (!isRecord(entry)) return null;
-        const slot = entry as { role?: unknown; pet?: unknown };
-        if (!AUTHORIZED_ARENA_ROLES.has(slot.role as ArenaRole) || !isRecord(slot.pet)) return null;
-        const pet = slot.pet as Partial<Pet>;
-        if (typeof pet.id !== "string" || !pet.id || typeof pet.name !== "string" || !pet.name) return null;
-        slots.push({ role: slot.role as ArenaRole, pet: pet as Pet });
-    }
-    return new Set(slots.map((slot) => slot.pet.id)).size === 4 ? slots : null;
-}
-
-function parseWarfrontDifficulty(value: unknown): WarfrontDifficultyDisclosure | null {
-    if (!isRecord(value) || value.version !== 1
-        || (value.band !== "rookie" && value.band !== "veteran" && value.band !== "elite")
-        || (value.label !== "Rising Squad" && value.label !== "Veteran Front" && value.label !== "Elite Warfront")
-        || !Number.isSafeInteger(value.playerPower) || Number(value.playerPower) <= 0
-        || !Number.isSafeInteger(value.opponentPower) || Number(value.opponentPower) <= 0) return null;
-    const expectedLabel = value.band === "rookie" ? "Rising Squad" : value.band === "veteran" ? "Veteran Front" : "Elite Warfront";
-    if (value.label !== expectedLabel) return null;
-    return {
-        version: 1,
-        band: value.band,
-        label: value.label,
-        playerPower: Number(value.playerPower),
-        opponentPower: Number(value.opponentPower),
-    };
-}
-
-function parseWarfrontRewardModel(value: unknown, rewardEligible: boolean): WarfrontRewardModel | null {
-    if (!isRecord(value) || (value.kind !== "coach-completion" && value.kind !== "competitive-outcome")
-        || value.currency !== "ryo" || !Number.isSafeInteger(value.amount) || Number(value.amount) < 0
-        || !Number.isSafeInteger(value.dailyCap) || Number(value.dailyCap) <= 0
-        || typeof value.outcomeIndependent !== "boolean") return null;
-    if (rewardEligible) {
-        if (value.kind !== "competitive-outcome" || value.outcomeIndependent !== false || value.dailyCap !== 100) return null;
-    } else if (value.kind !== "coach-completion" || value.outcomeIndependent !== true || value.dailyCap !== 3 || Number(value.amount) < 20) return null;
-    return {
-        kind: value.kind,
-        currency: "ryo",
-        amount: Number(value.amount),
-        dailyCap: Number(value.dailyCap),
-        outcomeIndependent: value.outcomeIndependent,
-    };
-}
-
-function parseAuthorizedWarfrontSetup(value: unknown): WarfrontPlaybackSetup | null {
-    if (!isRecord(value)) return null;
-    const setup = value as { stance?: unknown; doctrine?: unknown; buyPolicy?: unknown; deployment?: unknown; buildPackage?: unknown; coachOrder?: unknown; objectiveTechnique?: unknown; counterstrike?: unknown };
-    const coachMode = setup.buyPolicy === "off";
-    const techniqueValid = setup.objectiveTechnique === undefined || WF_OBJECTIVE_TECHNIQUES.has(setup.objectiveTechnique as WfObjectiveTechnique);
-    const counterstrikeValid = setup.counterstrike === undefined || WF_COUNTERSTRIKES.has(setup.counterstrike as WfCounterstrike);
-    if (!WF_SETUP_STANCES.has(setup.stance as WfStance)
-        || !WF_SETUP_DOCTRINES.has(setup.doctrine as WfDoctrine)
-        || (setup.buyPolicy !== "off" && !WF_SHARED_BUY_POLICIES.has(setup.buyPolicy as Exclude<WfBuyPolicy, "off">))
-        || !Array.isArray(setup.deployment) || setup.deployment.length !== 4
-        || new Set(setup.deployment).size !== 4
-        || !setup.deployment.every((lane) => WF_DEPLOYMENT_LANES.has(lane as "top" | "mid" | "bottom" | "flex"))
-        || !WF_BUILD_PACKAGES.has(setup.buildPackage as WfBuildPackage)
-        || !WF_COACH_ORDERS.has(setup.coachOrder as WfCoachOrder)
-        || !techniqueValid || !counterstrikeValid
-        || (!coachMode && (setup.objectiveTechnique === undefined || setup.counterstrike === undefined))) return null;
-    return { ...setup, deployment: [...setup.deployment] } as unknown as WarfrontPlaybackSetup;
-}
-
-function asSharedWarfrontSetup(setup: WarfrontPlaybackSetup): SharedWarfrontPlaybackSetup | null {
-    return setup.buyPolicy === "off" ? null : setup as SharedWarfrontPlaybackSetup;
-}
-
-function parseAuthorizedCouncilChoices(value: unknown): WarfrontRoundChoice[] | null {
-    if (!Array.isArray(value) || value.length > 6) return null;
-    const allowedKinds = new Set(["strike", "guard", "vitality", "swift", "mend"]);
-    const choices: WarfrontRoundChoice[] = [];
-    for (let index = 0; index < value.length; index++) {
-        const entry = value[index];
-        if (!isRecord(entry)) return null;
-        const raw = entry as { round?: unknown; choices?: unknown; stance?: unknown; coachOrder?: unknown; buildPackage?: unknown; objectiveTechnique?: unknown; counterstrike?: unknown };
-        if (raw.round !== index + 1 || !Array.isArray(raw.choices)) return null;
-        const roundChoices: WarfrontChoice[] = [];
-        for (const choice of raw.choices) {
-            if (!isRecord(choice)) return null;
-            const item = choice as { petIndex?: unknown; kind?: unknown };
-            if (!Number.isInteger(item.petIndex) || Number(item.petIndex) < 0 || Number(item.petIndex) > 3 || !allowedKinds.has(String(item.kind))) return null;
-            roundChoices.push({ petIndex: Number(item.petIndex), kind: item.kind as WarfrontChoice["kind"] });
-        }
-        if (raw.stance !== undefined && !WF_SETUP_STANCES.has(raw.stance as WfStance)) return null;
-        if (raw.coachOrder !== undefined && !WF_COACH_ORDERS.has(raw.coachOrder as WfCoachOrder)) return null;
-        if (raw.buildPackage !== undefined && !WF_BUILD_PACKAGES.has(raw.buildPackage as WfBuildPackage)) return null;
-        if (raw.objectiveTechnique !== undefined && !WF_OBJECTIVE_TECHNIQUES.has(raw.objectiveTechnique as WfObjectiveTechnique)) return null;
-        if (raw.counterstrike !== undefined && !WF_COUNTERSTRIKES.has(raw.counterstrike as WfCounterstrike)) return null;
-        const parsed: WarfrontRoundChoice = { round: index + 1, choices: roundChoices };
-        if (raw.stance !== undefined) parsed.stance = raw.stance as WfStance;
-        if (raw.coachOrder !== undefined) parsed.coachOrder = raw.coachOrder as WfCoachOrder;
-        if (raw.buildPackage !== undefined) parsed.buildPackage = raw.buildPackage as WfBuildPackage;
-        if (raw.objectiveTechnique !== undefined) parsed.objectiveTechnique = raw.objectiveTechnique as WfObjectiveTechnique;
-        if (raw.counterstrike !== undefined) parsed.counterstrike = raw.counterstrike as WfCounterstrike;
-        choices.push(parsed);
-    }
-    return choices;
-}
-
-class PreparedWarfrontContractError extends Error {}
-const WARFRONT_DOCTRINE_COUNTER: Partial<Record<WfDoctrine, WfDoctrine>> = {
-    vanguard: "bulwark",
-    bulwark: "zealot",
-    zealot: "vanguard",
-};
-
-
-export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, pendingArenaRecovery, onPendingArenaRecoveryHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onHollowGatePetBattleEnd }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: React.Dispatch<React.SetStateAction<DuelChallenge[]>>; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: PlayerOwnedArenaMatch | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; pendingArenaRecovery?: ArenaPvpRecovery | null; onPendingArenaRecoveryHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onHollowGatePetBattleEnd?: (result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) => void }) {
+export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onHollowGatePetBattleEnd, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onHollowGatePetBattleEnd?: (result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const preservedPetOverflow = Math.max(0, character.pets.length - combatEligiblePets.length);
-    const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? combatEligiblePets[0]?.id ?? "");
+    const mountedRef = useRef(true);
+    const playerScopeRef = useRef<PetArenaPlayerScope>({ playerName: character.name, generation: 0 });
+    if (playerScopeRef.current.playerName.toLowerCase() !== character.name.toLowerCase()) {
+        playerScopeRef.current = {
+            playerName: character.name,
+            generation: playerScopeRef.current.generation + 1,
+        };
+    }
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
+    const capturePlayerScope = (): PetArenaPlayerScope => ({ ...playerScopeRef.current });
+    const playerScopeIsActive = (scope: PetArenaPlayerScope): boolean => (
+        isPetArenaPlayerScopeActive(scope, playerScopeRef.current, mountedRef.current)
+    );
+
+    const [selectedPetId, setSelectedPetId] = useState(combatEligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? combatEligiblePets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
+    const [chronicleCeremony, setChronicleCeremony] = useState<PetChronicleCeremonyReceipt | null>(null);
+    const [chronicleProgress, setChronicleProgress] = useState<PetChronicleProgressReceipt | null>(null);
+    const settlementAttemptRef = useRef<PetSettlementAttempt | null>(null);
+    const [settlementPresentation, setSettlementPresentation] = useState<PetSettlementPresentation | null>(null);
+    const battleSetupRetryRef = useRef<(() => void) | null>(null);
+    const [battleSetupIssue, setBattleSetupIssue] = useState<{ scope: PetArenaPlayerScope; message: string } | null>(null);
     // Live PvP duels (lockstep) are owned end-to-end by PetDuelLiveHost; this
     // screen only asks it to send a challenge and reports the settled result.
     const liveDuelRef = useRef<PetDuelLiveHandle>(null);
@@ -534,235 +353,223 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
     // (character.activePetId2v2). Still overridable per battle via the dropdown.
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
-    // Hollow Warfront game mode — a full-screen 4v4 MOBA/autobattler match.
-    // Teams and both coaches' opening plans are frozen on launch.
-    const [arenaMatch, setArenaMatch] = useState<ActiveWarfrontMatch | null>(null);
-    // Server-authoritative Warfront authorization + settlement. A vs-AI match
-    // never begins without a minted token, and a dropped result response leaves
-    // an explicit retry action instead of silently discarding an honest win.
-    const normalizedCharacterName = normalizeWarfrontPlayerName(character.name);
-    const arenaRequestOwner = useRef<PlayerRequestOwner | null>(null);
-    if (!arenaRequestOwner.current) arenaRequestOwner.current = new PlayerRequestOwner();
-    const warfrontRewardToken = useRef<{ seed: number; token: string; reportKey: string; rewardEligible: boolean; playerName: string; prepareToken?: string } | null>(null);
-    const warfrontRetryRef = useRef<(() => Promise<void>) | null>(null);
-    const warfrontLifecycle = useRef<WarfrontLifecycle>({ epoch: 0, normalizedPlayerName: normalizedCharacterName, active: false });
-    const warfrontPrepareAttempt = useRef<WarfrontAsyncAttempt | null>(null);
-    const warfrontStartAttempt = useRef<WarfrontAsyncAttempt | null>(null);
-    const warfrontCouncilAttempt = useRef<WarfrontAsyncAttempt | null>(null);
-    const warfrontSettlementAttempt = useRef<WarfrontAsyncAttempt | null>(null);
-    const warfrontForfeitAttempt = useRef<WarfrontAsyncAttempt | null>(null);
-    const warfrontSettlementRetryTimer = useRef<WarfrontSettlementRetryTimer | null>(null);
-    const warfrontSettlementEarlyRetryUsed = useRef<string | null>(null);
-    const settledWarfrontSeeds = useRef<Set<number>>(new Set());
-    const [warfrontRewardState, setWarfrontRewardState] = useState<WarfrontRewardState>({ phase: "idle", message: "", retry: null });
-    const cancelWarfrontSettlementRetry = (ownerEpoch?: number) => {
-        const timer = warfrontSettlementRetryTimer.current;
-        if (!timer || (ownerEpoch !== undefined && timer.epoch !== ownerEpoch)) return;
-        window.clearTimeout(timer.id);
-        if (warfrontSettlementRetryTimer.current === timer) warfrontSettlementRetryTimer.current = null;
-    };
-    const isCurrentWarfrontIdentity = (identity: Pick<WarfrontAsyncAttempt, "epoch" | "normalizedPlayerName">): boolean => {
-        const current = warfrontLifecycle.current;
-        return current.active
-            && current.epoch === identity.epoch
-            && current.normalizedPlayerName === identity.normalizedPlayerName;
-    };
-    const captureWarfrontAttempt = (battleToken?: string): WarfrontAsyncAttempt | null => {
-        const current = warfrontLifecycle.current;
-        if (!current.active || current.normalizedPlayerName !== normalizedCharacterName) return null;
-        return {
-            epoch: current.epoch,
-            playerName: character.name,
-            normalizedPlayerName: current.normalizedPlayerName,
-            ...(battleToken ? { battleToken } : {}),
-            controller: new AbortController(),
-        };
-    };
-    const isCurrentWarfrontAttempt = (attempt: WarfrontAsyncAttempt): boolean =>
-        !attempt.controller.signal.aborted && isCurrentWarfrontIdentity(attempt);
-
-    // A player transition invalidates every response and timer owned by the old
-    // identity before the browser can paint or a passive recovery effect runs.
-    useLayoutEffect(() => {
-        const epoch = warfrontLifecycle.current.epoch + 1;
-        warfrontLifecycle.current = { epoch, normalizedPlayerName: normalizedCharacterName, active: true };
-        settledWarfrontSeeds.current = new Set();
-        return () => {
-            const current = warfrontLifecycle.current;
-            if (current.epoch !== epoch) return;
-            warfrontLifecycle.current = { epoch: epoch + 1, normalizedPlayerName: current.normalizedPlayerName, active: false };
-            cancelWarfrontSettlementRetry(epoch);
-            for (const attemptRef of [warfrontPrepareAttempt, warfrontStartAttempt, warfrontCouncilAttempt, warfrontSettlementAttempt, warfrontForfeitAttempt]) {
-                const attempt = attemptRef.current;
-                if (attempt?.epoch !== epoch) continue;
-                attempt.controller.abort();
-                if (attemptRef.current === attempt) attemptRef.current = null;
-            }
-            warfrontRewardToken.current = null;
-            warfrontRetryRef.current = null;
-            warfrontSettlementEarlyRetryUsed.current = null;
-        };
-    }, [normalizedCharacterName]);
-    // Co-op (play the Tactical Arena 4v4 with friends) — opens the lobby overlay.
+    // Last party result, shown as a summary block ("2–0 — You take the set!").
+    const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
+    // Hollow Warfront — a full-screen 4v4 lane war with Ward Seals, Guardian
+    // Totems and a timed War Council. Teams are built + frozen on launch.
+    const [arenaMatch, setArenaMatch] = useState<WarfrontMatch | null>(null);
+    // Server-authoritative Warfront seed + reward proof. This exact promise is
+    // retained through rendering and retries so the battle cannot be re-seeded.
+    const warfrontRewardSealRequest = useRef<Promise<WarfrontRewardSeal | null> | null>(null);
+    const warfrontSetupInFlightRef = useRef<Promise<WarfrontRewardSeal | null> | null>(null);
+    const warfrontSetupErrorRef = useRef<string | null>(null);
+    const warfrontResumeProbeScopeRef = useRef<string | null>(null);
+    const [warfrontSetupPending, setWarfrontSetupPending] = useState(false);
+    // Co-op (play the Hollow Warfront 4v4 with friends) — opens the lobby overlay.
     const [showCoop, setShowCoop] = useState(false);
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
     // "tactical" is the full-screen team game mode (vs AI / challenge / co-op).
     // Defaults to the cinematic battle so Pet Arena opens straight into it.
     const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">("battle");
-    // Tactical Arena setup (single screen): a size toggle + a team grid shared by
-    // Fight AI and Challenge-a-Player. Picks seed to the top pets and re-seed on
-    // a size change.
-    // Warfront is always 4v4; kept as state-shaped
+    // Warfront setup (single screen): a team grid shared by Fight AI and
+    // Challenge-a-Player. Picks seed to the top available pets.
+    // Warfront is always 4v4 (2v2 retired with capture-scroll); kept as state-shaped
     // const so the challenge payload + pick caps read unchanged.
     const [tacticalSize] = useState<2 | 4>(4);
     // War Council preference for the Warfront's 30 s buy rounds: manual popup or
     // a silent auto-buy policy. Per-device persisted; PvP/co-op always lock auto
     // so both clients' replays stay deterministic.
-    const [wfAutoPref, setWfAutoPref] = useState<WfBuyPolicy>(() => storedChoice<WfBuyPolicy>("wfAutoBuy.v1", WF_SHARED_BUY_POLICIES, "off"));
-    const setWfAuto = (value: WfBuyPolicy) => saveChoice("wfAutoBuy.v1", value, setWfAutoPref);
-    const [wfPlaybookPref, setWfPlaybookPref] = useState<WfPlaybookId>(() => {
+    const [wfAutoPref, setWfAutoPref] = useState<Exclude<WfBuyPolicy, "off">>(() => {
         try {
-            const stored = localStorage.getItem("wfPlaybook.v1");
-            if (stored === "hold-turn" || stored === "blood-hunt" || stored === "objective-control") return stored;
-            const legacy = localStorage.getItem("wfAutoBuy.v1");
-            return legacy === "defense" ? "hold-turn" : legacy === "offense" ? "blood-hunt" : "objective-control";
-        } catch { return "objective-control"; }
+            const v = localStorage.getItem("wfAutoBuy.v1");
+            return v === "offense" || v === "defense" ? v : "balanced";
+        } catch { return "balanced"; }
     });
-    const activeWfPlaybook = WARFRONT_PLAYBOOKS.find((item) => item.id === wfPlaybookPref) ?? WARFRONT_PLAYBOOKS[2];
-    const activeWfAuthoredSetup: WarfrontAuthoredSetup = {
-        deployment: WARFRONT_OPENING_DEPLOYMENT,
-        buildPackage: activeWfPlaybook.buildPackage,
-        coachOrder: activeWfPlaybook.coachOrder,
-        objectiveTechnique: activeWfPlaybook.objectiveTechnique,
-        counterstrike: activeWfPlaybook.counterstrike,
-    };
-    const localWarfrontSetup = (buyPolicy: WfBuyPolicy): WarfrontPlaybackSetup => {
-        const setup = { stance: wfStancePref, doctrine: wfDoctrinePref, buyPolicy, ...activeWfAuthoredSetup };
-        if (buyPolicy === "off") {
-            delete setup.objectiveTechnique;
-            delete setup.counterstrike;
-        }
-        return setup;
-    };
-    const setWfPlaybook = (id: WfPlaybookId) => {
-        const playbook = WARFRONT_PLAYBOOKS.find((item) => item.id === id) ?? WARFRONT_PLAYBOOKS[2];
-        setWfPlaybookPref(playbook.id);
-        if (wfAutoPref !== "off") setWfAuto(playbook.buyPolicy);
-        try { localStorage.setItem("wfPlaybook.v1", playbook.id); } catch { /* storage disabled — ignore */ }
+    const setWfAuto = (p: Exclude<WfBuyPolicy, "off">) => {
+        setWfAutoPref(p);
+        try { localStorage.setItem("wfAutoBuy.v1", p); } catch { /* storage disabled — ignore */ }
     };
     // Opening FORMATION (stance) for the Warfront — per-device persisted; also
     // adjustable at every manual War Council mid-match.
-    const [wfStancePref, setWfStancePref] = useState<WfStance>(() => storedChoice("wfStance.v1", WF_SETUP_STANCES, "balanced"));
-    const setWfStance = (value: WfStance) => saveChoice("wfStance.v1", value, setWfStancePref);
-    // Team DOCTRINE — a second pre-match strategic axis (a team-wide boon).
-    const [wfDoctrinePref, setWfDoctrinePref] = useState<WfDoctrine>(() => storedChoice("wfDoctrine.v1", WF_SETUP_DOCTRINES, "vanguard"));
-    const setWfDoctrine = (value: WfDoctrine) => saveChoice("wfDoctrine.v1", value, setWfDoctrinePref);
-    // The scouting tell comes from a server-held one-at-a-time grant. Local
-    // storage only survives navigation; it cannot choose or forge the seed
-    // because Start must present the matching server token.
-    const [preparedWarfrontContract, setPreparedWarfrontContract] = useState<PreparedWarfrontContract | null>(() => readPreparedWarfrontContract(character.name));
-    const [warfrontPrepareMessage, setWarfrontPrepareMessage] = useState("Loading the next server scouting contract...");
-    const [warfrontPreparing, setWarfrontPreparing] = useState(false);
-    useLayoutEffect(() => {
-        const cached = readPreparedWarfrontContract(character.name);
-        setPreparedWarfrontContract(cached);
-        setWarfrontPrepareMessage(cached ? "Server scouting contract ready." : "Loading the next server scouting contract...");
-        setWarfrontPreparing(false);
-        setWarfrontRewardState({ phase: "idle", message: "", retry: null });
-    }, [normalizedCharacterName]);
-    async function requestPreparedWarfrontContract() {
-        const currentAttempt = warfrontPrepareAttempt.current;
-        if (currentAttempt && isCurrentWarfrontAttempt(currentAttempt)) return;
-        currentAttempt?.controller.abort();
-        const attempt = captureWarfrontAttempt();
-        if (!attempt) return;
-        warfrontPrepareAttempt.current = attempt;
-        setWarfrontPreparing(true);
-        setWarfrontPrepareMessage("Loading the next server scouting contract...");
+    const [wfStancePref, setWfStancePref] = useState<WfStance>(() => {
         try {
-            const [response, data] = await postWarfront<{
-                prepareToken?: unknown;
-                scoutedDoctrineOptions?: unknown;
-                scoutedWarband?: unknown;
-                preparedAt?: unknown;
-                error?: unknown;
-                code?: unknown;
-                retryAfterSeconds?: unknown;
-            }>("/api/pet/warfront-start", { playerName: attempt.playerName, action: "prepare" }, attempt.controller.signal);
-            if (!isCurrentWarfrontAttempt(attempt)) return;
-            const contract = parsePreparedWarfrontContract({
-                prepareToken: data?.prepareToken,
-                scoutedDoctrineOptions: data?.scoutedDoctrineOptions,
-                scoutedWarband: data?.scoutedWarband,
-                preparedAt: data?.preparedAt,
+            const v = localStorage.getItem("wfStance.v1");
+            return v === "siege" || v === "jungle" || v === "headhunt" || v === "turtle" ? v : "balanced";
+        } catch { return "balanced"; }
+    });
+    const setWfStance = (s: WfStance) => {
+        setWfStancePref(s);
+        try { localStorage.setItem("wfStance.v1", s); } catch { /* storage disabled — ignore */ }
+    };
+    // Team DOCTRINE — a second pre-match strategic axis (a team-wide boon).
+    const [wfDoctrinePref, setWfDoctrinePref] = useState<WfDoctrine>(() => {
+        try {
+            const v = localStorage.getItem("wfDoctrine.v1");
+            return v === "vanguard" || v === "bulwark" || v === "zealot" || v === "warden-pact" ? v : "vanguard";
+        } catch { return "vanguard"; }
+    });
+    const setWfDoctrine = (d: WfDoctrine) => {
+        setWfDoctrinePref(d);
+        try { localStorage.setItem("wfDoctrine.v1", d); } catch { /* storage disabled — ignore */ }
+    };
+    const receivePetBattleSettlement = (
+        data: PetBattleSettlementResponse,
+        scope: PetArenaPlayerScope,
+        authoritativeCharacter: Character | undefined = data.character,
+    ): PetArenaServerVersionDecision => {
+        if (!playerScopeIsActive(scope)
+            || !responseBelongsToPetArenaPlayer(scope, data.character?.name)) return "foreign";
+
+        // Even a character-less receipt hop asks App to validate the originating
+        // account. App may return `stale` for an unversioned same-account hop, but
+        // returns `foreign` after logout/account switch, stopping the chain before
+        // another authenticated request or run callback can fire.
+        const decision = normalizePetArenaVersionDecision(
+            authoritativeCharacter && onVersionedCharacter
+                ? onVersionedCharacter(authoritativeCharacter, data._saveVersion, scope.playerName)
+                : onServerVersion?.(data._saveVersion, scope.playerName),
+        );
+        if (decision === "foreign" || !playerScopeIsActive(scope)) return "foreign";
+
+        // A stale same-account snapshot is not safe to hydrate, but its receipt is
+        // still a server-authenticated deed and may be celebrated. A foreign one
+        // never reaches this branch.
+        const receipt = petChronicleCeremonyFromSettlement(data);
+        if (receipt) {
+            setChronicleCeremony((current) => playerScopeIsActive(scope) ? (current ?? receipt) : current);
+        }
+        const progress = petChronicleProgressFromSettlement(data);
+        if (progress) {
+            setChronicleProgress((current) => playerScopeIsActive(scope) ? (current ?? progress) : current);
+        }
+        return decision;
+    };
+    const playerAuthorityIsActive = (scope: PetArenaPlayerScope): boolean => {
+        if (!playerScopeIsActive(scope)) return false;
+        const decision = normalizePetArenaVersionDecision(
+            onServerVersion?.(undefined, scope.playerName),
+        );
+        return decision !== "foreign" && playerScopeIsActive(scope);
+    };
+    const clearSpentConsumables = (petIds: readonly string[], scope: PetArenaPlayerScope = playerScopeRef.current) => {
+        updateCharacter((current) => current
+            && playerScopeIsActive(scope)
+            && current.name.toLowerCase() === scope.playerName.toLowerCase()
+            ? { ...current, pets: clearPetBattleConsumables(current.pets, petIds) }
+            : current);
+    };
+
+    const applyPetBattleSettlement = (
+        data: PetBattleSettlementResponse,
+        scope: PetArenaPlayerScope,
+        petIds: readonly string[],
+    ): boolean => {
+        if (!data.character) throw new Error("The arena did not return the recorded pet roster. Retry this receipt.");
+        const authoritativeCharacter = {
+            ...data.character,
+            pets: clearPetBattleConsumables(data.character.pets, petIds),
+        };
+        const decision = receivePetBattleSettlement(data, scope, authoritativeCharacter);
+        if (decision === "foreign") return false;
+        if (decision === "stale") {
+            // A newer same-account response already owns the rest of the save.
+            // Preserve the one-use item spend locally without hydrating backward.
+            clearSpentConsumables(petIds, scope);
+            return true;
+        }
+        if (!onVersionedCharacter) updateCharacter((current) => {
+            if (!current
+                || !playerScopeIsActive(scope)
+                || current.name.toLowerCase() !== scope.playerName.toLowerCase()
+                || data.character?.name.toLowerCase() !== current.name.toLowerCase()) return current;
+            return {
+                ...authoritativeCharacter,
+            };
+        });
+        return true;
+    };
+
+    async function postPetBattleSettlement(body: Record<string, unknown>): Promise<PetBattleSettlementResponse> {
+        const response = await fetch("/api/pet/battle-result", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json().catch(() => null) as PetBattleSettlementResponse | null;
+        if (!response.ok) throw new Error(data?.error || "The arena could not record this pet battle.");
+        if (!data) throw new Error("The arena returned an unreadable pet battle receipt.");
+        return data;
+    }
+
+    async function runPetSettlementAttempt(attempt: PetSettlementAttempt): Promise<void> {
+        if (attempt.running || attempt.status === "settled" || !playerScopeIsActive(attempt.scope)) return;
+        attempt.running = true;
+        attempt.status = "pending";
+        setSettlementPresentation({
+            id: attempt.id,
+            kind: attempt.kind,
+            label: attempt.label,
+            scope: attempt.scope,
+            status: "pending",
+        });
+        try {
+            const completed = await attempt.run();
+            if (!completed
+                || settlementAttemptRef.current !== attempt
+                || !playerScopeIsActive(attempt.scope)) return;
+            attempt.status = "settled";
+            setSettlementPresentation({
+                id: attempt.id,
+                kind: attempt.kind,
+                label: attempt.label,
+                scope: attempt.scope,
+                status: "settled",
+                detail: "Battle record confirmed. Rewards and one-use items are sealed.",
             });
-            if (!response.ok || !contract) {
-                const retrySeconds = typeof data?.retryAfterSeconds === "number" && Number.isFinite(data.retryAfterSeconds) ? Math.max(1, data.retryAfterSeconds) : null;
-                const fallback = data?.code === "warfront-forfeit-cooldown"
-                    ? `That forfeited seed remains sealed for about ${retrySeconds && retrySeconds >= 60 ? `${Math.ceil(retrySeconds / 60)}m` : `${Math.ceil(retrySeconds ?? 1)}s`}; fresh scouting unlocks after its original regulation clock.`
-                    : data?.code === "warfront-match-active"
-                        ? "The next scouting report unlocks after your active Warfront settles or finishes its regulation lease."
-                        : "The next scouting contract is unavailable.";
-                throw new Error(data?.code === "warfront-forfeit-cooldown" ? fallback : typeof data?.error === "string" ? data.error : fallback);
-            }
-            writePreparedWarfrontContract(attempt.playerName, contract);
-            setPreparedWarfrontContract(contract);
-            setWarfrontPrepareMessage("Server scouting contract ready.");
         } catch (error) {
-            if (!isCurrentWarfrontAttempt(attempt)) return;
-            setWarfrontPrepareMessage(error instanceof Error ? error.message : "The next scouting contract is unavailable.");
+            if (settlementAttemptRef.current !== attempt || !playerScopeIsActive(attempt.scope)) return;
+            attempt.status = "error";
+            setSettlementPresentation({
+                id: attempt.id,
+                kind: attempt.kind,
+                label: attempt.label,
+                scope: attempt.scope,
+                status: "error",
+                detail: settlementErrorMessage(error),
+            });
         } finally {
-            if (warfrontPrepareAttempt.current === attempt) {
-                warfrontPrepareAttempt.current = null;
-                if (isCurrentWarfrontAttempt(attempt)) setWarfrontPreparing(false);
-            }
+            attempt.running = false;
         }
     }
-    useEffect(() => {
-        void requestPreparedWarfrontContract();
-    }, [normalizedCharacterName]);
-    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => normalizeArenaSelection(pickArenaTeam(combatEligiblePets, 4).map((p) => p.id), 4));
-    const [tacticalSlot, setTacticalSlot] = useState(0);
+
+    function beginPetSettlement(options: Omit<PetSettlementAttempt, "running" | "status">): void {
+        const existing = settlementAttemptRef.current;
+        if (existing?.id === options.id) return;
+        const attempt: PetSettlementAttempt = { ...options, running: false, status: "pending" };
+        settlementAttemptRef.current = attempt;
+        void runPetSettlementAttempt(attempt);
+    }
+
+    function resetPetSettlement(): void {
+        settlementAttemptRef.current = null;
+        setSettlementPresentation(null);
+    }
+
+    function showBattleSetupIssue(scope: PetArenaPlayerScope, message: string, retry: () => void): void {
+        if (!playerScopeIsActive(scope)) return;
+        battleSetupRetryRef.current = retry;
+        setBattleSetupIssue({ scope, message });
+    }
+
+    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => pickArenaTeam(combatEligiblePets, 4).map((p) => p.id));
     const [arenaChallengeName, setArenaChallengeName] = useState("");
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
-    const [arenaSending, setArenaSending] = useState(false);
-    const [arenaRecoveryRevision, setArenaRecoveryRevision] = useState(0);
     // 5→1 pre-roll shown to both players before the match plays. Holds the built
     // slots; when it hits 0 we mount PetArenaMatch (same seed → identical fight).
-    const [arenaCountdown, setArenaCountdown] = useState<{ secs: number; match: ActiveWarfrontMatch } | null>(null);
-    useLayoutEffect(() => {
-        setArenaMatch(null);
-        setArenaCountdown(null);
-    }, [normalizedCharacterName]);
+    const [arenaCountdown, setArenaCountdown] = useState<{ secs: number; match: WarfrontMatch } | null>(null);
     // Responder team picks (for an incoming arena challenge, separate from the
     // wizard's tacticalPicks so an in-progress send isn't clobbered).
-    const [respondPicks, setRespondPicks] = useState<string[]>(() => normalizeArenaSelection([], 4));
-    const [respondSlot, setRespondSlot] = useState(0);
-    const [arenaResponding, setArenaResponding] = useState(false);
-    const currentPendingArenaResponse = pendingArenaResponse
-        && normalizePlayerIdentity(pendingArenaResponse.toName) === normalizedCharacterName
-        ? pendingArenaResponse
-        : null;
-
-    // PvP/co-op UI state and every request it can launch belong to the active
-    // normalized player. Layout cleanup runs before a newly selected account can
-    // paint, so a late response cannot start a match or clear the next account's
-    // busy state.
-    useLayoutEffect(() => {
-        const owner = arenaRequestOwner.current!;
-        const epoch = owner.activate(character.name);
-        setShowCoop(false);
-        setArenaSending(false);
-        setArenaResponding(false);
-        setArenaChallengeName("");
-        setArenaChallengeMsg("");
-        setArenaRecoveryRevision((revision) => revision + 1);
-        setTacticalPicks(normalizeArenaSelection(pickArenaTeam(combatEligiblePets, 4).map((pet) => pet.id), 4));
-        setTacticalSlot(0);
-        setRespondPicks(normalizeArenaSelection([], 4));
-        setRespondSlot(0);
-        return () => owner.deactivate(epoch);
-    }, [normalizedCharacterName]);
+    const [respondPicks, setRespondPicks] = useState<string[]>([]);
 
     function sendDirectPetChallenge(toName: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -774,15 +581,19 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             setPetChallengeMsg("Choose one of your pets first.");
             return;
         }
+        if (isPetOnExpedition(selectedPet)) {
+            setPetChallengeMsg(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
+            return;
+        }
         // 2v2 challenge needs the player to have a reserve and the target
         // to have at least 2 pets. If either fails, fall back to 1v1.
         const wantsParty = partyMode && combatEligiblePets.length >= 2;
         const reserveCandidate = wantsParty
-            ? (combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+            ? (combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id && !isPetOnExpedition(p))
                 ?? combatEligiblePets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
                 ?? null)
             : null;
-        const targetCanParty = publicEligiblePets(targetRecord).length >= 2;
+        const targetCanParty = publicEligiblePets(targetRecord).filter((pet) => !isPetOnExpedition(pet)).length >= 2;
         const doParty = wantsParty && !!reserveCandidate && targetCanParty;
         if (wantsParty && !doParty) {
             setPetChallengeMsg(
@@ -805,528 +616,308 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         return;
     }
 
-    // Build the role-assigned slots + start the 5s pre-roll, evening both teams
-    // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
-    // run this from identical embedded teams, so the match stays in sync.
-    function startArenaMatch(
-        blue: Pet[],
-        red: Pet[],
-        seed: number,
-        options: {
-            vsAi?: boolean;
-            blueSetup?: WarfrontPlaybackSetup;
-            redSetup?: SharedWarfrontPlaybackSetup;
-            localTeam?: ArenaTeam;
-            authoritativeBlue?: ArenaSlot[];
-            authoritativeRed?: ArenaSlot[];
-            reportKey?: string;
-            prepareToken?: string;
-            committedChoices?: WarfrontRoundChoice[];
-            difficulty?: WarfrontDifficultyDisclosure;
-            rewardModel?: WarfrontRewardModel;
-        } = {},
-    ) {
-        primeWarfrontAudio();
-        // Use the five-second pre-roll to fetch/parse the Warfront renderer
-        // instead of showing another loading panel after the countdown.
-        preloadWarfrontExperience([...blue, ...red]);
-        const n = Math.max(1, Math.min(
-            options.authoritativeBlue?.length ?? blue.length,
-            options.authoritativeRed?.length ?? red.length,
-        ));
+    function queueSealedWarfront(seal: WarfrontRewardSeal, scope: PetArenaPlayerScope): void {
+        if (!playerAuthorityIsActive(scope)) return;
+        const localPetsById = new Map(character.pets.map((pet) => [pet.id, pet]));
+        const rivalCosmeticsById = new Map(genericPetArenaOpponents.map(({ pet }) => [pet.id, pet]));
+        const blue = seal.bluePets.map((pet) => {
+            const cosmetic = localPetsById.get(pet.id);
+            return {
+                ...pet,
+                ...(cosmetic?.image ? { image: cosmetic.image } : {}),
+                ...(cosmetic?.bodyImage ? { bodyImage: cosmetic.bodyImage } : {}),
+            };
+        });
+        const red = seal.redPets.map((pet) => {
+            const cosmetic = rivalCosmeticsById.get(pet.id);
+            return {
+                ...pet,
+                ...(cosmetic?.image ? { image: cosmetic.image } : {}),
+                ...(cosmetic?.bodyImage ? { bodyImage: cosmetic.bodyImage } : {}),
+            };
+        });
+        void loadPetColiseum().catch(() => undefined);
+        setChronicleCeremony(null);
+        setChronicleProgress(null);
+        resetPetSettlement();
+        setBattleSetupIssue(null);
+        battleSetupRetryRef.current = null;
+        warfrontRewardSealRequest.current = Promise.resolve(seal);
+        clearSpentConsumables(blue.map((pet) => pet.id), scope);
         setArenaView("tactical");
-        // AI authorization is minted before this function is called. Shared
-        // matches arrive with both coaches' deterministic setup already sealed.
-        const fallbackBuyPolicy = options.vsAi ? wfAutoPref : activeWfPlaybook.buyPolicy;
-        const blueSetup = options.blueSetup ?? localWarfrontSetup(fallbackBuyPolicy);
         setArenaCountdown({
             secs: 5,
             match: {
-                blue: options.authoritativeBlue?.slice(0, n) ?? autoRoleTeam(blue, n),
-                red: options.authoritativeRed?.slice(0, n) ?? autoRoleTeam(red, n),
+                blue: autoRoleTeam(blue, blue.length),
+                red: autoRoleTeam(red, red.length),
+                seed: seal.seed,
+                vsAi: true,
+                scope,
+                buyPolicy: seal.buyPolicy,
+                stance: seal.stance,
+                doctrine: seal.doctrine,
+                opponentStance: seal.opponentStance,
+                opponentDoctrine: seal.opponentDoctrine,
+            },
+        });
+    }
+
+    // Build the role-assigned slots + start the 5s pre-roll, evening both teams
+    // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
+    // run this from identical embedded teams, so the match stays in sync.
+    async function startArenaMatch(blue: Pet[], red: Pet[], seed: number, vsAi = false) {
+        if (vsAi && warfrontSetupInFlightRef.current) return;
+        const scope = capturePlayerScope();
+        const matchConfig = {
+            buyPolicy: (vsAi ? wfAutoPref : "balanced") as WfBuyPolicy,
+            stance: wfStancePref,
+            doctrine: wfDoctrinePref,
+            opponentStance: "balanced" as WfStance,
+            opponentDoctrine: "vanguard" as WfDoctrine,
+        };
+        // Use the existing five-second pre-roll to fetch/parse Three + the arena
+        // renderer instead of showing another loading panel after the countdown.
+        void loadPetColiseum().catch(() => undefined);
+        const n = vsAi
+            ? Math.max(1, Math.min(4, blue.length))
+            : Math.max(1, Math.min(blue.length, red.length));
+        setArenaView("tactical");
+        setChronicleCeremony(null);
+        setChronicleProgress(null);
+        // vs-AI is server-authoritative — mint the reward token now (the server
+        // re-runs this exact match); the 5s countdown gives it time to resolve.
+        resetPetSettlement();
+        setBattleSetupIssue(null);
+        battleSetupRetryRef.current = null;
+        warfrontSetupErrorRef.current = null;
+        if (vsAi) {
+            const sealRequest = mintWarfrontToken(blue.slice(0, n), scope, matchConfig);
+            warfrontSetupInFlightRef.current = sealRequest;
+            setWarfrontSetupPending(true);
+            const seal = await sealRequest;
+            if (warfrontSetupInFlightRef.current === sealRequest) {
+                warfrontSetupInFlightRef.current = null;
+                if (playerScopeIsActive(scope)) setWarfrontSetupPending(false);
+            }
+            if (!playerAuthorityIsActive(scope)) return;
+            if (!seal) {
+                showBattleSetupIssue(
+                    scope,
+                    warfrontSetupErrorRef.current
+                        ?? "Warfront setup could not be verified. Retry to recover any existing battle seal safely.",
+                    () => { void startArenaMatch(blue, red, seed, true); },
+                );
+                return;
+            }
+            queueSealedWarfront(seal, scope);
+            return;
+        }
+        if (!playerScopeIsActive(scope)) return;
+        setArenaCountdown({
+            secs: 5,
+            match: {
+                blue: autoRoleTeam(blue.slice(0, n), n),
+                red: autoRoleTeam(red.slice(0, n), n),
                 seed,
-                vsAi: options.vsAi === true,
-                blueSetup,
-                redSetup: options.redSetup,
-                localTeam: options.localTeam ?? "blue",
-                reportKey: options.reportKey,
-                prepareToken: options.prepareToken,
-                committedChoices: options.committedChoices,
-                difficulty: options.difficulty,
-                rewardModel: options.rewardModel,
+                vsAi,
+                scope,
+                ...matchConfig,
             },
         });
     }
 
     // Hollow Warfront vs-AI is SERVER-AUTHORITATIVE. At launch we mint a token via
-    // /api/pet/warfront-start seals the exact deterministic match. Auto-Council
-    // seals its winner immediately; Manual seals immutable combat inputs and the
-    // result endpoint replays the effective Council log before paying its fixed,
-    // outcome-independent completion reward (never win/first-win credit).
-    async function mintWarfrontToken(contract: PreparedWarfrontContract, bluePets: Pet[], attempt: WarfrontAsyncAttempt): Promise<AuthorizedWarfrontMatch> {
-        type StartResponse = { token?: unknown; seed?: unknown; reportKey?: unknown; rewardEligible?: unknown; blue?: unknown; red?: unknown; setup?: unknown; redSetup?: unknown; committedChoices?: unknown; difficulty?: unknown; rewardModel?: unknown; error?: unknown; code?: unknown; retryAfterMs?: unknown };
-        const request = {
-            playerName: attempt.playerName,
-            playerPetIds: bluePets.map((pet) => pet.id),
-            prepareToken: contract.prepareToken,
-            ...localWarfrontSetup(wfAutoPref),
-        };
-        let r: Response;
-        let data: StartResponse | null;
-        for (let retry = 0; ; retry++) {
-            [r, data] = await postWarfront<StartResponse>("/api/pet/warfront-start", request, attempt.controller.signal);
-            if (!isCurrentWarfrontAttempt(attempt)) throw new Error("The active Warfront player changed before authorization completed.");
-            if (r.status !== 425 || data?.code !== "warfront-start-in-flight") break;
-            if (retry >= 3) throw new Error("The server is still sealing this exact match. Retry Start in a moment; no second authorization was created.");
-            setWarfrontRewardState({ phase: "minting", message: "The server is sealing this exact prepared match. Waiting for its single authorization...", retry: null });
-            const retryAfterMs = typeof data.retryAfterMs === "number" && Number.isFinite(data.retryAfterMs)
-                ? Math.max(250, Math.min(1_500, data.retryAfterMs))
-                : 500;
-            await abortableDelay(retryAfterMs, attempt.controller.signal);
-            if (!isCurrentWarfrontAttempt(attempt)) throw new Error("The active Warfront player changed before authorization completed.");
-        }
-        if (!r.ok || typeof data?.token !== "string") {
-            if (data?.code === "prepared-contract-invalid") {
-                throw new PreparedWarfrontContractError(typeof data.error === "string" ? data.error : "The scouting contract expired.");
-            }
-            throw new Error(typeof data?.error === "string" ? data.error : "The Warfront contract could not be authorized.");
-        }
-        const authorizedBlue = parseAuthorizedWarfrontSlots(data.blue);
-        const authorizedRed = parseAuthorizedWarfrontSlots(data.red);
-        const authorizedSetup = parseAuthorizedWarfrontSetup(data.setup);
-        const parsedRedSetup = parseAuthorizedWarfrontSetup(data.redSetup);
-        const authorizedRedSetup = parsedRedSetup ? asSharedWarfrontSetup(parsedRedSetup) : null;
-        const authorizedSeed = Number(data.seed);
-        const authorizedReportKey = typeof data.reportKey === "string" ? data.reportKey : "";
-        const committedChoices = parseAuthorizedCouncilChoices(data.committedChoices);
-        const difficulty = parseWarfrontDifficulty(data.difficulty);
-        const rewardModel = typeof data.rewardEligible === "boolean" ? parseWarfrontRewardModel(data.rewardModel, data.rewardEligible) : null;
-        if (!authorizedBlue || !authorizedRed || !authorizedSetup || !authorizedRedSetup
-            || !Number.isSafeInteger(authorizedSeed) || authorizedSeed <= 0 || authorizedSeed > 0x7fffffff
-            || authorizedReportKey !== `${authorizedSeed}:tactical`
-            || typeof data.rewardEligible !== "boolean"
-            || data.rewardEligible !== (authorizedSetup.buyPolicy !== "off")
-            || !committedChoices || !difficulty || !rewardModel) {
-            throw new Error("The server did not return the exact sealed Warfront roster, setup, difficulty, and reward model.");
-        }
-        cancelWarfrontSettlementRetry();
-        warfrontSettlementEarlyRetryUsed.current = null;
-        warfrontRewardToken.current = {
-            seed: authorizedSeed,
-            token: data.token,
-            reportKey: authorizedReportKey,
-            rewardEligible: data.rewardEligible,
-            playerName: attempt.playerName,
-            prepareToken: contract.prepareToken,
-        };
-        return {
-            token: data.token,
-            seed: authorizedSeed,
-            reportKey: authorizedReportKey,
-            rewardEligible: data.rewardEligible,
-            blue: authorizedBlue,
-            red: authorizedRed,
-            setup: authorizedSetup,
-            redSetup: authorizedRedSetup,
-            committedChoices,
-            difficulty,
-            rewardModel,
-        };
-    }
-
-    async function startAuthorizedAiWarfront(blue: Pet[], contract: PreparedWarfrontContract) {
-        const launch = async () => {
-            const currentAttempt = warfrontStartAttempt.current;
-            if (currentAttempt && isCurrentWarfrontAttempt(currentAttempt)) return;
-            currentAttempt?.controller.abort();
-            const attempt = captureWarfrontAttempt();
-            if (!attempt) return;
-            warfrontStartAttempt.current = attempt;
-            setWarfrontRewardState({ phase: "minting", message: "Authorizing this exact squad, setup, and battlefield seed...", retry: null });
-            warfrontRetryRef.current = null;
-            warfrontRewardToken.current = null;
+    // /api/pet/warfront-start: the server RE-RUNS the exact deterministic match and
+    // seals the winner + reward level, then returns the seed the client must use.
+    // Same sealed inputs → same result on any browser
+    // (the sim is cross-engine deterministic; scripts/warfront-parity.test.ts proves
+    // server re-sim === the streamed render), so a win on screen always redeems.
+    function mintWarfrontToken(
+        bluePets: Pet[],
+        scope: PetArenaPlayerScope,
+        config: Pick<WarfrontMatch, "buyPolicy" | "stance" | "doctrine">,
+    ): Promise<WarfrontRewardSeal | null> {
+        const request = (async () => {
             try {
-                const authorization = await mintWarfrontToken(contract, blue, attempt);
-                if (!isCurrentWarfrontAttempt(attempt)) return;
-                const powerLine = `${authorization.difficulty.label}: your squad ${authorization.difficulty.playerPower.toLocaleString()} power vs ${authorization.difficulty.opponentPower.toLocaleString()}.`;
-                const authorizationMessage = authorization.rewardEligible
-                    ? `${powerLine} Competitive rewards require a verified victory.`
-                    : `${powerLine} Coach completion pays ${authorization.rewardModel.amount.toLocaleString()} ryo regardless of win, loss, or draw, for up to ${authorization.rewardModel.dailyCap} paid completions per UTC day.`;
-                setWarfrontRewardState({ phase: "ready", message: authorizationMessage, retry: null });
-                gameToast(authorization.rewardEligible
-                    ? "Warfront contract sealed. Victory rewards are protected."
-                    : `Coach contract sealed: ${authorization.rewardModel.amount.toLocaleString()} ryo on completion, outcome-independent.`, { kind: "info" });
-                startArenaMatch(blue, authorization.red.map((slot) => slot.pet), authorization.seed, {
-                    vsAi: true,
-                    blueSetup: authorization.setup,
-                    redSetup: authorization.redSetup,
-                    localTeam: "blue",
-                    authoritativeBlue: authorization.blue,
-                    authoritativeRed: authorization.red,
-                    reportKey: authorization.reportKey,
-                    prepareToken: contract.prepareToken,
-                    committedChoices: authorization.committedChoices,
-                    difficulty: authorization.difficulty,
-                    rewardModel: authorization.rewardModel,
+                const r = await fetch("/api/pet/warfront-start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        playerName: scope.playerName,
+                        playerPetIds: bluePets.map((p) => p.id),
+                        stance: config.stance,
+                        doctrine: config.doctrine,
+                        buyPolicy: config.buyPolicy,
+                    }),
                 });
-                // Keep the exact grant locally until settlement. If the route or
-                // tab reloads mid-match, Start can idempotently recover the same
-                // server authorization instead of orphaning its reward token.
-                setWarfrontPrepareMessage("This scouting contract is active until its result settles.");
-            } catch (error) {
-                if (!isCurrentWarfrontAttempt(attempt)) return;
-                const message = error instanceof Error ? error.message : "The Warfront contract could not be authorized.";
-                if (error instanceof PreparedWarfrontContractError) {
-                    clearPreparedWarfrontContract(attempt.playerName, contract.prepareToken);
-                    setPreparedWarfrontContract(null);
-                    void requestPreparedWarfrontContract();
-                    setWarfrontRewardState({ phase: "error", message: `${message} A new server scouting report is being prepared.`, retry: null });
-                    return;
+                if (!r.ok) {
+                    const payload = await r.json().catch(() => null) as { error?: unknown } | null;
+                    const serverMessage = typeof payload?.error === "string"
+                        ? payload.error.trim().slice(0, 280)
+                        : "The Warfront authority service refused this setup.";
+                    const retryAfter = Number(r.headers.get("Retry-After"));
+                    if (playerScopeIsActive(scope)) {
+                        warfrontSetupErrorRef.current = Number.isFinite(retryAfter) && retryAfter > 1
+                            ? `${serverMessage} Try again in about ${Math.ceil(retryAfter)} seconds.`
+                            : serverMessage;
+                    }
+                    return null;
                 }
-                warfrontRetryRef.current = launch;
-                setWarfrontRewardState({ phase: "error", message: `${message} No match started and no settlement was put at risk.`, retry: "mint" });
-            } finally {
-                if (warfrontStartAttempt.current === attempt) warfrontStartAttempt.current = null;
+                const seal = parseWarfrontRewardSeal(await r.json().catch(() => null));
+                if (!seal && playerScopeIsActive(scope)) {
+                    warfrontSetupErrorRef.current = "The Warfront response could not be verified. Retry to recover the existing battle seal safely.";
+                }
+                return seal;
+            } catch {
+                if (playerScopeIsActive(scope)) {
+                    warfrontSetupErrorRef.current = "Warfront setup lost its connection. Retry to recover the existing battle seal; the arena will not create a second active match.";
+                }
+                return null;
             }
-        };
-        await launch();
+        })();
+        warfrontRewardSealRequest.current = request;
+        return request;
     }
 
-    async function commitAuthorizedWarfrontCouncil(
-        match: ActiveWarfrontMatch,
-        round: number,
-        decision: WarfrontRoundDecision,
-    ): Promise<void> {
-        const authorization = warfrontRewardToken.current;
-        const reportKey = match.reportKey ?? authorization?.reportKey;
-        if (!match.vsAi || match.blueSetup.buyPolicy !== "off" || !authorization
-            || authorization.seed !== match.seed || normalizeWarfrontPlayerName(authorization.playerName) !== normalizedCharacterName || !reportKey) {
-            throw new Error("The sealed Coach Mode authorization is unavailable. This Council was not applied.");
-        }
-        const currentAttempt = warfrontCouncilAttempt.current;
-        if (currentAttempt && isCurrentWarfrontAttempt(currentAttempt)) {
-            throw new Error("This Council decision is already being secured.");
-        }
-        currentAttempt?.controller.abort();
-        const attempt = captureWarfrontAttempt(authorization.token);
-        if (!attempt) throw new Error("The active Warfront player changed before this Council could be secured.");
-        warfrontCouncilAttempt.current = attempt;
-        const expected: WarfrontRoundChoice = {
-            round,
-            choices: decision.choices ?? [],
-            ...(decision.stance !== undefined ? { stance: decision.stance } : {}),
-            ...(decision.coachOrder !== undefined ? { coachOrder: decision.coachOrder } : {}),
-            ...(decision.buildPackage !== undefined ? { buildPackage: decision.buildPackage } : {}),
-            ...(decision.objectiveTechnique !== undefined ? { objectiveTechnique: decision.objectiveTechnique } : {}),
-            ...(decision.counterstrike !== undefined ? { counterstrike: decision.counterstrike } : {}),
-        };
-        try {
-            const [response, data] = await postWarfront<{ committedChoices?: unknown; error?: unknown }>("/api/pet/warfront-council", {
-                    playerName: attempt.playerName,
-                    battleToken: authorization.token,
-                    reportKey,
-                    ...expected,
-                }, attempt.controller.signal);
-            if (!isCurrentWarfrontAttempt(attempt)) throw new Error("The active Warfront player changed before this Council completed.");
-            const committedChoices = parseAuthorizedCouncilChoices(data?.committedChoices);
-            const accepted = committedChoices?.[round - 1];
-            if (!response.ok || !committedChoices || committedChoices.length !== round
-                || JSON.stringify(accepted) !== JSON.stringify(expected)) {
-                throw new Error(typeof data?.error === "string" ? data.error : "The server could not secure this Council decision. Retry the same choice.");
+    async function resumeOwnedWarfront(scope: PetArenaPlayerScope): Promise<void> {
+        if (warfrontSetupInFlightRef.current || !playerAuthorityIsActive(scope)) return;
+        warfrontSetupErrorRef.current = null;
+        const request = (async (): Promise<WarfrontRewardSeal | null> => {
+            try {
+                const response = await fetch("/api/pet/warfront-start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playerName: scope.playerName, resumeOnly: true }),
+                });
+                if (response.status === 204) return null;
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => null) as { error?: unknown } | null;
+                    const message = typeof payload?.error === "string"
+                        ? payload.error.trim().slice(0, 280)
+                        : "The existing Warfront seal could not be recovered.";
+                    const retryAfter = Number(response.headers.get("Retry-After"));
+                    const detail = Number.isFinite(retryAfter) && retryAfter > 1
+                        ? `${message} Try again in about ${Math.ceil(retryAfter)} seconds.`
+                        : message;
+                    showBattleSetupIssue(scope, detail, () => { void resumeOwnedWarfront(scope); });
+                    return null;
+                }
+                const seal = parseWarfrontRewardSeal(await response.json().catch(() => null));
+                if (!seal) {
+                    showBattleSetupIssue(
+                        scope,
+                        "The saved Warfront response could not be verified. Retry to recover that same battle seal.",
+                        () => { void resumeOwnedWarfront(scope); },
+                    );
+                }
+                return seal;
+            } catch {
+                showBattleSetupIssue(
+                    scope,
+                    "Warfront recovery lost its connection. Retry to recover the same active battle seal.",
+                    () => { void resumeOwnedWarfront(scope); },
+                );
+                return null;
             }
-            setArenaMatch((current) => current && current.seed === match.seed
-                ? { ...current, committedChoices }
-                : current);
-        } finally {
-            if (warfrontCouncilAttempt.current === attempt) warfrontCouncilAttempt.current = null;
+        })();
+        warfrontSetupInFlightRef.current = request;
+        setWarfrontSetupPending(true);
+        const seal = await request;
+        if (warfrontSetupInFlightRef.current === request) {
+            warfrontSetupInFlightRef.current = null;
+            if (playerScopeIsActive(scope)) setWarfrontSetupPending(false);
         }
+        if (seal && playerAuthorityIsActive(scope)) queueSealedWarfront(seal, scope);
     }
 
-    function clearMatchingPreparedWarfront(playerName: string, prepareToken?: string): void {
-        const prepared = readPreparedWarfrontContract(playerName);
-        if (!prepared || !prepareToken || prepared.prepareToken !== prepareToken) return;
-        clearPreparedWarfrontContract(playerName, prepared.prepareToken);
-        if (normalizeWarfrontPlayerName(playerName) === warfrontLifecycle.current.normalizedPlayerName) {
-            setPreparedWarfrontContract(null);
-        }
-    }
-
-    function finishWarfrontReceipt(
-        receipt: WarfrontTerminalReceipt,
-        match: { seed: number; playerName: string; battleToken: string; prepareToken?: string },
-        attempt: WarfrontAsyncAttempt,
-        exitRace = false,
-    ): boolean {
-        if (!isCurrentWarfrontAttempt(attempt)
-            || attempt.battleToken !== match.battleToken
-            || attempt.normalizedPlayerName !== normalizeWarfrontPlayerName(match.playerName)
-            || !warfrontTerminalReceiptMatchesPlayer(receipt, attempt.playerName)) return false;
-        const receivedCharacter = receipt.character as unknown as Character;
-        updateCharacter((current) => current && normalizeWarfrontPlayerName(current.name) === attempt.normalizedPlayerName
-            ? receivedCharacter
-            : current);
-        cancelWarfrontSettlementRetry();
-        warfrontSettlementEarlyRetryUsed.current = null;
-        settledWarfrontSeeds.current.add(match.seed);
-        clearPendingWarfrontSettlement(match.playerName, match.battleToken);
-        clearMatchingPreparedWarfront(match.playerName, match.prepareToken);
-        warfrontRewardToken.current = null;
-        warfrontRetryRef.current = null;
-        const message = warfrontTerminalReceiptMessage(receipt, exitRace);
-        setWarfrontRewardState({ phase: "settled", message, retry: null });
-        gameToast(message, { kind: exitRace || receipt.unranked || receipt.forfeited ? "info" : "success" });
-        if (exitRace) setArenaMatch(null);
-        void requestPreparedWarfrontContract();
-        return true;
-    }
-
-    async function forfeitAuthorizedWarfront(match: ActiveWarfrontMatch): Promise<void> {
-        const authorization = warfrontRewardToken.current;
-        const reportKey = match.reportKey ?? authorization?.reportKey;
-        if (!match.vsAi || !authorization || authorization.seed !== match.seed
-            || normalizeWarfrontPlayerName(authorization.playerName) !== normalizedCharacterName || !reportKey) {
-            throw new Error("The active server Warfront authorization is unavailable. Return to the match and retry.");
-        }
-        const currentAttempt = warfrontForfeitAttempt.current;
-        if (currentAttempt && isCurrentWarfrontAttempt(currentAttempt)) throw new Error("This forfeit is already being secured.");
-        currentAttempt?.controller.abort();
-        const attempt = captureWarfrontAttempt(authorization.token);
-        if (!attempt) throw new Error("The active Warfront player changed before this forfeit could be secured.");
-        warfrontForfeitAttempt.current = attempt;
-        try {
-            const [response, raw] = await postWarfront<Record<string, unknown>>("/api/pet/warfront-forfeit", { playerName: attempt.playerName, battleToken: authorization.token, reportKey }, attempt.controller.signal);
-            if (!isCurrentWarfrontAttempt(attempt)) return;
-            if (!response.ok) throw new Error(typeof raw?.error === "string" ? raw.error : "The server could not secure this forfeit. Retry without closing the match.");
-            if (isSafeExpiredWarfrontExit(raw)) {
-                cancelWarfrontSettlementRetry();
-                warfrontSettlementEarlyRetryUsed.current = null;
-                settledWarfrontSeeds.current.add(match.seed);
-                clearPendingWarfrontSettlement(attempt.playerName, authorization.token);
-                clearMatchingPreparedWarfront(attempt.playerName, authorization.prepareToken);
-                warfrontRewardToken.current = null;
-                warfrontRetryRef.current = null;
-                const message = "The server confirmed this authorization expired and no different match lease is active. Exited safely; no reward, mastery, or progress was settled.";
-                setWarfrontRewardState({ phase: "settled", message, retry: null });
-                gameToast(message, { kind: "info" });
-                setArenaMatch(null);
-                void requestPreparedWarfrontContract();
-                return;
-            }
-            const receipt = parseWarfrontTerminalReceipt(raw);
-            if (!receipt) throw new Error("The server response did not contain a durable terminal Warfront receipt.");
-            if (!warfrontTerminalReceiptMatchesPlayer(receipt, attempt.playerName)) {
-                throw new Error("The server returned a terminal receipt for a different player.");
-            }
-            finishWarfrontReceipt(receipt, {
-                seed: match.seed,
-                playerName: attempt.playerName,
-                battleToken: authorization.token,
-                prepareToken: authorization.prepareToken,
-            }, attempt, true);
-        } finally {
-            if (warfrontForfeitAttempt.current === attempt) warfrontForfeitAttempt.current = null;
-        }
-    }
-
-    // Tactical Arena settlement (vs-AI only): redeem the sealed Warfront token.
-    // Auto Council can pay from its sealed server outcome; deterministic Coach
-    // Mode remains outcome-unranked but pays its fixed completion contract. The receipt is
-    // sealed by seed (`${seed}:tactical`) so refresh/replay cannot double-apply.
-    async function settlePendingWarfrontReward(pending: PendingWarfrontSettlement) {
-        if (!warfrontLifecycle.current.active
-            || normalizeWarfrontPlayerName(pending.playerName) !== warfrontLifecycle.current.normalizedPlayerName) return;
-        const currentAttempt = warfrontSettlementAttempt.current;
-        if (currentAttempt && isCurrentWarfrontAttempt(currentAttempt)) return;
-        currentAttempt?.controller.abort();
-        const attempt = captureWarfrontAttempt(pending.battleToken);
-        if (!attempt || attempt.normalizedPlayerName !== normalizeWarfrontPlayerName(pending.playerName)) return;
-        warfrontSettlementAttempt.current = attempt;
-        cancelWarfrontSettlementRetry();
-        const settlementMessage = pending.rewardEligible === false
-            ? "Verifying the Coach decision log and its fixed completion reward..."
-            : "Verifying the result and banking your Warfront reward...";
-        setWarfrontRewardState({ phase: "settling", message: settlementMessage, retry: null });
-        gameToast(settlementMessage, { kind: "info" });
-        warfrontRetryRef.current = null;
-        try {
-            const [r, raw] = await postWarfront<Record<string, unknown>>("/api/pet/battle-result", {
-                    playerName: pending.playerName,
-                    outcome: pending.outcome,
-                    reportKey: pending.reportKey,
-                    battleToken: pending.battleToken,
-                    warfrontChoices: pending.warfrontChoices,
-                }, attempt.controller.signal);
-            if (!isCurrentWarfrontAttempt(attempt)) return;
-            const earlyRetryDelay = r.status === 425 ? warfrontEarlyRetryDelay(raw) : null;
-            if (earlyRetryDelay !== null && warfrontSettlementEarlyRetryUsed.current !== pending.battleToken) {
-                warfrontSettlementEarlyRetryUsed.current = pending.battleToken;
-                const waitMs = Math.max(0, earlyRetryDelay - WARFRONT_EARLY_RETRY_CUSHION_MS);
-                const waitLabel = waitMs >= 60_000 ? `${Math.ceil(waitMs / 60_000)}m` : `${Math.max(1, Math.ceil(waitMs / 1_000))}s`;
-                const message = `Result sealed; reward unlocks in about ${waitLabel}. Settlement will retry automatically.`;
-                setWarfrontRewardState({ phase: "settling", message, retry: null });
-                gameToast(message, { kind: "info" });
-                const retryOwner: WarfrontSettlementRetryTimer = {
-                    epoch: attempt.epoch,
-                    normalizedPlayerName: attempt.normalizedPlayerName,
-                    battleToken: pending.battleToken,
-                    id: 0,
-                };
-                retryOwner.id = window.setTimeout(() => {
-                    if (warfrontSettlementRetryTimer.current !== retryOwner) return;
-                    warfrontSettlementRetryTimer.current = null;
-                    if (!isCurrentWarfrontIdentity(retryOwner)) return;
-                    void settlePendingWarfrontReward(pending);
-                }, earlyRetryDelay);
-                warfrontSettlementRetryTimer.current = retryOwner;
-                return;
-            }
-            if (raw?.reason === "invalid-or-spent-pet-battle-token") {
-                warfrontSettlementEarlyRetryUsed.current = null;
-                clearMatchingPreparedWarfront(pending.playerName, pending.prepareToken);
-                clearPendingWarfrontSettlement(pending.playerName, pending.battleToken);
-                warfrontRewardToken.current = null;
-                setWarfrontRewardState({ phase: "error", message: "This Warfront authorization expired before the server could recover a settlement receipt. No reward was silently marked paid.", retry: null });
-                void requestPreparedWarfrontContract();
-                return;
-            }
-            if (!r.ok) throw new Error(typeof raw?.error === "string" ? raw.error : "The server could not confirm this Warfront settlement.");
-            const receipt = parseWarfrontTerminalReceipt(raw);
-            if (!receipt) {
-                throw new Error("The server response did not contain a durable Warfront settlement receipt.");
-            }
-            if (!warfrontTerminalReceiptMatchesPlayer(receipt, attempt.playerName)) {
-                throw new Error("The server returned a terminal receipt for a different player.");
-            }
-            finishWarfrontReceipt(receipt, pending, attempt);
-        } catch (error) {
-            if (!isCurrentWarfrontAttempt(attempt)) return;
-            const message = error instanceof Error ? error.message : "The reward settlement did not complete.";
-            const retry = () => settlePendingWarfrontReward(pending);
-            warfrontRetryRef.current = retry;
-            setWarfrontRewardState({ phase: "error", message: `${message} Your sealed result is saved on this device; retry settlement.`, retry: "settle" });
-        } finally {
-            if (warfrontSettlementAttempt.current === attempt) warfrontSettlementAttempt.current = null;
-        }
-    }
-
-    function reportTacticalArenaResult(m: ActiveWarfrontMatch, result: WarfrontResult) {
-        if (!m.vsAi) return;
-        if (settledWarfrontSeeds.current.has(m.seed)
-            || (warfrontSettlementAttempt.current && isCurrentWarfrontAttempt(warfrontSettlementAttempt.current))) return;
-        const authorization = warfrontRewardToken.current;
-        if (!authorization || authorization.seed !== m.seed
-            || normalizeWarfrontPlayerName(authorization.playerName) !== normalizedCharacterName) {
-            setWarfrontRewardState({ phase: "error", message: "The sealed match authorization is missing. No result or reward was marked settled.", retry: null });
-            return;
-        }
-        const winner = result.winner ?? "draw";
+    // Settle every vs-AI Warfront outcome so the one-use seal and consumables are
+    // durably retired even on a loss/draw. The endpoint pays only its independently
+    // sealed outcome; retries reuse this token + report key and remain exact-once.
+    // PvP Warfront matches intentionally have no economy settlement.
+    function reportTacticalArenaResult(
+        m: WarfrontMatch,
+        winner: "blue" | "red" | "draw",
+    ) {
+        if (!m.vsAi || !playerAuthorityIsActive(m.scope)) return;
         const outcome = winner === "blue" ? "win" : winner === "red" ? "loss" : "draw";
-        const pending: PendingWarfrontSettlement = {
-            version: 1,
-            playerName: character.name,
-            seed: m.seed,
-            reportKey: m.reportKey ?? authorization.reportKey,
-            battleToken: authorization.token,
-            ...(m.prepareToken ?? authorization.prepareToken ? { prepareToken: m.prepareToken ?? authorization.prepareToken } : {}),
-            rewardEligible: authorization.rewardEligible,
-            outcome,
-            ...(result.choiceLog ? { warfrontChoices: result.choiceLog } : {}),
-            createdAt: Date.now(),
-        };
-        // Persist before the request. A route change, refresh, or lost response
-        // can therefore replay this exact idempotent settlement on next entry.
-        writePendingWarfrontSettlement(pending);
-        warfrontRetryRef.current = () => settlePendingWarfrontReward(pending);
-        void settlePendingWarfrontReward(pending);
+        const reportKey = `${m.seed}:tactical`;
+        const playerPetIds = m.blue.map((slot) => slot.pet.id);
+        const rivalPetIds = m.red.map((slot) => slot.pet.id);
+        const sealRequest = warfrontRewardSealRequest.current;
+        const bodyBase = { playerName: m.scope.playerName, outcome, reportKey } as const;
+        beginPetSettlement({
+            id: `tactical:${reportKey}`,
+            kind: "tactical",
+            label: "Hollow Warfront result",
+            scope: m.scope,
+            run: async () => {
+                const seal = await (sealRequest ?? Promise.resolve(null));
+                if (!playerScopeIsActive(m.scope)) return false;
+                if (!seal) throw new Error("The Warfront battle seal is unavailable. Retry this receipt before leaving.");
+                if (seal.seed !== m.seed
+                    || seal.reportKey !== reportKey
+                    || seal.stance !== m.stance
+                    || seal.doctrine !== m.doctrine
+                    || seal.buyPolicy !== m.buyPolicy
+                    || seal.opponentStance !== m.opponentStance
+                    || seal.opponentDoctrine !== m.opponentDoctrine
+                    || seal.bluePets.map((pet) => pet.id).join("\0") !== playerPetIds.join("\0")
+                    || seal.redPets.map((pet) => pet.id).join("\0") !== rivalPetIds.join("\0")) {
+                    throw new Error("The Warfront battle proof does not match this replay. Keep this result open and retry.");
+                }
+                const data = await postPetBattleSettlement({ ...bodyBase, battleToken: seal.token });
+                if (!playerScopeIsActive(m.scope)) return false;
+                return applyPetBattleSettlement(data, m.scope, playerPetIds);
+            },
+        });
     }
 
-    useEffect(() => {
-        const pending = readPendingWarfrontSettlement(character.name);
-        if (!pending) return;
-        warfrontRewardToken.current = {
-            seed: pending.seed,
-            token: pending.battleToken,
-            reportKey: pending.reportKey,
-            rewardEligible: pending.rewardEligible !== false,
-            playerName: pending.playerName,
-            prepareToken: pending.prepareToken,
-        };
-        warfrontRetryRef.current = () => settlePendingWarfrontReward(pending);
-        setWarfrontRewardState({ phase: "settling", message: "Recovering your unfinished Warfront settlement...", retry: null });
-        void settlePendingWarfrontReward(pending);
-    }, [character.name]);
-
-    // Send a Tactical Arena PvP challenge with my hand-picked roster. Rides the
+    // Send a Hollow Warfront PvP challenge with my hand-picked roster. Rides the
     // same /api/player/challenge delivery as cinematic pet challenges (mode
     // "clanWarPet" so the global accept banner surfaces it) but flagged
     // arenaMatch; my roster is referenced by id (resolved against the server-kept
     // challenger.pets snapshot) for a deterministic match.
     async function sendArenaChallenge(toName: string, size: 2 | 4, teamIds: string[]) {
-        const owner = arenaRequestOwner.current!;
-        if (owner.current("arena-send")) return;
         const name = toName.trim();
         if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
-        if (normalizePlayerIdentity(name) === normalizedCharacterName) { setArenaChallengeMsg("You can't challenge yourself."); return; }
+        if (name.toLowerCase() === character.name.toLowerCase()) { setArenaChallengeMsg("You can't challenge yourself."); return; }
         const availableIds = new Set(combatEligiblePets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
-        if (!isExactAvailableArenaSelection(teamIds, availableIds, size)) {
-            setArenaChallengeMsg(`A ${size}v${size} match requires exactly ${size} unique pets that are currently available.`);
-            return;
-        }
+        if (teamIds.length !== size || new Set(teamIds).size !== size || teamIds.some((id) => !availableIds.has(id))) { setArenaChallengeMsg(`A ${size}v${size} match requires ${size} available carried pets.`); return; }
         const targetRecord = allServerPlayers.find((p) => p.name.toLowerCase() === name.toLowerCase());
         if (targetRecord && availablePetBattleCount(publicEligiblePets(targetRecord)) < size) {
             setArenaChallengeMsg(`${name} needs ${size} available pets for a ${size}v${size} arena match.`);
             return;
         }
-        const challengerWarfrontSetup = sharedWarfrontSetup(wfStancePref, wfDoctrinePref, activeWfPlaybook.buyPolicy, activeWfAuthoredSetup);
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
             toName: name,
-            challenger: character,
-            createdAt: nextArenaChallengeCreatedAt(),
+            challenger: { ...character, pets: combatEligiblePets },
+            petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
+            createdAt: Date.now(),
             mode: "clanWarPet",
             arenaMatch: true,
             arenaSize: size,
-            challengerTeamIds: [...teamIds],
-            challengerWarfrontSetup,
+            challengerTeamIds: teamIds,
         };
-        const attempt = owner.begin("arena-send", character.name);
-        if (!attempt) return;
-        setArenaSending(true);
         try {
             const res = await fetch('/api/player/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: name, challenge }),
-                signal: attempt.controller.signal,
             });
-            if (!owner.isCurrent(attempt)) return;
-            const data = await res.json().catch(() => ({} as { error?: string }));
-            if (!owner.isCurrent(attempt)) return;
             if (!res.ok) {
+                const data = await res.json().catch(() => ({} as { error?: string }));
                 setArenaChallengeMsg(`❌ ${data?.error ?? `Could not reach ${name}. Check the name and try again.`}`);
                 return;
             }
-            writeArenaPvpRecovery({
-                version: 1,
-                challengeId: challenge.id,
-                playerName: attempt.playerName,
-                counterpartName: name,
-                role: "challenger",
-                createdAt: challenge.createdAt,
-            });
-            setArenaRecoveryRevision((revision) => revision + 1);
-            setDuelChallenges((current) => [
-                ...current.filter((candidate) => !(normalizePlayerIdentity(candidate.fromName) === attempt.normalizedPlayerName && !candidate.accepted && !candidate.declined && !candidate.battleId)),
+            setDuelChallenges([
+                ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
                 challenge,
             ]);
-            setArenaChallengeMsg(`✅ ${size === 4 ? "4v4" : "2v2"} challenge sent to ${name}. Your ${challengerWarfrontSetup.doctrine} doctrine and ${challengerWarfrontSetup.stance} formation are sealed.`);
-        } catch (error) {
-            if (!owner.isCurrent(attempt)) return;
-            if (error instanceof DOMException && error.name === "AbortError") return;
+            setArenaChallengeMsg(`✅ ${size === 4 ? "4v4" : "2v2"} challenge sent to ${name}! Waiting for them to accept and pick their team…`);
+        } catch {
             setArenaChallengeMsg("❌ Network error sending challenge.");
-        } finally {
-            if (owner.finish(attempt)) setArenaSending(false);
         }
     }
 
@@ -1334,132 +925,29 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // back (image-stripped) on the accepted notice and launch the same match the
     // challenger will — blue resolved from their snapshot, red = my picks.
     async function respondToArenaChallenge(challenge: DuelChallenge, teamIds: string[]) {
-        const owner = arenaRequestOwner.current!;
-        if (owner.current("arena-respond")) return;
-        if (normalizePlayerIdentity(challenge.toName) !== normalizedCharacterName) {
-            setArenaChallengeMsg("This challenge belongs to a different player and was not opened.");
-            return;
-        }
         const size = arenaSizeOf(challenge);
-        const availableIds = new Set(combatEligiblePets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => pet.id));
-        if (!isExactAvailableArenaSelection(teamIds, availableIds, size)) {
-            setArenaChallengeMsg(`This ${size}v${size} challenge needs exactly ${size} unique pets that are currently available. It was not started.`);
-            return;
-        }
-        const myTeam = teamIds
+        const myTeam = teamIds.slice(0, size)
             .map((id) => combatEligiblePets.find((pet) => pet.id === id && !isPetOnExpedition(pet)))
             .filter((pet): pet is Pet => Boolean(pet));
-        if (new Set(myTeam.map((pet) => pet.id)).size !== size) {
-            setArenaChallengeMsg(`This ${size}v${size} challenge needs ${size} of your available pets. It was not started.`);
+        const blue = resolveChallengerTeam(challenge)
+            .filter((pet) => !isPetOnExpedition(pet))
+            .slice(0, size);
+        if (new Set(myTeam.map((pet) => pet.id)).size !== size || new Set(blue.map((pet) => pet.id)).size !== size) {
+            setArenaChallengeMsg(`This ${size}v${size} challenge needs ${size} available pets on each team. It was not started.`);
             return;
         }
-        const responderWarfrontSetup = sharedWarfrontSetup(wfStancePref, wfDoctrinePref, activeWfPlaybook.buyPolicy, activeWfAuthoredSetup);
-        const acceptedChallenge: DuelChallenge = {
-            ...challenge,
-            accepted: true,
-            fromName: character.name,
-            toName: challenge.fromName,
-            responderTeam: stripInlinePetImages(myTeam),
-            responderWarfrontSetup,
-        };
-        const attempt = owner.begin("arena-respond", character.name);
-        if (!attempt) return;
-        writeArenaPvpRecovery({
-            version: 1,
-            challengeId: challenge.id,
-            playerName: attempt.playerName,
-            counterpartName: challenge.fromName,
-            role: "responder",
-            createdAt: Date.now(),
-        });
-        setArenaRecoveryRevision((revision) => revision + 1);
-        setArenaResponding(true);
-        setArenaChallengeMsg("Sealing both teams' Warfront plans...");
         try {
-            const response = await fetch('/api/player/challenge', {
+            await fetch('/api/player/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetName: challenge.fromName, challenge: acceptedChallenge }),
-                signal: attempt.controller.signal,
+                body: JSON.stringify({ targetName: challenge.fromName, challenge: {
+                    ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName,
+                    responderTeam: stripInlinePetImages(myTeam),
+                } }),
             });
-            if (!owner.isCurrent(attempt)) return;
-            const data = await response.json().catch(() => null) as { error?: string; challenge?: DuelChallenge } | null;
-            if (!owner.isCurrent(attempt)) return;
-            if (!response.ok) {
-                throw new Error(data?.error ?? "The accepted match could not reach the challenger.");
-            }
-            const revealedChallenge = data?.challenge;
-            if (!revealedChallenge
-                || revealedChallenge.id !== challenge.id
-                || !revealedChallenge.accepted
-                || normalizePlayerIdentity(revealedChallenge.fromName) !== attempt.normalizedPlayerName
-                || normalizePlayerIdentity(revealedChallenge.toName) !== normalizePlayerIdentity(challenge.fromName)
-                || !revealedChallenge.challengerWarfrontSetup
-                || !revealedChallenge.responderWarfrontSetup) {
-                throw new Error("The server did not reveal both sealed Warfront plans. Nothing was started.");
-            }
-            const revealedRed = Array.isArray(revealedChallenge.responderTeam) ? revealedChallenge.responderTeam : [];
-            const match = buildResponderArenaMatch(revealedChallenge, revealedRed);
-            if (!match) throw new Error("The sealed Warfront payload was incomplete. Nothing was started.");
-            clearArenaPvpRecovery(attempt.playerName, challenge.id);
-            onArenaResponseHandled?.();
-            startArenaMatch(match.blue, match.red, match.seed, {
-                blueSetup: match.blueSetup,
-                redSetup: match.redSetup,
-                localTeam: "red",
-            });
-        } catch (error) {
-            if (!owner.isCurrent(attempt)) return;
-            if (error instanceof DOMException && error.name === "AbortError") return;
-            setArenaChallengeMsg(error instanceof Error ? error.message : "The accepted match could not be delivered. Retry acceptance.");
-        } finally {
-            if (owner.finish(attempt)) setArenaResponding(false);
-        }
-    }
-
-    async function declineArenaChallenge(challenge: DuelChallenge) {
-        const owner = arenaRequestOwner.current!;
-        if (owner.current("arena-respond")) return;
-        if (normalizePlayerIdentity(challenge.toName) !== normalizedCharacterName) {
-            setArenaChallengeMsg("This challenge belongs to a different player and was not declined.");
-            return;
-        }
-        const attempt = owner.begin("arena-respond", character.name);
-        if (!attempt) return;
-        setArenaResponding(true);
-        setArenaChallengeMsg("Authorizing the decline...");
-        try {
-            const response = await fetch("/api/player/challenge", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    targetName: challenge.fromName,
-                    challenge: {
-                        ...challenge,
-                        accepted: false,
-                        declined: true,
-                        fromName: attempt.playerName,
-                        toName: challenge.fromName,
-                    },
-                }),
-                signal: attempt.controller.signal,
-            });
-            if (!owner.isCurrent(attempt)) return;
-            const data = await response.json().catch(() => null) as { error?: string } | null;
-            if (!owner.isCurrent(attempt)) return;
-            if (!response.ok) throw new Error(data?.error ?? "The decline could not be authorized.");
-            // Only now may App DELETE the incoming row; the sealed terminal POST
-            // needed its still-live authorization first.
-            clearArenaPvpRecovery(attempt.playerName, challenge.id);
-            setRespondPicks(normalizeArenaSelection([], arenaSizeOf(challenge)));
-            onArenaResponseHandled?.();
-        } catch (error) {
-            if (!owner.isCurrent(attempt)) return;
-            if (error instanceof DOMException && error.name === "AbortError") return;
-            setArenaChallengeMsg(error instanceof Error ? error.message : "The decline could not be authorized. Retry while it remains open.");
-        } finally {
-            if (owner.finish(attempt)) setArenaResponding(false);
-        }
+        } catch { /* the challenger just won't auto-launch; my side still plays */ }
+        onArenaResponseHandled?.();
+        void startArenaMatch(blue, myTeam, challenge.petBattleSeed ?? 1);
     }
 
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
@@ -1471,7 +959,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         : playerOpponentPets;
     const opponentPets: PetArenaOpponent[] = opponentMode === "player" ? filteredPlayerOpponentPets : genericPetArenaOpponents;
     const [selectedOpponentKey, setSelectedOpponentKey] = useState("");
-    const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
+    const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
 
     // The matchup cards are visible for several seconds before Fight begins.
@@ -1485,7 +973,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [battleReady, setBattleReady] = useState(false);
     const [battleOpponent, setBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
-    // Holds the current continuous-duel timeline or live controller.
+    const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
+    // When the new continuous engine resolves a NON-ranked fight (petDuelEngine.v1
+    // ON), this holds the precomputed DuelResult + combatants for PetColiseumDuel
+    // to play. null → the old round engine / PetColiseum path renders instead.
     const [duelBattle, setDuelBattle] = useState<{
         // Exactly one of `result` / `live` is set: a precomputed timeline to watch,
         // or a live player-controlled fight that reports its outcome via onOutcome.
@@ -1495,10 +986,63 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         id: number; // per-fight nonce → React key so "Fight again" remounts the player
     } | null>(null);
     const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight id source (state, not ref → no render-time ref read)
+    const [frameIndex, setFrameIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [result, setResult] = useState("");
     const [hollowGateSettlementStatus, setHollowGateSettlementStatus] = useState<"idle" | "pending" | "error" | "settled">("idle");
     const hollowGateSettlementRetryRef = useRef<(() => Promise<void>) | null>(null);
     const hollowGateSettlementInFlightRef = useRef(false);
     const hollowGateSettlementFinishedRef = useRef(false);
+    useEffect(() => {
+        // React may reuse this screen component while App swaps accounts. Purge
+        // every battle-owned value so the incoming player can never inherit an
+        // old opponent, receipt banner, Gate retry, or callback closure.
+        settlementAttemptRef.current = null;
+        battleSetupRetryRef.current = null;
+        warfrontRewardSealRequest.current = null;
+        warfrontSetupInFlightRef.current = null;
+        warfrontSetupErrorRef.current = null;
+        hollowGateSettlementRetryRef.current = null;
+        hollowGateSettlementInFlightRef.current = false;
+        hollowGateSettlementFinishedRef.current = false;
+        setSettlementPresentation(null);
+        setBattleSetupIssue(null);
+        setWarfrontSetupPending(false);
+        setChronicleCeremony(null);
+        setChronicleProgress(null);
+        setSelectedPetId(combatEligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? combatEligiblePets[0]?.id ?? "");
+        setReservePetId(character.activePetId2v2 ?? "");
+        setTacticalPicks(pickArenaTeam(combatEligiblePets, 4).map((pet) => pet.id));
+        setSelectedOpponentKey("");
+        setBattleOpponent(null);
+        setBattleReady(false);
+        setBattleLog([]);
+        setBattleFrames([]);
+        setDuelBattle(null);
+        setPartyResult(null);
+        setArenaMatch(null);
+        setArenaCountdown(null);
+        setFrameIndex(0);
+        setIsPlaying(false);
+        setResult("");
+        setHollowGateSettlementStatus("idle");
+    }, [character.name]);
+    useEffect(() => {
+        // Recovery is independent of the current live roster. In particular,
+        // it still runs when sealed pets are now away/on expedition and the
+        // ordinary four-pet Warfront tab is locked.
+        if (pendingPetBattleOpponent || pendingArenaMatch || pendingArenaResponse) return;
+        const scope = capturePlayerScope();
+        const scopeKey = `${scope.generation}:${scope.playerName.toLowerCase()}`;
+        if (warfrontResumeProbeScopeRef.current === scopeKey) return;
+        warfrontResumeProbeScopeRef.current = scopeKey;
+        void resumeOwnedWarfront(scope);
+    }, [
+        character.name,
+        pendingPetBattleOpponent?.owner,
+        pendingArenaMatch?.seed,
+        pendingArenaResponse?.id,
+    ]);
     // Fullscreen presentation is deliberately separate from App's unresolved
     // battle signal: the latter also controls presence, regen, and clan-war
     // launch behavior, while already-decided cinematic playback must not.
@@ -1509,6 +1053,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     useEffect(() => {
         const unresolvedBattleActive = arenaMatch !== null
             || arenaCountdown !== null
+            || Boolean(battleReady && settlementPresentation && settlementPresentation.status !== "settled")
             || Boolean(battleReady && battleOpponent?.hollowGate && hollowGateSettlementStatus !== "settled");
         onBattleActiveChange?.(unresolvedBattleActive);
         return () => onBattleActiveChange?.(false);
@@ -1516,6 +1061,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         arenaMatch,
         arenaCountdown,
         battleReady,
+        settlementPresentation?.status,
         battleOpponent?.hollowGate,
         hollowGateSettlementStatus,
         onBattleActiveChange,
@@ -1529,18 +1075,22 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         document.body.classList.add("pet-combat-active");
         return () => document.body.classList.remove("pet-combat-active");
     }, [fullscreenBattleActive]);
+    const currentFrame = battleFrames[frameIndex];
+    const showResult = currentFrame?.actionKind === "result";
+    const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : battleLog;
+
     // Auto-scroll to the fight the moment a battle becomes ready — both sides
     // accept (1v1 or 2v2 / PvP) and the page glides down to the arena so they
     // can watch it play out without hunting for it. Covers every accept path
     // because all three setBattleReady(true) sites flip this same flag.
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
-        if (!battleReady || !duelBattle) return;
+        if (!battleReady || battleFrames.length === 0) return;
         const t = window.setTimeout(() => {
             battlefieldRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 80); // let the battlefield mount first
         return () => window.clearTimeout(t);
-    }, [battleReady, duelBattle?.id]);
+    }, [battleReady, battleFrames.length]);
 
     useEffect(() => {
         if (opponentPets.length === 0) {
@@ -1551,22 +1101,27 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         if (!selectedOpponentKey || !keyStillExists) setSelectedOpponentKey(`${opponentPets[0].owner}:${opponentPets[0].pet.id}`);
     }, [selectedOpponentKey, opponentMode, opponentPets[0]?.owner, opponentPets[0]?.pet.id, opponentPets.length]);
 
-    // Battle consumables are applied inside the sim from each pet's loadout
-    // (kept deterministic), then spent here once the sim has run. Returns the
-    // character.pets array with the given pets' consumable slots cleared.
-    function clearConsumablePets(petIds: string[]) {
-        return character.pets.map((p) => petIds.includes(p.id) && p.loadout?.consumable
-            ? { ...p, loadout: { ...p.loadout, consumable: undefined } }
-            : p);
-    }
+    useEffect(() => {
+        if (!isPlaying) return;
+        if (frameIndex >= battleFrames.length - 1) {
+            setIsPlaying(false);
+            return;
+        }
+        // Cinematic pacing — let dramatic frames breathe, snap through
+        // routine ones. Uniform 1200ms makes every action read the same;
+        // variable timing tells the player when to lean in.
+        const ms = petFramePace(battleFrames[frameIndex]);
+        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), ms);
+        return () => window.clearTimeout(timer);
+    }, [battleFrames.length, frameIndex, isPlaying]);
 
-    async function mintCasualPetBattleToken(opponent: PetArenaOpponent, mode: "1v1" | "2v2", playerPets: Pet[], opponentPets: Pet[]): Promise<{ token: string; seed: number; reportKey: string } | null> {
+    async function mintCasualPetBattleToken(scope: PetArenaPlayerScope, opponent: PetArenaOpponent, mode: "1v1" | "2v2", playerPets: Pet[], opponentPets: Pet[]): Promise<CasualPetBattleSeal | null> {
         try {
             const r = await fetch("/api/pet/battle-start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    playerName: character.name,
+                    playerName: scope.playerName,
                     opponentName: opponent.owner,
                     opponentLevel: opponent.pet.level,
                     mode,
@@ -1578,64 +1133,133 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 }),
             });
             if (!r.ok) return null;
-            const data = await r.json().catch(() => null) as { token?: unknown; seed?: unknown; reportKey?: unknown } | null;
-            return typeof data?.token === "string"
-                && Number.isSafeInteger(Number(data.seed))
-                && typeof data.reportKey === "string"
-                ? { token: data.token, seed: Number(data.seed), reportKey: data.reportKey }
-                : null;
+            const data = await r.json().catch(() => null) as {
+                token?: unknown; seed?: unknown; reportKey?: unknown;
+                playerPets?: unknown; opponentPets?: unknown; battleConfig?: unknown;
+            } | null;
+            if (typeof data?.token !== "string"
+                || !Number.isSafeInteger(Number(data.seed))
+                || typeof data.reportKey !== "string") return null;
+            const expectsPveSnapshots = Boolean(opponent.hollowGate)
+                || opponentPets.every((pet) => isGenericPetOpponent(pet));
+            const sealedPlayers = data.playerPets === undefined
+                ? null
+                : parseSealedCasualPets(data.playerPets, playerPets.map((pet) => pet.id));
+            const sealedOpponents = data.opponentPets === undefined
+                ? null
+                : parseSealedCasualPets(data.opponentPets, opponentPets.map((pet) => pet.id));
+            const battleConfig = data.battleConfig === undefined
+                ? null
+                : parseCasualPetBattleConfig(data.battleConfig, mode, Number(data.seed));
+            if (expectsPveSnapshots && (!sealedPlayers || !sealedOpponents || !battleConfig)) return null;
+            if ((data.playerPets !== undefined && !sealedPlayers)
+                || (data.opponentPets !== undefined && !sealedOpponents)
+                || (data.battleConfig !== undefined && !battleConfig)) return null;
+            return {
+                token: data.token,
+                seed: Number(data.seed),
+                reportKey: data.reportKey,
+                ...(sealedPlayers ? { playerPets: sealedPlayers } : {}),
+                ...(sealedOpponents ? { opponentPets: sealedOpponents } : {}),
+                ...(battleConfig ? { battleConfig } : {}),
+            };
         } catch {
             return null;
         }
     }
 
     async function settleHollowGatePetBattle(
+        scope: PetArenaPlayerScope,
         opponent: PetArenaOpponent,
         petBattleResult: { hollowGate?: boolean; outcome?: "win" | "loss" | "draw"; petReceipt?: string },
     ): Promise<boolean> {
+        if (!playerScopeIsActive(scope)) return false;
         const gate = opponent.hollowGate;
         if (!gate) return false;
         if (!petBattleResult.hollowGate || !petBattleResult.petReceipt || !petBattleResult.outcome) {
             throw new Error("The Hollow Hound duel did not return a verified Gate receipt.");
         }
         const settled = await settleHollowGateCombat({
-            playerName: character.name,
+            playerName: scope.playerName,
             token: gate.token,
             runId: gate.runId,
             petReceipt: petBattleResult.petReceipt,
         });
-        if (settled.character) updateCharacter(settled.character);
+        if (!playerScopeIsActive(scope)) return false;
+        const decision = receivePetBattleSettlement(settled as PetBattleSettlementResponse, scope);
+        if (decision === "foreign") return false;
+        if (decision === "accepted" && settled.character && !onVersionedCharacter) {
+            updateCharacter((current) => current
+                && playerScopeIsActive(scope)
+                && current.name.toLowerCase() === scope.playerName.toLowerCase()
+                && settled.character?.name.toLowerCase() === current.name.toLowerCase()
+                ? settled.character
+                : current);
+        }
+        if (!playerScopeIsActive(scope)) return false;
+        setResult(settled.won ? "Victory" : "Defeat");
         setBattleLog((prev) => [
             ...prev,
             settled.won
-                ? "The Gate accepts the server-verified pet victory."
+                ? "The Gate accepts the arena's sealed pet victory."
                 : "The Gate rejects the Hound duel as a victory; 20% max HP recoil was applied once.",
         ]);
+        // A stale version is still the same player's idempotently settled Gate
+        // receipt. Skip only its older character snapshot; do not strand the
+        // valid local run completion. A foreign response returned above.
         onHollowGatePetBattleEnd?.(settled, opponent);
         return true;
     }
 
     async function startBattle(opponentOverride?: PetArenaOpponent) {
+        const battleScope = capturePlayerScope();
+        const opponent = opponentOverride ?? selectedOpponent;
+        const pvpParty = Boolean(opponent?.opponentParty && opponent.challengerParty);
+        const canAiParty = Boolean(opponent && !opponent.hollowGate && partyMode && opponentMode === "ai" && combatEligiblePets.length >= 2);
+        const reserveCandidate = canAiParty && selectedPet
+            ? combatEligiblePets.find((pet) => pet.id === reservePetId && pet.id !== selectedPet.id && !isPetOnExpedition(pet))
+                ?? combatEligiblePets.find((pet) => pet.id !== selectedPet.id && !isPetOnExpedition(pet))
+                ?? null
+            : null;
+        const startIssue = petArenaStartIssue({
+            selectedPetName: selectedPet ? petDisplayName(selectedPet) : undefined,
+            selectedPetOnExpedition: isPetOnExpedition(selectedPet),
+            opponentMode,
+            opponentPetName: opponent ? petDisplayName(opponent.pet) : undefined,
+            opponentOnExpedition: opponent ? isPetOnExpedition(opponent.pet) : false,
+            reserveRequired: canAiParty,
+            reserveAvailable: reserveCandidate !== null,
+        });
+        if (startIssue) return alert(startIssue);
+        // The pure preflight above establishes these invariants for TypeScript and
+        // keeps audio/state changes strictly after every synchronous rejection.
+        if (!selectedPet || !opponent || (canAiParty && !reserveCandidate)) return;
+        if (!playerAuthorityIsActive(battleScope)) return;
+        if (opponent.ranked && !opponent.petRankedToken) {
+            showBattleSetupIssue(
+                battleScope,
+                "The ranked match proof is missing. The duel was not started and no rating can change.",
+                () => { void startBattle(opponent); },
+            );
+            return;
+        }
+
+        setChronicleCeremony(null);
+        setChronicleProgress(null);
+        resetPetSettlement();
+        setBattleSetupIssue(null);
+        battleSetupRetryRef.current = null;
         setArenaView("battle"); // any duel (incl. challenge accepts) shows in the battle view
         primePetSfx(); // unlock the audio context inside the click gesture
-        startBattleMusic(); // rotate to a fresh battle track
-        if (!selectedPet) return alert("Choose one of your pets first.");
-        if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
-        const opponent = opponentOverride ?? selectedOpponent;
-        if (!opponent) {
-            return alert(opponentMode === "player"
-                ? "No player pets found. Choose Fight AI or have another player with pets in the roster."
-                : "No AI pets found.");
-        }
         hollowGateSettlementRetryRef.current = null;
         hollowGateSettlementInFlightRef.current = false;
         hollowGateSettlementFinishedRef.current = false;
         setHollowGateSettlementStatus("idle");
         const pendingClanPetBattle = loadPendingClanPetBattle();
-        if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
         // Also cover instant incoming challenges, which can bypass the ordinary
         // matchup-card dwell time used by the preload effect above.
         void preloadPetColiseumModels([selectedPet, opponent.pet]).catch(() => undefined);
+        setPartyResult(null);
         setDuelBattle(null); // fresh fight — clear any prior duel overlay
         const nextDuelId = duelNonce + 1; // React key for the duel renderer
         setDuelNonce(nextDuelId);
@@ -1645,8 +1269,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         //     when the accept handler fired runPetArenaParty's data through).
         //   • Local AI battle: in-component partyMode toggle, player picks
         //     reserve, AI gets a random second pet from the pool.
-        const pvpParty = !!(opponent.opponentParty && opponent.challengerParty);
-        const canAiParty = !opponent.hollowGate && partyMode && opponentMode === "ai" && combatEligiblePets.length >= 2;
         if (pvpParty || canAiParty) {
             let myLead: Pet;
             let myReserve: Pet;
@@ -1656,15 +1278,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 [myLead, myReserve] = opponent.challengerParty!;
                 [enemyLead, enemyReserve] = opponent.opponentParty!;
             } else {
-                const reserveCandidate = combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
-                    ?? combatEligiblePets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
-                    ?? null;
-                if (!reserveCandidate) {
-                    return alert("Need a reserve pet (a second pet not on expedition).");
-                }
                 // Player's order is locked (they chose lead + reserve).
                 myLead = selectedPet;
-                myReserve = reserveCandidate;
+                myReserve = reserveCandidate!;
                 enemyLead = opponent.pet;
                 // AI reserve pick: try to pick a pet that scores best against
                 // the player's RESERVE (since AI's reserve will face it in
@@ -1681,7 +1297,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     let bestPick: Pet = aiPool[0];
                     for (const candidate of aiPool) {
                         // Score the candidate against the player's reserve.
-                        const score = scorePetMatchup(candidate, reserveCandidate);
+                        const score = scorePetMatchup(candidate, reserveCandidate!);
                         if (score > bestScore) {
                             bestScore = score;
                             bestPick = candidate;
@@ -1691,12 +1307,32 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 }
                 enemyReserve = enemyReserveCandidate;
             }
-            const battleSeal = await mintCasualPetBattleToken(opponent, "2v2", [myLead, myReserve], [enemyLead, enemyReserve]);
-            const seed = battleSeal?.seed ?? opponent.battleSeed ?? Date.now();
-            const reportKey = battleSeal?.reportKey ?? `unrewarded:${seed}:2v2`;
+            const battleSeal = await mintCasualPetBattleToken(battleScope, opponent, "2v2", [myLead, myReserve], [enemyLead, enemyReserve]);
+            if (!playerAuthorityIsActive(battleScope)) return;
+            if (!battleSeal) {
+                showBattleSetupIssue(
+                    battleScope,
+                    "The 2v2 battle seal could not be created. No duel was started and no result was put at risk.",
+                    () => { void startBattle(opponent); },
+                );
+                return;
+            }
+            if (battleSeal.playerPets && battleSeal.opponentPets) {
+                const localLead = myLead;
+                const localReserve = myReserve;
+                const localEnemyLead = enemyLead;
+                const localEnemyReserve = enemyReserve;
+                myLead = restoreSealedPetCosmetics(battleSeal.playerPets[0], localLead);
+                myReserve = restoreSealedPetCosmetics(battleSeal.playerPets[1], localReserve);
+                enemyLead = restoreSealedPetCosmetics(battleSeal.opponentPets[0], localEnemyLead);
+                enemyReserve = restoreSealedPetCosmetics(battleSeal.opponentPets[1], localEnemyReserve);
+            }
+            const seed = battleSeal.seed;
+            const reportKey = battleSeal.reportKey;
+            startBattleMusic();
             // Spend any battle consumables on the pets that fought (2v2) — both engines.
             if ([myLead, myReserve].some((p) => p.loadout?.consumable)) {
-                updateCharacter({ ...character, pets: clearConsumablePets([myLead.id, myReserve.id]) });
+                clearSpentConsumables([myLead.id, myReserve.id], battleScope);
             }
             setBattleOpponent(opponent);
             setBattleReady(true);
@@ -1715,16 +1351,20 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // PLAYER CONTROL: PvE teamfights run live and commanded; a clan-war /
             // PvP party fight stays precomputed so both clients derive the same fight.
             const partyControlled = !pvpParty && petPlayerControlEnabled();
-            const partyDmgMult = pvpParty ? 1 : petTamerPveMultiplier(character);
-            const partyHpMult = pvpParty ? 1 : petPveHpMult(character);
-            const partyRevive = pvpParty ? false : petAlphaBond(character);
+            const partyDmgMult = battleSeal.battleConfig?.damageMult ?? (pvpParty ? 1 : petTamerPveMultiplier(character));
+            const partyHpMult = battleSeal.battleConfig?.hpMult ?? (pvpParty ? 1 : petPveHpMult(character));
+            const partyRevive = battleSeal.battleConfig?.revive ?? (pvpParty ? false : petAlphaBond(character));
+            const partyApplyItems = battleSeal.battleConfig?.applyItems ?? true;
+            const partyAccuracy = battleSeal.battleConfig?.accuracy;
             const livePartyDuel = partyControlled
-                ? createLivePartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, true)
+                ? createLivePartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, partyApplyItems, partyAccuracy)
                 : null;
             const duel = partyControlled
                 ? null
-                : runPetPartyDuelCinematic(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, true);
+                : runPetPartyDuelCinematic(myLead, myReserve, enemyLead, enemyReserve, seed, partyDmgMult, partyHpMult, partyRevive, partyApplyItems, partyAccuracy);
             const settleParty = (partyOutcome: "win" | "loss" | "draw") => {
+                if (!playerAuthorityIsActive(battleScope)) return;
+                setResult(partyOutcome === "win" ? "Victory" : partyOutcome === "draw" ? "Draw" : "Defeat");
                 // Clan-war auto-report (pet 2v2): if this party battle was
                 // launched from a clan-war pet2v2 challenge, post the outcome
                 // to /api/clan/war/report so both clients converge on the
@@ -1734,73 +1374,169 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 if (onClanWarBattleEnd) {
                     onClanWarBattleEnd(partyOutcome === "draw" ? "draw" : partyOutcome === "win", opponent.owner);
                 }
-                // Award ryo once per match won — keeps the existing server cap
-                // intact (each call is rate-limited and counts toward daily cap).
-                // Pass battleSeed + match-index so the server can dedup a
-                // refresh-replay (same seed → same reportKey → no double-claim).
-                // The teamfight engine reports a single `${seed}:2v2` key (its own
-                // keyspace) so it never collides with the old best-of-3 match keys.
-                //
-                // Tier-2 security fix made reportKey REQUIRED for wins. The
-                // static genericPetArenaOpponents array doesn't have battleSeed,
-                // and the roster-opponent constructor doesn't stamp one either.
-                // Without a fallback, every AI-arena and roster-opponent win
-                // was rejected with 400 (silent — wrapped in try/catch). Stamp
-                // a click-stable fallback so honest wins still pay out. Refresh-
-                // replay dedup is weakened for unseeded opponents, but the
-                // server's 5s/12-per-min/100-per-day caps still bound damage.
-                void (async () => {
-                    try {
-                        const battleToken = battleSeal?.token ?? null;
-                        const r = await fetch("/api/pet/battle-result", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                playerName: character.name,
-                                outcome: partyOutcome,
-                                opponentLevel: opponent.pet.level,
-                                reportKey,
-                                battleToken,
-                                inputLog: livePartyDuel?.inputLog(),
-                            }),
-                        });
-                        if (r.ok) {
-                            const data = await r.json() as { character?: Character };
-                            if (data.character) updateCharacter(data.character);
-                        }
-                    } catch { /* the server save remains authoritative */ }
-                })();
+                // Freeze the final input log and the server-minted seal in this
+                // retry closure. No rerun can change the proof or mint locally.
+                const battleToken = battleSeal.token;
+                const inputLog = livePartyDuel?.inputLog();
+                const settlementBody = {
+                    playerName: battleScope.playerName,
+                    outcome: partyOutcome,
+                    opponentLevel: opponent.pet.level,
+                    reportKey,
+                    battleToken,
+                    inputLog,
+                };
+                beginPetSettlement({
+                    id: `party:${battleToken}:${reportKey}`,
+                    kind: "party",
+                    label: "2v2 Pet Coliseum result",
+                    scope: battleScope,
+                    run: async () => {
+                        const data = await postPetBattleSettlement(settlementBody);
+                        if (!playerScopeIsActive(battleScope)) return false;
+                        return applyPetBattleSettlement(data, battleScope, [myLead.id, myReserve.id]);
+                    },
+                });
             };
             setDuelBattle({
                 result: duel, live: livePartyDuel, onOutcome: (r) => settleParty(r.result),
                 playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve,
                 seed, id: nextDuelId,
             });
-            setBattleLog([]);
+            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
             if (duel) settleParty(duel.result);
             return;
         }
 
-        // Ranked pet settlement is deliberately fail-closed until the match is
-        // challenge-bound and server-resolved. Never replay a stale pre-migration
-        // invite locally: even a deterministic client duel is not rating authority.
+        // ── Ranked 1v1 (account-level pet ladder) ───────────────────────
+        // Both clients must agree on the winner for the Elo ladder to stay
+        // honest. runPetArenaBattle is role-asymmetric (its coin flip treats
+        // the FIRST arg as "player"), so two clients each passing their own
+        // pet first could disagree. Fix: run a CANONICAL simulation — order
+        // the two combatants by lowercase owner name so both clients feed
+        // the engine identical args (and pass multiplier 1, dropping the
+        // per-player Pet-Tamer PvE bonus for fairness). The seeded RNG then
+        // produces a byte-identical fight. We render from MY perspective:
+        // if I'm the canonical opponent, swap each frame so my pet shows on
+        // the left. Rating + W/L settle through the authoritative result API
+        // (no ryo and no clan-war report).
         if (opponent.ranked) {
-            setPetChallengeMsg("Ranked pet battles are temporarily unavailable until server-authoritative matchmaking returns.");
+            // Use the handshake-locked pet (selfPet) rather than the UI's
+            // selectedPet so both clients simulate the exact same combatants.
+            const myPet = opponent.selfPet ?? selectedPet;
+            // Keep the picker (and thus the on-grid sprite) in sync with the
+            // locked combatant if they diverged after navigation.
+            if (opponent.selfPet && opponent.selfPet.id !== selectedPetId) setSelectedPetId(opponent.selfPet.id);
+            const myName = character.name.toLowerCase();
+            const oppName = opponent.owner.toLowerCase();
+            const iAmCanonicalPlayer = myName <= oppName;
+            const seed = opponent.battleSeed ?? Date.now();
+            const canonicalPlayerPet = iAmCanonicalPlayer ? myPet : opponent.pet;
+            const canonicalOpponentPet = iAmCanonicalPlayer ? opponent.pet : myPet;
+            // Ranked now resolves on the SAME cinematic duel engine as the Pet
+            // Coliseum (the old engines are retired here). Canonical ordering
+            // keeps both clients byte-identical, so they agree on the winner;
+            // multiplier 1 (no per-player PvE bonus) keeps it fair. We render the
+            // canonical duel (canonical player on the left, winner shown correctly)
+            // and label Victory/Defeat from MY perspective.
+            // applyItems=false (explicit): cinematic defaults items ON, but ranked stays
+            // neutral — no gear, no per-player multiplier — so this must opt out.
+            const duel = runPetDuelCinematic(canonicalPlayerPet, canonicalOpponentPet, seed, 1, 1, false, false);
+            const myResult: "win" | "loss" | "draw" = iAmCanonicalPlayer
+                ? duel.result
+                : duel.result === "win" ? "loss" : duel.result === "loss" ? "win" : "draw";
+            if (!playerAuthorityIsActive(battleScope)) return;
+            startBattleMusic();
+            setBattleOpponent(opponent);
+            setBattleReady(true);
+            setDuelNonce(nextDuelId);
+            setDuelBattle({ result: duel, playerPet: canonicalPlayerPet, enemyPet: canonicalOpponentPet, seed, id: nextDuelId });
+            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
+            setResult(myResult === "win" ? "Victory" : myResult === "draw" ? "Draw" : "Defeat");
+            const myRating = character.petRankedRating ?? 1000;
+            const oppRating = opponent.opponentRating ?? 1000;
+            // Read-back + activation (audit #7 / Stage 3): the SERVER owns the
+            // petRankedRating swing. Report the outcome to /api/pet/battle-result
+            // (ranked) — which credits the rating under a save lock with an NX
+            // receipt keyed by `${seed}:ranked` (exactly-once) — and read the
+            // returned committed character back as the authoritative value.
+            // Offline/503 leaves rating and counters unchanged until retry. The shared, stable
+            // battleSeed makes reportKey refresh-replay-safe; ranked pet battles
+            // are intentionally NOT persisted for resume (see acceptPetChallenge),
+            // so this effect fires once and can't double the local counters.
+            // counters carry RELATIVE deltas (e.g. +1 win) applied off `prev`
+            // inside the updater so a regen/heartbeat setState landing during the
+            // await fetch can't be clobbered — and the deltas aren't double-baked
+            // onto a stale snapshot. petRankedRating is absolute (server-owned).
+            const reportRankedPet = (outcome: "win" | "loss" | "draw") => {
+                if (!playerScopeIsActive(battleScope)) return;
+                const matchToken = opponent.petRankedToken!;
+                const reportKey = `${seed}:ranked`;
+                const settlementBody = {
+                    playerName: battleScope.playerName,
+                    outcome,
+                    ranked: true,
+                    matchToken,
+                    opponentName: opponent.owner,
+                    opponentLevel: opponent.pet.level,
+                    reportKey,
+                };
+                beginPetSettlement({
+                    id: `ranked:${matchToken}:${reportKey}`,
+                    kind: "ranked",
+                    label: "Ranked Pet Coliseum result",
+                    scope: battleScope,
+                    run: async () => {
+                        const data = await postPetBattleSettlement(settlementBody);
+                        if (!playerScopeIsActive(battleScope)) return false;
+                        return applyPetBattleSettlement(data, battleScope, [myPet.id]);
+                    },
+                });
+            };
+            if (myResult === "win") {
+                const gain = rankedDelta(myRating, oppRating);
+                reportRankedPet("win");
+                setBattleLog([`🏆 Ranked pet victory! Arena settlement requested (projected +${gain} Elo).`]);
+            } else if (myResult === "loss") {
+                const drop = rankedDelta(oppRating, myRating);
+                reportRankedPet("loss");
+                setBattleLog([`Ranked pet defeat. Arena settlement requested (projected -${drop} Elo).`]);
+            } else {
+                reportRankedPet("draw");
+                setBattleLog(["Ranked pet draw — no Elo change."]);
+            }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
             return;
         }
 
-        const battleSeal1v1 = await mintCasualPetBattleToken(opponent, "1v1", [selectedPet], [opponent.pet]);
-        const seed1v1 = battleSeal1v1?.seed ?? opponent.battleSeed ?? Date.now();
-        const reportKey1v1 = battleSeal1v1?.reportKey ?? `unrewarded:${seed1v1}:1v1`;
+        const battleSeal1v1 = await mintCasualPetBattleToken(battleScope, opponent, "1v1", [selectedPet], [opponent.pet]);
+        if (!playerAuthorityIsActive(battleScope)) return;
+        if (!battleSeal1v1) {
+            showBattleSetupIssue(
+                battleScope,
+                "The pet battle seal could not be created. No duel was started and no result was put at risk.",
+                () => { void startBattle(opponent); },
+            );
+            return;
+        }
+        const battlePlayerPet = battleSeal1v1.playerPets?.[0]
+            ? restoreSealedPetCosmetics(battleSeal1v1.playerPets[0], selectedPet)
+            : selectedPet;
+        const battleOpponentPet = battleSeal1v1.opponentPets?.[0]
+            ? restoreSealedPetCosmetics(battleSeal1v1.opponentPets[0], opponent.pet)
+            : opponent.pet;
+        const seed1v1 = battleSeal1v1.seed;
+        const reportKey1v1 = battleSeal1v1.reportKey;
+        startBattleMusic();
         // Spend the battle consumable on the pet that fought.
-        if (selectedPet.loadout?.consumable) {
-            updateCharacter({ ...character, pets: clearConsumablePets([selectedPet.id]) });
+        if (battlePlayerPet.loadout?.consumable) {
+            clearSpentConsumables([battlePlayerPet.id], battleScope);
         }
         setBattleOpponent(opponent);
         setBattleReady(true);
-        // Resolve through the continuous engine. Outcome + clan-war report + ryo
-        // all key off the same `outcome` value.
+        // Resolve via the new continuous engine (PetColiseumDuel) or the old round
+        // engine (PetColiseum). Outcome + clan-war report + ryo all key off the
+        // same `outcome` value, so the swap is invisible to the reward path.
         // PvE mastery modifiers only vs a built-in AI opponent. Any real-player
         // 1v1 (non-ranked challenge / clan) gets none.
         const pveOpp = isGenericPetOpponent(opponent.pet);
@@ -1821,19 +1557,26 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // else — a casual-vs-player or clan-war 1v1, where BOTH clients must derive
         // the same fight from the seed — keeps the precomputed one-shot resolve.
         const controlled = pveOpp && petPlayerControlEnabled();
-        const dmgMult = pveOpp ? petTamerPveMultiplier(character) : 1;
-        const hpMult = pveOpp ? petPveHpMult(character) : 1;
-        const revive = pveOpp ? petAlphaBond(character) : false;
+        const dmgMult = battleSeal1v1.battleConfig?.damageMult ?? (pveOpp ? petTamerPveMultiplier(character) : 1);
+        const hpMult = battleSeal1v1.battleConfig?.hpMult ?? (pveOpp ? petPveHpMult(character) : 1);
+        const revive = battleSeal1v1.battleConfig?.revive ?? (pveOpp ? petAlphaBond(character) : false);
+        const applyItems = battleSeal1v1.battleConfig?.applyItems ?? true;
+        const accuracy = battleSeal1v1.battleConfig?.accuracy;
+        const terrain = battleSeal1v1.battleConfig?.terrain ?? null;
         const liveDuel = controlled
-            ? createLiveDuel(selectedPet, opponent.pet, seed1v1, dmgMult, hpMult, revive, true, undefined, null)
+            ? createLiveDuel(battlePlayerPet, battleOpponentPet, seed1v1, dmgMult, hpMult, revive, applyItems, accuracy, terrain)
             : null;
         const duel = controlled
             ? null
-            : runPetDuelCinematic(selectedPet, opponent.pet, seed1v1, dmgMult, hpMult, revive, true, undefined, null);
+            : runPetDuelCinematic(battlePlayerPet, battleOpponentPet, seed1v1, dmgMult, hpMult, revive, applyItems, accuracy, terrain);
         const logs: string[] = [];
         // Settlement is identical either way; only WHEN it runs differs. A live duel
         // settles from PetColiseumDuel's onOutcome once the fight actually ends.
         const settle1v1 = (outcome: "win" | "loss" | "draw") => {
+            if (!playerAuthorityIsActive(battleScope)) return;
+            const battleToken = battleSeal1v1.token;
+            const inputLog = liveDuel?.inputLog();
+            setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
             // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
             // for non-clan-war battles since the helper no-ops without a
             // sessionStorage stash + opponent-name match.
@@ -1852,33 +1595,24 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     hollowGateSettlementInFlightRef.current = true;
                     setHollowGateSettlementStatus("pending");
                     try {
-                        const battleToken = battleSeal1v1?.token ?? null;
-                        if (!battleToken) throw new Error("The Hollow Hound battle seal could not be created.");
-                        const response = await fetch("/api/pet/battle-result", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                playerName: character.name,
-                                outcome,
-                                opponentLevel: opponent.pet.level,
-                                reportKey: reportKey1v1,
-                                battleToken,
-                                inputLog: liveDuel?.inputLog(),
-                            }),
+                        const data = await postPetBattleSettlement({
+                            playerName: battleScope.playerName,
+                            outcome,
+                            opponentLevel: opponent.pet.level,
+                            reportKey: reportKey1v1,
+                            battleToken,
+                            inputLog,
                         });
-                        const data = await response.json().catch(() => null) as {
-                            error?: string;
-                            character?: Character;
-                            hollowGate?: boolean;
-                            outcome?: "win" | "loss" | "draw";
-                            petReceipt?: string;
-                        } | null;
-                        if (!response.ok) throw new Error(data?.error || "The Hollow Hound result could not be verified.");
-                        await settleHollowGatePetBattle(opponent, data ?? {});
+                        if (!playerScopeIsActive(battleScope)) return;
+                        const firstHopDecision = receivePetBattleSettlement(data, battleScope);
+                        if (firstHopDecision === "foreign") return;
+                        const completed = await settleHollowGatePetBattle(battleScope, opponent, data);
+                        if (!completed || !playerScopeIsActive(battleScope)) return;
                         hollowGateSettlementFinishedRef.current = true;
                         hollowGateSettlementRetryRef.current = null;
                         setHollowGateSettlementStatus("settled");
                     } catch (error) {
+                        if (!playerScopeIsActive(battleScope)) return;
                         setHollowGateSettlementStatus("error");
                         setBattleLog((prev) => [
                             ...prev,
@@ -1887,7 +1621,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 : "Gate settlement paused. Retry from the result screen.",
                         ]);
                     } finally {
-                        hollowGateSettlementInFlightRef.current = false;
+                        // An old account's completion may arrive after App has
+                        // reused this mounted screen for another player. Never
+                        // clear the new player's in-flight guard from that task.
+                        if (playerScopeIsActive(battleScope)) {
+                            hollowGateSettlementInFlightRef.current = false;
+                        }
                     }
                 };
                 hollowGateSettlementRetryRef.current = reportHollowGateResult;
@@ -1900,60 +1639,29 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 // server applies ryo + increments totalPetWins / dailyPetWins
                 // under a per-player lock + 5s rate-limit + daily cap. Client no
                 // longer touches ryo or counters directly here.
-                void (async () => {
-                    try {
-                        // reportKey: seed-based when we have a battleSeed (refresh-
-                        // replay dedupes server-side). When the opponent has no
-                        // battleSeed (the static genericPetArenaOpponents AI list,
-                        // or any roster opponent lacking a stamp), fall back to a
-                        // click-stable key so the server doesn't 400 — Tier-2
-                        // security fix made reportKey REQUIRED for wins. The
-                        // server's daily cap + rate limits still bound damage.
-                        const battleToken = battleSeal1v1?.token ?? null;
-                        const r = await fetch("/api/pet/battle-result", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                playerName: character.name,
-                                outcome: "win",
-                                opponentLevel: opponent.pet.level,
-                                reportKey: reportKey1v1,
-                                battleToken,
-                                // The commands this player issued, stamped with the tick
-                                // each landed on. The server replays the seeded sim with
-                                // them and derives the outcome itself — `outcome` above is
-                                // no longer what it pays from (plan §9.6). Undefined for a
-                                // watch-only duel, which JSON.stringify simply omits.
-                                inputLog: liveDuel?.inputLog(),
-                            }),
-                        });
-                        if (r.ok) {
-                            const data = await r.json() as { character?: Character; reward?: number; balances?: { ryo: number }; totalPetWins?: number; dailyPetWins?: number; capped?: boolean; hollowGate?: boolean; outcome?: "win" | "loss" | "draw"; petReceipt?: string };
-                            // Functional updater: this write lands AFTER the await, so a
-                            // concurrent regen/heartbeat setState could otherwise be
-                            // clobbered. ryo is a RELATIVE credit read off `prev`; the
-                            // server-authoritative totals fall back to a +1 off `prev`.
-                            updateCharacter((prev) => prev ? ({
-                                ...(data.character ?? prev),
-                                ryo: data.balances?.ryo ?? prev.ryo,
-                                totalPetWins: data.totalPetWins ?? prev.totalPetWins,
-                                dailyPetWins: data.dailyPetWins ?? prev.dailyPetWins,
-                                // Preserve the consumable-clear from before the battle —
-                                // re-spreading the stale `character` would restore it.
-                                pets: clearConsumablePets([selectedPet.id]),
-                            }) : prev);
-                            if (data.capped) {
-                                setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
-                            }
-                        } else {
-                            updateCharacter((prev) => prev ? ({ ...prev, pets: clearConsumablePets([selectedPet.id]) }) : prev);
+                const settlementBody = {
+                    playerName: battleScope.playerName,
+                    outcome,
+                    opponentLevel: opponent.pet.level,
+                    reportKey: reportKey1v1,
+                    battleToken,
+                    inputLog,
+                };
+                beginPetSettlement({
+                    id: `casual:${battleToken}:${reportKey1v1}`,
+                    kind: "casual",
+                    label: "Pet Coliseum result",
+                    scope: battleScope,
+                    run: async () => {
+                        const data = await postPetBattleSettlement(settlementBody);
+                        if (!playerScopeIsActive(battleScope)) return false;
+                        const applied = applyPetBattleSettlement(data, battleScope, [battlePlayerPet.id]);
+                        if (applied && data.capped) {
+                            setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
                         }
-                    } catch {
-                        // Network error: consume the battle item locally, but never mint
-                        // wallet or leaderboard progress without the server receipt.
-                        updateCharacter((prev) => prev ? ({ ...prev, pets: clearConsumablePets([selectedPet.id]) }) : prev);
-                    }
-                })();
+                        return applied;
+                    },
+                });
                 // Old point-based clan war pet-battle credit removed — the new
                 // server-managed Clan War system handles pet battles via the
                 // onClanWarBattleEnd auto-report path above. The pendingClanPetBattle
@@ -1962,54 +1670,33 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             } else {
                 // Losses and draws must also redeem the server replay token so the
                 // token cannot be reused and one-use pet consumables settle durably.
-                void (async () => {
-                    try {
-                        const battleToken = battleSeal1v1?.token ?? null;
-                        const r = await fetch("/api/pet/battle-result", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                playerName: character.name,
-                                outcome,
-                                opponentLevel: opponent.pet.level,
-                                reportKey: reportKey1v1,
-                                battleToken,
-                                inputLog: liveDuel?.inputLog(),
-                            }),
-                        });
-                        if (r.ok) {
-                            const data = await r.json() as { character?: Character; hollowGate?: boolean; outcome?: "win" | "loss" | "draw"; petReceipt?: string };
-                            if (data.character) updateCharacter(data.character);
-                        }
-                    } catch { /* no reward or state is minted without a server receipt */ }
-                })();
-                if (opponent.owner === "Hollow Gate" && !opponent.hollowGate) {
-                // Pet duel lost inside the Hollow Gate Shrine — trainer takes
-                // 20% maxHp damage as residual chakra burns through the seal.
-                // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
-                // Player still returns to the shrine via the exit button's
-                // returnScreen; not hospitalized, not run-ending.
-                // Functional updater: a player-controlled duel settles up to a minute
-                // after it started, so the captured `character` is long stale by now —
-                // read maxHp off `prev` or a regen/heartbeat tick gets clobbered.
-                updateCharacter((prev) => {
-                    if (!prev) return prev;
-                    const hit = Math.max(1, Math.floor(prev.maxHp * 0.20));
-                    return { ...prev, hp: Math.max(1, prev.hp - hit), pets: clearConsumablePets([selectedPet.id]) };
+                const settlementBody = {
+                    playerName: battleScope.playerName,
+                    outcome,
+                    opponentLevel: opponent.pet.level,
+                    reportKey: reportKey1v1,
+                    battleToken,
+                    inputLog,
+                };
+                beginPetSettlement({
+                    id: `casual:${battleToken}:${reportKey1v1}`,
+                    kind: "casual",
+                    label: "Pet Coliseum result",
+                    scope: battleScope,
+                    run: async () => {
+                        const data = await postPetBattleSettlement(settlementBody);
+                        if (!playerScopeIsActive(battleScope)) return false;
+                        return applyPetBattleSettlement(data, battleScope, [battlePlayerPet.id]);
+                    },
                 });
-                // maxHp does not change mid-duel, so the captured value is safe for the
-                // player-facing number even though the HP subtraction above is not.
-                const shownDmg = Math.max(1, Math.floor(character.maxHp * 0.20));
-                setBattleLog([...logs, `${character.name} took ${shownDmg} HP (20% of max) as the Hollow Hound's chakra recoiled through the seal.`]);
-                }
             }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
         };
         setDuelBattle({
             result: duel, live: liveDuel, onOutcome: (r) => settle1v1(r.result),
-            playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId,
+            playerPet: battlePlayerPet, enemyPet: battleOpponentPet, seed: seed1v1, id: nextDuelId,
         });
-        setBattleLog([]);
+        setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
         // Watch-only duels are already decided, so settle immediately as before.
         if (duel) settle1v1(duel.result);
     }
@@ -2024,168 +1711,25 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // (both sides hold identical embedded teams + seed) behind the countdown.
     useEffect(() => {
         if (!pendingArenaMatch) return;
-        if (!arenaMatchOwnedByPlayer(pendingArenaMatch, character.name)) {
-            onPendingArenaMatchStarted?.();
-            return;
-        }
-        const match = pendingArenaMatch.match;
-        const size = match.size;
-        const blueIds = new Set(match.blue.map((pet) => pet.id));
-        const redIds = new Set(match.red.map((pet) => pet.id));
-        if (blueIds.size !== size || redIds.size !== size || match.blue.length !== size || match.red.length !== size) {
+        const size = pendingArenaMatch.size;
+        const blueIds = new Set(pendingArenaMatch.blue.map((pet) => pet.id));
+        const redIds = new Set(pendingArenaMatch.red.map((pet) => pet.id));
+        if (blueIds.size !== size || redIds.size !== size || pendingArenaMatch.blue.length < size || pendingArenaMatch.red.length < size) {
             setArenaChallengeMsg(`This ${size}v${size} match was missing a full team and could not start.`);
             onPendingArenaMatchStarted?.();
             return;
         }
-        startArenaMatch(match.blue, match.red, match.seed, {
-            blueSetup: match.blueSetup,
-            redSetup: match.redSetup,
-            localTeam: match.localTeam,
-        });
+        void startArenaMatch(pendingArenaMatch.blue, pendingArenaMatch.red, pendingArenaMatch.seed);
         onPendingArenaMatchStarted?.();
-    }, [pendingArenaMatch?.challengeId, normalizedCharacterName]);
+    }, [pendingArenaMatch?.seed]);
 
     // Responder side: an incoming arena challenge arrived → open the tactical
     // view's responder picker, pre-selecting my top pets at the challenge's size.
     useEffect(() => {
-        if (pendingArenaResponse && !currentPendingArenaResponse) {
-            arenaRequestOwner.current?.abort("arena-respond");
-            setArenaResponding(false);
-            setRespondPicks(normalizeArenaSelection([], 4));
-            setRespondSlot(0);
-            onArenaResponseHandled?.();
-            return;
-        }
-        if (!currentPendingArenaResponse) return;
-        const size = arenaSizeOf(currentPendingArenaResponse);
+        if (!pendingArenaResponse) return;
         setArenaView("tactical");
-        setArenaChallengeMsg("");
-        setRespondPicks(normalizeArenaSelection(pickArenaTeam(combatEligiblePets, size).map((pet) => pet.id), size));
-        setRespondSlot(0);
-    }, [currentPendingArenaResponse?.id, normalizedCharacterName]);
-
-    useEffect(() => {
-        if (pendingArenaRecovery && normalizePlayerIdentity(pendingArenaRecovery.playerName) !== normalizedCharacterName) {
-            onPendingArenaRecoveryHandled?.();
-        }
-    }, [pendingArenaRecovery?.challengeId, normalizedCharacterName]);
-
-    // The accepted notification normally arrives over realtime. If that packet
-    // is lost, recover the same server-sealed payload by challenge id. The GET is
-    // idempotent; consume the inbox notice before direct-starting so a later
-    // realtime echo cannot mount the match twice.
-    useEffect(() => {
-        if (arenaCountdown || arenaMatch) {
-            const active = readArenaPvpRecovery(character.name);
-            if (active) clearArenaPvpRecovery(character.name, active.challengeId);
-            if (pendingArenaRecovery) onPendingArenaRecoveryHandled?.();
-            return;
-        }
-        let recovery = pendingArenaRecovery
-            && normalizePlayerIdentity(pendingArenaRecovery.playerName) === normalizedCharacterName
-            ? pendingArenaRecovery
-            : readArenaPvpRecovery(character.name);
-        if (recovery && recovery === pendingArenaRecovery) writeArenaPvpRecovery(recovery);
-        if (!recovery) {
-            const outgoing = duelChallenges.find((challenge) => challenge.arenaMatch === true
-                && !challenge.accepted && !challenge.declined && !challenge.battleId
-                && normalizePlayerIdentity(challenge.fromName) === normalizedCharacterName);
-            if (outgoing) {
-                recovery = {
-                    version: 1,
-                    challengeId: outgoing.id,
-                    playerName: character.name,
-                    counterpartName: outgoing.toName,
-                    role: "challenger",
-                    createdAt: outgoing.createdAt,
-                };
-                writeArenaPvpRecovery(recovery);
-            }
-        }
-        if (!recovery) return;
-        const recoveryRecord = recovery;
-        const owner = arenaRequestOwner.current!;
-        const attempt = owner.begin("arena-recovery", character.name);
-        if (!attempt) return;
-        let timer: number | null = null;
-        let finished = false;
-        const schedule = (delayMs: number) => {
-            if (!owner.isCurrent(attempt) || finished) return;
-            timer = window.setTimeout(() => { void poll(); }, Math.max(1_000, Math.min(12_000, delayMs)));
-        };
-        const stop = () => {
-            finished = true;
-            if (timer !== null) window.clearTimeout(timer);
-            owner.finish(attempt);
-        };
-        const poll = async () => {
-            if (!owner.isCurrent(attempt) || finished) return;
-            try {
-                const response = await fetch(`/api/player/challenge?challengeId=${encodeURIComponent(recoveryRecord.challengeId)}`, {
-                    method: "GET",
-                    headers: { "Accept": "application/json" },
-                    signal: attempt.controller.signal,
-                });
-                if (!owner.isCurrent(attempt)) return;
-                const data = await response.json().catch(() => null) as { error?: string; code?: string; retryAfterMs?: number; challenge?: DuelChallenge } | null;
-                if (!owner.isCurrent(attempt)) return;
-                if (response.status === 409 && data?.code === "arena-match-not-accepted") {
-                    schedule(typeof data.retryAfterMs === "number" ? data.retryAfterMs : 5_000);
-                    return;
-                }
-                if (response.status === 404 && data?.code === "arena-match-recovery-missing") {
-                    clearArenaPvpRecovery(attempt.playerName, recoveryRecord.challengeId);
-                    setDuelChallenges((current) => current.filter((challenge) => challenge.id !== recoveryRecord.challengeId));
-                    if (pendingArenaRecovery?.challengeId === recoveryRecord.challengeId) onPendingArenaRecoveryHandled?.();
-                    setArenaChallengeMsg("That Arena challenge expired before it was accepted. Send a new challenge when both players are ready.");
-                    stop();
-                    return;
-                }
-                if (!response.ok) throw new Error(data?.error ?? "Accepted-match recovery is temporarily unavailable.");
-                const recovered = data?.challenge;
-                if (!recovered || !recoveredChallengeMatches(recoveryRecord, recovered)) {
-                    throw new Error("The recovered Arena match did not match this player and challenge.");
-                }
-                const match = recoveryRecord.role === "challenger"
-                    ? buildAcceptedArenaMatch(recovered)
-                    : buildResponderArenaMatch(recovered, Array.isArray(recovered.responderTeam) ? recovered.responderTeam : []);
-                if (!match) throw new Error("The recovered Arena match was incomplete and was not started.");
-                const consume = await fetch("/api/player/challenge", {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        targetName: attempt.playerName,
-                        fromName: recoveryRecord.counterpartName,
-                        challengeId: recovered.id,
-                    }),
-                    signal: attempt.controller.signal,
-                });
-                if (!owner.isCurrent(attempt)) return;
-                if (!consume.ok) throw new Error("The recovered notice could not be consumed safely; retrying before the match starts.");
-                clearArenaPvpRecovery(attempt.playerName, recoveryRecord.challengeId);
-                setDuelChallenges((current) => current.filter((challenge) => challenge.id !== recoveryRecord.challengeId));
-                if (pendingArenaRecovery?.challengeId === recoveryRecord.challengeId) onPendingArenaRecoveryHandled?.();
-                if (recoveryRecord.role === "responder") onArenaResponseHandled?.();
-                setArenaChallengeMsg("Accepted match recovered from the server. Starting the sealed replay...");
-                startArenaMatch(match.blue, match.red, match.seed, {
-                    blueSetup: match.blueSetup,
-                    redSetup: match.redSetup,
-                    localTeam: match.localTeam,
-                });
-                stop();
-            } catch (error) {
-                if (!owner.isCurrent(attempt) || finished) return;
-                if (error instanceof DOMException && error.name === "AbortError") return;
-                schedule(5_000);
-            }
-        };
-        schedule(1_000);
-        return () => {
-            finished = true;
-            if (timer !== null) window.clearTimeout(timer);
-            owner.abort("arena-recovery");
-        };
-    }, [duelChallenges, normalizedCharacterName, arenaRecoveryRevision, arenaCountdown?.match.seed, arenaMatch?.seed, pendingArenaRecovery?.challengeId]);
+        setRespondPicks(pickArenaTeam(combatEligiblePets, arenaSizeOf(pendingArenaResponse)).map((p) => p.id));
+    }, [pendingArenaResponse?.id]);
 
     // Countdown pre-roll: tick 5→0, then mount the match (same seed → same fight).
     useEffect(() => {
@@ -2201,31 +1745,82 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
     const pendingClanPetBattle = loadPendingClanPetBattle();
     // Hollow Gate (and other forced duels) skip the view tabs — those land
-    // straight in a battle and shouldn't expose the Tactical Arena switch.
+    // straight in a battle and shouldn't expose the Warfront switch.
     const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
+    const returnScreen = petArenaReturnScreen(pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen);
+    const showPetHomeTabs = !pendingPetBattleOpponent
+        && !pendingArenaMatch
+        && !pendingArenaResponse
+        && !fullscreenBattleActive
+        && !showCoop;
     const availableArenaPetCount = availablePetBattleCount(combatEligiblePets);
     const tacticalArenaUnlocked = canEnterTacticalArena(combatEligiblePets);
+    const activeSettlementPresentation = settlementPresentation
+        && playerScopeIsActive(settlementPresentation.scope)
+        ? settlementPresentation
+        : null;
+    const activeSettlementAttempt = settlementAttemptRef.current
+        && playerScopeIsActive(settlementAttemptRef.current.scope)
+        ? settlementAttemptRef.current
+        : null;
+    const petSettlementBlocksExit = Boolean(
+        activeSettlementAttempt && activeSettlementAttempt.status !== "settled",
+    );
+    const warfrontResultActionsLocked = Boolean(
+        chronicleCeremony
+        || (arenaMatch?.vsAi && (!activeSettlementAttempt || activeSettlementAttempt.status !== "settled")),
+    );
+    const activeBattleSetupIssue = battleSetupIssue && playerScopeIsActive(battleSetupIssue.scope)
+        ? battleSetupIssue
+        : null;
+    const retryPetSettlement = () => {
+        const attempt = settlementAttemptRef.current;
+        if (attempt?.status === "error" && playerScopeIsActive(attempt.scope)) {
+            void runPetSettlementAttempt(attempt);
+        }
+    };
     const retryHollowGateSettlement = () => {
         const retry = hollowGateSettlementRetryRef.current;
         if (retry) void retry();
     };
     const canLeaveCurrentPetBattle = () => {
+        if (petSettlementBlocksExit) {
+            alert(activeSettlementAttempt?.status === "error"
+                ? "This result is not recorded yet. Use Retry Settlement before leaving; the same battle receipt will be replayed safely."
+                : "The arena is still recording this result. You can leave as soon as the receipt is confirmed.");
+            return false;
+        }
         if (!isHollowGate || hollowGateSettlementFinishedRef.current) return true;
         if (hollowGateSettlementStatus === "error") {
             alert("The Gate has not recorded this duel yet. Use Retry Gate Settlement before leaving; your completed fight will not be replayed.");
         } else {
-            alert("The Hollow Hound duel is still being sealed. You can leave as soon as the server confirms the result.");
+            alert("The Hollow Hound duel is still being sealed. You can leave as soon as the arena confirms the result.");
         }
         return false;
     };
     const leaveCurrentPetBattle = () => {
         if (!canLeaveCurrentPetBattle()) return;
-        const back = (pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen) ?? "centralHub";
         setBattleOpponent(null);
         setBattleReady(false);
         setDuelBattle(null);
-        setScreen(back);
+        setScreen(returnScreen);
     };
+    const duelChronicleResultSupplement = chronicleProgress || chronicleCeremony ? (
+        <>
+            {chronicleProgress ? <PetChronicleProgress receipt={chronicleProgress} /> : null}
+            {chronicleCeremony ? (
+                <PetChronicleCeremony
+                    receipt={chronicleCeremony}
+                    onDismiss={() => setChronicleCeremony(null)}
+                    onOpenCardHall={() => {
+                        setChronicleCeremony(null);
+                        setChronicleProgress(null);
+                        setScreen("shinobiTiles");
+                    }}
+                />
+            ) : null}
+        </>
+    ) : undefined;
 
     // Render one pet as a visual pick-card (portrait + role badge + level/element).
     // Shared by the cinematic battle view's pickers below — replaces the bare
@@ -2234,16 +1829,19 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const img = petCardImage(pet, sharedImages);
         const { role } = pet.role && pet.subRole ? { role: pet.role } : derivePetRole(pet);
         const rm = ROLE_META[role];
+        const name = petDisplayName(pet);
         return (
             <button key={key} type="button"
                 className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
-                title={opts?.owner ? `${opts.owner}: ${petDisplayName(pet)}` : petDisplayName(pet)}
+                title={opts?.dim ? `${name} is exploring and unavailable` : opts?.owner ? `${opts.owner}: ${name}` : name}
+                aria-pressed={sel}
+                disabled={opts?.dim}
                 style={opts?.dim ? { opacity: 0.5 } : undefined}
                 onClick={onClick}>
                 {img
                     ? <img className="pet-pick-img" src={img} alt="" />
                     : <div className="pet-pick-img placeholder" />}
-                <span className="pet-pick-name">{petDisplayName(pet)}</span>
+                <span className="pet-pick-name">{name}</span>
                 {rm && (
                     <span className="pet-pick-role" style={{ color: rm.color }}>
                         <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
@@ -2267,6 +1865,48 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
     return (
         <div className="card pet-arena-screen">
+            {activeSettlementPresentation && typeof document !== "undefined" && createPortal(
+                <aside
+                    className="pet-settlement-notice"
+                    data-status={activeSettlementPresentation.status}
+                    role={activeSettlementPresentation.status === "error" ? "alert" : "status"}
+                    aria-live={activeSettlementPresentation.status === "error" ? "assertive" : "polite"}
+                    aria-atomic="true"
+                >
+                    <span className="pet-settlement-notice__eyebrow">Sealed battle record</span>
+                    <strong>{activeSettlementPresentation.label}</strong>
+                    <p>
+                        {activeSettlementPresentation.status === "pending"
+                            ? "Recording the sealed result. Keep this battle open."
+                            : activeSettlementPresentation.detail}
+                    </p>
+                    {activeSettlementPresentation.status === "error" ? (
+                        <button type="button" onClick={retryPetSettlement}>Retry Settlement</button>
+                    ) : activeSettlementPresentation.status === "settled" ? (
+                        <button type="button" onClick={() => setSettlementPresentation(null)}>Dismiss</button>
+                    ) : null}
+                </aside>,
+                document.body,
+            )}
+            {activeBattleSetupIssue && typeof document !== "undefined" && createPortal(
+                <aside className="pet-settlement-notice" data-status="error" role="alert" aria-live="assertive" aria-atomic="true">
+                    <span className="pet-settlement-notice__eyebrow">Battle authority</span>
+                    <strong>Warfront needs attention</strong>
+                    <p>{activeBattleSetupIssue.message}</p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const retry = battleSetupRetryRef.current;
+                            setBattleSetupIssue(null);
+                            if (retry) retry();
+                        }}
+                    >
+                        Retry Battle Setup
+                    </button>
+                </aside>,
+                document.body,
+            )}
+            {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
             <div className="pet-arena-header">
                 {/* Back button label adapts to context — Hollow Gate pet
                     duels route back to the shrine, not the central hub. */}
@@ -2274,9 +1914,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     className="back-btn"
                     onClick={leaveCurrentPetBattle}
                 >
-                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate")
-                        ? "Back to Shrine"
-                        : "Back to Central"}
+                    {petArenaBackLabel(returnScreen)}
                 </button>
                 <div>
                     {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate") ? (
@@ -2286,12 +1924,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         </>
                     ) : (
                         <>
-                            <h2>{arenaView === "tactical" ? "Tactical Pet Arena" : arenaView === "gauntlet" ? "Pet Gauntlet" : "Pet Coliseum"}</h2>
+                            <h2>{arenaView === "tactical" ? "Hollow Warfront" : arenaView === "gauntlet" ? "Pet Gauntlet" : "Pet Coliseum"}</h2>
                             <p className="hint">{
                                 pendingClanPetBattle
                                     ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.`
                                     : arenaView === "tactical"
-                                        ? "Big-map MOBA battles — win lanes, control the Hollow Gate, and break the rival Ward Seal."
+                                        ? "Command a 4v4 lane war: defend your Guardian Totems, spend bounty at the War Council, and break the enemy Ward Seal before Judgment."
                                         : arenaView === "gauntlet"
                                             ? "Roguelike run — draft a one-time squad, chase element & role synergies, and survive escalating rounds. Clear rounds to earn ryo and rare materials."
                                             : "Cinematic 1v1 & 2v2 duels — your pet approaches, kites, dodges, trades elemental strikes and unleashes ultimates on its own. You build the pet; it fights the duel."
@@ -2301,28 +1939,29 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             </div>
 
-            {/* Top-level view tabs — the cinematic duel vs the Tactical Arena game
+            {/* Top-level view tabs — the cinematic duel vs the Hollow Warfront
                 mode. Hidden for forced duels (Hollow Gate) which land in battle. */}
             {!isHollowGate && (
                 <div className="pet-arena-mode-toggle" style={{ maxWidth: 660, marginBottom: 14 }}>
-                    <button type="button" className={arenaView === "battle" ? "active" : ""} onClick={() => setArenaView("battle")}>
+                    <button type="button" className={arenaView === "battle" ? "active" : ""} aria-pressed={arenaView === "battle"} onClick={() => setArenaView("battle")}>
                         ⚔️ Pet Coliseum
                     </button>
                     <button
                         type="button"
                         className={arenaView === "tactical" ? "active" : ""}
+                        aria-pressed={arenaView === "tactical"}
                         disabled={!tacticalArenaUnlocked}
                         title={!tacticalArenaUnlocked ? `Locked: ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
                         onClick={() => setArenaView("tactical")}
                     >
-                        🏟️ Tactical Pet Arena
+                        🏟️ Hollow Warfront
                     </button>
                     {!tacticalArenaUnlocked && (
                         <span className="hint" style={{ alignSelf: "center", color: "var(--gold-2)", fontSize: "0.75rem" }}>
                             Locked: {availableArenaPetCount}/{TACTICAL_ARENA_PET_REQUIREMENT} pets
                         </span>
                     )}
-                    <button type="button" className={arenaView === "gauntlet" ? "active" : ""} onClick={() => setArenaView("gauntlet")}>
+                    <button type="button" className={arenaView === "gauntlet" ? "active" : ""} aria-pressed={arenaView === "gauntlet"} onClick={() => setArenaView("gauntlet")}>
                         🗡️ Pet Gauntlet
                     </button>
                 </div>
@@ -2367,7 +2006,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     )}
                     {preservedPetOverflow > 0 && (
                         <p className="hint" style={{ color: "var(--gold-2)" }}>
-                            {preservedPetOverflow} preserved overflow · cannot fight. Base: 4 carried · Supporter: 6. See Sanctuary.
+                            {preservedPetOverflow} preserved overflow {preservedPetOverflow === 1 ? "companion is" : "companions are"} resting from combat. Swap safely in the Sanctuary.
                         </p>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
@@ -2376,15 +2015,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
                 <section className="summary-box pet-arena-selector">
                     <h3>Opponent Pet</h3>
-                    <div className="pet-arena-mode-toggle">
+                    <div className="pet-arena-mode-toggle" role="group" aria-label="Opponent type">
                         <button
                             type="button"
                             className={opponentMode === "player" ? "active" : ""}
+                            aria-pressed={opponentMode === "player"}
                             onClick={() => {
                                 setOpponentMode("player");
                                 setBattleReady(false);
                                 setBattleLog([]);
-                                setDuelBattle(null);
+                                setBattleFrames([]);
+                                setResult("");
+                                setIsPlaying(false);
                             }}
                         >
                             Fight Player
@@ -2392,11 +2034,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         <button
                             type="button"
                             className={opponentMode === "ai" ? "active" : ""}
+                            aria-pressed={opponentMode === "ai"}
                             onClick={() => {
                                 setOpponentMode("ai");
                                 setBattleReady(false);
                                 setBattleLog([]);
-                                setDuelBattle(null);
+                                setBattleFrames([]);
+                                setResult("");
+                                setIsPlaying(false);
                             }}
                         >
                             Fight AI
@@ -2404,8 +2049,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     </div>
                     {opponentMode === "player" && (
                         <>
-                            <label>Search Player Name</label>
-                            <input value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
+                            <label htmlFor="pet-arena-player-search">Search Player Name</label>
+                            <input id="pet-arena-player-search" value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
                         </>
                     )}
                     {opponentMode === "player" ? (
@@ -2486,6 +2131,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 <div className="pet-pick-grid">
                                     <button type="button"
                                         className={`pet-pick pet-pick-auto${reservePetId === "" ? " selected" : ""}`}
+                                        aria-pressed={reservePetId === ""}
                                         onClick={() => setReservePetId("")}>
                                         <span className="pet-pick-auto-glyph">🎲</span>
                                         <span className="pet-pick-name">Auto-pick</span>
@@ -2541,7 +2187,31 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         Choose both contenders
                     </button>
                 ) : null}
+                {battleReady && battleFrames.length > 0 && (
+                    <button onClick={() => {
+                        if (frameIndex >= battleFrames.length - 1) {
+                            setFrameIndex(0);
+                            setIsPlaying(true);
+                            return;
+                        }
+                        setIsPlaying((playing) => !playing);
+                    }}>
+                        {isPlaying ? "Pause" : frameIndex >= battleFrames.length - 1 ? "Replay" : "Resume"}
+                    </button>
+                )}
+                {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
+
+            {partyResult && battleReady && showResult && (
+                <div className="summary-box" style={{ marginTop: "0.4rem", padding: "0.5rem 0.7rem" }}>
+                    <strong>Set: {partyResult.playerWins}–{partyResult.opponentWins}{partyResult.draws ? ` (${partyResult.draws} draw)` : ""}</strong>
+                    {partyResult.matches.map((m, i) => (
+                        <div key={i} style={{ fontSize: "0.85rem", color: "var(--text-dim)", marginTop: 2 }}>
+                            Match {i + 1}: {m.playerPet?.name ?? "—"} vs {m.opponentPet?.name ?? "—"} → <strong style={{ color: m.result === "win" ? "var(--green-400)" : m.result === "loss" ? "var(--red-400)" : "var(--gold)" }}>{m.result}</strong>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Live PvP: the invite prompt, the "waiting to be accepted" notice and
                 the fight itself all live here. Renders nothing when idle. */}
@@ -2550,6 +2220,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 myPets={[selectedPet, partyMode ? combatEligiblePets.find((p) => p.id === reservePetId) : null].filter((p): p is Pet => !!p)}
                 onError={(message) => setPetChallengeMsg(`❌ ${message}`)}
                 onOutcome={(outcome, opponent) => {
+                    setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
                     setPetChallengeMsg(outcome === "win" ? `✅ You beat ${opponent}!` : outcome === "draw" ? `Draw with ${opponent}.` : `${opponent} won that one.`);
                     // Clan-war pet battles still record through the existing helper;
                     // it no-ops when this fight was not part of one.
@@ -2558,8 +2229,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 sharedImages={sharedImages}
             />
 
-            {battleReady && duelBattle && selectedPet && (battleOpponent ?? selectedOpponent) && (
+            {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
+                {duelBattle ? (
+                    // New continuous engine (petDuelEngine.v1 ON, non-ranked): the
+                    // screen already resolved the DuelResult + posted the outcome;
+                    // PetColiseumDuel just PLAYS it (full-screen portal). onExit
+                    // clears the duel + honours the opponent's returnScreen (Hollow
+                    // Gate sends you back to the shrine).
                     <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading tactical arena…</div>}>
                         <PetColiseumDuel
                             key={duelBattle.id}
@@ -2572,23 +2249,86 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             live={duelBattle.live ?? undefined}
                             onOutcome={duelBattle.onOutcome}
                             sharedImages={sharedImages}
-                            onFightAgain={battleOpponent?.hollowGate ? undefined : () => void startBattle(battleOpponent ?? undefined)}
+                            onFightAgain={battleOpponent?.hollowGate || battleOpponent?.ranked || petSettlementBlocksExit || chronicleCeremony ? undefined : () => void startBattle(battleOpponent ?? undefined)}
                             settlementStatus={battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined}
                             onRetrySettlement={battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined}
+                            resultSupplement={duelChronicleResultSupplement}
                             onExit={leaveCurrentPetBattle}
                         />
                     </Suspense>
+                ) : (() => {
+                    // Prop block for the HD-2D coliseum renderer. The renderer is a
+                    // pure presentation layer over the deterministic battle frames;
+                    // the engine and frame-stepping own the outcome.
+                    const battleProps = {
+                        playerPet: selectedPet,
+                        enemyPet: (battleOpponent ?? selectedOpponent)!.pet,
+                        enemyOwner: (battleOpponent ?? selectedOpponent)!.owner,
+                        // 2v2 mode — pass reserves so the renderer can place all
+                        // 4 pets on the grid and show 4 HP bars. partyResult tracks
+                        // them via matches[1] (or the opponent's carried
+                        // challengerParty/opponentParty for PvP).
+                        playerReservePet:
+                            partyResult?.matches[1]?.playerPet
+                            ?? (battleOpponent?.challengerParty ? battleOpponent.challengerParty[1] : undefined)
+                            ?? (partyMode && opponentMode === "ai"
+                                ? (combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                                    ?? combatEligiblePets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0])
+                                : undefined),
+                        enemyReservePet:
+                            partyResult?.matches[1]?.opponentPet
+                            ?? (battleOpponent?.opponentParty ? battleOpponent.opponentParty[1] : undefined)
+                            ?? undefined,
+                        frame: currentFrame,
+                        recentFrames: battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result"),
+                        result: showResult ? result : "",
+                        obstacles: [],
+                        tiles: [],
+                        onReplay: () => {
+                            if (!battleFrames.length) return;
+                            setFrameIndex(0);
+                            setIsPlaying(true);
+                        },
+                        onFightAgain: battleOpponent?.hollowGate || battleOpponent?.ranked || petSettlementBlocksExit || chronicleCeremony ? undefined : () => void startBattle(),
+                        settlementStatus: battleOpponent?.hollowGate ? hollowGateSettlementStatus : undefined,
+                        onRetrySettlement: battleOpponent?.hollowGate ? retryHollowGateSettlement : undefined,
+                        resultSupplement: duelChronicleResultSupplement,
+                        onExit: () => {
+                            // Honour the opponent's returnScreen override if provided —
+                            // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
+                            // so the duel sends you back to the dungeon, not the village hub.
+                            leaveCurrentPetBattle();
+                        },
+                        sharedImages,
+                        playerRecord: { wins: character.petRankedWins ?? 0, losses: character.petRankedLosses ?? 0, rating: character.petRankedRating ?? 1000 },
+                        enemyRecord: (() => {
+                            // Ranked PvP carries the opponent's Elo snapshot; we don't
+                            // track their W/L, so show rating only. AI/wild opponents
+                            // carry no rating → no record card for them.
+                            const opp = (battleOpponent ?? selectedOpponent);
+                            return opp?.opponentRating !== undefined ? { rating: opp.opponentRating } : undefined;
+                        })(),
+                    };
+                    // HD-2D coliseum is the arena renderer — lazy-loaded so
+                    // three/r3f only ship when a battle actually mounts (the
+                    // cold-landing bundle is untouched).
+                    return (
+                        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading 3D arena…</div>}>
+                            <PetColiseum {...battleProps} />
+                        </Suspense>
+                    );
+                })()}
                 </div>
             )}
 
-            <section className="summary-box pet-arena-log">
+            <section className="summary-box pet-arena-log" role="log" aria-label="Pet battle log" aria-live="polite" aria-relevant="additions text">
                 <h3>Battle Log</h3>
-                {battleLog.length === 0 ? <p className="hint">Start a match to watch the pets fight.</p> : battleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+                {visibleLog.length === 0 ? <p className="hint">Start a match to watch the pets fight.</p> : visibleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
             </section>
             </>
             )}
 
-            {/* ── Tactical Arena view ────────────────────────────────────────
+            {/* ── Hollow Warfront view ───────────────────────────────────────
                 One screen: a team-size toggle + a team grid, then Fight AI /
                 Challenge a Player / Co-op. An INCOMING challenge swaps in a
                 responder picker. The match plays via the arenaMatch overlay
@@ -2598,49 +2338,41 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     <div className="pet-arena-hero" style={{ backgroundImage: `url(${tacticalArenaHero})`, marginBottom: 0 }}>
                         <h3 className="hero-title">⛩ Hollow Warfront</h3>
                         <p className="hero-sub">
-                            A lane war on a huge 3D battlefield: hollow-spawn pour from the central Hollow Gate breach, two Guardian Totems ward each village outpost, and shattering the enemy WARD SEAL wins. Every kill pays bounty coins — spend them at the 90-second War Council, where you can also switch your team's formation. Ten minutes; Ward Seal or Judgment. AI power adapts to the squad you lock, and the server reveals the exact band and reward before kickoff.
+                            A lane war on a huge 3D battlefield: hollow-spawn pour from the central Hollow Gate breach, two Guardian Totems ward each village outpost, and shattering the enemy WARD SEAL wins. Every kill pays bounty coins — spend them at the 90-second War Council, where you can also switch your team's formation. Ten minutes; Ward Seal or Judgment. Beat the AI team to earn pet-arena ryo (daily cap applies).
                         </p>
                     </div>
 
                     {(() => {
                         const available = combatEligiblePets.filter((p) => !isPetOnExpedition(p));
-                        // Slot-aware pet picker. A lane is selected first; choosing a
-                        // pet assigns it there, and choosing one from another lane
-                        // swaps the two rather than shifting every later deployment.
+                        const availableById = new Map(available.map((pet) => [pet.id, pet]));
+                        const isExactAvailableSelection = (ids: string[], size: number) => (
+                            ids.length === size
+                            && new Set(ids).size === size
+                            && ids.every((id) => availableById.has(id))
+                        );
+                        // Reusable pet-pick grid — tap to add/remove (capped at `max`).
                         // Each slot is a roomy card: a large portrait, the pet's name,
                         // its native combat role badge (so the player can build a
                         // balanced comp at a glance), and a level/element line. The
                         // order badge in the corner shows battle order when picked.
-                        const pickGrid = (
-                            picks: string[],
-                            setPicks: React.Dispatch<React.SetStateAction<string[]>>,
-                            max: number,
-                            activeSlot: number,
-                            setActiveSlot: (slot: number) => void,
-                        ) => (
+                        const pickGrid = (picks: string[], setPicks: (ids: string[]) => void, max: number) => (
                             <div className="pet-pick-grid">
                                 {available.map((pet) => {
                                     const sel = picks.includes(pet.id);
                                     const order = picks.indexOf(pet.id);
                                     const img = petCardImage(pet, sharedImages);
                                     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
-                                 const rm = ROLE_META[role];
-                                 const deployment = order >= 0 ? WARFRONT_DEPLOYMENT_SLOTS[order] : null;
-                                 const target = WARFRONT_DEPLOYMENT_SLOTS[activeSlot];
-                                 return (
-                                     <button key={pet.id} type="button"
-                                         aria-pressed={sel}
-                                         aria-label={`${petDisplayName(pet)}, ${rm?.label ?? role}${deployment ? `, assigned ${deployment.label}` : ""}. ${sel && order === activeSlot ? `Press to clear ${target.label}.` : `Press to assign ${target.label}${sel ? ` and swap with ${deployment?.label}` : ""}.`}`}
-                                         className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
-                                         title={rm ? `${petDisplayName(pet)} — ${rm.label} (${subRole})` : petDisplayName(pet)}
-                                         onClick={() => {
-                                             const next = sel && order === activeSlot
-                                                 ? clearArenaSelectionSlot(picks, activeSlot, max)
-                                                 : assignArenaSelectionSlot(picks, activeSlot, pet.id, max);
-                                             setPicks(next);
-                                             setActiveSlot(nextOpenArenaSlot(next, activeSlot));
-                                         }}>
-                                         {deployment && <span className="pet-pick-order" title={`${deployment.label} deployment slot`}>{deployment.mark}</span>}
+                                    const rm = ROLE_META[role];
+                                    const atMax = !sel && picks.length >= max;
+                                    return (
+                                        <button key={pet.id} type="button"
+                                            className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
+                                            title={rm ? `${petDisplayName(pet)} — ${rm.label} (${subRole})` : petDisplayName(pet)}
+                                            aria-pressed={sel}
+                                            disabled={atMax}
+                                            style={atMax ? { opacity: 0.45 } : undefined}
+                                            onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : atMax ? picks : [...picks, pet.id])}>
+                                            {sel && <span className="pet-pick-order">{order + 1}</span>}
                                             {img
                                                 ? <img className="pet-pick-img" src={img} alt="" />
                                                 : <div className="pet-pick-img placeholder" />}
@@ -2658,168 +2390,79 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         );
 
                         // ── Incoming challenge → pick my team, then accept ──────
-                        if (currentPendingArenaResponse) {
-                            const size = arenaSizeOf(currentPendingArenaResponse);
-                            const responseAvailableIds = new Set(available.map((pet) => pet.id));
-                            const responseReady = isExactAvailableArenaSelection(respondPicks, responseAvailableIds, size);
+                        if (pendingArenaResponse) {
+                            const size = arenaSizeOf(pendingArenaResponse);
                             return (
                                 <div style={{ display: "grid", gap: "0.6rem" }}>
-                                    <strong>⚔️ {currentPendingArenaResponse.fromName} challenged you to a {size === 4 ? "4v4" : "2v2"}!</strong>
-                                    <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets and lock your plan. Your rival's plan is held by the server; both reveal only after you accept.</p>
-                                    <div className="summary-box" style={{ display: "grid", gap: "0.55rem" }}>
-                                        <strong>Seal your opening plan</strong>
-                                        <WarfrontChoiceButtons label="Opening formation" items={WF_STANCES} value={wfStancePref} onSelect={setWfStance} disabled={arenaResponding} />
-                                        <WarfrontChoiceButtons label="Team doctrine" items={WF_DOCTRINES} value={wfDoctrinePref} onSelect={setWfDoctrine} disabled={arenaResponding} />
-                                        <WarfrontChoiceButtons label="Automatic Council playbook" items={WARFRONT_PLAYBOOKS} value={wfPlaybookPref} onSelect={setWfPlaybook} disabled={arenaResponding} />
-                                        <p className="hint" style={{ margin: 0 }}>{activeWfPlaybook.summary} {activeWfPlaybook.tradeoff}</p>
-                                        <p className="hint" style={{ margin: 0 }}>These choices are sealed into the shared replay, so both clients simulate the same battle.</p>
-                                    </div>
-                                    <div className="wf-deployment" role="group" aria-label="Response deployment slots">
-                                        {WARFRONT_DEPLOYMENT_SLOTS.slice(0, size).map((slot, index) => {
-                                            const pet = available.find((item) => item.id === respondPicks[index]);
-                                            return (
-                                                <button type="button" key={slot.id} aria-pressed={respondSlot === index}
-                                                    className={`wf-deployment-card${pet ? " filled" : ""}${respondSlot === index ? " active" : ""}`}
-                                                    onClick={() => setRespondSlot(index)}>
-                                                    <span className="wf-lane-name">{slot.label}</span>
-                                                    <strong className="wf-slot-pet">{pet ? petDisplayName(pet) : "Open slot"}</strong>
-                                                    <span className="wf-slot-forecast">Select this lane, then choose a pet below.</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    <strong>⚔️ {pendingArenaResponse.fromName} challenged you to a {size === 4 ? "4v4" : "2v2"}!</strong>
+                                    <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets, then accept — the match begins after a short countdown.</p>
                                     {available.length < size
-                                        ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available carried pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
-                                        : <div className="pet-pick-panel">{pickGrid(respondPicks, setRespondPicks, size, respondSlot, setRespondSlot)}</div>}
+                                        ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
+                                        : <div className="pet-pick-panel">{pickGrid(respondPicks, setRespondPicks, size)}</div>}
                                     <div className="menu">
-                                        <button disabled={arenaResponding || !responseReady} style={{ background: "#16a34a" }}
-                                            onClick={() => { primeWarfrontAudio(); void respondToArenaChallenge(currentPendingArenaResponse, respondPicks); }}>
-                                            {arenaResponding ? "Sealing Match..." : `Accept & Start (${arenaSelectionCount(respondPicks)}/${size})`}
+                                        <button disabled={!isExactAvailableSelection(respondPicks, size)} style={{ background: "#16a34a" }}
+                                            onClick={() => void respondToArenaChallenge(pendingArenaResponse, respondPicks)}>
+                                            Accept &amp; Start ({respondPicks.length}/{size})
                                         </button>
-                                        <button className="danger-button" disabled={arenaResponding}
-                                            onClick={() => { void declineArenaChallenge(currentPendingArenaResponse); }}>Decline</button>
+                                        <button className="danger-button" onClick={() => { setRespondPicks([]); onArenaResponseHandled?.(); }}>Decline</button>
                                     </div>
-                                    {arenaChallengeMsg && <p role="status" className="hint" style={{ margin: 0, color: "var(--gold-2)" }}>{arenaChallengeMsg}</p>}
                                 </div>
                             );
                         }
 
                         // ── Single screen: council preference + team grid + actions ───
-                        // Warfront is always 4v4.
-                        const availableIds = new Set(available.map((pet) => pet.id));
-                        const canStart = isExactAvailableArenaSelection(tacticalPicks, availableIds, tacticalSize);
+                        // (Warfront is always 4v4 — the old 2v2 size toggle retired with
+                        // the capture-scroll mode.)
+                        const canStart = isExactAvailableSelection(tacticalPicks, tacticalSize);
                         const selectedTacticalPets = tacticalPicks
-                            .map((id) => available.find((pet) => pet.id === id))
+                            .map((id) => availableById.get(id))
                             .filter((pet): pet is Pet => Boolean(pet));
-                        const warmSelectedWarfront = () => preloadWarfrontExperience(selectedTacticalPets);
-                        const pickedRoles = new Set(tacticalPicks.map((id) => {
-                            const pet = available.find((item) => item.id === id);
-                            return pet ? (pet.role ?? derivePetRole(pet).role) as PetRole : null;
-                        }).filter((role): role is PetRole => role !== null));
-                        const selectedStance = WF_STANCES.find((item) => item.id === wfStancePref) ?? WF_STANCES[0];
-                        const selectedDoctrine = WF_DOCTRINES.find((item) => item.id === wfDoctrinePref) ?? WF_DOCTRINES[0];
-                        const scoutedDoctrines = (preparedWarfrontContract?.scoutedDoctrineOptions ?? [])
-                            .map((id) => WF_DOCTRINES.find((item) => item.id === id))
-                            .filter((item): item is (typeof WF_DOCTRINES)[number] => !!item);
-                        const doctrineForecast = scoutedDoctrines.map((enemy) => {
-                            const isCounter = WARFRONT_DOCTRINE_COUNTER[enemy.id] === wfDoctrinePref;
-                            const isMirror = enemy.id === wfDoctrinePref;
-                            const neutral = wfDoctrinePref === "none" || wfDoctrinePref === "warden-pact";
-                            return `${enemy.icon} ${enemy.label}: ${neutral ? "neutral opening" : isMirror ? "mirror — no edge" : isCounter ? "you seize the edge" : "they seize the edge"}`;
-                        });
                         return (
-                             <div className="wf-setup">
-                                 <style>{`.wf-setup{display:grid;gap:.7rem}.wf-scout{border-color:#a16207!important;background:linear-gradient(135deg,#78350f52,#0f172aeb)!important}.wf-scout>strong{color:#fde68a}.wf-scout-style{margin-top:4px;color:#e2e8f0;font-size:.86rem}.wf-scout .hint{margin:.3rem 0 0}.wf-doctrine-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:7px}.wf-doctrine-chips span{padding:4px 8px;border-radius:999px;border:1px solid #fbbf2473;background:#78350f3d;color:#fef3c7;font-weight:800}.wf-scout-forecast{margin-top:7px;color:#bae6fd;font-weight:700}.wf-prepare-state{margin-top:6px;font-size:.8rem}.wf-prepare-state.ready{color:#86efac}.wf-prepare-state.waiting{color:#fca5a5}.wf-scout button{margin-top:8px;background:#0e7490}.wf-setup-controls{display:grid;gap:.7rem;align-content:start}.wf-setup-label{font-weight:600;font-size:.85rem}.wf-control-mode{max-width:470px!important;margin-top:6px}.wf-setup-note{margin:4px 0 0}.wf-setup-note.coach{color:#fde68a}.wf-playbooks,.wf-deployment{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;margin-top:6px}.wf-playbook{min-height:112px;display:grid;align-content:start;gap:4px;padding:9px 10px;border-radius:10px;border:1px solid #475569;background:#0f172ab8;color:#f8fafc;text-align:left}.wf-playbook[aria-checked=true]{border-color:#67e8f9;background:#0e74903d;box-shadow:0 0 0 2px #67e8f91f}.wf-playbook-summary{color:#e2e8f0;font-size:12px}.wf-playbook-tradeoff{color:#fcd34d;font-size:11px}.wf-playbook-warning{color:#fca5a5;font-size:11px;font-weight:800}.wf-forecast{margin:5px 0 0;padding:6px 8px;border-left:2px solid #38bdf8;color:#dbeafe}.wf-forecast.doctrine{border-color:#a78bfa;color:#ede9fe}.wf-forecast.playbook{padding:0;border:0;color:#cffafe}.wf-deployment{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:7px}.wf-deployment-card{min-height:86px;display:grid;align-content:start;gap:2px;padding:8px 9px;border-radius:9px;border:1px solid #475569a6;background:#0f172a80}.wf-deployment-card.filled{border-color:#38bdf8a6;background:#0e749029}.wf-lane-name{color:#7dd3fc;font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase}.wf-slot-pet{color:#64748b;font-size:14px}.wf-deployment-card.filled .wf-slot-pet{color:#f8fafc}.wf-slot-role{font-size:12px;font-weight:700}.wf-slot-forecast{color:#94a3b8;font-size:11px;line-height:1.25}.wf-pick-panel{margin-top:6px}.wf-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}.wf-action-card{display:grid!important;gap:.5rem;align-content:start}.wf-reward-toast{position:fixed;z-index:1000002;right:14px;bottom:14px;width:min(420px,calc(100vw - 28px));display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #38bdf8;border-radius:12px;background:#030712f5;box-shadow:0 14px 40px #0009;color:#f8fafc}.wf-reward-toast.error{border-color:#ef4444}.wf-reward-toast.settled{border-color:#22c55e}.wf-reward-copy{flex:1}.wf-reward-copy div{margin-top:3px;color:#cbd5e1;font-size:.9rem;line-height:1.35}.wf-reward-toast button{flex-shrink:0}`}</style>
-                                 <div role="status" aria-live="polite" className="summary-box wf-scout">
-                                     <strong>Next AI warband: {preparedWarfrontContract?.scoutedWarband.name ?? "Contacting the server..."}</strong>
-                                     {preparedWarfrontContract?.scoutedWarband && <div className="wf-scout-style">{preparedWarfrontContract.scoutedWarband.style}</div>}
-                                     <p className="hint">
-                                         Intelligence narrows their locked doctrine to two possibilities. Choose a tradeoff; the exact declaration reveals only after both plans are committed.
-                                         Their power band adapts to the four pets in your locked deployment; exact squad and opponent power reveal in the server authorization before kickoff.
-                                     </p>
-                                     {scoutedDoctrines.length === 2 && (
-                                         <div className="wf-doctrine-chips" aria-label="Possible enemy doctrines">
-                                             {scoutedDoctrines.map((doctrine) => <span key={doctrine.id}>{doctrine.icon} {doctrine.label}</span>)}
-                                         </div>
-                                     )}
-                                     {doctrineForecast.length > 0 && <div className="wf-scout-forecast">{selectedDoctrine.icon} {selectedDoctrine.label} forecast · {doctrineForecast.join(" · ")}</div>}
-                                     <div className={`wf-prepare-state ${preparedWarfrontContract ? "ready" : "waiting"}`}>{warfrontPrepareMessage}</div>
-                                    {!preparedWarfrontContract && <button type="button" disabled={warfrontPreparing} onClick={() => void requestPreparedWarfrontContract()}>{warfrontPreparing ? "Scouting..." : "Retry scouting"}</button>}
-                                 </div>
-                                 <div className="pet-arena-tactical-top">
-                                     <div className="wf-setup-controls">
+                            <div style={{ display: "grid", gap: "0.7rem" }}>
+                                <div className="pet-arena-tactical-top">
+                                    <div style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
                                         <div>
-                                             <label className="wf-setup-label">📯 Control mode</label>
-                                             <div role="group" aria-label="Warfront control mode" className="pet-arena-mode-toggle wf-control-mode">
-                                                <button type="button" aria-pressed={wfAutoPref === "off"} className={wfAutoPref === "off" ? "active" : ""} onClick={() => setWfAuto("off")}>🧠 Coach Mode</button>
-                                                <button type="button" aria-pressed={wfAutoPref !== "off"} className={wfAutoPref !== "off" ? "active" : ""} onClick={() => setWfAuto(activeWfPlaybook.buyPolicy)}>📺 Watch / Auto</button>
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>📯 War Council (every 90s)</p>
+                                            <div className="pet-arena-mode-toggle" role="group" aria-label="War Council control" style={{ maxWidth: 470, marginTop: 6 }}>
+                                                {(["balanced", "offense", "defense"] as const).map((p) => (
+                                                    <button key={p} type="button" className={wfAutoPref === p ? "active" : ""} aria-pressed={wfAutoPref === p} onClick={() => setWfAuto(p)}>
+                                                        {p === "balanced" ? "⚖ Auto-Balanced" : p === "offense" ? "🗡 Auto-Attack" : "🛡 Auto-Guard"}
+                                                    </button>
+                                                ))}
                                             </div>
-                                             <p role="note" aria-live="polite" className={`hint wf-setup-note${wfAutoPref === "off" ? " coach" : ""}`}>
-                                                {wfAutoPref === "off"
-                                                    ? <><strong>Coach Mode pays a fixed completion reward.</strong> You issue decisions every 90s. Win, loss, and draw pay the same server-sealed base ryo for up to 3 paid completions per UTC day; the exact amount appears after your squad locks. It never adds first-win bonuses or win progress, and forfeits do not count.</>
-                                                    : <><strong>Watch / Auto is victory-reward eligible.</strong> Your selected playbook repeats at each Council; the server seals its decisions and outcome. PvP and co-op also use sealed Auto playback.</>}
-                                            </p>
+                                            <p className="hint" style={{ margin: "4px 0 0" }}>Rewarded AI uses the automatic policy you seal at kickoff. The arena replays that exact plan, so rewards always match the fight you watched.</p>
                                         </div>
 
                                         <div>
-                                             <label className="wf-setup-label">🧭 Opening playbook</label>
-                                             <div className="wf-playbooks" role="radiogroup" aria-label="Opening playbook">
-                                                {WARFRONT_PLAYBOOKS.map((playbook) => {
-                                                    const selected = playbook.id === wfPlaybookPref;
-                                                    const missingRoles = playbook.requiredRoles.filter((role) => !pickedRoles.has(role));
-                                                    return (
-                                                         <button className="wf-playbook" key={playbook.id} type="button" role="radio" aria-checked={selected} onClick={() => setWfPlaybook(playbook.id)}>
-                                                             <strong>{playbook.icon} {playbook.label}</strong>
-                                                             <span className="wf-playbook-summary">{playbook.summary}</span>
-                                                             <span className="wf-playbook-tradeoff">{playbook.tradeoff}</span>
-                                                             {selected && missingRoles.length > 0 && <span className="wf-playbook-warning" role="note">⚠ Needs {missingRoles.map((role) => ROLE_META[role].label).join(" + ")}; part of this playbook cannot trigger.</span>}
-                                                        </button>
-                                                    );
-                                                })}
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>📜 Opening formation</p>
+                                            <div className="pet-arena-mode-toggle" role="group" aria-label="Opening formation" style={{ maxWidth: 620, marginTop: 6, flexWrap: "wrap" }}>
+                                                {WF_STANCES.map((s) => (
+                                                    <button key={s.id} type="button" title={s.desc} className={wfStancePref === s.id ? "active" : ""} aria-pressed={wfStancePref === s.id} onClick={() => setWfStance(s.id)}>
+                                                        {s.icon} {s.label}
+                                                    </button>
+                                                ))}
                                             </div>
-                                             <p role="status" aria-live="polite" className="hint wf-forecast playbook"><strong>{activeWfPlaybook.label} forecast:</strong> {activeWfPlaybook.summary} {wfAutoPref === "off" ? "This seeds your first Coach Council; you can adapt later." : "Auto repeats its Coach Order at each real Council."}</p>
+                                            <p className="hint" style={{ margin: "4px 0 0" }}>Your formation is sealed at kickoff. The AI rival always fields Balanced formation.</p>
                                         </div>
 
                                         <div>
-                                             <label className="wf-setup-label">📜 Opening formation</label>
-                                             <WarfrontChoiceButtons label="Opening formation" items={WF_STANCES} value={wfStancePref} onSelect={setWfStance} />
-                                             <p role="status" aria-live="polite" className="hint wf-forecast">
-                                                 <strong>{selectedStance.icon} {selectedStance.label} forecast:</strong> {selectedStance.desc}
-                                             </p>
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>🎖 Team doctrine</p>
+                                            <div className="pet-arena-mode-toggle" role="group" aria-label="Team doctrine" style={{ maxWidth: 620, marginTop: 6, flexWrap: "wrap" }}>
+                                                {WF_DOCTRINES.map((d) => (
+                                                    <button key={d.id} type="button" title={d.desc} className={wfDoctrinePref === d.id ? "active" : ""} aria-pressed={wfDoctrinePref === d.id} onClick={() => setWfDoctrine(d.id)}>
+                                                        {d.icon} {d.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="hint" style={{ margin: "4px 0 0" }}>Choose your sealed team-wide boon. The AI rival always fields Vanguard doctrine.</p>
                                         </div>
 
                                         <div>
-                                             <label className="wf-setup-label">🎖 Team doctrine</label>
-                                             <WarfrontChoiceButtons label="Team doctrine" items={WF_DOCTRINES} value={wfDoctrinePref} onSelect={setWfDoctrine} />
-                                             <p role="status" aria-live="polite" className="hint wf-forecast doctrine">
-                                                 <strong>{selectedDoctrine.icon} {selectedDoctrine.label} forecast:</strong> {selectedDoctrine.desc} Vanguard beats Zealot, Zealot beats Bulwark, and Bulwark beats Vanguard.
-                                             </p>
-                                         </div>
-
-                                         <div>
-                                             <label className="wf-setup-label">Opening deployment ({arenaSelectionCount(tacticalPicks)}/{tacticalSize}) — select a named lane, then assign or swap its pet</label>
-                                             <div className="wf-deployment" role="group" aria-label="Opening deployment slots">
-                                                 {WARFRONT_DEPLOYMENT_SLOTS.map((slot, index) => {
-                                                     const pet = available.find((item) => item.id === tacticalPicks[index]);
-                                                     const role = pet ? (pet.role ?? derivePetRole(pet).role) as PetRole : null;
-                                                     const roleMeta = role ? ROLE_META[role] : null;
-                                                     return (
-                                                         <button type="button" className={`wf-deployment-card${pet ? " filled" : ""}${tacticalSlot === index ? " active" : ""}`} key={slot.id}
-                                                             aria-pressed={tacticalSlot === index}
-                                                             aria-label={`${slot.label}: ${pet ? petDisplayName(pet) : "open"}. Select this lane to assign or swap its pet.`}
-                                                             onClick={() => setTacticalSlot(index)}>
-                                                             <span className="wf-lane-name">{slot.label}</span>
-                                                             <strong className="wf-slot-pet">{pet ? petDisplayName(pet) : "Open slot"}</strong>
-                                                             <span className="wf-slot-role" style={{ color: roleMeta?.color ?? "#94a3b8" }}>{roleMeta?.label ?? "Pick a pet below"}</span>
-                                                             <span className="wf-slot-forecast">{slot.forecast}</span>
-                                                         </button>
-                                                     );
-                                                 })}
-                                             </div>
-                                             <div className="wf-pick-panel">
-                                                 {available.length < tacticalSize
-                                                     ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available carried pets. You currently have {available.length}; pets on expeditions do not count.</p>
-                                                    : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize, tacticalSlot, setTacticalSlot)}</div>}
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — choose pets to add or remove</p>
+                                            <div style={{ marginTop: 6 }}>
+                                                {available.length < tacticalSize
+                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; pets on expeditions do not count.</p>
+                                                    : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
                                             </div>
                                         </div>
                                     </div>
@@ -2827,46 +2470,43 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     <BattlePlan pets={selectedTacticalPets} size={tacticalSize} />
                                 </div>
 
-                                 <div className="wf-action-grid">
-                                     <div className="summary-box wf-action-card">
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
+                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
                                         <strong>🤖 Fight AI</strong>
-                                        <button disabled={!canStart || !preparedWarfrontContract || warfrontPreparing || warfrontRewardState.phase === "minting" || warfrontRewardState.phase === "settling" || warfrontRewardState.retry !== null} style={{ background: "#0e7490" }}
-                                            onPointerEnter={warmSelectedWarfront} onFocus={warmSelectedWarfront}
+                                        <p className="hint" style={{ margin: 0 }}>Fixed rival plan: Balanced formation · Vanguard doctrine. Both squads are sealed before kickoff.</p>
+                                        <button
+                                            disabled={!canStart || warfrontSetupPending}
+                                            aria-busy={warfrontSetupPending}
+                                            style={{ background: "#0e7490" }}
                                             onClick={() => {
-                                                primeWarfrontAudio();
-                                                // Tuple order is gameplay: Top, Mid, Bottom, then Flex.
-                                                // Never rebuild this roster with `filter`, which silently
-                                                // reverts to collection order and changes the opening lanes.
-                                                const mine = tacticalPicks
-                                                    .map((id) => available.find((pet) => pet.id === id))
-                                                    .filter((pet): pet is Pet => !!pet);
-                                                if (!mine.length) return;
-                                                if (preparedWarfrontContract) void startAuthorizedAiWarfront(mine, preparedWarfrontContract);
+                                                if (!canStart) return;
+                                                // The server seals and returns the rival squad; no bundled
+                                                // combat roster participates in a rewarded replay.
+                                                void startArenaMatch(selectedTacticalPets, [], (Date.now() % 100000) || 1, true);
                                             }}>
-                                            {warfrontRewardState.phase === "minting" ? "Authorizing..." : "Start vs AI"}
+                                            {warfrontSetupPending ? "Sealing Warfront…" : "Start vs AI"}
                                         </button>
                                     </div>
 
-                                     <div className="summary-box wf-action-card">
+                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
                                         <strong>⚔️ Challenge a Player</strong>
                                         <input
+                                            aria-label="Player name to challenge"
                                             value={arenaChallengeName}
                                             onChange={(e) => { setArenaChallengeName(e.target.value); setArenaChallengeMsg(""); }}
                                             placeholder="Player name"
-                                            onKeyDown={(e) => { if (e.key === "Enter" && canStart && !arenaSending && arenaChallengeName.trim()) { primeWarfrontAudio(); void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks); } }}
+                                            onKeyDown={(e) => { if (e.key === "Enter" && canStart && arenaChallengeName.trim()) void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks); }}
                                         />
-                                        <button disabled={!canStart || !arenaChallengeName.trim() || arenaSending} style={{ background: "#b45309" }}
-                                            onPointerEnter={warmSelectedWarfront} onFocus={warmSelectedWarfront}
-                                            onClick={() => { primeWarfrontAudio(); void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks); }}>
-                                            {arenaSending ? "Sending..." : "Send Challenge"}
+                                        <button disabled={!canStart || !arenaChallengeName.trim()} style={{ background: "#b45309" }}
+                                            onClick={() => void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks)}>
+                                            Send Challenge
                                         </button>
                                         {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg}</p>}
                                     </div>
 
-                                     <div className="summary-box wf-action-card">
+                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
                                         <strong>🤝 Co-op with Friends</strong>
-                                        <button style={{ background: "#6d28d9" }} onPointerEnter={warmSelectedWarfront} onFocus={warmSelectedWarfront}
-                                            onClick={() => { primeWarfrontAudio(); setShowCoop(true); }}>Open Co-op Lobby</button>
+                                        <button style={{ background: "#6d28d9" }} onClick={() => setShowCoop(true)}>Open Co-op Lobby</button>
                                     </div>
                                 </div>
                             </div>
@@ -2875,90 +2515,56 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </section>
             )}
 
-            {/* Full-screen game-mode overlays — launched from the Tactical Arena
+            {/* Full-screen game-mode overlays — launched from the Hollow Warfront
                 view; rendered here so they sit above whichever view is active. */}
             {arenaMatch && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Warfront…</div>}>
                     <PetWarfrontMatch
                         blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
                         theme={wfThemeForVillage(character.village)}
-                        autoBuy={arenaMatch.blueSetup.buyPolicy}
-                        opponentAutoBuy={arenaMatch.redSetup?.buyPolicy}
-                        stance={arenaMatch.blueSetup.stance}
-                        doctrine={arenaMatch.blueSetup.doctrine}
-                        opponentStance={arenaMatch.redSetup?.stance}
-                        opponentDoctrine={arenaMatch.redSetup?.doctrine}
-                        deployment={arenaMatch.blueSetup.deployment}
-                        buildPackage={arenaMatch.blueSetup.buildPackage}
-                        coachOrder={arenaMatch.blueSetup.coachOrder}
-                        objectiveTechnique={arenaMatch.blueSetup.objectiveTechnique}
-                        counterstrike={arenaMatch.blueSetup.counterstrike}
-                        opponentDeployment={arenaMatch.redSetup?.deployment}
-                        opponentBuildPackage={arenaMatch.redSetup?.buildPackage}
-                        opponentCoachOrder={arenaMatch.redSetup?.coachOrder}
-                        opponentObjectiveTechnique={arenaMatch.redSetup?.objectiveTechnique}
-                        opponentCounterstrike={arenaMatch.redSetup?.counterstrike}
-                        localTeam={arenaMatch.localTeam}
-                        committedChoices={arenaMatch.committedChoices}
-                        onCouncilCommit={arenaMatch.vsAi && arenaMatch.blueSetup.buyPolicy === "off"
-                            ? (round, decision) => commitAuthorizedWarfrontCouncil(arenaMatch, round, decision)
-                            : undefined}
-                        onForfeit={arenaMatch.vsAi ? () => forfeitAuthorizedWarfront(arenaMatch) : undefined}
-                        onResult={(result) => reportTacticalArenaResult(arenaMatch, result)}
-                        onExit={() => setArenaMatch(null)}
+                        autoBuy={arenaMatch.buyPolicy}
+                        stance={arenaMatch.stance}
+                        doctrine={arenaMatch.doctrine}
+                        opponentStance={arenaMatch.opponentStance}
+                        opponentDoctrine={arenaMatch.opponentDoctrine}
+                        onResult={(result) => reportTacticalArenaResult(arenaMatch, result.winner ?? "draw")}
+                        resultActionsLocked={warfrontResultActionsLocked}
+                        settlementPending={petSettlementBlocksExit}
+                        resultSupplement={chronicleProgress || chronicleCeremony ? (
+                            <>
+                                {chronicleProgress ? <PetChronicleProgress receipt={chronicleProgress} /> : null}
+                                {chronicleCeremony ? (
+                                    <PetChronicleCeremony
+                                        receipt={chronicleCeremony}
+                                        onDismiss={() => setChronicleCeremony(null)}
+                                        onOpenCardHall={() => {
+                                            setChronicleCeremony(null);
+                                            setChronicleProgress(null);
+                                            setArenaMatch(null);
+                                            setScreen("shinobiTiles");
+                                        }}
+                                    />
+                                ) : null}
+                            </>
+                        ) : undefined}
+                        onExit={() => { if (canLeaveCurrentPetBattle()) setArenaMatch(null); }}
                     />
                 </Suspense>
             )}
             {showCoop && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading co-op…</div>}>
-                    <ArenaCoopLobby key={normalizedCharacterName} character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
+                    <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
                 </Suspense>
-            )}
-            {warfrontRewardState.phase !== "idle" && warfrontRewardState.phase !== "ready" && (warfrontRewardState.phase === "error" || !arenaMatch) && createPortal(
-                <div className={`wf-reward-toast ${warfrontRewardState.phase}`}
-                    role={warfrontRewardState.phase === "error" ? "alert" : "status"}
-                    aria-live={warfrontRewardState.phase === "error" ? "assertive" : "polite"}
-                    style={{
-                        position: "fixed", zIndex: 1000002, right: 14, bottom: 14,
-                        width: "min(420px, calc(100vw - 28px))", display: "flex", alignItems: "center", gap: 10,
-                        padding: "12px 14px", borderRadius: 12,
-                        border: `1px solid ${warfrontRewardState.phase === "error" ? "#ef4444" : warfrontRewardState.phase === "settled" ? "#22c55e" : "#38bdf8"}`,
-                        background: "rgba(3,7,18,0.96)", boxShadow: "0 14px 40px rgba(0,0,0,0.55)", color: "#f8fafc",
-                    }}
-                >
-                    <div className="wf-reward-copy" style={{ flex: 1 }}>
-                        <strong>{warfrontRewardState.phase === "error" ? "Settlement needs attention" : warfrontRewardState.phase === "settled" ? "Result settled" : warfrontRewardState.phase === "minting" ? "Sealing match" : warfrontRewardState.phase === "settling" ? "Verifying result" : "Match authorized"}</strong>
-                        <div style={{ marginTop: 3, color: "#cbd5e1", fontSize: "0.9rem", lineHeight: 1.35 }}>{warfrontRewardState.message}</div>
-                    </div>
-                    {warfrontRewardState.retry && (
-                        <button type="button" onClick={() => void warfrontRetryRef.current?.()} style={{ background: "#b45309", flexShrink: 0 }}>
-                            {warfrontRewardState.retry === "mint" ? "Retry Start" : "Retry Reward"}
-                        </button>
-                    )}
-                    {warfrontRewardState.phase === "settled" && (
-                        <button type="button" aria-label="Dismiss settlement confirmation" onClick={() => setWarfrontRewardState({ phase: "idle", message: "", retry: null })} style={{ background: "var(--slate-700)", flexShrink: 0 }}>Close</button>
-                    )}
-                </div>,
-                document.body,
             )}
             {/* Portaled to <body> at the house z-index of 1000000. At its old 215 this
                 full-screen countdown rendered UNDER both the mobile bottom nav (1000) and
                 the desktop rail (999999), so the 6rem numeral was partly covered right as
                 the fight began. */}
             {arenaCountdown && createPortal(
-                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "rgba(5,6,10,0.94)", display: "grid", placeItems: "center" }}>
+                <div role="status" aria-live="polite" aria-atomic="true" style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "rgba(5,6,10,0.94)", display: "grid", placeItems: "center" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ color: "var(--text-dim)", letterSpacing: "0.25em", fontSize: "0.85rem", marginBottom: 10 }}>BATTLE STARTS IN</div>
                         <div style={{ fontSize: "6rem", fontWeight: 800, color: "var(--gold-300)", textShadow: "0 0 30px rgba(250,204,21,0.45)", lineHeight: 1 }}>{arenaCountdown.secs}</div>
-                        {arenaCountdown.match.vsAi && <div style={{ color: "#7dd3fc", marginTop: 14, fontWeight: 800, letterSpacing: "0.08em" }}>SERVER CONTRACT SEALED</div>}
-                        {arenaCountdown.match.difficulty ? <div style={{ color: "#e2e8f0", marginTop: 8 }}>
-                            {arenaCountdown.match.difficulty.label} · Your power {arenaCountdown.match.difficulty.playerPower.toLocaleString()} · Rival power {arenaCountdown.match.difficulty.opponentPower.toLocaleString()}
-                        </div> : null}
-                        {arenaCountdown.match.rewardModel ? <div style={{ color: "#fde68a", marginTop: 5, maxWidth: 620 }}>
-                            {arenaCountdown.match.rewardModel.kind === "coach-completion"
-                                ? `${arenaCountdown.match.rewardModel.amount.toLocaleString()} ryo on completion · outcome-independent · ${arenaCountdown.match.rewardModel.dailyCap} paid completions per UTC day`
-                                : `Competitive outcome reward · victory required · daily cap ${arenaCountdown.match.rewardModel.dailyCap}`}
-                        </div> : null}
                     </div>
                 </div>,
                 document.body,

@@ -43,10 +43,7 @@ function hookSpy() {
     return {
         fired,
         hooks: {
-            onSectorRaidDamage: (sector: number) => fired.push(`damage:${sector}`),
-            onMissionRaidComplete: (sector: number) => fired.push(`raid:${sector}`),
-            onExploreAmbushWon: () => fired.push("explore"),
-            onHuntBeastDefeated: (id: string) => fired.push(`hunt:${id}`),
+            onMissionRaidComplete: (sector: number, missionIds: readonly string[]) => fired.push(`raid:${sector}:${missionIds.join(",")}`),
         },
     };
 }
@@ -72,31 +69,94 @@ test("a practice bout still settles, so a practice defeat costs the same hospita
     assert.deepEqual(spy.fired, [], "practice fires no world side effects");
 });
 
-test("a raid win fires the raid + hunt side effects", async () => {
+test("a raid win fires only raid side effects; hunts require a sealed World context", async () => {
     const spy = hookSpy();
+    respond = () => win({ fetchMissionsCredited: ["fetch-raid-1"] });
     const result = await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-hunt-beast", battleKind: "raidAi", sector: 41, hooks: spy.hooks,
     });
     assert.equal(result.settled, true);
     assert.equal(result.outcome, "win");
     assert.equal(result.ryo, 75, "the announced reward is the server's number, not a prediction");
-    assert.deepEqual(spy.fired, ["damage:41", "raid:41", "hunt:ai-hunt-beast"]);
+    assert.deepEqual(result.fetchMissionsCredited, ["fetch-raid-1"]);
+    assert.deepEqual(spy.fired, ["raid:41:fetch-raid-1"]);
 });
 
-test("an explore ambush win fires ONLY the explore credit", async () => {
+test("raid mission presentation mirrors only exact server-credited ids", async () => {
+    const spy = hookSpy();
+    respond = () => win({ fetchMissionsCredited: ["fetch-b", "", "fetch-b", 7] });
+    const result = await settleAiFight({
+        playerName: "Rill", token: "tok", opponentId: "ai-guard", battleKind: "raidAi", sector: 8, hooks: spy.hooks,
+    });
+    assert.deepEqual(result.fetchMissionsCredited, ["fetch-b"]);
+    assert.deepEqual(spy.fired, ["raid:8:fetch-b"]);
+
+    respond = () => win({ fetchMissionsCredited: [] });
+    const apex = hookSpy();
+    await settleAiFight({
+        playerName: "Rill", token: "tok-2", opponentId: "apex-ai-wolf", battleKind: "raidAi", hooks: apex.hooks,
+    });
+    assert.deepEqual(apex.fired, [], "Apex has no sector or field-mission credit");
+});
+
+test("an explore ambush never re-credits field progress from combat", async () => {
     const spy = hookSpy();
     await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-bandit", battleKind: "explore", sector: 7, hooks: spy.hooks,
     });
-    assert.deepEqual(spy.fired, ["explore"], "an ambush is not a raid — no territory damage, no hunt credit");
+    assert.deepEqual(spy.fired, [], "the exact /world/explore receipt owns field progress");
 });
 
-test("a field-mission win folds the daily-mission counter onto the settled character", async () => {
+test("a sealed World win skips generic raid, territory and hunt-board callbacks", async () => {
+    const spy = hookSpy();
+    respond = () => win({
+        worldContext: {
+            kind: "hunt-target",
+            sourceId: "hunt-wolf",
+            missionId: "hunt-wolf",
+            sector: 41,
+            stage: 0,
+            displayName: "Dire Wolf",
+            finalStage: true,
+        },
+    });
+    const result = await settleAiFight({
+        playerName: "Rill", token: "tok", opponentId: "hunt-wolf", battleKind: "world", sector: 41, hooks: spy.hooks,
+    });
+    assert.equal(result.worldContext?.kind, "hunt-target");
+    assert.deepEqual(spy.fired, [], "the sealed World settlement owns its context-specific progression");
+});
+
+test("settlement preserves the server character without locally inventing mission progress", async () => {
     respond = () => win({ character: { name: "Rill", totalMissionsCompleted: 3 } });
     const result = await settleAiFight({
         playerName: "Rill", token: "tok", opponentId: "ai-thug", battleKind: "mission",
     });
-    assert.equal(result.character?.totalMissionsCompleted, 4, "markMissionCompleted applies on top of the server character");
+    assert.equal(result.character?.totalMissionsCompleted, 3, "the authoritative snapshot must not be mutated after settlement");
+});
+
+test("AI raids project exact nested mission, profession, and territory results", async () => {
+    const spy = hookSpy();
+    respond = () => win({
+        raidProgression: {
+            fetchMissionsCredited: ["fetch-a", "fetch-a", ""],
+            missionsCompleted: [{ id: "vg-1", name: "Hold the Line", xpReward: 30 }],
+            xpAwarded: 30,
+            bonusRyo: 50,
+            bonusSeals: 2,
+            territoryDamage: 250,
+            sector: 61,
+            replayed: false,
+        },
+    });
+    const result = await settleAiFight({
+        playerName: "Rill", token: "tok-raid", opponentId: "server-guard", battleKind: "raidAi", sector: 61, hooks: spy.hooks,
+    });
+    assert.deepEqual(result.fetchMissionsCredited, ["fetch-a"]);
+    assert.deepEqual(spy.fired, ["raid:61:fetch-a"]);
+    assert.equal(result.raidProgression?.territoryDamage, 250);
+    assert.equal(result.raidProgression?.sector, 61);
+    assert.deepEqual(result.raidProgression?.missionsCompleted, [{ id: "vg-1", name: "Hold the Line", xpReward: 30 }]);
 });
 
 test("a LOSS burns no progress but still returns the hospitalized character", async () => {
@@ -157,7 +217,7 @@ test("the bus accepts exactly the battle kinds the token record recognises", () 
     // A kind createAiFightTokenRecord does not recognise silently degrades to
     // 'practice' server-side, which pays nothing — so a typo here would quietly
     // zero out a reward instead of failing.
-    for (const battleKind of ["practice", "mission", "raidAi", "defense", "explore", "endless"] as const) {
+    for (const battleKind of ["practice", "mission", "raidAi", "defense", "explore", "endless", "world"] as const) {
         assert.equal(requestAiFight({ opponentId: "x", opponentLevel: 1, battleKind }), false);
     }
 });

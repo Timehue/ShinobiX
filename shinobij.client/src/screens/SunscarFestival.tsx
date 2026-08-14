@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0). NOTE: the dice/slot symbols
 // (🦂🪙👁️⚔️🌙⭐) are gameplay data the win-check compares — left as emoji on purpose.
 import { GiSun, GiDiceSixFacesSix, GiCampfire } from "react-icons/gi";
 const SF_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
 import { CardClashDuel } from "./CardClashDuel";
@@ -18,11 +17,11 @@ import brokerArt from "../assets/festival/fest-broker.webp";
 
 export function SunscarFestival({
     character,
-    updateCharacter,
+    onVersionedCharacter,
     creatorCards,
 }: {
     character: Character;
-    updateCharacter: Dispatch<SetStateAction<Character | null>>;
+    onVersionedCharacter: VersionedCharacterCommit;
     creatorCards: TileCard[];
 }) {
     const [diceResult, setDiceResult] = useState<string[]>([]);
@@ -52,7 +51,7 @@ export function SunscarFestival({
                 setFestivalLog(`Miraa: ${res.error ?? "The wager won't hold. Try again."}`);
                 return;
             }
-            updateCharacter(res.character); // reflect the escrowed stake immediately
+            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
             setDuelBet(amount);
             setDuelToken(res.token);
             setDuelPhase("playing");
@@ -86,7 +85,7 @@ export function SunscarFestival({
                 return;
             }
             const reward = res.reward;
-            updateCharacter(res.character);
+            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
             if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
             setBmReveal(reward); // tap-to-open crate reveal
             const flourish = reward.tier === "jackpot" ? "💥 " : "";
@@ -107,7 +106,7 @@ export function SunscarFestival({
                 setFestivalLog(`Kael: ${res.error ?? "The dice refuse to roll."}`);
                 return;
             }
-            updateCharacter(res.character);
+            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
             setDiceResult(res.roll.map((symbol) => FATE_DICE_GLYPHS[symbol]));
             const parts = [
                 res.reward.boneCharms > 0 && `+${res.reward.boneCharms} Bone Charms`,
@@ -164,7 +163,7 @@ export function SunscarFestival({
                 setFestivalLog(`Miraa: ${res.error ?? "The verdict slips into the sand. Refresh before retrying."}`);
                 return;
             }
-            updateCharacter(res.character);
+            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
             const bet = res.bet ?? duelBet;
             const log =
                 res.outcome === "win" ? `"The fates read in your favor." You win ${bet * 2} ryo.`

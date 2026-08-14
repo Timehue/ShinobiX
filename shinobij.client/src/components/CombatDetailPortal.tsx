@@ -28,7 +28,7 @@ export function CombatDetailPortal({
         const trigger = document.getElementById(triggerId) as HTMLElement | null;
         const dialog = document.getElementById(id);
         const focusClose = window.requestAnimationFrame(() => {
-            dialog?.querySelector<HTMLElement>("[data-combat-detail-close]")?.focus();
+            dialog?.querySelector<HTMLElement>("[data-combat-detail-close]")?.focus({ preventScroll: true });
         });
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
@@ -45,24 +45,32 @@ export function CombatDetailPortal({
             const last = focusable.at(-1);
             if (!first || !last) {
                 event.preventDefault();
-                dialog.focus();
+                dialog.focus({ preventScroll: true });
                 return;
             }
             const active = document.activeElement;
             const focusOutsideControls = active === dialog || !dialog.contains(active);
             if (event.shiftKey && (active === first || focusOutsideControls)) {
                 event.preventDefault();
-                last.focus();
+                last.focus({ preventScroll: true });
             } else if (!event.shiftKey && (active === last || focusOutsideControls)) {
                 event.preventDefault();
-                first.focus();
+                first.focus({ preventScroll: true });
             }
         };
         document.addEventListener("keydown", handleKeyDown, true);
         return () => {
             window.cancelAnimationFrame(focusClose);
             document.removeEventListener("keydown", handleKeyDown, true);
-            window.requestAnimationFrame(() => trigger?.focus());
+            window.requestAnimationFrame(() => {
+                if (!trigger?.isConnected) return;
+                const active = document.activeElement;
+                // Closing the portal normally leaves focus on body because its
+                // focused control was removed. Do not steal focus back if the
+                // user has already moved it somewhere else before this frame.
+                if (active && active !== document.body && active !== document.documentElement) return;
+                trigger.focus({ preventScroll: true });
+            });
         };
     }, [id, triggerId]);
 

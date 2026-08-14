@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
-import { deckLimitForCard } from '../../shared/chronicle-duel.js';
+import { CHRONICLE_STARTER_GRANT_IDS, deckLimitForCard } from '../../shared/chronicle-duel.js';
 import { applyCardPackOpen, cardPackCost, cardPackDiscountPercent } from './_pack.js';
 
 test('standard pack mirrors the village, elder, clan, and doctrine discount and grants five canonical cards', () => {
@@ -61,6 +61,34 @@ test('pack opening fails closed for invalid type, insufficient balance, and coll
     );
     const capped = applyCardPackOpen({ ryo: 999, tileCards: Array(1200).fill('tc-01') }, 'standard', () => 0);
     assert.deepEqual(capped, { ok: false, status: 409, error: 'Card collection is capped at 1200.' });
+});
+
+test('earned Chronicle records never consume the 1200-card pack inventory budget', () => {
+    assert.equal(BUILTIN_CLASH['story-wandering-sage'], undefined);
+    assert.equal(BUILTIN_CLASH['legacy-first-flame'], undefined);
+    assert.equal(BUILTIN_CLASH['pet-witness-fire'], undefined);
+    const opened = applyCardPackOpen({
+        ryo: 999,
+        tileCards: [
+            ...Array(1195).fill('tc-01'),
+            'story-wandering-sage',
+            'legacy-first-flame',
+            'pet-witness-fire',
+            'pet-witness-water',
+            'pet-witness-earth',
+        ],
+    }, 'standard', () => 0);
+    assert.equal(opened.ok, true);
+    if (opened.ok) assert.equal((opened.character.tileCards as unknown[]).length, 1205);
+});
+
+test('the fixed Traveler codex floor never consumes purchasable collection capacity', () => {
+    const opened = applyCardPackOpen({
+        ryo: 999,
+        tileCards: [...CHRONICLE_STARTER_GRANT_IDS, ...Array(1195).fill('tc-142')],
+    }, 'standard', () => 0);
+    assert.equal(opened.ok, true);
+    if (opened.ok) assert.equal((opened.character.tileCards as unknown[]).length, CHRONICLE_STARTER_GRANT_IDS.length + 1200);
 });
 
 test('packs prefer useful second and third deck copies and protect completed tiers', () => {

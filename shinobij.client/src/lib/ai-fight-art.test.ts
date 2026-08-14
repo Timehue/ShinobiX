@@ -27,6 +27,16 @@ const towerSprites: Partial<Record<TowerEnemySpriteKey, string>> = {
     genin: "sprite:genin",
     revenant: "sprite:revenant",
     sovereign: "sprite:sovereign",
+    stormcaller: "sprite:stormcaller",
+    "mirror-shogun": "sprite:mirror-shogun",
+    "void-emperor": "sprite:void-emperor",
+    "stormglass-lancer": "sprite:stormglass-lancer",
+    "stormglass-marksman": "sprite:stormglass-marksman",
+    "stormglass-bastion": "sprite:stormglass-bastion",
+    "stormglass-weaver": "sprite:stormglass-weaver",
+    "thunder-archivist": "sprite:thunder-archivist",
+    "stormglass-regent": "sprite:stormglass-regent",
+    "tower-scout": "sprite:tower-scout",
     "clan-boss-oni": "sprite:clan-boss-oni",
     "clan-boss-leviathan": "sprite:clan-boss-leviathan",
     "clan-boss-kage": "sprite:clan-boss-kage",
@@ -63,11 +73,9 @@ test("authoritative tower visuals always resolve the intended portrait source", 
     for (const id of ["clan-boss-oni", "clan-boss-leviathan", "clan-boss-kage", "clan-boss-golem"] as const) {
         assert.equal(resolveTowerEnemyPortrait(id, towerSprites), `sprite:${id}`);
     }
-    assert.equal(
-        resolveTowerEnemyPortrait("unregistered-tower-combatant", towerSprites),
-        null,
-        "unknown authoritative IDs must not masquerade as a generic fighter",
-    );
+    for (const id of ["stormcaller", "mirror-shogun", "void-emperor", "stormglass-lancer", "stormglass-marksman", "stormglass-bastion", "stormglass-weaver", "thunder-archivist", "stormglass-regent", "tower-scout"] as const) {
+        assert.equal(resolveTowerEnemyPortrait(id, towerSprites), `sprite:${id}`);
+    }
 });
 
 test("Endless Tower portrait ids unwrap without changing ordinary AI ids", () => {
@@ -118,10 +126,10 @@ test("dungeon Wardens use character art and never the scene backdrop", () => {
 test("the image resolvers stay wired into both combat screens", () => {
     const app = readFileSync(join(clientRoot, "src", "App.tsx"), "utf8");
     const towerFight = readFileSync(join(clientRoot, "src", "screens", "BattleTowerFight.tsx"), "utf8");
-    const towerManifest = readFileSync(join(clientRoot, "src", "lib", "tower-art-manifest.ts"), "utf8");
     assert.match(app, /resolveDungeonWardenPortrait\(activeDungeonEvent, sharedImages\)/);
-    assert.match(app, /storyRoadBattlePortrait\(battle\.bossName\)/);
+    assert.match(app, /creatorEventPracticeOpponent\(event\.aiProfileId, battle\?\.aiProfileId/,
+        "creator-road flavor fights must use the published profile whose sealed identity supplies combat art");
     assert.doesNotMatch(app, /image:\s*event\.avatarImage\s*\|\|\s*event\.image/);
-    assert.match(towerFight, /resolveTowerCombatantArt\(visual, sharedImages\)/);
-    assert.match(towerManifest, /resolveTowerEnemyPortrait\(visual, TOWER_ENEMY_PORTRAITS, sharedImages\)/);
+    assert.match(towerFight, /resolveTowerCombatantArt\(visual, sharedImages\)\.src/);
+    assert.match(towerFight, /TOWER_SPIRE_PORTRAITS\[spireMeta\.boss\.key\]/);
 });

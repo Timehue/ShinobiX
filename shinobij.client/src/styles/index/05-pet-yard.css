@@ -64,7 +64,6 @@
 }
 
 .pet-slot-card {
-    appearance: none;
     width: 150px;
     min-height: 180px;
     background: rgba(2,6,23,.72);
@@ -76,26 +75,8 @@
     justify-content: center;
     gap: 6px;
     padding: 12px 8px;
-    color: inherit;
-    font: inherit;
-    text-align: center;
     cursor: pointer;
     transition: border-color 0.15s, transform 0.12s;
-}
-
-.pet-slot-card:focus-visible {
-    outline: 3px solid var(--gold-300);
-    outline-offset: 3px;
-}
-
-.pet-yard-screen .training-complete button {
-    min-height: var(--touch-target-min);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .pet-slot-card {
-        transition: none;
-    }
 }
 
     .pet-slot-card:hover:not(.pet-empty) {

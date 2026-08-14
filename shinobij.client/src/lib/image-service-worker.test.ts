@@ -131,6 +131,33 @@ describe("game image service worker", () => {
         assert.equal(await harness.request("https://shinobijourney.com/api/game-state", ""), undefined);
     });
 
+    it("a story retry bypasses and durably replaces a malformed canonical JSON asset", async () => {
+        let fetches = 0;
+        const fresh = response("corrected-story", {
+            headers: { get: (name) => name.toLowerCase() === "content-type" ? "application/json" : "public, max-age=31536000, immutable" },
+        });
+        const harness = serviceWorkerHarness(async () => { fetches += 1; return fresh; });
+        const canonical = "https://shinobijourney.com/assets/stormveil-content-abcdef12.json";
+        harness.stored.set(canonical, response("malformed-story"));
+
+        assert.equal(await harness.request(`${canonical}?story-retry=1`, ""), fresh);
+        assert.equal(fetches, 1);
+        assert.equal(harness.stored.get(canonical), fresh);
+        assert.equal(await harness.request(canonical, ""), fresh);
+        assert.equal(fetches, 1, "the repaired canonical response remains cache-first");
+    });
+
+    it("never caches an HTML fallback under a hashed JSON address", async () => {
+        const html = response("spa-fallback", {
+            headers: { get: (name) => name.toLowerCase() === "content-type" ? "text/html" : "no-cache" },
+        });
+        const harness = serviceWorkerHarness(async () => html);
+        const key = "https://shinobijourney.com/assets/moonshadow-content-abcdef12.json";
+
+        assert.equal(await harness.request(key, ""), html);
+        assert.equal(harness.stored.has(key), false);
+    });
+
     it("never makes an accidental HTML or private response durable", async () => {
         const html = response("spa-fallback", {
             headers: { get: (name) => name.toLowerCase() === "content-type" ? "text/html" : "no-cache" },

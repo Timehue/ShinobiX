@@ -31,7 +31,6 @@ describe('canonical first player save', () => {
         assert.equal(out.profession, undefined);
         assert.equal(out.masterySpec, undefined);
         assert.equal(out.totalAiKills, 0);
-        assert.deepEqual(out.battleTowerMilestones, []);
         assert.deepEqual(Object.values(out.stats as Record<string, number>), Array(12).fill(10));
     });
 
@@ -64,7 +63,6 @@ describe('canonical first player save', () => {
         assert.deepEqual(character.itemStacks, []);
         assert.deepEqual(character.pets, []);
         assert.deepEqual(character.tileCards, []);
-        assert.deepEqual(character.battleTowerMilestones, []);
     });
 
     it('does not let a later generic save erase or forge the war-crate claim ledger', () => {

@@ -44,6 +44,23 @@ export function defaultVnScene(eventId?: string | null, biome?: string | null): 
 }
 
 /**
+ * Scenic narration should not inherit the reader's uploaded avatar merely
+ * because Player is the visual-novel renderer's default conversation partner.
+ * This applies to either actor slot: authored character art stays visible, but
+ * a generic Player portrait yields the stage to the establishing shot until a
+ * character is actually speaking.
+ */
+export function hidePlayerPortraitDuringNarration(
+    speaker: string,
+    actorName: string,
+    authoredActorImage?: string,
+): boolean {
+    return speaker.trim().toLowerCase() === "narrator"
+        && actorName.trim().toLowerCase() === "player"
+        && !authoredActorImage?.trim();
+}
+
+/**
  * Trait-gating predicate for a visual-novel choice. A choice is available when
  * the player has its requireTrait (if set) and lacks its forbidTrait (if set).
  * Choices with neither field are always available, so existing VNs — which carry

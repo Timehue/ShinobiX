@@ -20,6 +20,8 @@ export type ChronicleDisplayCard = ChronicleCard & { image?: string };
 export type ChronicleAiResult = {
     ok: boolean;
     error?: string;
+    /** Save version accompanying a server-owned deck write or terminal settlement. */
+    _saveVersion?: number;
     matchId?: string;
     session?: ChronicleProjection & {
         matchId: string;

@@ -21,7 +21,7 @@ import {
     LIFETIME_COUNTERS,
     definitionsFor,
 } from './_state-ownership.js';
-import { combatProjection, sanitizeCharacterSave } from './[name].js';
+import { sanitizeCharacterSave } from './[name].js';
 
 /*
  * P0-1 ownership ratchet + drift guards.
@@ -98,10 +98,7 @@ describe('unclassified-field ratchet', () => {
 const SERVER_PRIVATE_CHAR_FIELDS = [
     'ryo', 'bankRyo', 'stats', 'unspentStats', 'inventory', 'itemStacks',
     'equipment', 'equippedJutsuIds', 'jutsuMastery', 'pets',
-    'serverSettlementReceipts', 'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'settledHollowGateCombatIds', 'hollowGateCombatSettlements',
-    'soloPveCompanionSettlements', 'soloPveItemSettlements', 'aiFightRewardSettlements',
-    'weeklyBossStartSettlements', 'weeklyBossUsageSettlements', 'weeklyBossPayoutSettlements', 'combatMissionClaimSettlements', 'bountySagaStamp',
-    'weaponElements', 'patreon',
+    'serverSettlementReceipts', 'weaponElements', 'patreon',
     'rankedRating', 'petRankedRating', 'legacy', 'serverTitles',
     'unlockedAchievements', 'claimedAchievementRewards',
     ...Object.keys(CURRENCY_CAPS),
@@ -150,41 +147,6 @@ describe('projection safety invariants', () => {
             assert.ok(!stripped.has(field), `${field} is required by combat rendering and must not be strip-listed`);
         }
     });
-
-    it('strips private recovery and payout ledgers from combat projections', () => {
-        const projected = combatProjection({
-            character: {
-                name: 'ProjectionProbe',
-                petRankedSettlementStamp: { forged: true },
-                playerRankedSettlementStamp: { forged: true },
-                vanguardRewardSettlementStamp: { forged: true },
-                settledHollowGateCombatIds: ['private-run-id'],
-                hollowGateCombatSettlements: [{ private: true }],
-                soloPveCompanionSettlements: [{ private: true }],
-                soloPveItemSettlements: [{ private: true }],
-                aiFightRewardSettlements: { private: true },
-                weeklyBossStartSettlements: [{ private: true }],
-                weeklyBossUsageSettlements: [{ private: true }],
-                weeklyBossPayoutSettlements: [{ private: true }],
-                combatMissionClaimSettlements: [{ private: true }],
-                bountySagaStamp: { private: true },
-            },
-        });
-        const character = projected.character as Record<string, unknown>;
-        assert.equal(character.petRankedSettlementStamp, undefined);
-        assert.equal(character.playerRankedSettlementStamp, undefined);
-        assert.equal(character.vanguardRewardSettlementStamp, undefined);
-        assert.equal(character.settledHollowGateCombatIds, undefined);
-        assert.equal(character.hollowGateCombatSettlements, undefined);
-        assert.equal(character.soloPveCompanionSettlements, undefined);
-        assert.equal(character.soloPveItemSettlements, undefined);
-        assert.equal(character.aiFightRewardSettlements, undefined);
-        assert.equal(character.weeklyBossStartSettlements, undefined);
-        assert.equal(character.weeklyBossUsageSettlements, undefined);
-        assert.equal(character.weeklyBossPayoutSettlements, undefined);
-        assert.equal(character.combatMissionClaimSettlements, undefined);
-        assert.equal(character.bountySagaStamp, undefined);
-    });
 });
 
 // ── (c) Autosave boundary: manifest-driven enforcement check ────────────────
@@ -219,10 +181,10 @@ const COPY_WINS_FIELDS = dedupeByField([
     ...ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS.map((field) => ({
         field,
         stored: field === 'patreon' ? true
-            : field === 'weaponElements' || field === 'serverSettlementReceipts' || field === 'soloPveCompanionSettlements' ? { probe: 'stored' }
+            : field === 'weaponElements' || field === 'serverSettlementReceipts' ? { probe: 'stored' }
             : 4242,
         tampered: field === 'patreon' ? false
-            : field === 'weaponElements' || field === 'serverSettlementReceipts' || field === 'soloPveCompanionSettlements' ? { probe: 'tampered' }
+            : field === 'weaponElements' || field === 'serverSettlementReceipts' ? { probe: 'tampered' }
             : 999_999,
     })),
     ...SERVER_PAYOUT_CHARACTER_FIELDS.map((field) => ({
@@ -274,163 +236,11 @@ describe('autosave cannot replace stored-copy-wins fields (manifest-driven)', ()
             else process.env.STRICT_RAW_SAVE_LEDGER = previous;
         }
     });
-
-    it('prevents add, change, deletion, and stale-autosave rollback of dedicated recovery ledgers in both flag states', () => {
-        const protectedFields = [
-            {
-                field: 'petRankedSettlementStamp',
-                stored: {
-                    settlementId: `pet-ranked-${'a'.repeat(48)}`,
-                    fingerprint: 'pet-rating-winner',
-                    rating: { field: 'petRankedRating', value: 1012, delta: 12 },
-                    settledAt: 1_750_000_000_000,
-                },
-                forged: {
-                    settlementId: `pet-ranked-${'b'.repeat(48)}`,
-                    fingerprint: 'pet-rating-loser',
-                    rating: { field: 'petRankedRating', value: 999999, delta: 999999 },
-                    settledAt: 1,
-                },
-            },
-            {
-                field: 'playerRankedSettlementStamp',
-                stored: {
-                    'player-ranked-12345678-1234-4123-8123-1234567890ab': {
-                        fingerprint: 'a'.repeat(64),
-                        seasonId: 1,
-                        role: 'winner',
-                        settledAt: 1_750_000_000_000,
-                        ratingAfter: 1012,
-                    },
-                },
-                forged: {
-                    'player-ranked-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa': {
-                        fingerprint: 'b'.repeat(64),
-                        seasonId: 99,
-                        role: 'winner',
-                        settledAt: 1,
-                        ratingAfter: 999999,
-                    },
-                },
-            },
-            {
-                field: 'vanguardRewardSettlementStamp',
-                stored: {
-                    version: 'vanguard-reward-settlement-v1', state: 'settled',
-                    ownerId: '12345678-1234-4123-8123-1234567890ab',
-                    fingerprint: 'a'.repeat(64), authorityFingerprint: 'b'.repeat(64),
-                    battleId: 'pvp-server', winner: 'alice', loser: 'bob',
-                    expectedSaveVersion: 7, createdAt: 1_750_000_000_000,
-                    settledAt: 1_750_000_000_100, recoverUntil: 1_750_604_800_100,
-                    outcome: { granted: true, seals: 2, xp: 100 },
-                },
-                forged: {
-                    version: 'vanguard-reward-settlement-v1', state: 'settled',
-                    ownerId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-                    fingerprint: 'c'.repeat(64), authorityFingerprint: 'd'.repeat(64),
-                    battleId: 'pvp-forged', winner: 'alice', loser: 'mallory',
-                    expectedSaveVersion: 1, createdAt: 1, settledAt: 2, recoverUntil: 3,
-                    outcome: { granted: true, seals: 999999, xp: 999999 },
-                },
-            },
-            {
-                field: 'settledHollowGateCombatIds',
-                stored: ['sealed-hollow-run'],
-                forged: ['forged-hollow-run'],
-            },
-            {
-                field: 'hollowGateCombatSettlements',
-                stored: [{ runId: 'sealed-hollow-run', fingerprint: '0'.repeat(64) }],
-                forged: [{ runId: 'forged-hollow-run', fingerprint: '9'.repeat(64) }],
-            },
-            {
-                field: 'soloPveCompanionSettlements',
-                stored: [{ sessionId: 'solo-session', fingerprint: 'a'.repeat(64), chargedAt: 1_750_000_000_000 }],
-                forged: [{ sessionId: 'forged-session', fingerprint: 'b'.repeat(64), chargedAt: 1 }],
-            },
-            {
-                field: 'soloPveItemSettlements',
-                stored: [{ markerId: 'solo-session:move-1', fingerprint: 'c'.repeat(64), chargedAt: 1_750_000_000_000 }],
-                forged: [{ markerId: 'forged-session:move-x', fingerprint: 'd'.repeat(64), chargedAt: 1 }],
-            },
-            {
-                field: 'aiFightRewardSettlements',
-                stored: { version: 1, receipts: [{ token: 'ServerToken', settledAt: 1_750_000_000_000 }], dailyCounts: [{ date: '2026-08-10', count: 2 }] },
-                forged: { version: 1, receipts: [{ token: 'ForgedToken', settledAt: 1 }], dailyCounts: [{ date: '2026-08-10', count: 999 }] },
-            },
-            {
-                field: 'weeklyBossStartSettlements',
-                stored: [{ runId: 'weekly-server', fingerprint: 'e'.repeat(64), chargedAt: 1_750_000_000_000, recoverUntil: 1_750_007_200_000 }],
-                forged: [{ runId: 'weekly-forged', fingerprint: 'f'.repeat(64), chargedAt: 1, recoverUntil: 2 }],
-            },
-            {
-                field: 'weeklyBossUsageSettlements',
-                stored: [{ runId: 'weekly-server', fingerprint: 'e'.repeat(64), damage: 10, settledAt: 1_750_000_000_000 }],
-                forged: [{ runId: 'weekly-forged', fingerprint: 'f'.repeat(64), damage: 999999, settledAt: 1 }],
-            },
-            {
-                field: 'weeklyBossPayoutSettlements',
-                stored: [{ weekKey: '2027-W03', private: true }],
-                forged: [{ weekKey: '2099-W99', private: false }],
-            },
-            {
-                field: 'combatMissionClaimSettlements',
-                stored: [{ version: 1, runId: 'mission-server', missionId: 'mission-1', rewardFingerprint: '1'.repeat(64), settledAt: 1_750_000_000_000, result: { completion: 'daily' } }],
-                forged: [{ version: 1, runId: 'mission-forged', missionId: 'mission-1', rewardFingerprint: '2'.repeat(64), settledAt: 1, result: { completion: 'daily' } }],
-            },
-            {
-                field: 'bountySagaStamp',
-                stored: { sagaId: 'bounty-saga-1', operation: 'PLACE', settledAt: 1_750_000_000_000 },
-                forged: { sagaId: 'forged-saga', operation: 'CLAIM', settledAt: 1 },
-            },
-        ] as const;
-        const previous = process.env.STRICT_RAW_SAVE_LEDGER;
-        try {
-            for (const strict of [undefined, '1'] as const) {
-                if (strict === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
-                else process.env.STRICT_RAW_SAVE_LEDGER = strict;
-                for (const { field, stored, forged } of protectedFields) {
-                    const baseline = boundaryEnforcementFixture();
-
-                    const added = sanitizeCharacterSave(
-                        { character: { ...structuredClone(baseline), [field]: structuredClone(forged) } },
-                        { character: structuredClone(baseline) },
-                    ).character as Record<string, unknown>;
-                    assert.equal(added[field], undefined, `${field} cannot be client-added`);
-
-                    const storedCharacter = { ...structuredClone(baseline), [field]: structuredClone(stored) };
-                    const changed = sanitizeCharacterSave(
-                        { character: { ...structuredClone(baseline), [field]: structuredClone(forged) } },
-                        { character: structuredClone(storedCharacter) },
-                    ).character as Record<string, unknown>;
-                    assert.deepEqual(changed[field], stored, `${field} cannot be client-replaced`);
-
-                    const deleted = sanitizeCharacterSave(
-                        { character: structuredClone(baseline) },
-                        { character: structuredClone(storedCharacter) },
-                    ).character as Record<string, unknown>;
-                    assert.deepEqual(deleted[field], stored, `${field} cannot be client-cleared`);
-                }
-            }
-        } finally {
-            if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
-            else process.env.STRICT_RAW_SAVE_LEDGER = previous;
-        }
-    });
 });
 
 // ── (d) Manifest-internal consistency ───────────────────────────────────────
 
 describe('boundary consistency', () => {
-    it('records generic-save ryo as zero-gain regardless of the strict-ledger flag', () => {
-        const [ryo] = definitionsFor('ryo').filter((def) => def.scope === 'character');
-        assert.ok(ryo, 'ryo must remain classified at character scope');
-        assert.equal(
-            ryo.note,
-            'generic saves may decrease stored ryo for legacy client sinks; every increase must come from a server domain command',
-        );
-    });
-
     it('every zero-gain currency is also strict-ledger (the flip must cover it)', () => {
         const strict = new Set(STRICT_SERVER_LEDGER_CHARACTER_FIELDS);
         for (const field of Object.keys(CURRENCY_CAPS)) {

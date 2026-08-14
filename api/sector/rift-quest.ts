@@ -78,8 +78,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const updated = { ...char, activeRiftQuest };
                 // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
                 // so an in-flight rift survives the KV TTL and the Postgres cutover.
-                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed, character: updated }), rec));
-                return { status: 200, body: { ok: true, activeRiftQuest } };
+                const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed, character: updated });
+                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                return { status: 200, body: { ok: true, activeRiftQuest, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
@@ -105,8 +106,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(questKey).catch(() => undefined);
                     if (char.activeRiftQuest || rec.activeRiftQuestSeal !== undefined) {
                         const updated = { ...char, activeRiftQuest: null };
-                        await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated }), rec));
-                        return { status: 200, body: { ok: false, reason: 'none', activeRiftQuest: null, character: updated } };
+                        const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
+                        await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                        return { status: 200, body: { ok: false, reason: 'none', activeRiftQuest: null, character: updated, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                     }
                     return { status: 200, body: { ok: false, reason: 'none' } };
                 }
@@ -115,10 +117,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!riftBossKilled(num(sealed.baseline), num(char.hollowGateWardenKills))) {
                     // Migrate a KV-only legacy seal onto the durable save so it survives
                     // the TTL / a future cutover if the boss is cleared later.
+                    let saveVersion: number | undefined;
                     if (!durable) {
-                        await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed }), rec));
+                        const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed });
+                        await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                        saveVersion = Number(nextRecord._saveVersion ?? 0);
                     }
-                    return { status: 200, body: { ok: false, reason: 'incomplete' } };
+                    return { status: 200, body: { ok: false, reason: 'incomplete', ...(saveVersion !== undefined ? { _saveVersion: saveVersion } : {}) } };
                 }
                 const countKey = `rift-quest-count:${playerName}:${today}`;
                 if (num(await kv.get<number>(countKey)) >= RIFT_DAILY_CAP) {
@@ -143,7 +148,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...char, ryo: totalRyo, fateShards: totalFateShards, boneCharms: totalBoneCharms,
                     activeRiftQuest: null, riftCooldownUntil: cooldownUntil,
                 };
-                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated }), rec));
+                const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
+                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
                     status: 200,
                     body: {
@@ -151,6 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         fateShards: def.fateShards, totalFateShards,
                         boneCharms: def.boneCharms, totalBoneCharms,
                         cooldownUntil,
+                        _saveVersion: Number(nextRecord._saveVersion ?? 0),
                     },
                 };
             }, { failClosed: true });
@@ -165,7 +172,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (rec && char) {
                     const updated = { ...char, activeRiftQuest: null };
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated }), rec));
+                    if (!char.activeRiftQuest && rec.activeRiftQuestSeal == null) {
+                        return { status: 200, body: { ok: true, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    }
+                    const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                    return { status: 200, body: { ok: true, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                 }
                 return { status: 200, body: { ok: true } };
             }, { failClosed: true });

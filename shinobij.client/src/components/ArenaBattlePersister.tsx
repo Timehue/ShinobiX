@@ -114,6 +114,13 @@ export function ArenaBattlePersister(props: ArenaBattlePersisterProps) {
             if (!raw) return;
             const saved = JSON.parse(raw) as SavedArenaBattle;
             if (!saved?.battleStarted) return;
+            // No current launch enters this local reducer. If App restored the
+            // Arena lobby without a sealed opponent/story context, delete the
+            // pre-cutover snapshot instead of replaying it by itself.
+            if (!props.opponentName && !props.pendingStoryKind) {
+                localStorage.removeItem(key);
+                return;
+            }
             if (Date.now() - (saved.savedAt ?? 0) > ARENA_SAVE_TTL_MS) {
                 localStorage.removeItem(key);
                 return;

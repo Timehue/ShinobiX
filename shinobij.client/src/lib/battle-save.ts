@@ -22,9 +22,8 @@ export const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
 // work — a winner whose resolve failed keeps the marker and is not penalized.
 export const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
 
-// Arena "story" context persistence. Covers EVERY pendingArenaStoryBattle fight
-// (weekly boss, dungeon-AI warden, arena story boss, triggered-event battle,
-// hollow-gate arena fight) — they all fight on screen "arena" with the combat
+// Legacy Arena "story" context persistence. Covers the still-readable
+// pre-cutover story records that fought on screen "arena" with the combat
 // snapshot saved by ArenaBattlePersister; what's lost on refresh is the
 // pendingArenaStoryBattle context + the scaled enemy. Persist just those (images
 // stripped) so the boot path rebuilds the fight. 1h TTL.
@@ -78,12 +77,9 @@ export async function fetchBattleLockStatus(playerName: string): Promise<ClientB
 // kind with no persister returns false → the boot cleared-state path handles it.
 export function battleResumeStateExists(lock: ClientBattleLock, playerName: string, character: Character | null): boolean {
     try {
-        if (lock.kind === "arena") {
-            const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
-            if (!raw) return false;
-            const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
-            return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
-        }
+        // All current shinobi combat uses server sessions. Local Arena snapshots
+        // are rolling-upgrade residue and App retires their lock without loss.
+        if (lock.kind === "arena") return false;
         if (lock.kind === "storyBoss") {
             const raw = localStorage.getItem(storyBossSaveKey(playerName));
             if (!raw) return false;
@@ -98,15 +94,9 @@ export function battleResumeStateExists(lock: ClientBattleLock, playerName: stri
         // Endless now resumes from its server-owned SoloPveSession, never from
         // an Arena snapshot or locally persisted opponent/wave context.
         if (lock.kind === "endless") return false;
-        if (lock.kind === "arenaStory") {
-            // Same as endless: needs the pendingArenaStoryBattle context AND the
-            // arena combat snapshot.
-            if (!readArenaStoryContext(playerName)) return false;
-            const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
-            if (!raw) return false;
-            const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
-            return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
-        }
+        // Story, creator-event, Academy, Dungeon, and Hollow Gate combat all
+        // moved to server sessions. No local Arena story snapshot is resumable.
+        if (lock.kind === "arenaStory") return false;
         if (lock.kind === "hollowGateTiles") {
             // Retired Hollow Gate Card Clash locks must never resume after an
             // upgrade. The boot flow clears the lock and returns to the shrine.

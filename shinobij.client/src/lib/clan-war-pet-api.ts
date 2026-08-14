@@ -15,10 +15,6 @@ import type { Pet } from "../types/pet";
  * feeds these to the same engine, so any drift makes the animated fight disagree
  * with the recorded result.
  *
- * Items are pinned off because this asynchronous garrison mode has no shared
- * item-settlement lease. The server does not charge equipped consumables, and
- * the replay must not animate their effects.
- *
  * `accuracy` is pinned rather than read from petAccuracyEnabled(): that helper
  * reads localStorage, so two players with different toggles used to compute
  * DIFFERENT winners for the same clan-war fight. `true` is the unset default, so
@@ -28,7 +24,7 @@ export const CLAN_WAR_PET_DUEL = Object.freeze({
     damageMult: 1,
     hpMult: 1,
     reviveOnce: false,
-    applyItems: false,
+    applyItems: true,
     accuracy: true,
     terrain: null as string | null,
 });
@@ -46,8 +42,6 @@ export type ClanWarPetSession = {
     from: ClanWarPetFighter[];
     to: ClanWarPetFighter[];
     status: "awaiting-pets" | "done";
-    /** Server-pinned truth: async clan-war pet battles never spend items. */
-    consumablesCharged: false;
     winner?: ClanWarPetOutcome;
     createdAt: number;
     updatedAt: number;

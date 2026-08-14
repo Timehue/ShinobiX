@@ -176,12 +176,15 @@ exception
 end;
 $$;
 
--- ── kv_compare_set — atomic full-value JSON compare-and-set ─────────────────
--- `p_expected is null` means the live row must be absent; an expired row is
--- treated as absent. Otherwise JSONB equality compares the complete stored
--- value and the replacement occurs in the same row-locked SQL statement.
--- The replacement expiry is authoritative: NULL clears an old TTL.
+-- ── kv_incr — atomic fixed-window counter (rate limiter) ─────────────────────
+-- Atomically increment a numeric counter and return the new value. Replaces the
+-- rate limiter's previous non-atomic get-then-set, which let concurrent requests
+-- in the same window all read the same count and all pass the limit check. The
+-- key embeds the window index, so expires_at is set once (on the first hit of a
+-- window) and the row self-cleans; kv_delete_expired() / pg_cron purges it.
 
+-- Atomic full-value JSON compare-and-set. A NULL expected value means the
+-- live row must be absent; expired rows count as absent.
 create or replace function public.kv_compare_set(
     p_key        text,
     p_expected   jsonb,
@@ -218,13 +221,6 @@ begin
     return v_changed = 1;
 end;
 $$;
-
--- ── kv_incr — atomic fixed-window counter (rate limiter) ─────────────────────
--- Atomically increment a numeric counter and return the new value. Replaces the
--- rate limiter's previous non-atomic get-then-set, which let concurrent requests
--- in the same window all read the same count and all pass the limit check. The
--- key embeds the window index, so expires_at is set once (on the first hit of a
--- window) and the row self-cleans; kv_delete_expired() / pg_cron purges it.
 
 create or replace function public.kv_incr(
     p_key        text,

@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors } from '../_utils.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { captureServerProductEvent } from '../_product-analytics.js';
 import {
     patreonConfigured,
     verifyState,
@@ -35,20 +34,6 @@ function bounce(res: VercelResponse, statusParam: string) {
     return res.status(302).end();
 }
 
-type ConnectionFailureCategory =
-    | 'authorization-denied'
-    | 'invalid-callback'
-    | 'token-exchange-failed'
-    | 'membership-lookup-failed'
-    | 'callback-failed';
-
-function recordConnectionFailure(errorCategory: ConnectionFailureCategory) {
-    captureServerProductEvent('patreon_connection_failed', {
-        source: 'patreon-oauth-callback',
-        errorCategory,
-    });
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -60,45 +45,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const state = String(req.query?.state ?? '');
     const playerName = verifyState(state);
     // A Patreon "user denied" bounce arrives with ?error and no code.
-    if (!code || !playerName) {
-        recordConnectionFailure(playerName && req.query?.error ? 'authorization-denied' : 'invalid-callback');
-        return bounce(res, 'error');
-    }
+    if (!code || !playerName) return bounce(res, 'error');
 
     try {
         const token = await exchangeCodeForToken(code);
-        if (!token) {
-            recordConnectionFailure('token-exchange-failed');
-            return bounce(res, 'error');
-        }
+        if (!token) return bounce(res, 'error');
 
         const identity = await fetchIdentityMembership(token.access_token);
-        if (!identity) {
-            recordConnectionFailure('membership-lookup-failed');
-            return bounce(res, 'error');
-        }
+        if (!identity) return bounce(res, 'error');
 
         await linkPlayer(identity.userId, playerName);
         const ent = computeEntitlement(identity.membership);
-        try {
-            await setMemberRecord(identity.userId, ent, identity.membership?.patronStatus ?? '');
-            await applyEntitlementToSave(playerName, identity.userId, ent);
-        } catch (error) {
-            captureServerProductEvent('subscription_entitlement_refresh_failed', {
-                source: 'patreon-oauth-callback',
-                errorCategory: 'reconciliation-failed',
-            });
-            throw error;
-        }
-
-        captureServerProductEvent('patreon_connection_succeeded', {
-            source: 'patreon-oauth-callback',
-            resultCategory: ent.active ? 'active' : 'linked-inactive',
-        });
+        await setMemberRecord(identity.userId, ent, identity.membership?.patronStatus ?? '');
+        await applyEntitlementToSave(playerName, identity.userId, ent);
 
         return bounce(res, ent.active ? 'linked' : 'linked_inactive');
     } catch (err) {
-        recordConnectionFailure('callback-failed');
         console.error('[patreon/oauth-callback]', err);
         return bounce(res, 'error');
     }

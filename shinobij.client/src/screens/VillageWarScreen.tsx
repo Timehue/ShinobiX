@@ -5,7 +5,7 @@ import { serverNow } from "../lib/server-clock";
 import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } from "react-icons/gi";
 const VW_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import { TERRITORY_HP_MAX } from "../constants/game";
 import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../lib/world-state";
 import { gameConfirm } from "../components/GameAlert";
@@ -15,16 +15,14 @@ import { gameConfirm } from "../components/GameAlert";
 // (if Kage / admin) declare a new war.
 export function VillageWarScreen({
     character,
-    updateCharacter,
     playerRoster,
     onBack,
-    onServerVersion,
+    onVersionedCharacter,
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
     playerRoster: PlayerRecord[];
     onBack: () => void;
-    onServerVersion?: (version: number) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const [wars, setWars] = useState<VillageWarRecord[]>([]);
     const [territories, setTerritories] = useState<TerritoryRecord[]>([]);
@@ -189,8 +187,7 @@ export function VillageWarScreen({
         }).catch(() => null);
         const data = response ? await response.json().catch(() => null) as { character?: Character; _saveVersion?: number } | null : null;
         if (!response?.ok || !data?.character) return setError('The war reward could not be verified. It will retry on the next refresh.');
-        if (typeof data._saveVersion === 'number') onServerVersion?.(data._saveVersion);
-        updateCharacter(data.character);
+        onVersionedCharacter(data.character, data._saveVersion);
     }
 
     return (

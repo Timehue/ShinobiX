@@ -11,11 +11,14 @@ describe("Pet Home cross-layer integrity wiring", () => {
         const sanctuary = source("../components/PetSanctuary.tsx");
         const breeding = source("../components/PetBreedingBarn.tsx");
 
-        assert.match(app, /<Home[^>]+onServerVersion=/s);
-        assert.ok(home.includes("<PetSanctuary") && home.includes("onServerVersion={onServerVersion}"));
-        assert.ok(home.includes("<PetBreedingBarn") && home.match(/onServerVersion=\{onServerVersion\}/g)?.length === 2);
-        assert.equal((sanctuary.match(/onServerVersion\(result\._saveVersion\)/g) ?? []).length, 3);
-        assert.ok((breeding.match(/onServerVersion\(/g) ?? []).length >= 3);
+        assert.match(app, /<Home[^>]+onVersionedCharacter=\{commitVersionedCharacter\}/s);
+        assert.ok(home.includes("<PetSanctuary") && home.includes("onVersionedCharacter={onVersionedCharacter}"));
+        assert.ok(home.includes("<PetBreedingBarn") && (home.match(/onVersionedCharacter=\{onVersionedCharacter\}/g) ?? []).length === 2);
+        assert.equal((sanctuary.match(/commitServerCharacter\(result\.character, result\._saveVersion\)/g) ?? []).length, 3);
+        assert.ok((breeding.match(/commitServerCharacter\(result\.character, (result\._saveVersion|version)\)/g) ?? []).length >= 3);
+        for (const component of [sanctuary, breeding]) {
+            assert.ok(component.indexOf("if (onVersionedCharacter)") < component.indexOf("onServerVersion(version)"), "atomic adoption must take precedence over the compatibility fallback");
+        }
     });
 
     it("keeps the irreversible breeding commitment explicit in the confirmation dialog", () => {
@@ -33,7 +36,6 @@ describe("Pet Home cross-layer integrity wiring", () => {
             assert.ok(route.includes("battle-lock:${playerName}"));
             assert.ok(route.includes("petladder:coliseum:def:${playerName}"));
             assert.ok(route.includes("petladder:tactical:def:${playerName}"));
-            assert.ok(route.includes("claimPetLifecycleLease"));
         }
         assert.ok(progress.includes("battle-lock:${playerName}"));
         assert.ok(progress.includes("petBusyReason(character, pet"));
@@ -45,7 +47,7 @@ describe("Pet Home cross-layer integrity wiring", () => {
         const tile = source("./hollow-gate-tile.ts");
         assert.ok(api.includes("saveVersion: data._saveVersion"));
         assert.ok(api.includes("destination: data.destination"));
-        assert.ok(tile.includes("onServerVersion(befriended.saveVersion)"));
+        assert.ok(tile.includes("onVersionedCharacter(befriended.character, befriended.saveVersion)"));
         assert.ok(tile.includes('befriended.destination === "sanctuary"'));
     });
 });

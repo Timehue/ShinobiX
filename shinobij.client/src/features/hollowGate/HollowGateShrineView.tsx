@@ -41,7 +41,7 @@ import {
     startGameAmbience,
     stopGameAmbience,
 } from "../../lib/game-audio";
-import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind } from "../../types/character";
+import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind, VersionedCharacterCommit } from "../../types/character";
 
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
 
@@ -81,7 +81,7 @@ type HollowGateShrineViewProps = {
     onTileClick: (idx: number) => void;
     walkTarget: number | null;
     setHollowGateRun: (run: HollowGateShrineRun) => void;
-    setCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     pushHollowGateLog: (line: string) => void;
     petEligible: boolean;
     exitPending: boolean;
@@ -104,7 +104,7 @@ export function HollowGateShrineView({
     onTileClick,
     walkTarget,
     setHollowGateRun,
-    setCharacter,
+    onVersionedCharacter,
     pushHollowGateLog,
     petEligible,
     exitPending,
@@ -797,7 +797,7 @@ export function HollowGateShrineView({
                                 </button>
                             </div>
 
-                            <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} setCharacter={setCharacter} pushLog={pushHollowGateLog} />
+                            <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} onVersionedCharacter={onVersionedCharacter} pushLog={pushHollowGateLog} />
 
                             {/* Event log */}
                             <div role="log" aria-live="polite" aria-relevant="additions" style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>

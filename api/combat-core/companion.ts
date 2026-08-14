@@ -79,9 +79,6 @@ export type CompanionSeal = {
 };
 
 export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.now()): CompanionSeal | null {
-    // Project the owned roster through the current 4/6-slot entitlement before
-    // honoring activePetId. Preserved overflow remains owned in the save, but it
-    // is not combat-authoritative after an entitlement lapse.
     const pets = activeCarriedPets<PetLike>(char);
     const activeId = typeof char.activePetId === 'string' ? char.activePetId : '';
     if (!activeId) return null;

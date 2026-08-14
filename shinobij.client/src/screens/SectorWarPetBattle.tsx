@@ -4,8 +4,8 @@ import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
 import { runDoctrineDuel, parseDoctrine } from "../lib/pet-duel-doctrine";
 import { PetDuelReplayScreen, type PetDuelReplayView } from "../components/PetDuelReplayScreen";
-import { activeCarriedPets } from "../lib/entitlements";
 import { joinSectorPet, sectorPetState } from "../lib/village-war-map";
+import { activeCarriedPets } from "../lib/entitlements";
 
 /*
  * Sector War "Pet" win-condition screen (Phase 7). The player sends a pet; the

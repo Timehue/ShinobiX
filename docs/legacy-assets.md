@@ -37,7 +37,7 @@ Sector face art (512×512 opaque WebP, matching existing wanderer faces):
 | `wandering-sage` | The Wandering Sage | Legacy offers (all) | hooded elder, violet eyes, talisman staff |
 | `storm-caller-ryn` | Storm-Caller Ryn | Ninjutsu | elemental ascetic, lightning + water robes |
 | `veil-mother-suzu` | Veil-Mother Suzu | Genjutsu | porcelain half-mask, lantern moths |
-| `iron-pilgrim-daigo` | Iron Pilgrim Daigo | Taijutsu | scarred monk, stone prayer beads |
+| `iron-pilgrim-daigo` | Iron Disciple Daigo | Taijutsu | scarred martial ascetic, stone prayer beads |
 | `blade-keeper-hana` | Blade-Keeper Hana | Bukijutsu | shrine warden, back full of sealed swords |
 | `duel-broker-kesshi` | Duel-Broker Kesshi | PvP | eyepatch, chained ledger of challenges |
 | `hollow-warden` | The Hollow Warden | PvE / Gatebreaker | cracked bone mask, keystone sigils |

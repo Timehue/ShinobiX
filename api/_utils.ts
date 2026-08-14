@@ -57,19 +57,11 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     'equipment',
     'loadout',
     'masterySpec',
-    // Strict server-owned settlement journals are complete snapshots. Their
-    // entries intentionally omit terminal fields while pending, so positional
-    // object merging could otherwise copy committedAt/readyAt from the prior
-    // index into a newly prepended marker and destroy crash recovery.
-    'serverSettlementReceipts',
-    'weeklyBossStartSettlements',
-    'weeklyBossUsageSettlements',
-    'weeklyBossPayoutSettlements',
-    'vanguardRewardSettlementStamp',
-    'hollowGateCombatSettlements',
-    'soloPveCompanionSettlements',
-    'soloPveItemSettlements',
-    'aiFightRewardSettlements',
+    // Server-owned mission maps intentionally delete entries on claim or
+    // abandon. Union-merging these resurrects the spent run/trail from the
+    // previous save and can strand or repay a completed contract.
+    'serverHuntTrails',
+    'serverFieldMissionRuns',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 

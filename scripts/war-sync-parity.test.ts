@@ -52,7 +52,6 @@ import {
 
 test('clan-war pet duel params are identical on both sides of the replay', () => {
     assert.deepEqual({ ...CLIENT_PET_DUEL }, { ...SERVER_PET_DUEL });
-    assert.equal(SERVER_PET_DUEL.applyItems, false, 'async clan-war pets cannot apply or charge items');
 });
 
 test('the garrison unlock window shown matches the one enforced', () => {

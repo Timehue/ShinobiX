@@ -731,10 +731,13 @@
 
 @media (prefers-reduced-motion: reduce) {
     .spire-intro, .spire-intro-portrait, .spire-intro-band, .spire-intro-name, .spire-intro-mech,
-    .spire-phase-banner, .spire-reward-shard.in, .spire-result-milestone, .spire-rung.next {
+    .spire-reward-shard.in, .spire-result-milestone, .spire-rung.next {
         animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
     }
     .spire-intro { animation: none; }
+    /* The normal phase animation ends transparent. Keep the mounted cue visible
+       for motion-sensitive players instead of fast-forwarding it to opacity 0. */
+    .spire-phase-banner { animation: none !important; opacity: 1; transform: none; }
     /* Kill transitions too (hover lifts, progress fill, button presses) for motion-sensitive users. */
     .spire-progress-fill, .spire-stepper button, .spire-ascend, .spire-rung { transition: none !important; }
 }

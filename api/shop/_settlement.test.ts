@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import type { SettlementCard, SettlementItem } from './_catalog.js';
 import { applyCardPackPurchase, applyItemPurchase, discountedShopCost, shopDiscountPercent } from './_settlement.js';
+import { STORY_PROGRESSION_CARD_IDS } from '../card-clash/_progression-cards.js';
 
 const item = (overrides: Partial<SettlementItem> = {}): SettlementItem => ({
     id: 'test-kunai', name: 'Test Kunai', slot: 'hand', rarity: 'common', cost: 100, ...overrides,
@@ -59,6 +60,39 @@ test('card packs draw only from the server rarity pool and debit only once', () 
     if (replay.ok) assert.equal(replay.character.ryo, 750);
 });
 
+test('every shop pack enforces the shared 1,200 packable-card ceiling before charging', () => {
+    const cards = new Map<string, SettlementCard>([
+        ['common-a', { id: 'common-a', rarity: 'common' }],
+    ]);
+    const packables = (count: number) => Array.from({ length: count }, (_, index) => `owned-${index}`);
+    const at1195 = applyCardPackPurchase(
+        character({ tileCards: [...packables(1_195), ...STORY_PROGRESSION_CARD_IDS] }),
+        cards,
+        'standard',
+        'cardpack-cap-1195',
+        100,
+        () => 0,
+    );
+    assert.equal(at1195.ok, true);
+    if (at1195.ok) {
+        assert.equal(at1195.character.ryo, 750);
+        assert.equal((at1195.character.tileCards as string[]).length, 1_200 + STORY_PROGRESSION_CARD_IDS.length);
+    }
+
+    for (const count of [1_199, 1_200]) {
+        const full = applyCardPackPurchase(
+            character({ tileCards: [...packables(count), ...STORY_PROGRESSION_CARD_IDS] }),
+            cards,
+            'standard',
+            `cardpack-cap-${count}`,
+            100,
+            () => 0,
+        );
+        assert.equal(full.ok, false);
+        if (!full.ok) assert.equal(full.error, 'Your card collection is full.');
+    }
+});
+
 test('shop route and client keep price, randomness, auth, and save locking server-side', () => {
     const route = readFileSync(join(process.cwd(), 'api', 'shop', 'settle.ts'), 'utf8');
     const helper = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'shop-settlement.ts'), 'utf8');
@@ -69,5 +103,5 @@ test('shop route and client keep price, randomness, auth, and save locking serve
     assert.match(route, /randomInt/);
     assert.match(helper, /action: \{ type: 'purchase-item', itemId, quantity \}/);
     assert.doesNotMatch(screen, /Math\.random\(\)/);
-    assert.match(screen, /updateCharacter\(result\.character\)/);
+    assert.match(screen, /onVersionedCharacter\(result\.character, result\._saveVersion\)/);
 });

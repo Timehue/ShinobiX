@@ -136,55 +136,15 @@ html body.ui-scroll-locked {
   overflow: hidden;
 }
 
-.app-shell:not(.screen-start) .next-goal-pin-compact__heading {
-  min-height: var(--touch-target-min);
-  overflow: visible;
-}
-
 .app-shell:not(.screen-start) .next-goal-pin-compact__close {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: var(--touch-target-min);
-  height: var(--touch-target-min);
-  min-width: var(--touch-target-min) !important;
-  min-height: var(--touch-target-min) !important;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px !important;
+  min-height: 20px !important;
   font-size: 11px !important;
-}
-
-.app-shell:not(.screen-start) :where(
-  .next-goal-pin__close,
-  .next-goal-pin__action,
-  .next-goal-pin-compact__action
-) {
-  min-width: var(--touch-target-min);
-  min-height: var(--touch-target-min);
-}
-
-.app-shell:not(.screen-start) .next-goal-pin-compact__action {
-  justify-self: start;
-  max-width: 100%;
-}
-
-.app-shell:not(.screen-start) .next-goal-pin__progress {
-  margin-top: 6px;
-}
-
-.app-shell:not(.screen-start) .next-goal-pin__progress .ui-progress-meta {
-  display: none;
-}
-
-.app-shell:not(.screen-start) .next-goal-pin__progress .ui-progress-track {
-  height: 4px;
-}
-
-.app-shell:not(.screen-start) :where(
-  .next-goal-pin__close,
-  .next-goal-pin__action,
-  .next-goal-pin-compact__action
-):focus-visible {
-  outline: 2px solid var(--sj-spirit-bright);
-  outline-offset: 3px;
 }
 
 .app-shell:not(.screen-start) .next-goal-pin-compact__body {
@@ -1256,15 +1216,6 @@ html body.ui-scroll-locked {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-shell:not(.screen-start) :where(
-    .next-goal-pin__close,
-    .next-goal-pin__action,
-    .next-goal-pin-compact__action,
-    .next-goal-pin__progress .ui-progress-fill
-  ) {
-    transition: none !important;
-  }
-
   *,
   *::before,
   *::after {
@@ -1476,109 +1427,6 @@ html body.ui-scroll-locked {
   color: var(--gold-200);
 }
 
-.world-map-sector-inspector {
-  position: fixed;
-  z-index: 7600;
-  inset-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
-  inset-block-end: max(16px, env(safe-area-inset-bottom, 0px));
-  width: min(430px, calc(100vw - 24px));
-  max-height: min(620px, calc(100dvh - 32px));
-  margin-inline: auto;
-  overflow: auto;
-  padding: var(--sp-4);
-  border: 1px solid color-mix(in srgb, var(--sj-gold) 55%, transparent);
-  border-radius: var(--r-lg);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--sj-spirit) 7%, transparent), transparent 42%),
-    color-mix(in srgb, var(--sj-surface-low) 97%, transparent);
-  color: var(--sj-text-primary);
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.42);
-}
-
-.world-map-sector-inspector:focus-visible {
-  outline: 2px solid var(--sj-spirit-bright);
-  outline-offset: 2px;
-}
-
-.world-map-sector-inspector > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sp-3);
-}
-
-.world-map-sector-inspector header span {
-  color: var(--sj-gold-bright);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.world-map-sector-inspector h2 {
-  margin: var(--sp-1) 0 0;
-  font-size: var(--fs-xl);
-}
-
-.world-map-sector-inspector__close {
-  display: inline-grid;
-  flex: 0 0 var(--touch-target-min);
-  place-items: center;
-  min-width: var(--touch-target-min);
-  min-height: var(--touch-target-min);
-  padding: 0;
-  border: 1px solid var(--sj-border-soft);
-  border-radius: var(--r-md);
-  background: var(--sj-surface);
-  color: var(--sj-text-secondary);
-  font-size: 1.35rem;
-}
-
-.world-map-sector-inspector__close:focus-visible {
-  outline: 2px solid var(--sj-spirit-bright);
-  outline-offset: 2px;
-}
-
-.world-map-sector-inspector dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-2);
-  margin: var(--sp-4) 0;
-}
-
-.world-map-sector-inspector dl > div {
-  min-width: 0;
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--sj-border-faint);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--sj-surface) 78%, transparent);
-}
-
-.world-map-sector-inspector dt {
-  color: var(--sj-text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.world-map-sector-inspector dd {
-  margin: var(--sp-1) 0 0;
-  color: var(--sj-text-primary);
-  font-size: var(--fs-sm);
-  overflow-wrap: anywhere;
-}
-
-.world-map-sector-inspector__actions {
-  display: grid;
-  grid-template-columns: 1fr 1.3fr;
-  gap: var(--sp-2);
-}
-
-.world-map-sector-inspector__actions > button {
-  min-height: var(--touch-target-min);
-  white-space: normal;
-}
-
 @media (min-width: 1500px) {
   .app-shell.screen-worldMap .generated-world-map {
     width: 100% !important;
@@ -1599,7 +1447,7 @@ html body.ui-scroll-locked {
   }
 
   html.wm-zoom .wm-topbar .village-back-button {
-    min-height: var(--touch-target-min);
+    min-height: 30px;
     padding: 5px 9px;
     font-size: 12px;
   }
@@ -1609,8 +1457,8 @@ html body.ui-scroll-locked {
   }
 
   html.wm-zoom .wm-zoom-btn {
-    width: var(--touch-target-min);
-    height: var(--touch-target-min);
+    width: 30px;
+    height: 30px;
     border-radius: 7px;
     font-size: 16px;
   }
@@ -1621,8 +1469,7 @@ html body.ui-scroll-locked {
   }
 
   html.wm-zoom .wm-village-chip {
-    min-height: var(--touch-target-min);
-    padding: 7px 10px;
+    padding: 5px 8px;
     font-size: 10.5px;
   }
 
@@ -1646,23 +1493,6 @@ html body.ui-scroll-locked {
   html.wm-zoom .world-map-scroll .atlas-landmark strong svg {
     width: 14px;
     height: 14px;
-  }
-
-  .world-map-sector-inspector {
-    inset-block-end: calc(var(--shell-mobile-nav-height) + var(--sp-2) + env(safe-area-inset-bottom, 0px));
-    max-height: calc(100dvh - var(--shell-mobile-nav-height) - 32px - env(safe-area-inset-bottom, 0px));
-  }
-
-  .world-map-sector-inspector dl {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .world-map-sector-inspector,
-  .world-map-sector-inspector * {
-    scroll-behavior: auto;
-    transition: none !important;
   }
 }
 

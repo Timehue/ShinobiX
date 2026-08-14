@@ -107,6 +107,7 @@ describe('aiFightPaysReward — only a win pays, and practice never does', () =>
         // Arena's local practice branch returns before it reports, so paying here
         // would quietly start rewarding fights that are meant to reward nothing.
         assert.equal(aiFightPaysReward('win', 'practice'), false);
+        assert.equal(aiFightPaysReward('win', 'dungeon'), false, 'the later Dungeon settle owns the reward');
     });
 
     it('never pays a loss, a draw, a forfeit or an unverifiable settle', () => {

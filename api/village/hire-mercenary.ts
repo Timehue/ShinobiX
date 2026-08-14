@@ -94,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Deduct seals (recomputed from the sealed table — never the client) and record
     // the hire on the save (display-only; the NX marker is the real guard).
-    const deduct = await withKvLock<{ ok: true; balance: number; warMercs: { warId: string; tiers: string[] } } | { error: string }>(
+    const deduct = await withKvLock<{ ok: true; balance: number; warMercs: { warId: string; tiers: string[] }; _saveVersion: number } | { error: string }>(
         saveKey,
         async () => {
             const fresh = await kv.get<{ character?: Record<string, unknown> }>(saveKey);
@@ -109,8 +109,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { warId: war.id, tiers: [] as string[] };
             if (!warMercs.tiers.includes(tier.id)) warMercs.tiers.push(tier.id);
             fc.warMercs = warMercs;
-            await kv.set(saveKey, bumpSaveVersion(fresh as Record<string, unknown>));
-            return { ok: true as const, balance: fc.honorSeals as number, warMercs };
+            const nextRecord = bumpSaveVersion(fresh as Record<string, unknown>);
+            await kv.set(saveKey, nextRecord);
+            return { ok: true as const, balance: fc.honorSeals as number, warMercs, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
         },
         { failClosed: true },
     );
@@ -148,19 +149,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!struck) {
         // Refund the seals + release the contract — the merc never struck.
-        await withKvLock(saveKey, async () => {
+        const refundSaveVersion = await withKvLock<number | undefined>(saveKey, async () => {
             const fresh = await kv.get<{ character?: Record<string, unknown> }>(saveKey);
             const fc = fresh?.character;
-            if (!fresh || !fc) return;
+            if (!fresh || !fc) return undefined;
             fc.honorSeals = Math.max(0, Math.floor(Number(fc.honorSeals ?? 0))) + tier.costSeals;
             const wm = fc.warMercs as { warId?: string; tiers?: string[] } | undefined;
             if (wm && wm.warId === war.id && Array.isArray(wm.tiers)) {
                 wm.tiers = wm.tiers.filter(t => t !== tier.id);
             }
-            await kv.set(saveKey, bumpSaveVersion(fresh as Record<string, unknown>));
-        }, { failClosed: true }).catch(() => 0);
+            const nextRecord = bumpSaveVersion(fresh as Record<string, unknown>);
+            await kv.set(saveKey, nextRecord);
+            return Number(nextRecord._saveVersion ?? 0);
+        }, { failClosed: true }).catch(() => undefined);
         await kv.del(marker).catch(() => 0);
-        return res.status(503).json({ error: 'The war front is busy — your seals were not spent. Try again.' });
+        return res.status(503).json({
+            error: 'The war front is busy — your seals were not spent. Try again.',
+            ...(refundSaveVersion !== undefined ? { _saveVersion: refundSaveVersion } : {}),
+        });
     }
 
     return res.status(200).json({
@@ -172,6 +178,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         enemy,
         enemyHp: struck.enemyHp,
         dealt: struck.dealt,
+        _saveVersion: deduct._saveVersion,
     });
 }
 

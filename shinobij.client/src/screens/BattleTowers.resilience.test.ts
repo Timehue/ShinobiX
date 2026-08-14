@@ -9,6 +9,7 @@ const readyRoom = readFileSync(new URL("../components/TowerReadyRoomPanel.tsx", 
 const partyState = readFileSync(new URL("../lib/tower-party-state.ts", import.meta.url), "utf8");
 const tacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.meta.url), "utf8");
 const guards = readFileSync(new URL("../lib/screen-guards.ts", import.meta.url), "utf8");
+const navigationGuard = readFileSync(new URL("../lib/use-battle-navigation-guard.ts", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const api = readFileSync(new URL("../lib/towers-api.ts", import.meta.url), "utf8");
 const storyCatalog = readFileSync(new URL("../lib/tower-story-catalog.ts", import.meta.url), "utf8");
@@ -42,8 +43,9 @@ test("Tower fight breadcrumbs synchronously refresh App's ref-backed navigation 
     assert.match(guards, /TOWER_FIGHT_STATE_EVENT/);
     assert.match(guards, /window\.dispatchEvent\(new Event\(TOWER_FIGHT_STATE_EVENT\)\)/);
     assert.match(wrapper, /setTowerFightRunId\(runId\);[\s\S]*?setView\(\{ phase: "fight"/, "fresh entry must lock before the view transition");
-    assert.match(app, /window\.addEventListener\(TOWER_FIGHT_STATE_EVENT, recomputeBattleGuard\)/);
-    assert.match(app, /window\.removeEventListener\(TOWER_FIGHT_STATE_EVENT, recomputeBattleGuard\)/);
+    assert.match(navigationGuard, /window\.addEventListener\(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard\)/);
+    assert.match(navigationGuard, /window\.removeEventListener\(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard\)/);
+    assert.match(app, /useBattleNavigationGuard\(\{/);
     assert.match(app, /bootLock\.kind === "battleTowers"[\s\S]*?setTowerFightRunId\(runId\)[\s\S]*?setScreen\("battleTowers"\)/, "server-owned Tower locks must resume without the generic hospital path");
 });
 
@@ -80,11 +82,13 @@ test("short desktop Tower fights reserve a usable board and scroll the action do
     assert.ok(shortDesktopStart >= 0 && mobileStart > shortDesktopStart, "the short-desktop contract must precede the mobile layout");
     const shortDesktop = tacticalCss.slice(shortDesktopStart, mobileStart);
     assert.match(shortDesktop, /\.tower-board-area[\s\S]*?min-height:\s*clamp\(250px, 37dvh, 333px\)\s*!important/);
-    assert.match(shortDesktop, /\.tower-action-dock[\s\S]*?max-height:\s*clamp\(160px, 27dvh, 240px\)/);
+    assert.match(shortDesktop, /\.tower-action-dock[\s\S]*?flex:\s*0 0 240px;[\s\S]*?min-height:\s*240px;[\s\S]*?max-height:\s*240px;/,
+        "the short-desktop dock must reserve the full command and first-technique tap surface");
     assert.match(shortDesktop, /overflow:\s*hidden auto/, "short-desktop actions must remain reachable without collapsing the board");
     assert.match(shortDesktop, /\.basic-action-bar[\s\S]*?grid-auto-flow:\s*column/, "desktop commands must stay on one compact row");
     assert.match(shortDesktop, /\.combat-equipped-jutsu-grid[\s\S]*?grid-auto-flow:\s*column/);
-    assert.match(shortDesktop, /\.combat-equipped-jutsu-grid[\s\S]*?overflow-x:\s*auto/, "the one-row loadout must remain horizontally reachable");
+    assert.match(shortDesktop, /\.jutsu-layout-card[\s\S]*?height:\s*94px !important;[\s\S]*?overflow:\s*auto hidden !important/,
+        "the fixed one-row loadout must remain horizontally reachable inside its owning hit-test surface");
 });
 
 test("active co-op reconciliation is push-led, bounded, and revision-safe", () => {
@@ -137,7 +141,6 @@ test("story Tower milestone receipts report server progression without inventing
     const rewardType = api.match(/firstClearReward:\s*\{([\s\S]*?)\n\s*\};/)?.[1] ?? "";
     assert.doesNotMatch(rewardType, /itemId/);
 });
-
 test("Tower AI teammates use one authenticated novice-recruit Ready Room path", () => {
     assert.doesNotMatch(lobby, /Practice with AI Assists|borrowed shinobi|Borrow an AI assist/);
     assert.match(lobby, /Enter Floor \$\{selFloor\.id\} solo/);

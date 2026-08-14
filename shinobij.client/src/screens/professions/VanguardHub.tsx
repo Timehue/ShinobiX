@@ -21,17 +21,18 @@ import {
     PROFESSION_MAX_RANK,
 } from "../../constants/profession";
 import type { Character, Screen } from "../../App";
+import type { VersionedCharacterCommit } from "../../types/character";
 
 const ACCENT = "#f97316";
 
 export function VanguardHub({
     character,
-    updateCharacter,
+    onVersionedCharacter,
     setScreen,
     onBack,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     setScreen: (s: Screen) => void;
     onBack: () => void;
 }) {
@@ -101,7 +102,7 @@ export function VanguardHub({
             </div>
 
             <DailyProfessionMissions character={character} />
-            <MasteryPanel character={character} updateCharacter={updateCharacter} />
+            <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />
         </div>
     );
 }

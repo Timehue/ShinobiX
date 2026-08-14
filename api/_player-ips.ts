@@ -1,5 +1,4 @@
-import { kv } from './_storage.js';
-import type { KvLike } from './_storage.js';
+import { kv, type KvLike } from './_storage.js';
 import { safeName } from './_utils.js';
 import { clientIp } from './_client-ip.js';
 
@@ -129,13 +128,7 @@ export async function hasRecentIpOrFpOverlap(nameA: string, nameB: string): Prom
     return false;
 }
 
-/**
- * Ranked V2 economic eligibility must fail closed when its evidence cannot be
- * read. This variant deliberately does not use the best-effort recentIps/Fps
- * helpers, so any storage uncertainty rejects terminal sealing and leaves the
- * exact session/admission available for a later retry. Legacy callers retain
- * the historical fail-open helper above for rolling compatibility.
- */
+/** Fail-closed evidence lookup for Player Ranked V2 settlement. */
 export async function hasRecentIpOrFpOverlapStrict(
     nameA: string,
     nameB: string,
@@ -152,13 +145,10 @@ export async function hasRecentIpOrFpOverlapStrict(
     const suffixes = (keys: string[], prefix: string) => keys
         .map((key) => key.slice(prefix.length))
         .filter(Boolean);
-    const ipsA = suffixes(ipKeysA, `player-ip:${a}:`);
-    const ipsB = suffixes(ipKeysB, `player-ip:${b}:`);
-    const fpsA = suffixes(fpKeysA, `player-fp:${a}:`);
-    const fpsB = suffixes(fpKeysB, `player-fp:${b}:`);
     const overlaps = (left: string[], right: string[]) => {
         const rightSet = new Set(right);
         return left.some((value) => rightSet.has(value));
     };
-    return overlaps(ipsA, ipsB) || overlaps(fpsA, fpsB);
+    return overlaps(suffixes(ipKeysA, `player-ip:${a}:`), suffixes(ipKeysB, `player-ip:${b}:`))
+        || overlaps(suffixes(fpKeysA, `player-fp:${a}:`), suffixes(fpKeysB, `player-fp:${b}:`));
 }

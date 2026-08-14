@@ -7,7 +7,6 @@ import {
     canEnterTacticalArena,
     resolveAvailablePetBattlePair,
 } from "./pet";
-import { maxPets } from "./entitlements";
 
 const pet = (id: string, expeditionEndsAt?: number) => ({
     id,
@@ -16,10 +15,7 @@ const pet = (id: string, expeditionEndsAt?: number) => ({
 }) as Pet;
 
 describe("pet battle mode eligibility", () => {
-    it("lets the Base four-pet cap meet the unchanged 4v4 Tactical Arena requirement", () => {
-        assert.equal(TACTICAL_ARENA_PET_REQUIREMENT, 4);
-        assert.equal(maxPets({}), TACTICAL_ARENA_PET_REQUIREMENT);
-        assert.equal(maxPets({ patreon: { active: true } }), 6);
+    it("requires four available pets for the 4v4 Tactical Arena", () => {
         const roster = Array.from({ length: TACTICAL_ARENA_PET_REQUIREMENT }, (_, index) => pet(`pet-${index}`));
         assert.equal(canEnterTacticalArena(roster.slice(0, 3)), false);
         assert.equal(canEnterTacticalArena(roster), true);

@@ -56,6 +56,26 @@ describe('Tower MPvP additive isolation contract', () => {
         }
     });
 
+    it('routes Story MPvE and exact 2v2 through one canonical-backed Tower reducer', () => {
+        const storyAction = source('api/towers/action.ts');
+        const pvpAction = source('api/towers/_pvp-action.ts');
+        const engine = source('api/towers/_engine.ts');
+        assert.match(storyAction, /import \{[^}]*applyAction[^}]*\} from '\.\/_engine\.js'/s);
+        assert.match(pvpAction, /import \{[^}]*applyAction[^}]*\} from '\.\/_engine\.js'/s);
+        assert.match(storyAction, /applyAction\(session, floor, action, rng\)/);
+        assert.match(pvpAction, /applyAction\(match\.combat, TOWER_PVP_FLOOR, action, rng\)/);
+        assert.match(engine, /applyJutsu as applyPvpJutsu[^\n]*from '\.\.\/pvp\/move\.js'/);
+        assert.match(engine, /resolver:\s*applyPvpJutsu/);
+        assert.doesNotMatch(storyAction, /from '\.\.\/pvp\/move\.js'/,
+            'the public MPvE route cannot bypass the shared Tower reducer');
+        assert.doesNotMatch(pvpAction, /from '\.\.\/pvp\/move\.js'/,
+            'the exact-2v2 command service cannot bypass the shared Tower reducer');
+        assert.doesNotMatch(storyAction, /tile:\s*Math\.floor\(Number\(body\.tile\)\)/,
+            'the MPvE route must not normalize malformed fractional tiles before engine validation');
+        assert.doesNotMatch(pvpAction, /tile:\s*Math\.floor\(Number\(input\.tile\)\)/,
+            'the exact-2v2 service must not normalize malformed fractional tiles before engine validation');
+    });
+
     it('protects ordinary Tower recovery from deleting an MPvP lease', () => {
         const myRun = source('api/towers/my-run.ts');
         const pvpBranch = myRun.indexOf("battleLease?.meta.mode === 'mpvp'");

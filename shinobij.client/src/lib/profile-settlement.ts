@@ -10,7 +10,7 @@ export type ProfileSettlementAction =
 export async function settleProfileAction(
     playerName: string,
     action: ProfileSettlementAction,
-): Promise<{ ok: true; character: Character; changed: boolean; cost: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; character: Character; changed: boolean; cost: number; _saveVersion?: number } | { ok: false; error: string }> {
     try {
         const response = await fetch('/api/profile/settle', {
             method: 'POST',
@@ -23,11 +23,12 @@ export async function settleProfileAction(
             character?: Character;
             changed?: boolean;
             cost?: number;
+            _saveVersion?: number;
         };
         if (!response.ok || !data.ok || !data.character) {
             return { ok: false, error: data.error || AMBIGUOUS_ACTION_MESSAGE };
         }
-        return { ok: true, character: data.character, changed: data.changed === true, cost: Number(data.cost ?? 0) };
+        return { ok: true, character: data.character, changed: data.changed === true, cost: Number(data.cost ?? 0), _saveVersion: data._saveVersion };
     } catch {
         return { ok: false, error: AMBIGUOUS_ACTION_MESSAGE };
     }

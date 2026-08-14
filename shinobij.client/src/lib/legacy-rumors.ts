@@ -94,7 +94,7 @@ export function recordRumorHeard(milestone: number, text: string): void {
 // learning names, no shadows taking notes). If a line needs a second read, it
 // fails. The mystery rule still holds: never stats, never mechanics.
 // Beats 3–5 deliberately sight the Legacy Emissaries (the ledger man, the
-// moth-veiled woman, the bead pilgrim, the blank-map man...) and finally the
+// moth-veiled woman, the bead disciple, the blank-map man...) and finally the
 // Sage himself, so the arc foreshadows NPCs the player will actually meet.
 const RUMORS: Record<string, string[][]> = {
     ninjutsu: [
@@ -126,12 +126,12 @@ const RUMORS: Record<string, string[][]> = {
          "An old porter watched you spar the other day and put his pipe out. Said he hadn't done that since the war. I don't know what it means either."],
         ["The carpenter who fixes the training posts keeps asking who does that with bare hands. Nobody's had the heart to tell him it's one person.",
          "Two old fighters were comparing bruises at the bathhouse. Both agreed they'd rather not take your sparring slot. These are men who fought in the war."],
-        ["Some pilgrim with stone beads put his hand on a post you broke and nodded, like it told him something. Then he asked which road you take home. Didn't love that part.",
+        ["A stone-bead disciple put his hand on a post you broke and nodded, like it told him something. Then he asked which road you take home. Didn't love that part.",
          "The bone-setter says she can tell your opponents by the bruises now. She keeps a chart behind the counter. I've seen it. It's a long chart."],
-        ["That bead pilgrim's been back twice. He doesn't pray at the shrine. He just watches the training yard and counts on his string.",
+        ["That bead disciple's been back twice. He doesn't pray at the shrine. He just watches the training yard and counts on his string.",
          "An old soldier told me the mountain schools send someone down when a real one shows up. Then he kept glancing at the door like he expected a knock."],
         ["The old man with the staff asked the gatekeeper who has the strongest hands in the village. The gatekeeper didn't even have to think. He said your name.",
-         "The bead pilgrim finally spoke. One sentence: 'Tell them to keep their hands ready.' He didn't say who. He didn't have to."],
+         "The bead disciple finally spoke. One sentence: 'Tell them to keep their hands ready.' He didn't say who. He didn't have to."],
     ],
     bukijutsu: [
         ["The smith says your blades come back barely needing work. Wear in all the right places, she says. She doesn't say that about anyone else.",
@@ -250,8 +250,8 @@ const RUMORS: Record<string, string[][]> = {
          "The oldest man in the village says he's seen this once before. I asked what happened to that one. He just pointed at the mountain shrine."],
         ["Taverns two villages over argue about you like you're already a story. Nobody argues that hard about a person who's still around.",
          "The shrine keeper's been dusting the old altar nobody uses. Wants it presentable, she says. Won't say for what. It faces the road."],
-        ["A courier saw the old man's page himself. Every name crossed out except one. Yours. Folk are saying level 50 isn't a milestone for you anymore — it's an appointment.",
-         "The Sage is asking for you by name now. Not a description — your name. The barkeep's advice: be past level 50 when he knocks, or be embarrassed."],
+        ["A courier saw the old man's page himself. Every name crossed out except one. Yours. Folk are saying the Fiftieth Rank isn't a milestone for you anymore — it's an appointment.",
+         "The Sage is asking for you by name now. Not a description — your name. The barkeep's advice: reach the Fiftieth Rank before he knocks, or be embarrassed."],
     ],
 };
 
@@ -266,8 +266,8 @@ const FALLBACK: string[][] = [
      "Some old wanderer keeps asking the roads about someone. The description's vague. It keeps fitting you anyway."],
     ["Whoever's been asking about you got the elders talking. They won't say who it was. They keep glancing at the road, though.",
      "That stranger with the staff asked the barkeep how close you are to fifty. Odd thing to ask. The barkeep answered before he thought better of it."],
-    ["The old man with the violet eyes is one village over and still asking. Level 50 is close. Honestly, he seems to know it better than you do.",
-     "There's a staff-carrying old man asking the roads about someone, and the description keeps fitting you. Level 50 is close. Just saying."],
+    ["The old man with the violet eyes is one village over and still asking. Your field record is nearing its Fiftieth Rank. Honestly, he seems to know it better than you do.",
+     "There's a staff-carrying old man asking the roads about someone, and the description keeps fitting you. Your Fiftieth Rank is close. Just saying."],
 ];
 
 // ── Tavern gossip ────────────────────────────────────────────────────────────
@@ -279,12 +279,12 @@ const FALLBACK: string[][] = [
 // Hollow burns archives — so the villages press their legends into cards, and
 // everything that proves itself (a Kage, a coliseum beast, a Legacy deed) gets
 // printed. World-flavored, never this player's stats. Rotating daily strip.
-const TAVERN_GOSSIP: readonly string[] = [
+export const TAVERN_GOSSIP: readonly string[] = [
     "The barkeep leans in: “Wandering Sage came through, three villages over. Didn't drink. Watched the door all night and paid for a bed he never slept in.”",
     "Guy at the next table swears the Hall of Legends carved a new name last week. Nobody caught which one, and the stonemason's boy suddenly won't talk about work.",
     "“Legends aren't born,” the old regular says into her cup. “They're noticed. Usually by an old man with a staff, usually before they've noticed themselves.”",
     "A courier drops off a rumor with the ale: somebody bound their legacy last night, two provinces over. Won't say who. He did buy a round on it, though.",
-    "“My advice?” the barkeep says, not waiting to be asked. “When the Sage offers, say yes. He doesn't ask twice, and I never met anyone who regretted it.”",
+    "“My advice?” the barkeep says, not waiting to be asked. “Listen before you answer. You can send the Sage away, but he comes back. The names he offers may change with what you do before then.”",
     "Two mercenaries are arguing over which legacy path is the strongest. Neither has one. Half the tavern has joined in anyway.",
     "The storyteller says the Chronicle exists because the Hollow burns the archives first. “Cards scatter,” he shrugs. “Can't burn what's in everyone's pockets.”",
     "A dealer from the card hall says the scribes have started printing the Hollow Kage into the Chronicle. “Fought one,” a scarred regular mutters. “The card's friendlier.”",

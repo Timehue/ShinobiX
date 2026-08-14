@@ -1,4 +1,6 @@
 import type { AiFightBattleKind } from "./ai-fight-api";
+import type { WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import type { AiFightSettleResult } from "./ai-fight-settle";
 
 /*
  * AI-fight launch bus (mirrors lib/story-fight-theme's requestStoryBossFight).
@@ -27,13 +29,24 @@ export type AiFightRequest = {
     /** Display-only: the enemy portrait on the server-combat screen. */
     enemyAvatar?: string;
     /**
-     * The sector this fight is fought over. Drives the raid side effects the
-     * server does NOT own (sector territory damage, mission raid credit), so it
-     * must be the sector the caller set, not whatever the map drifts to later.
+     * The sector this fight is fought over. The server seals it into explore or
+     * raid authority, so it must be the launch sector rather than later map state.
      */
     sector?: number;
+    /** Exact durable `/world/explore` receipt authorizing an explore ambush. */
+    worldExploreRequestId?: string;
+    /** Server-issued `/missions/raid-start` proof binding an AI guard raid. */
+    raidToken?: string;
+    /** Active server-owned Dungeon run binding the seal-one Warden. */
+    dungeonRunToken?: string;
     /** Where the player returns to when the server fight closes. */
     returnScreen?: string;
+    /** Server-authored World Map encounter. Only stable identity crosses the wire;
+     * stats, chain order, hunt quality and rewards are reconstructed server-side. */
+    worldEncounter?: WorldAiFightRequest;
+    /** Presentation/chain continuation after the token-sealed settlement lands.
+     * Never called from a client-computed battle result. */
+    onResolved?: (result: AiFightSettleResult) => void;
 };
 
 type Listener = (request: AiFightRequest) => void;

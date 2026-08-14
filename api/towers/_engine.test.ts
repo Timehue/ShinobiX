@@ -1245,6 +1245,8 @@ describe('Battle Towers AOE + consumables', () => {
         startRound(s);
         // Out of range still rejects.
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'far', tile: 60 }, makeRng(1)).reason, 'out-of-range');
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'far', tile: Number.NaN }, makeRng(1)).reason, 'bad-tile');
+        assert.equal(getActor(s, 'sq-1')!.pos, 0, 'malformed ground anchors cannot corrupt actor position');
         // No ground-effect tag, but lands ON the enemy → strikes it instead of bouncing.
         const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'strike', tile: 3 }, makeRng(1));
         assert.ok(r.applied, 'no-ground-tag ground jutsu resolves (no no-ground-tags bounce)');
@@ -1278,6 +1280,8 @@ describe('Battle Towers AOE + consumables', () => {
         assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 63 }, makeRng(1)).reason, 'out-of-range');
         assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 1 }, makeRng(1)).reason, 'blocked');
         assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 0 }, makeRng(1)).reason, 'bad-tile');
+        assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: Number.NaN }, makeRng(1)).reason, 'bad-tile');
+        assert.equal(getActor(s2, 'sq-1')!.pos, 0, 'malformed movement anchors cannot corrupt actor position');
     });
 });
 
@@ -1319,6 +1323,22 @@ describe('Battle Towers basic actions', () => {
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 3 }, makeRng(1)).applied);
         assert.equal(getActor(s, 'sq-1')!.pos, 3);
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 60 }, makeRng(1)).reason, 'out-of-range');
+    });
+
+    it('rejects malformed or off-board movement tiles without corrupting the board', () => {
+        for (const type of ['move', 'dash'] as const) {
+            for (const tile of [Number.NaN, Number.POSITIVE_INFINITY, -1, 64]) {
+                const s = makeSession([
+                    makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }),
+                    makeActor('en-1', 'enemy', 30, { character: WEAK }),
+                ]);
+                startRound(s);
+                const result = applyAction(s, floor, { actorId: 'sq-1', type, tile }, makeRng(1));
+                assert.equal(result.reason, 'bad-tile', `${type} rejects ${String(tile)}`);
+                assert.equal(getActor(s, 'sq-1')!.pos, 0);
+                assert.equal(Number.isFinite(getActor(s, 'sq-1')!.pos), true);
+            }
+        }
     });
 
     it('Push shoves the target AWAY, Pull drags it TOWARD, Debuff Prevent blocks it (PvP parity)', () => {

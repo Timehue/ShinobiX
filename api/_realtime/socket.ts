@@ -40,7 +40,7 @@ import { stampPresenceBeat } from './_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
 import { setOnSweep, setOnDuelDrop } from './game-loop.js';
 import { wirePetDuel, notifyPeerGone } from './pet-duel-socket.js';
-import { setRealtimeEmitter, TOWER_RECONNECT_KICK } from './notify.js';
+import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt, type TravelLease } from './travel-lease.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
@@ -217,12 +217,6 @@ function wireRealtime(io: IOServer): void {
         // poll immediately (instant attack/challenge delivery). A player with
         // multiple tabs has multiple sockets in the same room — all get kicked.
         socket.join(`user:${name}`);
-
-        // Reconnect reconciliation is intentionally a content-free kick. The
-        // authenticated client asks the Tower HTTP endpoints for its own party
-        // and recoverable run; no roster/session data crosses the socket before
-        // those endpoint-level membership checks run.
-        socket.emit('tower:kick', TOWER_RECONNECT_KICK);
 
         // Accept the client's display-cased name ONLY when it canonicalizes to
         // this socket's authed identity — preserves nice casing, blocks anyone

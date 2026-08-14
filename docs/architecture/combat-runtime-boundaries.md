@@ -1,6 +1,6 @@
 # Combat Runtime Boundaries
 
-Status: verified against executable routes on 2026-08-04 after cutover.
+Status: verified against executable routes on 2026-08-13 after the WorldMap cutover.
 
 This is the ownership contract for combat runtimes. Server authority and Tower
 are separate concepts: normal one-player shinobi combat uses `solo-pve` while
@@ -25,7 +25,7 @@ The detailed executable matrix is in
 | Runtime | Player-facing owners |
 |---|---|
 | `pvp` | Casual, ranked, direct challenges, and sector-war shinobi duels |
-| `solo-pve` | Generic/published AI, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, and ANBU infiltration |
+| `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, and ANBU infiltration |
 | `tower` | Battle Towers, Endless Spire, and Clan Boss party assaults |
 | `pet` | Hollow Hound receipts, Pet Arena/Coliseum, and pet-ranked modes |
 | `card` | Card Clash and sector-card contests |
@@ -35,6 +35,13 @@ real client callers. Their rewarding paths require terminal Solo evidence.
 Weekly Boss and ANBU were audited by participant model: both current encounters
 are one human with the normal optional companion against one AI, so they use
 Solo rather than Tower.
+
+WorldMap AI uses two entry contracts without changing combat authority. The
+World-context path sends identity only and lets the server reconstruct hunts,
+wanderers, chains, quest/story seals, and progression. Apex, explore ambushes,
+and village-guard raids use the generic published-catalog path. Both create the
+same canonical `SoloPveSession`, use `solo-pve/action`, and settle from sealed
+terminal evidence; neither accepts a client-resolved outcome.
 
 ## Shared versus runtime-owned code
 

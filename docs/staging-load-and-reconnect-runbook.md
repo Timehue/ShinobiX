@@ -1,9 +1,5 @@
 # Staging load and reconnect release gate
 
-For two-account cross-visibility, persistent presence across a real worker
-replacement, and durable save observation, run the companion
-`STAGING_RESILIENCE_RUNBOOK.md` gate after this capacity harness passes.
-
 This harness is deliberately unable to choose a remote target on its own. A remote
 run requires an exact `LOAD_CONFIRM_TARGET_HOST`, and any host in
 `LOAD_DENY_HOSTS`, `PRODUCTION_HOST`, `PUBLIC_HOST`, `CANONICAL_HOST`, or

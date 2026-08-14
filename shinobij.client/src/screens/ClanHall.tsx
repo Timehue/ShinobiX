@@ -10,7 +10,7 @@ const CH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { CLAN_ROLE_COLOR, CLAN_ROLE_ICON, CLAN_UPGRADE_MAX_LEVEL, clanMissionDefinitions } from "../constants/clan";
 import { CLAN_UPGRADE_DEFS, clanUpgradeCost, isClanUpgradeMaxed } from "../lib/clan-upgrades";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import { ClanImageMark } from "../components/Marks";
 import { gameConfirm } from "../components/GameAlert";
 import type { ClanJoinRequest, ClanMemberEntry, ClanRole, ClanTreasury, ClanTreasuryCurrencyKey, ClanUpgradeKey, EnhancedClanData, NoticePostType } from "../types/clan";
@@ -49,7 +49,7 @@ import { applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, clanTe
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { gameToast } from "../components/GameToast";
 
-export function ClanHall({ character, updateCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+export function ClanHall({ character, updateCharacter, onVersionedCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     const lore = clanLore[character.village];
     const isInClan = !!character.clan;
     const [clanName, setClanName] = useState("");
@@ -144,6 +144,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         try {
             const result = await postClanMissionClaim(character.name, clanData.name, missionKey);
             if (!result) return;
+            if (result.character && !onVersionedCharacter(result.character, result._saveVersion)) return;
             setClaimedClanMissions(result.claimed);
             setClanData((prev) => prev ? enhanceClanData({
                 ...prev,
@@ -151,7 +152,6 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 level: result.level,
                 treasury: { ...prev.treasury, ...(result.treasury as Partial<ClanTreasury>) },
             }) : prev);
-            if (result.character) updateCharacter(result.character);
             const def = clanMissionDefinitions.find((m) => m.key === missionKey);
             alert(`Clan mission reward claimed!${def ? ` ${def.reward}` : ""}`);
         } finally {
@@ -266,7 +266,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         if (!r.ok) return alert(r.error ?? "Could not claim mentor rewards.");
         if (r.claimed === 0) { fetchMentorView(character.name).then(setMentorView); return alert("No new milestones to claim yet."); }
         if (!r.character) return alert('The mentor reward was not committed; retry after the server reconnects.');
-        updateCharacter(r.character);
+        if (!onVersionedCharacter(r.character, r._saveVersion)) return;
         fetchMentorView(character.name).then(setMentorView);
         alert(`Mentor reward for ${student}'s progress: +${r.seals} Honor Seals, +${r.contrib} clan contribution.`);
     }
@@ -459,8 +459,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { currency: "ryo", amount });
             if (!result) return;
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
-            updateCharacter(result.character);
         } finally {
             donateBusyRef.current = false;
             setDonateBusy(false);
@@ -474,8 +474,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { currency, amount });
             if (!result) return;
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
-            updateCharacter(result.character);
         } finally {
             donateBusyRef.current = false;
             setDonateBusy(false);
@@ -491,8 +491,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
             if (!result) return;
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
-            updateCharacter(result.character);
         } finally {
             donateBusyRef.current = false;
             setDonateBusy(false);
@@ -508,8 +508,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
             if (!result) return;
+            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
-            updateCharacter(result.character);
             alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
         } finally {
             donateBusyRef.current = false;
@@ -535,13 +535,12 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ clanName: clanData.name, recipientName: clanSendPlayer, currency: clanSendCurrency, amount }),
             });
+            const data = await r.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
             if (!r.ok) {
-                const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
             if (clanSendPlayer === character.name) {
-                // Functional updater preserves concurrent regen/heartbeat writes.
-                updateCharacter((prev) => prev ? ({ ...prev, [clanSendCurrency]: (prev[clanSendCurrency] ?? 0) + amount } as Character) : prev);
+                if (!data.character || !onVersionedCharacter(data.character, data._saveVersion)) return;
             }
             setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } }));
             gameToast(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
@@ -565,10 +564,11 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ clanName: clanData.name, recipientName: clanSendPlayer, itemId: clanSendItemId }),
             });
+            const data = await r.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
             if (!r.ok) {
-                const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
+            if (clanSendPlayer === character.name && (!data.character || !onVersionedCharacter(data.character, data._saveVersion))) return;
             setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
             gameToast(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
         } catch (err) {
@@ -784,7 +784,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
             <span><GameIcon name="sigil" size={18} style={CH_ICON} />Clan Exchange balance</span>
             <strong>{(character.clanPoints ?? 0).toLocaleString()} Clan Points</strong>
         </div>}
-        {view === "exchange" && <ClanExchange character={character} clanData={clanData} allItems={allClanItems} updateCharacter={updateCharacter} setClanData={setClanData} />}
+        {view === "exchange" && <ClanExchange character={character} clanData={clanData} allItems={allClanItems} onVersionedCharacter={onVersionedCharacter} setClanData={setClanData} />}
         {view === "roster" && <div className="clan-roster">
             {canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}
             {sortedMembers.map((member, idx) => {
@@ -831,7 +831,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); const complete = progress >= mission.target; const claimable = mission.key !== "territory"; const claimed = claimedClanMissions.includes(mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p>{claimable && (claimed ? <p className="hint" style={{ color: "#4ade80", fontWeight: 600 }}>✓ Reward claimed</p> : complete && canManageClan(myRole) ? <div className="menu"><button onClick={() => void claimClanMission(mission.key)} disabled={clanMissionClaimBusy === mission.key}>{clanMissionClaimBusy === mission.key ? "Claiming…" : "Claim Reward"}</button></div> : complete ? <p className="hint">Complete — clan leadership can claim.</p> : null)}</div>; })}</div>}
         {view === "wars" && <ClanWarsPanel character={character} clanName={clanData.name} setScreen={setScreen} />}
         {view === "rankings" && <ClanRankings character={character} />}
-        {view === "boss" && bossTabEnabled && <ClanBoss character={character} clanmates={clanData.members.filter(m => m.name !== character.name).map(m => m.name)} hostLoadout={towerHostLoadout} sharedImages={sharedImages} onRecordBattle={onRecordBattle} />}
+        {view === "boss" && bossTabEnabled && <ClanBoss character={character} clanmates={clanData.members.filter(m => m.name !== character.name).map(m => m.name)} hostLoadout={towerHostLoadout} sharedImages={sharedImages} onRecordBattle={onRecordBattle} onVersionedCharacter={onVersionedCharacter} />}
         {view === "chat" && <ClanChat playerName={character.name} clan={clanData.name} />}
         {view === "mentor" && <div className="summary-box"><h3><GiBlackBelt style={CH_ICON} />Mentorship</h3><p className="hint">Take a new clan member (level 15 or below, recently joined) under your wing. You earn Honor Seals + clan contribution as they hit milestones — Academy graduation, level 20/40, first ranked win — and they get a ryo boost. (Rewards void if you share a connection.)</p>{mentorView?.asStudent.sensei && <p>Your sensei: <strong>{mentorView.asStudent.sensei}</strong></p>}<h4>Your Students</h4>{(!mentorView || mentorView.asSensei.students.length === 0) ? <p className="hint">You're not mentoring anyone yet.</p> : <div className="clan-request-list">{mentorView.asSensei.students.map(s => <div className="clan-request-card" key={s.student}><div><strong>{s.student}</strong><small>Claimed: {s.claimed.length === 0 ? "none" : s.claimed.map(m => MENTOR_MILESTONE_LABEL[m] ?? m).join(", ")}</small>{s.claimable.length > 0 && <small style={{ color: "#fde047" }}>Ready to claim: {s.claimable.map(m => MENTOR_MILESTONE_LABEL[m] ?? m).join(", ")}</small>}</div><div className="menu"><button disabled={s.claimable.length === 0} onClick={() => void doClaimMentor(s.student)}>{s.claimable.length > 0 ? "Claim" : "No rewards"}</button><button className="danger-button" onClick={() => void doReleaseStudent(s.student)}>Release</button></div></div>)}</div>}<label>Take on a Student</label><input list="mentor-student-options" value={mentorStudentInput} onChange={e => setMentorStudentInput(e.target.value)} placeholder="New clan member name" /><datalist id="mentor-student-options">{sortedMembers.filter(m => m.name !== character.name && m.level <= 15).map(m => <option key={m.name} value={m.name} />)}</datalist><div className="menu"><button onClick={() => void doAssignStudent()}>Take on Student</button></div></div>}
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><p className="hint">🏯 Capturing a new sector requires <strong>{TERRITORY_CAPTURE_MIN_MEMBERS}+ clan members</strong> — your clan has <strong style={{ color: canCaptureNewSector ? "#4ade80" : "#f87171" }}>{clanData.members.length}</strong>. Reinforcing a sector you already hold has no roster requirement.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1 || donateBusy} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, MAX_WILD_SECTOR))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p>{blockedByRosterCapture && <p className="hint" style={{ color: "#f87171" }}>Your clan needs {TERRITORY_CAPTURE_MIN_MEMBERS} members to capture this sector — you have {clanData.members.length}. Recruit more shinobi to plant your banner.</p>}<div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name) || blockedByRosterCapture} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name) || blockedByRosterCapture} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
