@@ -709,7 +709,7 @@ export interface KindAccentSpawn {
     durationMs: number;
 }
 
-const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "ringsUp" | "stars" | "wave" | "dome" | "drip" | "burst" | "bind"> = {
+const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "ringsUp" | "stars" | "wave" | "dome" | "drip" | "burst" | "bind" | "bulwark"> = {
     // `damage` is the most-thrown kind in the entire catalog (159 authored
     // techniques) and had NO accent of its own — the plain strike was the one
     // move family with no identity beyond its impact burst. It gets the anime
@@ -720,7 +720,11 @@ const KIND_ACCENT_FAMILY: Record<string, "slam" | "slash" | "ringsDown" | "rings
     movelock: "bind",
     // The sky-setter calls rings UP around the caster; the block domes.
     weather: "ringsUp",
-    protect: "dome",
+    // A hard block is not an ice shell: `protect` shared the `dome` with
+    // freeze/shield/barrier/absorb, so the one technique that stops a hit
+    // outright looked like a status effect. It gets a BULWARK — a plate that
+    // slams up, holds, and drops.
+    protect: "bulwark",
     crush: "slam",
     wound: "slash",
     lacerate: "slash",
@@ -919,6 +923,16 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: stri
                     const s = 0.45 + ke * 2.1;
                     mesh.current.scale.set(s, s, s);
                     mat.current.opacity = 0.75 * (1 - ke);
+                } else if (family === "bulwark") {
+                    // Slams UP into place, holds flat while the block is live,
+                    // then drops. Vertical (not a dome) so it reads as a raised
+                    // guard rather than a bubble around the body.
+                    const rise = Math.min(1, t * 5.2);
+                    const fall = t > 0.72 ? (t - 0.72) / 0.28 : 0;
+                    mesh.current.position.set(spawn.x, 0.15 + rise * 1.0 - fall * 0.55, spawn.z);
+                    mesh.current.rotation.set(0, Math.atan2(spawn.dirX, spawn.dirZ), 0);
+                    mesh.current.scale.set(1.5 + rise * 0.5, (0.15 + rise * 1.15) * (1 - fall * 0.7), 1);
+                    mat.current.opacity = 0.62 * rise * (1 - fall);
                 } else if (family === "bind") {
                     // The snare CLAMPS: the ring contracts onto the legs and
                     // holds a moment before releasing.

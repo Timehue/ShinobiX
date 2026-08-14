@@ -315,6 +315,29 @@
 .showdown-round { font-weight: 800; font-size: 0.9rem; color: #fbbf24; text-shadow: 0 1px 4px #000; }
 .showdown-vs { font-size: 0.78rem; color: #d9c9a8; text-shadow: 0 1px 4px #000; max-width: 160px; text-align: right; }
 
+/* FIELD WEATHER — the sky a weather technique actually calls, drawn by the
+   same SceneAmbience the overworld uses so rain in the arena is the rain
+   players already know from a sector. Full-bleed over the 3D canvas and UNDER
+   every piece of HUD chrome, and inert to input: it is scenery, not a control.
+   (Distinct from `.showdown-weather` below, which is the little HUD chip that
+   names the standing element — same feature, different job.) */
+.showdown-sky {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    animation: showdown-sky-in 620ms ease-out both;
+}
+@keyframes showdown-sky-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .showdown-sky { animation: none; }
+}
+
 /* Standing arena weather: the crest of the element it favours and the rounds
    it has left. Sits with the round readout because it IS round state — the
    board both sides are fighting over. */
