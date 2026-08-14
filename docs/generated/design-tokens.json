@@ -2325,7 +2325,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1623
+            "line": 1646
           }
         ]
       },
@@ -2424,11 +2424,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1072
+            "line": 1095
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1407
+            "line": 1430
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -2685,7 +2685,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1488
+            "line": 1511
           }
         ]
       },
@@ -3147,7 +3147,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1375
+            "line": 1398
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
