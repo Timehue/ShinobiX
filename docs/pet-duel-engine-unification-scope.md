@@ -202,3 +202,61 @@ is a different decision with blast radius across every mode.
 2. **Ladder history:** dual-read old replays (recommended), or accept that
    pre-port replays stop playing?
 3. ~~**Order**~~ — SETTLED: build 1–4 and ship them together, no flags.
+
+---
+
+## STATUS — 2026-08-14 (live on main through `cd878fbb8`)
+
+Five of the six entries resolve on Showdown. What that bought, and what is
+honestly left.
+
+### Done
+
+| Entry | How it resolves now |
+|---|---|
+| Clan War pet duels | `resolveWarDuel` headless; watch action re-derives the log |
+| Sector War pet duels | same, plus terrain → standing arena **weather** |
+| Ranked | headless; engine version `showdown-ranked-v2` refuses pre-cutover tokens |
+| Pet Ladder (coliseum) | scored + `coliseumScript` from the same inputs |
+| Arena exhibition | new **paid** `arena` entry: arena-matched, cap checked up front |
+| Hollow Gate | arena bout bound to the run, minting the identical `hg-pet-result` receipt |
+
+Format ruling applied: every war duel is **2v2 with a 2-pet bench**
+(`WAR_DUEL_FORMAT`), teams filled from the owner's roster behind the champion
+they send (`war-team.ts`). The daily faucet cap has ONE definition
+(`SHOWDOWN_DAILY_WIN_CAP`) read by both handlers and printed in the lobby.
+
+The Arena screen shows one Coliseum with two doors: **Enter the Coliseum**
+(paid, arena-matched, capped) and **Training Grounds** (free, you pick, no
+counters). Same engine behind both.
+
+### NOT done — and why each is non-trivial
+
+1. **`DungeonPetBattle`** (story/event encounters + the dungeon seal). Still a
+   client-local duel. The blocker is not effort but TRUST SHAPE: it fights an
+   `enemyOverride` supplied by the caller (authored story data), and Showdown
+   has no entry that accepts a caller-specified opponent. Adding one means a
+   server endpoint taking opponent stats from the client — a new surface that
+   needs its own authority design (authored-encounter ids resolved server-side,
+   not raw stats over the wire). These fights never touch
+   `battle-start`/`battle-result`; they report through an `onWin` callback, so
+   this is a PRESENTATION port, not a reward one.
+
+2. **`PetArena`'s legacy machinery.** `startBattle`, `mintCasualPetBattleToken`
+   and `reportPetBattle` still serve the PvP and party paths woven through a
+   2,570-line screen. The paid AI exhibition has moved to the Coliseum entry;
+   these remain for player-vs-player.
+
+3. **Deleting the sim.** Only safe once 1 and 2 land. `api/pet-ladder/_duel-sim.ts`
+   is ALREADY orphaned (no live importer) and can go first, independently.
+
+### Guardrails added along the way, worth keeping
+
+- `_showdown-rewards.test.ts` pins the exact set of `rewardEligible` seal forms
+  (`['false', '!hollowGate']`), each to its entry block, and proves the Hollow
+  Gate binding is server-constructed only after the run claim validates.
+- `_settlement-contract.test.ts` enforces that the finishing turn persists the
+  session ADJACENT to settlement — it caught a real ordering fault where the
+  receipt was minted before the session it points at was durable.
+- `_battle-receipt-idempotency.test.ts` now follows a shared-constant alias
+  rather than demanding a duplicated literal.
