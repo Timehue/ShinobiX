@@ -6,26 +6,29 @@
 
 Status date: 2026-08-14 (America/Chicago)
 
-Program state: **Phase 0 locally complete; Phase 1 pending; external release evidence remains blocked**
+Program state: **Phase 0 locally complete; Phase 1 implemented and validated locally; Phase 2 in progress**
 
 Working branch: `codex/aaa-cohesion-corrected`
 
-Verified local `HEAD` and `origin/main`: `d8948a311680b92a2a672ae0a0b35714e73e8b4f`
+Verified local `HEAD`: `3a3b95b7c0492c5aa10ccc3f8bf4f1ba1360c018`
+
+Fetched `origin/main` baseline: `d8948a311680b92a2a672ae0a0b35714e73e8b4f`
 
 Phase-0 worktree state before this file was added: clean
 
 Local runtime observed during discovery: Node `v24.15.0`, npm `11.12.1`
 
 The repository requires Node 22 or newer. Local Node 24 is compatible with that
-range, but it does not replace the hosted Linux/Node 22 result.
+range. The Phase-1 workflow now pins Node `22.23.1`, but no hosted run of the
+split workflow has yet verified Linux/Node-22 execution.
 
 ## Phase tracker
 
 | Phase | State | Exit condition |
 | --- | --- | --- |
 | 0 — verified baseline and architecture truth | **Locally complete** | Baseline evidence, current deployment/storage topology, the complete static mode map, baseline repairs, and final local reruns are recorded. External and hosted checks remain explicit non-passes. |
-| 1 — reliable CI | Pending | Next phase; the confirmed 45-minute hosted timeout remains red until the split workflow completes on GitHub. |
-| 2 — mode-authority and capability registry | Pending | Not started. |
+| 1 — reliable CI | **Implemented and validated locally** | The split workflow, contracts, evidence handling, and operator docs pass local static/discovery validation. Hosted split checks and external branch protection remain unverified, so Phase 1 is not claimed complete. |
+| 2 — mode-authority and capability registry | **In progress** | Registry/projection code and focused tests are present in the worktree, but the slice is uncommitted and has not completed final review. |
 | 3 — engine-boundary hardening | Pending | Not started. |
 | 4 — frontend decomposition | Pending | Not started. |
 | 5 — shared reliability infrastructure | Pending | Not started. |
@@ -56,25 +59,52 @@ territory settlement is not combat authority.
 
 ## Current check status
 
-The current main commit does **not** have a complete green CI result.
+The Phase-1 worktree no longer contains the old monolithic 45-minute workflow.
+GitHub run `31850478893` for `d8948a3` remains valid **historical baseline
+evidence**: the former `test-build` timed out after starting combat test 18 of 30
+and skipped client audit. It is not current workflow truth and does not validate
+or invalidate the new split jobs. GitHub CodeQL run `31850478918` for the same
+baseline succeeded, but it likewise does not certify this worktree revision.
 
-| Evidence | Result | Interpretation |
+The new workflow pins Node `22.23.1` and declares nine stable/compatibility check
+names: `CI / server-contracts`, `CI / server-build-security`,
+`CI / client-quality`, `CI / release-certification`,
+`CI / concurrency-smoke`, `CI / e2e-responsive`, `CI / e2e-combat`,
+`CI / e2e-warfront`, and transitional `CI / test-build`. Combat execution is
+internally sharded as `CI / e2e-combat / chromium`, `/ firefox`, and `/ webkit`;
+`CI / e2e-combat` is the stable fail-closed aggregate. `CI / release-artifact`
+is the internal server/client artifact join. No ordinary job timeout exceeds 29
+minutes.
+
+Server, client, and joined release archives are immutable artifacts named with
+the source SHA, run ID, and run attempt and accompanied by SHA-256 and provenance
+files. Every job retains 14-day evidence, including aggregate results. Dependent
+jobs use `always()` with explicit upstream-result guards so upstream red does not
+silently skip a required context. Hidden `.ci-*` provenance and repository-root
+`.playwright-mcp` evidence are included explicitly in upload-artifact v7 uploads.
+The Warfront CI configuration snapshots the downloaded built client into
+`.playwright-warfront-dist` and previews that artifact rather than rebuilding
+different source.
+
+`npm run test:ci` invokes the same complete root auto-discovery runner as
+`npm test` while bypassing only the local `pretest` client install, because CI
+performs that locked install explicitly.
+
+### Local Phase-1 validation evidence
+
+| Validation | Result | Scope |
 | --- | --- | --- |
-| GitHub CI run `31850478893` for `d8948a3` | **Cancelled** at the 45-minute job limit | Release-blocking incomplete result. The serial job passed dependency installs, root tests, deployment, rollback, backup, mission/assets/tooling checks, root audit/build, release certification, concurrency smoke, client lint/build, browser install, and the responsive/accessibility suite before timeout. |
-| Responsive/accessibility step in that run | 96 passed, 86 project-filtered skips | Step passed, but it is not the final CI result. |
-| Combat-layout step in that run | Cancelled after starting test 18 of 30 | No final summary exists; it cannot be counted as passed. |
-| Client audit in that run | Skipped after cancellation | Still missing for the current commit's hosted run. |
-| GitHub CodeQL run `31850478918` for `d8948a3` | Success | The old warning in `.github/workflows/codeql.yml` about an expected advanced-setup red upload appears operationally stale and must be verified before editing. |
+| `actionlint 1.7.12` | **PASS** | All current workflow files passed static validation. |
+| Prettier YAML parse | **PASS** | All workflow YAML parsed successfully; this is syntax evidence, not a hosted run. |
+| Workflow/package contract tests | **PASS** | 5/5 tests: three workflow-contract cases and two package-script cases. |
+| Warfront Playwright discovery | **PASS — discovery only** | 24 tests selected across the configured DPR projects. No browser execution is inferred. |
+| Firefox combat discovery | **PASS — discovery only** | 5 tests selected for the Firefox combat shard. |
+| Chromium combat discovery | **PASS — discovery only** | 20 tests selected across the Chromium combat projects. |
 
-The CI workflow still places the full suite, two builds, two browser suites, and
-both audits in one `test-build` job with `timeout-minutes: 45`
-(`.github/workflows/ci.yml`). This is a confirmed reliability defect: a green
-set of completed steps is reported red/incomplete because the final matrix
-cannot finish within the monolithic job budget.
-
-Historical reports contain useful earlier green results, but they do not certify
-the current commit or this worktree. A cancelled, timed-out, skipped, or
-zero-summary check remains red.
+The split contexts have not run on GitHub, and the desired protection in
+`docs/required-branch-protection.md` has not been read from or applied to external
+GitHub settings. Phase 1 is therefore locally implemented/validated, not hosted
+complete and not production-readiness evidence.
 
 ### Local Phase-0 execution evidence
 
@@ -105,15 +135,12 @@ onboarding or Express journeys must run it explicitly.
 
 ## Confirmed architecture and documentation defects
 
-1. **The executable combat inventory is incomplete at exactly the owner-sensitive
-   boundaries.** `scripts/combat-runtime-inventory.mjs` has one generic
-   `Pet Arena and Coliseum` row and no independent Warfront/Tactical row. Its
-   required-mode test repeats that omission, so the guard can pass without
-   proving Pet Showdown versus Pet Tactical separation. It also lacks explicit
-   rows for Tower PvP, sector-war pet combat, pet-ranked, the two Pet Ladder
-   replay kinds, and the authored dungeon-pet path. Real separate routes already
-   exist in `server.ts`, including Tower PvP, sector pet, pet ranked, Warfront,
-   Showdown, and Pet Ladder routes.
+1. **The fetched executable combat inventory was incomplete at owner-sensitive
+   boundaries.** The Phase-2 worktree now contains
+   `shared/runtime-mode-registry.ts`, converts
+   `scripts/combat-runtime-inventory.mjs` into a compatibility projection, and
+   expands its invariants. That repair remains uncommitted and under review; its
+   presence is progress, not an accepted registry-completion claim.
 2. **The human runtime inventory repeats the same conflation.**
    `docs/architecture/combat-runtime-inventory.md` labels one row
    `Pet Arena / Coliseum / tactical pet`; this contradicts the corrected owner
@@ -148,11 +175,11 @@ onboarding or Express journeys must run it explicitly.
    client-attested Solo outcomes, and other findings that later reports claim
    fixed. They must not be promoted into implementation work until traced in
    current code.
-8. **The executable and older human inventories remain incomplete.** The new
-   `docs/architecture/verified-mode-authority.md` closes the Phase-0 static map,
-   including ANBU, mercenary, Clan War, Gauntlet, co-op Tactical, and Dungeon Card.
-   The machine inventory and pre-existing architecture docs have not yet been
-   generated from that truth and remain Phase-2 drift risks.
+8. **The older human inventories remain stale while the machine repair is under
+   review.** `docs/architecture/verified-mode-authority.md` closes the Phase-0
+   static map, and the Phase-2 worktree registry now projects machine inventory
+   from shared truth. Pre-existing architecture prose still requires reconciliation,
+   and the registry slice is not final until reviewed and committed.
 9. **Sector War's garrison fallback uses the wrong shinobi engine.** The combat
    win condition resolves a rewarding AI garrison through the Tower mercenary
    runtime instead of the owner-selected PvP family. Its settlement also has
@@ -201,12 +228,13 @@ scan. The applicable root and client `CLAUDE.md` instructions were read.
 - The live product and release reports warn that current credentialed staging
   smoke, restore evidence, and environment-specific Legacy availability require
   operator access.
-- Branch protection settings and current required check names have not yet been
+- Stable required check names and the desired protection policy are now
+  documented, but their hosted emission and GitHub settings have not been
   verified through an authorized repository-settings read.
-- The corrected handoff, baseline report, and verified mode-authority report now
-  exist and are Phase-0 evidence. Implementation, regression, capacity,
-  operations, rollback, and branch-protection reports remain future deliverables;
-  their absence does not imply a pass.
+- The corrected handoff, baseline report, verified mode-authority report, CI
+  operator guide, and desired branch-protection policy now exist. The external
+  protection state, hosted split-run evidence, implementation/regression review,
+  capacity, operations, and rollback evidence remain non-passes until verified.
 
 ## External blocks and non-claims
 
@@ -226,59 +254,38 @@ this status.
 
 ## Exact next work
 
-1. Split the monolithic CI into stable required jobs that reuse exact built
-   artifacts and preserve every existing check. Keep a compatibility aggregate
-   until branch protection can migrate safely.
-2. Add durable per-job evidence and a nonempty local-Postgres integrity target;
-   never substitute an empty in-memory scan for production evidence.
-3. Correct and expand the machine inventory from the complete static trace. Add
-   tests that explicitly distinguish Showdown from Tactical, Solo from Tower,
-   PvP from Solo, and Card Clash from every other engine.
-4. Fix or disable wrong-owner/reward-proof paths before exposing strict green
-   ownership assertions: Sector garrison, Dungeon Pet/Card, Pet Ranked, Hollow
-   Gate Pet, and standalone Tactical.
-5. Keep the real isolated-database restore, staging health, branch protection,
-   and production capacity checks externally blocked until authorized targets
-   are available; hermetic/local passes are not substitutes.
+1. Review and commit the Phase-1 workflow, package/script contracts, Warfront
+   artifact-preview change, CI operator guide, and branch-protection policy as one
+   coherent checkpoint. Do not call Phase 1 hosted-complete from local validation.
+2. Push a review branch and require all nine stable/compatibility contexts, three
+   combat shards, the internal release join, and both CodeQL language checks to
+   produce final hosted summaries and retained artifacts.
+3. After GitHub has observed the new contexts, apply the documented `main`
+   protection with strict up-to-date checks. Retain `CI / test-build` during the
+   migration, verify an ordinary PR and `main` run, then remove only that
+   compatibility requirement and record the external rule identifier.
+4. Review the uncommitted Phase-2 registry/projection slice against
+   `docs/architecture/verified-mode-authority.md`, its focused tests, and the
+   owner-authoritative engine boundaries before committing it.
+5. Continue Phase 2/3 work on the confirmed Sector garrison, Dungeon Pet/Card,
+   Pet Ranked, Hollow Gate Pet, and standalone Tactical defects without merging
+   distinct engine families.
+6. Keep the real isolated-database restore, staging health, database audits, and
+   production capacity checks externally blocked until authorized targets are
+   available; hermetic/local passes are not substitutes.
 
 ```text
-git fetch --prune origin main
+git rev-parse HEAD
 git rev-parse origin/main
-git branch --show-current
 git status --short
-node --version
-npm --version
-npm ci
-npm ci --prefix shinobij.client
-npm test
-npm run check:deployment
-npm run check:rollback-readiness
-npm run test:backup
-npm run test:mission-eligibility
-npm run test:release-assets
-npm run test:pet-breeding-odds
-npm run check:tooling-handoffs
-npm run scan:data
-npm run ledger:audit
-npm audit --audit-level=high
-npm --prefix shinobij.client audit --audit-level=high
-npm run build
-npm run certify:release
-npm run soak:smoke
-npm run test:hollow-gate-soak
-npm run certify:clan-boss-operation
-npm run audit:clan-boss-balance
-npm run check:story-content
-npm --prefix shinobij.client run lint
-npm --prefix shinobij.client run build
-npm --prefix shinobij.client run test:e2e
-npm --prefix shinobij.client run test:e2e:combat-layout
-npm --prefix shinobij.client run test:e2e:visual
-npm --prefix shinobij.client run test:e2e:visual:size
-npm --prefix shinobij.client run test:e2e:warfront
-npm --prefix shinobij.client run test:e2e:live # supplemental when applicable
+node --import tsx --test scripts/ci-workflow-contract.test.mjs scripts/ci-package-scripts.test.mjs
+npm run test:ci
 git diff --check
-git status --short
+
+# After pushing the review branch, with authorized GitHub access:
+gh run list --workflow CI --limit 20
+gh pr checks <pull-request>
+gh api repos/Timehue/ShinobiX/branches/main/protection
 ```
 
 Playwright browser installation is required before the browser gates when the

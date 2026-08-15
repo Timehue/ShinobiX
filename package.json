@@ -16,6 +16,7 @@
         "slice-badges": "node scripts/slice-badges.mjs",
         "pretest": "npm ci --prefix shinobij.client",
         "test": "node --import tsx scripts/run-tests.mjs",
+        "test:ci": "node --import tsx scripts/run-tests.mjs",
         "test:hollow-gate-soak": "node --import tsx --test api/hollow-gate/_reconnect-soak.test.ts",
         "test:mission-eligibility": "node scripts/check-mission-eligibility.mjs",
         "test:release-assets": "node scripts/check-release-assets.mjs",
