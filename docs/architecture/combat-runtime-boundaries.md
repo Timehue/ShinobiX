@@ -1,6 +1,6 @@
 # Combat Runtime Boundaries
 
-Status: verified against executable routes on 2026-08-13 after the WorldMap cutover.
+Status: verified against executable routes on 2026-08-15 after the Dungeon proof-chain cutover.
 
 This is the ownership contract for combat runtimes. Server authority and Tower
 are separate concepts: normal one-player shinobi combat uses `solo-pve`, while
@@ -21,7 +21,9 @@ Tower-specific objectives. Pet and Card participant models remain independent.
   generic pet boundary.
 - Pet Showdown/Coliseum, positional Warfront/Tactical, the Gauntlet grid,
   cinematic Pet Arena duels, legacy pet duels, and client-local pet duels are
-  separate authorities or explicitly recorded compatibility/defect paths.
+  separate authorities or explicitly recorded compatibility paths. The
+  rewarding Dungeon Pet seal now uses the cinematic family; that does not make
+  generic client-local presentation valid reward proof.
 - Card Clash remains an independent Chronicle game.
 
 ## Verified current inventory
@@ -41,10 +43,10 @@ keyspace, and rollback narrative remains in
 | `pet-showdown` | Showdown practice, Coliseum, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
 | `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |
-| `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1/2v2 HTTP replay, exact-cardinality ordinary live PvP 1v1/2v2 Socket.IO replay, and mounted Hollow Gate PvE replay; the retired live-ranked surface names this family as its intended owner but has no admitted combat lifecycle |
+| `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1/2v2 HTTP replay, exact-cardinality ordinary live PvP 1v1/2v2 Socket.IO replay, mounted Hollow Gate PvE replay, and the run-bound Dungeon Rare Beast seal; the retired live-ranked surface names this family as its intended owner but has no admitted combat lifecycle |
 | `legacy-pet-duel` | New `rankedPet` challenge creation is retired fail-closed; retained notices/start tokens/results remain recoverable, although cinematic client playback and legacy server replay can disagree. It is not the public Pet Ladder queue |
-| `client-local-pet-duel` | Dungeon pet presentation; its rewarding parent flow lacks server encounter and terminal proof and is a defect |
-| `chronicle` | Card Clash, sector-card, clan-war card, and dungeon-card combat; the Dungeon parent settlement binding remains a separate defect |
+| `client-local-pet-duel` | Historical and non-rewarding local pet presentation only; it remains separately named and is never accepted as combat or reward proof |
+| `chronicle` | Card Clash, sector-card, clan-war card, and dungeon-card combat; the Dungeon Card terminal now stamps the exact active run before parent settlement |
 
 `story/spar-start` and `endless/wave-start` both exist, are registered, and have
 real client callers. Their rewarding paths require terminal Solo evidence.
@@ -82,7 +84,7 @@ Each runtime owns orchestration and persistence:
 | `pet-showdown` | turn-based pet commands, bench/switch/stamina state, Showdown scripts, and receipts |
 | `pet-warfront` | positional teams, formations, lanes/objectives, deterministic Warfront replay, and Warfront-family settlement |
 | `pet-gauntlet-grid` | run-only draft state, grid placements, deterministic transcript replay, and capped run settlement |
-| `pet-cinematic-duel` | cinematic 1v1/party input logs; server-replayed ordinary Arena AI receipts; and server-sealed, memory-only live PvP transport with no reward/rating write |
+| `pet-cinematic-duel` | cinematic 1v1/party input logs; server-replayed ordinary Arena AI receipts; the server-selected Dungeon Rare Beast and its parent-run proof; and server-sealed, memory-only live PvP transport with no reward/rating write |
 | `legacy-pet-duel` | retained sealed legacy ranked challenge inputs and compatibility settlement; new notices are retired and it is not a substitute for the public ranked surface, Showdown, Warfront, Gauntlet, or cinematic authority |
 | `client-local-pet-duel` | presentation-only local duel state; it is never valid reward proof |
 | `chronicle` | decks, hidden projections, card actions, match state, and settlement |

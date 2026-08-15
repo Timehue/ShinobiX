@@ -81,6 +81,12 @@ describe("screen navigation guards", () => {
         assert.equal(restoreScreenForSave("hollowGateShrine", true, true), "hospital");
     });
 
+    it("restores an active Dungeon run even when its key was already consumed", () => {
+        assert.equal(restoreScreenForSave("village", false, false, true), "dungeon");
+        assert.equal(restoreScreenForSave(null, false, false, true), "dungeon");
+        assert.equal(restoreScreenForSave("dungeon", false, true, true), "hospital");
+    });
+
     it("redirects settled admissions but never interrupts an unresolved fight", () => {
         assert.equal(shouldRedirectToHospital(true, "missions", false), true);
         assert.equal(shouldRedirectToHospital(true, "hospital", false), false);

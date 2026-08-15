@@ -32,13 +32,16 @@ const ENCOUNTER_AI_DIFFICULTY: Record<TileDifficulty, ChronicleAiDifficulty> = {
  * torch and seal consequences; the showdown server owns every card-game decision. */
 export function CardClashDuel({
     character, creatorCards, tileDifficulty = "normal", dungeonSceneImage,
-    opponentAvatar, onDungeonWin, onDungeonLose, onDungeonDraw, onDungeonLeave,
+    opponentAvatar, dungeonRunToken, onVersionedCharacter,
+    onDungeonWin, onDungeonLose, onDungeonDraw, onDungeonLeave,
 }: {
     character: Character;
     creatorCards: TileCard[];
     tileDifficulty?: TileDifficulty;
     dungeonSceneImage?: string;
     opponentAvatar?: string;
+    dungeonRunToken?: string;
+    onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
     onDungeonWin: () => void;
     onDungeonLose?: () => void;
     onDungeonDraw?: () => void;
@@ -51,6 +54,7 @@ export function CardClashDuel({
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(true);
     const [aiActing, setAiActing] = useState(false);
+    const [dungeonTerminalReady, setDungeonTerminalReady] = useState(false);
     const started = useRef(false);
     const replayToken = useRef(0);
     useEffect(() => () => { replayToken.current += 1; }, []);
@@ -58,7 +62,19 @@ export function CardClashDuel({
     /** Replay the Keeper's captured moves one beat at a time, then settle. */
     async function presentSession(result: ChronicleAiResult) {
         const final = result.session;
-        if (!final) return;
+        if (!final) return false;
+        if (dungeonRunToken && final.status === "complete") {
+            const version = Number(result._saveVersion);
+            if (!result.character || !Number.isSafeInteger(version) || version < 1) {
+                setError("The Dungeon Card proof could not be reconciled. Retry the final action.");
+                return false;
+            }
+            if (!onVersionedCharacter?.(result.character, version)) {
+                setError("The Dungeon Card proof belongs to a no-longer-active save session.");
+                return false;
+            }
+            setDungeonTerminalReady(true);
+        }
         const steps = result.aiSteps ?? [];
         const token = ++replayToken.current;
         if (steps.length > 0) {
@@ -68,21 +84,31 @@ export function CardClashDuel({
                 setDuel(step);
                 const beat = step.log.at(-1) !== previousLast ? AI_STEP_BEAT_MS : AI_STEP_QUIET_MS;
                 await new Promise<void>((resolve) => window.setTimeout(resolve, beat));
-                if (replayToken.current !== token) return;
+                if (replayToken.current !== token) return false;
                 previousLast = step.log.at(-1);
             }
             setAiActing(false);
         }
         setDuel(final);
+        return true;
     }
 
     useEffect(() => {
         if (started.current) return;
         started.current = true;
-        void startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true).then(async (result) => {
+        void startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true, dungeonRunToken).then(async (result) => {
             if (!result.ok || !result.matchId || !result.session) { setBusy(false); setError(result.error ?? "Could not prepare the sealed showdown."); return; }
             setMatchId(result.matchId);
-            await presentSession(result);
+            let authoritative = result;
+            if (dungeonRunToken && result.session.status === "complete" && (!result.character || !result._saveVersion)) {
+                authoritative = await chronicleAiAction(result.matchId, { action: "state" });
+                if (!authoritative.ok || !authoritative.session) {
+                    setBusy(false);
+                    setError(authoritative.error ?? "The Dungeon Card proof could not be reconciled.");
+                    return;
+                }
+            }
+            await presentSession(authoritative);
             setBusy(false);
         });
         // presentSession is stable for the one-shot start effect
@@ -99,6 +125,10 @@ export function CardClashDuel({
     }
 
     function resolve() {
+        if (dungeonRunToken && !dungeonTerminalReady) {
+            setError("The Dungeon Card proof is still waiting for server confirmation.");
+            return;
+        }
         if (duel && duel.winner === duel.viewerSide) onDungeonWin();
         else if (duel?.winner === "draw") (onDungeonDraw ?? onDungeonLose ?? onDungeonLeave)();
         else (onDungeonLose ?? onDungeonLeave)();

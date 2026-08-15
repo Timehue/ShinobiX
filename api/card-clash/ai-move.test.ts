@@ -8,6 +8,7 @@ import {
   countChronicleCards,
   deckLimitForCard,
 } from "../../shared/chronicle-duel.js";
+import { dungeonCardMatchId } from "../dungeon/_encounter-proof.js";
 
 process.env.ADMIN_PASSWORD = "cc-ai-test-admin";
 process.env.SUPABASE_URL ??= "http://localhost:1";
@@ -16,6 +17,7 @@ process.env.ENABLE_LEGACY = "1";
 
 const store = new Map<string, unknown>();
 let failLegacyWrites = 0;
+let failCardSessionWrites = 0;
 const clone = (value: unknown) =>
   value === undefined || value === null ? null : structuredClone(value);
 function fakeReq(body: unknown) {
@@ -61,6 +63,10 @@ before(async () => {
       failLegacyWrites -= 1;
       throw new Error("injected AI Legacy write outage");
     }
+    if (key.startsWith("cc-ai:") && failCardSessionWrites > 0) {
+      failCardSessionWrites -= 1;
+      throw new Error("injected Chronicle session write outage");
+    }
     if (options?.nx && store.has(key)) return null;
     store.set(key, clone(value));
     return "OK";
@@ -90,6 +96,21 @@ async function call(handler: Handler, body: unknown) {
 function character(name: string): Record<string, unknown> {
   return (store.get(`save:${name}`) as { character: Record<string, unknown> })
     .character;
+}
+
+function dungeonCharacter(name: string, token: string): Record<string, unknown> {
+  return {
+    name,
+    ryo: 0,
+    tileCards: CHRONICLE_FIXED_FALLBACK_DECK,
+    cardClashDeck: CHRONICLE_FIXED_FALLBACK_DECK,
+    activeDungeonRun: {
+      token,
+      combatAuthorityVersion: 1,
+      wardenDefeated: true,
+      wardenProofId: "wardenproof123",
+    },
+  };
 }
 
 test("AI start grants starter utility once and creates current rules state", async () => {
@@ -327,5 +348,396 @@ test("unknown and retired action vocabulary is rejected", async () => {
     (await call(aiMove, { matchId, action: "play", locationIndex: 0 }))
       .statusCode,
     400,
+  );
+});
+
+test("Dungeon Card starts bind one deterministic medium external session under concurrency", async () => {
+  store.clear();
+  failCardSessionWrites = 0;
+  const token = "dungeonrun_card_001";
+  store.set("save:dungeonstart", {
+    _saveVersion: 4,
+    character: dungeonCharacter("DungeonStart", token),
+  });
+  const request = {
+    playerName: "dungeonstart",
+    difficulty: "hard",
+    externalStakes: false,
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token },
+  };
+  const [first, duplicate] = await Promise.all([
+    call(aiStart, request),
+    call(aiStart, request),
+  ]);
+  assert.equal(first.statusCode, 200);
+  assert.equal(duplicate.statusCode, 200);
+  const expectedMatchId = dungeonCardMatchId("dungeonstart", token);
+  assert.equal((first.body as { matchId: string }).matchId, expectedMatchId);
+  assert.equal((duplicate.body as { matchId: string }).matchId, expectedMatchId);
+  const session = store.get(`cc-ai:${expectedMatchId}`) as {
+    difficulty: string;
+    settlementMode: string;
+    dungeonRunToken?: string;
+    dungeonAuthorityVersion?: number;
+  };
+  assert.equal(session.difficulty, "medium", "Dungeon difficulty is server-owned");
+  assert.equal(session.settlementMode, "external");
+  assert.equal(session.dungeonRunToken, token);
+  assert.equal(session.dungeonAuthorityVersion, 1);
+  assert.equal(
+    (store.get("save:dungeonstart") as { _saveVersion: number })._saveVersion,
+    5,
+    "the duplicate start validates read-only instead of rewriting the save",
+  );
+  assert.equal(
+    [...store.keys()].filter((key) => key.startsWith("cc-ai:")).length,
+    1,
+  );
+});
+
+test("Dungeon Card replaces an unproved deterministic session after a rules upgrade", async () => {
+  store.clear();
+  const token = "dungeonrun_card_rules_01";
+  store.set("save:dungeonrules", {
+    _saveVersion: 2,
+    character: dungeonCharacter("DungeonRules", token),
+  });
+  const request = {
+    playerName: "dungeonrules",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token },
+  };
+  const started = await call(aiStart, request);
+  assert.equal(started.statusCode, 200);
+  const matchId = dungeonCardMatchId("dungeonrules", token);
+  const key = `cc-ai:${matchId}`;
+  const retired = structuredClone(store.get(key)) as {
+    rulesVersion: number;
+    state: { rulesVersion: number };
+    createdAt: number;
+  };
+  retired.rulesVersion = CHRONICLE_RULES_VERSION - 1;
+  retired.state.rulesVersion = CHRONICLE_RULES_VERSION - 1;
+  const retiredCreatedAt = retired.createdAt;
+  store.set(key, retired);
+
+  const resumed = await call(aiStart, request);
+  assert.equal(resumed.statusCode, 200);
+  assert.equal(
+    (resumed.body as { resumedWithCurrentRules?: boolean }).resumedWithCurrentRules,
+    true,
+  );
+  const current = store.get(key) as {
+    rulesVersion: number;
+    state: { rulesVersion: number };
+    createdAt: number;
+    dungeonRunToken?: string;
+  };
+  assert.equal(current.rulesVersion, CHRONICLE_RULES_VERSION);
+  assert.equal(current.state.rulesVersion, CHRONICLE_RULES_VERSION);
+  assert.equal(current.dungeonRunToken, token);
+  assert.ok(current.createdAt >= retiredCreatedAt);
+  assert.equal(
+    [...store.keys()].filter((candidate) => candidate.startsWith("cc-ai:")).length,
+    1,
+  );
+
+  const actionable = await call(aiMove, { matchId, action: "state" });
+  assert.equal(actionable.statusCode, 200, "the replacement no longer dead-ends on retired rules");
+});
+
+test("Dungeon Card preserves a committed terminal proof across a rules upgrade", async () => {
+  store.clear();
+  const token = "dungeonrun_card_rules_02";
+  store.set("save:dungeonrulesdone", {
+    _saveVersion: 7,
+    character: dungeonCharacter("DungeonRulesDone", token),
+  });
+  const request = {
+    playerName: "dungeonrulesdone",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token },
+  };
+  const started = await call(aiStart, request);
+  assert.equal(started.statusCode, 200);
+  const matchId = dungeonCardMatchId("dungeonrulesdone", token);
+  const key = `cc-ai:${matchId}`;
+  const terminal = structuredClone(store.get(key)) as {
+    rulesVersion: number;
+    state: { rulesVersion: number; status: string; winner: string | null };
+    status: string;
+    winner?: string;
+    createdAt: number;
+  };
+  terminal.state.status = "complete";
+  terminal.state.winner = "p1";
+  terminal.status = "done";
+  terminal.winner = "player";
+  store.set(key, terminal);
+  const committed = await call(aiMove, { matchId, action: "state" });
+  assert.equal(committed.statusCode, 200);
+
+  const retired = structuredClone(store.get(key)) as typeof terminal & { settledAt?: number };
+  assert.ok(retired.settledAt);
+  retired.rulesVersion = CHRONICLE_RULES_VERSION - 1;
+  retired.state.rulesVersion = CHRONICLE_RULES_VERSION - 1;
+  store.set(key, retired);
+  const versionBefore = (store.get("save:dungeonrulesdone") as { _saveVersion: number })._saveVersion;
+
+  const resumed = await call(aiStart, request);
+  assert.equal(resumed.statusCode, 200);
+  assert.notEqual(
+    (resumed.body as { resumedWithCurrentRules?: boolean }).resumedWithCurrentRules,
+    true,
+  );
+  const body = resumed.body as {
+    character?: Record<string, unknown>;
+    _saveVersion?: number;
+  };
+  assert.equal(
+    (body.character?.activeDungeonRun as Record<string, unknown>)?.cardProofId,
+    matchId,
+  );
+  assert.equal(body._saveVersion, versionBefore);
+  assert.equal((store.get(key) as { rulesVersion: number }).rulesVersion, CHRONICLE_RULES_VERSION - 1);
+  assert.equal(
+    (store.get("save:dungeonrulesdone") as { _saveVersion: number })._saveVersion,
+    versionBefore,
+    "the authoritative terminal snapshot is returned without rewriting the save",
+  );
+});
+
+test("Dungeon Card admission rejects malformed, stale, and pre-Warden requests", async () => {
+  store.clear();
+  const activeToken = "dungeonrun_card_002";
+  store.set("save:dungeonreject", {
+    character: {
+      ...dungeonCharacter("DungeonReject", activeToken),
+      activeDungeonRun: { token: activeToken },
+    },
+  });
+  const malformed = await call(aiStart, {
+    playerName: "dungeonreject",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token: "short" },
+  });
+  assert.equal(malformed.statusCode, 400);
+  const noWarden = await call(aiStart, {
+    playerName: "dungeonreject",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token: activeToken },
+  });
+  assert.equal(noWarden.statusCode, 409);
+
+  store.set("save:dungeonreject", {
+    character: dungeonCharacter("DungeonReject", activeToken),
+  });
+  const stale = await call(aiStart, {
+    playerName: "dungeonreject",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token: "different_card_run_02" },
+  });
+  assert.equal(stale.statusCode, 409);
+
+  store.set("save:dungeonreject", {
+    character: dungeonCharacter("AnotherPlayer", activeToken),
+  });
+  const mismatchedSaveIdentity = await call(aiStart, {
+    playerName: "dungeonreject",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token: activeToken },
+  });
+  assert.equal(mismatchedSaveIdentity.statusCode, 409);
+  assert.equal(
+    [...store.keys()].some((key) => key.startsWith("cc-ai:")),
+    false,
+  );
+});
+
+test("a Dungeon Chronicle win stamps the exact run once across concurrent state retries", async () => {
+  store.clear();
+  const token = "dungeonrun_card_003";
+  store.set("save:dungeonwin", {
+    _saveVersion: 10,
+    character: dungeonCharacter("DungeonWin", token),
+  });
+  const started = await call(aiStart, {
+    playerName: "dungeonwin",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token },
+  });
+  assert.equal(started.statusCode, 200);
+  const matchId = (started.body as { matchId: string }).matchId;
+  const key = `cc-ai:${matchId}`;
+  const terminal = structuredClone(store.get(key)) as {
+    state: { status: string; winner: string | null };
+    status: string;
+    winner?: string;
+  };
+  terminal.state.status = "complete";
+  terminal.state.winner = "p1";
+  terminal.status = "done";
+  terminal.winner = "player";
+  store.set(key, terminal);
+
+  const [first, duplicate] = await Promise.all([
+    call(aiMove, { matchId, action: "state" }),
+    call(aiMove, { matchId, action: "state" }),
+  ]);
+  assert.equal(first.statusCode, 200);
+  assert.equal(duplicate.statusCode, 200);
+  const saved = store.get("save:dungeonwin") as {
+    _saveVersion: number;
+    character: Record<string, unknown>;
+  };
+  const active = saved.character.activeDungeonRun as Record<string, unknown>;
+  assert.equal(active.cardAuthorityVersion, 1);
+  assert.equal(active.cardLastOutcome, "player");
+  assert.equal(active.cardProofId, matchId);
+  assert.equal(active.cardDefeated, true);
+  assert.equal(saved._saveVersion, 12, "one deck write plus one terminal proof write");
+  for (const response of [first, duplicate]) {
+    const body = response.body as {
+      character: Record<string, unknown>;
+      _saveVersion: number;
+    };
+    assert.equal(
+      (body.character.activeDungeonRun as Record<string, unknown>).cardProofId,
+      matchId,
+    );
+    assert.equal(body._saveVersion, 12);
+  }
+});
+
+test("Dungeon Card settlement repairs a lost session write without rewriting its proof", async () => {
+  store.clear();
+  const token = "dungeonrun_card_004";
+  store.set("save:dungeonretry", {
+    _saveVersion: 20,
+    character: dungeonCharacter("DungeonRetry", token),
+  });
+  const started = await call(aiStart, {
+    playerName: "dungeonretry",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token },
+  });
+  const matchId = (started.body as { matchId: string }).matchId;
+  const key = `cc-ai:${matchId}`;
+  const terminal = structuredClone(store.get(key)) as {
+    state: { status: string; winner: string | null };
+    status: string;
+    winner?: string;
+    settledAt?: number;
+  };
+  terminal.state.status = "complete";
+  terminal.state.winner = "p1";
+  terminal.status = "done";
+  terminal.winner = "player";
+  store.set(key, terminal);
+  failCardSessionWrites = 1;
+
+  const lost = await call(aiMove, { matchId, action: "state" });
+  assert.equal(lost.statusCode, 500);
+  const committed = structuredClone(store.get("save:dungeonretry"));
+  const committedVersion = (committed as { _saveVersion: number })._saveVersion;
+  assert.equal(
+    ((committed as { character: Record<string, unknown> }).character.activeDungeonRun as Record<string, unknown>).cardProofId,
+    matchId,
+  );
+  assert.equal((store.get(key) as { settledAt?: number }).settledAt, undefined);
+
+  const repaired = await call(aiMove, { matchId, action: "state" });
+  assert.equal(repaired.statusCode, 200);
+  assert.equal(
+    (store.get("save:dungeonretry") as { _saveVersion: number })._saveVersion,
+    committedVersion,
+    "idempotent proof replay must not version-bump the save",
+  );
+  assert.ok((store.get(key) as { settledAt?: number }).settledAt);
+});
+
+test("a replaced Dungeon run blocks terminal proof settlement", async () => {
+  store.clear();
+  const token = "dungeonrun_card_005";
+  store.set("save:dungeonstale", {
+    character: dungeonCharacter("DungeonStale", token),
+  });
+  const started = await call(aiStart, {
+    playerName: "dungeonstale",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    dungeon: { token },
+  });
+  const matchId = (started.body as { matchId: string }).matchId;
+  const key = `cc-ai:${matchId}`;
+  const terminal = structuredClone(store.get(key)) as {
+    state: { status: string; winner: string | null };
+    status: string;
+    winner?: string;
+  };
+  terminal.state.status = "complete";
+  terminal.state.winner = "p1";
+  terminal.status = "done";
+  terminal.winner = "player";
+  store.set(key, terminal);
+  const record = store.get("save:dungeonstale") as {
+    character: Record<string, unknown>;
+  };
+  record.character.activeDungeonRun = {
+    ...(record.character.activeDungeonRun as Record<string, unknown>),
+    token: "replacement_card_run_5",
+  };
+  store.set("save:dungeonstale", record);
+
+  const rejected = await call(aiMove, { matchId, action: "state" });
+  assert.equal(rejected.statusCode, 409);
+  assert.equal(
+    (record.character.activeDungeonRun as Record<string, unknown>).cardProofId,
+    undefined,
+  );
+  assert.equal((store.get(key) as { settledAt?: number }).settledAt, undefined);
+});
+
+test("bare external stakes and top-level Dungeon-looking fields cannot mint a run proof", async () => {
+  store.clear();
+  const token = "dungeonrun_card_006";
+  store.set("save:dungeonbare", {
+    _saveVersion: 30,
+    character: dungeonCharacter("DungeonBare", token),
+  });
+  const started = await call(aiStart, {
+    playerName: "dungeonbare",
+    deck: CHRONICLE_FIXED_FALLBACK_DECK,
+    externalStakes: true,
+    dungeonRunToken: token,
+  });
+  assert.equal(started.statusCode, 200);
+  const matchId = (started.body as { matchId: string }).matchId;
+  assert.notEqual(matchId, dungeonCardMatchId("dungeonbare", token));
+  const key = `cc-ai:${matchId}`;
+  const terminal = structuredClone(store.get(key)) as {
+    state: { status: string; winner: string | null };
+    status: string;
+    winner?: string;
+    dungeonRunToken?: string;
+  };
+  assert.equal(terminal.dungeonRunToken, undefined);
+  terminal.state.status = "complete";
+  terminal.state.winner = "p1";
+  terminal.status = "done";
+  terminal.winner = "player";
+  store.set(key, terminal);
+  const versionBefore = (store.get("save:dungeonbare") as { _saveVersion: number })._saveVersion;
+
+  const ended = await call(aiMove, { matchId, action: "state" });
+  assert.equal(ended.statusCode, 200);
+  const saved = store.get("save:dungeonbare") as {
+    _saveVersion: number;
+    character: Record<string, unknown>;
+  };
+  assert.equal(saved._saveVersion, versionBefore);
+  assert.equal(
+    (saved.character.activeDungeonRun as Record<string, unknown>).cardProofId,
+    undefined,
   );
 });

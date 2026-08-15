@@ -88,9 +88,15 @@ loss is more than trivially recoverable by replaying gameplay.
   and server legacy replay can disagree.
   These are explicit owner/integration gaps, not permission to treat any route
   as generic Pet authority.
-- Dungeon pet remains a client-local presentation whose rewarding parent
-  settlement consumes no server-selected encounter or terminal pet proof. It is
-  a recorded authority defect, not sanctioned bounded client trust.
+- The Dungeon reward now requires an exact three-proof chain. The Warden stamps
+  its Solo proof; terminal Dungeon Chronicle settlement stamps the deterministic
+  Card match outcome; and `/pet/battle-result` server-replays the fixed Rare
+  Beast encounter before atomically stamping the Pet outcome and consumable
+  spend. A 24-hour Pet result receipt repairs lost responses before the short
+  battle token is retired. `/dungeon/run` accepts only Warden, Card, and Pet wins
+  on the same active token, then writes `redeemedDungeonRuns` with the parent
+  reward. Generic client-local pet presentation remains a distinct boundary and
+  is never sanctioned as reward proof.
 - Tower/weekly-boss/HG NX receipts keep their rollback-in-catch shape; a hard
   process kill can still strand one (loss-only). Migration to mechanism 1 is
   future hardening, not P0-2.

@@ -472,6 +472,11 @@ describe('executable multi-engine runtime registry', () => {
     const petRankedQueueSource = readFileSync(join(ROOT, 'api', 'pvp', 'pet-ranked-queue.ts'), 'utf8');
     const petArenaSource = clientSource('screens/PetArena.tsx');
     const petBattleStartSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
+    const dungeonPetAuthoritySource = readFileSync(join(ROOT, 'api', 'pet', '_dungeon-battle.ts'), 'utf8');
+    const dungeonProofSource = readFileSync(join(ROOT, 'api', 'dungeon', '_encounter-proof.ts'), 'utf8');
+    const dungeonRunSource = readFileSync(join(ROOT, 'api', 'dungeon', '_run.ts'), 'utf8');
+    const cardAiStartSource = readFileSync(join(ROOT, 'api', 'card-clash', 'ai-start.ts'), 'utf8');
+    const cardAiMoveSource = readFileSync(join(ROOT, 'api', 'card-clash', 'ai-move.ts'), 'utf8');
     const hollowGateSettleSource = readFileSync(join(ROOT, 'api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
     const petSocketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const gauntletHandlerSource = readFileSync(join(ROOT, 'api', 'pet', 'gauntlet.ts'), 'utf8');
@@ -516,9 +521,16 @@ describe('executable multi-engine runtime registry', () => {
     assert.doesNotMatch(sectorWarSource, /resolveMercBattle|sealTowerFighter/);
     assert.match(sectorWarSource, /case 'garrison': return res\.status\(410\)/);
 
-    const dungeonPet = runtimeModeById('dungeon-pet-client-local');
-    assert.equal(dungeonPet.status, 'defect');
-    assert.equal(dungeonPet.authorityEngine, E.CLIENT_LOCAL_PET_DUEL);
+    const dungeonPet = runtimeModeById('dungeon-pet-cinematic');
+    assert.equal(dungeonPet.status, 'match');
+    assert.equal(dungeonPet.authorityEngine, E.PET_CINEMATIC_DUEL);
+    assert.equal(dungeonPet.replayKind, 'server-replayed-cinematic-input-log-and-parent-run-receipt');
+    assert.match(petBattleStartSource, /resolveDungeonPetAuthority/);
+    assert.match(petBattleStartSource, /buildDungeonRareBeast/);
+    assert.match(dungeonPetAuthoritySource, /DUNGEON_RARE_BEAST_ID = 'dungeon-rare-beast'/);
+    assert.match(petBattleResultSource, /applyDungeonPetTerminal/);
+    assert.match(dungeonRunSource, /dungeonPetWasWon\(active\)/);
+    assert.match(dungeonRunSource, /dungeon-pet-proof-required/);
 
     const rankedPet = runtimeModeById('pet-ranked-live-defect');
     assert.equal(rankedPet.status, 'surface-gap');
@@ -565,9 +577,16 @@ describe('executable multi-engine runtime registry', () => {
     assert.equal(clan2v2.intendedAuthorityEngine, E.PVP);
 
     const dungeonCard = runtimeModeById('dungeon-card');
-    assert.equal(dungeonCard.status, 'defect');
+    assert.equal(dungeonCard.status, 'match');
     assert.equal(dungeonCard.authorityEngine, E.CHRONICLE);
     assert.equal(dungeonCard.intendedAuthorityEngine, undefined);
+    assert.equal(dungeonCard.replayKind, 'expiring-chronicle-projection-and-parent-run-proof-receipt');
+    assert.match(cardAiStartSource, /resolveDungeonCardAuthority/);
+    assert.match(cardAiStartSource, /dungeonCardMatchId/);
+    assert.match(cardAiMoveSource, /applyDungeonCardTerminal/);
+    assert.match(dungeonProofSource, /DUNGEON_CARD_AUTHORITY_VERSION = 1/);
+    assert.match(dungeonRunSource, /dungeonCardWasWon\(active\)/);
+    assert.match(dungeonRunSource, /dungeon-card-proof-required/);
 
     const gauntlet = runtimeModeById('pet-gauntlet');
     assert.equal(gauntlet.authorityEngine, E.PET_GAUNTLET_GRID);

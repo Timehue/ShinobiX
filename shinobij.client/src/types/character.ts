@@ -381,6 +381,21 @@ export type Character = {
         wardenProofId?: string;
         wardenProfileId?: string;
         wardenLastOutcome?: "win" | "loss" | "draw" | "forfeit";
+        cardAuthorityVersion?: number;
+        cardLastOutcome?: "player" | "opponent" | "draw";
+        cardLastProofId?: string;
+        cardSettledAt?: number;
+        cardDefeated?: boolean;
+        cardProofId?: string;
+        cardDefeatedAt?: number;
+        petAuthorityVersion?: number;
+        petLastOutcome?: "win" | "loss" | "draw";
+        petLastProofId?: string;
+        petSettledAt?: number;
+        petLastPetIds?: string[];
+        petDefeated?: boolean;
+        petProofId?: string;
+        petDefeatedAt?: number;
     } | null;
     /** Server-issued nonce for each accepted built-in field contract. */
     serverFieldMissionRuns?: Record<string, { missionId: string; runId: string; acceptedAt: number }>;

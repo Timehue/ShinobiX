@@ -75,11 +75,21 @@ export async function startChronicleAi(
     deck: readonly string[],
     difficulty: ChronicleAiDifficulty = "medium",
     externalStakes = false,
+    dungeonRunToken?: string,
 ): Promise<ChronicleAiResult> {
     try {
         const response = await fetch("/api/card-clash/ai-start", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, deck, difficulty, externalStakes }),
+            body: JSON.stringify({
+                playerName,
+                deck,
+                difficulty,
+                externalStakes,
+                // Only this nested envelope is eligible for a Dungeon proof.
+                // A generic external-stakes duel stays economically neutral but
+                // cannot impersonate the run-bound Card seal.
+                ...(dungeonRunToken ? { dungeon: { token: dungeonRunToken } } : {}),
+            }),
         });
         const body = await response.json().catch(() => ({})) as ChronicleAiResult;
         return response.ok && body.ok ? body : { ...body, ok: false, error: body.error ?? "Could not start the duel." };

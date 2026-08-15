@@ -2401,24 +2401,16 @@ export default function App() {
     const dungeonActionRef = useRef(false);
     const [activeDungeonRunToken, setActiveDungeonRunToken] = useState<string | null>(null);
     const [pendingEventEncounter, setPendingEventEncounter] = useState<PendingEventEncounter | null>(null);
-    const [dungeonStage, setDungeonStage] = useState<"intro" | "tile" | "pet" | "complete">("intro");
-    const [dungeonPage, setDungeonPage] = useState(0);
     const [dungeonLine, setDungeonLine] = useState(0);
     const [dungeonReturnScreen, setDungeonReturnScreen] = useState<Screen>("worldMap");
-    // A refreshed sealed Warden fight resumes independently in AiFightHost. Once
-    // the overlay closes, rebuild the Dungeon presentation from the authoritative
-    // active run; a proved win advances to seal two even when the original
-    // onResolved callback was lost with the old React tree.
+    // Rebuild presentation from the active run after refresh. DungeonEncounter
+    // derives the exact Warden/Card/Pet stage from server-owned proofs.
     useEffect(() => {
         const run = character?.activeDungeonRun;
         if (screen !== "dungeon" || !run?.token) return;
         setActiveDungeonRunToken(run.token);
         setActiveDungeonEvent((current) => current ?? creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent);
-        if (run.wardenDefeated) {
-            setDungeonStage((current) => current === "intro" ? "tile" : current);
-            setDungeonLine((current) => current > 0 ? 0 : current);
-        }
-    }, [screen, character?.activeDungeonRun?.token, character?.activeDungeonRun?.wardenDefeated, creatorEvents]);
+    }, [screen, character?.activeDungeonRun?.token, creatorEvents]);
     // Warn before refresh/close during battle or while hospitalized
     useEffect(() => {
         function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -3434,7 +3426,6 @@ export default function App() {
                         if (dungeonToken) {
                             setActiveDungeonEvent(creatorEvents.find((event) => event.id === legacy?.eventId) ?? dungeonEventTemplate());
                             setActiveDungeonRunToken(dungeonToken);
-                            setDungeonStage(normalized.activeDungeonRun?.wardenDefeated ? "tile" : "intro");
                             setDungeonLine(0);
                             gameToast("Dungeon combat upgraded. Challenge the sealed Warden to continue your reserved run.");
                             setScreen("dungeon");
@@ -3541,7 +3532,8 @@ export default function App() {
                     const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
                     const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
-                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized);
+                    const inDungeonRun = Boolean(normalized.activeDungeonRun?.token);
+                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized, inDungeonRun);
                     if (inHollowGateRun) {
                         try {
                             localStorage.removeItem("shinobix:towerRunId");
@@ -3560,6 +3552,13 @@ export default function App() {
                 } else if (target === "hollowGateShrine") {
                     // No active run — bounce back to village rather than
                     // staring at an empty shrine screen.
+                    target = "village";
+                } else if (target === "dungeon" && normalized.activeDungeonRun?.token) {
+                    setActiveDungeonRunToken(normalized.activeDungeonRun.token);
+                    setActiveDungeonEvent(creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent);
+                    setDungeonLine(0);
+                    setDungeonReturnScreen(normalized.activeDungeonRun.entry === "key" ? "centralHub" : "worldMap");
+                } else if (target === "dungeon") {
                     target = "village";
                 }
                 setScreen(target);
@@ -5617,7 +5616,7 @@ export default function App() {
         // The explore-tile Hidden Dungeon (no override) is free to enter; only the
         // Central Hub relic dungeons (passed as an override) stay gated behind a key.
         if (dungeonOverride) {
-            if (!ownsItem(character, DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
+            if (!character.activeDungeonRun?.token && !ownsItem(character, DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
             dungeonActionRef.current = true;
             try {
                 const result = await mutateDungeonRunServer(character.name, "start");
@@ -5634,8 +5633,6 @@ export default function App() {
             setActiveDungeonRunToken(freeRunToken);
         }
         setActiveDungeonEvent(event);
-        setDungeonStage("intro");
-        setDungeonPage(0);
         setDungeonLine(0);
         setDungeonReturnScreen(returnScreen);
         setScreen("dungeon");
@@ -5658,7 +5655,6 @@ export default function App() {
             returnScreen: "dungeon",
             onResolved: (result) => {
                 if (result.outcome === "win" && result.character?.activeDungeonRun?.wardenDefeated) {
-                    setDungeonStage("tile");
                     setDungeonLine(0);
                 }
             },
@@ -5698,8 +5694,6 @@ export default function App() {
         }
         setActiveDungeonRunToken(null);
         setActiveDungeonEvent(null);
-        setDungeonStage("intro");
-        setDungeonPage(0);
         setDungeonLine(0);
         setTemporaryStoryAi(null);
         setPendingArenaStoryBattle(null);
@@ -5729,8 +5723,6 @@ export default function App() {
         }
         setActiveDungeonRunToken(null);
         setActiveDungeonEvent(null);
-        setDungeonStage("intro");
-        setDungeonPage(0);
         setDungeonLine(0);
         setTemporaryStoryAi(null);
         setPendingArenaStoryBattle(null);
@@ -5761,7 +5753,6 @@ export default function App() {
         setActiveDungeonRunToken(null);
         alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
         setActiveDungeonEvent(null);
-        setDungeonStage("complete");
         setScreen(dungeonReturnScreen);
     }
 
@@ -6850,17 +6841,15 @@ export default function App() {
                     <DungeonEncounter
                         event={activeDungeonEvent}
                         character={character}
-                        updateCharacter={setCharacter}
                         creatorCards={creatorCards}
-                        editablePets={editablePets}
-                        stage={dungeonStage}
-                        pageIndex={dungeonPage}
+                        dungeonRunToken={activeDungeonRunToken ?? character.activeDungeonRun?.token ?? ""}
+                        onVersionedCharacter={commitVersionedCharacter}
                         lineIndex={dungeonLine}
-                        setPageIndex={setDungeonPage}
                         setLineIndex={setDungeonLine}
                         onStartAiFight={startDungeonAiFight}
-                        onTileWin={() => { setDungeonStage("pet"); setDungeonPage(2); setDungeonLine(0); }}
-                        onPetWin={completeDungeon}
+                        onTileWin={() => { setDungeonLine(0); }}
+                        onPetWin={() => { setDungeonLine(0); }}
+                        onClaimReward={completeDungeon}
                         onLeave={leaveDungeon}
                         sharedImages={sharedImages}
                     />

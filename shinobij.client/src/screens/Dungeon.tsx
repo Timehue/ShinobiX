@@ -18,6 +18,14 @@ import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { activeCarriedPets } from "../lib/entitlements";
+import { isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
+import {
+    settleDungeonPetBattle,
+    startDungeonPetBattle,
+    type DungeonPetBattleSeal,
+    type DungeonPetSettlement,
+} from "../lib/dungeon-pet-authority";
+import { resolveDungeonStage } from "../lib/dungeon-stage";
 import {
     petTamerPveMultiplier,
     type CreatorEvent,
@@ -30,34 +38,33 @@ const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) 
 export function DungeonEncounter({
     event,
     character,
-    updateCharacter,
     creatorCards,
-    editablePets,
-    stage,
+    dungeonRunToken,
+    onVersionedCharacter,
     lineIndex,
     setLineIndex,
     onStartAiFight,
     onTileWin,
     onPetWin,
+    onClaimReward,
     onLeave,
     sharedImages = {},
 }: {
     event: CreatorEvent;
     character: Character;
-    updateCharacter: (character: Character) => void;
     creatorCards: TileCard[];
-    editablePets: Pet[];
-    stage: "intro" | "tile" | "pet" | "complete";
-    pageIndex: number;
+    dungeonRunToken: string;
+    onVersionedCharacter: (character: Character, saveVersion: number) => boolean;
     lineIndex: number;
-    setPageIndex: (index: number | ((index: number) => number)) => void;
     setLineIndex: (index: number | ((index: number) => number)) => void;
     onStartAiFight: () => void;
     onTileWin: () => void;
     onPetWin: () => void | Promise<void>;
+    onClaimReward: () => void | Promise<void>;
     onLeave: () => void | Promise<void>;
     sharedImages?: Record<string, string>;
 }) {
+    const stage = resolveDungeonStage(character.activeDungeonRun);
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : hiddenDungeonVnEvent.vnPages!;
     const stagePage = stage === "pet" ? 2 : stage === "tile" ? 1 : 0;
     const page = pages[Math.min(stagePage, pages.length - 1)];
@@ -81,11 +88,24 @@ export function DungeonEncounter({
     function nextLine() {
         if (!isLastLine) setLineIndex((line) => line + 1);
     }
+    if (stage === "complete") {
+        return (
+            <div className="card cinematic-card">
+                <p className="act-label">HIDDEN DUNGEON</p>
+                <h2>All seals verified</h2>
+                <p>The Warden, Chronicle, and Rare Beast proofs are bound to this run. Claim the reserved reward now; if the request is interrupted, this screen remains recoverable.</p>
+                <div className="menu">
+                    <button className="admin-button" onClick={onClaimReward}>Claim Dungeon Reward</button>
+                    <button className="danger-button" onClick={onLeave}>Abandon Dungeon</button>
+                </div>
+            </div>
+        );
+    }
     if (stage === "tile" && isLastLine) {
-        return <CardClashDuel character={character} creatorCards={creatorCards} onDungeonWin={onTileWin} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
+        return <CardClashDuel character={character} creatorCards={creatorCards} dungeonRunToken={dungeonRunToken} onVersionedCharacter={onVersionedCharacter} onDungeonWin={onTileWin} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
     }
     if (stage === "pet" && isLastLine) {
-        return <DungeonPetBattle character={character} updateCharacter={updateCharacter} editablePets={editablePets} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
+        return <DungeonRareBeastBattle key={dungeonRunToken} character={character} dungeonRunToken={dungeonRunToken} onVersionedCharacter={onVersionedCharacter} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
     }
     return (
         <div className="card cinematic-card">
@@ -134,6 +154,211 @@ export function DungeonEncounter({
                 </div>
             </div>
         </div>
+    );
+}
+
+type DungeonPetTerminalPayload = Readonly<{
+    seal: DungeonPetBattleSeal;
+    reportedOutcome: "win" | "loss" | "draw";
+    inputLog?: unknown;
+}>;
+
+function restoreDungeonPetCosmetics(sealed: Pet, local: Pet | undefined, image?: string): Pet {
+    return {
+        ...sealed,
+        ...(image || local?.image ? { image: image || local?.image } : {}),
+        ...(local?.bodyImage ? { bodyImage: local.bodyImage } : {}),
+    };
+}
+
+function snapshotDungeonInputLog(value: unknown): unknown {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value)) as unknown;
+}
+
+/** Reward-bearing Rare Beast seal. Combat presentation remains cinematic/live,
+ * while encounter identity, opponent, replay verdict, and parent proof are all
+ * owned by the server's pet-cinematic authority. */
+export function DungeonRareBeastBattle({
+    character,
+    dungeonRunToken,
+    onVersionedCharacter,
+    onWin,
+    onLeave,
+    sharedImages = {},
+    dungeonPetImage,
+}: {
+    character: Character;
+    dungeonRunToken: string;
+    onVersionedCharacter: (character: Character, saveVersion: number) => boolean;
+    onWin: () => void | Promise<void>;
+    onLeave: () => void | Promise<void>;
+    sharedImages?: Record<string, string>;
+    dungeonPetImage?: string;
+}) {
+    const eligiblePets = activeCarriedPets<Pet>(character)
+        .filter((pet) => isLivePetDuelAvailable(pet, character.petBreeding));
+    const defaultPetId = eligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? eligiblePets[0]?.id ?? "";
+    const [chosenPetId, setChosenPetId] = useState(defaultPetId);
+    const selectedPet = eligiblePets.find((pet) => pet.id === chosenPetId) ?? eligiblePets[0];
+    const [battle, setBattle] = useState<{
+        seal: DungeonPetBattleSeal;
+        result: DuelResult | null;
+        live: LiveDuel | null;
+        playerPet: Pet;
+        opponentPet: Pet;
+        id: number;
+    } | null>(null);
+    const [startBusy, setStartBusy] = useState(false);
+    const [error, setError] = useState("");
+    const [settlementStatus, setSettlementStatus] = useState<"idle" | "pending" | "error" | "settled">("idle");
+    const [recoveryOnly, setRecoveryOnly] = useState(false);
+    const battleId = useRef(0);
+    const terminalPayload = useRef<DungeonPetTerminalPayload | null>(null);
+    const settlementPromise = useRef<Promise<DungeonPetSettlement> | null>(null);
+    const routed = useRef(false);
+
+    function routeTerminal(outcome: DungeonPetSettlement["outcome"]) {
+        if (routed.current) return;
+        routed.current = true;
+        if (outcome === "win") void onWin();
+        else void onLeave();
+    }
+
+    function submitTerminal(payload: DungeonPetTerminalPayload): Promise<DungeonPetSettlement> {
+        terminalPayload.current = payload;
+        if (settlementPromise.current) return settlementPromise.current;
+        setSettlementStatus("pending");
+        setError("");
+        const task = settleDungeonPetBattle({
+            playerName: character.name,
+            seal: payload.seal,
+            reportedOutcome: payload.reportedOutcome,
+            inputLog: payload.inputLog,
+        }).then((settled) => {
+            if (!onVersionedCharacter(settled.character, settled.saveVersion)) {
+                throw new Error("The Dungeon result belongs to a no-longer-active save session.");
+            }
+            setSettlementStatus("settled");
+            return settled;
+        }).catch((cause: unknown) => {
+            settlementPromise.current = null;
+            setSettlementStatus("error");
+            setError(cause instanceof Error ? cause.message : "Dungeon pet verification paused.");
+            throw cause;
+        });
+        settlementPromise.current = task;
+        return task;
+    }
+
+    function reportOutcome(result: DuelResult) {
+        if (!battle || terminalPayload.current) return;
+        const payload = Object.freeze({
+            seal: battle.seal,
+            reportedOutcome: result.result,
+            inputLog: snapshotDungeonInputLog(battle.live?.inputLog()),
+        });
+        void submitTerminal(payload).catch(() => undefined);
+    }
+
+    async function retrySettlement() {
+        const payload = terminalPayload.current;
+        if (!payload) return;
+        try {
+            const settled = await submitTerminal(payload);
+            if (recoveryOnly) routeTerminal(settled.outcome);
+        } catch { /* the retry card keeps the exact sealed payload available */ }
+    }
+
+    async function exitBattle() {
+        setRecoveryOnly(true);
+        const payload = terminalPayload.current;
+        if (!payload) return;
+        try {
+            const settled = await (settlementPromise.current ?? submitTerminal(payload));
+            routeTerminal(settled.outcome);
+        } catch { /* fail closed on the retry card; never abandon an unrecorded result */ }
+    }
+
+    async function startBattle() {
+        if (!selectedPet || startBusy) return;
+        primePetSfx();
+        setStartBusy(true);
+        setError("");
+        setSettlementStatus("idle");
+        terminalPayload.current = null;
+        settlementPromise.current = null;
+        routed.current = false;
+        try {
+            const seal = await startDungeonPetBattle({
+                playerName: character.name,
+                playerPetId: selectedPet.id,
+                dungeonRunToken,
+            });
+            const playerPet = restoreDungeonPetCosmetics(seal.playerPet, selectedPet);
+            const opponentPet = restoreDungeonPetCosmetics(seal.opponentPet, undefined, dungeonPetImage);
+            const config = seal.battleConfig;
+            const controlled = petPlayerControlEnabled();
+            const live = controlled
+                ? createLiveDuel(playerPet, opponentPet, seal.seed, config.damageMult, config.hpMult, config.revive, config.applyItems, config.accuracy, config.terrain)
+                : null;
+            const result = controlled
+                ? null
+                : runPetDuelCinematic(playerPet, opponentPet, seal.seed, config.damageMult, config.hpMult, config.revive, config.applyItems, config.accuracy, config.terrain);
+            const next = { seal, result, live, playerPet, opponentPet, id: ++battleId.current };
+            setBattle(next);
+            if (result) {
+                const payload = Object.freeze({ seal, reportedOutcome: result.result });
+                terminalPayload.current = payload;
+                void submitTerminal(payload).catch(() => undefined);
+            }
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "The Dungeon Rare Beast seal is unavailable.");
+        } finally {
+            setStartBusy(false);
+        }
+    }
+
+    if (!selectedPet) {
+        return <div className="card cinematic-card"><h2>Rare Beast Seal</h2><p className="hint">Every carried pet is busy, training, breeding, or awaiting an expedition claim.</p><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>;
+    }
+    if (recoveryOnly && settlementStatus === "error") {
+        return (
+            <div className="card cinematic-card" role="alert">
+                <h2>Rare Beast proof paused</h2>
+                <p>{error || "Your completed duel remains sealed and safe to retry."}</p>
+                <button className="admin-button" onClick={() => { void retrySettlement(); }}>Retry Dungeon Settlement</button>
+            </div>
+        );
+    }
+    if (!battle) {
+        return (
+            <div className="card cinematic-card">
+                <h2>Rare Beast Seal</h2>
+                {eligiblePets.length > 1 && <div className="menu" style={{ marginBottom: "0.75rem" }}><label style={{ fontWeight: 600, marginRight: "0.5rem" }}>Choose your pet:</label><select value={chosenPetId} onChange={(event) => setChosenPetId(event.target.value)}><option value="">Choose…</option>{eligiblePets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} (Lv {pet.level} · {pet.rarity})</option>)}</select></div>}
+                <div className="pet-arena-grid"><PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} /><div className="pet-arena-card"><p className="act-label">SERVER-SEALED OPPONENT</p><h3>Dungeon Rare Beast</h3><p className="hint">Species, stats, seed, and outcome are revealed only by the combat authority.</p></div></div>
+                {error && <p role="alert" className="hint">{error}</p>}
+                <div className="menu"><button className="admin-button" disabled={startBusy} onClick={() => { void startBattle(); }}>{startBusy ? "Sealing…" : "Start Pet Battle"}</button><button className="danger-button" disabled={startBusy} onClick={onLeave}>Leave Dungeon</button></div>
+            </div>
+        );
+    }
+    return (
+        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
+            <PetColiseumDuel
+                key={battle.id}
+                playerPet={battle.playerPet}
+                enemyPet={battle.opponentPet}
+                seed={battle.seal.seed}
+                result={battle.result ?? undefined}
+                live={battle.live ?? undefined}
+                onOutcome={reportOutcome}
+                sharedImages={sharedImages}
+                settlementStatus={settlementStatus}
+                onRetrySettlement={() => { void retrySettlement(); }}
+                settlementCopy={{ pending: "Sealing the Dungeon Rare Beast result…", error: error || "Dungeon verification paused. Your completed duel is safe to retry.", retry: "Retry Dungeon Settlement", settledExit: "Return to Dungeon" }}
+                onExit={() => { void exitBattle(); }}
+            />
+        </Suspense>
     );
 }
 

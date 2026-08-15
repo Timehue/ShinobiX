@@ -16,12 +16,12 @@ Verified against commit d8948a311680b92a2a672ae0a0b35714e73e8b4f on 2026-08-14. 
 - Tower owns Battle Towers, Tower parties, Endless Spire, Clan Boss, and Tower PvP. The declared village-war mercenary battle is a valid headless Tower use; the Sector War garrison fallback is a recorded wrong-owner defect, not another Tower-owned mode.
 - Pet Showdown/Coliseum is the turn-based pet owner. Pet Warfront/Tactical is the positional pet family. Warfront and Tactical remain explicit game-mode surfaces even when they reuse that positional engine family; neither may be merged with or silently substituted for Showdown.
 - Pet Gauntlet is a separate deterministic grid auto-battler and run-state machine, not an alias for Showdown or Warfront.
-- Ordinary Pet Arena AI uses sealed cinematic HTTP receipts; ordinary live Pet
-  Arena PvP uses a separate memory-only Socket.IO lifecycle over the same
-  cinematic replay family and writes no rewards. The legacy pet duel and
-  client-local pet duel remain separately named compatibility/defect paths;
-  neither is a generic Pet owner or a substitute for Showdown, Warfront,
-  Gauntlet, or cinematic authority.
+- Ordinary Pet Arena AI and the rewarding Dungeon Rare Beast seal use sealed
+  cinematic HTTP receipts; ordinary live Pet Arena PvP uses a separate
+  memory-only Socket.IO lifecycle over the same cinematic replay family and
+  writes no rewards. The legacy pet duel and client-local presentation remain
+  separately named compatibility boundaries; neither is a generic Pet owner or
+  a substitute for Showdown, Warfront, Gauntlet, or cinematic authority.
 - Chronicle/Card Clash is a separate combat family.
 - Sector War dispatches to the correct combat owner and owns only shared territory admission and settlement.
 - A rewarding authored encounter must have a server-owned encounter, enemy, outcome, proof, and idempotent settlement. A client outcome, client-selected enemy, or presentation replay is not proof.
@@ -58,8 +58,10 @@ not originally enumerate:
 - Hollow Gate pet is mounted on server-sealed `pet-cinematic-duel` PvE plus a
   run-bound receipt while a dormant Showdown branch also exists, leaving the
   long-term owner decision explicit; and
-- Dungeon pet remains `client-local-pet-duel` and lacks authoritative encounter
-  and terminal proof for its rewarding parent settlement.
+- Dungeon pet is now `pet-cinematic-duel`: the server validates the exact active
+  run, selects the Rare Beast, replays the terminal input log, and stamps a Pet
+  proof that the parent Dungeon settlement requires. Client-local presentation
+  remains separately named but is not accepted as reward proof.
 - Clan War shinobi 2v2 no longer admits new send/join/accept progression;
   retained queue records remain cleanup-only while the four-player PvP surface
   gap is unresolved.
@@ -145,7 +147,7 @@ Clan War admission accepts <code>pvp1v1</code>, <code>pvp2v2</code>, <code>pet1v
 | Pet Gauntlet | <code>shinobij.client/src/screens/PetArena.tsx:188,1927-1978</code> mounts <code>PetGauntlet</code>, which starts/reports through <code>shinobij.client/src/lib/pet-gauntlet-api.ts:53-85</code> and records each grid placement/fight at <code>shinobij.client/src/components/PetGauntlet.tsx:200-252,295-307</code>. | <code>/pet/gauntlet {start,report}</code> debits entry and seals a token/seed; report replays the transcript server-side with <code>replayGauntlet</code> at <code>api/pet/gauntlet.ts:14-36,100-239</code>. Both client and server use the deterministic grid auto-battler (<code>runPetGridBattle</code>), with the server port at <code>api/_pet-sim/gauntlet-sim.ts:1-25,427-462</code>. One human drafts a run-only squad against server AI. | Server replay alone determines capped ryo/Fate Shards/Bone Charms and weekly leaderboard score; redemption is receipt-protected. The bounded token/receipt and aggregate leaderboard are records, but no durable fight replay endpoint exists. | **MATCH / LIMITED RECORD** |
 | Pet Ladder Warfront | The Pet Ladder UI selects the positional challenge through <code>/pet-ladder</code>. | The ladder core calls <code>runWarfrontMatch</code> at <code>api/pet-ladder/_core.ts:382-404</code> using sealed offline-defender teams/formations. | No currency/XP; only rank changes. The handler returns a tactical replay containing server seed, teams, and formations at <code>api/pet-ladder/ladder.ts:259-269</code>. | **MATCH** |
 | Hollow Gate pet | <code>shinobij.client/src/lib/hollow-gate-app-flow.ts:108-138</code> routes the run-bound Hollow Hound into <code>PetArena</code>; <code>shinobij.client/src/screens/PetArena.tsx:1130-1144</code> passes the binding to <code>/pet/battle-start</code>. | <code>/hollow-gate/combat-start {mode:"pet"}</code> creates the run binding. <code>/pet/battle-start</code> validates it, builds the server Hollow Hound, and seals the cinematic PvE replay at <code>api/pet/battle-start.ts:118-141,190-201</code>. <code>/pet/battle-result</code> calls <code>replayCasualPetDuel</code> and mints <code>hg-pet-result</code> at <code>api/pet/battle-result.ts:504-583</code>; <code>/hollow-gate/combat-settle</code> consumes that receipt. | Outcome and parent run settlement are server-owned and exact-once; the presentation opponent is not proof. A dormant Showdown Hollow Gate branch exists, but current execution is cinematic PvE. Token/run records exist, not a durable replay route. | **OWNER DECISION — authoritative cinematic path; long-term engine unselected** |
-| Dungeon pet | <code>shinobij.client/src/screens/Dungeon.tsx:140-190</code> chooses a random enemy from client <code>editablePets</code>, computes stats, and creates the duel locally; <code>shinobij.client/src/screens/Dungeon.tsx:231-249</code> turns the client <code>onOutcome</code> directly into <code>onWin</code>. | There is no authoritative pet start/action/state/proof route for this encounter. Final <code>/dungeon/run {settle}</code> checks only the active run token, Warden flag, and elapsed time at <code>api/dungeon/_run.ts:215-229</code>; it does not validate a server-selected pet, terminal outcome, or pet receipt. | The final authored dungeon reward can therefore be reached without server proof of the pet seal. There is no server battle record or replay. | **DEFECT — rewarding client-authoritative encounter** |
+| Dungeon pet | <code>shinobij.client/src/screens/Dungeon.tsx</code> enters the Rare Beast seal through <code>shinobij.client/src/lib/dungeon-pet-authority.ts</code> with the exact active Dungeon token and one eligible carried pet. | <code>/pet/battle-start</code> calls <code>resolveDungeonPetAuthority</code>, requires the Warden and Card proofs, constructs the fixed server Rare Beast, and seals the cinematic replay. <code>/pet/battle-result</code> replays the input log and calls <code>applyDungeonPetTerminal</code>; client enemy stats and reported outcome are not authority. | The child fight grants no Coliseum/Legacy/witness reward. Its active-run Pet proof and 24-hour response receipt support recovery; <code>/dungeon/run</code> requires the Warden, Card, and Pet wins on the same token and commits the authored reward with <code>redeemedDungeonRuns</code>. There is no durable player-facing fight-history endpoint. | **MATCH / LIMITED RECORD** |
 
 ### Card Clash
 
@@ -153,16 +155,25 @@ Clan War admission accepts <code>pvp1v1</code>, <code>pvp2v2</code>, <code>pet1v
 | --- | --- | --- | --- | --- |
 | Card Clash free-play PvP | <code>shinobij.client/src/screens/CardClashFreePlay.tsx</code> uses <code>shinobij.client/src/lib/free-play-queue-client.ts</code>. | <code>/card-clash/queue</code> admits two humans; <code>/card-clash/match</code> dispatches state and every card action. <code>api/card-clash/match.ts:18-28</code> imports shared Chronicle and stores <code>cc-freeplay:&lt;id&gt;</code> at <code>api/card-clash/match.ts:70</code>. Server projections protect hidden state. | No currency/XP is granted; only configured participation/Legacy effects apply. Projected match state/log exists for its TTL; no standalone history endpoint was found. | **MATCH / LIMITED RECORD** |
 | Card Clash AI | <code>shinobij.client/src/screens/CardClashDuel.tsx:31-33,79-104</code> uses the Chronicle duel client. | <code>/card-clash/ai-start</code> creates the server deck/opponent and <code>/card-clash/ai-move</code> handles state/actions through the server AI engine. | Terminal rewards, including configured ryo/daily bonus, are applied from server state and receipt-protected at <code>api/card-clash/ai-move.ts:108-255</code>. The projected duel log is available during the session, not as durable history. | **MATCH / LIMITED RECORD** |
-| Dungeon Card seal | <code>shinobij.client/src/screens/Dungeon.tsx:80-85</code> mounts <code>CardClashDuel</code>; it starts Chronicle with <code>externalStakes:true</code>, sends actions, and advances the dungeon only from the projected server winner at <code>shinobij.client/src/screens/CardClashDuel.tsx:79-104</code>. | <code>/card-clash/ai-start</code> creates the one-human-versus-AI Chronicle match and marks it <code>settlementMode:"external"</code> at <code>api/card-clash/ai-start.ts:90-116</code>. <code>/card-clash/ai-move</code> owns actions/outcome and records terminal state without a Card payout at <code>api/card-clash/ai-move.ts:200-229</code>. | The card fight itself is zero-reward and server-controlled; its expiring Chronicle projection is the only fight record. The parent <code>/dungeon/run {settle}</code> grants the authored dungeon reward after Warden/time checks but does not consume a Card terminal proof at <code>api/dungeon/_run.ts:215-234</code>, so the engine is correct while the parent settlement binding remains defective. | **MATCH engine / DEFECT parent settlement binding** |
+| Dungeon Card seal | <code>shinobij.client/src/screens/Dungeon.tsx</code> mounts <code>CardClashDuel</code> with the exact Dungeon token; the Chronicle client sends actions and advances only from the projected server terminal result. | <code>/card-clash/ai-start</code> validates the active Warden proof and uses <code>dungeonCardMatchId</code> for one deterministic run-bound Chronicle session. Terminal <code>/card-clash/ai-move</code> calls <code>applyDungeonCardTerminal</code> inside the save mutation; loss/draw evidence never qualifies as a win. | The Card seal has no independent Card Hall payout. Its expiring Chronicle projection plus active-run terminal proof support recovery, and <code>/dungeon/run</code> requires <code>dungeonCardWasWon</code> before the final exact-once parent reward. | **MATCH / LIMITED RECORD** |
 
-## Verified contradictions and gaps
+## Reconciled outcomes and remaining gaps
 
-1. **Sector garrison dispatches combat to Tower instead of PvP.** The handler describes/implements a Tower-backed garrison at <code>api/village/sector-war.ts:68-72,494-600</code>, and <code>api/towers/_merc-fighters.ts:117-149</code> actually creates and runs the Tower floor. Because this branch settles combat territory points, it violates the explicit Sector shinobi owner boundary. It needs either a PvP-compatible server opponent path or an explicit owner exception; documentation must not bless the fallback as correct.
-2. **Dungeon pet has no server-owned encounter proof.** Client enemy selection/outcome at <code>shinobij.client/src/screens/Dungeon.tsx:140-190,231-249</code> is not cross-checked by <code>api/dungeon/_run.ts:215-229</code>. This is a direct reward-authority defect, not merely missing replay UI.
-3. **Live pet ranked does not settle rank.** The public queue pairs players and then launches the ordinary memory-only, no-reward <code>petduel:*</code> lifecycle. It never claims the durable match through <code>/pet/ranked-start</code> or reports through <code>/pet/battle-result</code>. The legacy ranked authority and staged Showdown v2 path exist, but neither is the current public caller. New ranked admission must fail closed until the owner selects and wires one complete lifecycle.
-4. **Hollow Gate pet has two implementations, with cinematic PvE mounted.** The live client uses <code>/pet/battle-start</code>; that route now seals a <code>CasualPveBattleSeal</code>, and result replays it with <code>replayCasualPetDuel</code>. Showdown contains a Hollow Gate branch but is not called by that flow. The corrected program needs an explicit long-term owner decision before removing either path.
-5. **Standalone Tactical Arena is not independently mounted.** The owner rule keeps Tactical and Warfront as distinct product modes while permitting both to use the same positional engine family; it only forbids merging either with Showdown. The current solo UI aliases Tactical to Warfront, so Tactical's own lifecycle/reward/replay contract is a surface gap. Co-op Tactical is separately mounted at <code>/arena/lobby</code>, but it is a zero-reward input-sealing preview and does not close the standalone gap.
-6. **Dungeon Card is server-controlled but weakly bound to the final dungeon grant.** <code>CardClashDuel</code> uses server Chronicle actions, but <code>/dungeon/run {settle}</code> does not consume a Card terminal proof. This should be closed when dungeon encounter proof is unified, even though the current card UI itself is not client-resolved.
+1. **Sector garrison wrong-owner fallback retired.** New garrison combat returns
+   `410`; the intended PvP-backed headless lifecycle remains an explicit surface
+   gap rather than silently dispatching to Tower.
+2. **Dungeon proof-chain gaps closed.** The Card and Pet child runtimes now stamp
+   exact active-run terminal evidence, and final Dungeon settlement requires
+   Warden, Card, and Pet wins before its redeemed-run receipt and reward commit.
+3. **Live Pet Ranked retired fail-closed.** The public queue no longer pairs or
+   launches the ordinary no-reward realtime duel. Re-admission requires one
+   server-owned match proof shared by combat and rating; retained legacy
+   compatibility remains separate.
+4. **Hollow Gate pet owner decision remains.** Cinematic PvE is mounted and
+   authoritative, while the dormant Showdown branch is not the current caller.
+5. **Standalone Tactical Arena remains a surface gap.** Co-op Tactical is a
+   separate zero-reward preview and does not supply the missing standalone
+   lifecycle.
 
 ## Remaining stale or incomplete architecture sources
 

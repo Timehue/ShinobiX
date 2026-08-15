@@ -31,6 +31,10 @@ export interface AiMatchSession {
   winner?: AiMatchResult;
   settledAt?: number;
   settlementMode?: "standard" | "external";
+  /** Present only for a Chronicle match admitted from the exact active
+   * Dungeon run. A generic external-stakes duel never receives this binding. */
+  dungeonRunToken?: string;
+  dungeonAuthorityVersion?: number;
 }
 
 export type AiMatchProjection = ChronicleProjection & {

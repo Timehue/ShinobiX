@@ -708,12 +708,15 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         statusDetail: 'The mounted Hollow Gate caller uses the server-sealed cinematic PvE duel and a one-use parent run receipt. A dormant Showdown branch also exists, but the owner has not selected a long-term engine; no automatic port is authorized.',
     }),
     defineMode({
-        id: 'dungeon-pet-client-local', label: 'Dungeon pet', category: 'pet-legacy', authorityEngine: E.CLIENT_LOCAL_PET_DUEL,
+        id: 'dungeon-pet-cinematic', label: 'Dungeon pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
         orchestrationOwner: O.DUNGEON,
-        clientEntries: ['screens/Dungeon.tsx', 'lib/dungeon-api.ts'],
-        routes: [mountedRoute('/dungeon/run', 'dungeon/run', ['settlement'])],
-        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'client-presentation-only', status: 'defect',
-        statusDetail: 'The rewarding parent settlement consumes no server-selected pet encounter or terminal pet proof.',
+        clientEntries: ['screens/Dungeon.tsx', 'lib/dungeon-pet-authority.ts', 'lib/dungeon-api.ts'],
+        routes: [
+            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
+            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
+            mountedRoute('/dungeon/run', 'dungeon/run', ['settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'match',
     }),
 
     defineMode({
@@ -740,11 +743,10 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         clientEntries: ['screens/Dungeon.tsx', 'screens/CardClashDuel.tsx', 'lib/chronicle-duel.ts', 'lib/dungeon-api.ts'],
         routes: [
             mountedRoute('/card-clash/ai-start', 'card-clash/ai-start', ['start']),
-            mountedRoute('/card-clash/ai-move', 'card-clash/ai-move', ['action', 'state']),
+            mountedRoute('/card-clash/ai-move', 'card-clash/ai-move', ['action', 'state', 'settlement']),
             mountedRoute('/dungeon/run', 'dungeon/run', ['settlement']),
         ],
-        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection', status: 'defect',
-        statusDetail: 'Chronicle owns the fight, but the rewarding dungeon settlement does not consume its terminal proof.',
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection-and-parent-run-proof-receipt', status: 'match',
     }),
 ]);
 
