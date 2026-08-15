@@ -1,6 +1,10 @@
 import { defineConfig } from "@playwright/test";
 
 const baseURL = "http://127.0.0.1:4174";
+const releasePreviewRoot = ".playwright-warfront-dist";
+const webServerCommand = process.env.CI
+    ? `node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} && npm run preview -- --host 127.0.0.1 --port 4174 --outDir ${releasePreviewRoot}`
+    : "npm run dev -- --host 127.0.0.1 --port 4174";
 
 export default defineConfig({
     testDir: "./e2e-warfront",
@@ -17,7 +21,11 @@ export default defineConfig({
         screenshot: "only-on-failure",
     },
     webServer: {
-        command: "npm run dev -- --host 127.0.0.1 --port 4174",
+        // Hosted CI receives the already-built release candidate and snapshots
+        // it before serving, so this suite cannot accidentally certify source
+        // that differs from the client artifact. Local iteration keeps Vite's
+        // faster development server.
+        command: webServerCommand,
         url: `${baseURL}/petvfx.html`,
         env: { VITE_SKIP_HTTPS: "1" },
         reuseExistingServer: !process.env.CI,
