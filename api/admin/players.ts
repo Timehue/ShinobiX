@@ -6,6 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 
 const REGISTRY_KEY = 'player:registry';
+const ADMIN_CONTENT_SLOTS = new Set(['admin1', 'admin2']);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -69,6 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             totalPoints: number;
             ownerName: string;
             ownerKey: string;
+            ownerImage?: string;
         };
         const bloodlineEntries: BloodlineEntry[] = [];
 
@@ -105,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Collect bloodlines
             const rawBloodlines = snap?.savedBloodlines as RawBloodline[] | undefined;
-            if (Array.isArray(rawBloodlines)) {
+            if (!ADMIN_CONTENT_SLOTS.has(name.toLowerCase()) && Array.isArray(rawBloodlines)) {
                 const ownerName = (char?.name as string) ?? name;
                 for (const bl of rawBloodlines) {
                     if (!bl?.id || !bl?.name) continue;
@@ -114,6 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         name: String(bl.name),
                         rank: String(bl.rank ?? 'B Rank'),
                         image: bl.image ? String(bl.image) : undefined,
+                        ownerImage: bl.image ? String(bl.image) : undefined,
                         specialElement: bl.specialElement ? String(bl.specialElement) : undefined,
                         lore: bl.lore ? String(bl.lore) : undefined,
                         jutsus: Array.isArray(bl.jutsus) ? bl.jutsus : [],
@@ -139,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             try {
                 const sharedImages = await kv.hgetall<Record<string, string>>('shared:imgfields:bloodline') ?? {};
                 for (const bl of bloodlineEntries) {
-                    if (!bl.image && sharedImages[`bloodline:${bl.id}`]) {
+                    if (!bl.ownerImage && sharedImages[`bloodline:${bl.id}`]) {
                         bl.image = sharedImages[`bloodline:${bl.id}`];
                     }
                 }
@@ -153,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (bloodlineEntries.length > INLINE_IMAGE_LIMIT) {
             for (const bl of bloodlineEntries) {
                 if (bl.image && bl.image.startsWith('data:')) bl.image = undefined;
+                if (bl.ownerImage && bl.ownerImage.startsWith('data:')) bl.ownerImage = undefined;
             }
         }
 
