@@ -13,7 +13,7 @@ import { applyLiteFxClass } from './lib/device-tier.ts' // tag <html class="lite
 import { registerAssetServiceWorker } from './lib/register-sw.ts' // prod-only cache-first SW for hashed assets (never HTML/API)
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
-import { StorageNotice } from './components/StorageNotice.tsx'
+import { LiveCapabilitiesProvider } from './components/LiveCapabilitiesProvider.tsx'
 import { legalPageForPath } from './data/legal.ts'
 
 // LegalPage carries all the policy prose (every /terms, /privacy, … document),
@@ -23,6 +23,11 @@ import { legalPageForPath } from './data/legal.ts'
 // is a tiny slug lookup with no heavy dependencies.
 // eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
 const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ default: m.LegalPage })))
+// This transparency notice is informational, not a consent or admission gate.
+// Request it immediately with the player surface without putting its copy and
+// inline presentation styles on the render-blocking module-preload graph.
+// eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
+const StorageNotice = lazy(() => import('./components/StorageNotice.tsx').then((m) => ({ default: m.StorageNotice })))
 const IntroCinematicPreview = import.meta.env.DEV
     ? lazy(() => import('./features/intro-cinematic/IntroCinematicPreview.tsx').then((m) => ({ default: m.IntroCinematicPreview })))
     : null
@@ -61,12 +66,14 @@ root.render(
                 <LegalPage slug={legalSlug} />
             </Suspense>
         ) : (
-            <>
+            <LiveCapabilitiesProvider>
                 <ErrorBoundary>
                     <App />
                 </ErrorBoundary>
-                <StorageNotice />
-            </>
+                <Suspense fallback={null}>
+                    <StorageNotice />
+                </Suspense>
+            </LiveCapabilitiesProvider>
         )}
     </StrictMode>,
 )

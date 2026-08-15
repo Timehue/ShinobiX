@@ -34,6 +34,8 @@ type WeeklyBossLb = {
     rewardsDistributed?: boolean;
 };
 
+const LEGACY_HALL_TABS = new Set<LbTab>(["legends", "news", "eras"]);
+
 export 
 function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
     const legacyAvailable = useLegacyAvailability();
@@ -41,7 +43,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     // other surface) can land the player on a specific tab via a one-shot
     // sessionStorage hint — previously a mythic headline opened the Ranked
     // Elo table (depth-audit finding).
-    const [tab, setTab] = useState<LbTab>(() => {
+    const [selectedTab, setTab] = useState<LbTab>(() => {
         try {
             const hint = window.sessionStorage?.getItem("hall.initialTab");
             if (hint) {
@@ -51,6 +53,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         } catch { /* private mode */ }
         return "ranked";
     });
+    const tab = !legacyAvailable && LEGACY_HALL_TABS.has(selectedTab) ? "ranked" : selectedTab;
     const [professionFilter, setProfessionFilter] = useState<Profession>("healer");
     const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
     const [weeklyBossLoaded, setWeeklyBossLoaded] = useState(false);
@@ -70,6 +73,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         setLoadErrors(current => ({ ...current, [key]: message }));
     }
     function selectTab(nextTab: LbTab) {
+        if (!legacyAvailable && LEGACY_HALL_TABS.has(nextTab)) return;
         if (nextTab === tab) return;
         if (nextTab === "weeklyBoss") { setWeeklyBossLoaded(false); setWeeklyBossError(""); }
         setTab(nextTab);
@@ -165,7 +169,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const [worldNews, setWorldNews] = useState<AnnouncementView[] | null>(null);
     const [eraViews, setEraViews] = useState<EraView[] | null>(null);
     useEffect(() => {
-        if (tab !== "legends" && tab !== "news" && tab !== "eras") return;
+        if (!legacyAvailable || (tab !== "legends" && tab !== "news" && tab !== "eras")) return;
         let alive = true;
         if (tab === "legends") void fetchHallOfLegends().then(r => {
             if (!alive) return;
@@ -188,7 +192,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
             void fetchHallOfLegends().then(r => { if (alive && r) setHallEntries(r.entries ?? []); });
         }
         return () => { alive = false; };
-    }, [tab, loadRequest]);
+    }, [legacyAvailable, tab, loadRequest]);
     const all = playerRoster.length > 0
         ? playerRoster.map(p => p.character)
         : [character];

@@ -75,4 +75,28 @@ describe("save unload protection", () => {
         await tick();
         assert.equal(discarded, false);
     });
+
+    it("captures a durable local guard but suppresses the network write while mutations are paused", async () => {
+        let captures = 0;
+        let requests = 0;
+        const revision = createSaveConflictRevision({ id: "guard", accountName: "Kaya", payload: { character: { name: "Kaya" } } });
+        protectSaveOnUnload({
+            dirty: true, flightBusy: false, accountKey: "kaya", sessionEpoch: 1, latestVersion: 2,
+            unresolved: null, liveSnapshot: { name: "Kaya", revision: 1, payload: { character: { name: "Kaya" } } },
+            captureConflict: () => {
+                captures += 1;
+                return { accountName: "Kaya", accountKey: "kaya", revisions: [revision] };
+            },
+            discardRevision: () => undefined,
+            isCurrentSession: () => true,
+            send: false,
+            request: (async () => {
+                requests += 1;
+                return new Response();
+            }) as typeof fetch,
+        });
+        await tick();
+        assert.equal(captures, 1);
+        assert.equal(requests, 0);
+    });
 });

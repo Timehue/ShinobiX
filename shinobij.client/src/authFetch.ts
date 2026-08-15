@@ -130,6 +130,8 @@ export function setActiveToken(token: string | null): void {
 // x-admin-password so the plaintext admin password never leaves the browser.
 const ADMIN_TOKEN_KEY = 'admin:token';
 const ADMIN_PW_KEY = 'admin:pw';
+const RECOVERY_ADMIN_SESSION_KEY = 'admin:recovery-session';
+let recoveryAdminSessionEstablishedThisDocument = false;
 
 function getAdminToken(): string | null {
     try {
@@ -150,16 +152,90 @@ function getAdminToken(): string | null {
  */
 export function setAdminSession(token: string | null, passwordFallback?: string | null): void {
     try {
+        // Clear both forms first. In particular, the token-less legacy path
+        // stores a reusable password; logout must not leave that credential for
+        // resumed player requests to inherit through the global interceptor.
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        sessionStorage.removeItem(ADMIN_PW_KEY);
         if (token) {
             sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
-            sessionStorage.removeItem(ADMIN_PW_KEY);
-        } else {
-            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-            if (passwordFallback) sessionStorage.setItem(ADMIN_PW_KEY, passwordFallback);
-        }
+        } else if (passwordFallback) sessionStorage.setItem(ADMIN_PW_KEY, passwordFallback);
     } catch {
         /* storage disabled — ignore */
     }
+}
+
+/** Mark credentials created by the isolated maintenance recovery console. */
+export function setRecoveryAdminSession(token: string | null, passwordFallback?: string | null): boolean {
+    try {
+        // The ownership marker must land first. If storage cannot persist it,
+        // do not establish a credential that a reload could no longer identify.
+        sessionStorage.setItem(RECOVERY_ADMIN_SESSION_KEY, '1');
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        sessionStorage.removeItem(ADMIN_PW_KEY);
+        if (token) sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+        else if (passwordFallback) sessionStorage.setItem(ADMIN_PW_KEY, passwordFallback);
+        recoveryAdminSessionEstablishedThisDocument = true;
+        return true;
+    } catch {
+        recoveryAdminSessionEstablishedThisDocument = false;
+        try {
+            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+            sessionStorage.removeItem(ADMIN_PW_KEY);
+            sessionStorage.removeItem(RECOVERY_ADMIN_SESSION_KEY);
+        } catch { /* storage unavailable; outgoing requests retry the marked cleanup */ }
+        return false;
+    }
+}
+
+/**
+ * Clear only credentials owned by maintenance recovery. The persisted marker
+ * lets the next document consume a recovery credential synchronously after a
+ * reload, without clearing an ordinary full AdminPanel session.
+ */
+export function clearRecoveryAdminSession(): boolean {
+    const establishedHere = recoveryAdminSessionEstablishedThisDocument;
+    try {
+        if (!establishedHere && sessionStorage.getItem(RECOVERY_ADMIN_SESSION_KEY) !== '1') return false;
+        recoveryAdminSessionEstablishedThisDocument = false;
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        sessionStorage.removeItem(ADMIN_PW_KEY);
+        // Marker last: any partial failure leaves retry authority for the next
+        // outgoing request instead of stranding an unmarked credential.
+        sessionStorage.removeItem(RECOVERY_ADMIN_SESSION_KEY);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** Resolve the one admin credential, if any, onto an outgoing API request. */
+export function attachAdminSessionCredential(headers: Headers): void {
+    // On a new document this retries consumption if sessionStorage was briefly
+    // unavailable during module evaluation. A recovery session established by
+    // this document remains usable until its explicit close.
+    if (!recoveryAdminSessionEstablishedThisDocument) {
+        let recoveryMarked: boolean;
+        try {
+            recoveryMarked = sessionStorage.getItem(RECOVERY_ADMIN_SESSION_KEY) === '1';
+        } catch {
+            return; // storage truth is unavailable, so fail closed with no admin header
+        }
+        if (recoveryMarked && !clearRecoveryAdminSession()) return;
+    }
+    const adminToken = getAdminToken();
+    if (adminToken) {
+        if (headers.has('x-admin-password')) headers.delete('x-admin-password');
+        headers.set('x-admin-token', adminToken);
+        return;
+    }
+    let adminPw: string | null = null;
+    try {
+        adminPw = sessionStorage.getItem(ADMIN_PW_KEY);
+    } catch {
+        /* storage disabled */
+    }
+    if (adminPw && !headers.has('x-admin-password')) headers.set('x-admin-password', adminPw);
 }
 
 // ── Session-expiry signal (audit #14) ────────────────────────────────────────
@@ -379,6 +455,10 @@ function attachFingerprint(headers: Headers): void {
 let installed = false;
 export function installAuthFetch(): void {
     if (installed || typeof window === 'undefined' || !window.fetch) return;
+    // A reload can bypass React cleanup. Consume only a recovery-marked admin
+    // credential before installing any interceptor capable of attaching it.
+    // Ordinary AdminPanel sessions carry no marker and remain untouched.
+    clearRecoveryAdminSession();
     installed = true;
     // Cold start with a token that already died (>24h away, now that active play
     // slides the window). Restoring the session with it would 401 every call and
@@ -414,21 +494,7 @@ export function installAuthFetch(): void {
         // set x-admin-password — by swapping it for the token. Fall back to the
         // stored password only when there is no token (ADMIN_SESSION_SECRET unset
         // on the server, or a pre-token client).
-        const adminToken = getAdminToken();
-        if (adminToken) {
-            if (newHeaders.has('x-admin-password')) newHeaders.delete('x-admin-password');
-            newHeaders.set('x-admin-token', adminToken);
-        } else {
-            let adminPw: string | null = null;
-            try {
-                adminPw = sessionStorage.getItem('admin:pw');
-            } catch {
-                /* storage disabled */
-            }
-            if (adminPw && !newHeaders.has('x-admin-password')) {
-                newHeaders.set('x-admin-password', adminPw);
-            }
-        }
+        attachAdminSessionCredential(newHeaders);
 
         if (hasAuthHeader(init, input)) {
             // A caller supplied an auth credential (player token/password, kv

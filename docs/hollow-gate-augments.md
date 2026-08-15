@@ -9,13 +9,14 @@ Current combat-owner and mounted-route status is governed by
 Hollow Gate uses three independent authorities:
 
 - Shinobi combat: the normal `solo-pve` runtime.
-- Hollow Hound pet duels: the mounted `legacy-pet-duel` path and its run-bound
-  server result receipt. A separate Showdown-capable Hollow Gate branch exists
-  but is not the mounted caller, so the cutover owner remains unresolved.
+- Hollow Hound pet duels: the mounted server-sealed `pet-cinematic-duel` PvE
+  path and its run-bound server result receipt. A separate Showdown-capable
+  Hollow Gate branch exists but is not the mounted caller, so the long-term
+  owner remains unresolved.
 - Hollow Gate expedition state: the run token under
   `hg-run:<player>:<token>`.
 
-Hollow Gate does not merge that legacy path with Showdown/Coliseum, positional
+Hollow Gate does not merge that cinematic path with Showdown/Coliseum, positional
 Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic duels, or the
 client-local Dungeon pet path. Those remain distinct authorities or recorded
 compatibility/defect paths.

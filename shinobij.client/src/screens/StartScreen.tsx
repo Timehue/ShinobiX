@@ -6,6 +6,15 @@ import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/legal";
 import { LegalPage } from "./LegalPage";
 import { captureProductEvent } from "../lib/analytics";
+import {
+    useCapabilityMutationAvailability,
+    useCapabilityViewAvailability,
+} from "../lib/live-capabilities-context";
+import {
+    capabilityAdmissionAllowed,
+    playerLoginAdmissionMessage,
+    registrationAdmissionMessage,
+} from "../lib/live-capability-admission";
 
 const PRODUCT_ANALYTICS_ENABLED = import.meta.env.VITE_PRODUCT_ANALYTICS_ENABLED === "1";
 
@@ -169,6 +178,15 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     initialName?: string;
     notice?: string;
 }) {
+    const playerLoginAvailability = useCapabilityViewAvailability();
+    const registrationsAvailability = useCapabilityMutationAvailability("registrations");
+    const playerLoginOpen = capabilityAdmissionAllowed(playerLoginAvailability);
+    const registrationOpen = capabilityAdmissionAllowed(registrationsAvailability);
+    const playerLoginMessage = playerLoginAdmissionMessage(playerLoginAvailability);
+    const registrationMessage = playerLoginOpen
+        ? registrationAdmissionMessage(registrationsAvailability)
+        : playerLoginMessage;
+    const [creatorAdmissionGranted, setCreatorAdmissionGranted] = useState(false);
     const [view, setView] = useState<StartView>(() => {
         const legalPage = typeof window === "undefined" ? null : legalPageForPath(window.location.pathname);
         if (legalPage) return `legal:${legalPage}`;
@@ -178,6 +196,13 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     useEffect(() => {
         if (PRODUCT_ANALYTICS_ENABLED && view === "main") captureProductEvent("landing_viewed", { screenId: "landing", source: "navigation" });
     }, [view]);
+
+    function openCreator() {
+        if (!registrationOpen) return;
+        setCreatorAdmissionGranted(true);
+        if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("character_creation_started", { source: "landing" });
+        setView("create");
+    }
 
     if (view.startsWith("legal:")) {
         return <LegalPage slug={view.slice("legal:".length) as LegalPageSlug} />;
@@ -204,10 +229,34 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     }
 
     if (view === "create") {
+        if (!creatorAdmissionGranted) {
+            return (
+                <div className="start-screen landing-subscreen landing-login-screen">
+                    <div className="start-card" role="status" aria-live="polite">
+                        <h2 className="start-card-title">Character creation is paused</h2>
+                        <p className="start-hint landing-auth-notice">{registrationMessage}</p>
+                        <button type="button" className="start-primary-btn" onClick={() => setView("login")}>Log In</button>
+                        <button type="button" className="landing-auth-secondary" onClick={() => setView("main")}>Back</button>
+                    </div>
+                </div>
+            );
+        }
         return (
-            <Suspense fallback={<div className="start-screen"><div className="start-card">Loading creator...</div></div>}>
-                <CharacterCreator onCreate={onCreate} onBack={() => setView("main")} />
-            </Suspense>
+            <>
+                {!registrationOpen && <p className="start-hint landing-auth-notice" role="status" aria-live="polite">{registrationMessage}</p>}
+                <Suspense fallback={<div className="start-screen"><div className="start-card">Loading creator...</div></div>}>
+                    <CharacterCreator
+                        onCreate={(character, password) => {
+                            if (!registrationOpen) {
+                                alert(registrationMessage);
+                                return;
+                            }
+                            return onCreate(character, password);
+                        }}
+                        onBack={() => { setCreatorAdmissionGranted(false); setView("main"); }}
+                    />
+                </Suspense>
+            </>
         );
     }
 
@@ -234,7 +283,11 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                             onAdmin={onAdmin}
                             initialName={initialName}
                             notice={notice}
-                            onCreateAccount={() => setView("create")}
+                            onCreateAccount={openCreator}
+                            registrationOpen={registrationOpen}
+                            registrationMessage={registrationMessage}
+                            playerLoginOpen={playerLoginOpen}
+                            playerLoginMessage={playerLoginMessage}
                         />
                     </div>
                 </div>
@@ -244,10 +297,9 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
 
     return (
         <LandingMain
-            onOpenCreate={() => {
-                if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("character_creation_started", { source: "landing" });
-                setView("create");
-            }}
+            onOpenCreate={openCreator}
+            registrationOpen={registrationOpen}
+            registrationMessage={registrationMessage}
             onOpenLogin={() => {
                 if (PRODUCT_ANALYTICS_ENABLED) captureProductEvent("feature_entry_clicked", { source: "landing", contentId: "login" });
                 setView("login");
@@ -267,12 +319,16 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
 // Tabbed Create-Account / Log-In panel docked in the hero. The admin-routing +
 // login submit logic is a verbatim move from the old StartScreen — behavior
 // (Admin 2 auto-route, token-first login via onLogin) is preserved exactly.
-function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: {
+function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount, registrationOpen, registrationMessage, playerLoginOpen, playerLoginMessage }: {
     onLogin: (name: string, password: string) => void | Promise<void>;
     onAdmin: (prefilledPassword?: string) => void;
     initialName: string;
     notice: string;
     onCreateAccount: () => void;
+    registrationOpen: boolean;
+    registrationMessage: string;
+    playerLoginOpen: boolean;
+    playerLoginMessage: string;
 }) {
     const [loginName, setLoginName] = useState(initialName);
     const [loginPassword, setLoginPassword] = useState("");
@@ -295,6 +351,11 @@ function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: 
 
         if (normalizeAdminName(loginName)) {
             onAdmin(loginPassword);
+            return;
+        }
+
+        if (!playerLoginOpen) {
+            alert(playerLoginMessage);
             return;
         }
 
@@ -364,14 +425,17 @@ function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: 
                 <button
                     className="start-primary-btn landing-login-primary"
                     onClick={submitLogin}
-                    disabled={!!loginStatus}
+                    disabled={!!loginStatus || (!playerLoginOpen && !normalizeAdminName(loginName))}
+                    title={!playerLoginOpen && !normalizeAdminName(loginName) ? playerLoginMessage : undefined}
                 >
                     {loginStatus || "Enter Village"}
                 </button>
+                {!playerLoginOpen && <p className="start-hint landing-auth-notice" role="status">{playerLoginMessage}</p>}
 
-                <button type="button" className="landing-auth-secondary" onClick={onCreateAccount}>
+                <button type="button" className="landing-auth-secondary" onClick={onCreateAccount} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>
                     Create a New Shinobi
                 </button>
+                {!registrationOpen && <p className="start-hint landing-auth-notice" role="status">{registrationMessage}</p>}
 
                 {/* There is no self-service password reset: accounts are name + password
                     only, with no email or other ownership signal on file, so a reset has
@@ -403,11 +467,13 @@ function FeatureCard({ feature }: { feature: Feature }) {
     );
 }
 
-function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboard }: {
+function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboard, registrationOpen, registrationMessage }: {
     onOpenCreate: () => void;
     onOpenLogin: () => void;
     onOpenGuides: () => void;
     onOpenLeaderboard: () => void;
+    registrationOpen: boolean;
+    registrationMessage: string;
 }) {
     const rootRef = useRef<HTMLDivElement>(null);
     const featuresRef = useRef<HTMLElement>(null);
@@ -434,7 +500,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         <button type="button" className="landing-navlink" onClick={onOpenGuides}>Guides</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLeaderboard}>Leaderboard</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLogin}>Log In</button>
-                        <button type="button" className="landing-navlink landing-navlink--cta" onClick={onOpenCreate}>Play Now</button>
+                        <button type="button" className="landing-navlink landing-navlink--cta" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>Play Now</button>
                     </nav>
                 </div>
             </header>
@@ -458,7 +524,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         </div>
 
                         <div className="landing-hero-actions">
-                            <button type="button" className="landing-cta landing-cta--primary" data-testid="start-create" onClick={onOpenCreate}>
+                            <button type="button" className="landing-cta landing-cta--primary" data-testid="start-create" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>
                                 Enter the World
                             </button>
                             <a className="landing-cta landing-cta--ghost" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
@@ -466,7 +532,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                             </a>
                         </div>
 
-                        <p className="landing-cta-note">Free to start · Plays in your browser · No download</p>
+                        <p className="landing-cta-note" role={!registrationOpen ? "status" : undefined}>{registrationOpen ? "Free to start · Plays in your browser · No download" : registrationMessage}</p>
                     </div>
                 </div>
 
@@ -610,7 +676,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         <p className="landing-footer-tag">A browser-based shinobi RPG. Begin your journey for free.</p>
                     </div>
                     <nav className="landing-footer-links">
-                        <button type="button" onClick={onOpenCreate}>Start Playing</button>
+                        <button type="button" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>Start Playing</button>
                         <button type="button" onClick={onOpenGuides}>Guides</button>
                         <button type="button" onClick={onOpenLeaderboard}>Leaderboard</button>
                         <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Discord</a>
@@ -625,7 +691,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             </footer>
 
             <div className="landing-mobile-cta">
-                <button type="button" className="landing-cta landing-cta--primary" onClick={onOpenCreate}>
+                <button type="button" className="landing-cta landing-cta--primary" onClick={onOpenCreate} disabled={!registrationOpen} title={!registrationOpen ? registrationMessage : undefined}>
                     Play Free Now
                 </button>
             </div>

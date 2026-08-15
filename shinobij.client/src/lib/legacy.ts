@@ -2,20 +2,38 @@
  * Legacy system client API (docs/legacy-system-plan.md) — typed wrappers over
  * the /api/legacy/* endpoints plus the Wandering Sage sector NPC synth.
  *
- * Client flag: `legacy.v1` (localStorage, default ON — the real gate is the
- * server's ENABLE_LEGACY; endpoints 404 while it's off and every wrapper here
- * resolves to null/empty rather than throwing).
+ * The public live-capability projection is the authoritative availability gate.
+ * A local `legacy.v1=off` preference may additionally hide the feature, but can
+ * never expose a server-disabled surface.
  */
-import { useEffect, useState } from "react";
 import type { Wanderer } from "./wanderers";
 import type { Character } from "../types/character";
+import {
+    capabilityMutationAvailability,
+    capabilityViewAvailability,
+    liveCapabilitiesStore,
+} from "./live-capabilities";
+import {
+    useCapabilityMutationAvailability,
+    useCapabilityViewAvailability,
+} from "./live-capabilities-context";
 
 export function legacyAvailabilityAllowed(preferenceEnabled: boolean, serverEnabled: boolean | null): boolean {
     return preferenceEnabled && serverEnabled === true;
 }
 
 export function isLegacyEnabled(): boolean {
-    return legacyAvailabilityAllowed(legacyPreferenceEnabled(), legacyServerLive);
+    return legacyAvailabilityAllowed(
+        legacyPreferenceEnabled(),
+        capabilityViewAvailability(liveCapabilitiesStore.getSnapshot(), "legacy") === "available",
+    );
+}
+
+export function isLegacyMutationEnabled(): boolean {
+    return legacyAvailabilityAllowed(
+        legacyPreferenceEnabled(),
+        capabilityMutationAvailability(liveCapabilitiesStore.getSnapshot(), "legacy") === "available",
+    );
 }
 
 function legacyPreferenceEnabled(): boolean {
@@ -206,51 +224,27 @@ export function fetchLegacyDefinitions(): Promise<{ minLevel: number; legacies: 
     return getJson(`/api/legacy/definitions`);
 }
 
-// Whether the SERVER's ENABLE_LEGACY flag is actually on (isLegacyEnabled above
-// is only the client kill-switch). Probed once per session via the public
-// definitions endpoint, which 404s while the flag is off. Gates paid legacy-wave
-// UI (title style/icon pickers) so a player can't spend shards on a cosmetic the
-// server would strip at save time.
-let legacyServerLive: boolean | null = null;
-let legacyProbe: Promise<boolean> | null = null;
-const legacyAvailabilityListeners = new Set<() => void>();
-
-function notifyLegacyAvailability(): void {
-    for (const listener of legacyAvailabilityListeners) listener();
-}
-
+/** Compatibility entry point for non-React callers. It reads the same live
+ * projection as the hook and never probes a feature endpoint for availability. */
 export async function isLegacyServerLive(): Promise<boolean> {
-    if (!legacyPreferenceEnabled()) return false;
-    if (legacyServerLive === null) {
-        legacyProbe ??= fetchLegacyDefinitions().then((result) => {
-            legacyServerLive = result !== null;
-            notifyLegacyAvailability();
-            return legacyServerLive;
-        }).catch(() => {
-            legacyServerLive = false;
-            notifyLegacyAvailability();
-            return false;
-        });
-    }
-    if (legacyProbe) await legacyProbe;
-    return legacyServerLive === true;
+    return isLegacyEnabled();
 }
 
 /**
  * Server availability is the only enable gate. A local preference may hide
  * the feature, but it cannot expose a server-disabled Legacy surface. The
- * hook probes once per browser session and re-renders every entry point when
- * the authoritative result arrives.
+ * hook subscribes to the shared provider and re-renders every entry point when
+ * authoritative availability changes.
  */
 export function useLegacyAvailability(): boolean {
-    const [available, setAvailable] = useState(isLegacyEnabled);
-    useEffect(() => {
-        const listener = () => setAvailable(isLegacyEnabled());
-        legacyAvailabilityListeners.add(listener);
-        void isLegacyServerLive().then(listener);
-        return () => { legacyAvailabilityListeners.delete(listener); };
-    }, []);
-    return available && legacyPreferenceEnabled();
+    const availability = useCapabilityViewAvailability("legacy");
+    return legacyAvailabilityAllowed(legacyPreferenceEnabled(), availability === "available");
+}
+
+
+export function useLegacyMutationAvailability(): boolean {
+    const availability = useCapabilityMutationAvailability("legacy");
+    return legacyAvailabilityAllowed(legacyPreferenceEnabled(), availability === "available");
 }
 
 export function sageRoll(playerName: string, sector?: number | null): Promise<{ spawn: boolean; offer?: SageOfferView; reason?: string } | null> {

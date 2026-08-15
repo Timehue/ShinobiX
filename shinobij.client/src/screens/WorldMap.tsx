@@ -57,7 +57,13 @@ import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDO
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntroEvent, claimTravelersCodex } from "../lib/chronicle-scribe";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
-import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
+import { anbuInfiltrationAdmissionEnabled } from "../lib/anbu-infiltration-api";
+import {
+    useCapabilityMutationAvailability,
+    useCapabilityViewAvailability,
+    useLiveCapabilities,
+} from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
@@ -166,7 +172,7 @@ import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } 
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
-import { isLegacyServerLive, useLegacyAvailability, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, emissaryLoreLine, emissaryQuestById, EMISSARY_METRIC_LABELS, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
 import { EmissaryTrialPanel } from "../components/EmissaryTrialPanel";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
@@ -437,6 +443,20 @@ export function WorldMap({
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
 }) {
     const legacyAvailable = useLegacyAvailability();
+    const legacyActionsAvailable = useLegacyMutationAvailability();
+    const { mutationAvailability } = useLiveCapabilities();
+    const villageWarViewAvailability = useCapabilityViewAvailability("villageWar");
+    const villageWarMutationAvailability = useCapabilityMutationAvailability("villageWar");
+    const anbuViewAvailability = useCapabilityViewAvailability("anbuInfiltration");
+    const anbuMutationAvailability = useCapabilityMutationAvailability("anbuInfiltration");
+    const globalViewAvailability = useCapabilityViewAvailability();
+    const globalMutationAvailability = useCapabilityMutationAvailability();
+    const villageWarViewOpen = capabilityAdmissionAllowed(villageWarViewAvailability);
+    const villageWarAdmissionOpen = capabilityAdmissionAllowed(villageWarMutationAvailability);
+    const anbuViewOpen = anbuInfiltrationAdmissionEnabled(anbuViewAvailability);
+    const anbuAdmissionOpen = anbuInfiltrationAdmissionEnabled(anbuMutationAvailability);
+    const globalViewOpen = capabilityAdmissionAllowed(globalViewAvailability);
+    const globalMutationsOpen = capabilityAdmissionAllowed(globalMutationAvailability);
     // Live players in the current sector come from the presence store. WorldMap reads
     // the MEMBERSHIP-only snapshot (useLiveSectorRoster) — it re-renders on join/leave
     // but NOT when a peer merely walks to a new tile; the walking overlay
@@ -618,7 +638,7 @@ export function WorldMap({
     }, [selectedVillageTerritory]);
 
     useEffect(() => {
-        if (!selectedSector) { setSectorEnemyGuards([]); return; }
+        if (!villageWarAdmissionOpen || !selectedSector) { setSectorEnemyGuards([]); return; }
         const war = activeVillageWarsFor(character.village).find(w => w.warGroundSector === selectedSector);
         const enemyVillage = war?.villages.find(v => v !== character.village);
         if (!enemyVillage) { setSectorEnemyGuards([]); return; }
@@ -627,7 +647,7 @@ export function WorldMap({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ village: enemyVillage }),
         }).then(r => r.ok ? r.json() : []).then(setSectorEnemyGuards).catch(() => setSectorEnemyGuards([]));
-    }, [selectedSector, character.village]);
+    }, [selectedSector, character.village, villageWarAdmissionOpen]);
 
     async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {
         // Always prefer the authoritative combat save for PvP. Roster entries can be
@@ -641,6 +661,7 @@ export function WorldMap({
     }
 
     async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
+        if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         if (!requireServerSettlement("pvpSession")) return;
         setCurrentSector(sector);
         setCurrentBiome(biome);
@@ -806,6 +827,7 @@ export function WorldMap({
     );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
+        if (!globalViewOpen) return;
         let alive = true;
         const load = () => {
             void fetchBountyBoard().then((board) => { if (alive) setBountyBoard(board); }).catch(() => { /* best-effort */ });
@@ -813,7 +835,7 @@ export function WorldMap({
         load();
         const id = setInterval(load, 45000);
         return () => { alive = false; clearInterval(id); };
-    }, [character.name]);
+    }, [character.name, globalViewOpen]);
     const selfBounty = useMemo(
         () => bountyBoard.find((b) => b.target.trim().toLowerCase() === character.name.trim().toLowerCase()) ?? null,
         [bountyBoard, character.name],
@@ -867,13 +889,13 @@ export function WorldMap({
     useEffect(() => {
         const village = (character.village ?? "").trim();
         const sec = selectedSector;
-        if (!isVillageWarMapEnabled() || sec == null || !village) return;
+        if (!villageWarViewOpen || !isVillageWarMapEnabled() || sec == null || !village) return;
         let alive = true;
         const load = () => { void fetchMercRoster(character.name, village, sec).then(m => { if (alive) setMercRoster({ sector: sec, mercs: m }); }).catch(() => { /* roster is best-effort */ }); };
         load();
         const id = setInterval(load, 20000);
         return () => { alive = false; clearInterval(id); };
-    }, [selectedSector, character.name, character.village]);
+    }, [selectedSector, character.name, character.village, villageWarViewOpen]);
 
     // Roaming weekly boss (weeklyBossRoam.v1, default ON — opt out per-device
     // with `weeklyBossRoam.v1 = "off"`). Poll the boss state
@@ -882,7 +904,7 @@ export function WorldMap({
     // is plenty — GET /api/weekly-boss is edge-cached (s-maxage=10).
     const [roamingBoss, setRoamingBoss] = useState<RoamingBoss | null>(null);
     useEffect(() => {
-        if (!isWeeklyBossRoamEnabled()) return;
+        if (!globalViewOpen || !isWeeklyBossRoamEnabled()) return;
         let alive = true;
         const load = () => {
             void fetch("/api/weekly-boss", { method: "GET" })
@@ -893,7 +915,7 @@ export function WorldMap({
         load();
         const id = setInterval(load, 45000);
         return () => { alive = false; clearInterval(id); };
-    }, []);
+    }, [globalViewOpen]);
 
     // ── Roaming weekly boss — in-sector encounter (weeklyBossRoam.v1, Phase 3) ──
     // A slow tick so the boss-sector highlight AND the in-sector actor's presence
@@ -932,6 +954,7 @@ export function WorldMap({
         });
     }
     function standBossFight() {
+        if (!globalMutationsOpen || !capabilityAdmissionAllowed(mutationAvailability())) return;
         setBossDialog(null);
         if (!roamingBoss?.aiId) return;
         // launchWeeklyBossFight bails (with an alert) if stamina < 20. Catch that
@@ -956,10 +979,10 @@ export function WorldMap({
         setBossDialog(null);
     }
     const mercWanderers = useMemo(() => {
-        if (!isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
+        if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
         return mercRoster.mercs.filter(m => !isWandererOnCooldown(cd, m.id, now)).map(synthMercWanderer);
-    }, [mercRoster, selectedSector, character.wandererCooldowns]);
+    }, [mercRoster, selectedSector, character.wandererCooldowns, villageWarViewOpen]);
     // Wandering Sage (Legacy system, legacy.v1 + server ENABLE_LEGACY). The
     // OFFER is server-decided (eligibility, odds, pity, daily caps all live in
     // api/legacy/sage.ts) — this roll call is a free no-op when nothing is due.
@@ -973,7 +996,7 @@ export function WorldMap({
     // Sage departure) — these used to be native alert() dialogs.
     const [whisper, setWhisper] = useState<{ text: string; kicker?: string } | null>(null);
     useEffect(() => {
-        if (!legacyAvailable || character.level < 50 || character.legacy) return;
+        if (!legacyActionsAvailable || character.level < 50 || character.legacy) return;
         let alive = true;
         void sageRoll(character.name).then(r => {
             if (!alive) return;
@@ -995,7 +1018,7 @@ export function WorldMap({
             }
         });
         return () => { alive = false; };
-    }, [legacyAvailable, character.name, character.level, character.legacy]);
+    }, [legacyActionsAvailable, character.name, character.level, character.legacy]);
     // Pre-50 Legacy rumors: at level milestones, one vague hint about the
     // strongest path the player is carving (never formulas — the mystery rule).
     // Fires for the highest unseen milestone at level >= it, so leveling past
@@ -1025,9 +1048,9 @@ export function WorldMap({
         return () => { alive = false; };
     }, [legacyAvailable, character.name, character.level]);
     const sageWanderers = useMemo(
-        () => (sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector
+        () => (legacyAvailable && sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector
             ? [synthSageWanderer(sageOffer.sector)] : []),
-        [sageOffer, selectedSector],
+        [legacyAvailable, sageOffer, selectedSector],
     );
     // Legacy Emissaries — the eight roaming quest-givers (lib/legacy-emissaries).
     // Spawn is deterministic per (player, 6h window), like the natural roster;
@@ -1042,24 +1065,25 @@ export function WorldMap({
     // acceptable while the system is officially off (verification finding).
     const [legacyServerLive, setLegacyServerLive] = useState(false);
     useEffect(() => {
+        if (!legacyAvailable) { setLegacyServerLive(false); return; }
         let alive = true;
-        if (legacyAvailable) void isLegacyServerLive().then(live => { if (alive) setLegacyServerLive(live); });
+        void isLegacyServerLive().then(live => { if (alive) setLegacyServerLive(live); });
         return () => { alive = false; };
     }, [legacyAvailable]);
     useEffect(() => {
-        if (!legacyAvailable || !character.legacy) { return; }
+        if (!legacyAvailable || !character.legacy) { setLegacyCategory(null); return; }
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => { if (alive) setLegacyCategory(s?.legacyCategory ?? null); });
         return () => { alive = false; };
     }, [legacyAvailable, character.name, character.legacy]);
     const emissaryWanderers = useMemo(() => {
-        if (!legacyServerLive || !isWanderersEnabled() || selectedSector == null) return [];
+        if (!legacyAvailable || !legacyServerLive || !isWanderersEnabled() || selectedSector == null) return [];
         // A legacy holder's emissary is category-bound; until the category fetch
         // resolves, don't fall into the pre-acceptance roaming branch by mistake.
         if (character.legacy && !legacyCategory) return [];
         const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()), selectedSector);
         return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
-    }, [legacyServerLive, character.name, character.level, character.legacy, legacyCategory, selectedSector]);
+    }, [legacyAvailable, legacyServerLive, character.name, character.level, character.legacy, legacyCategory, selectedSector]);
     // Story road events (docs/fable-5-story-rebuild.md §10): the next eligible
     // event's NPC walks WHATEVER sector the player is in — the road finds them.
     // Completion is trait-presence, so the memo re-evaluates when traits change.
@@ -1201,6 +1225,7 @@ export function WorldMap({
         sector: number,
         worldEncounter: WorldAiFightRequest,
     ) {
+        if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         const b = biomeForSector(sector);
         setCurrentSector(sector);
         setCurrentBiome(b);
@@ -1225,6 +1250,7 @@ export function WorldMap({
      * Solo-PvE host. Runtime World encounters use launchWorldMapFight above.
      */
     async function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void) {
+        if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         if (aiRaidLaunchInFlight.current) return;
         aiRaidLaunchInFlight.current = true;
         setPendingPvpOpponent(null);
@@ -1291,7 +1317,7 @@ export function WorldMap({
         if (weeklyBossSector) return `${w.name} points toward ${sectorRegionName(weeklyBossSector)}: "Something huge is moving through sector ${weeklyBossSector}."`;
         const wars = activeVillageWarsFor(character.village);
         if (wars.length > 0) return `${w.name} says, "Patrols are tight while your village is at war. Watch border roads and mercenary colors."`;
-        if (sageOffer) return `${w.name} smiles faintly: "Old wisdom waits in sector ${sageOffer.sector}. That kind of meeting does not happen twice by accident."`;
+        if (legacyAvailable && sageOffer) return `${w.name} smiles faintly: "Old wisdom waits in sector ${sageOffer.sector}. That kind of meeting does not happen twice by accident."`;
         return `${w.name} studies the road dust: "${sectorRegionName(selectedSector ?? 1)} is quiet for now. Quiet roads usually mean someone is choosing the hour."`;
     }
     function askRoadRumor(w: Wanderer) {
@@ -1731,6 +1757,13 @@ export function WorldMap({
     // server-authoritative.
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean; standingLine?: string; peace?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
+    useEffect(() => {
+        if (legacyAvailable) return;
+        setSageOffer(null);
+        setSageVnEvent(null);
+        setSageChoiceOpen(false);
+        setWandererDialog((current) => current?.w.id === LEGACY_SAGE_WANDERER_ID ? null : current);
+    }, [legacyAvailable]);
     function requiresWandererChoice(d: WandererDialog | null) {
         return !!d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter");
     }
@@ -1743,7 +1776,7 @@ export function WorldMap({
         if (isRoamingGiverEventId(w.id)) giverAcceptedRef.current = null;
         // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
         if (w.id === LEGACY_SAGE_WANDERER_ID) {
-            if (sageOffer) {
+            if (legacyAvailable && sageOffer) {
                 setSageVnPage(0);
                 setSageVnLine(0);
                 setSageVnEvent(buildSageVnEvent(sageOffer, character.name));
@@ -1840,6 +1873,10 @@ export function WorldMap({
     // the resolved-dialog path. The merc NPC is hidden client-side after the clash;
     // the server enforces the real 15-min per-target cooldown.
     async function engageRoamingMerc(w: Wanderer) {
+        if (!villageWarAdmissionOpen || !capabilityAdmissionAllowed(mutationAvailability("villageWar"))) {
+            setWandererDialog({ w, msg: "Village War actions are paused. This patrol remains visible while live admission recovers." });
+            return;
+        }
         const sec = selectedSector;
         if (sec == null) return;
         const village = (character.village ?? "").trim();
@@ -2367,6 +2404,9 @@ export function WorldMap({
     // sector's vault structure, and the live raid screen (portaled full-screen).
     const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
+    useEffect(() => {
+        if (!anbuViewOpen) setVaultPrompt(null);
+    }, [anbuViewOpen]);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
     type ChestLoot = {
@@ -2433,7 +2473,7 @@ export function WorldMap({
 
     // When the War Map is on, a sector owned by a village glows in that village's
     // accent colour (live owner from the territory cache, else its home village).
-    const warMapOn = isVillageWarMapEnabled();
+    const warMapOn = villageWarViewOpen && isVillageWarMapEnabled();
     // War-Map legibility: tint each owned sector's marker in its holder village's
     // accent (your own village ringed white) so the front line reads at a glance
     // instead of a field of identical yellow dots. Neutral / central (>=56) /
@@ -3715,7 +3755,7 @@ export function WorldMap({
             </div>
         );
     }
-    if (sageVnEvent) {
+    if (legacyAvailable && sageVnEvent) {
         // The Wandering Sage's introduction. Completing it opens the offer
         // sheet (SageOfferModal) where the permanent choice actually happens.
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
@@ -4017,7 +4057,9 @@ export function WorldMap({
         const biome = biomeForSector(selectedSector);
         const sectorWeather = weatherForSector(selectedSector, biome);
         const territory = loadSectorTerritory(selectedSector);
-        const villageWar = activeVillageWarsFor(character.village).find(war => war.warGroundSector === selectedSector);
+        const villageWar = villageWarViewOpen
+            ? activeVillageWarsFor(character.village).find(war => war.warGroundSector === selectedSector)
+            : undefined;
         const villageWarEnemy = villageWar?.villages.find(village => village !== character.village);
         const livePlayersHere = liveSectorPlayers
             .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
@@ -4286,7 +4328,7 @@ export function WorldMap({
                                 inner door is guarded by a sealed Anbu snapshot. NEVER flips
                                 the sector — pure attrition (docs/anbu-infiltration-plan.md). */}
                             {(() => {
-                                if (!anbuInfiltrationEnabled() || (character.level ?? 0) < 100 || selectedSector == null) return null;
+                                if (!anbuViewOpen || (character.level ?? 0) < 100 || selectedSector == null) return null;
                                 // Prefer the captured owner; fall back to the sector's home
                                 // village so the vault shows on enemy home sectors before any
                                 // sector-war capture (matches the server's ownership fallback).
@@ -4348,7 +4390,7 @@ export function WorldMap({
                             )}
 
                             {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
-                            {vaultPrompt && createPortal(
+                            {vaultPrompt && anbuViewOpen && createPortal(
                                 <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
                                     <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
                                         <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
@@ -4358,7 +4400,15 @@ export function WorldMap({
                                             Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.
                                         </p>
                                         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                                            <button style={{ padding: "0.55rem 1.15rem" }} onClick={() => { setVaultRaid(vaultPrompt); setVaultPrompt(null); }}>Infiltrate</button>
+                                            <button
+                                                disabled={!anbuAdmissionOpen}
+                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen ? 1 : 0.55 }}
+                                                onClick={() => {
+                                                    if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
+                                                    setVaultRaid(vaultPrompt);
+                                                    setVaultPrompt(null);
+                                                }}
+                                            >{anbuAdmissionOpen ? "Infiltrate" : "Operation paused"}</button>
                                             <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
                                         </div>
                                     </div>
@@ -4370,16 +4420,26 @@ export function WorldMap({
                                 portaled full-screen so the bottom nav can't paint over it. */}
                             {vaultRaid && createPortal(
                                 <div style={{ position: "fixed", inset: 0, zIndex: 1000000, overflowY: "auto", background: "#0a0d15" }}>
-                                    <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
-                                        <AnbuVaultRaid
-                                            character={character}
-                                            sharedImages={sharedImages}
-                                            sector={vaultRaid.sector}
-                                            targetVillage={vaultRaid.village}
-                                            onVersionedCharacter={onVersionedCharacter}
-                                            onExit={() => setVaultRaid(null)}
-                                        />
-                                    </Suspense>
+                                    {anbuAdmissionOpen ? (
+                                        <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
+                                            <AnbuVaultRaid
+                                                character={character}
+                                                sharedImages={sharedImages}
+                                                sector={vaultRaid.sector}
+                                                targetVillage={vaultRaid.village}
+                                                onVersionedCharacter={onVersionedCharacter}
+                                                onExit={() => setVaultRaid(null)}
+                                            />
+                                        </Suspense>
+                                    ) : (
+                                        <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
+                                            <div className="card" role="status" style={{ maxWidth: 460, textAlign: "center", padding: 20 }}>
+                                                <h3>ANBU operation paused</h3>
+                                                <p>The vault run remains recoverable, but traversal, combat, and settlement requests are paused until live admission returns.</p>
+                                                <button type="button" onClick={() => setVaultRaid(null)}>Leave operation view</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>,
                                 document.body,
                             )}
@@ -4415,18 +4475,20 @@ export function WorldMap({
                                         <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard — or flee (free, no attempt spent).</p>
                                         <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700 }}>Stand &amp; Fight</button>
+                                            <button disabled={!globalMutationsOpen} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
                                             <button onClick={fleeBoss}>Flee</button>
                                         </div>
                                     </div>
                                 </div>,
                                 document.body,
                             )}
-                            {sageChoiceOpen && sageOffer && (
+                            {legacyAvailable && sageChoiceOpen && sageOffer && (
                                 <SageOfferModal
                                     key={`${character.name.trim().toLowerCase()}:${sageOffer.spawnedAt}:${sageOffer.status}:${sageOffer.offers.map((entry) => entry.legacyId).join(",")}`}
                                     offer={sageOffer}
                                     playerName={character.name}
+                                    actionsAllowed={legacyActionsAvailable}
+                                    canMutate={() => capabilityAdmissionAllowed(mutationAvailability("legacy"))}
                                     onVersionedCharacter={onVersionedCharacter}
                                     onClose={() => setSageChoiceOpen(false)}
                                     onDeclined={() => {
@@ -4873,11 +4935,16 @@ export function WorldMap({
                                         </div>
                                         <div className="sector-meter sector-meter-hp"><span style={{ width: `${((villageWarEnemy ? villageWar.hp[villageWarEnemy] : 0) / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div>
                                     </div>
-                                    <button type="button" className="danger-button sector-action-btn is-danger" disabled={villageWar.warGroundHp <= 0 || Boolean(villageWar.endedAt)} onClick={() => {
+                                    <button type="button" className="danger-button sector-action-btn is-danger" disabled={!villageWarAdmissionOpen || villageWar.warGroundHp <= 0 || Boolean(villageWar.endedAt)} onClick={() => {
+                                        if (!capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
                                         const guard = sectorEnemyGuards[0];
                                         if (guard) {
                                             fetchSavedPlayerCharacter(guard.name).then((guardCharacter) => {
-                                                if (guardCharacter) return startPvpRaid(guardCharacter, selectedSector, biome, sectorWeather);
+                                                if (guardCharacter) {
+                                                    if (!capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
+                                                    return startPvpRaid(guardCharacter, selectedSector, biome, sectorWeather);
+                                                }
+                                                if (!capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
                                                 launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, selectedSector, () => {
                                                     setCurrentSector(selectedSector);
                                                     setCurrentBiome(biome);
@@ -4898,7 +4965,8 @@ export function WorldMap({
                                 </div>
                             )}
                             {territory.ownerClan && territory.ownerClan !== character.clan && (
-                                <button type="button" className="danger-button sector-action-btn is-danger" onClick={() => {
+                                <button type="button" className="danger-button sector-action-btn is-danger" disabled={!villageWarAdmissionOpen} onClick={() => {
+                                    if (!capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
                                     launchAiGuardRaid(pickGuardAi(character.level), character.level, selectedSector, () => {
                                         setCurrentSector(selectedSector);
                                         setCurrentBiome(biome);
@@ -5424,7 +5492,7 @@ export function WorldMap({
                                 title={scoutDotTitle(scoutedSectors.get(sector.id)!, (scoutInfo.tier || 1) as 1 | 2 | 3)}
                             >🔴{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
                         )}
-                        {sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
+                        {legacyAvailable && sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
                             <img
                                 src="/legacy/sage-marker.webp"
                                 alt=""
@@ -5450,7 +5518,7 @@ export function WorldMap({
                 {/* Village War Map ownership: holder banners + siege pulses over the
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
                     so it stays inert/invisible on the default world map. */}
-                {isVillageWarMapEnabled() && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
+                {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
 
                 {/* Roaming weekly boss: the boss's current sector NODE is highlighted
                     in-place (pulsing ring + 👹 flag, see weeklyBossSector above and

@@ -7,6 +7,7 @@ import {
 export const PLAYER_MENU_GROUPS = [
     { id: "world", label: "World", items: [
         ["tavern", "Tavern", GiBeerStein], ["worldMap", "Travel", GiTreasureMap],
+        ["villageWarMap", "Sector Map", GiTreasureMap],
         ["userHub", "Users", GiThreeFriends], ["messages", "Mail", GiEnvelope],
     ] },
     { id: "growth", label: "Growth", items: [

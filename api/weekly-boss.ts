@@ -14,6 +14,7 @@ import { weeklyBossEnemyTemplate } from './_authoritative-pve.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { loadAdminAiObjects } from './_admin-ai-catalog.js';
 import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
+import type { SoloPveSession } from './solo-pve/_session.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from './solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve/_settlement.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
@@ -230,6 +231,60 @@ function publicWeeklyBossState(boss: WeeklyBossState | null): Omit<WeeklyBossSta
 
 const weeklyBossActiveRunKey = (playerName: string, bossStartedAt: number) =>
     `weekly-boss-active:${bossStartedAt}:${encodeURIComponent(playerName)}`;
+
+type WeeklyBossRecoveryProbe =
+    | { state: 'ready'; runId: string; session: SoloPveSession; character: Record<string, unknown>; saveVersion: number }
+    | { state: 'prepared'; runId: string };
+
+function isCurrentWeeklyBossRun(params: {
+    activeRunId: string;
+    run: WeeklyBossAuthoritativeRun | null;
+    session: SoloPveSession | null;
+    playerName: string;
+    boss: WeeklyBossState;
+}): params is typeof params & { run: WeeklyBossAuthoritativeRun; session: SoloPveSession } {
+    const { activeRunId, run, session, playerName, boss } = params;
+    return Boolean(run && session
+        && run.runId === activeRunId
+        && run.playerName === playerName
+        && run.weekKey === boss.weekKey
+        && run.aiId === boss.aiId
+        && run.bossStartedAt === boss.startedAt
+        && !run.settledAt
+        && session.runtime === 'solo-pve'
+        && session.ownerSlug === playerName
+        && session.encounter.kind === 'weekly-boss'
+        && session.encounter.bindingId === run.runId
+        && session.encounter.sourceId === run.aiId
+        && session.encounter.metadata?.weekKey === run.weekKey
+        && Number(session.encounter.metadata?.bossStartedAt) === run.bossStartedAt);
+}
+
+/** Read-only discovery for a lost Weekly Boss start response. It deliberately
+ * receives no writer and never repairs stale pointers: a probe may reveal an
+ * accepted run, but it cannot mint a run, reserve an attempt, or debit stamina. */
+async function probeWeeklyBossRecovery(playerName: string, boss: WeeklyBossState): Promise<WeeklyBossRecoveryProbe | null> {
+    const activeRunId = await kv.get<string>(weeklyBossActiveRunKey(playerName, boss.startedAt));
+    if (!activeRunId) return null;
+    const [run, session] = await Promise.all([
+        kv.get<WeeklyBossAuthoritativeRun>(weeklyBossRunKey(activeRunId)),
+        readSoloPveSession(activeRunId),
+    ]);
+    const candidate = { activeRunId, run, session, playerName, boss };
+    if (!isCurrentWeeklyBossRun(candidate)) return null;
+    if (candidate.run.startState === 'prepared') return { state: 'prepared', runId: activeRunId };
+
+    const actorSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+    const character = actorSave?.character as Record<string, unknown> | undefined;
+    if (!actorSave || !character) return null;
+    return {
+        state: 'ready',
+        runId: activeRunId,
+        session: candidate.session,
+        character,
+        saveVersion: Number(actorSave._saveVersion ?? 0),
+    };
+}
 
 
 // ISO week key, e.g. "2026-W21"
@@ -514,6 +569,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
+        // Recovery discovery is intentionally a safe-method, authenticated,
+        // no-store read. Keep it ahead of loadOrInitBoss()/expiry distribution:
+        // even those otherwise-helpful writes would violate probe semantics.
+        if (req.query.recoverFight === '1') {
+            const identity = await authedPlayerOrAdmin(req);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+            const boss = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+            res.setHeader('Cache-Control', 'private, no-store');
+            if (!boss) {
+                return res.status(404).json({
+                    error: 'No interrupted Weekly Boss fight is available.',
+                    code: 'weekly-boss-recovery-not-found',
+                });
+            }
+            const requestedWeekKey = typeof req.query.weekKey === 'string' ? req.query.weekKey : '';
+            if ((requestedWeekKey && requestedWeekKey !== boss.weekKey)
+                || boss.rewardsDistributed
+                || Date.now() >= boss.expiresAt) {
+                return res.status(409).json({
+                    error: 'That Weekly Boss fight is no longer recoverable.',
+                    code: 'weekly-boss-recovery-stale',
+                });
+            }
+            const actorName = identity.admin ? 'admin' : identity.name;
+            const recovery = await probeWeeklyBossRecovery(actorName, boss);
+            if (!recovery) {
+                return res.status(404).json({
+                    error: 'No interrupted Weekly Boss fight is available.',
+                    code: 'weekly-boss-recovery-not-found',
+                });
+            }
+            if (recovery.state === 'prepared') {
+                return res.status(409).json({
+                    error: 'Your accepted Weekly Boss fight still needs finalization.',
+                    code: 'weekly-boss-recovery-needs-finalization',
+                    runId: recovery.runId,
+                });
+            }
+            return res.status(200).json({
+                ok: true,
+                replayed: true,
+                runId: recovery.runId,
+                session: recovery.session,
+                character: recovery.character,
+                _saveVersion: recovery.saveVersion,
+                expiresInSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
+            });
+        }
+
         let boss = await loadOrInitBoss();
         // Run the expiry check on read so the leaderboard reflects the
         // post-distribution state even if no one has attacked since the
@@ -579,28 +683,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
-            if (kind === 'startFight') {
-                if (!identity.admin && await findTowerBattleStartConflict([actorName])) {
+            if (kind === 'startFight' || kind === 'resumeFight') {
+                const recoveryOnly = kind === 'resumeFight';
+                const requestedRunId = recoveryOnly ? String(body.runId ?? '').slice(0, 96) : '';
+                if (recoveryOnly && !requestedRunId) {
+                    return res.status(400).json({ error: 'Missing Weekly Boss run.', code: 'weekly-boss-recovery-run-required' });
+                }
+                if (!recoveryOnly && !identity.admin && await findTowerBattleStartConflict([actorName])) {
                     return res.status(409).json(towerBattleActiveErrorBody());
                 }
                 const activeKey = weeklyBossActiveRunKey(actorName, boss.startedAt);
                 const started = await withKvLock(activeKey, async () => {
                     let runId = await kv.get<string>(activeKey);
+                    if (recoveryOnly && runId !== requestedRunId) {
+                        return { status: 404 as const, body: {
+                            error: 'No matching interrupted Weekly Boss fight is available.',
+                            code: 'weekly-boss-recovery-not-found',
+                        } };
+                    }
                     let run = runId ? await kv.get<WeeklyBossAuthoritativeRun>(weeklyBossRunKey(runId)) : null;
                     let session = runId ? await readSoloPveSession(runId) : null;
 
-                    const sameSpawn = Boolean(run && session
-                        && run.playerName === actorName
-                        && run.weekKey === boss!.weekKey
-                        && run.aiId === boss!.aiId
-                        && run.bossStartedAt === boss!.startedAt
-                        && session.ownerSlug === actorName
-                        && session.encounter.bindingId === run.runId);
+                    const sameSpawn = Boolean(runId && isCurrentWeeklyBossRun({
+                        activeRunId: runId,
+                        run,
+                        session,
+                        playerName: actorName,
+                        boss: boss!,
+                    }));
                     if (runId && (!sameSpawn || run?.settledAt)) {
+                        if (recoveryOnly) {
+                            return { status: 404 as const, body: {
+                                error: 'No matching interrupted Weekly Boss fight is available.',
+                                code: 'weekly-boss-recovery-not-found',
+                            } };
+                        }
                         await kv.del(activeKey);
                         runId = null;
                         run = null;
                         session = null;
+                    }
+
+                    // A resume-only request may finish the already-persisted
+                    // prepared saga below, but it can never enter the creation
+                    // branch and mint a run from stale client-side blockers.
+                    if (recoveryOnly && (!run || !session)) {
+                        return { status: 404 as const, body: {
+                            error: 'No matching interrupted Weekly Boss fight is available.',
+                            code: 'weekly-boss-recovery-not-found',
+                        } };
                     }
 
                     const actorSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${actorName}`));

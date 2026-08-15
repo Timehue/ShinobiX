@@ -78,11 +78,15 @@ loss is more than trivially recoverable by replaying gameplay.
 - Ordinary Solo-PvE missions and Hollow Gate shinobi combat now settle from
   bound terminal `solo-pve` evidence; no rewarding client-attested win remains
   authorized for those rows.
-- Hollow Gate pet currently settles a run-bound receipt from the mounted legacy
-  pet duel while a separate Showdown-capable branch remains unmounted. Pet
-  Ranked likewise remains on the mounted legacy duel with a staged Showdown
-  replacement. These are explicit owner/cutover mismatches, not permission to
-  treat either route as generic Pet authority.
+- Hollow Gate pet currently settles a run-bound receipt from server-replayed
+  cinematic PvE while a separate Showdown-capable branch remains unmounted.
+  The public Pet Ranked queue instead launches the ordinary memory-only,
+  no-reward realtime duel and never settles rating; an older legacy ranked
+  compatibility path and staged Showdown implementation remain unconsumed. The
+  retained legacy path is also defective because its client cinematic playback
+  and server legacy replay can disagree.
+  These are explicit owner/integration gaps, not permission to treat any route
+  as generic Pet authority.
 - Dungeon pet remains a client-local presentation whose rewarding parent
   settlement consumes no server-selected encounter or terminal pet proof. It is
   a recorded authority defect, not sanctioned bounded client trust.

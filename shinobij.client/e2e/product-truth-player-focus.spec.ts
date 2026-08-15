@@ -40,6 +40,7 @@ const allAvailable: PublicCapabilities = {
     gameplayMutations: { state: "available", reason: "available" },
     registrations: { state: "available", reason: "available" },
     villageWar: { state: "available", reason: "available" },
+    anbuInfiltration: { state: "available", reason: "available" },
     clanBoss: { state: "available", reason: "available" },
     clanBossParties: { state: "available", reason: "available" },
     legacy: { state: "available", reason: "available" },
@@ -74,6 +75,8 @@ async function installRuntime(page: Page) {
         triggeredEvents: ["builtin-aura-sphere-lv9"],
     };
     let capabilities: PublicCapabilities = structuredClone(allAvailable);
+    let capabilityRequestCount = 0;
+    let sectorCampaignRequestCount = 0;
     let saveVersion = 1;
     let acknowledgedVersion = 0;
     let lastCommit: RuntimeSaveCommit | null = null;
@@ -129,7 +132,13 @@ async function installRuntime(page: Page) {
             acknowledgedVersion = nextVersion;
             return;
         }
-        if (path === "/api/player/capabilities") return json(route, { ok: true, capabilities });
+        if (path === "/api/player/capabilities") {
+            capabilityRequestCount += 1;
+            return json(route, { ok: true, capabilities });
+        }
+        if (["/api/village/war-map", "/api/village/sector-war", "/api/village/sector-pet", "/api/sector/merc-roam"].includes(path)) {
+            sectorCampaignRequestCount += 1;
+        }
         if (path === "/api/player/activity-spine") return json(route, { ok: true, spine: spine(url.searchParams.get("focus") ?? "auto") });
         if (path === "/api/player-auth") return json(route, { ok: true, token: "visual-session-token" });
         if (path === "/api/player/daily-login") return json(route, { ok: true, alreadyClaimed: true, granted: { ryo: 0, fateShards: 0 }, balances: { ryo: 1800, fateShards: 0 }, streak: 2, daysUntilShardBonus: 5 });
@@ -147,6 +156,8 @@ async function installRuntime(page: Page) {
             save = { ...save, character: { ...baseCharacter, ...next } };
         },
         disableVillageWar: () => { capabilities = { ...allAvailable, villageWar: { state: "temporarily-unavailable", reason: "temporarily-disabled" } }; },
+        capabilityRequests: () => capabilityRequestCount,
+        sectorCampaignRequests: () => sectorCampaignRequestCount,
         committedVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,
         lastCommit: () => lastCommit,
@@ -265,8 +276,21 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await expect(page.locator("body")).not.toContainText(/desktop-first|soft-launch|staffed beta/i);
     await capture(page, testInfo, "11-live-towers-no-stale-warning.png");
 
-    runtime.disableVillageWar();
     await loadScreen(page, "townHall");
-    await expect(page.getByLabel("Live service status")).toContainText("Village War is temporarily unavailable");
+    const warActions = page.locator(".town-war-actions");
+    await expect(warActions.getByRole("button", { name: "War Hall" })).toBeEnabled();
+    await expect(warActions.getByRole("button", { name: "Sector Map" })).toBeEnabled();
+    const capabilityRequestsBeforeDisable = runtime.capabilityRequests();
+    runtime.disableVillageWar();
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect.poll(runtime.capabilityRequests).toBeGreaterThan(capabilityRequestsBeforeDisable);
+    await expect(warActions.getByRole("button", { name: "Sector Map" })).toBeDisabled();
+    await expect(page.getByText("Sector campaign operations are temporarily unavailable. The legacy War Hall remains open.")).toBeVisible();
     await capture(page, testInfo, "12-disabled-capability-truthful-status.png");
+
+    const sectorRequestsBeforeRestore = runtime.sectorCampaignRequests();
+    await loadScreen(page, "villageWarMap");
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await page.waitForTimeout(500);
+    expect(runtime.sectorCampaignRequests()).toBe(sectorRequestsBeforeRestore);
 });

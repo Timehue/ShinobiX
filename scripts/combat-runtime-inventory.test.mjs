@@ -80,6 +80,17 @@ const routeSignatures = (mode) => mode.routes
   .map((route) => `${route.path}:${[...route.roles].sort().join('+')}`)
   .sort();
 
+const transportSignatures = (mode) => (mode.transports ?? [])
+  .map((transport) => [
+    transport.kind,
+    transport.channel,
+    transport.serverHandler,
+    transport.clientAdapter,
+    [...transport.roles].sort().join('+'),
+    transport.persistence,
+  ].join(':'))
+  .sort();
+
 describe('executable multi-engine runtime registry', () => {
   it('keeps the generated runtime-mode document deterministic and complete', () => {
     const rendered = renderRuntimeModeDocs();
@@ -105,6 +116,12 @@ describe('executable multi-engine runtime registry', () => {
         assert.ok(
           rendered.includes(`<code>${route.roles.join(', ')}</code> <code>${route.path}</code> → <code>${route.handler}</code> (${callerRequirement})`),
           `${mode.id}: missing generated route tuple for ${route.path}`,
+        );
+      }
+      for (const transport of mode.transports ?? []) {
+        assert.ok(
+          rendered.includes(`<code>${transport.roles.join(', ')}</code> <code>${transport.kind}</code> <code>${transport.channel}</code> → <code>${transport.serverHandler}</code> / <code>${transport.clientAdapter}</code> (${transport.persistence})`),
+          `${mode.id}: missing generated transport tuple for ${transport.channel}`,
         );
       }
       for (const entry of mode.clientEntries) {
@@ -136,6 +153,11 @@ describe('executable multi-engine runtime registry', () => {
         routeSignatures(mode),
         [...expectedContractById.get(mode.id).routeSignatures].sort(),
         `${mode.id}: mounted route/action/settlement contract drifted`,
+      );
+      assert.deepEqual(
+        transportSignatures(mode),
+        [...expectedContractById.get(mode.id).transportSignatures].sort(),
+        `${mode.id}: non-HTTP transport contract drifted`,
       );
     }
   });
@@ -199,6 +221,14 @@ describe('executable multi-engine runtime registry', () => {
           if (!routeRoles.has(role)) failures.push(`${mode.id}: ${route.path} has invalid route role ${role}`);
         }
       }
+      for (const transport of mode.transports ?? []) {
+        if (transport.kind !== 'socket.io') failures.push(`${mode.id}: invalid transport kind ${transport.kind}`);
+        if (!transport.channel.endsWith(':*')) failures.push(`${mode.id}: transport channel must name an event family`);
+        if (!['memory-only', 'durable'].includes(transport.persistence)) failures.push(`${mode.id}: invalid transport persistence`);
+        for (const role of transport.roles) {
+          if (!routeRoles.has(role)) failures.push(`${mode.id}: ${transport.channel} has invalid transport role ${role}`);
+        }
+      }
       if (mode.status !== 'match' && !mode.statusDetail) failures.push(`${mode.id}: non-match status has no factual explanation`);
       const isSurfaceGap = mode.status === 'surface-gap';
       if ((mode.authorityEngine === null) !== isSurfaceGap) {
@@ -209,6 +239,9 @@ describe('executable multi-engine runtime registry', () => {
       }
       if (isSurfaceGap && mode.routes.some((route) => route.roles.some((role) => ['start', 'action', 'state', 'settlement'].includes(role)))) {
         failures.push(`${mode.id}: surface gap falsely claims a mounted combat lifecycle`);
+      }
+      if (isSurfaceGap && (mode.transports ?? []).length > 0) {
+        failures.push(`${mode.id}: surface gap falsely claims a mounted non-HTTP transport`);
       }
     }
 
@@ -290,10 +323,42 @@ describe('executable multi-engine runtime registry', () => {
     assert.deepEqual(failures, [], failures.join('\n'));
   });
 
-  it('pins the ordinary Pet Arena variants to mounted AI/PvP 1v1/2v2 behavior', () => {
+  it('backs every declared realtime combat transport with mounted server and client adapters', () => {
+    const failures = [];
+    const socketMountSource = readFileSync(join(ROOT, 'api', '_realtime', 'socket.ts'), 'utf8');
+    for (const mode of RUNTIME_MODE_REGISTRY) {
+      for (const transport of mode.transports ?? []) {
+        const handlerPath = join(ROOT, 'api', `${transport.serverHandler}.ts`);
+        const adapterPath = join(ROOT, 'shinobij.client', 'src', transport.clientAdapter);
+        if (!existsSync(handlerPath)) {
+          failures.push(`${mode.id}: missing transport handler ${transport.serverHandler}`);
+          continue;
+        }
+        if (!existsSync(adapterPath)) {
+          failures.push(`${mode.id}: missing transport adapter ${transport.clientAdapter}`);
+          continue;
+        }
+        const eventPrefix = transport.channel.slice(0, -1);
+        const handlerSource = readFileSync(handlerPath, 'utf8');
+        const adapterSource = readFileSync(adapterPath, 'utf8');
+        if (!handlerSource.includes(eventPrefix)) failures.push(`${mode.id}: server handler does not implement ${transport.channel}`);
+        if (!adapterSource.includes(eventPrefix)) failures.push(`${mode.id}: client adapter does not implement ${transport.channel}`);
+        if (!mode.clientEntries.includes(transport.clientAdapter)) failures.push(`${mode.id}: transport adapter is absent from clientEntries`);
+        const wireExport = handlerSource.match(/export function (wire[A-Za-z0-9_]+)\(/)?.[1];
+        if (!wireExport || !socketMountSource.includes(`${wireExport}(io, socket)`)) {
+          failures.push(`${mode.id}: ${transport.serverHandler} is not wired into the Socket.IO mount`);
+        }
+      }
+    }
+    assert.deepEqual(failures, [], failures.join('\n'));
+  });
+
+  it('pins ordinary Pet Arena AI to HTTP receipts and live PvP to the realtime cinematic authority', () => {
     const startSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
     const resultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
     const replaySource = readFileSync(join(ROOT, 'api', 'pet', '_duel-replay.ts'), 'utf8');
+    const socketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
+    const socketSessionSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-session.ts'), 'utf8');
     const arenaSource = clientSource('screens/PetArena.tsx');
     const petModeIds = [
       'pet-arena-ai-1v1',
@@ -319,18 +384,15 @@ describe('executable multi-engine runtime registry', () => {
         mode.replayKind,
         id.includes('-ai-')
           ? 'server-replayed-cinematic-input-log-with-receipt'
-          : 'server-sealed-legacy-outcome-with-client-cinematic-presentation',
+          : 'memory-only-server-replayed-lockstep-cinematic-log',
       );
     }
 
     assert.match(startSource, /const mode = body\.mode === '2v2' \? '2v2' : '1v1'/);
-    assert.match(startSource, /else if \(opponentName\)/, 'PvP opponents must come from a stored player save.');
     assert.match(startSource, /SERVER_ARENA_PETS/, 'AI opponents must come from the server roster.');
     assert.match(startSource, /isAiOpponent \? \{[\s\S]*?mode,[\s\S]*?seed,/, 'AI modes must seal cinematic replay parameters.');
     assert.match(replaySource, /createLiveCinematicDuel/);
     assert.match(replaySource, /createLivePartyCinematicDuel/);
-    assert.match(startSource, /runPetDuel\(/, 'PvP 1v1 settlement must retain its factual legacy simulation owner.');
-    assert.match(startSource, /runPetPartyDuel\(/, 'PvP 2v2 settlement must retain its factual legacy simulation owner.');
     assert.match(resultSource, /outcome = tokenData\.authoritativeOutcome/);
     assert.match(resultSource, /dailyPetWins >= DAILY_ARENA_WIN_CAP/);
     assert.match(resultSource, /recordPetArenaVictory\(/);
@@ -339,6 +401,18 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(arenaSource, /mintCasualPetBattleToken\([^\n]+"1v1"/);
     assert.match(arenaSource, /opponentMode === "ai"/);
     assert.match(arenaSource, /const pvpParty = Boolean\(/);
+    assert.match(arenaSource, /sendDirectPetChallenge/);
+    assert.match(arenaSource, /liveDuelRef\.current\?\.challenge/);
+    assert.match(arenaSource, /partyMode \? combatEligiblePets\.find\(\(p\) => p\.id === reservePetId\) : null/,
+      'The known live 2v2 Auto-pick defect must remain visible until the client sends its computed reserve.');
+    assert.doesNotMatch(socketSource, /mode === ['"]2v2['"][\s\S]{0,300}(?:length !== 2|length === 2)/,
+      'The known live 2v2 defect remains until the server requires two sealed pets from each participant.');
+    assert.match(socketSource, /randomUUID\(\)/, 'Realtime duel identity must be server minted.');
+    assert.match(socketSource, /randomInt\(1, 0x7fffffff\)/, 'Realtime duel seed must be server minted.');
+    assert.match(socketSource, /loadAuthoritativePetRoster/, 'Both live rosters must be loaded from server saves.');
+    assert.match(socketSource, /replayLockstepPetDuel/, 'A client terminal hint must be replayed by the server.');
+    assert.match(socketSessionSource, /const sessions = new Map/, 'The live duel record is memory-only.');
+    assert.doesNotMatch(socketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/, 'Ordinary realtime PvP must not be mistaken for a rewarded or ranked settlement.');
   });
 
   it('records Card Clash free-play durable Legacy progression as server-owned', () => {
@@ -383,6 +457,13 @@ describe('executable multi-engine runtime registry', () => {
     const mercFighterSource = readFileSync(join(ROOT, 'api', 'towers', '_merc-fighters.ts'), 'utf8');
     const rankedPetStartSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-start.ts'), 'utf8');
     const petBattleResultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
+    const petLadderSource = clientSource('screens/PetLadder.tsx');
+    const petLadderQueueSource = clientSource('lib/pet-ladder-queue.ts');
+    const petLadderQueuePanelSource = clientSource('components/PetLadderQueuePanel.tsx');
+    const petArenaSource = clientSource('screens/PetArena.tsx');
+    const petBattleStartSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
+    const hollowGateSettleSource = readFileSync(join(ROOT, 'api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
+    const petSocketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const gauntletHandlerSource = readFileSync(join(ROOT, 'api', 'pet', 'gauntlet.ts'), 'utf8');
     const gauntletRuntimeSource = readFileSync(join(ROOT, 'api', '_pet-sim', 'gauntlet-sim.ts'), 'utf8');
     const coreEngines = [E.PVP, E.SOLO_PVE, E.TOWER, E.PET_SHOWDOWN, E.PET_WARFRONT, E.CHRONICLE, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL];
@@ -428,17 +509,39 @@ describe('executable multi-engine runtime registry', () => {
     assert.equal(dungeonPet.status, 'defect');
     assert.equal(dungeonPet.authorityEngine, E.CLIENT_LOCAL_PET_DUEL);
 
-    const rankedPet = runtimeModeById('pet-ranked-legacy');
-    assert.equal(rankedPet.status, 'staged-mismatch');
-    assert.equal(rankedPet.authorityEngine, E.LEGACY_PET_DUEL);
-    assert.equal(rankedPet.intendedAuthorityEngine, E.PET_SHOWDOWN);
+    const rankedPet = runtimeModeById('pet-ranked-live-defect');
+    assert.equal(rankedPet.status, 'defect');
+    assert.equal(rankedPet.authorityEngine, E.PET_CINEMATIC_DUEL);
+    assert.equal(rankedPet.intendedAuthorityEngine, undefined);
+    assert.match(petLadderSource, /<PetLadderQueuePanel/);
+    assert.match(petLadderSource, /<PetDuelLiveHost/);
+    assert.doesNotMatch(petLadderSource, /\/api\/pet\/ranked-start|\/api\/pet\/battle-result/);
+    assert.match(petLadderQueueSource, /\/api\/pvp\/pet-ranked-queue/);
+    assert.match(petLadderQueuePanelSource, /challengeToDuel\(match\.opponent, "1v1", petsRef\.current\)/,
+      'The public ranked pairing must remain pinned to the ordinary realtime duel until it is disabled or repaired.');
+    assert.match(petLadderSource, /autoAcceptFrom=\{queuedAgainst\}/,
+      'The paired defender must remain pinned to the ordinary realtime auto-accept path.');
+    assert.doesNotMatch(petSocketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/);
+
+    const rankedCompat = runtimeModeById('pet-ranked-legacy-compat');
+    assert.equal(rankedCompat.status, 'defect');
+    assert.equal(rankedCompat.authorityEngine, E.LEGACY_PET_DUEL);
     assert.match(rankedPetStartSource, /_ranked-authority\.js/);
     assert.doesNotMatch(rankedPetStartSource, /_ranked-engine\.js/);
+    assert.match(petArenaSource, /runPetDuelCinematic\(canonicalPlayerPet, canonicalOpponentPet/);
     assert.match(petBattleResultSource, /runPetDuel/);
 
-    const hollowGatePet = runtimeModeById('hollow-gate-pet-legacy');
+    const hollowGatePet = runtimeModeById('hollow-gate-pet-cinematic');
     assert.equal(hollowGatePet.status, 'owner-decision');
-    assert.equal(hollowGatePet.authorityEngine, E.LEGACY_PET_DUEL);
+    assert.equal(hollowGatePet.authorityEngine, E.PET_CINEMATIC_DUEL);
+    assert.match(petBattleStartSource, /hollowGateCombatBindingKey\(runId\)/);
+    assert.match(petBattleStartSource, /validateHollowGatePetClaim\(\{[\s\S]*?activeEncounter: run\?\.activeEncounter/);
+    assert.match(petBattleStartSource, /binding\?\.runId !== runId/);
+    assert.match(petBattleResultSource, /replayCasualPetDuel/);
+    assert.match(petBattleResultSource, /hollowGatePetResultKey\(playerName, battleToken\)/);
+    assert.match(petBattleResultSource, /reward: 0/);
+    assert.match(hollowGateSettleSource, /`hg-pet-result:\$\{playerName\}:\$\{petReceipt\}`/);
+    assert.match(hollowGateSettleSource, /verifiedPetResult\.runId !== runId/);
 
     const tactical = runtimeModeById('tactical-arena');
     assert.equal(tactical.status, 'surface-gap');
@@ -521,6 +624,8 @@ describe('current flat runtime-mode audit projection', () => {
       assert.equal(row.migrationStatus, mode.migrationStatus ?? null);
       assert.equal(row.participantModel, mode.participantModel);
       assert.equal(row.rewardPolicy, mode.rewardPolicy);
+      assert.deepEqual(row.transports, mode.transports ?? []);
+      assert.notEqual(row.transports, mode.transports, `${mode.id}: projection must clone transport arrays`);
       assert.equal(Object.hasOwn(row, 'status'), false, `${mode.id}: projection must not overload migration and match status`);
     }
     assert.deepEqual(TERMINAL_MIGRATION_STATUSES, ['complete', 'migrated']);
@@ -539,6 +644,14 @@ describe('current flat runtime-mode audit projection', () => {
         { path: '/canonical/lifecycle', handler: 'canonical/lifecycle', roles: ['lifecycle'] },
         { path: '/canonical/settle', handler: 'canonical/settle', roles: ['settlement'] },
       ],
+      transports: [{
+        kind: 'socket.io',
+        channel: 'fixture:*',
+        serverHandler: '_realtime/fixture',
+        clientAdapter: 'lib/fixture.ts',
+        roles: ['action', 'state'],
+        persistence: 'memory-only',
+      }],
       participantModel: 'solo',
       rewardPolicy: 'server-settled',
       replayKind: 'canonical-record',
@@ -569,6 +682,8 @@ describe('current flat runtime-mode audit projection', () => {
     assert.notEqual(row.worldKinds, sourceWorldKinds, 'projection must clone compatibility arrays before freezing');
     assert.notEqual(row.routes, mode.routes, 'projection must clone canonical route arrays before freezing');
     assert.notEqual(row.routes[0], mode.routes[0], 'projection must clone canonical nested route values before freezing');
+    assert.notEqual(row.transports, mode.transports, 'projection must clone canonical transport arrays before freezing');
+    assert.notEqual(row.transports[0], mode.transports[0], 'projection must clone canonical nested transport values before freezing');
     assert.equal(Object.isFrozen(sourceWorldKinds), false, 'projection must not freeze caller-owned compatibility values');
     assert.equal(Object.isFrozen(mode.routes), false, 'projection must not freeze caller-owned canonical values');
     assertDeepFrozen(row, 'projection.fixture');

@@ -19,7 +19,7 @@ Before start, capture sector ownership, village/clan standings, treasury/economy
 
 ## Incident and rollback
 
-For a reward/economy exploit set `FREEZE_ECONOMY_REWARDS=1`; for a war-only issue set `DISABLE_VILLAGE_WAR=1` and redeploy. Preserve logs, receipts, request IDs, sector/economy snapshots, and disputed battle IDs. Do not delete receipts. Correct invalid outcomes through audited admin tooling. Use application rollback only if the prior build remains schema/save compatible. Restore data only with owner authorization and the backup/restore runbook.
+For a reward/economy exploit set `FREEZE_ECONOMY_REWARDS=1` to reject new unsafe-method player requests and apply the affected feature/job/realtime controls; for a war-only issue set `DISABLE_VILLAGE_WAR=1` and redeploy. The request freeze alone does not stop GET-side-effect or non-HTTP settlement. Preserve logs, receipts, request IDs, sector/economy snapshots, and disputed battle IDs. Do not delete receipts. Correct invalid outcomes through audited admin tooling. Use application rollback only if the prior build remains schema/save compatible. Restore data only with owner authorization and the backup/restore runbook.
 
 ## Low-population rule
 

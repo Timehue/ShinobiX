@@ -67,7 +67,9 @@ already in Postgres.
 
 - **`POST /api/admin/migrate-to-base`** (full-admin) — copies overlay → base.
   `?dry=1` reports what would copy without writing. A live run requires
-  `KV_MIGRATION_WRITE_FROZEN=1`. Response `ok:true` + `mismatches:[]` means every
+  `KV_MIGRATION_WRITE_FROZEN=1`, which is an operator acknowledgement set only
+  after every overlay writer is independently stopped and verified. It is not a
+  write fence by itself. Response `ok:true` + `mismatches:[]` means every
   key was copied AND byte-verified in Postgres. Idempotent; never deletes overlay.
 - **`GET /health?deep=1`** (with `HEALTH_DEEP_TOKEN`) — reports `saveStore`
   (`remote-proxy` before, `base-store` after) and exercises a real save read/write.
@@ -89,11 +91,21 @@ curl -sS -X POST "$HOST/api/admin/migrate-to-base?dry=1" -H "x-admin-password: $
 ```
 Confirm `sourceCount` looks right (≈ your player count + a few image keys).
 
-**3. Freeze save writes.** In Railway, set:
-- `MAINTENANCE_MODE=1` (pauses gameplay mutations at the route boundary; reads still work)
-- `KV_MIGRATION_WRITE_FROZEN=1` (unlocks the live copy)
+**3. Stop and verify every overlay writer.** This cutover is blocked until that
+condition is real. At minimum, in Railway set:
 
-Redeploy so both take effect. Players see a maintenance notice briefly.
+- `MAINTENANCE_MODE=1` to reject all Express player traffic, including reads;
+- `DISABLE_SCHEDULED_JOBS=1` to prevent save/reward cron writers at boot;
+- `DISABLE_REALTIME=1` to prevent Socket.IO travel/pet writers at boot;
+- `DISABLE_PRESENCE_STATE_JOBS=1` to prevent presence snapshots and the
+  sleeper-camp/travel-lease game-loop writer at boot.
+
+Redeploy, wait for the replacement container to become healthy and the prior
+container to drain, and verify there is only one intended Railway replica and no
+other process or operator writing the overlay. Only then set
+`KV_MIGRATION_WRITE_FROZEN=1` and redeploy. That final variable is an explicit
+operator acknowledgement that the independently enforced stop was verified; it
+does not stop a writer and `MAINTENANCE_MODE` alone is insufficient.
 
 **4. Live copy:**
 ```
@@ -102,9 +114,10 @@ curl -sS -X POST "$HOST/api/admin/migrate-to-base" -H "x-admin-password: $ADMIN_
 Require `"ok": true` and `"mismatches": []`. If any mismatch is listed, STOP —
 do not flip the env; re-run, and if it persists investigate those exact keys.
 
-**5. Catch stragglers.** Re-run step 4 once more (idempotent). The background
-game-loop can settle a sleeper/travel save shortly after players stop pinging;
-a second pass copies any such straggler. Require `ok:true`, `mismatches:[]` again.
+**5. Verify the stopped source remains stable.** Re-run step 4 once more
+(idempotent) and require `ok:true`, `mismatches:[]` again. If source values change
+between the two verified passes, STOP: the writer stop is not real. Do not call a
+second copy a substitute for quiescence.
 
 **6. (I verify Postgres-side.)** Confirm `select count(*) from kv_store where key
 like 'save:%'` matches the copied count, and spot-check a couple of representative
@@ -114,6 +127,8 @@ players/clans/images. (Ask me — I have read-only DB access.)
 - **remove** `KV_PROXY_URL`
 - **remove** `REQUIRE_DISK_OVERLAY` (or the app refuses to boot without an overlay — that guard is working as intended)
 - **remove** `KV_MIGRATION_WRITE_FROZEN`
+- keep `MAINTENANCE_MODE`, `DISABLE_SCHEDULED_JOBS`, `DISABLE_REALTIME`, and
+  `DISABLE_PRESENCE_STATE_JOBS` through validation
 - keep `DATABASE_URL`, `KV_PROXY_TOKEN` (harmless leftover; remove after decommission)
 
 Redeploy.
@@ -128,10 +143,15 @@ release-health expectation from `EXPECTED_SAVE_STORE=remote-proxy` to
 `EXPECTED_SAVE_STORE=base-store` (docs/BETA_RELEASE_CERTIFICATION.md) — and drop
 `REQUIRE_DISK_OVERLAY=1` from that command.
 
-**9. Unfreeze.** Remove `MAINTENANCE_MODE`. Redeploy. You're now cPanel-free for saves.
+**9. Resume.** Remove `MAINTENANCE_MODE`, `DISABLE_SCHEDULED_JOBS`,
+`DISABLE_REALTIME`, and `DISABLE_PRESENCE_STATE_JOBS`, then redeploy and verify
+player traffic, scheduled-job health, realtime reconnect, and presence/game-loop
+startup. You're now cPanel-free for saves.
 
-**10. Soak (a few days).** cPanel data is untouched, so you can watch for anything
-odd with an instant escape hatch.
+**10. Soak (a few days).** Keep the cPanel data untouched for investigation and
+recovery evidence, but treat it as stale after base-store traffic resumes. Do not
+re-point live routing to the old overlay without an explicit reconciliation or
+restore plan.
 
 **11. Decommission.** Once confident: stop the cPanel service, remove `KV_PROXY_TOKEN`
 from Railway. In a later cleanup PR the now-dead overlay/proxy code

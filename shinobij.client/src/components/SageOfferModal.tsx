@@ -22,9 +22,12 @@ import { LegacyMoment, type LegacyMomentData } from "./LegacyMoment";
 import wanderingSagePortrait from "../assets/wanderers/legacy/wandering-sage.webp";
 import { Modal } from "./ui/Modal";
 
-export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersionedCharacter, onDeclined, onDismissed }: {
+export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, onClose, onAccepted, onVersionedCharacter, onDeclined, onDismissed }: {
     offer: SageOfferView;
     playerName: string;
+    actionsAllowed: boolean;
+    /** Rechecks the expiring live-capability lease immediately before a POST. */
+    canMutate: () => boolean;
     onClose: () => void;
     onAccepted: () => void;
     /** Adopts the server's full save mutation before the ceremony can leave an
@@ -68,6 +71,10 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersi
 
     async function handleDecline() {
         if (busyRef.current) return;
+        if (!actionsAllowed || !canMutate()) {
+            setNote("Legacy choices are paused until live service admission returns. You can safely step away; the offer remains server-owned.");
+            return;
+        }
         const request = ++requestRef.current;
         busyRef.current = true;
         setBusy(true);
@@ -88,6 +95,10 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersi
 
     async function handleAccept(legacyId: string) {
         if (busyRef.current) return;
+        if (!actionsAllowed || !canMutate()) {
+            setNote("Legacy choices are paused until live service admission returns. No permanent choice was submitted.");
+            return;
+        }
         const picked = offer.offers.find((o) => o.legacyId === legacyId);
         if (!picked) return;
         const request = ++requestRef.current;
@@ -99,6 +110,10 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersi
                 { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
             );
             if (!mountedRef.current || request !== requestRef.current || !sure) return;
+            if (!canMutate()) {
+                setNote("Legacy choices paused while you were deciding. No permanent choice was submitted.");
+                return;
+            }
             const result = await sageAccept(playerName, legacyId);
             if (!mountedRef.current || request !== requestRef.current) return;
             if (result?.ok && result.legacy) {
@@ -228,7 +243,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersi
                         {selected === o.legacyId && (
                             <button
                                 type="button"
-                                disabled={busy}
+                                disabled={busy || !actionsAllowed}
                                 onClick={() => { void handleAccept(o.legacyId); }}
                                 style={{ marginTop: 8, width: "100%", background: "var(--purple-400)", color: "#0b1020", fontWeight: 700 }}
                             >
@@ -243,13 +258,14 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onVersi
                 )}
 
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button disabled={busy} onClick={() => void handleDecline()} style={{ flex: 1 }}>
+                    <button disabled={busy || !actionsAllowed} onClick={() => void handleDecline()} style={{ flex: 1 }}>
                         Turn Down for Now
                     </button>
                     <button disabled={busy} onClick={onClose} style={{ flex: 1 }}>
                         Step Away
                     </button>
                 </div>
+                {!actionsAllowed && <p role="status" style={{ margin: "8px 0 0", fontSize: ".76rem", color: "#fbbf24", textAlign: "center" }}>Legacy choices are temporarily paused. Reading the offer and stepping away remain safe.</p>}
                 <p style={{ margin: "6px 0 0", fontSize: ".7rem", color: "#9aa3b2", textAlign: "center" }}>
                     Turn him down and he departs for a few days · step away and he keeps waiting here.
                 </p>

@@ -42,6 +42,17 @@ function routeCell(routes) {
         .join('<br>');
 }
 
+function transportCell(transports = []) {
+    if (transports.length === 0) return '—';
+    return transports
+        .map((transport) => (
+            `${codeCell(transport.roles.join(', '))} ${codeCell(transport.kind)} ${codeCell(transport.channel)}`
+            + ` → ${codeCell(transport.serverHandler)} / ${codeCell(transport.clientAdapter)}`
+            + ` (${textCell(transport.persistence)})`
+        ))
+        .join('<br>');
+}
+
 /**
  * Render the human-readable registry projection without reading the clock,
  * filesystem, environment, or process state. Registry order is preserved.
@@ -84,13 +95,13 @@ export function renderRuntimeModeDocs({
             codeCell(mode.status),
         ].join(' | ').replace(/^/, '| ').replace(/$/, ' |')),
         '',
-        '## Routes and client entries',
+        '## Routes, transports, and client entries',
         '',
-        'Route roles, paths, and handlers are reproduced exactly as declared by the registry. Client entries are relative to `shinobij.client/src/`.',
+        'HTTP route roles, paths, handlers, and non-HTTP gameplay transports are reproduced exactly as declared by the registry. Client entries and transport adapters are relative to `shinobij.client/src/`; transport handlers are relative to `api/`.',
         '',
-        '| Mode | Route roles, paths, handlers, and caller requirement | Client entries |',
-        '| --- | --- | --- |',
-        ...modes.map((mode) => `| ${codeCell(mode.id)} | ${routeCell(mode.routes)} | ${listCell(mode.clientEntries)} |`),
+        '| Mode | HTTP route roles, paths, handlers, and caller requirement | Non-HTTP transport | Client entries |',
+        '| --- | --- | --- | --- |',
+        ...modes.map((mode) => `| ${codeCell(mode.id)} | ${routeCell(mode.routes)} | ${transportCell(mode.transports)} | ${listCell(mode.clientEntries)} |`),
         '',
         '## Intentional engine separations',
         '',

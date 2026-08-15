@@ -210,7 +210,7 @@ export function DailyBriefingModal({
                             <ActivitySpine character={character} updateCharacter={updateCharacter} onNavigate={go} />
 
                             {/* ── Era effort strip (server-wide progress at a glance) ── */}
-                            {activeEra && (() => {
+                            {legacyAvailable && activeEra && (() => {
                                 const total = activeEra.milestones.reduce((s, m) => s + m.required, 0);
                                 const done = activeEra.milestones.reduce((s, m) => s + Math.min(m.current, m.required), 0);
                                 const pct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
@@ -238,7 +238,7 @@ export function DailyBriefingModal({
                             })()}
 
                             {/* ── World news (Legacy system: high/mythic moments) ── */}
-                            {worldNews.length > 0 && (
+                            {legacyAvailable && worldNews.length > 0 && (
                                 <section className="db-section">
                                     <h3>World news</h3>
                                     <ul className="db-wars">
@@ -266,7 +266,7 @@ export function DailyBriefingModal({
                             )}
 
                             {/* ── Legacy rumor (pre-50 discovery arc, map-avoider safety) ── */}
-                            {rumor && (
+                            {legacyAvailable && rumor && (
                                 <section className="db-section">
                                     <h3>A whisper on the wind</h3>
                                     <p style={{ margin: 0, fontSize: ".84rem", color: "#c4b5fd", fontStyle: "italic", lineHeight: 1.5 }}>

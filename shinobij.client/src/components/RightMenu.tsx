@@ -21,6 +21,8 @@ import { isProtectedAdminName } from "../constants/game";
 import { preloadScreen } from "../lib/screen-preload";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { primeGameAudio } from "../lib/game-audio";
+import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../lib/live-capability-admission";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
@@ -53,6 +55,9 @@ export const RightMenu = memo(function RightMenu({
     profession: Profession | null;
     screen: Screen;
 }) {
+    const villageWarAvailability = useCapabilityViewAvailability("villageWar");
+    const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
+    const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const [menuOpen, setMenuOpen] = useState(true);
     const navLockUntilRef = useRef(0);
     // Global audio master-mute — silences music AND all battle SFX. Mirrored
@@ -117,7 +122,7 @@ export const RightMenu = memo(function RightMenu({
                                 <h4 id={`right-menu-${group.id}`}>{group.label}</h4>
                                 <div className="right-menu-section-grid">
                                     {group.items.map(([target, label, Icon]) => (
-                                        <button key={target} aria-current={screen === target ? "page" : undefined} onClick={() => guardedNavigate(target)} onPointerDown={() => preloadScreen(target, storyVillage)} title={target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
+                                        <button key={target} aria-current={screen === target ? "page" : undefined} disabled={target === "villageWarMap" && !sectorMapOpen} onClick={() => { if (target !== "villageWarMap" || sectorMapOpen) guardedNavigate(target); }} onPointerDown={() => { if (target !== "villageWarMap" || sectorMapOpen) preloadScreen(target, storyVillage); }} title={target === "villageWarMap" && !sectorMapOpen ? sectorMapStatus : target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
                                             <Icon size={16} />{target === "professions" && profession ? PROFESSION_LABEL[profession] : label}{target === "messages" ? <MailUnreadBadge /> : null}
                                         </button>
                                     ))}

@@ -12,6 +12,8 @@ export function protectSaveOnUnload<TPayload extends Record<string, unknown>>(pa
     captureConflict: (accountName: string, payload: unknown) => SaveConflictDraft;
     discardRevision: (revision: SaveConflictRevision) => void;
     isCurrentSession: (accountKey: string, sessionEpoch: number) => boolean;
+    /** False preserves the durable local guard without attempting a forbidden POST. */
+    send?: boolean;
     request?: typeof fetch;
 }): void {
     const activeUnresolved = params.unresolved
@@ -27,6 +29,7 @@ export function protectSaveOnUnload<TPayload extends Record<string, unknown>>(pa
     if (!name || !payload || !params.accountKey || saveConflictAccountKey(name) !== params.accountKey) return;
     const body = { ...payload, _baseSaveVersion: preferUnresolved ? activeUnresolved.body._baseSaveVersion : params.latestVersion };
     const guard = latestSaveConflictRevision(params.captureConflict(name, body));
+    if (params.send === false) return;
     void (params.request ?? fetch)(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

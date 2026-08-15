@@ -35,6 +35,20 @@ export type ActivitySpineItem = {
     blocker?: string;
     reward?: string;
     progress?: string;
+    /** Exact executable combat mode when the recommendation enters one. */
+    runtimeModeId?: string;
+    /** Standalone or narrower public gate in addition to the mode registry gate. */
+    capabilityId?: import('./public-capabilities.js').PublicCapabilityId;
+    /** False only for navigation that cannot admit a progress-changing action. */
+    requiresMutation?: boolean;
+    /**
+     * Exact server-projected admission gates for this response item. The client
+     * treats a missing or empty projection as unavailable instead of importing
+     * the complete runtime registry into the browser.
+     */
+    requiredCapabilityIds?: readonly import('./public-capabilities.js').PublicCapabilityId[];
+    /** Existing state remains visible for recovery, but cannot admit new actions. */
+    recoveryOnly?: boolean;
     context?: 'clan-boss' | 'onboarding' | 'recovery' | 'progression' | 'economy'
         | 'story' | 'pvp' | 'clan-war' | 'towers' | 'companions' | 'chronicle' | 'legacy' | 'profession';
 };

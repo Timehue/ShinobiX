@@ -14,11 +14,13 @@
  *   POST /api/admin/migrate-to-base?dry=1  → dry run, reports what WOULD copy
  *   POST /api/admin/migrate-to-base        → live copy (upsert base + verify)
  *
- * SAFETY: never deletes the overlay, so the cutover stays instantly reversible
- * (re-point KV_PROXY_URL and redeploy). Idempotent — safe to re-run to catch a
- * straggler written between the first pass and the env flip. A live run requires
- * KV_MIGRATION_WRITE_FROZEN=1 (set it AFTER enabling MAINTENANCE_MODE=1 so no
- * save is written mid-copy). `ok:true` with mismatches:[] means every key was
+ * SAFETY: never deletes the overlay. Re-pointing to it is reversible only while
+ * all writers remain stopped; after base-store traffic resumes, the retained
+ * overlay is a stale rollback source and must not be selected blindly. The copy
+ * is idempotent, but a changing source invalidates its verification evidence. A
+ * live run requires KV_MIGRATION_WRITE_FROZEN=1, set only after every overlay
+ * writer has been independently stopped and verified. MAINTENANCE_MODE alone is
+ * not a write fence. `ok:true` with mismatches:[] means every key was
  * copied and byte-verified in the base store — only then is it safe to flip the
  * env off the overlay.
  *
@@ -30,6 +32,7 @@ import { copyDiskRoutedKeysToBase } from '../_storage.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { migrationSourceWritersStopped } from './_migration-write-fence.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
@@ -42,16 +45,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
     }
     const dryRun = req.query?.dry === '1' || req.query?.dry === 'true';
-    // A live copy must run only while save writes are frozen. Accept EITHER the
-    // explicit migration flag OR MAINTENANCE_MODE=1 — maintenance mode genuinely
-    // pauses every gameplay save (the real freeze), so it is a valid and more
-    // reliable "writes are frozen" acknowledgment than a separate flag.
-    const writesFrozen = process.env.KV_MIGRATION_WRITE_FROZEN === '1'
-        || process.env.MAINTENANCE_MODE === '1';
-    if (!dryRun && !writesFrozen) {
+    // Explicit operator acknowledgement only. It is set after independently
+    // stopping request, GET-side-effect, scheduled, realtime, and other source
+    // writers; neither this flag nor MAINTENANCE_MODE performs that work itself.
+    if (!dryRun && !migrationSourceWritersStopped()) {
         res.status(409).json({
             ok: false,
-            error: 'Live copy requires the game frozen first: set MAINTENANCE_MODE=1 (or KV_MIGRATION_WRITE_FROZEN=1).',
+            error: 'Live copy requires KV_MIGRATION_WRITE_FROZEN=1 after every overlay writer has been independently stopped and verified. MAINTENANCE_MODE alone only pauses Express player API traffic.',
         });
         return;
     }

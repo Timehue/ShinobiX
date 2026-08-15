@@ -1,5 +1,7 @@
 export const PUBLIC_CAPABILITY_IDS = Object.freeze([
     'gameplay',
+    /** Admission of new unsafe-method player HTTP action requests. This is not
+     * a process/storage quiescence fence for GET settlement, cron, or realtime. */
     'gameplayMutations',
     'registrations',
     'villageWar',

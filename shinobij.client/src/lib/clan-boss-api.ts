@@ -2,7 +2,8 @@
  * Client wrappers for the Weekly Clan Boss Gauntlet (api/clan-boss/*). An assault
  * reuses the Battle-Towers fight screen; only start + settle are clan-boss-specific
  * (the server computes damage and banks it into the clan pool). Auth headers are
- * attached by the global fetch interceptor. Gated behind the clanBoss.v1 flag.
+ * attached by the global fetch interceptor. Player-facing admission is gated
+ * by the public live-capability projection at each mixed-purpose surface.
  */
 import type { TowerSession, TowerHostLoadout } from "./towers-api";
 import type { ClanBossPartyEnvelope } from "../../../shared/clan-boss-operation";
@@ -24,13 +25,6 @@ export type ClanBossView = {
     standings?: ClanBossStanding[];
     lastWeek?: { rank: number; score: number; killed: boolean } | null;
 };
-
-/** UI gate for the Clan Boss tab. ON by default in the testing phase — set
- *  localStorage clanBoss.v1='0' to hide it. */
-export function clanBossEnabled(): boolean {
-    try { return typeof localStorage === "undefined" || localStorage.getItem("clanBoss.v1") !== "0"; }
-    catch { return true; }
-}
 
 export async function fetchClanBoss(player: string): Promise<ClanBossView | null> {
     try {

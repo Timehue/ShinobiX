@@ -23,7 +23,12 @@ The shipped game includes:
 
 These systems are launched. Operational monitoring and emergency switches do not make them prelaunch features. Their level, ownership, clan, subscription, event, and other gameplay eligibility rules still apply.
 
-Ordinary shinobi combat, the N-actor Tower engine, companion combat, and Chronicle combat are intentionally separate engines.
+Ordinary shinobi combat, the N-actor Tower engine, and Chronicle combat are
+intentionally separate. Companion combat is itself split across turn-based
+Showdown, positional Warfront/Tactical, Gauntlet grid, cinematic Arena, retained
+legacy compatibility, and client-local presentation authorities; their current
+routes and defects are projected from the executable runtime registry rather
+than collapsed into one generic pet engine.
 
 ## Progression truth
 
@@ -51,8 +56,8 @@ The public `/api/player/capabilities` projection reports only bounded availabili
 
 The following are emergency safeguards, not launch labels:
 
-- Maintenance mode pauses player traffic while operator recovery remains available.
-- The gameplay-mutation freeze pauses writes and rewards during economy or integrity incidents.
+- Maintenance mode pauses Express player API traffic while operator recovery remains available; it does not stop scheduled, realtime, or other in-process writers.
+- The gameplay-mutation capability pauses admission of new unsafe-method player HTTP requests. GET-triggered settlement, scheduled jobs, realtime sessions, and storage writers require separate controls.
 - Registration can be paused independently.
 - Village War, Clan Boss, Clan Boss parties, new pet-breeding starts, and the Weekly Boss guard cycle have scoped disable controls.
 - Scheduled jobs can be paused independently.
