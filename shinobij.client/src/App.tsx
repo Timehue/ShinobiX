@@ -1898,7 +1898,6 @@ export default function App() {
     const [missionProgress, setMissionProgress] = useState<Record<string, number>>({});
     const [activeJutsuTraining, setActiveJutsuTraining] = useState<ActiveJutsuTraining | null>(null);
     const [, setPendingAiProfileId] = useState("");
-    const [, setPendingPvpOpponent] = useState<Character | null>(null);
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
     const [pvpBattleResolved, setPvpBattleResolved] = useState(false);
     // Tracks when the current PvP battle began, used for the <15s "quick
@@ -1924,7 +1923,6 @@ export default function App() {
         setPvpRole(null);
         setPvpBattleContext(null);
         setPvpSeedSession(null);
-        setPendingPvpOpponent(null);
         setPvpBattleResolved(false);
     }
     function exitResolvedPvpBattle(target: Screen) {
@@ -2671,7 +2669,7 @@ export default function App() {
                     // DuelChallenge with the server battleId yet (it arrives a beat
                     // later). Just show the banner — when the challenge lands, the
                     // duelChallenges effect routes us to PvpBattleScreen with the real
-                    // battleId. Previously we set pendingPvpOpponent + setScreen('arena')
+                    // battleId. Previously we routed through an Arena compatibility sink
                     // here, which dropped the defender into the local-sim arena where a
                     // "win" was client-decided (honor seals, ryo, kill counters, etc.).
                     // The session-backed PvpBattleScreen is the only correct path.
@@ -5278,7 +5276,6 @@ export default function App() {
         setMissionProgress({});
         setTriggeredEvents([]);
         setPendingAiProfileId("");
-        setPendingPvpOpponent(null);
         setCurrentSector(40);
         setActiveTriggeredEvent(null);
         setScreen("start");
@@ -7025,7 +7022,6 @@ export default function App() {
                         creatorRaids={creatorRaids}
                         petEncounterVn={petEncounterVn}
                         ancientChestVn={ancientChestVn}
-                            setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                         requestCardChallenge={() => setCardAutoStart(true)}
@@ -7142,7 +7138,6 @@ export default function App() {
                                 // (or denied) by a transient outage.
                                 setPvpBattleId('');
                                 setPvpSeedSession(null);
-                                setPendingPvpOpponent(null);
                                 setRaidBattleKind("none");
                                 setScreen("worldMap");
                                 alert("Couldn't reach the battle server. Please try the attack again in a moment.");

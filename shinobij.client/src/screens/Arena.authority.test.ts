@@ -77,15 +77,11 @@ test("PvP acceptance delegates to App and routes with the server battle id", () 
     ], "spectator routing");
 });
 
-test("pendingPvpOpponent has no non-null production source", () => {
-    assert.doesNotMatch(arena, /pendingPvpOpponent|setPendingPvpOpponent/);
-    const worldProducers = [...worldMap.matchAll(/\bsetPendingPvpOpponent\(([^)\r\n]+)\)/g)];
-    assert.ok(worldProducers.length >= 4, "the known WorldMap cleanup sites must remain visible to this audit");
-    for (const producer of worldProducers) {
-        assert.equal(producer[1].trim(), "null", `non-null WorldMap producer: ${producer[0]}`);
+test("the retired pending PvP opponent compatibility sink stays absent", () => {
+    for (const [owner, source] of [["Arena", arena], ["WorldMap", worldMap], ["App", app]] as const) {
+        assert.doesNotMatch(source, /\b(?:pendingPvpOpponent|setPendingPvpOpponent)\b/,
+            `${owner} must not revive the retired local-combat compatibility sink`);
     }
-    assert.match(app, /setPendingPvpOpponent=\{\(c\) => setPendingPvpOpponent\(c \? normalizeCharacter\(c\) : null\)\}/,
-        "App may retain the compatibility sink only while WorldMap has no non-null producer");
 });
 
 test("retired Arena snapshots are rejected and have no writer", () => {
