@@ -425,6 +425,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 mode?: string;
                 settleAfter?: number;
                 hollowGate?: { runId?: string };
+                pvpChallengeId?: string;
+                pvpParticipatingPets?: Pet[];
             }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 const priorHollowGateResult = await kv.get<HollowGatePetResultReceipt>(hollowGatePetResultKey(playerName, battleToken));
@@ -510,6 +512,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 casualPvePlayerPets = parseSealedPetSnapshots(tokenData.bluePets, tokenPlayerPetIds);
                 if (!casualPvePlayerPets) {
                     return res.status(409).json({ error: 'Warfront token carries an invalid participating-pet snapshot.' });
+                }
+            }
+            if (tokenData.pvpChallengeId) {
+                // A sealed player duel fights WITHOUT consumables — it is decided
+                // when the responder accepts, so a consumable burned in it could
+                // never be honestly charged. The snapshot sealed at start carries
+                // empty consumable slots, which makes the spend below a no-op
+                // instead of quietly eating whatever is equipped now.
+                casualPvePlayerPets = parseSealedPetSnapshots(tokenData.pvpParticipatingPets, tokenPlayerPetIds);
+                if (!casualPvePlayerPets) {
+                    return res.status(409).json({ error: 'Player duel token carries an invalid participating-pet snapshot.' });
                 }
             }
             if (casualPveSeal) {

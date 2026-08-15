@@ -25,7 +25,12 @@ test("local and public Arena pet selection consumes entitlement-projected pets",
 
     assert.match(petArena, /const combatEligiblePets = activeCarriedPets<Pet>\(character\)/);
     assert.match(petArena, /publicEligiblePets\(targetRecord\)/);
-    assert.match(petArena, /publicEligiblePets\(player\)\.filter/);
+    // The roster-wide opponent PET list (`publicEligiblePets(player).filter`)
+    // is gone: the Pet Arena no longer offers a pick-a-pet-to-fight list of its
+    // own, so there is nothing left to project. What remains is the challenge
+    // target check above, which is still the entitlement projection and not the
+    // raw save.
+    assert.doesNotMatch(petArena, /player\.pets/);
 });
 
 test("shared pet combat entry points consume the active carried projection", () => {
