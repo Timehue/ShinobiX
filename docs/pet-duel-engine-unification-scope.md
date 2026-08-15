@@ -536,3 +536,110 @@ which nothing has populated in some time); `PetArenaMatch`'s only consumer is
 consumer is the sector wanderer duel. Once the wanderer moves, the whole file's
 only remaining reader is a dev preview page — a delete plus a decision about the
 harness, not a carve. Confirm no dynamic import hides a consumer before acting.
+
+---
+
+## 12. Live PvP — the design, and the one thing that makes it a two-client job
+
+Traced 2026-08-15, after the wanderer port left this as the only entry still on
+the legacy engine. Written before implementing on purpose: the analysis is the
+expensive part, and the reason to stop short of coding is specific rather than
+general.
+
+### What is easy, and stays
+
+The pairing already works and is the right shape. `api/_realtime/pet-duel-socket.ts`
+handles `challenge → invite → accept/decline`, seals BOTH rosters server-side at
+accept (`loadAuthoritativePetRoster`, which refuses busy pets), mints the seed
+itself, and emits `start` to both players. Live-only is enforced there too: a
+challenge to someone not connected is refused rather than queued.
+
+**None of that changes.** The socket stops being a game transport and becomes a
+doorbell. What it emits on `start` is a Showdown session id and a side; the fight
+itself then runs over the existing HTTP endpoint, because the engine is already
+server-authoritative and needs no second channel.
+
+That deletes the entire lockstep half — `petduel:input` / `sync` / `progress`,
+`acceptInput`, `reportProgress`, `syncPayload`, the input caps, the watermark,
+and the standing-orders hand-over for a dropped player (Showdown's own turn
+deadline replaces it).
+
+### The server piece — `api/_pet-showdown/live-pvp.ts`
+
+One session, both players, stored under a pair key rather than an owner key
+(today's sessions are `pet:showdown:<player>:<id>`, which cannot be shared):
+
+    { sessionId, p1, p2, session, pending: { p1?, p2? }, round, lastRound }
+
+`submitLivePvpTurn(sessionId, caller, commands)` under `withKvLock`:
+
+1. resolve the caller's side; a non-participant gets nothing;
+2. if finished → return the terminal state (a re-post is idempotent, same rule
+   the AI turn path already follows);
+3. record `pending[side]`; if only one side is in, answer `waiting` and let the
+   client poll;
+4. when BOTH are in — or the turn deadline has lapsed — resolve one round with
+   `resolveShowdownRound(session, p1Commands, p2Commands)` and re-arm the
+   deadline.
+
+The lapsed-round rule is the anti-hostage guarantee and it needs no new combat
+code: the engine already defaults a missing command to guard, so an absent side
+simply submits nothing. `session.pvp` and `turnDeadlineAt` exist for exactly
+this, and `armTurnDeadline` becomes live rather than a no-op.
+
+`turn` / `state` / `forfeit` in `api/pet/showdown.ts` route to this store when
+the session id resolves there. A forfeit is already a concession rather than a
+delete, which is the correct semantics for a live opponent too.
+
+**It pays nothing**, which is worth stating because it removes a whole class of
+risk: live PvP awards no ryo and moves no counters today (`PetDuelLiveHost`
+reports through `onOutcome` to the clan-war helper and nothing else). So
+`rewardEligible: false`, no faucet, no receipt, no settlement path to get wrong.
+
+### The part that makes this a two-client job
+
+**The engine seats the challenger as the `player` side.** A replay tolerates
+that — the ranked watcher already sees the canonical ordering and reads the
+winner by NAME — because watching from the far side is only cosmetic. A
+COMMANDED fight cannot: the responder would be picking moves for the pets drawn
+as the enemy team.
+
+The fix is a client-side mirror for `p2` — swap `player`/`enemy` in the state
+view, swap `enemyTeamName` for their own, and invert `outcome` — applied to both
+the initial view and every round result. It looks small, and the encouraging part
+is that `PetShowdownBattle` derives slot positions, field/bench membership, HUD
+panels and the command prompt FROM those two arrays by id, so a swap re-seats
+everything consistently rather than needing twenty edits.
+
+But "looks small" is exactly the claim that needs two live clients to believe.
+The failure mode is not a crash; it is a fight that renders plausibly while one
+player commands the wrong pets or reads an inverted verdict — the same shape of
+bug as §10's two-engine ranked duel, which also looked fine from one side. There
+is no harness for it: `/showdownpreview.html` drives one client, and the balance
+tools are headless.
+
+So the honest sequencing is: implement the server round protocol with its unit
+tests (both-sides-one-fight, lapsed-round resolution, non-participant refusal,
+idempotent re-post), then the mirror, then **exercise it with two real clients
+before it replaces the working lockstep fight**. Shipping the server half alone
+would recreate precisely the trap §8 documents — a port that reads as finished
+because the server is green and nothing calls it.
+
+### After it lands
+
+`PetColiseum.tsx` (9,786 lines) loses its last consumer, `PetDuelLiveHost` stops
+importing `PetColiseumDuel`, and the deletion in §4 becomes:
+
+- `pet-duel-sim`, `pet-duel-cinematic`, `pet-duel-live`, `pet-duel-lockstep`,
+  `pet-duel-doctrine`, `pet-duel-broadcast`, and `PetColiseum.tsx` itself;
+- server-side `api/pet/_duel-replay.ts`, `_casual-pve-seal.ts`, the
+  `runPetDuel` / `runPetPartyDuel` imports in `battle-start`, and
+  `api/_realtime/pet-duel-session.ts`;
+- `pet-duel-*` out of `scripts/gen-pet-sim.mjs` (KEEP the generator — Warfront
+  still needs it), `pet-cinematic-parity.test.ts`, and the duel half of
+  `scripts/pet-sim-parity.test.ts`;
+- two decisions that are not mechanical: **`petvfx.tsx`** (the `/petvfx.html`
+  harness is the only other reader of `PetColiseum` — repoint it at Showdown or
+  drop it) and **`PetDoctrineEditor`** (standing orders are a player-facing
+  feature mounted by `PetYard`; either they become a Showdown concept or the
+  editor goes with the engine that read them).
