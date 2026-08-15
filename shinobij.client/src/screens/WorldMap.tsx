@@ -26,6 +26,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
+import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
 import {
     WorldSectorCommandPanel,
     type WorldSectorCommandHunt,
@@ -33,7 +34,6 @@ import {
     type WorldSectorCommandTerritory,
 } from "../components/WorldSectorCommandPanel";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
@@ -120,7 +120,6 @@ import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { updateRealtimeTile } from "../lib/use-presence-socket";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
-import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
@@ -195,7 +194,7 @@ import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverl
 import "../components/world-map-charting.css";
 import { RouteGlowOverlay, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
-import { SectorTraceMarkers, SectorShrineStandee, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
+import { SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
 
@@ -4281,6 +4280,60 @@ export function WorldMap({
             requiredTracks: activeHuntTrailForSector.requiredTracks,
             ready: activeHuntReadyForFight,
         } : null;
+        const sectorOverlayWanderers = [
+            ...sectorWanderers,
+            ...courierWanderers,
+            ...bountyHunterWanderers,
+            ...mercWanderers,
+            ...sageWanderers,
+            ...emissaryWanderers,
+            ...storyReckoningWanderers,
+            ...scribeWanderers,
+            ...roamingQuestGivers,
+        ];
+        const sectorOverlayRift = (() => {
+            const activeRiftQuest = character.activeRiftQuest;
+            if (!activeRiftQuest || selectedSector !== activeRiftQuest.targetSector) return null;
+            const rift = hollowRiftById(activeRiftQuest.id);
+            if (!rift) return null;
+            return {
+                landmark: rift.landmark,
+                title: `Rift: ${rift.bossName} — descend into the Hollow Gate`,
+                onOpen: () => {
+                    setCreatorEventPage(0);
+                    setCreatorEventLine(0);
+                    setSelectedCreatorEvent(riftDescentEvent(rift, ambienceBiomeForSector(selectedSector)));
+                },
+            };
+        })();
+        const sectorOverlayVault = (() => {
+            if (!anbuViewOpen || (character.level ?? 0) < 100) return null;
+            // Prefer the captured owner; fall back to the sector's home village
+            // before any sector-war capture, matching the server's ownership fallback.
+            const owner = territory.ownerVillage || homeVillageForSector(selectedSector);
+            if (!owner || owner === character.village) return null;
+            return {
+                village: owner,
+                onOpen: () => setVaultPrompt({ sector: selectedSector, village: owner }),
+            };
+        })();
+        const sectorOverlayShrine = (() => {
+            if (!isSectorTracesEnabled()) return null;
+            const definition = shrineForSector(selectedSector);
+            return definition ? { definition, tier: sectorTraces?.shrine?.tier ?? 0 } : null;
+        })();
+        const sectorOverlayBoss = (() => {
+            if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
+            const roam = weeklyBossRoamState(roamingBoss, Date.now());
+            if (!roam?.active || roam.currentSector !== selectedSector) return null;
+            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), Date.now())) return null;
+            if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
+            return {
+                name: roamingBoss.bossName ?? "Weekly Boss",
+                portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
+                onEngage: handleBossEngage,
+            };
+        })();
 
         return (
             <div className="map-instance">
@@ -4316,103 +4369,19 @@ export function WorldMap({
                         onCrossExit={crossSectorExit}
                         overlayLayer={
                             <>
-
-                            {/* AI Wanderers — walk the sector and (if their job is to
-                                rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...storyReckoningWanderers, ...scribeWanderers, ...roamingQuestGivers].map(w => (
-                                <SectorWanderer
-                                    key={w.id}
-                                    wanderer={w}
-                                    playerIndex={sectorPlayerPos}
-                                    biome={ambienceBiomeForSector(selectedSector)}
-                                    onEngage={handleWandererEngage}
-                                />
-                            ))}
-
-                            {/* Hollow Gate Rift structure — the 2.5D cave/shrine stands
-                                INSIDE its target sector's scene and nowhere else, so an
-                                accepted rift is reachable only by travelling to the right
-                                sector. Clicking it opens the at-the-rift VN whose "Descend"
-                                choice drops into the scaled event gate. */}
-                            {(() => {
-                                const arq = character.activeRiftQuest;
-                                if (!arq || selectedSector !== arq.targetSector) return null;
-                                const rift = hollowRiftById(arq.id);
-                                if (!rift) return null;
-                                return (
-                                    <button
-                                        key="sector-rift-structure"
-                                        className="atlas-landmark atlas-hollowRift sector-rift-structure"
-                                        style={{
-                                            left: "50%",
-                                            top: "32%",
-                                            backgroundImage: `url(/landmarks/${rift.landmark}.webp)`,
-                                            backgroundSize: "cover",
-                                            backgroundPosition: "center",
-                                        }}
-                                        onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); setSelectedCreatorEvent(riftDescentEvent(rift, ambienceBiomeForSector(selectedSector))); }}
-                                        title={`Rift: ${rift.bossName} — descend into the Hollow Gate`}
-                                    >
-                                        <strong>🌀</strong>
-                                        <span>Rift</span>
-                                    </button>
-                                );
-                            })()}
-
-                            {/* Anbu Vault (anbuInfiltration.v1) — the enemy village's war
-                                vault stands INSIDE every enemy-held war sector for L100
-                                shinobi. Walking up (clicking it) opens the Infiltrate /
-                                Retreat prompt; Infiltrate enters the navigable vault whose
-                                inner door is guarded by a sealed Anbu snapshot. NEVER flips
-                                the sector — pure attrition (docs/anbu-infiltration-plan.md). */}
-                            {(() => {
-                                if (!anbuViewOpen || (character.level ?? 0) < 100 || selectedSector == null) return null;
-                                // Prefer the captured owner; fall back to the sector's home
-                                // village so the vault shows on enemy home sectors before any
-                                // sector-war capture (matches the server's ownership fallback).
-                                const owner = loadSectorTerritory(selectedSector).ownerVillage || homeVillageForSector(selectedSector);
-                                if (!owner || owner === character.village) return null;
-                                return (
-                                    <button
-                                        key="sector-anbu-vault-structure"
-                                        className="atlas-landmark sector-rift-structure"
-                                        style={{
-                                            left: "72%",
-                                            top: "38%",
-                                            backgroundImage: "url(/landmarks/anbu-vault.webp)",
-                                            backgroundSize: "contain",
-                                            backgroundRepeat: "no-repeat",
-                                            backgroundPosition: "center bottom",
-                                        }}
-                                        onClick={() => setVaultPrompt({ sector: selectedSector, village: owner })}
-                                        title={`${owner} war vault — infiltrate?`}
-                                    >
-                                        <strong>🏯</strong>
-                                        <span>War Vault</span>
-                                    </button>
-                                );
-                            })()}
-
-                            {/* Sector traces — trail-sign markers players left on the tiles,
-                                plus the sector's communal shrine standee (shrine sectors
-                                only, shared/shrines.ts). Tapping opens the traces reader. */}
-                            {sectorTraces && sectorTraces.signs.length > 0 && (
-                                <SectorTraceMarkers
-                                    signs={sectorTraces.signs}
-                                    onOpen={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
-                                />
-                            )}
-                            {isSectorTracesEnabled() && (() => {
-                                const shrineDef = shrineForSector(selectedSector);
-                                if (!shrineDef) return null;
-                                return (
-                                    <SectorShrineStandee
-                                        shrine={shrineDef}
-                                        tier={sectorTraces?.shrine?.tier ?? 0}
-                                        onOpen={() => setTracesModal({ view: "shrine" })}
-                                    />
-                                );
-                            })()}
+                            <WorldSectorOverlayLayer
+                                biome={ambienceBiomeForSector(selectedSector)}
+                                playerTile={sectorPlayerPos}
+                                wanderers={sectorOverlayWanderers}
+                                rift={sectorOverlayRift}
+                                vault={sectorOverlayVault}
+                                traceSigns={sectorTraces?.signs ?? []}
+                                shrine={sectorOverlayShrine}
+                                boss={sectorOverlayBoss}
+                                onEngageWanderer={handleWandererEngage}
+                                onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
+                                onOpenShrine={() => setTracesModal({ view: "shrine" })}
+                            />
                             {tracesModal && sectorTraces && (
                                 <SectorTracesModal
                                     state={tracesModal}
@@ -4482,27 +4451,6 @@ export function WorldMap({
                                 document.body,
                             )}
 
-                            {/* Roaming weekly boss (weeklyBossRoam.v1): the boss looms in-sector
-                                and bears down on the player when this IS its current sector.
-                                onEngage opens the Stand/Flee telegraph. Gated: flag on, boss
-                                active + here, off cooldown, attempts left. Position derives from
-                                weeklyBossRoamState — identical to the world-map marker. */}
-                            {(() => {
-                                if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || selectedSector == null || !sameSector(currentSector, selectedSector)) return null;
-                                const roam = weeklyBossRoamState(roamingBoss, Date.now());
-                                if (!roam?.active || roam.currentSector !== selectedSector) return null;
-                                if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), Date.now())) return null;
-                                if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
-                                return (
-                                    <SectorWeeklyBossActor
-                                        playerIndex={sectorPlayerPos}
-                                        biome={ambienceBiomeForSector(selectedSector)}
-                                        portrait={sharedImages["ai:" + roamingBoss.aiId] || ""}
-                                        name={roamingBoss.bossName ?? "Weekly Boss"}
-                                        onEngage={handleBossEngage}
-                                    />
-                                );
-                            })()}
                             {bossDialog && createPortal(
                                 <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.6)" }}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
