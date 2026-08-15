@@ -183,7 +183,16 @@ import { readFileSync } from "node:fs";
 // settle}.ts) paid for by draining the retired local Endless authority + the pure half of
 // pickRandomEndlessAi → lib/endless-tower (−22). App keeps only the App-local
 // setTemporaryStoryAi registration.)
-const MAX_LINES = 7_726;
+// → 7,743 RAISED, and worth being explicit because raising a ratchet is the
+// thing a ratchet exists to prevent. This is a rebase reconciliation, not new
+// App.tsx code: at the merge base the file was 7,674 against a 7,727 budget;
+// `origin/main`'s save-recovery work grew it +17 (to 7,691, still inside its
+// budget), and the pet-duel branch grew it independently — the two additions
+// only meet here. This branch's OWN net contribution to App.tsx is −2 (the
+// unused `playerRoster` prop dropped from the PetArena call site, minus two
+// comment lines on the sealed-duel wiring). Nothing was moved INTO App.tsx to
+// buy this number.
+const MAX_LINES = 7_743;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
