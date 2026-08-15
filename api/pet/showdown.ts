@@ -585,10 +585,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (action === 'forfeit') {
+            /*
+             * A FORFEIT IS A CONCESSION, not an escape.
+             *
+             * This used to delete the session and answer ok. For a practice bout
+             * that is harmless — a loss pays nothing either way — but the moment
+             * a bout became BOUND to something (a Hollow Gate encounter), it
+             * turned into a way to walk out of a fight the run is waiting on:
+             * the receipt is minted by the finishing turn, so a deleted session
+             * left the Gate with a sealed encounter and no outcome to settle,
+             * and no path back to one.
+             *
+             * So a forfeit now DECIDES the session as a loss and runs the same
+             * bound-encounter handshake the finishing turn runs. Conceding is
+             * still free of reward consequences (a loss never pays), but it can
+             * no longer strand the thing that was waiting for the answer.
+             */
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-forfeit', 20, 60_000, identity.name))) return;
-            const session = await kv.get<ShowdownSession>(key);
-            if (session && session.playerName === playerName) await kv.del(key).catch(() => undefined);
-            return res.status(200).json({ ok: true });
+            const conceded = await withKvLock(key, async () => {
+                const session = await kv.get<ShowdownSession>(key);
+                if (!session || session.playerName !== playerName) return null;
+                if (!session.finished) {
+                    session.finished = true;
+                    session.outcome = 'loss';
+                    session.turnDeadlineAt = undefined;
+                    await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
+                }
+                return session;
+            }, { failClosed: true });
+            if (!conceded) return res.status(200).json({ ok: true });
+            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, conceded.sessionId));
+            if (hgBinding) {
+                // `nx`, so a concession cannot overwrite an outcome the fight
+                // already reached — and a re-posted forfeit is a no-op.
+                await mintHollowGatePetReceipt(playerName, conceded.sessionId, hgBinding, conceded.outcome ?? 'loss');
+                return res.status(200).json({
+                    ok: true,
+                    conceded: true,
+                    state: viewOf(conceded),
+                    hollowGate: { runId: hgBinding.runId, petReceipt: conceded.sessionId },
+                });
+            }
+            // Unbound bout: nothing is waiting on it, so the session goes away
+            // as before rather than lingering for a full lease.
+            await kv.del(key).catch(() => undefined);
+            return res.status(200).json({ ok: true, conceded: true });
         }
 
         if (action === 'turn') {

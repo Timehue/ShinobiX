@@ -135,6 +135,25 @@ describe('showdown.ts wires practice as unpaid', () => {
             'eligibility must be a literal at each seal site, not a variable a request can steer');
     });
 
+    it('makes a forfeit a CONCESSION, so a bound encounter still gets an outcome', () => {
+        // A forfeit used to delete the session and answer ok. Harmless while
+        // every bout was practice; the moment one could be BOUND to a Hollow
+        // Gate encounter it became a way to walk out of a fight the run was
+        // waiting on — the receipt is minted by the finishing turn, so a deleted
+        // session left the Gate sealed with no outcome to settle and no path
+        // back to one.
+        const forfeitAt = indexOfOrFail("action === 'forfeit'");
+        const branch = src.slice(forfeitAt, indexOfOrFail("action === 'turn'"));
+        assert.ok(/session\.finished = true/.test(branch), 'a forfeit must DECIDE the session');
+        assert.ok(/session\.outcome = 'loss'/.test(branch), 'and decide it as a loss');
+        assert.ok(branch.includes('mintHollowGatePetReceipt'),
+            'a bound bout must still mint the receipt its run settles with');
+        // Conceding must never be a way to be paid. settleShowdownWin is only
+        // reached from the finishing turn, and only on a win.
+        assert.equal(branch.includes('settleShowdownWin'), false,
+            'a concession must not reach the payout path');
+    });
+
     it('short-circuits an ineligible win BEFORE taking the save lock', () => {
         // Ordering matters twice over: a practice win must cost no lock and no
         // save write, and it must return before any counter is touched.

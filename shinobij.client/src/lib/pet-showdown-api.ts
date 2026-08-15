@@ -70,12 +70,24 @@ export async function startShowdown(
  * payout into the session. No tier is sent, because a chosen tier on a paying
  * path is a difficulty slider on a faucet.
  */
+/**
+ * A Hollow Gate pet encounter, BOUND to the run that started it.
+ *
+ * Only the run's own identifiers travel: the server validates the run token and
+ * the combat binding, then fields the run's OWN Hound (it does not take an
+ * opponent from here). A bound bout pays no arena faucet and consumes no daily
+ * cap — the Gate's settlement endpoint pays it, redeeming the receipt this bout
+ * mints under the session id.
+ */
+export type ShowdownHollowGateRef = { token: string; runId: string; houndId: string };
+
 export async function startArenaBout(
     playerName: string,
     format: ShowdownFormat,
     petIds: string[],
+    hollowGate?: ShowdownHollowGateRef,
 ): Promise<{ state: ShowdownStateView; dailyPetWins?: number; dailyCap?: number } | { error: string; capped?: boolean }> {
-    const r = await post({ action: "arena", playerName, format, petIds });
+    const r = await post({ action: "arena", playerName, format, petIds, ...(hollowGate ? { hollowGate } : {}) });
     if (!r) return { error: "Network error — could not reach the arena." };
     const data = await r.json().catch(() => null) as
         { state?: ShowdownStateView; error?: string; capped?: boolean; dailyPetWins?: number; dailyCap?: number } | null;
@@ -140,8 +152,12 @@ export async function submitShowdownTurn(
     return null;
 }
 
-export async function forfeitShowdown(playerName: string, sessionId: string): Promise<void> {
-    await post({ action: "forfeit", playerName, sessionId });
+/** Concede the bout. The server DECIDES the session as a loss rather than
+ *  dropping it, so anything bound to the fight (a Hollow Gate encounter) still
+ *  gets an outcome to settle. Resolves true once the concession is recorded. */
+export async function forfeitShowdown(playerName: string, sessionId: string): Promise<boolean> {
+    const r = await post({ action: "forfeit", playerName, sessionId });
+    return !!r?.ok;
 }
 
 export async function fetchShowdownState(
