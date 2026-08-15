@@ -2,6 +2,11 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+    PUBLIC_CAPABILITY_IDS,
+    type PublicCapabilities,
+    type PublicCapabilityId,
+} from "../../shared/public-capabilities";
+import {
     expectFinalActionableClearsFixedNavigation,
     expectNoLargeOverlap,
     expectViewportSafe,
@@ -17,6 +22,16 @@ type SaveFixtureCommit = {
     version: number;
     postedState: string;
 };
+
+function publicCapabilitiesExcept(...unavailableIds: PublicCapabilityId[]): PublicCapabilities {
+    const unavailable = new Set(unavailableIds);
+    return Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
+        id,
+        unavailable.has(id)
+            ? { state: "temporarily-unavailable", reason: "temporarily-disabled" }
+            : { state: "available", reason: "available" },
+    ])) as PublicCapabilities;
+}
 
 function json(route: Route, body: unknown, status = 200) {
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -171,6 +186,17 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
                 ...save,
                 character: { ...(save.character ?? {}), ...patch },
             };
+        },
+        readCharacter: () => {
+            if (!save?.character) throw new Error("Cannot read character before the adaptive fixture has a save");
+            return structuredClone(save.character);
+        },
+        commitCharacterPatch: (patch: Record<string, unknown>) => {
+            if (!save) throw new Error("Cannot commit character before the adaptive fixture has a save");
+            const character = { ...(save.character ?? {}), ...structuredClone(patch) };
+            saveVersion += 1;
+            save = { ...save, character };
+            return { character: structuredClone(character), _saveVersion: saveVersion };
         },
         setBattleHistoryFailure: (value: boolean) => { battleHistoryFailure = value; },
         battleHistoryRequests: () => battleHistoryRequests,
@@ -336,7 +362,7 @@ function maximumContentSaveFixture(
         equippedJutsuIds: jutsuIds.slice(0, 12),
         jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
     };
-    delete character.patreon;
+    delete (character as Record<string, unknown>).patreon;
     return { ...seeded, character, creatorItems };
 }
 
@@ -783,6 +809,310 @@ test("capture adaptive shell and representative route evidence", async ({ page }
     await shot("after-mobile-menu-390x844.png");
     await page.keyboard.press("Escape");
     await shot("after-mobile-nav-390x844.png");
+});
+
+test("selected-sector projection keeps controls, receipts, traces, and responsive geometry coherent", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    test.skip(
+        !["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name),
+        "the canonical desktop and mobile projects exercise the selected-sector projection",
+    );
+
+    const severeRuntimeErrors: string[] = [];
+    page.on("pageerror", (error) => severeRuntimeErrors.push(error.stack ?? error.message));
+    page.on("console", (message) => {
+        if (message.type() === "error" && /ErrorBoundary|(?:Type|Reference|Range)Error|uncaught|unhandled|fatal/i.test(message.text())) {
+            severeRuntimeErrors.push(message.text());
+        }
+    });
+
+    const api = await installAuthenticatedApi(page);
+    const fixture = mobileStorageSaveFixture();
+    api.seedSaveBeforeBoot({
+        ...fixture,
+        currentBiome: "central",
+        currentSector: 44,
+        character: {
+            ...(fixture.character ?? {}),
+            ryo: 1_200,
+            stamina: 100,
+            maxStamina: 200,
+            totalTilesExplored: 0,
+            dailyTilesExplored: 0,
+            seenHints: ["worldMap"],
+        },
+    });
+    await installPersistedAdaptiveSession(page);
+    await page.addInitScript(() => {
+        localStorage.setItem("wanderers.v1", "off");
+        localStorage.setItem("weeklyBossRoam.v1", "off");
+        localStorage.setItem("sectorPeers.v1", "off");
+        localStorage.setItem("anbuInfiltration.v1", "0");
+        localStorage.setItem("villageWarMap.v1", "0");
+    });
+
+    const capabilities = publicCapabilitiesExcept("villageWar", "anbuInfiltration");
+    const traceRequests: Array<{ method: string; sector: string | null; player: string | null }> = [];
+    const dungeonRequests: Array<Record<string, unknown>> = [];
+    const petRequests: Array<Record<string, unknown>> = [];
+    const exploreRequests: Array<Record<string, unknown>> = [];
+    const receiptDay = "2026-08-15";
+    const receiptAt = Date.UTC(2026, 7, 15, 12, 0, 0);
+    let capabilityRequests = 0;
+    let sharedRequestId = "";
+
+    await page.route("**/api/**", async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        if (url.pathname === "/api/player/capabilities") {
+            capabilityRequests += 1;
+            return json(route, { ok: true, capabilities });
+        }
+        if (url.pathname === "/api/sector/traces") {
+            traceRequests.push({
+                method: request.method(),
+                sector: url.searchParams.get("sector"),
+                player: url.searchParams.get("player"),
+            });
+            return json(route, {
+                ok: true,
+                sector: 44,
+                footfallToday: 3,
+                signs: [{
+                    id: "watchruin-sign-001",
+                    name: "Roadscribe",
+                    tile: 78,
+                    text: "Keep to the lantern side of the ridge.",
+                    at: receiptAt,
+                    sparks: 2,
+                }],
+                mySparked: [],
+                shrine: {
+                    id: "ancients",
+                    name: "Shrine of the Ancients",
+                    theme: "ancients",
+                    region: "the Watchruin Ridge",
+                    lore: "Raised in the Sunken Court’s age. A hundred worn glyphs circle its base, one for each action-pattern Legacy traced to the Ancients who refused cession, the people later called the Withheld.",
+                    blessing: "May your next deed be freely chosen and faithfully witnessed.",
+                    tier: 1,
+                    total: 30_000,
+                    weekTotal: 2_500,
+                    topWeek: [{ name: "Roadscribe", amount: 2_500 }],
+                    lastWeek: null,
+                },
+            });
+        }
+        if (url.pathname === "/api/dungeon/run") {
+            const body = request.postDataJSON() as Record<string, unknown>;
+            dungeonRequests.push(body);
+            sharedRequestId = typeof body.requestId === "string" ? body.requestId : "";
+            const versioned = api.commitCharacterPatch({
+                serverFreeDungeonProbeDate: receiptDay,
+                serverFreeDungeonProbesToday: 1,
+                serverFreeDungeonProbeReceipts: [{
+                    requestId: sharedRequestId,
+                    day: receiptDay,
+                    sector: 44,
+                    found: false,
+                    token: "",
+                    at: receiptAt,
+                }],
+            });
+            return json(route, {
+                ok: true,
+                found: false,
+                token: "",
+                requestId: sharedRequestId,
+                sector: 44,
+                resolved: false,
+                ...versioned,
+            });
+        }
+        if (url.pathname === "/api/pet/encounter-start") {
+            const body = request.postDataJSON() as Record<string, unknown>;
+            petRequests.push(body);
+            return json(route, {
+                ok: true,
+                requestId: sharedRequestId,
+                sector: 44,
+                pet: null,
+                replayed: false,
+            });
+        }
+        if (url.pathname === "/api/world/explore") {
+            const body = request.postDataJSON() as Record<string, unknown>;
+            exploreRequests.push(body);
+            const current = api.readCharacter();
+            const reward = { sector: 44, xp: 0, ryo: 35 };
+            const outcome = { kind: "none" };
+            const priorExplorations = Array.isArray(current.redeemedSectorExplorations)
+                ? current.redeemedSectorExplorations
+                : [];
+            const probeReceipts = Array.isArray(current.serverFreeDungeonProbeReceipts)
+                ? current.serverFreeDungeonProbeReceipts as Array<Record<string, unknown>>
+                : [];
+            const versioned = api.commitCharacterPatch({
+                ryo: Number(current.ryo ?? 0) + reward.ryo,
+                totalTilesExplored: Number(current.totalTilesExplored ?? 0) + 1,
+                dailyTilesExplored: Number(current.dailyTilesExplored ?? 0) + 1,
+                serverExploreDate: receiptDay,
+                serverExploresToday: 1,
+                serverFreeDungeonProbeReceipts: probeReceipts.map((receipt) => receipt.requestId === sharedRequestId
+                    ? { ...receipt, resolvedAt: receiptAt + 1 }
+                    : receipt),
+                redeemedSectorExplorations: [
+                    ...priorExplorations,
+                    { id: sharedRequestId, sector: 44, reward, outcome, at: receiptAt + 1 },
+                ],
+            });
+            return json(route, {
+                ok: true,
+                reward,
+                outcome,
+                replayed: false,
+                fieldProgress: [],
+                ...versioned,
+            });
+        }
+        return route.fallback();
+    });
+
+    await page.goto("/#/worldMap", { waitUntil: "networkidle" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await expectCommittedSave(page, api);
+
+    const returnToSector = page.getByRole("button", { name: /Return to Sector 44/ });
+    await expect(returnToSector).toBeVisible();
+    await returnToSector.click();
+
+    const stage = page.locator(".sector-stage-panel");
+    const commandPanel = page.getByRole("complementary", { name: "Sector 44 command panel" });
+    await expect(stage).toBeVisible();
+    await expect(stage.getByText("Watchruin Ridge", { exact: true })).toBeVisible();
+    await expect(commandPanel).toBeVisible();
+    await expect(commandPanel.getByRole("heading", { name: "Watchruin Ridge", exact: true })).toBeVisible();
+
+    const tiles = stage.locator("button.scene-tile");
+    await expect(tiles).toHaveCount(144);
+    const tileLabels = await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")));
+    expect(tileLabels.every((label) => typeof label === "string" && label.length > 0)).toBe(true);
+    expect(new Set(tileLabels).size).toBe(144);
+    await expect(stage.getByRole("button", { name: "Current tile row 7 column 7" })).toHaveCount(1);
+    await page.keyboard.press("d");
+    await expect(stage.getByRole("button", { name: "Current tile row 7 column 8" })).toHaveCount(1);
+    await page.keyboard.press("a");
+    await expect(stage.getByRole("button", { name: "Current tile row 7 column 7" })).toHaveCount(1);
+
+    const noticeDialog = page.getByRole("alertdialog", { name: "Notice" });
+    await page.keyboard.press("e");
+    await expect(noticeDialog).toBeVisible();
+    await expect(noticeDialog).toContainText("Sector 44 explored. +35 ryo.");
+    await noticeDialog.getByRole("button", { name: "OK", exact: true }).click();
+    await expect(noticeDialog).toBeHidden();
+
+    expect(sharedRequestId).toMatch(/^[A-Za-z0-9_-]{8,96}$/);
+    expect(dungeonRequests).toEqual([{
+        playerName: "AdaptiveNinja",
+        action: "probe-free",
+        sector: 44,
+        requestId: sharedRequestId,
+    }]);
+    expect(petRequests).toEqual([{
+        playerName: "AdaptiveNinja",
+        sector: 44,
+        requestId: sharedRequestId,
+    }]);
+    expect(exploreRequests).toEqual([{
+        playerName: "AdaptiveNinja",
+        sector: 44,
+        credit: "tile",
+        requestId: sharedRequestId,
+        resolveOutcome: true,
+    }]);
+    expect(api.readCharacter()).toMatchObject({
+        ryo: 1_235,
+        totalTilesExplored: 1,
+        dailyTilesExplored: 1,
+        redeemedSectorExplorations: [{ id: sharedRequestId, sector: 44, reward: { ryo: 35 } }],
+    });
+
+    const readDisplayedStamina = async () => {
+        const label = (await page.locator(".left-profile-stat").filter({ hasText: /^Stamina / }).textContent())?.trim() ?? "";
+        const match = /^Stamina\s+([\d,]+)\/([\d,]+)$/.exec(label);
+        expect(match, `expected a parseable profile stamina label, received ${JSON.stringify(label)}`).not.toBeNull();
+        return {
+            current: Number(match![1].replaceAll(",", "")),
+            max: Number(match![2].replaceAll(",", "")),
+        };
+    };
+    const displayedStaminaBeforeRecover = await readDisplayedStamina();
+    const versionBeforeRecover = api.committedVersion();
+    const staminaBeforeRecover = Number(api.readCharacter().stamina);
+    const maxStaminaBeforeRecover = Number(api.readCharacter().maxStamina);
+    await commandPanel.getByRole("button", { name: "Recover", exact: true }).click();
+    await expect(noticeDialog).toBeVisible();
+    await expect(noticeDialog).toContainText("You recovered in Sector 44. +14 stamina.");
+    await expect.poll(async () => (await readDisplayedStamina()).current).toBe(
+        Math.min(displayedStaminaBeforeRecover.max, displayedStaminaBeforeRecover.current + 14),
+    );
+    await noticeDialog.getByRole("button", { name: "OK", exact: true }).click();
+    await expect(noticeDialog).toBeHidden();
+    await expect.poll(api.committedVersion, { timeout: 20_000 }).toBeGreaterThan(versionBeforeRecover);
+    await expect.poll(() => Number(api.readCharacter().stamina), { timeout: 20_000 }).toBeGreaterThanOrEqual(
+        Math.min(maxStaminaBeforeRecover, staminaBeforeRecover + 14),
+    );
+    await expectCommittedSave(page, api);
+
+    await expect.poll(() => traceRequests.length).toBe(1);
+    expect(traceRequests).toEqual([{ method: "GET", sector: "44", player: "AdaptiveNinja" }]);
+    const signsButton = commandPanel.getByRole("button", { name: "Trail signs (1)", exact: true });
+    const shrineButton = commandPanel.getByRole("button", { name: /Shrine of the Ancients/ });
+    await expect(signsButton).toBeVisible();
+    await expect(shrineButton).toContainText("Kindled");
+
+    await signsButton.click();
+    const signsDialog = page.getByRole("dialog", { name: "Trail signs" });
+    await expect(signsDialog).toBeVisible();
+    await expect(signsDialog.getByText("Keep to the lantern side of the ridge.", { exact: false })).toBeVisible();
+    expect(await signsDialog.evaluate((node) => node.parentElement?.parentElement === document.body)).toBe(true);
+    await expectViewportSafe(page, {
+        overlays: [".sector-traces-scrim"],
+        logicalStages: [".walkable-sector-map"],
+    });
+    await signsDialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(signsDialog).toHaveCount(0);
+
+    await shrineButton.click();
+    const shrineDialog = page.getByRole("dialog", { name: "Shrine of the Ancients" });
+    await expect(shrineDialog).toBeVisible();
+    await expect(shrineDialog.getByText("On hand: 1,235 ryo", { exact: true })).toBeVisible();
+    expect(await shrineDialog.evaluate((node) => node.parentElement?.parentElement === document.body)).toBe(true);
+    await expectViewportSafe(page, {
+        overlays: [".sector-traces-scrim"],
+        logicalStages: [".walkable-sector-map"],
+    });
+    await shrineDialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(shrineDialog).toHaveCount(0);
+
+    await expectNoLargeOverlap(stage, commandPanel);
+    await expectViewportSafe(page, { logicalStages: [".walkable-sector-map"] });
+    const mobileNav = page.locator(".mobile-bottom-nav");
+    if (testInfo.project.name === "chromium-mobile") {
+        await expect(mobileNav).toBeVisible();
+        await expectFinalActionableClearsFixedNavigation(page, page.locator(".map-instance"), mobileNav);
+        await expectNoLargeOverlap(commandPanel.getByRole("button", { name: "Leave", exact: true }), mobileNav);
+    } else {
+        await expect(mobileNav).toBeHidden();
+    }
+
+    await commandPanel.getByRole("button", { name: "Leave", exact: true }).click();
+    await expect(stage).toHaveCount(0);
+    await expect(commandPanel).toHaveCount(0);
+    await expect(page.locator(".generated-world-map")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Return to Sector 44/ })).toBeVisible();
+    await expectViewportSafe(page, { logicalStages: [".world-map-scroll"] });
+    expect(capabilityRequests).toBeGreaterThan(0);
+    expect(severeRuntimeErrors).toEqual([]);
 });
 
 test("world-map coordinate overlays stay aligned across device scale factors", async ({ page }, testInfo) => {
