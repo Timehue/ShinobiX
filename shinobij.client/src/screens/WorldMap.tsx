@@ -1961,23 +1961,23 @@ export function WorldMap({
             setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out — tame one first, and it will still be prowling this road.` });
             return;
         }
-        // The beast fields a pet SCALED to the player's CHARACTER level so the duel is
-        // a real fight, not a pushover. Reuses the Pet Coliseum entry + its server-safe
-        // casual reward path — no new endpoint.
+        if (selectedSector == null || !isWildSector(selectedSector)) return;
+        // This card is only a preview. The exact roster slot, verb, sector,
+        // player pet, tier, scaling, seed and outcome are reconstructed/sealed
+        // by battle-start before the wanderer cooldown is committed.
         const targetLevel = Math.max(1, Math.min(100, character.level));
-        // Pick the template tier by character level (not the wanderer's), then scale it
-        // to match — so a strong player faces the apex template, not a sparrow.
         const tmpl = targetLevel < 20 ? genericPetArenaOpponents[0]
             : targetLevel < 45 ? genericPetArenaOpponents[1]
             : genericPetArenaOpponents[2];
-        // Deterministic seed from the wanderer + the player's tile (no impure
-        // Date.now() in the component) — fine for a casual duel.
+        const preview = scaleWandererPetOpponent(tmpl.pet, targetLevel);
+        // Deterministic preview identity from the wanderer + player tile. The
+        // server ignores it and owns the actual Showdown seed.
         let seed = (sectorPlayerPos + 1) >>> 0;
         for (let i = 0; i < w.id.length; i++) seed = (Math.imul(seed, 31) + w.id.charCodeAt(i)) >>> 0;
-        coolWanderer(w.id); // beast duelled — gone for a few hours
         setPendingPetBattleOpponent({
             owner: w.name,
-            pet: scaleWandererPetOpponent(tmpl.pet, targetLevel),
+            pet: preview,
+            wanderer: { id: w.id, sector: selectedSector },
             battleSeed: seed,
             returnScreen: "worldMap",
         });

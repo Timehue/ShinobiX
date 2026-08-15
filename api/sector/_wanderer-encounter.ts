@@ -136,6 +136,7 @@ export async function claimWandererUseCooldown(
     wandererId: string,
     nowMs: number,
     proofId?: string,
+    claimAtMs: number = nowMs,
 ): Promise<WandererCooldownClaim> {
     if (!parseNaturalWandererId(wandererId)) return { ok: false, reason: 'invalid-wanderer' };
 
@@ -149,9 +150,11 @@ export async function claimWandererUseCooldown(
         return { ok: false, reason: 'cooldown', cooldownUntil: existingUntil };
     }
 
-    const cooldownUntil = nowMs + WANDERER_ENCOUNTER_COOLDOWN_MS;
+    const cooldownUntil = claimAtMs + WANDERER_ENCOUNTER_COOLDOWN_MS;
+    if (cooldownUntil <= nowMs) return { ok: false, reason: 'cooldown', cooldownUntil };
+    const ttlSeconds = Math.max(1, Math.ceil((cooldownUntil - nowMs) / 1000));
     const claimed = await kv.set(key, { cooldownUntil, ...(proofId ? { proofId } : {}) }, {
-        ex: WANDERER_ENCOUNTER_COOLDOWN_SECONDS,
+        ex: ttlSeconds,
         nx: true,
     });
     if (claimed === 'OK') return { ok: true, cooldownUntil };

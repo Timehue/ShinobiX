@@ -40,6 +40,7 @@ import {
     parseDungeonPetResultReceipt,
     type DungeonPetBattleBinding,
 } from './_dungeon-battle.js';
+import { startNaturalWandererPetSession } from './_wanderer-session.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -109,6 +110,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only start your own pet battles.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-battle-start', 30, 60_000, identity.name))) return;
+        // Natural sector pet wanderers are a distinct server-owned journey.
+        // Isolate it before any generic opponent/HG/Dungeon branch can infer a
+        // different authority from overlapping request fields.
+        if (body.wanderer !== undefined) {
+            const started = await startNaturalWandererPetSession(playerName, body as Record<string, unknown>);
+            if (!started.ok) return res.status(started.status).json({ error: started.error });
+            const { session } = started;
+            return res.status(200).json({
+                ok: true,
+                token: session.token,
+                reportKey: session.reportKey,
+                seed: session.seed,
+                resumed: started.resumed,
+                playerPets: session.playerPets,
+                opponentPets: session.opponentPets,
+                showdownScript: session.showdownScript,
+                outcome: session.outcome,
+                wanderer: session.wanderer,
+                cooldownUntil: session.cooldownUntil,
+                moveToSector: session.moveToSector,
+                character: started.character,
+                _saveVersion: started._saveVersion,
+            });
+        }
         let seed = identity.admin && Number.isSafeInteger(Number(body.seed))
             ? Number(body.seed)
             : randomInt(1, 0x7fffffff);

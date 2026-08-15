@@ -139,7 +139,7 @@ describe('executable multi-engine runtime registry', () => {
     const expectedIds = EXPECTED_RUNTIME_MODE_CONTRACTS.map((contract) => contract.id);
     const expectedFactIds = Object.keys(EXPECTED_RUNTIME_MODE_FACTS);
     const expectedMetadataIds = Object.keys(EXPECTED_RUNTIME_MODE_METADATA);
-    assert.equal(ids.length, 56, 'The corrected Phase-3 inventory must retain the independently pinned 56-row model.');
+    assert.equal(ids.length, 57, 'The corrected inventory must retain the independently pinned 57-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

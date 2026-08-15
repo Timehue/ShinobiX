@@ -54,6 +54,9 @@ const _noCachePrefixes = [
     // cached floor would still let another worker resurrect an old save.
     'save-delete-version:',
     'presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:',
+    // Natural-wanderer cooldown proofs are NX claims shared by all workers.
+    // A process-local cached null can make an idempotent readback look absent.
+    'wanderer-use:',
     // Pet-battle authority is coordinated across processes. A cached null can
     // admit duplicate work; a cached proof/result can resurrect an already-
     // settled match; a stale queue/lobby/session can overwrite another worker's
