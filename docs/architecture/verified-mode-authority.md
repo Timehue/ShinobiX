@@ -51,6 +51,8 @@ not originally enumerate:
 - the broken public Pet Ranked queue is retired fail-closed and cannot pair or
   launch that no-reward realtime duel, while the older ranked compatibility
   route and a staged Showdown implementation remain separate and unconsumed;
+  new legacy `rankedPet` notices are also retired while retained notices and
+  proofs remain recoverable;
   the retained legacy route is itself defective because cinematic client
   playback can disagree with the legacy server replay;
 - Hollow Gate pet is mounted on server-sealed `pet-cinematic-duel` PvE plus a
@@ -58,6 +60,9 @@ not originally enumerate:
   long-term owner decision explicit; and
 - Dungeon pet remains `client-local-pet-duel` and lacks authoritative encounter
   and terminal proof for its rewarding parent settlement.
+- Clan War shinobi 2v2 no longer admits new send/join/accept progression;
+  retained queue records remain cleanup-only while the four-player PvP surface
+  gap is unresolved.
 
 Those rows must never be collapsed into a single `pet` authority. Showdown,
 Warfront, Gauntlet, cinematic, legacy, and client-local engines remain separate

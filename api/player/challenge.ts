@@ -7,7 +7,6 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
-import { PET_RANKED_DISABLED_REASON, petRankedStartsEnabled } from '../pet/_ranked-settlement.js';
 import { blockRelationship } from './_blocks.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
@@ -31,6 +30,9 @@ import {
     saveChallengeRecord,
     type AuthoritativeChallengeRecord,
 } from '../pvp/_challenge-authorization.js';
+
+export const PET_RANKED_LEGACY_CHALLENGE_RETIRED_REASON =
+    'New legacy ranked pet challenges are unavailable; retained notices and already-minted proofs remain recoverable.';
 
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 
@@ -591,12 +593,14 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         const creator = identity.admin
             ? safeName(boundedString(rawChallenge.fromName, 64))
             : identity.name;
+        // Response notices were handled above so retained fights can finish.
+        // Never let an internal engine rollout flag revive this legacy public
+        // admission path: its client cinematic and settlement replay disagree.
+        if (rawChallenge.mode === 'rankedPet') {
+            return res.status(410).json({ error: PET_RANKED_LEGACY_CHALLENGE_RETIRED_REASON });
+        }
         const built = await buildNewChallenge(rawChallenge, creator, targetName);
         if (!built.ok) return res.status(built.status).json({ error: built.error });
-
-        if (built.record.mode === 'rankedPet' && !petRankedStartsEnabled()) {
-            return res.status(503).json({ error: PET_RANKED_DISABLED_REASON });
-        }
         if (!built.challenge.battleId) {
             const block = challengeBlock(onlineStore.get(built.record.to), built.record.mode);
             if (block) return res.status(block.status).json({ error: block.error });

@@ -17,7 +17,8 @@
 > the same no-reward duel is now retired fail-closed; no new pair or live duel is
 > admitted until combat and rating share one server-owned match proof. The older legacy
 > ranked path is also defective because client cinematic playback can disagree
-> with legacy server settlement; it and the staged Showdown path are separate,
+> with legacy server settlement. New legacy notices are retired fail-closed;
+> retained notices/proofs remain recoverable. It and the staged Showdown path are separate,
 > unconsumed implementations. Hollow Gate pet uses
 > sealed cinematic PvE plus a run-bound receipt while a dormant Showdown branch
 > remains. Dungeon pet remains client-local. The historical proposal and status
