@@ -10,8 +10,6 @@ import {
     fetchWarMap,
     declareSectorWar,
     abandonSectorWar,
-    assaultSectorGarrison,
-    garrisonAssaultable,
     setSectorWinCondition,
     setSectorTerrain,
     upgradeWarStructure,
@@ -315,16 +313,6 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             {canDeclare && (
                                                 <button className="vwm-declare" disabled={!!busy} onClick={() => act(`dec-${sec.sector}`, () => declareSectorWar(character.name, myVillage, sec.sector))}>
                                                     Declare War
-                                                </button>
-                                            )}
-                                            {contest && contest.winCondition === "combat" && contest.attackerVillage === myVillage && garrisonAssaultable(contest) && (
-                                                <button
-                                                    className="vwm-declare"
-                                                    disabled={!!busy}
-                                                    title="No defender has fought here for hours — assault the sector's garrison instead. Resolved server-side; worth less than beating a real defender."
-                                                    onClick={() => act(`gar-${sec.sector}`, () => assaultSectorGarrison(character.name, sec.sector))}
-                                                >
-                                                    🛡 Assault Garrison
                                                 </button>
                                             )}
                                             {contest && isKage && contest.attackerVillage === myVillage && (
