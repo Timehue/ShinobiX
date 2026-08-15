@@ -30,6 +30,7 @@ import { addStoryTrait } from "../lib/character-progress";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
+import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
@@ -117,7 +118,7 @@ import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { updateRealtimeTile } from "../lib/use-presence-socket";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
-import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
+import type { SectorPeer } from "../components/SectorPeers";
 import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
@@ -191,7 +192,7 @@ import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorArtKey, sectorNam
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
-import { RegionSplash, RouteGlowOverlay, SectorGateMarker, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
+import { RouteGlowOverlay, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
 import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
 import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
@@ -4119,9 +4120,6 @@ export function WorldMap({
         const sectorMapSrc = territory.backgroundImage
             ? undefined
             : sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector);
-        const sectorMapMode = !!sectorMapSrc;
-        const sectorTileCol = (sectorPlayerPos % 12) + 1;
-        const sectorTileRow = Math.floor(sectorPlayerPos / 12) + 1;
         const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
         // Clan territory is inert until a clan actually claims the sector: the terrain
         // buff, the raid path, guards, war supply and the weather override all no-op on
@@ -4155,128 +4153,35 @@ export function WorldMap({
                 <div className="instance-frame sector-instance-frame">
                     
 
-                    <main className="tile-scene sector-stage-panel">
-                        <div className="scene-title sector-scene-title">
-                            <div>
-                                <strong>{sectorName(selectedSector) ?? `Sector ${selectedSector}`}</strong>
-                                <span>Sector {selectedSector} · {sectorRegionName(selectedSector)} | {biomeLabel(biome)} | {weatherEffects[sectorWeather].name}</span>
-                            </div>
-                            <small>R{sectorTileRow} C{sectorTileCol}{sectorIsCurrent ? " | Present" : " | Scouting"}</small>
-                        </div>
-
-                        <div className={`pixel-map walkable-sector-map sector-image-map${sectorEnterDir ? ` sector-enter-${sectorEnterDir}` : ""}`}>
-                            {regionSplash && (
-                                <RegionSplash
-                                    label={regionSplash.label}
-                                    tint={regionSplash.tint}
-                                    stamp={regionSplash.stamp}
-                                    onDone={() => setRegionSplash(null)}
-                                />
-                            )}
-                            {/* Living sector: a panning biome backdrop + atmosphere
-                                behind, then 3D depth-particles, then 2D biome ambience
-                                (snow/embers/petals/leaves/weather) in front. Ambience
-                                biome matches the painted scene art; weather is the real
-                                sector weather. All pointer-events:none, so tile
-                                movement still works. */}
-                            {sectorMapMode ? (
-                                /* New sector look: a single hand-painted top-down adventure
-                                   MAP (paths + features + small POIs, no empty centre) drawn
-                                   full-bleed behind the grid; the orb + markers sit on top. */
-                                <SectorMap image={sectorMapSrc} />
-                            ) : (
-                                <>
-                                    <SectorScene
-                                        image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
-                                        biome={ambienceBiomeForSector(selectedSector)}
-                                        focus={sectorPlayerPos}
-                                    />
-                                    <SectorScene3D
-                                        image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
-                                        biome={ambienceBiomeForSector(selectedSector)}
-                                        focus={sectorPlayerPos}
-                                        depth={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
-                                    />
-                                    {/* Biome ground-objects scattered across the field (rocks,
-                                        bushes, crystals, lanterns…) — explorable density under
-                                        the grid. Deterministic per sector. */}
-                                    <SectorScatter sector={selectedSector} biome={ambienceBiomeForSector(selectedSector)} />
-                                    {/* Time-of-day wash over the backdrop + depth layers (real
-                                        local clock) — keeps the hero, particles + markers crisp. */}
-                                    <DayNightSky />
-                                </>
-                            )}
-                            {!sectorMapMode && <SceneAmbience3D biome={ambienceBiomeForSector(selectedSector)} />}
-                            <SceneAmbience biome={ambienceBiomeForSector(selectedSector)} weather={sectorWeather} />
-                            {/* Biome wildlife (birds / butterflies / fireflies after
-                                dark) — the layer that makes the sector feel patrolled,
-                                not parked on a still image. */}
-                            <SceneCritters biome={ambienceBiomeForSector(selectedSector)} />
-                            {Array.from({ length: 144 }).map((_, index) => {
-                                const isPlayer = index === sectorPlayerPos;
-                                const roadExit = sectorRoadExits.find((exit) => exit.tile === index);
-                                const tileCol = (index % 12) + 1;
-                                const tileRow = Math.floor(index / 12) + 1;
-                                // With the live-peer overlay on, peers are drawn by <SectorPeers>
-                                // at their real tile, so suppress the in-tile dots here.
-                                const otherHere = livePeersOn ? [] : sectorPlayers.filter(p => playerNameTile(p.name) === index);
-
-                                return (
-                                    <button
-                                        type="button"
-                                        key={index}
-                                        title={roadExit
-                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Road"} to ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
-                                            : otherHere.length > 0 ? otherHere.map(p => `${p.name} (Lv ${p.level})`).join(", ") : undefined}
-                                        aria-label={roadExit
-                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Move to road for"} ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
-                                            : isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
-                                        className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${isPlayer && roadExit && sectorIsCurrent ? "sector-road-exit-ready" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
-                                        onClick={() => {
-                                            if (roadExit && isPlayer && sectorIsCurrent) crossSectorExit(roadExit);
-                                            else setSectorPlayerPos(index);
-                                        }}
-                                    >
-                                        {roadExit && (
-                                            <SectorGateMarker
-                                                destinationSector={roadExit.destinationSector}
-                                                direction={roadExit.direction}
-                                                ready={isPlayer && sectorIsCurrent}
-                                            />
-                                        )}
-                                        {otherHere.length > 0 ? (
-                                            <div className="other-players-map-stack">
-                                                {otherHere.map(p => (
-                                                    <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
-                                                        {(sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '')
-                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                                            : <span className="other-player-map-emoji">🥷</span>
-                                                        }
-                                                        <span className="other-player-map-name">{p.name}{p.__sleeping ? " 💤" : ""}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : ""}
-                                    </button>
-                                );
-                            })}
-
-                            {livePeersOn && sameSector(currentSector, selectedSector) && (
-                                <SectorPeersLive
-                                    selectedSector={selectedSector}
-                                    selfName={character.name}
-                                    sharedImages={sharedImages}
-                                    sleepers={sleeperPeers}
-                                />
-                            )}
-
-                            <SectorAvatar
-                                targetIndex={sectorPlayerPos}
-                                sector={selectedSector}
-                                avatarImage={resolveOwnAvatar(character, sharedImages)}
-                                name={character.name}
-                                biome={ambienceBiomeForSector(selectedSector)}
-                            />
+                    <WorldSectorCanvas
+                        sector={selectedSector}
+                        biome={biome}
+                        weather={sectorWeather}
+                        ambienceBiome={ambienceBiomeForSector(selectedSector)}
+                        playerTile={sectorPlayerPos}
+                        playerName={character.name}
+                        playerAvatarImage={resolveOwnAvatar(character, sharedImages)}
+                        isCurrent={sectorIsCurrent}
+                        enterDirection={sectorEnterDir}
+                        regionSplash={regionSplash}
+                        onRegionSplashDone={() => setRegionSplash(null)}
+                        mapImage={sectorMapSrc}
+                        sceneImage={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
+                        sceneDepthImage={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
+                        roadExits={sectorRoadExits}
+                        showLivePeers={livePeersOn}
+                        players={sectorPlayers.map((player) => ({
+                            name: player.name,
+                            level: player.level,
+                            sleeping: Boolean(player.__sleeping),
+                            avatarImage: sharedImages['avatar:' + player.name.toLowerCase()] || (player.character.avatarImage as string) || '',
+                        }))}
+                        sharedImages={sharedImages}
+                        sleeperPeers={sleeperPeers}
+                        onSelectTile={setSectorPlayerPos}
+                        onCrossExit={crossSectorExit}
+                        overlayLayer={
+                            <>
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
@@ -4780,12 +4685,10 @@ export function WorldMap({
                                 </div>,
                                 document.body,
                             )}
-
-                            {/* Near-camera foliage band that parallaxes against the
-                                backdrop as you cross the grid — the "walking THROUGH
-                                the biome" depth cue (2D vista only). No-op until baked. */}
-                            {!sectorMapMode && <SectorForeground biome={ambienceBiomeForSector(selectedSector)} focus={sectorPlayerPos} />}
-
+                            </>
+                        }
+                        encounterLayer={
+                            <>
                             {creatorEvents
                                 .filter((event) => event.eventKind !== "visualNovel" && event.targetSector === selectedSector)
                                 .map((event) => {
@@ -4869,8 +4772,9 @@ export function WorldMap({
                                         </button>
                                     );
                                 })}
-                        </div>
-                    </main>
+                            </>
+                        }
+                    />
 
                     <aside className="instance-actions sector-command-panel" aria-label={`Sector ${selectedSector} command panel`}>
                         <header className="sector-panel-heading">
