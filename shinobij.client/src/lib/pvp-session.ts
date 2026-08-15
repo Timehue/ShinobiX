@@ -44,6 +44,15 @@ export type PlayerCombatSave = {
     savedBloodlines?: SavedBloodline[];
     creatorJutsus?: Jutsu[];
     creatorItems?: GameItem[];
+    /**
+     * Present only when reading your OWN save (a foreign read is projected down
+     * to the public DTO). Reading your own save settles elapsed state — a
+     * completed journey, an expired Hollow Gate run — and persisting that bumps
+     * `_saveVersion`. Callers that read their own save MUST adopt it, or their
+     * next autosave echoes a stale base version, takes a 409, and raises a
+     * save-recovery banner for a divergence that never happened.
+     */
+    _saveVersion?: number;
 };
 
 export async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | null> {
@@ -67,6 +76,7 @@ export async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatS
             // rebalanceNonBloodlineJutsu must only run on initial creation, never on reads.
             creatorJutsus: created.map(normalizeJutsu),
             creatorItems: createdItems.map(sanitizeArmorAndGloveItem),
+            _saveVersion: typeof data._saveVersion === "number" ? data._saveVersion : undefined,
         };
     } catch {
         return null;

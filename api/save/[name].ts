@@ -2339,10 +2339,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const stored = await kv.get<Record<string, unknown>>(key);
         if (stored === null) return res.status(404).end();
 
-        // Who is reading decides whether the settle is WRITTEN BACK.
+        // Full-snapshot visibility and elapsed-state write authority are separate.
+        // An authorized admin may inspect a full player save, but that read does
+        // not belong to the player's live save-version stream and must not bump it.
         const adminCanReadTarget = identity.admin
             && adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req));
-        const isOwner = adminCanReadTarget || isClanSave || (!identity.admin && identity.name === name);
+        const isPlayerSelfRead = !identity.admin && identity.name === name;
+        const canReadFullSave = adminCanReadTarget || isClanSave || isPlayerSelfRead;
 
         // Settling projects elapsed time (vitals regen, travel leases, an expired
         // Hollow Gate run) and persisting it BUMPS `_saveVersion`.
@@ -2360,7 +2363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // next read or save persists it.
         const data = isClanSave
             ? stored
-            : (await settleSaveRecordForRead(name, stored, { persist: isOwner })).record;
+            : (await settleSaveRecordForRead(name, stored, { persist: isPlayerSelfRead })).record;
 
         // Project the save by reader.
         // - Owners + authorized admins + clan saves: full save (combatOnly just
@@ -2382,7 +2385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // correctly recognises the owner.
         const combatOnly = req.query.combatOnly === '1';
         let payload: Record<string, unknown>;
-        if (isOwner) {
+        if (canReadFullSave) {
             payload = combatOnly ? combatProjection(data) : data;
         } else {
             // Admin content slots additionally expose the shared authored-content

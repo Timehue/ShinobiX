@@ -202,6 +202,7 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
+import type { OwnSaveReadAnchor, OwnSaveReadResult } from "./lib/own-save-read"; const loadOwnSaveRead = () => import("./lib/own-save-read");
 import { playerRankedAuthorityFromChallenge } from "./lib/player-ranked-authority";
 const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
 const BattleTowers = lazyWithRetry(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
@@ -3100,10 +3101,12 @@ export default function App() {
         const challenger = normalizeCharacter(challenge.challenger);
         dismissChallengeLocally(challenge.id);
         try {
+            const { captureOwnSaveRead } = await loadOwnSaveRead(), p2ReadAnchor = captureOwnSaveRead(character);
             const [p1CombatSave, p2CombatSave] = await Promise.all([
                 fetchPlayerCombatSave(challenge.fromName),
                 fetchPlayerCombatSave(character.name),
             ]);
+            if (p2CombatSave && await adoptOwnSaveRead(p2ReadAnchor, p2CombatSave.character, p2CombatSave._saveVersion) === "foreign") return;
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
@@ -3243,7 +3246,7 @@ export default function App() {
             setCharacter(normalized);
             currentAccountNameRef.current = snap.character.name;
             setCurrentAccountName(snap.character.name);
-            rehydrateSaveConflictDraft(snap.character.name, snap);
+            void rehydrateSaveConflictDraft(snap.character.name, snap);
             setCurrentBiome(snap.currentBiome ?? "central");
             setActiveTraining(snap.activeTraining ?? null);
             setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
@@ -3700,6 +3703,8 @@ export default function App() {
     }, [gameplayViewOpen]);
 
     useEffect(() => {
+        // Preserve the account marker until capability-delayed restore resolves.
+        if (restoringSession) return;
         try {
             localStorage.setItem(
                 STORAGE,
@@ -3712,6 +3717,7 @@ export default function App() {
         }
     }, [
         currentAccountName,
+        restoringSession,
     ]);
 
     function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
@@ -4568,6 +4574,14 @@ export default function App() {
         if (!decision.accepted) return "stale"; if (decision.latestVersion > previousVersion) savePersistenceRef.current?.invalidateAuthority();
         latestSaveVersionRef.current = decision.latestVersion; return "accepted";
     }
+    async function adoptOwnSaveRead(anchor: OwnSaveReadAnchor, settledCharacter: Character | null | undefined, settledVersion: unknown): Promise<OwnSaveReadResult> {
+        if (settledCharacter && saveConflictAccountKey(settledCharacter.name) !== anchor.accountKey) return "foreign";
+        // Callers preload this rare reconciliation chunk before starting the GET.
+        const runtime = settledCharacter ? await loadOwnSaveRead() : null;
+        const result = acceptExternalSaveVersion(settledVersion, anchor.accountName); if (result !== "accepted") return result;
+        if (settledCharacter && runtime) setCharacter(current => runtime.reconcileOwnSaveReadVitals(current, anchor, settledCharacter));
+        return "accepted";
+    }
     function commitVersionedCharacter(nextCharacter: Character, incomingVersion: unknown): boolean {
         const accountKey = saveConflictAccountKey(nextCharacter.name);
         if (!accountKey || accountKey !== saveAuthorityAccountKeyRef.current || accountKey !== activeSaveAccountKey()) return false;
@@ -4685,20 +4699,25 @@ export default function App() {
         }
         beginBlockingRestore();
 
-        await restoreSaveConflictRevision({
+        const { declined } = await restoreSaveConflictRevision({
             visibleDraft, sessionEpoch: restoreSessionEpoch, runExclusive: savePersistenceRef.current!.runExclusive,
             isCurrentSession: isCurrentSaveSession, loadDraft: loadConflictDraftForAccount,
             latestVersion: latestSaveVersionRef, currentSnapshot: () => latestSaveRef.current,
             captureConflict: captureSaveConflictDraft, applySnapshot: applyServerSnapshot,
             discardRevision: discardSaveConflictRevision,
         });
+        // The write is durable either way. Say plainly which parts the server kept
+        // authority over rather than reporting the whole restore as a failure.
+        if (declined.length) {
+            alert(`Your device draft was restored. The server keeps authority over ${declined.join(", ").toLowerCase()}, so those stayed at the server's values.`);
+        }
     }
 
     useEffect(() => {
         if (!saveConflictDraft) return;
         const nextExpiry = Math.min(...saveConflictDraft.revisions.map((revision) => revision.expiresAt));
         const timer = window.setTimeout(
-            () => { rehydrateSaveConflictDraft(saveConflictDraft.accountName); },
+            () => { void rehydrateSaveConflictDraft(saveConflictDraft.accountName); },
             Math.max(0, nextExpiry - Date.now() + 50),
         );
         return () => window.clearTimeout(timer);
@@ -4913,7 +4932,7 @@ export default function App() {
         scopeSaveAuthorityToAccount(characterToCreate.name);
         currentAccountNameRef.current = characterToCreate.name;
         setCurrentAccountName(characterToCreate.name); setCharacter(characterToCreate);
-        rehydrateSaveConflictDraft(characterToCreate.name);
+        void rehydrateSaveConflictDraft(characterToCreate.name);
         setCurrentBiome("central");
         setActiveTraining(null);
         setActiveJutsuTraining(null);
@@ -4965,7 +4984,7 @@ export default function App() {
         currentAccountNameRef.current = snap.character.name;
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
-        rehydrateSaveConflictDraft(snap.character.name, snap);
+        void rehydrateSaveConflictDraft(snap.character.name, snap);
         setCurrentBiome(snap.currentBiome ?? "central");
         setActiveTraining(snap.activeTraining ?? null);
         setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
@@ -7067,7 +7086,7 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
-                        onVersionedCharacter={commitVersionedCharacter}
+                        onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster }); }}
                         sectorAttackPlayer={async (opponent) => { if (!requireServerSettlement("pvpSession")) return;
                             if (isTraveling) {
@@ -7418,7 +7437,7 @@ export default function App() {
                     <Arena
                         lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
                         character={character}
-                        updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter}
+                        updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorAis={playableAis}
@@ -7553,20 +7572,23 @@ export default function App() {
                         // professionRank, daily-cap counters, petEscortBonusReady
                         // for clan-mates is on their saves not ours).
                         if (!serverClaim?.character && rewarded.profession === "vanguard") {
-                            fetch(`/api/save/${encodeURIComponent(character.name)}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    const serverChar = data?.character as Character | undefined;
-                                    if (!serverChar) return;
-                                    setCharacter(prev => prev ? ({
-                                        ...prev,
-                                        honorSeals: serverChar.honorSeals ?? prev.honorSeals,
-                                        professionXp: serverChar.professionXp ?? prev.professionXp,
-                                        professionRank: serverChar.professionRank ?? prev.professionRank,
-                                        dailyHonorSealsEarned: serverChar.dailyHonorSealsEarned ?? prev.dailyHonorSealsEarned,
-                                        dailyHonorSealsByTarget: serverChar.dailyHonorSealsByTarget ?? prev.dailyHonorSealsByTarget,
-                                        vanguardDailyResetDate: serverChar.vanguardDailyResetDate ?? prev.vanguardDailyResetDate,
-                                    }) : prev);
+                            void loadOwnSaveRead().then(({ captureOwnSaveRead }) => {
+                                    const vanguardReadAnchor = captureOwnSaveRead(rewarded); return fetch(`/api/save/${encodeURIComponent(character.name)}`)
+                                        .then(r => r.ok ? r.json() : null)
+                                        .then(async data => {
+                                            const serverChar = data?.character as Character | undefined;
+                                            if (!serverChar) return;
+                                            if (await adoptOwnSaveRead(vanguardReadAnchor, serverChar, (data as Record<string, unknown> | null)?._saveVersion) !== "accepted") return;
+                                            setCharacter(prev => prev?.name.trim().toLowerCase() === vanguardReadAnchor.accountKey ? ({
+                                                ...prev,
+                                                honorSeals: serverChar.honorSeals ?? prev.honorSeals,
+                                                professionXp: serverChar.professionXp ?? prev.professionXp,
+                                                professionRank: serverChar.professionRank ?? prev.professionRank,
+                                                dailyHonorSealsEarned: serverChar.dailyHonorSealsEarned ?? prev.dailyHonorSealsEarned,
+                                                dailyHonorSealsByTarget: serverChar.dailyHonorSealsByTarget ?? prev.dailyHonorSealsByTarget,
+                                                vanguardDailyResetDate: serverChar.vanguardDailyResetDate ?? prev.vanguardDailyResetDate,
+                                            }) : prev);
+                                        });
                                 })
                                 .catch(() => { /* server is still source of truth; brief UI lag is OK */ });
                         }

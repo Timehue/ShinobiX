@@ -5,7 +5,7 @@ import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightCoordinator, type SaveFl
 import { createSavePersistence, SaveConflictError } from "./save-persistence";
 
 type Payload = {
-    character: { name: string; level: number };
+    character: { name: string; level: number; ryo?: number };
     currentBiome?: string;
     _saveVersion?: number;
 };
@@ -140,6 +140,103 @@ describe("extracted save persistence", () => {
         assert.deepEqual(h.captured[0].payload, postedBody, "the protected draft is the exact rejected POST body");
         assert.equal(h.latestVersion.current, 6);
         assert.equal(h.applied[0]._saveVersion, 6);
+    });
+
+    it("does not protect a draft for a server-authoritative currency rejection", async () => {
+        // A RYO_SERVER_AUTHORITY 409 is not a two-writer conflict: the local
+        // balance is simply wrong and the refetch repairs it. Capturing a draft
+        // for it produced a recovery banner the player could not resolve, on a
+        // loop, because every retry re-raised the same balance.
+        const h = harness({ latestVersion: 5, payloadRevision: 7 });
+        const ryoOnly = {
+            name: "Kaya",
+            payload: { character: { name: "Kaya", level: 8, ryo: 999 }, currentBiome: "central" } satisfies Payload,
+            revision: 7,
+        };
+        globalThis.fetch = (async (_input, init) => {
+            if (init?.method === "POST") {
+                h.events.push("post");
+                return jsonResponse(409, { error: "Ryo is server-authoritative.", code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 6 });
+            }
+            h.events.push("get");
+            return jsonResponse(200, { character: { name: "Kaya", level: 8, ryo: 120 }, currentBiome: "central", _saveVersion: 6 });
+        }) as typeof fetch;
+
+        const result = await h.persistence.persistAutosave(ryoOnly);
+        assert.deepEqual(result, { status: "completed", value: undefined });
+        assert.deepEqual(h.events, ["post", "get", "apply"], "no draft is captured, but authority is still repaired");
+        assert.equal(h.captured.length, 0);
+        assert.equal(h.latestVersion.current, 6);
+        assert.equal(h.applied[0]._saveVersion, 6);
+    });
+
+    it("protects co-batched client-owned autosave edits while suppressing only rejected Ryo", async () => {
+        const h = harness({ latestVersion: 5, payloadRevision: 7 });
+        const mixed = {
+            name: "Kaya",
+            payload: { character: { name: "Kaya", level: 8, ryo: 999 }, currentBiome: "central" } satisfies Payload,
+            revision: 7,
+        };
+        globalThis.fetch = (async (_input, init) => {
+            if (init?.method === "POST") {
+                h.events.push("post");
+                return jsonResponse(409, { code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 5 });
+            }
+            h.events.push("get");
+            return jsonResponse(200, {
+                character: { name: "Kaya", level: 8, ryo: 120 },
+                currentBiome: "coast",
+                _saveVersion: 5,
+            });
+        }) as typeof fetch;
+
+        await h.persistence.persistAutosave(mixed);
+
+        assert.deepEqual(h.events, ["post", "get", "capture", "apply"]);
+        assert.equal(h.captured.length, 1, "the rejected atomic save still contains recoverable travel state");
+        assert.deepEqual(h.captured[0].payload, {
+            character: { name: "Kaya", level: 8, ryo: 120 },
+            currentBiome: "central",
+            _baseSaveVersion: 5,
+        }, "the protected draft repairs only Ryo and retains the co-batched client-owned edit");
+    });
+
+    it("treats malformed Ryo authority responses as ordinary conflicts", async () => {
+        for (const authoritativeRyo of [null, "120"]) {
+            const h = harness({ latestVersion: 5, payloadRevision: 7 });
+            const rejected = {
+                name: "Kaya",
+                payload: { character: { name: "Kaya", level: 8, ryo: 999 }, currentBiome: "central" } satisfies Payload,
+                revision: 7,
+            };
+            globalThis.fetch = (async (_input, init) => init?.method === "POST"
+                ? jsonResponse(409, { code: "RYO_SERVER_AUTHORITY", authoritativeRyo })
+                : jsonResponse(200, {
+                    character: { name: "Kaya", level: 8, ryo: 120 },
+                    currentBiome: "central",
+                    _saveVersion: 6,
+                })) as typeof fetch;
+
+            await h.persistence.persistAutosave(rejected);
+
+            assert.equal(h.captured.length, 1);
+            assert.equal(
+                ((h.captured[0].payload as Payload).character.ryo),
+                999,
+                "an invalid repair value cannot erase the exact rejected payload",
+            );
+        }
+    });
+
+    it("still protects a draft for an ordinary version 409", async () => {
+        const h = harness({ latestVersion: 5, payloadRevision: 7 });
+        globalThis.fetch = (async (_input, init) => {
+            if (init?.method === "POST") return jsonResponse(409, { error: "Save conflict — another tab or device wrote first.", currentVersion: 6 });
+            return jsonResponse(200, { character: { name: "Kaya", level: 9 }, currentBiome: "coast", _saveVersion: 6 });
+        }) as typeof fetch;
+
+        await h.persistence.persistAutosave(snapshot(7));
+        assert.equal(h.captured.length, 1, "a real conflict must still protect the rejected payload");
     });
 
     it("does not repaint or clear a newer local revision when an older autosave gets a 409", async () => {
@@ -314,6 +411,39 @@ describe("extracted save persistence", () => {
         assert.deepEqual(h.captured[0].payload, postedBody);
         assert.equal(h.latestVersion.current, 6);
         assert.ok(failure instanceof Error, "a conflicted required save must reject instead of resolving as completed");
+    });
+
+    it("protects co-batched client-owned immediate-save edits after a Ryo authority rejection", async () => {
+        const h = harness({ latestVersion: 5, payloadRevision: 1 });
+        let committed = 0;
+        globalThis.fetch = (async (_input, init) => {
+            if (init?.method === "POST") {
+                h.events.push("post");
+                return jsonResponse(409, { code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 5 });
+            }
+            h.events.push("get");
+            return jsonResponse(200, {
+                character: { name: "Kaya", level: 8, ryo: 120 },
+                currentBiome: "coast",
+                _saveVersion: 5,
+            });
+        }) as typeof fetch;
+
+        await assert.rejects(
+            h.persistence.persistRequired(() => requiredSave({
+                payload: { character: { name: "Kaya", level: 8, ryo: 999 }, currentBiome: "central" },
+                onCommitted: () => { committed += 1; },
+            })),
+            SaveConflictError,
+        );
+
+        assert.deepEqual(h.events, ["post", "get", "capture", "apply"]);
+        assert.deepEqual(h.captured.map(({ payload }) => payload), [{
+            character: { name: "Kaya", level: 8, ryo: 120 },
+            currentBiome: "central",
+            _baseSaveVersion: 5,
+        }]);
+        assert.equal(committed, 0, "an atomically rejected immediate save cannot report durable success");
     });
 
     it("required saves clear dirty only when the committed full payload is still current", async () => {

@@ -1,0 +1,64 @@
+import type { ToastStacksProps } from "./ToastStacks";
+import "./ToastStacks.css";
+
+export function ToastStacksContent({ achievementToasts, missionToasts, onDismissAchievement, onDismissMission }: ToastStacksProps) {
+    return (
+        <>
+            {achievementToasts.length > 0 && (
+                <div className="achievement-toast-stack">
+                    {achievementToasts.slice(0, 3).map((a, i) => (
+                        <div
+                            key={`${a.id}-${i}`}
+                            className={`achievement-toast ${a.hidden ? "secret" : ""}`}
+                            onClick={() => onDismissAchievement(a)}
+                        >
+                            <div className="achievement-toast-icon">
+                                <img
+                                    src={`/badges/${a.id}.png`}
+                                    alt=""
+                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                                />
+                                <span className="achievement-toast-emoji" aria-hidden>{a.icon}</span>
+                            </div>
+                            <div className="achievement-toast-body">
+                                <span className="achievement-toast-label">
+                                    {a.hidden ? "Secret Unlocked" : "Achievement Unlocked"}
+                                </span>
+                                <strong>{a.name}</strong>
+                                <small>{a.desc}</small>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            {missionToasts.length > 0 && (
+                <div className="achievement-toast-stack" style={{ bottom: 80 }}>
+                    {missionToasts.slice(0, 3).map((t) => {
+                        const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "var(--gold)";
+                        const xpLine = t.xp > 0 ? `+${t.xp} ${t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP` : "";
+                        const detail = t.summary ?? xpLine;
+                        return (
+                            <div
+                                key={t.id}
+                                className="achievement-toast"
+                                style={{ borderColor: accent, boxShadow: `0 0 20px ${accent}55` }}
+                                onClick={() => onDismissMission(t.id)}
+                            >
+                                <div className="achievement-toast-icon">
+                                    <span className="achievement-toast-emoji" aria-hidden style={{ color: accent }}>📜</span>
+                                </div>
+                                <div className="achievement-toast-body">
+                                    <span className="achievement-toast-label" style={{ color: accent }}>
+                                        {t.label ?? "Mission Complete"}
+                                    </span>
+                                    <strong>{t.name}</strong>
+                                    {detail && <small>{detail}</small>}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </>
+    );
+}

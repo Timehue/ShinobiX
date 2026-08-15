@@ -28,7 +28,7 @@ const handlerSource = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts
 test('the settle-on-read write is gated on the reader owning the save', () => {
     assert.match(
         handlerSource,
-        /settleSaveRecordForRead\(name, stored, \{ persist: isOwner \}\)/,
+        /settleSaveRecordForRead\(name, stored, \{ persist: isPlayerSelfRead \}\)/,
         'GET must persist the settle only for the owner',
     );
 
@@ -40,17 +40,30 @@ test('the settle-on-read write is gated on the reader owning the save', () => {
 });
 
 test('ownership is resolved before the settle that depends on it', () => {
-    // `isOwner` is also used later to pick the response projection. If its
-    // declaration ever moves back below the settle, `persist: isOwner` would read a
+    // Write authority is intentionally narrower than full-read authorization. If its
+    // declaration ever moves back below the settle, `persist: isPlayerSelfRead` would read a
     // temporal-dead-zone binding and throw on every save read.
-    const ownerDecl = handlerSource.indexOf('const isOwner =');
+    const ownerDecl = handlerSource.indexOf('const isPlayerSelfRead =');
     const settleCall = handlerSource.indexOf('settleSaveRecordForRead(name, stored');
 
-    assert.ok(ownerDecl > 0, 'the GET path must still compute isOwner');
+    assert.ok(ownerDecl > 0, 'the GET path must still compute player self-read authority');
     assert.ok(settleCall > 0, 'the GET path must still settle elapsed state on read');
     assert.ok(
         ownerDecl < settleCall,
-        'isOwner must be declared before the settle call that consumes it',
+        'isPlayerSelfRead must be declared before the settle call that consumes it',
+    );
+});
+
+test('authorized admin visibility cannot grant elapsed-state write authority', () => {
+    assert.match(
+        handlerSource,
+        /const canReadFullSave = adminCanReadTarget \|\| isClanSave \|\| isPlayerSelfRead/,
+        'authorized admins and clan readers retain their full response projection',
+    );
+    assert.doesNotMatch(
+        handlerSource,
+        /persist:\s*(?:adminCanReadTarget|canReadFullSave)/,
+        'full-read authorization must never be reused as elapsed-state write authority',
     );
 });
 

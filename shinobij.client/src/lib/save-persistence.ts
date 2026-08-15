@@ -1,5 +1,12 @@
 import { SAVE_FAILURE_BANNER_THRESHOLD, isCurrentSavePayloadRevision, type SaveFlightCoordinator } from "./save-flight";
-import { saveConflictAccountKey, stringifySaveConflictPayload, type SaveConflictDraft } from "./save-conflict";
+import {
+    detectSaveConflictAreas,
+    isResolvedConflictAreas,
+    loadSaveOwnershipClassifier,
+    saveConflictAccountKey,
+    stringifySaveConflictPayload,
+    type SaveConflictDraft,
+} from "./save-conflict";
 import { acceptVersionedSnapshot } from "./versioned-snapshot";
 import { adoptSaveVersion } from "./save-version";
 
@@ -45,6 +52,28 @@ type MutableRef<T> = { current: T };
 
 function validAcknowledgementVersion(value: unknown): value is number {
     return Number.isSafeInteger(value) && Number(value) > 0;
+}
+
+type CurrencyAuthorityConflict = Readonly<{ authoritativeRyo: number }>;
+
+/**
+ * A RYO_SERVER_AUTHORITY response rejects the WHOLE atomic save, but only its
+ * attempted Ryo increase is invalid. Keep the authoritative balance needed to
+ * repair that one field; the authoritative GET decides whether the rejected
+ * body also contains recoverable device progress that still needs protection.
+ */
+function currencyAuthorityConflict(body: unknown): CurrencyAuthorityConflict | null {
+    if (!body || typeof body !== "object" || (body as { code?: unknown }).code !== "RYO_SERVER_AUTHORITY") return null;
+    const authoritativeRyo = (body as { authoritativeRyo?: unknown }).authoritativeRyo;
+    return typeof authoritativeRyo === "number" && Number.isFinite(authoritativeRyo) && authoritativeRyo >= 0
+        ? { authoritativeRyo }
+        : null;
+}
+
+function withAuthoritativeRyo(payload: Record<string, unknown>, authoritativeRyo: number): Record<string, unknown> {
+    const character = payload.character;
+    if (!character || typeof character !== "object" || Array.isArray(character)) return payload;
+    return { ...payload, character: { ...character, ryo: authoritativeRyo } };
 }
 
 export function createSavePersistence<TPayload extends Record<string, unknown>>(params: {
@@ -111,7 +140,11 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         });
     };
 
-    const refetchAfterConflict = async (accountName: string, submittedRevision = params.latestPayloadRevision.current): Promise<boolean> => {
+    const refetchAfterConflict = async (
+        accountName: string,
+        submittedRevision = params.latestPayloadRevision.current,
+        currencyRecovery?: Readonly<{ rejectedPayload: Record<string, unknown>; authoritativeRyo: number }>,
+    ): Promise<boolean> => {
         const accountKey = saveConflictAccountKey(accountName);
         const epoch = params.currentSessionEpoch();
         if (!accountKey || !params.isCurrentSession(accountKey, epoch)) return false;
@@ -128,8 +161,27 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 const snapshot = await response.json() as TPayload & { _saveVersion?: number };
                 if (!params.isCurrentSession(accountKey, epoch)) return false;
                 const localAtInstall = params.currentSnapshot();
+                if (currencyRecovery) {
+                    // Classification is rare and user-visible, so its ownership
+                    // table remains code-split. A failed load degrades safely:
+                    // unknown fields are treated as recoverable and protected.
+                    await loadSaveOwnershipClassifier().catch(() => undefined);
+                    if (!params.isCurrentSession(accountKey, epoch)) return false;
+                    const protectIfRecoverable = (payload: Record<string, unknown>) => {
+                        const repaired = withAuthoritativeRyo(payload, currencyRecovery.authoritativeRyo);
+                        if (!isResolvedConflictAreas(detectSaveConflictAreas(repaired, snapshot))) {
+                            params.captureConflict(accountName, repaired);
+                        }
+                    };
+                    protectIfRecoverable(currencyRecovery.rejectedPayload);
+                    if (localAtInstall?.name === accountName && localAtInstall.revision > submittedRevision) {
+                        protectIfRecoverable({ ...localAtInstall.payload, _baseSaveVersion: params.latestVersion.current });
+                    }
+                }
                 if (localAtInstall?.name === accountName && localAtInstall.revision > submittedRevision) {
-                    params.captureConflict(localAtInstall.name, { ...localAtInstall.payload, _baseSaveVersion: params.latestVersion.current });
+                    if (!currencyRecovery) {
+                        params.captureConflict(localAtInstall.name, { ...localAtInstall.payload, _baseSaveVersion: params.latestVersion.current });
+                    }
                 }
                 const decision = acceptVersionedSnapshot(params.latestVersion.current, snapshot._saveVersion);
                 if (!decision.accepted) return false;
@@ -170,13 +222,16 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 if (!params.isCurrentSession(accountKey, epoch)) return;
                 if (response.status === 409) {
                     authorityGeneration += 1;
+                    const currencyAuthority = currencyAuthorityConflict(await response.json().catch(() => null));
                     try {
-                        params.captureConflict(snapshot.name, body);
+                        if (!currencyAuthority) params.captureConflict(snapshot.name, body);
                         const current = params.currentSnapshot();
-                        if (current?.name === snapshot.name && current.revision > snapshot.revision) {
+                        if (!currencyAuthority && current?.name === snapshot.name && current.revision > snapshot.revision) {
                             params.captureConflict(current.name, { ...current.payload, _baseSaveVersion: params.latestVersion.current });
                         }
-                        if (!await refetchAfterConflict(snapshot.name, snapshot.revision)) throw new Error("Conflict recovery could not load the authoritative save.");
+                        if (!await refetchAfterConflict(snapshot.name, snapshot.revision, currencyAuthority
+                            ? { rejectedPayload: body, authoritativeRyo: currencyAuthority.authoritativeRyo }
+                            : undefined)) throw new Error("Conflict recovery could not load the authoritative save.");
                         clearUnresolvedPost(pending);
                     } finally { authorityGeneration += 1; }
                     return;
@@ -242,14 +297,17 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         }
         if (response.status === 409) {
             authorityGeneration += 1;
+            const currencyAuthority = currencyAuthorityConflict(await response.json().catch(() => null));
             try {
-                params.captureConflict(save.name, body);
+                if (!currencyAuthority) params.captureConflict(save.name, body);
                 if (!save.echoVersion) throw new Error("The target save changed before this update could be applied.");
                 const current = params.currentSnapshot();
-                if (current?.name === save.name && current.revision > save.revision) {
+                if (!currencyAuthority && current?.name === save.name && current.revision > save.revision) {
                     params.captureConflict(current.name, { ...current.payload, _baseSaveVersion: params.latestVersion.current });
                 }
-                if (!await refetchAfterConflict(save.name, save.revision)) {
+                if (!await refetchAfterConflict(save.name, save.revision, currencyAuthority
+                    ? { rejectedPayload: body, authoritativeRyo: currencyAuthority.authoritativeRyo }
+                    : undefined)) {
                     throw new Error("Your local draft is protected, but the newer server save could not be loaded yet.");
                 }
                 clearUnresolvedPost(pending);

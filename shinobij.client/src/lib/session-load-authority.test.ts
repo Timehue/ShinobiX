@@ -10,7 +10,8 @@ describe("session-load response authority", () => {
         assert.match(boot, /const restoreLoad = beginSessionLoad\(sessionLoadGenerationRef, localAccountName\)/);
         assert.match(boot, /if \(!restoreLoad\.isCurrent\(\)\) return;[\s\S]*?saveConflictAccountKey\(snap\.character\.name\) === restoreLoad\.accountKey[\s\S]*?applySnapshot/);
         assert.match(boot, /const revertRestoreToLogin = \(\) => \{[\s\S]*?restoreLoad\.retire\(\)/);
-        assert.match(boot, /return \(\) => \{ sessionLoadGenerationRef\.current \+= 1; \}/);
+        assert.match(boot, /return \(\) => \{\s*sessionLoadGenerationRef\.current \+= 1;\s*if \(!restoreCompleted\) bootRestoreStartedRef\.current = false;\s*\};/,
+            "cleanup must retire stale continuations and let an interrupted capability-gated restore retry");
     });
 
     it("binds manual login JSON and save responses to one request generation and account", () => {

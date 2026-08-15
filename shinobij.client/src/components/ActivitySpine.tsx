@@ -143,7 +143,7 @@ export function ActivitySpine({
                                 <div className="activity-card-topline"><strong>{activity.title}</strong><span>{activity.commitment}</span></div>
                                 <p>{activity.why}</p>
                                 {activity.progress ? <p className="activity-card-progress">Progress: {activity.progress}</p> : null}
-                                {effectiveBlocker ? <p id={blockerId} className="activity-card-blocker">Blocked: {effectiveBlocker}</p> : null}
+                                {effectiveBlocker ? <p id={blockerId} className="activity-card-blocker">{blocked ? "Blocked" : "Prerequisite"}: {effectiveBlocker}</p> : null}
                                 {activity.recoveryOnly ? <small>Recovery-only record: new actions are disabled.</small> : null}
                                 {activity.reward ? <small>Use / reward: {activity.reward}</small> : null}
                                 <button
