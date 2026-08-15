@@ -17,12 +17,87 @@ describe('player-ranked queue to session wiring', () => {
     it('carries one parsed queue capability into the durable challenge', () => {
         const arena = source('../screens/Arena.tsx');
         const queueParse = arena.indexOf('playerRankedAuthorityFromQueueMatch(data.match)');
-        const challengeCall = arena.indexOf('challengePlayer(stub, "ranked", 0, false, rankedAuthority)', queueParse);
+        const challengeCall = arena.indexOf(
+            'challengePlayer(stub, "ranked", 0, false, rankedAuthority, launchingSession)',
+            queueParse,
+        );
         assert.ok(queueParse >= 0 && challengeCall > queueParse);
 
         const challenge = functionSlice(arena, 'challengePlayer');
         assert.match(challenge, /mode === "ranked" && !rankedAuthority/);
         assert.match(challenge, /\.\.\.\(mode === "ranked" \? rankedAuthority : \{\}\)/);
+    });
+
+    it('owns and serializes one confirmed ranked queue generation', () => {
+        const arena = source('../screens/Arena.tsx');
+        assert.match(arena, /const rankedQueueOwnerKey = accountKey\(character\.name\)/);
+        assert.match(arena, /useCapabilityMutationAvailability\(\)/);
+        assert.match(arena, /capabilityAdmissionAllowed\(mutationAvailability\(\)\)/);
+        assert.match(arena, /disposeOwner\(rankedQueueOwnerKey\)/);
+        assert.match(arena, /playerRankedEnabled=\{playerRankedEnabled && rankedMutationsAvailable\}/);
+        assert.match(arena, /if \(owner\.phase === "launching" && !releaseConsumedMatch\) return/,
+            'queue cleanup must not delete a consumed match proof during challenge launch');
+
+        const join = functionSlice(arena, 'joinRankedQueue');
+        const runJoin = join.indexOf('rankedQueueLifecycle.run(joiningSession, "join"');
+        const confirmation = join.indexOf('data.enabled !== true || data.inQueue !== true', runJoin);
+        const markQueued = join.indexOf('rankedQueueLifecycle.confirmJoined(joiningSession)', confirmation);
+        assert.ok(runJoin >= 0 && confirmation > runJoin && markQueued > confirmation,
+            'polling may begin only after an ok, enabled, inQueue Join response');
+        assert.match(join, /run\(joiningSession, "join", async \(\) => \{\s*if \(!rankedMutationAllowedNow\(\)\)/,
+            'serialized Join must recheck live mutation capability at its wire boundary');
+        assert.match(join, /AbortSignal\.timeout\(RANKED_QUEUE_REQUEST_TIMEOUT_MS\)/);
+
+        const runPoll = arena.indexOf('rankedQueueLifecycle.run(session, "poll"');
+        const initiatorValidation = arena.indexOf('typeof match.initiator !== "boolean"', runPoll);
+        const consume = arena.indexOf('rankedQueueLifecycle.consumeMatch(session)', runPoll);
+        const challenge = arena.indexOf(
+            'challengePlayer(stub, "ranked", 0, false, rankedAuthority, launchingSession)',
+            consume,
+        );
+        assert.ok(runPoll >= 0 && initiatorValidation > runPoll && consume > initiatorValidation && challenge > consume,
+            'one serialized poll must validate the initiator and consume its match before challenging');
+        assert.match(arena, /run\(session, "poll", async \(\) => \{\s*if \(!rankedMutationAllowedNow\(\)\)/,
+            'serialized Poll must recheck live mutation capability at its wire boundary');
+        assert.doesNotMatch(arena, /window\.setInterval\(poll, 3000\)/);
+    });
+
+    it('fences ranked challenge continuations and uses functional inbox updates', () => {
+        const challenge = functionSlice(source('../screens/Arena.tsx'), 'challengePlayer');
+        const request = challenge.indexOf('await fetch("/api/player/challenge"');
+        const afterRequest = challenge.indexOf('if (!rankedChallengeCurrent()) return result("retired");', request);
+        const errorJson = challenge.indexOf('await response.json()', afterRequest);
+        const afterJson = challenge.indexOf('if (!rankedChallengeCurrent()) return result("retired");', errorJson);
+        const update = challenge.indexOf('setDuelChallenges((current) => [', afterRequest);
+        assert.ok(request >= 0 && afterRequest > request && errorJson > afterRequest && afterJson > errorJson,
+            'ranked queue ownership must be rechecked after each challenge await');
+        assert.ok(update > afterRequest, 'the durable challenge response uses a functional inbox update');
+        assert.match(challenge, /rankedQueueLifecycle\.isCurrent\(rankedSession\)/);
+        assert.match(challenge, /signal: AbortSignal\.timeout\(RANKED_QUEUE_REQUEST_TIMEOUT_MS\)/);
+        assert.match(challenge, /const definitiveRejection = response\.status >= 400 && response\.status < 500/,
+            '5xx must preserve a possibly committed challenge; only explicit 4xx releases its admission');
+        assert.match(challenge, /Ranked challenge delivery could not be confirmed\. It may still arrive; matchmaking will unlock when it settles or expires\./,
+            'ranked transport-unknown copy must describe the preserved recovery state');
+
+        const arena = source('../screens/Arena.tsx');
+        const preserveOutcome = arena.indexOf('challengeResult.outcome !== "rejected"');
+        const release = arena.indexOf('leaveRankedQueueOnServer(retired, true)', preserveOutcome);
+        assert.ok(preserveOutcome >= 0 && release > preserveOutcome,
+            'success/unknown stays launching and only a definitive rejection releases the server admission');
+    });
+
+    it('settles one exact outgoing ranked challenge without releasing a live proof', () => {
+        const arena = source('../screens/Arena.tsx');
+        assert.match(arena, /challengeId: challengeResult\.challengeId,\s*observed: false,\s*expiresAt: Date\.now\(\) \+ RANKED_CHALLENGE_SETTLEMENT_TIMEOUT_MS/,
+            'sent and unknown outcomes must retain their exact generated challenge id');
+        assert.match(arena, /rankedChallengeSettlementDecision\(tracked, duelChallenges, Date\.now\(\)\)/);
+        assert.match(arena, /candidate\.challengeId === tracked\.challengeId/);
+        assert.match(arena, /decision === "resolved" \|\| decision === "disappeared"\) \{[\s\S]*?retireTracked\(false\)/,
+            'decline consumption or observed disappearance retires locally without deleting a live proof');
+        assert.match(arena, /decision === "expired"\) \{\s*retireTracked\(true\)/,
+            'only the conservative settlement deadline performs consumed-proof cleanup');
+        assert.match(arena, /setTrackedRankedChallenge\(null\)/,
+            'owner, capability, and explicit local clearing must drop settlement metadata');
     });
 
     it('delegates one fail-closed session-create path to App', () => {
