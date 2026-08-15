@@ -698,7 +698,19 @@ test('durable ranked intent heals a second-save win failure after the live proof
     }
 });
 
-test('durable ranked intent heals a second-save draw failure after the live proof expires', async () => {
+/*
+ * The stalemate case: two mirror-image pets that cannot hurt each other. The
+ * retired engine timed these out into a DRAW, and this test used to assert the
+ * draw settlement healed after a partial save failure.
+ *
+ * Showdown's judge always decides (pets left -> HP% -> stamina% -> speed arrow
+ * -> seeded coin), so a ranked pet match no longer draws at all. The test keeps
+ * its real subject — the durable intent healing a second-save failure once the
+ * live proof has expired — and now also pins the no-draw invariant, with the
+ * expected verdict taken from the SAME resolver the endpoint rates with rather
+ * than hardcoded.
+ */
+test('durable ranked intent heals a second-save failure after the live proof expires, and a stalemate still decides', async () => {
     const alpha = 'rankedpartialdrawalpha';
     const bravo = 'rankedpartialdrawbravo';
     const matchToken = '00000000-0000-4000-8000-000000920001';
@@ -709,8 +721,6 @@ test('durable ranked intent heals a second-save draw failure after the live proo
     });
     const alphaPet = drawPet('partial-draw-alpha-pet');
     const bravoPet = drawPet('partial-draw-bravo-pet');
-    const { runPetDuel } = await import('../_pet-sim/pet-duel-sim.js');
-    assert.equal(runPetDuel(alphaPet as never, bravoPet as never, 1, 1, 1, false).result, 'draw');
     const auth = await import('../_auth.js');
     const alphaToken = auth.issuePlayerToken(alpha)!;
     const bravoToken = auth.issuePlayerToken(bravo)!;
@@ -730,6 +740,13 @@ test('durable ranked intent heals a second-save draw failure after the live proo
         a: alpha, b: bravo, aRating: 1000, bRating: 1000,
         aPet: alphaPet, bPet: bravoPet, seed: 1, createdAt: baseNow,
     };
+    // The verdict is an INPUT to this test, not the thing under test: read it
+    // from the resolver the endpoint itself rates with, so a future balance
+    // change cannot turn a recovery test into a balance test.
+    const { resolveRankedPetDuel } = await import('./_ranked-duel.js');
+    const decidedWinner = resolveRankedPetDuel(proof as never).winnerName;
+    assert.ok(decidedWinner === alpha || decidedWinner === bravo,
+        'a stalemate must still name a winner — Showdown does not draw');
     await kv.set(`pet:ranked-token:${matchToken}`, proof, { ex: 15 * 60 });
     try {
         let failBravoOnce = true;
@@ -763,14 +780,24 @@ test('durable ranked intent heals a second-save draw failure after the live proo
             reportKey: `ranked:${matchToken}`, matchToken,
         }, bravoToken, '203.0.113.42'), repaired.res);
         assert.equal(repaired.out.statusCode, 200);
-        assert.equal(repaired.out.body?.outcome, 'draw');
+        assert.equal(repaired.out.body?.outcome, decidedWinner === bravo ? 'win' : 'loss',
+            'the healed settlement reports the SERVER verdict, not the posted one');
         for (const name of [alpha, bravo]) {
             const save = await kv.get<Record<string, unknown>>(`save:${name}`);
             const character = save?.character as Record<string, unknown>;
-            assert.equal(save?._saveVersion, 2, `${name} draw settles exactly once`);
-            assert.equal(character.petRankedRating, 1000, 'draw does not move rating');
+            assert.equal(save?._saveVersion, 2, `${name} settles exactly once`);
             assert.ok(rankedLedgerEntry(character, matchToken));
         }
+        // Both ratings moved, in opposite directions and by the same amount:
+        // the stalemate was decided, so somebody won it.
+        const [alphaSave, bravoSave] = await Promise.all([
+            kv.get<Record<string, unknown>>(`save:${alpha}`),
+            kv.get<Record<string, unknown>>(`save:${bravo}`),
+        ]);
+        const ratingOf = (save: Record<string, unknown> | null) =>
+            Number((save?.character as Record<string, unknown> | undefined)?.petRankedRating);
+        assert.notEqual(ratingOf(alphaSave), 1000, 'a decided match moves the loser and the winner');
+        assert.equal(ratingOf(alphaSave) + ratingOf(bravoSave), 2000, 'and the swing is symmetric');
         assert.ok(await kv.get(`pet:ranked-result:${matchToken}`));
         assert.equal(await kv.get(`pet:ranked-intent:${matchToken}`), null);
     } finally {

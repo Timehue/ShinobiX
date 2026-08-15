@@ -222,9 +222,11 @@ honestly left.
 | Hollow Gate | arena bout bound to the run, minting the identical `hg-pet-result` receipt |
 | Dungeon seal + authored VN pet battles | `encounter` entry: the server rebuilds the opponent from a selector (§9) |
 
-**Read §8 before trusting this table.** Every row here is true of the SERVER.
-Three of them have no client wiring, so the fight a player actually plays is
-still the legacy engine.
+**§8 records what tracing the client actually found**, and it is worth reading
+before trusting any row here: this table was true of the SERVER, and three rows
+had no client wiring at all when it was written. Hollow Gate and Ranked are now
+wired end to end (§8, §10). Casual AI and PvP/clan-party duels in `PetArena.tsx`
+are the remainder.
 
 Format ruling applied: every war duel is **2v2 with a 2-pet bench**
 (`WAR_DUEL_FORMAT`), teams filled from the owner's roster behind the champion
@@ -268,18 +270,71 @@ daily-cap constant.
 
 So item 2 is four ports, not one, and they are not equally hard:
 
-- **Hollow Gate** is the cheapest by far — the server entry, its receipt and its
-  reward-boundary test already exist and are green. The work is entirely client:
-  give `startArenaBout` the binding, host `PetShowdownBattle` on the shrine
-  screen, and settle the Gate with the session id as the receipt.
-- **Ranked** is a PRESENTATION-only port and should arguably jump the queue: the
-  fix is to play the server's decided script instead of re-simulating, which
-  removes a live can-disagree bug rather than moving balance.
+- ~~**Hollow Gate**~~ — **DONE.** `lib/hollow-gate-app-flow.ts` `launchPetFight`
+  now opens a run-bound Showdown bout on the shrine itself instead of routing to
+  the arena, `components/HollowGatePetFight.tsx` hosts it, and the Gate settles
+  with the session id as the receipt. The handshake is untouched; only the
+  producer moved. Every trace of the Gate is gone from `PetArena.tsx`, and
+  `PetArenaOpponent` no longer carries a run binding.
+- ~~**Ranked**~~ — **DONE, and it was worse than "presentation".** See §10.
 - **Casual AI** duplicates what the Coliseum entry already does; retiring
   PetArena's own AI exhibition is mostly deletion.
 - **PvP / clan party** is the real remainder, and needs either live PvP on the
   engine (`session.pvp` + `turnDeadlineAt` exist and are dormant) or headless
   resolution both clients read back.
+
+### A forfeit is now a concession
+
+Found while wiring the Gate: `pet/showdown` `action:'forfeit'` deleted the
+session and answered ok. Harmless while every bout was practice — a loss pays
+nothing either way — but the moment a bout could be BOUND to a Hollow Gate
+encounter it became a way to walk out of a fight the run was waiting on: the
+receipt is minted by the FINISHING TURN, so a deleted session left the Gate
+sealed with no outcome to settle and no path back to one.
+
+A forfeit now decides the session as a loss and runs the same bound-encounter
+handshake the finishing turn runs. Conceding still cannot pay (the payout path
+is only reachable from a winning finishing turn, and the reward-boundary test
+now asserts that), but it can no longer strand what was waiting on the answer.
+
+---
+
+## 10. Ranked was not a presentation bug — it was two fights
+
+§8 called ranked a presentation-only port. Tracing it properly turned up worse.
+
+The ranked pet queue resolved the SAME match twice, with two engines and two
+seeds:
+
+| | engine | seed |
+|---|---|---|
+| Server (rated it) | `runPetDuel`, the legacy plain duel sim, in `battle-result.ts` | `token.seed`, minted by `ranked-start` |
+| Client (showed it) | `runPetDuelCinematic`, a **different** engine | `petBattleSeed`, a `Date.now()`-derived number the CHALLENGER generated and shipped inside the challenge |
+
+Nothing tied those together. The fight a player watched had no reliable
+relationship to the Elo it moved — a convincing victory could be recorded as a
+loss, and nothing distinguished that from an honest defeat.
+
+The fix makes the watched fight *be* the rated fight:
+
+- `api/pet/_ranked-duel.ts` resolves a match once, on Showdown, as a PURE
+  function of the sealed token (1v1, because the token seals one pet per side).
+- `battle-result.ts` rates through it — both at intent time and at the
+  determinism cross-check — and no longer imports the legacy sim at all.
+- `api/pet/ranked-watch.ts` re-derives the same call and hands the log to the
+  two participants (`store inputs, not fights`, same doctrine as war duels).
+- `PetArena.tsx` plays that log through `PetShowdownReplay`. There is
+  deliberately **no local fallback**: a locally simulated ranked fight is
+  precisely the bug, so a failed fetch shows a retry rather than a lie.
+
+The winner comes back as an account NAME, never a side, because both
+participants call the same endpoint and must never be told different things.
+
+Consequences worth stating: Showdown's judge always decides, so **ranked pet
+matches no longer draw**. The draw settlement branch in `battle-result.ts` is
+kept (the receipt shape still allows it) but is unreachable for any token the
+current engine resolves, and the test that used to prove a stalemate drew now
+proves a stalemate is decided.
 
 ---
 

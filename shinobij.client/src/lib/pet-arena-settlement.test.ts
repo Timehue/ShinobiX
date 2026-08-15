@@ -120,7 +120,11 @@ test("a rewarded Warfront keeps authoritative Witness progress and its final Chr
     assert.match(warfront, /\{resultSupplement \? \([\s\S]*\{resultSupplement\}/);
     assert.match(warfront, /disabled=\{resultActionsLocked\}/);
     assert.match(warfront, /disabled=\{settlementPending\}/);
-    assert.match(arenaSource, /onFightAgain=\{battleOpponent\?\.hollowGate \|\| battleOpponent\?\.ranked \|\| petSettlementBlocksExit \|\| chronicleCeremony \? undefined/);
+    // Fight Again is withheld while a result is still being recorded, and for
+    // the fights that cannot honestly be repeated. `battleOpponent?.hollowGate`
+    // used to lead this list; a sealed Gate duel no longer reaches this screen
+    // at all (it runs run-bound on the shrine), so the term went with it.
+    assert.match(arenaSource, /onFightAgain=\{battleOpponent\?\.ranked \|\| petSettlementBlocksExit \|\| chronicleCeremony \? undefined/);
 });
 
 test("rewarded Warfronts render and settle only the server-minted seed", () => {

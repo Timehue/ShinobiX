@@ -162,6 +162,8 @@ const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: 
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
 const HollowGateFight = lazyWithRetry(() => import("./screens/HollowGateFight").then(m => ({ default: m.HollowGateFight })));
+// The sealed PET duel, on the Showdown engine and bound to the run.
+const HollowGatePetFight = lazyWithRetry(() => import("./components/HollowGatePetFight").then(m => ({ default: m.HollowGatePetFight })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
@@ -208,6 +210,7 @@ import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResul
 const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen }));
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
+import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
@@ -1974,6 +1977,11 @@ export default function App() {
     const hollowGatePendingAmbushRef = useRef<{ nodeId: string; kind: "ambush" | "boss" } | null>(null);
     const hollowGateStepDrainRef = useRef<Promise<void>>(Promise.resolve());
 
+    // A sealed Hollow Gate pet duel, fought on the Showdown engine on the shrine
+    // screen itself. It used to detour through the Pet Arena as a pending
+    // opponent; the encounter belongs to the run, so it stays with the run.
+    const [hollowGatePetFight, setHollowGatePetFight] = useState<HollowGatePetFightRef | null>(null);
+
     // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
     // the WASD/arrow key handler, both owned by the walk hook. Every walked
     // step goes through moveHollowGatePlayer, so costs/events are identical
@@ -1981,7 +1989,7 @@ export default function App() {
     const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
         active: screen === "hollowGateShrine",
         run: hollowGateRun,
-        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight,
+        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight || !!hollowGatePetFight,
         moveStep: moveHollowGatePlayer,
     });
 
@@ -2001,7 +2009,7 @@ export default function App() {
     useEffect(() => {
         const active = hollowGateRun?.activeCombat;
         const token = hollowGateRun?.runToken;
-        if (screen !== "hollowGateShrine" || !character || !active || !token || hollowGatePveFight) return;
+        if (screen !== "hollowGateShrine" || !character || !active || !token || hollowGatePveFight || hollowGatePetFight) return;
         let cancelled = false;
         void startHollowGateCombat({
             playerName: character.name,
@@ -2020,7 +2028,7 @@ export default function App() {
             if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
         return () => { cancelled = true; };
-    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight]);
+    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight, hollowGatePetFight]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) {
         return [
@@ -2087,13 +2095,12 @@ export default function App() {
     } = useHollowGateAppFlow({
         character,
         run: hollowGateRun,
-        petPool,
         sharedImages,
         setCharacter,
         setRun: setHollowGateRun,
         setEvent: setHollowGateEvent,
         setHiddenChamber: setHollowGateHiddenChamber,
-        setPendingPetBattle: setPendingPetBattleOpponent,
+        setPetFight: setHollowGatePetFight,
         setScreen,
         clearRunState: clearHollowGateRunState,
         clearLog: () => setHollowGateLog([]),
@@ -6081,15 +6088,15 @@ export default function App() {
         void startHollowGateBattle({ isAmbush: true, nodeId: sealed?.nodeId });
     }
     useEffect(() => {
-        if (screen !== "hollowGateShrine" || hollowGateEvent || hollowGateHiddenChamber || hollowGatePveFight) return;
+        if (screen !== "hollowGateShrine" || hollowGateEvent || hollowGateHiddenChamber || hollowGatePveFight || hollowGatePetFight) return;
         const pending = hollowGatePendingAmbushRef.current;
         if (!pending) return;
         hollowGatePendingAmbushRef.current = null;
         triggerHollowGateAmbush(pending);
-    }, [screen, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight]);
+    }, [screen, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight, hollowGatePetFight]);
     async function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string; forceMode?: "pve" | "pet" }) {
         if (!character) return;
-        if (hollowGatePveFight) return;
+        if (hollowGatePveFight || hollowGatePetFight) return;
         const token = hollowGateRun?.runToken;
         if (!token) {
             alert("This legacy Hollow Gate run has no secure combat seal. Leave the shrine and begin a new server-backed run before fighting.");
@@ -6827,7 +6834,7 @@ export default function App() {
                     />
                 )}
 
-                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGatePveFight && (
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGatePveFight && !hollowGatePetFight && (
                     <HollowGateShrineView
                         character={character}
                         hollowGateRun={hollowGateRun}
@@ -7229,7 +7236,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
@@ -7306,6 +7313,32 @@ export default function App() {
                         onBank={bankEndlessRewards}
                         onBack={goBack}
                     />
+                )}
+                {/* The sealed PET duel. It renders on the shrine because the
+                    encounter belongs to the run: the bout is bound to the run
+                    token server-side and mints the receipt combat-settle
+                    redeems, so detouring through the Pet Arena had nothing left
+                    to do except run a second engine. */}
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePetFight
+                    && (character.pets ?? []).some((pet) => pet.id === character.activePetId) && (
+                    <Suspense fallback={null}>
+                        <HollowGatePetFight
+                            key={hollowGatePetFight.runId}
+                            character={character}
+                            fight={hollowGatePetFight}
+                            activePet={(character.pets ?? []).find((pet) => pet.id === character.activePetId)!}
+                            sharedImages={sharedImages}
+                            onSettled={(result) => {
+                                const gate = hollowGatePetFight;
+                                if (result.character) commitVersionedCharacter(result.character, result._saveVersion);
+                                onHollowGatePetBattleEnd(result, gate);
+                            }}
+                            onUnavailable={(reason) => {
+                                setHollowGatePetFight(null);
+                                pushHollowGateLog(`The seal refused the duel: ${reason}`);
+                            }}
+                        />
+                    </Suspense>
                 )}
                 {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePveFight && (
                     <HollowGateFight
