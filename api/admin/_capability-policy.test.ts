@@ -36,3 +36,14 @@ test('content admin stays limited to curation and content diagnostics', () => {
     const audit = source('audit-log.ts');
     assert.match(audit, /domain !== 'content' && !isFullAdmin\(req\)/);
 });
+
+test('Weekly Boss operations require full admin without restricting AI curation', () => {
+    const weeklyBoss = readFileSync(join(here, '..', 'weekly-boss.ts'), 'utf8');
+    const gameState = readFileSync(join(here, '..', 'game-state.ts'), 'utf8');
+    assert.match(
+        weeklyBoss,
+        /if \(kind === 'reset'\) \{\s*if \(!isFullAdmin\(req\)\) return res\.status\(403\)/s,
+        'spawning/replacing the Weekly Boss must require full admin',
+    );
+    assert.match(gameState, /fullAdminOnlyKinds = new Set\(\['arenaTournament', 'weeklyBossOverride'\]\)/);
+});
