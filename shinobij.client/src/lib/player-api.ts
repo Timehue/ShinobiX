@@ -8,19 +8,32 @@ import type { DuelChallenge } from "../App";
 import type { Character } from "../types/character";
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 
-export async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
+export type PlayerChallengeNoticeOptions = {
+    /** Stops retries and rejects an in-flight success when its owning UI session has retired. */
+    shouldContinue?: () => boolean;
+};
+
+export async function postPlayerChallengeNotice(
+    targetName: string,
+    challenge: DuelChallenge,
+    options: PlayerChallengeNoticeOptions = {},
+) {
+    const shouldContinue = options.shouldContinue ?? (() => true);
     for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (!shouldContinue()) return false;
         try {
             const res = await fetch('/api/player/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName, challenge }),
             });
-            if (res.ok) return true;
+            if (res.ok) return shouldContinue();
         } catch {
             // retry below
         }
+        if (attempt === 2) break;
         await new Promise(resolve => setTimeout(resolve, 350 + attempt * 500));
+        if (!shouldContinue()) return false;
     }
     return false;
 }

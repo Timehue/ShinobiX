@@ -2775,7 +2775,12 @@ export default function App() {
 
     async function acceptPetChallengeGlobal(challenge: DuelChallenge) {
         if (!character) return;
-        const myEligiblePets = activeCarriedPets<Pet>(character);
+        const acceptanceAccountKey = saveConflictAccountKey(character.name);
+        const acceptanceSessionEpoch = saveSessionEpochRef.current;
+        const acceptanceIsCurrent = () => isCurrentSaveSession(acceptanceAccountKey, acceptanceSessionEpoch);
+        if (!acceptanceIsCurrent()) return;
+        const acceptingCharacter = character;
+        const myEligiblePets = activeCarriedPets<Pet>(acceptingCharacter);
         if (processingChallengeIds.includes(challenge.id)) return;
 
         // PvP pet duels are live-only (plan §10) — retire a pre-deploy challenge.
@@ -2784,9 +2789,11 @@ export default function App() {
             const arenaSize = challenge.arenaSize === 2 ? 2 : 4;
             const availablePets = myEligiblePets.filter((pet) => !isPetOnExpedition(pet)).length;
             if (availablePets < arenaSize) {
+                if (!acceptanceIsCurrent()) return;
                 alert(`This ${arenaSize}v${arenaSize} challenge needs ${arenaSize} available pets. You currently have ${availablePets}; pets on expeditions do not count.`);
                 return;
             }
+            if (!acceptanceIsCurrent()) return;
             dismissChallengeLocally(challenge.id);
             void clearChallengeOnServer(challenge);
             setPendingArenaResponse(challenge);
@@ -2794,9 +2801,10 @@ export default function App() {
             return;
         }
 
-        const myPet = myEligiblePets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? myEligiblePets.find(pet => !isPetOnExpedition(pet));
+        const myPet = myEligiblePets.find(pet => pet.id === acceptingCharacter.activePetId && !isPetOnExpedition(pet)) ?? myEligiblePets.find(pet => !isPetOnExpedition(pet));
         const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
         if (!myPet || !challengerPet || isPetOnExpedition(challengerPet)) {
+            if (!acceptanceIsCurrent()) return;
             alert("Both players need a pet before this pet battle can start.");
             return;
         }
@@ -2809,6 +2817,7 @@ export default function App() {
             ? resolveAvailablePetBattlePair(challenge.challenger.pets, challenge.challengerPetIds!)
             : null;
         if (wantsParty && (myAvailable.length < 2 || !requestedChallengerParty)) {
+            if (!acceptanceIsCurrent()) return;
             alert("A 2v2 pet battle needs two available pets on each team. This challenge cannot start as 1v1 instead.");
             return;
         }
@@ -2824,6 +2833,7 @@ export default function App() {
             const smart = await import("./lib/pet-battle-sim")
                 .then(({ pickBestPartyOrder }) => pickBestPartyOrder(myAvailable, requestedChallengerParty))
                 .catch((): [Pet, Pet] | null => null);
+            if (!acceptanceIsCurrent()) return;
             if (smart) {
                 myParty = smart;
             } else {
@@ -2833,60 +2843,66 @@ export default function App() {
         }
         const doParty = !!(wantsParty && myParty && challengerParty);
 
+        if (!acceptanceIsCurrent()) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         dismissChallengeLocally(challenge.id);
-        await clearChallengeOnServer(challenge);
-        const isRanked = challenge.mode === "rankedPet";
-        const acceptedNotice: DuelChallenge = {
-            ...challenge,
-            accepted: true,
-            fromName: character.name,
-            toName: challenge.fromName,
-            responderPetId: myPet.id,
-            responderPet: myPet,
-            // Stamp my pet-ranked rating so the challenger can compute its
-            // symmetric Elo delta when the accepted notice routes it in.
-            ...(isRanked ? { responderPetRating: character.petRankedRating ?? 1000 } : {}),
-            ...(doParty && myParty ? {
-                petParty: true,
-                responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
-                responderParty: myParty,
-            } : {}),
-        };
-        const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
-        const opponentForResume: PetArenaOpponent = {
-            owner: challenge.fromName,
-            pet: challengerPet,
-            battleSeed: challenge.petBattleSeed,
-            // For ranked, the challenger is my opponent — carry their rating
-            // snapshot so my own Elo math has both sides. selfPet locks MY
-            // combatant to the exact pet I just sent as responderPet so the
-            // canonical sim matches the challenger's view of it.
-            ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet, petRankedToken: challenge.petRankedToken } : {}),
-            ...(doParty && challengerParty && myParty ? {
-                opponentParty: challengerParty,
-                challengerParty: myParty,
-            } : {}),
-        };
-        // Persist so a mid-fight refresh restores the same deterministic
-        // battle on remount instead of silently abandoning it. 5-min TTL.
-        // stripDataUrlImages keeps the payload bounded — pet/avatar art
-        // gets re-hydrated from sharedImages on remount.
-        //
-        // Ranked battles are NOT persisted: the resume path re-runs
-        // startBattle, and ranked applies the Elo delta purely client-side
-        // (no server-deduped reportKey like the clan-war/PvE win path), so a
-        // refresh would re-award rating. Better to abandon an interrupted
-        // ranked fight than to open a refresh-to-farm-Elo exploit.
-        if (!isRanked) {
-            try {
-                localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
-            } catch { /* private mode / quota — battle will just not resume on refresh */ }
+        try {
+            await clearChallengeOnServer(challenge);
+            if (!acceptanceIsCurrent()) return;
+            const isRanked = challenge.mode === "rankedPet";
+            const acceptedNotice: DuelChallenge = {
+                ...challenge,
+                accepted: true,
+                fromName: acceptingCharacter.name,
+                toName: challenge.fromName,
+                responderPetId: myPet.id,
+                responderPet: myPet,
+                // Stamp my pet-ranked rating so the challenger can compute its
+                // symmetric Elo delta when the accepted notice routes it in.
+                ...(isRanked ? { responderPetRating: acceptingCharacter.petRankedRating ?? 1000 } : {}),
+                ...(doParty && myParty ? {
+                    petParty: true,
+                    responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
+                    responderParty: myParty,
+                } : {}),
+            };
+            const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });
+            if (!acceptanceIsCurrent()) return;
+            const opponentForResume: PetArenaOpponent = {
+                owner: challenge.fromName,
+                pet: challengerPet,
+                battleSeed: challenge.petBattleSeed,
+                // For ranked, the challenger is my opponent — carry their rating
+                // snapshot so my own Elo math has both sides. selfPet locks MY
+                // combatant to the exact pet I just sent as responderPet so the
+                // canonical sim matches the challenger's view of it.
+                ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet, petRankedToken: challenge.petRankedToken } : {}),
+                ...(doParty && challengerParty && myParty ? {
+                    opponentParty: challengerParty,
+                    challengerParty: myParty,
+                } : {}),
+            };
+            // Persist so a mid-fight refresh restores the same deterministic
+            // battle on remount instead of silently abandoning it. 5-min TTL.
+            // stripDataUrlImages keeps the payload bounded — pet/avatar art
+            // gets re-hydrated from sharedImages on remount.
+            //
+            // Ranked battles are NOT persisted: the resume path re-runs
+            // startBattle, and ranked applies the Elo delta purely client-side
+            // (no server-deduped reportKey like the clan-war/PvE win path), so a
+            // refresh would re-award rating. Better to abandon an interrupted
+            // ranked fight than to open a refresh-to-farm-Elo exploit.
+            if (!isRanked) {
+                try {
+                    localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
+                } catch { /* private mode / quota — battle will just not resume on refresh */ }
+            }
+            setPendingPetBattleOpponent(opponentForResume);
+            setScreen("petArena");
+            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Coliseum if they do not see the fight.`);
+        } finally {
+            setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
-        setPendingPetBattleOpponent(opponentForResume);
-        setScreen("petArena");
-        setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
-        if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Coliseum if they do not see the fight.`);
     }
 
     // Fetch full server player list (includes offline players from registry)
@@ -3076,31 +3092,44 @@ export default function App() {
     // App-level accept for spar/ranked challenges — allows accepting from any screen,
     // not just when the player has already navigated to the Arena.
     async function acceptChallengeGlobal(challenge: DuelChallenge) {
-        if (!character || !requireServerSettlement("pvpSession")) return;
+        if (!character) return;
+        const acceptanceAccountKey = saveConflictAccountKey(character.name);
+        const acceptanceSessionEpoch = saveSessionEpochRef.current;
+        const acceptanceIsCurrent = () => isCurrentSaveSession(acceptanceAccountKey, acceptanceSessionEpoch);
+        if (!acceptanceIsCurrent() || !requireServerSettlement("pvpSession")) return;
+        const acceptingCharacter = character;
         const rankedAuthority = challenge.mode === "ranked"
             ? playerRankedAuthorityFromChallenge(challenge)
             : null;
         if (challenge.mode === "ranked" && !rankedAuthority) {
+            if (!acceptanceIsCurrent()) return;
             alert("This ranked challenge is missing its server match proof. Decline it and rejoin the ranked queue.");
             return;
         }
         if (processingChallengeIds.includes(challenge.id)) return;
+        if (!acceptanceIsCurrent()) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
         dismissChallengeLocally(challenge.id);
         try {
-            const { captureOwnSaveRead } = await loadOwnSaveRead(), p2ReadAnchor = captureOwnSaveRead(character);
+            const { captureOwnSaveRead } = await loadOwnSaveRead();
+            if (!acceptanceIsCurrent()) return;
+            const p2ReadAnchor = captureOwnSaveRead(acceptingCharacter);
             const [p1CombatSave, p2CombatSave] = await Promise.all([
                 fetchPlayerCombatSave(challenge.fromName),
-                fetchPlayerCombatSave(character.name),
+                fetchPlayerCombatSave(acceptingCharacter.name),
             ]);
-            if (p2CombatSave && await adoptOwnSaveRead(p2ReadAnchor, p2CombatSave.character, p2CombatSave._saveVersion) === "foreign") return;
+            if (!acceptanceIsCurrent()) return;
+            if (p2CombatSave) {
+                const ownSaveReadResult = await adoptOwnSaveRead(p2ReadAnchor, p2CombatSave.character, p2CombatSave._saveVersion);
+                if (!acceptanceIsCurrent() || ownSaveReadResult === "foreign") return;
+            }
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
             const p2CreatorJutsus = p2CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? challenger;
-            const p2Character = p2CombatSave?.character ?? character;
+            const p2Character = p2CombatSave?.character ?? acceptingCharacter;
             const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? creatorItems);
             const p2AllItems = getAllItems(p2CombatSave?.creatorItems ?? creatorItems);
             const p1Jutsus = p1CombatSave?.character
@@ -3170,6 +3199,7 @@ export default function App() {
                     },
                 }),
             });
+            if (!acceptanceIsCurrent()) return;
             if (!res.ok) throw new Error('Session create failed');
             // Capture both battleId and the full session payload — POST returns
             // the freshly-created session so PvpBattleScreen can render the
@@ -3178,10 +3208,14 @@ export default function App() {
             // brings ranked / clan-war / spar / standard accepts to the same
             // bar.
             const acceptData = await res.json() as { battleId: string; session?: PvpSessionState };
+            if (!acceptanceIsCurrent()) return;
             const battleId = acceptData.battleId;
-            if (acceptData.session) setPvpSeedSession(acceptData.session);
             // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
-            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
+            const acceptedNotice: DuelChallenge = { ...challenge, battleId, accepted: true, fromName: acceptingCharacter.name, toName: challenge.fromName };
+            const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });
+            if (!acceptanceIsCurrent()) return;
+
+            if (acceptData.session) setPvpSeedSession(acceptData.session);
             setPvpBattleId(battleId);
             setPvpRole("p2");
             setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
@@ -3190,13 +3224,15 @@ export default function App() {
                 fetch("/api/village/kage-challenge", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "accept", village: challenge.kageVillage, playerName: character.name, battleId }),
+                    body: JSON.stringify({ action: "accept", village: challenge.kageVillage, playerName: acceptingCharacter.name, battleId }),
                 }).catch(() => {});
             }
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
+            if (!acceptanceIsCurrent()) return;
             setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
+            if (!acceptanceIsCurrent()) return;
             alert(`${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));

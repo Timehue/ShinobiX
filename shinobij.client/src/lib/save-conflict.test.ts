@@ -382,19 +382,19 @@ describe("save-conflict App and accessibility contracts", () => {
     });
 
     it("adopts the save version from every read of the player's OWN combat save", () => {
-        // fetchPlayerCombatSave(character.name) reads YOUR save, and the server
-        // settles elapsed state on an owner read — a completed journey, an expired
-        // Hollow Gate run — which bumps `_saveVersion`. Dropping it strands the
-        // client on a stale base version, so its next autosave 409s and conflict
-        // recovery raises a banner for a divergence that never happened.
-        const sources: Array<[string, string]> = [
-            ["App.tsx", appSource],
-            ["WorldMap.tsx", readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8")],
+        // An own-character combat-save read settles elapsed state — a completed
+        // journey, an expired Hollow Gate run — and can bump `_saveVersion`.
+        // App intentionally reads through the account captured at challenge
+        // acceptance; WorldMap has no suspension before it captures character.
+        // Dropping either receipt strands the client on a stale base version.
+        const sources: Array<[string, string, RegExp]> = [
+            ["App.tsx", appSource, /fetchPlayerCombatSave\(acceptingCharacter\.name\)/g],
+            ["WorldMap.tsx", readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8"), /fetchPlayerCombatSave\(character\.name\)/g],
         ];
         const adopts = /(?:(?:acceptExternalSaveVersion|onServerVersion\?\.)\(\s*[A-Za-z0-9_]+\?\._saveVersion|(?:adoptOwnSaveRead|onOwnSaveRead)\([^\n]+\._saveVersion\))/;
 
-        for (const [name, source] of sources) {
-            const ownReads = [...source.matchAll(/fetchPlayerCombatSave\(character\.name\)/g)];
+        for (const [name, source, ownReadPattern] of sources) {
+            const ownReads = [...source.matchAll(ownReadPattern)];
             assert.ok(ownReads.length > 0, `${name} should still read its own combat save`);
             for (const match of ownReads) {
                 assert.match(
