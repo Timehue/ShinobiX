@@ -611,10 +611,8 @@
     }
 }
 
-/* BattleTowerFight's current action markup uses `.tower-action-dock`. Keep its
-   live command and loadout bands horizontal at the same compact tiers as the
-   original containment contract; stale `.tower-action-deck` rules alone do not
-   affect this component. */
+/* BattleTowerFight's current action markup keeps its live command and loadout
+   bands horizontal at the same compact tiers as the containment contract. */
 @media (max-width: 979px) {
     html body > .combat-instance.screen-battleTowerFight .tower-action-dock {
         flex: 0 0 auto;
