@@ -18,9 +18,19 @@ jobs:
     runs-on: ubuntu-latest
     # ~22 min typical, but the full suite + two builds + Playwright browser
     # install + cross-browser smoke + audit can spike past 30 on a slow runner
-    # (observed 30m17s → cancelled). 45 gives headroom so timing variance can't
+    # (observed 30m17s → cancelled). 45 gave headroom so timing variance can't
     # cancel an otherwise-green run.
-    timeout-minutes: 45
+    #
+    # 2026-08-15: 45 → 75. The job outgrew 45 too — run 31863101952 ran 45m18s
+    # and was cancelled mid "Combat layout and jutsu-arming matrix" (step 21 of
+    # 23) with every preceding step green; Root tests alone took 27m. A timeout
+    # cancel is WORSE than a slow run: the trailing steps (combat layout matrix,
+    # Client audit) silently never execute, so they gate nothing while main shows
+    # red. Several main commits carry cancelled runs for this reason, including
+    # the one serving production. Raise the ceiling rather than lose the checks;
+    # if the job approaches 75, split the Playwright steps into their own
+    # parallel job instead of raising this again.
+    timeout-minutes: 75
     env:
       # Exercise the same Sentry-enabled bundle path Railway builds. The dummy
       # DSN is public-format test data and sends nothing during build or smoke.
