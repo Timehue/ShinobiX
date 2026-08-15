@@ -30,6 +30,12 @@ export type PetArenaOpponent = {
     // no local simulation to fall back to, and inventing one is the bug the
     // seal exists to end.
     pvpChallengeId?: string;
+    // ── Sector wanderer duel (World Map) ──────────────────────────────
+    // A roaming beast challenged the player. The id rides along for the
+    // receipt only: the SERVER picks which arena template the beast fields and
+    // scales it from the caller's own saved level, so nothing about the
+    // opponent is derived from anything the client sends.
+    wanderer?: { id: string };
     // ── Ranked 1v1 extensions ─────────────────────────────────────────
     // Set when this opponent came from the pet-ranked ladder queue. The
     // battle resolves deterministically (canonical sim) and the result

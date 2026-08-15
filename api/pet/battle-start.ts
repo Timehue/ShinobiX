@@ -27,6 +27,8 @@ import {
 } from '../../shared/hollow-gate-contract.js';
 import { createCasualPveBattleSeal, type CasualPveBattleSeal } from './_casual-pve-seal.js';
 import { loadPvpPetDuel, pvpPetDuelOutcomeFor, pvpSettlementSnapshot, resolvePvpPetDuel } from './_pvp-duel.js';
+import { buildWandererBeast } from './_wanderer-duel.js';
+import { resolveWarDuel } from '../_pet-showdown/war-duel.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -86,6 +88,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? body.pvpChallengeId.trim().slice(0, 80)
             : '';
         const bodyMode = body.mode === '2v2' ? '2v2' : '1v1';
+        // A sector wanderer duel. The id is carried for the receipt only — NOTHING
+        // about the opponent is derived from it, so it cannot be shopped.
+        const wandererRequested = !!(body.wanderer && typeof body.wanderer === 'object' && !Array.isArray(body.wanderer));
+        const wandererId = wandererRequested
+            ? String((body.wanderer as Record<string, unknown>).id ?? '').slice(0, 96)
+            : '';
         const requestedPlayerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         const opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         // The battle receipt owns both identifiers. A caller cannot search for a
@@ -203,6 +211,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
         }
+        if (wandererRequested && !opponentPets.length) {
+            /*
+             * A SECTOR WANDERER. The request said only "this is a wanderer duel";
+             * the tier and the scaling come from the caller's OWN SAVED LEVEL, so
+             * a level-5 client can no longer ask to fight the apex template for
+             * the bigger purse that opponent would pay.
+             */
+            if (mode !== '1v1') return res.status(400).json({ error: 'A wanderer duel is 1v1.' });
+            const beast = buildWandererBeast(Number(myChar?.level ?? 1));
+            if (!beast) return res.status(500).json({ error: 'The wanderer roster is unavailable.' });
+            opponentPets = [beast];
+            isAiOpponent = true;
+        }
         if (!opponentPets.length) { opponentPets = opponentPetIds.map((id) => SERVER_ARENA_PETS[id]).filter(Boolean); isAiOpponent = opponentPets.length > 0; }
         if (opponentPets.length !== expectedTeamSize || new Set(opponentPets.map((pet) => String(pet.id))).size !== expectedTeamSize) {
             return res.status(409).json({ error: `A complete server-known ${mode} opponent team is required.` });
@@ -227,7 +248,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // fight. So it is also the only one whose reward can come from replaying
         // the player's inputs. Seal everything that replay needs; the client
         // restates none of it when it reports the result.
-        const sealedParams: SealedDuelParams | null = isAiOpponent ? {
+        //
+        // A wanderer duel is excluded: it resolves on Showdown below, so there is
+        // no local fight to replay and nothing for these params to describe.
+        //
+        // With the wanderer ported, NOTHING IN THE APP produces a casualPveSeal
+        // any more — the sealed-params branch below, and the legacy sims it feeds,
+        // are reachable only by a caller naming a SERVER_ARENA_PETS id directly.
+        // They are kept rather than deleted for two reasons: battle-result must
+        // still settle tokens minted before this deploy (15-minute TTL), and
+        // `_duel-replay.ts` is still the live-PvP lockstep path's replay. Both go
+        // when live PvP ports.
+        const sealedParams: SealedDuelParams | null = isAiOpponent && !wandererRequested ? {
             mode,
             seed,
             damageMult,
@@ -251,10 +283,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // empty log reproduces the uncommanded AI fight exactly), so the sealed
         // value finally agrees with the fight on screen instead of coming from
         // the retired pet-duel-sim engine. Non-PvE casual duels are untouched.
+        /*
+         * A wanderer duel is decided HERE, on Showdown, exactly like a player
+         * challenge — one bout, resolved headlessly, handed back as a script the
+         * client watches. `resolveWarDuel` with format 1v1 is the same call the
+         * ranked queue makes; `rewardEligible` lives on the battle token rather
+         * than in the engine, so this fight still pays the arena faucet through
+         * the ordinary battle-result path.
+         */
+        const wandererResolution = wandererRequested && opponentPets.length === 1 && playerPets.length === 1
+            ? resolveWarDuel({
+                sessionId: `pet-wanderer:${token}`,
+                seed,
+                fromName: playerName,
+                toName: opponentName || 'Wanderer',
+                fromPets: [playerPets[0]],
+                toPets: [opponentPets[0]],
+                format: '1v1',
+            })
+            : null;
         const result = pvpOutcome
             // Already decided, on Showdown, for both participants at once. The
             // legacy sims below never run for a player challenge again.
             ? pvpOutcome
+            : wandererResolution
+            ? (wandererResolution.outcome === 'from' ? 'win' : 'loss')
             : casualPveSeal
             ? replayCasualPetDuel(casualPveSeal.playerPets, casualPveSeal.opponentPets, casualPveSeal.params, []).outcome
             : mode === '2v2'
@@ -288,7 +341,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     resumed: true,
                     // A refresh mid-duel re-derives the same script from the
                     // same seal rather than restaging the fight.
-                    ...(pvpResolution && pvpOutcome
+                    ...(wandererResolution
+                ? { showdownScript: wandererResolution.script, outcome: result }
+                : {}),
+            ...(pvpResolution && pvpOutcome
                         ? {
                             showdownScript: pvpResolution.script,
                             winnerName: pvpResolution.winnerName,
@@ -327,6 +383,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // decided at accept has no settlement to charge one against), so
                 // battle-result must not spend them either. An empty consumable
                 // snapshot makes its spend step a deliberate no-op.
+                ...(wandererRequested ? { wandererId } : {}),
                 ...(pvpChallengeId && pvpSelfPets
                     ? { pvpChallengeId, pvpParticipatingPets: pvpSettlementSnapshot(pvpSelfPets) }
                     : {}),
