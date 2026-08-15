@@ -125,11 +125,24 @@ describe('server activity spine', () => {
 
         const noRoster = companions({ count: 0, activeName: '', activeLevel: 0 });
         assert.equal(noRoster?.screen, 'pets');
+        assert.equal(noRoster?.eligibility, 'eligible');
+        assert.equal(noRoster?.runtimeModeId, undefined);
         assert.match(noRoster?.blocker ?? '', /Pet Yard/);
 
         const soleCompanionAway = companions({ count: 1, expeditionActive: true });
-        assert.equal(soleCompanionAway?.eligibility, 'blocked');
+        assert.equal(soleCompanionAway?.screen, 'pets');
+        assert.equal(soleCompanionAway?.eligibility, 'eligible');
+        assert.equal(soleCompanionAway?.runtimeModeId, undefined);
         assert.match(soleCompanionAway?.blocker ?? '', /expedition/);
+
+        const blockedLadder = buildActivitySpine({
+            ...input,
+            focus: 'companions',
+            facts: { ...input.facts, companions: { ...roster, count: 0, activeName: '', activeLevel: 0 } },
+        }).horizons['long-term'][0];
+        assert.equal(blockedLadder?.screen, 'petLadder');
+        assert.equal(blockedLadder?.eligibility, 'blocked');
+        assert.equal(blockedLadder?.runtimeModeId, 'pet-ladder-showdown');
 
         // A second companion covers the absence, so the mode stays open.
         assert.equal(companions({ expeditionActive: true })?.screen, 'petShowdown');

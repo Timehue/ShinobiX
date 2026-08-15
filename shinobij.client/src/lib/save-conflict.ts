@@ -1,6 +1,10 @@
 export const SAVE_CONFLICT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 export const SAVE_CONFLICT_STORAGE_PREFIX = "ninjav-save-conflict-v1:";
 
+/** The two area labels that mean "there is nothing here for the player to recover". */
+export const SAVE_TIMING_ONLY_AREA = "Save timing only";
+export const SERVER_MANAGED_AREA = "Server-managed progress";
+
 export type SaveConflictPayload = Record<string, unknown>;
 
 export type SaveConflictRevision = {
@@ -56,15 +60,6 @@ export function sanitizeSaveConflictPayload(payload: unknown): SaveConflictPaylo
     return parsed;
 }
 
-function valueAtPath(source: unknown, path: readonly string[]): unknown {
-    let value = source;
-    for (const key of path) {
-        if (!isRecord(value)) return undefined;
-        value = value[key];
-    }
-    return value;
-}
-
 function canonicalize(value: unknown, key = ""): unknown {
     if (PRESENTATION_KEYS.has(key)) return undefined;
     if (typeof value === "string" && EMBEDDED_IMAGE_RE.test(value)) return "";
@@ -79,97 +74,94 @@ function canonicalize(value: unknown, key = ""): unknown {
     return out;
 }
 
-function differs(left: unknown, right: unknown): boolean {
-    return JSON.stringify(canonicalize(left)) !== JSON.stringify(canonicalize(right));
+type SaveOwnershipModule = typeof import("./save-ownership");
+
+/*
+ * Conflict CLASSIFICATION — the ownership mirror plus the area table — is ~6KB
+ * of lookup data needed only when a conflict is being described, which is rare
+ * and always user-visible. It is code-split out of the boot bundle rather than
+ * riding in the entry chunk with the rest of the save path (the entry budget in
+ * scripts/check-build-size.mjs is drained, never raised). Both classification
+ * sites await loadSaveOwnershipClassifier() before reading areas.
+ *
+ * If the chunk cannot be fetched, classification degrades to "every field is
+ * restorable, area unknown". That is the safe direction: the player is shown a
+ * recovery draft that may not be actionable, rather than having one silently
+ * dropped.
+ */
+let ownership: SaveOwnershipModule | null = null;
+
+export async function loadSaveOwnershipClassifier(): Promise<SaveOwnershipModule> {
+    if (!ownership) ownership = await import("./save-ownership");
+    return ownership;
 }
 
-const CONFLICT_AREA_PATHS: ReadonlyArray<{ label: string; paths: ReadonlyArray<readonly string[]> }> = [
-    {
-        label: "Level, rank & stats",
-        paths: [
-            ["character", "level"], ["character", "rank"], ["character", "xp"],
-            ["character", "stats"], ["character", "unspentStats"],
-            ["character", "hp"], ["character", "chakra"], ["character", "stamina"],
-        ],
-    },
-    {
-        label: "Story & Legacy",
-        paths: [
-            ["character", "storyProgress"], ["character", "storyChoices"],
-            ["character", "storyTraits"], ["character", "onboardingStep"],
-            ["character", "legacy"], ["character", "titles"],
-        ],
-    },
-    {
-        label: "Currency & rewards",
-        paths: [
-            ["character", "ryo"], ["character", "bankRyo"], ["character", "auraDust"],
-            ["character", "auraStones"], ["character", "fateShards"],
-            ["character", "boneCharms"], ["character", "honorSeals"],
-        ],
-    },
-    {
-        label: "Inventory & loadout",
-        paths: [
-            ["character", "inventory"], ["character", "itemStacks"],
-            ["character", "equipment"], ["character", "equippedJutsuIds"],
-            ["character", "jutsuMastery"],
-        ],
-    },
-    {
-        label: "Companions",
-        paths: [
-            ["character", "pets"], ["character", "activePetId"],
-            ["character", "activePetId2v2"], ["editablePets"],
-        ],
-    },
-    {
-        label: "Living Chronicle",
-        paths: [
-            ["character", "tileCards"], ["character", "cardClashDeck"],
-            ["character", "cardClashWins"], ["character", "cardClashLosses"],
-            ["character", "cardClashDraws"],
-        ],
-    },
-    {
-        label: "Training",
-        paths: [["activeTraining"], ["activeJutsuTraining"], ["character", "training"]],
-    },
-    {
-        label: "Missions & events",
-        paths: [
-            ["acceptedMissionIds"], ["missionProgress"], ["triggeredEvents"],
-            ["character", "battleHistory"],
-        ],
-    },
-    {
-        label: "Travel & world position",
-        paths: [["currentSector"], ["currentBiome"], ["pendingTravel"]],
-    },
-    {
-        label: "Hollow Gate",
-        paths: [
-            ["character", "hollowGateRun"], ["character", "hollowGateKeys"],
-            ["character", "hollowGateUnlocks"],
-        ],
-    },
-    {
-        label: "Clan & profession",
-        paths: [
-            ["character", "clan"], ["character", "profession"],
-            ["character", "professionRank"], ["character", "professionXp"],
-            ["character", "masterySpec"],
-        ],
-    },
-];
+function canonicalRecord(value: unknown): Record<string, unknown> {
+    const canonical = canonicalize(value);
+    return isRecord(canonical) ? canonical : {};
+}
 
+/**
+ * Shallow paths at which two save payloads semantically differ: `['currentSector']`
+ * for a top-level field, `['character', 'level']` for a character field. That is
+ * the granularity the ownership manifest classifies at, so it is the granularity
+ * the conflict areas are computed at.
+ */
+export function differingSavePaths(localPayload: unknown, serverSnapshot: unknown): string[][] {
+    const local = canonicalRecord(localPayload);
+    const server = canonicalRecord(serverSnapshot);
+    const paths: string[][] = [];
+    for (const key of [...new Set([...Object.keys(local), ...Object.keys(server)])].sort()) {
+        if (JSON.stringify(local[key]) === JSON.stringify(server[key])) continue;
+        const localChild = local[key];
+        const serverChild = server[key];
+        if (key === "character" && isRecord(localChild) && isRecord(serverChild)) {
+            for (const field of [...new Set([...Object.keys(localChild), ...Object.keys(serverChild)])].sort()) {
+                if (JSON.stringify(localChild[field]) !== JSON.stringify(serverChild[field])) paths.push(["character", field]);
+            }
+            continue;
+        }
+        paths.push([key]);
+    }
+    return paths;
+}
+
+
+
+/**
+ * Name what a player could actually recover from this draft.
+ *
+ * Only differences a generic save may durably write count. A divergence confined
+ * to server-owned fields (level, rank, currencies, counters, payout stamps, and
+ * the read-projected vitals) is the server correcting the client — the sanitizer
+ * would discard a restore of exactly those fields — so it collapses to
+ * SERVER_MANAGED_AREA and the revision is dropped rather than shown. Reporting
+ * those as recoverable progress is what made the recovery banner reappear after
+ * every autosave with a draft that no button could resolve.
+ */
 export function detectSaveConflictAreas(localPayload: unknown, serverSnapshot?: unknown): string[] {
     if (!serverSnapshot) return ["Unsaved device progress"];
-    const areas = CONFLICT_AREA_PATHS
-        .filter(({ paths }) => paths.some((path) => differs(valueAtPath(localPayload, path), valueAtPath(serverSnapshot, path))))
+    const differing = differingSavePaths(localPayload, serverSnapshot);
+    if (differing.length === 0) return [SAVE_TIMING_ONLY_AREA];
+    const restorable = differing.filter((path) => !(ownership?.isServerOwnedSavePath(path) ?? false));
+    if (restorable.length === 0) return [SERVER_MANAGED_AREA];
+    const restorableKeys = new Set(restorable.map((path) => path.join(".")));
+    const areas = (ownership?.CONFLICT_AREA_PATHS ?? [])
+        .filter(({ paths }) => paths.some((path) => restorableKeys.has(path.join("."))))
         .map(({ label }) => label);
-    if (areas.length > 0) return areas;
-    return differs(localPayload, serverSnapshot) ? ["Other local progress"] : ["Save timing only"];
+    return areas.length > 0 ? areas : ["Other local progress"];
+}
+
+const RESOLVED_CONFLICT_AREAS: ReadonlySet<string> = new Set([SAVE_TIMING_ONLY_AREA, SERVER_MANAGED_AREA]);
+
+/** True when these areas name nothing a player could act on. */
+export function isResolvedConflictAreas(areas: readonly string[]): boolean {
+    return areas.length > 0 && areas.every((area) => RESOLVED_CONFLICT_AREAS.has(area));
+}
+
+/** True when a revision holds nothing the player could restore — safe to drop. */
+export function isResolvedSaveConflictRevision(revision: SaveConflictRevision): boolean {
+    return isResolvedConflictAreas(revision.areas);
 }
 
 export function createSaveConflictRevision(params: {
@@ -324,7 +316,7 @@ export function createSaveConflictDraftStore(params: {
 }): {
     capture: (accountName: string, payload: unknown) => SaveConflictDraft;
     discard: (revision: SaveConflictRevision) => void;
-    rehydrate: (accountName: string, serverSnapshot?: unknown) => SaveConflictDraft | null;
+    rehydrate: (accountName: string, serverSnapshot?: unknown) => Promise<SaveConflictDraft | null>;
     clear: (accountName: string) => void;
     load: (accountName: string) => SaveConflictDraft | null;
 } {
@@ -389,12 +381,24 @@ export function createSaveConflictDraftStore(params: {
         else memory.delete(revision.accountKey);
         params.onVisibleDraft(remaining);
     };
-    const rehydrate = (accountName: string, serverSnapshot?: unknown): SaveConflictDraft | null => {
+    const rehydrate = async (accountName: string, serverSnapshot?: unknown): Promise<SaveConflictDraft | null> => {
         const accountKey = saveConflictAccountKey(accountName);
+        if (serverSnapshot !== undefined) {
+            // Classify with the ownership mirror loaded, never without it: a
+            // server-owned-only draft must be recognised and dropped here, which
+            // is the whole reason the banner used to be unclearable.
+            //
+            // Await BEFORE loading the draft. Restore applies an authoritative
+            // snapshot (which starts this async rehydrate) and then discards the
+            // confirmed revision synchronously. Loading before this await kept a
+            // stale pre-discard copy that the continuation could write back into
+            // memory and storage, resurrecting the banner it had just cleared.
+            await loadSaveOwnershipClassifier().catch(() => undefined);
+        }
         let draft = load(accountName);
         if (draft && serverSnapshot !== undefined) {
             draft = updateSaveConflictAreas(draft, serverSnapshot);
-            const resolved = draft.revisions.filter((revision) => revision.areas.length === 1 && revision.areas[0] === "Save timing only");
+            const resolved = draft.revisions.filter(isResolvedSaveConflictRevision);
             draft = mergeSaveConflictRevisions(
                 accountName,
                 draft.revisions.filter((revision) => !resolved.includes(revision)),

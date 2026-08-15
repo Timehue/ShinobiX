@@ -125,6 +125,8 @@ import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
+import type { OwnSaveReadCommit } from "../lib/own-save-read";
+const loadOwnSaveRead = () => import("../lib/own-save-read");
 import {
     playerRankedAuthorityFromChallenge,
     playerRankedAuthorityFromQueueMatch,
@@ -157,6 +159,7 @@ export function Arena({
     character,
     updateCharacter,
     onVersionedCharacter,
+    onOwnSaveRead,
     savedBloodlines,
     creatorJutsus,
     creatorAis,
@@ -200,6 +203,7 @@ export function Arena({
     character: Character;
     updateCharacter: (character: Character) => void;
     onVersionedCharacter: VersionedCharacterCommit;
+    onOwnSaveRead: OwnSaveReadCommit;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorAis: CreatorAi[];
@@ -1515,11 +1519,14 @@ export function Arena({
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {
+            const { captureOwnSaveRead } = await loadOwnSaveRead();
+            const p2ReadAnchor = captureOwnSaveRead(character);
             // Create a shared turn-based hex-grid PvP session: challenger = p1, us = p2
             const [p1CombatSave, p2CombatSave] = await Promise.all([
                 fetchPlayerCombatSave(challenge.fromName),
                 fetchPlayerCombatSave(character.name),
             ]);
+            if (p2CombatSave && await onOwnSaveRead(p2ReadAnchor, p2CombatSave.character, p2CombatSave._saveVersion) === "foreign") return;
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;

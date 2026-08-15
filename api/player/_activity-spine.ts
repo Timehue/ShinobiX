@@ -250,7 +250,7 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
         // it, so the gate is roster size against the one known absence rather
         // than the expedition flag alone.
         const onlyOneAway = facts.companions.count === 1 && facts.companions.expeditionActive;
-        const blocked = noCompanion || onlyOneAway;
+        const showdownBlocked = noCompanion || onlyOneAway;
         const blocker = noCompanion
             ? 'Choose a companion at the Pet Yard first.'
             : onlyOneAway ? `${facts.companions.activeName || 'Your companion'} is away on an expedition.` : undefined;
@@ -260,15 +260,19 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
                 id: 'focus-companion-week', title: noCompanion ? 'Choose your first companion' : 'Fight a Pet Showdown',
                 why: 'Showdown is the companion battle in full: elements, stamina, and one signature per pet decide a turn-based duel your roster wins on its own merits.',
                 commitment: '10–20 min', progress: noCompanion ? 'No companion active' : `${active} • level ${facts.companions.activeLevel} • ${facts.companions.count} companion${facts.companions.count === 1 ? '' : 's'} on the roster${facts.companions.expeditionActive ? ' • one away on expedition' : ''}`,
-                screen: blocked ? 'pets' : 'petShowdown', cta: blocked ? 'Visit Pet Yard' : 'Enter the Showdown',
-                eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'companions',
-                ...(blocked ? {} : { runtimeModeId: 'pet-showdown-practice' }),
+                // The Showdown remains blocked without a home roster, but the
+                // recommendation's CTA is the exact prerequisite-remediation
+                // destination. Keep that navigation eligible and do not label it
+                // as a Showdown runtime admission until a roster is actually ready.
+                screen: showdownBlocked ? 'pets' : 'petShowdown', cta: showdownBlocked ? 'Visit Pet Yard' : 'Enter the Showdown',
+                eligibility: 'eligible', blocker, context: 'companions',
+                ...(showdownBlocked ? {} : { runtimeModeId: 'pet-showdown-practice' }),
             }),
             item('long-term', {
                 id: 'focus-companion-long', title: 'Grow your companion arena record',
                 why: 'Pet Ladder and Gauntlet progress offer an ongoing companion goal without replacing your shinobi path.',
                 commitment: 'Multi-session', progress: `${facts.companions.count} companion${facts.companions.count === 1 ? '' : 's'} • ${facts.companions.ladderRating} ladder rating`,
-                screen: 'petLadder', cta: 'Review Pet Ladder', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'companions', runtimeModeId: 'pet-ladder-showdown',
+                screen: 'petLadder', cta: 'Review Pet Ladder', eligibility: showdownBlocked ? 'blocked' : 'eligible', blocker, context: 'companions', runtimeModeId: 'pet-ladder-showdown',
             }),
         ];
     }

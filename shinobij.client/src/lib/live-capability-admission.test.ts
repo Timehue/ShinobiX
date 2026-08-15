@@ -108,6 +108,14 @@ test("global maintenance pauses player restore and polling while preserving oper
     const entry = readFileSync("shinobij.client/src/main.tsx", "utf8");
     const authFetch = readFileSync("shinobij.client/src/authFetch.ts", "utf8");
     assert.match(app, /if \(!gameplayViewOpen \|\| bootRestoreStartedRef\.current\) return;/);
+    const accountMarkerPersistence = app.match(
+        /useEffect\(\(\) => \{\s*(?:\/\/[^\n]*\n\s*)*if \(restoringSession\) return;[\s\S]*?localStorage\.setItem\([\s\S]*?\}, \[\s*currentAccountName,\s*restoringSession,\s*\]\);/,
+    )?.[0] ?? "";
+    assert.ok(accountMarkerPersistence, "the guarded account-marker persistence effect is present");
+    assert.match(accountMarkerPersistence, /if \(restoringSession\) return;[\s\S]*localStorage\.setItem\([\s\S]*STORAGE/,
+        "cold capability discovery must not erase the durable account before boot restore can read it");
+    assert.match(accountMarkerPersistence, /\[\s*currentAccountName,\s*restoringSession,\s*\]\);/,
+        "account persistence must re-run after boot restore resolves");
     assert.match(app, /if \(!gameplayViewOpen \|\| !tabVisible\) return;/);
     assert.match(app, /characterName: gameplayViewOpen \? character\?\.name : undefined/);
     assert.match(app, /const surfaceBlockerMode = playerSurfaceBlockerMode\(Boolean\(character\), screen, gameplayViewAvailability\)/);

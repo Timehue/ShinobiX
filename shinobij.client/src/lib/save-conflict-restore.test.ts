@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import {
+    createSaveConflictDraftStore,
     createSaveConflictRevision,
     latestSaveConflictRevision,
+    loadSaveOwnershipClassifier,
     type SaveConflictDraft,
     type SaveConflictRevision,
+    type SaveConflictStorage,
 } from "./save-conflict";
 import { restoreSaveConflictRevision } from "./save-conflict-restore";
 import type { SaveSnapshot } from "./save-persistence";
@@ -13,6 +16,16 @@ type Payload = {
     character: { name: string; level: number };
     currentBiome: string;
 };
+
+class MemoryStorage implements SaveConflictStorage {
+    readonly values = new Map<string, string>();
+
+    get length(): number { return this.values.size; }
+    key(index: number): string | null { return [...this.values.keys()][index] ?? null; }
+    getItem(key: string): string | null { return this.values.get(key) ?? null; }
+    setItem(key: string, value: string): void { this.values.set(key, value); }
+    removeItem(key: string): void { this.values.delete(key); }
+}
 
 function deferred<T>() {
     let resolve!: (value: T | PromiseLike<T>) => void;
@@ -123,6 +136,12 @@ function assertNoAuthoritySideEffects(harness: ReturnType<typeof createHarness>)
 }
 
 describe("exclusive save-conflict restore", () => {
+    // restoreSaveConflictRevision awaits the code-split ownership chunk. Warm it
+    // once here so a COLD dynamic import never lands inside a timing-sensitive
+    // test — on CI that shifted when the loop had ref'd work and stranded the
+    // unref'd AbortSignal.timeout below, cancelling the suite.
+    before(async () => { await loadSaveOwnershipClassifier(); });
+
     it("requires a positive safe-integer acknowledgement version", async () => {
         for (const invalidVersion of [undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "6"]) {
             let calls = 0;
@@ -138,24 +157,73 @@ describe("exclusive save-conflict restore", () => {
         }
     });
 
-    it("retains the selected draft when an external write lands between POST and verification GET", async () => {
+    it("completes the restore when an external write lands between POST and verification GET", async () => {
+        // A version PAST the acknowledgement is the normal case, not a failure:
+        // the settle-on-read and every server credit endpoint bump it. A later
+        // server-owned level is allowed to differ; every recoverable field from
+        // our draft is still present, so the revision can be released.
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
             if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
             return jsonResponse(200, {
-                character: { name: "Kaya", level: 10 },
+                character: { name: "Kaya", level: 12 },
                 currentBiome: "central",
                 _saveVersion: 7,
             });
         }) as typeof fetch;
         const h = createHarness({ request });
 
-        await assert.rejects(h.restore(), /server changed before the restored draft could be verified/i);
+        const result = await h.restore();
+        assert.deepEqual(result.declined, [], "the restored state is live, so nothing was declined");
         assert.equal(calls, 2);
-        assert.equal(h.latestVersion.current, 7, "the next retry must use the external write's current base version");
+        assert.equal(h.latestVersion.current, 7, "authority must advance to the newest served version");
         assert.deepEqual(h.applied.map((snapshot) => snapshot._saveVersion), [7]);
-        assert.equal(h.discarded.length, 0, "refreshing authority must retain the selected restore revision");
+        assert.deepEqual(h.applied.map((snapshot) => snapshot.character.level), [12]);
+        assert.deepEqual(h.discarded.map((revision) => revision.id), [h.selected.id]);
+    });
+
+    it("retains the draft when a higher-version interleaving write changes recoverable progress", async () => {
+        let calls = 0;
+        const request = (async (_input, init) => {
+            calls += 1;
+            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            // Version 7 could have landed AFTER the restore at version 6. Its
+            // client-owned biome no longer matches the selected draft, so version
+            // ordering alone cannot prove that the restored progress is live.
+            return jsonResponse(200, {
+                character: { name: "Kaya", level: 12 },
+                currentBiome: "coast",
+                _saveVersion: 7,
+            });
+        }) as typeof fetch;
+        const h = createHarness({ request });
+
+        await assert.rejects(h.restore(), /newer server save changed recoverable progress/i);
+        assert.equal(calls, 2);
+        assert.equal(h.latestVersion.current, 7, "the newest authority is still adopted before recovery is offered");
+        assert.deepEqual(h.applied.map((snapshot) => snapshot.currentBiome), ["coast"]);
+        assert.equal(h.discarded.length, 0, "the selected client-owned revision must remain recoverable");
+    });
+
+    it("retains the draft when the read-back is BEHIND the acknowledged version", async () => {
+        // The only genuine verification failure: the save being served is older
+        // than the write we were just handed, so the restore is not live.
+        let calls = 0;
+        const request = (async (_input, init) => {
+            calls += 1;
+            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 9 });
+            return jsonResponse(200, {
+                character: { name: "Kaya", level: 10 },
+                currentBiome: "central",
+                _saveVersion: 8,
+            });
+        }) as typeof fetch;
+        const h = createHarness({ request });
+
+        await assert.rejects(h.restore(), /could not confirm the restored draft is live/i);
+        assert.equal(calls, 2);
+        assert.equal(h.discarded.length, 0, "an unconfirmed restore must keep its revision");
     });
 
     it("refreshes authority after a POST 409 so the next retry uses the current base", async () => {
@@ -211,7 +279,7 @@ describe("exclusive save-conflict restore", () => {
         assert.deepEqual(h.discarded.map((revision) => revision.id), [h.selected.id]);
     });
 
-    it("refreshes the verification mismatch while retaining the selected revision", async () => {
+    it("reports what the server declined instead of failing the restore", async () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
@@ -219,16 +287,76 @@ describe("exclusive save-conflict restore", () => {
             return jsonResponse(200, {
                 character: { name: "Kaya", level: 12 },
                 currentBiome: "coast",
-                _saveVersion: 7,
+                _saveVersion: 6,
             });
         }) as typeof fetch;
         const h = createHarness({ request });
 
-        await assert.rejects(h.restore(), /server changed before the restored draft could be verified/i);
+        // `level` is server-owned, so it is not reported — the server was always
+        // going to keep its own. `currentBiome` is client-owned and did NOT come
+        // back as the draft had it, so the player is told about that one.
+        const result = await h.restore();
+        assert.deepEqual(result.declined, ["Travel & world position"]);
         assert.equal(calls, 2);
-        assert.equal(h.latestVersion.current, 7);
+        assert.equal(h.latestVersion.current, 6);
         assert.deepEqual(h.applied.map((snapshot) => snapshot.character.level), [12]);
-        assert.equal(h.discarded.length, 0);
+        assert.deepEqual(h.discarded.map((revision) => revision.id), [h.selected.id], "a durable restore is one-shot, never re-offered");
+    });
+
+    it("does not resurrect a declined revision when App rehydrates during authoritative apply", async () => {
+        const storage = new MemoryStorage();
+        let visible: SaveConflictDraft | null = null;
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => "kaya",
+            onVisibleDraft: (draft) => { visible = draft; },
+            reportStorageFailure: assert.fail,
+        });
+        const draft = store.capture("Kaya", {
+            character: { name: "Kaya", level: 10 },
+            currentBiome: "central",
+        });
+        const latestVersion = { current: 5 };
+        let rehydrate: Promise<SaveConflictDraft | null> | null = null;
+        const request = (async (_input, init) => init?.method === "POST"
+            ? jsonResponse(200, { persisted: true, _saveVersion: 6 })
+            : jsonResponse(200, {
+                character: { name: "Kaya", level: 10 },
+                currentBiome: "coast",
+                _saveVersion: 6,
+            })) as typeof fetch;
+
+        const result = await restoreSaveConflictRevision<Payload>({
+            visibleDraft: draft,
+            sessionEpoch: 3,
+            runExclusive: async <T>(work: () => Promise<T>) => work(),
+            isCurrentSession: (accountKey, epoch) => accountKey === "kaya" && epoch === 3,
+            loadDraft: store.load,
+            latestVersion,
+            currentSnapshot: () => ({
+                name: "Kaya",
+                payload: { character: { name: "Kaya", level: 5 }, currentBiome: "coast" },
+                revision: 1,
+            }),
+            captureConflict: store.capture,
+            applySnapshot: (snapshot) => {
+                latestVersion.current = snapshot._saveVersion ?? latestVersion.current;
+                // Mirrors App.applyServerSnapshot: rehydrate is intentionally
+                // fire-and-forget while the restore transaction continues to its
+                // confirmed-revision discard.
+                rehydrate = store.rehydrate("Kaya", snapshot);
+                return true;
+            },
+            discardRevision: store.discard,
+            request,
+        });
+
+        assert.deepEqual(result.declined, ["Travel & world position"]);
+        assert.ok(rehydrate, "authoritative apply must start conflict rehydration");
+        await rehydrate;
+        assert.equal(store.load("Kaya"), null, "the confirmed revision must remain one-shot");
+        assert.equal(visible, null, "the recovery banner must stay cleared");
+        assert.equal(storage.length, 0, "rehydration must not recreate the discarded storage entry");
     });
 
     it("does not adopt a POST-409 refresh after the account epoch changes during JSON", async () => {
@@ -366,7 +494,17 @@ describe("exclusive save-conflict restore", () => {
         }) as typeof fetch;
         const h = createHarness({ request, timeoutMs: 10 });
 
-        await assert.rejects(h.restore(), /timeout/i);
+        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
+        // loop open. The verification request here settles only when that abort
+        // fires, so without a ref'd handle the loop can drain first and the test
+        // hangs as "Promise resolution is still pending". Hold one across the
+        // assertion — this is what the abort is racing, not a sleep.
+        const keepLoopAlive = setInterval(() => {}, 1_000);
+        try {
+            await assert.rejects(h.restore(), /timeout/i);
+        } finally {
+            clearInterval(keepLoopAlive);
+        }
         assert.equal(calls, 2);
         assert.equal(signals.length, 2);
         assert.equal(signals[1].aborted, true);

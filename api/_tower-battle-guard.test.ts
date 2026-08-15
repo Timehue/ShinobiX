@@ -76,7 +76,9 @@ describe('shared Tower battle-start guard', () => {
         const clanBoss = source('api/clan-boss/assault-start.ts');
         assert.match(clanBoss, /findTowerBattleStartConflict\(partySlugs\)/);
         const weeklyBoss = source('api/weekly-boss.ts');
-        assert.match(weeklyBoss, /kind === 'startFight'[\s\S]{0,180}findTowerBattleStartConflict\(\[actorName\]\)/);
+        assert.match(weeklyBoss, /if \(kind === 'startFight' \|\| kind === 'resumeFight'\)/);
+        assert.match(weeklyBoss, /const recoveryOnly = kind === 'resumeFight'/);
+        assert.match(weeklyBoss, /if \(!recoveryOnly && !identity\.admin && await findTowerBattleStartConflict\(\[actorName\]\)\)/);
 
         const pvp = source('api/pvp/session.ts');
         const guard = pvp.indexOf('findTowerBattleStartConflict([p1Norm, p2Norm])');
