@@ -25,22 +25,38 @@ import {
     type ShowdownSession,
 } from '../_pet-showdown/engine.js';
 import { buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
+import {
+    bumpLegacyStats,
+    hasLegacyActivityReceipt,
+    legacyEnabled,
+    legacyStatsKey,
+    type LegacyStats,
+} from '../_legacy-track.js';
+import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
 import { buildServerHollowHound } from './battle-start.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 import {
+    HOLLOW_GATE_PET_AUTHORITY_VERSION,
     hollowGateCombatBindingKey,
+    hollowGatePetAuthorityMatches,
     validateHollowGatePetClaim,
     type HollowGateCombatBinding,
+    type HollowGatePetResultReceipt,
 } from '../hollow-gate/_combat-session.js';
+import {
+    writeHollowGatePetResult,
+} from '../hollow-gate/_pet-authority.js';
 import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 
 /*
  * /api/pet/showdown — POST only. The flagship turn-based pet battle mode.
  *
  * actions:
+ *   arena   — enter the paid Pet Coliseum. The server selects and seals the AI
+ *             team; this is the sole new paid Coliseum admission.
  *   start   — seal the player's chosen pets from the save, build an AI team
- *             from the catalog, mint a KV session. The ENGINE RUNS ONLY HERE
- *             on the server; the client is a pure presentation layer.
+ *             from the catalog, and mint an unpaid practice KV session. The
+ *             ENGINE RUNS ONLY HERE on the server; the client is presentation.
  *   turn    — submit one round of commands; the server resolves the round and
  *             returns the turn script + updated public state. The finishing
  *             turn also pays out (win only) under the save lock with an
@@ -48,12 +64,11 @@ import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared
  *   forfeit — concede; ends the session as a loss, no payout.
  *   state   — resume view after a refresh.
  *
- * Rewards: this entry is PRACTICE and pays nothing — see settleShowdownWin.
- * Choosing your own AI opponent on demand is a sparring match; the ryo loop
- * belongs to the fights the world starts (Hollow Gate, sector ambush,
- * clan/sector war). Eligibility is a flag sealed into the session at start
- * (`rewardEligible`), not a hardcoded zero, so the live modes can migrate onto
- * this engine later and pay without the settle path being rewritten.
+ * Rewards: `start` is practice and pays nothing. `arena` is the paid Coliseum
+ * entry and seals reward eligibility before any turns. Parent-bound modes such
+ * as Hollow Gate are detected before ordinary settlement and cannot enter this
+ * faucet. Eligibility is sealed into the session (`rewardEligible`); the client
+ * cannot nominate a reward-bearing opponent or promote a practice session.
  *
  * Reward integrity, for when a caller IS eligible: the payout magnitude
  * (opponent level) is SEALED at start from the AI team actually generated; the
@@ -80,10 +95,6 @@ const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
 // for payment — a Showdown session leases 45 minutes, a coliseum battle token
 // 15 — with room to spare on both.
 const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
-// Hollow Gate pet receipt lifetime — mirrors the twin in pet/battle-result.ts,
-// since combat-settle.ts reads whichever path minted it.
-const HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
-
 const sessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
 const paidReceiptKey = (playerName: string, receipt: string) => `pet:battle-paid:${playerName}:${receipt}`;
 
@@ -100,8 +111,8 @@ function petArenaRyoReward(opponentLevel: number): number {
 /** PvP command clock. The engine never reads a wall clock, so the deadline is
  *  ENDPOINT bookkeeping: stamped onto the session at start and re-armed by
  *  every resolved round, surfaced to the client via `turnDeadline` on the
- *  state view. Dormant today — every live entry point is an AI practice fight
- *  (`pvp: false`), so `armTurnDeadline` is a no-op and no view carries a
+ *  state view. Dormant today — paid Coliseum and practice entries are both AI
+ *  fights (`pvp: false`), so `armTurnDeadline` is a no-op and no view carries a
  *  deadline. When live PvP lands on this engine its start path seals
  *  `pvp: true` and this arms itself; the turn handler must then ALSO resolve a
  *  lapsed round with defaults for the absent side, so a walked-away opponent
@@ -154,30 +165,34 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
 interface ShowdownHollowGateBinding { runId: string; petIds: string[] }
 const showdownHollowGateKey = (playerName: string, sessionId: string) => `sd-hg:${playerName}:${sessionId}`;
 
-/** Mint the receipt Hollow Gate's settlement endpoint consumes. Same key shape,
- *  same fields, same TTL as the legacy path — combat-settle.ts reads
- *  `hg-pet-result:<player>:<receipt>` and checks playerName + runId, so a
- *  Showdown-decided encounter settles through the identical door. `nx` so a
- *  re-post cannot rewrite a decided outcome. */
+/** Mint the exact versioned receipt Hollow Gate's settlement endpoint consumes.
+ *  The writer accepts it only when the parent had already selected this
+ *  Showdown session id; an unbound legacy parent cannot adopt a terminal
+ *  session after its outcome is known. */
 async function mintHollowGatePetReceipt(
     playerName: string,
     sessionId: string,
     binding: ShowdownHollowGateBinding,
     outcome: 'win' | 'loss',
-): Promise<void> {
-    await kv.set(
-        `hg-pet-result:${playerName}:${sessionId}`,
-        { playerName, runId: binding.runId, outcome, playerPetIds: binding.petIds, settledAt: Date.now() },
-        { nx: true, ex: HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS },
-    ).catch(() => undefined);
+): Promise<boolean> {
+    const receipt: HollowGatePetResultReceipt = {
+        version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
+        engine: 'showdown',
+        proofId: sessionId,
+        playerName,
+        runId: binding.runId,
+        outcome,
+        playerPetIds: binding.petIds,
+        settledAt: Date.now(),
+    };
+    return writeHollowGatePetResult(receipt);
 }
 
 /** Win payout under the save lock. Exactly-once via the paired receipts. */
-async function settleShowdownWin(playerName: string, session: ShowdownSession): Promise<Record<string, unknown>> {
-    // PRACTICE FIGHTS PAY NOTHING, and pay it cheaply: no lock, no save write,
-    // no receipt. Picking your own AI opponent is a sparring match — the reward
-    // loop lives in the fights the world starts (Hollow Gate, sector ambush,
-    // clan/sector war), not in one the player can queue at will.
+export async function settleShowdownWin(playerName: string, session: ShowdownSession): Promise<Record<string, unknown>> {
+    // PRACTICE AND PARENT-BOUND FIGHTS PAY NOTHING here, and pay it cheaply: no
+    // lock, no save write, no receipt. Only the server-selected `arena` entry
+    // seals reward eligibility for the paid Coliseum loop.
     //
     // This must ALSO leave the counters alone, which is the part that is easy
     // to get wrong: totalPetWins feeds the public 'pets' leaderboard
@@ -206,12 +221,36 @@ async function settleShowdownWin(playerName: string, session: ShowdownSession): 
         // evict it faster than a session expires. The durable key does not move
         // when other battles are reported, so a settled fight cannot be cashed
         // again by flushing the array out from under its receipt.
-        if (receipts.includes(receipt) || await kv.get(paidKey)) {
+        const paidReceipt = await kv.get(paidKey) as { legacyApplied?: boolean } | null;
+        if (receipts.includes(receipt) || paidReceipt) {
+            const witness = petWitnessReceiptForSettlement(char, receipt);
+            const legacyReceipt = `pet-showdown:${session.sessionId}`;
+            const legacyStats = legacyEnabled()
+                ? await kv.get<LegacyStats>(legacyStatsKey(playerName))
+                : null;
+            // A save/payment write can succeed just before the best-effort
+            // Legacy side effect fails. Re-enter that exact-once hook only while
+            // its stable receipt is genuinely missing; normal terminal replays
+            // do not even attempt progression again.
+            const progressionRecoveryNeeded = legacyEnabled()
+                && paidReceipt?.legacyApplied !== true
+                && (!legacyStats || !hasLegacyActivityReceipt(legacyStats, legacyReceipt));
+            if (!progressionRecoveryNeeded && legacyEnabled() && paidReceipt?.legacyApplied !== true) {
+                // Heal the TTL'd marker from the exact Legacy receipt. This
+                // keeps the finite 45-minute session replay-safe even if later
+                // activity rolls the bounded Legacy receipt window forward.
+                await kv.set(paidKey, { sessionId: session.sessionId, at: Date.now(), legacyApplied: true }, { ex: PAID_RECEIPT_TTL_SECONDS })
+                    .catch(() => undefined);
+            }
             return {
                 reward: 0,
+                progressionEligible: progressionRecoveryNeeded,
                 totalPetWins: Number(char.totalPetWins ?? 0),
                 dailyPetWins: Number(char.dailyPetWins ?? 0),
                 balances: { ryo: Number(char.ryo ?? 0) },
+                chronicleCards: witness.granted,
+                witnessedPets: witness.witnessed,
+                livingWitnessProgress: witness.livingWitnessProgress,
                 _saveVersion: Number(record._saveVersion ?? 0),
                 character: char,
             };
@@ -230,7 +269,7 @@ async function settleShowdownWin(playerName: string, session: ShowdownSession): 
             };
         }
         const reward = petArenaRyoReward(session.sealedOpponentLevel);
-        const updatedChar = {
+        const paidCharacter = {
             ...char,
             redeemedPetBattleTokens: [...receipts, receipt],
             ryo: Number(char.ryo ?? 0) + reward,
@@ -238,18 +277,35 @@ async function settleShowdownWin(playerName: string, session: ShowdownSession): 
             dailyPetWins: dailyPetWins + 1,
             lastDailyReset: today,
         };
+        // The terminal session does not retain a full switch transcript. The
+        // immutable opening field is the exact participation fact the server
+        // can still prove; do not award Living Witness to merely selected bench
+        // pets (or trust a client to claim which reserves entered later).
+        const witnessedPlayerPets = session.player.slice(0, SHOWDOWN_FORMAT_SIZE[session.format]);
+        const witness = recordPetArenaVictory(
+            paidCharacter,
+            witnessedPlayerPets.map((pet) => pet.id),
+            Date.now(),
+            receipt,
+            witnessedPlayerPets as unknown as Pet[],
+        );
+        const updatedChar = witness.character;
         const updated = bumpSaveVersion({ ...record, character: updatedChar });
         await writeSaveProjected(saveKey, updated, record);
         // AFTER the paying write, never before: a failed key write must not be
         // able to swallow a reward the player earned. Until it lands the array
         // receipt is still covering, and it is covering for a full day of wins.
-        await kv.set(paidKey, { sessionId: session.sessionId, at: Date.now() }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
+        await kv.set(paidKey, { sessionId: session.sessionId, at: Date.now(), legacyApplied: false }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
             .catch(() => undefined);
         return {
             reward,
+            progressionEligible: true,
             totalPetWins: updatedChar.totalPetWins,
             dailyPetWins: updatedChar.dailyPetWins,
             balances: { ryo: Number(updatedChar.ryo) },
+            chronicleCards: witness.granted,
+            witnessedPets: witness.witnessed,
+            livingWitnessProgress: witness.livingWitnessProgress,
             _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
             character: updatedChar,
         };
@@ -274,6 +330,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only battle with your own pets.' });
+        }
+
+        // Hollow Gate is mounted on the cinematic Pet Coliseum. Older builds
+        // could smuggle a run binding through the paid Showdown request and mint
+        // a parallel child session. Retire only that unmounted admission shape;
+        // ordinary arena matchmaking below is unchanged, while state/turn still
+        // recover a Showdown session that an older server already issued.
+        if (action === 'arena' && body.hollowGate != null) {
+            return res.status(409).json({ error: 'Hollow Gate pet encounters use the sealed cinematic duel.' });
         }
 
         if (action === 'start') {
@@ -538,17 +603,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Only the turn that FINISHES the fight stamps that lease. Stamping
             // it on every re-post kept a settled session warm for as long as
             // someone kept posting, with no expiry to run out.
+            // Read the server-only parent sidecar BEFORE ordinary settlement.
+            // A retained pre-cutover Hollow Gate win must never receive paid
+            // arena ryo, counters, witness cards, or Legacy progress while its
+            // (possibly ambiguous) parent proof is being rejected below.
+            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, session.sessionId));
             let settlement: Record<string, unknown> = { reward: 0 };
-            if (session.outcome === 'win') {
+            if (!hgBinding && session.outcome === 'win') {
                 settlement = await settleShowdownWin(playerName, session);
+                if (settlement.progressionEligible === true) {
+                    const legacyApplied = await bumpLegacyStats(
+                        playerName,
+                        { petDuelWins: 1 },
+                        {
+                            receiptId: `pet-showdown:${session.sessionId}`,
+                            characterForBootstrap: settlement.character as Record<string, unknown> | undefined,
+                        },
+                    );
+                    if (legacyApplied) {
+                        await kv.set(
+                            paidReceiptKey(playerName, `sd:${session.sessionId}`),
+                            { sessionId: session.sessionId, at: Date.now(), legacyApplied: true },
+                            { ex: PAID_RECEIPT_TTL_SECONDS },
+                        ).catch(() => undefined);
+                    }
+                }
             }
             if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             /*
              * HOLLOW GATE HANDSHAKE. A bound bout mints the receipt the run's
              * settlement endpoint consumes — on a LOSS as well as a win, because
              * a defeat is a real Hollow Gate outcome (it ends the run) and
-             * combat-settle.ts must be able to read it. `nx` means a re-posted
-             * finishing turn cannot rewrite a decided encounter, and the receipt
+             * combat-settle.ts must be able to read it. The durable writer means
+             * a re-posted finishing turn cannot rewrite a decided encounter, and the receipt
              * is keyed by session id, so the session the player fought IS the
              * handle they settle with — nothing client-supplied in between.
              *
@@ -556,9 +643,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              * points at this session id, so the thing it points to has to be
              * durable first. Same discipline as the paid-receipt write.
              */
-            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, session.sessionId));
-            if (hgBinding && session.outcome) {
-                await mintHollowGatePetReceipt(playerName, session.sessionId, hgBinding, session.outcome);
+            if (hgBinding) {
+                const parent = await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(hgBinding.runId));
+                if (!session.outcome
+                    || !hollowGatePetAuthorityMatches(parent, 'showdown', session.sessionId)
+                    || parent?.playerName !== playerName
+                    || parent.status !== 'active'
+                    || parent.settledAt) {
+                    return res.status(409).json({ error: 'This Hollow Gate encounter is bound to a different pet battle proof.' });
+                }
+                if (!await mintHollowGatePetReceipt(playerName, session.sessionId, hgBinding, session.outcome)) {
+                    return res.status(503).json({ error: 'Could not seal the exact Hollow Gate pet result — please retry.' });
+                }
                 settlement = { ...settlement, hollowGate: { runId: hgBinding.runId, petReceipt: session.sessionId } };
             }
             return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });

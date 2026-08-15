@@ -9,17 +9,18 @@ Current combat-owner and mounted-route status is governed by
 Hollow Gate uses three independent authorities:
 
 - Shinobi combat: the normal `solo-pve` runtime.
-- Hollow Hound pet duels: the mounted server-sealed `pet-cinematic-duel` PvE
-  path and its run-bound server result receipt. A separate Showdown-capable
-  Hollow Gate branch exists but is not the mounted caller, so the long-term
-  owner remains unresolved.
+- Hollow Hound pet duels: one mounted server-sealed `pet-cinematic-duel` PvE
+  path. The parent binding preselects one versioned child proof and accepts only
+  its exact server result receipt. New Showdown admission and unbound legacy
+  Showdown adoption are fail-closed. A future replatform remains an owner
+  decision, but it is not a second current authority.
 - Hollow Gate expedition state: the run token under
   `hg-run:<player>:<token>`.
 
-Hollow Gate does not merge that cinematic path with Showdown/Coliseum, positional
-Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic duels, or the
-client-local Dungeon pet path. Those remain distinct authorities or recorded
-compatibility/defect paths.
+Hollow Gate does not merge that cinematic path with Showdown/Coliseum,
+positional Warfront/Tactical, the Gauntlet grid, live Arena cinematic PvP,
+issued-token Arena-AI recovery, or client-local presentation. Those remain
+distinct authorities or recorded compatibility/defect paths.
 
 There is no rewarding local fallback. A run without a live server token cannot
 start combat, resolve an economy event, or settle.
@@ -94,12 +95,19 @@ direct caller cannot roll loot or pets outside the run ledger.
 
 `POST /api/hollow-gate/combat-start` validates the run/floor/node/kind, derives
 the Hollow Hound and all modifiers, creates a `SoloPveSession`, and writes a
-separate Hollow Gate binding. Pet mode writes only its pet binding.
+separate Hollow Gate binding. Pet mode preselects one versioned cinematic proof
+inside that binding before either child endpoint can start work.
 
 `POST /api/hollow-gate/combat-settle` accepts encounter identity only. Shinobi
 settlement reads the terminal Solo PvE outcome, surviving HP, item use, and exact
-binding. Pet settlement requires the pet-runtime receipt. Rewards are derived
-server-side, written once, and appended to the same exact ledger.
+binding. Pet settlement requires a result whose engine and proof ID exactly
+match the parent selection. Duplicate cinematic starts reuse the same proof and
+seed. For a legacy parent created before proof prebinding, only the unique exact
+active cinematic pointer and seal for the same player/run may populate that
+binding; it cannot choose among sibling outcomes, and unbound legacy Showdown
+siblings fail closed. New Hollow Gate Showdown admission is rejected before its
+paid branch. Rewards are derived server-side, written once, and appended to the
+same exact ledger.
 
 ## Exact reward ledger and run end
 
@@ -127,6 +135,9 @@ Tower state; combat evidence keeps its independent recovery TTL.
 - A reward/event node must match the server's current manifest position.
 - A terminal Solo PvE session cannot be consumed by pet or Tower settlement.
 - A pet receipt cannot settle shinobi combat.
+- A Pet-mode parent accepts one engine/proof identity; another terminal child
+  cannot be selected after its outcome is known.
+- Abandon/death revokes the parent-bound Pet proof, child token, and result.
 - Generic saves cannot originate Hollow Gate economy gains.
 - Client haul, outcome, surviving pools, and reward fields are ignored because
   they are not part of the request contracts.

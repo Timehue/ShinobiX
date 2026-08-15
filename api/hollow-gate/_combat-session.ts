@@ -6,6 +6,24 @@ export const HOLLOW_GATE_MAX_COMBATS_PER_FLOOR = 16;
 
 export type HollowGateCombatKind = 'battle' | 'elite' | 'ambush' | 'beast' | 'boss';
 
+export const HOLLOW_GATE_PET_AUTHORITY_VERSION = 1 as const;
+export type HollowGatePetEngine = 'cinematic' | 'showdown';
+
+/**
+ * The one child combat proof allowed to decide a Pet-mode encounter.
+ *
+ * New encounters are mounted on the cinematic engine, so their proof id is
+ * chosen with the parent binding before a client can ask either pet endpoint
+ * to start work. `showdown` exists only so a session issued by an older server
+ * can finish and be recovered without becoming a second authority.
+ */
+export interface HollowGatePetAuthority {
+    version: typeof HOLLOW_GATE_PET_AUTHORITY_VERSION;
+    engine: HollowGatePetEngine;
+    proofId: string;
+    claimedAt: number;
+}
+
 export interface HollowGateActiveEncounter {
     runId: string;
     nodeId: string;
@@ -23,7 +41,19 @@ export interface HollowGateCombatBinding extends HollowGateActiveEncounter {
     status: 'active' | 'won' | 'lost';
     secondWindArmed?: boolean;
     petAssisted?: boolean;
+    petAuthority?: HollowGatePetAuthority;
     settledAt?: number;
+}
+
+export interface HollowGatePetResultReceipt {
+    version: typeof HOLLOW_GATE_PET_AUTHORITY_VERSION;
+    engine: HollowGatePetEngine;
+    proofId: string;
+    playerName: string;
+    runId: string;
+    outcome: 'win' | 'loss' | 'draw';
+    playerPetIds: string[];
+    settledAt: number;
 }
 
 export type HollowGateCombatReward = {
@@ -72,9 +102,10 @@ export function createHollowGateCombatBinding(params: {
     combatMode?: 'solo-pve' | 'pet';
 }): HollowGateCombatBinding {
     const now = params.now ?? Date.now();
+    const combatMode = params.combatMode ?? 'solo-pve';
     return {
         version: 1,
-        combatMode: params.combatMode ?? 'solo-pve',
+        combatMode,
         runId: params.runId ?? `hgcombat-${randomUUID().replace(/-/g, '')}`,
         playerName: params.playerName,
         tokenDigest: createHash('sha256').update(params.token).digest('hex'),
@@ -86,7 +117,75 @@ export function createHollowGateCombatBinding(params: {
         status: 'active',
         ...(params.secondWindArmed ? { secondWindArmed: true } : {}),
         ...(params.petAssisted ? { petAssisted: true } : {}),
+        ...(combatMode === 'pet' ? {
+            petAuthority: {
+                version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
+                engine: 'cinematic',
+                proofId: randomUUID().replace(/-/g, ''),
+                claimedAt: now,
+            },
+        } : {}),
     };
+}
+
+export function isHollowGatePetAuthority(value: unknown): value is HollowGatePetAuthority {
+    if (!value || typeof value !== 'object') return false;
+    const authority = value as Partial<HollowGatePetAuthority>;
+    return authority.version === HOLLOW_GATE_PET_AUTHORITY_VERSION
+        && (authority.engine === 'cinematic' || authority.engine === 'showdown')
+        && typeof authority.proofId === 'string'
+        && /^[A-Za-z0-9]{8,96}$/.test(authority.proofId)
+        && Number.isFinite(authority.claimedAt);
+}
+
+export function parseHollowGatePetResultReceipt(value: unknown): HollowGatePetResultReceipt | null {
+    if (!value || typeof value !== 'object') return null;
+    const receipt = value as Partial<HollowGatePetResultReceipt>;
+    if (receipt.version !== HOLLOW_GATE_PET_AUTHORITY_VERSION
+        || (receipt.engine !== 'cinematic' && receipt.engine !== 'showdown')
+        || typeof receipt.proofId !== 'string'
+        || !/^[A-Za-z0-9]{8,96}$/.test(receipt.proofId)
+        || typeof receipt.playerName !== 'string'
+        || typeof receipt.runId !== 'string'
+        || (receipt.outcome !== 'win' && receipt.outcome !== 'loss' && receipt.outcome !== 'draw')
+        || !Array.isArray(receipt.playerPetIds)
+        || !receipt.playerPetIds.every((id) => typeof id === 'string')
+        || !Number.isFinite(receipt.settledAt)) {
+        return null;
+    }
+    return {
+        version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
+        engine: receipt.engine,
+        proofId: receipt.proofId,
+        playerName: receipt.playerName,
+        runId: receipt.runId,
+        outcome: receipt.outcome,
+        playerPetIds: receipt.playerPetIds.slice(0, 2),
+        settledAt: Number(receipt.settledAt),
+    };
+}
+
+export function hollowGatePetAuthorityMatches(
+    binding: HollowGateCombatBinding | null | undefined,
+    engine: HollowGatePetEngine,
+    proofId: string,
+): boolean {
+    return binding?.combatMode === 'pet'
+        && isHollowGatePetAuthority(binding.petAuthority)
+        && binding.petAuthority.engine === engine
+        && binding.petAuthority.proofId === proofId;
+}
+
+export function hollowGatePetReceiptMatchesBinding(
+    binding: HollowGateCombatBinding | null | undefined,
+    receipt: HollowGatePetResultReceipt | null | undefined,
+    playerName: string,
+): boolean {
+    return Boolean(receipt
+        && binding
+        && hollowGatePetAuthorityMatches(binding, receipt.engine, receipt.proofId)
+        && receipt.playerName === playerName
+        && receipt.runId === binding.runId);
 }
 
 export type HollowGateCombatValidation =

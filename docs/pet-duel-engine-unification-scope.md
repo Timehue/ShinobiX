@@ -8,9 +8,12 @@
 > its [generated projection](generated/runtime-mode-registry.md).
 >
 > The current registry keeps these authorities separate: Showdown/Coliseum,
-> positional Warfront/Tactical, the Gauntlet grid, ordinary and Dungeon
+> positional Warfront/Tactical, the Gauntlet grid, live and parent-bound
 > cinematic duels, legacy compatibility duels, and client-local presentation.
-> Ordinary live
+> Showdown is the only new paid Coliseum admission. The old user-picked
+> cinematic Arena-AI entry is retired fail-closed; an exact active pre-cutover
+> unmarked token may be recovered and settled under its original cap, but it
+> cannot mint another paid bout. Ordinary live
 > Arena PvP now uses a server-sealed, memory-only cinematic Socket.IO lifecycle
 > with no reward. Its caller/server contract requires exactly one eligible pet
 > for 1v1 and two distinct eligible pets for 2v2, including an Auto-picked reserve;
@@ -19,9 +22,12 @@
 > admitted until combat and rating share one server-owned match proof. The older legacy
 > ranked path is also defective because client cinematic playback can disagree
 > with legacy server settlement. New legacy notices are retired fail-closed;
-> retained notices/proofs remain recoverable. It and the staged Showdown path are separate,
-> unconsumed implementations. Hollow Gate pet uses sealed cinematic PvE plus a
-> run-bound receipt while a dormant Showdown branch remains. The rewarding
+> retained notices/proofs remain recoverable. It and the staged ranked Showdown
+> path are separate, unconsumed implementations. Hollow Gate pet preselects one
+> exact cinematic child proof in its parent binding; new Showdown admission and
+> unbound legacy Showdown adoption fail closed. A legacy parent may recover only
+> the unique exact active same-player/run cinematic child. Its future replatform
+> remains an owner decision, but that recovery is not a second live authority. The rewarding
 > Dungeon Rare Beast seal now validates the exact Warden→Card→Pet run, selects
 > its enemy server-side, server-replays the cinematic input log, and stamps the
 > parent-run Pet proof before `/dungeon/run` can pay. Generic story/event local

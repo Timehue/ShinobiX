@@ -15,7 +15,12 @@ import {
 } from './_run-token.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
-import { hollowGateCombatBindingKey } from './_combat-session.js';
+import {
+    hollowGateCombatBindingKey,
+    isHollowGatePetAuthority,
+    type HollowGateCombatBinding,
+} from './_combat-session.js';
+import { hollowGatePetResultKey } from './_pet-authority.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { soloPveSessionKey } from '../solo-pve/_store.js';
 import {
@@ -92,10 +97,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // resume pointer is broken. A death settlement receives no combat reward,
         // closes the active binding, and then applies the normal run-loss rules.
         if (run.activeEncounter && outcome === 'death') {
-            await kv.del(
-                hollowGateCombatBindingKey(run.activeEncounter.runId),
-                soloPveSessionKey(run.activeEncounter.runId),
-            ).catch(() => undefined);
+            const abandonedRunId = run.activeEncounter.runId;
+            const bindingKey = hollowGateCombatBindingKey(abandonedRunId);
+            await withKvLock(bindingKey, async () => {
+                const binding = await kv.get<HollowGateCombatBinding>(bindingKey);
+                const petAuthority = isHollowGatePetAuthority(binding?.petAuthority)
+                    ? binding.petAuthority
+                    : null;
+                const activeProof = petAuthority
+                    ? petAuthority.proofId
+                    : await kv.get<string>(`pet:battle-active:${playerName}`);
+                const activeSeal = activeProof
+                    ? await kv.get<{ playerName?: string; hollowGate?: { runId?: string } }>(
+                        `pet:battle-token:${playerName}:${activeProof}`,
+                    )
+                    : null;
+                const retainedLegacyProof = !petAuthority
+                    && activeProof
+                    && /^[A-Za-z0-9]{8,96}$/.test(activeProof)
+                    && activeSeal?.playerName?.toLowerCase() === playerName.toLowerCase()
+                    && activeSeal.hollowGate?.runId === abandonedRunId
+                    ? activeProof
+                    : null;
+                const proofToRevoke = petAuthority?.proofId ?? retainedLegacyProof;
+                await kv.del(
+                    bindingKey,
+                    soloPveSessionKey(abandonedRunId),
+                    ...(proofToRevoke ? [
+                        hollowGatePetResultKey(playerName, proofToRevoke),
+                        `pet:battle-token:${playerName}:${proofToRevoke}`,
+                    ] : []),
+                );
+                if (proofToRevoke) {
+                    await kv.delIfEqual(`pet:battle-active:${playerName}`, proofToRevoke);
+                }
+            }, { failClosed: true });
             run.activeEncounter = null;
         }
         const bossResolved = (run.resolvedEncounterIds ?? []).some((entry) => entry.startsWith(`${run.floorDepth}:boss:`));

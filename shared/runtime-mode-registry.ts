@@ -599,7 +599,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     }),
     defineMode({
         id: 'pet-coliseum', label: 'Pet Coliseum', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
-        clientEntries: ['screens/PetShowdown.tsx', 'lib/pet-showdown-api.ts'],
+        clientEntries: ['screens/PetArena.tsx', 'screens/PetShowdown.tsx', 'lib/pet-showdown-api.ts'],
         routes: [mountedRoute('/pet/showdown', 'pet/showdown', ['start', 'action', 'state', 'settlement'])],
         participantModel: 'solo', rewardPolicy: 'server-capped', replayKind: 'expiring-showdown-turn-script', status: 'match',
     }),
@@ -645,22 +645,28 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     }),
 
     defineMode({
-        id: 'pet-arena-ai-1v1', label: 'Pet Arena AI 1v1', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
-        clientEntries: ['screens/PetArena.tsx'],
-        routes: [
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
-            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
-        ],
-        participantModel: 'solo', rewardPolicy: 'server-capped', replayKind: 'server-replayed-cinematic-input-log-with-receipt', status: 'match',
+        id: 'pet-arena-ai-1v1', label: 'Pet Arena AI 1v1 (retired)', category: 'pet-legacy', authorityEngine: null,
+        intendedAuthorityEngine: E.PET_CINEMATIC_DUEL,
+        clientEntries: ['screens/PetArena.tsx'], routes: [],
+        participantModel: 'solo', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
+        statusDetail: 'New user-picked cinematic AI admission is retired fail-closed. The separate issued-token compatibility row owns exact recovery and settlement of an already-active pre-cutover seal; paid Pet Coliseum progression belongs only to Showdown.',
     }),
     defineMode({
-        id: 'pet-arena-ai-2v2', label: 'Pet Arena AI 2v2', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        id: 'pet-arena-ai-2v2', label: 'Pet Arena AI 2v2 (retired)', category: 'pet-legacy', authorityEngine: null,
+        intendedAuthorityEngine: E.PET_CINEMATIC_DUEL,
+        clientEntries: ['screens/PetArena.tsx'], routes: [],
+        participantModel: 'solo', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
+        statusDetail: 'New user-picked cinematic AI admission is retired fail-closed. The separate issued-token compatibility row owns exact recovery and settlement of an already-active pre-cutover seal; paid Pet Coliseum progression belongs only to Showdown.',
+    }),
+    defineMode({
+        id: 'pet-arena-ai-issued-token-compat', label: 'Pet Arena AI issued-token compatibility', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
         clientEntries: ['screens/PetArena.tsx'],
         routes: [
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
+            mountedRoute('/pet/battle-start', 'pet/battle-start', ['recovery']),
             mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
         ],
         participantModel: 'solo', rewardPolicy: 'server-capped', replayKind: 'server-replayed-cinematic-input-log-with-receipt', status: 'match',
+        statusDetail: 'Compatibility only: /pet/battle-start may recover one exact active pre-cutover token whose settlement policy is unmarked, and /pet/battle-result may settle that sealed cinematic replay with exact receipt semantics. There is no new start admission; context-free attempts fail closed.',
     }),
     defineMode({
         id: 'pet-arena-pvp-1v1', label: 'Pet Arena live PvP 1v1', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
@@ -705,7 +711,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
             mountedRoute('/hollow-gate/combat-settle', 'hollow-gate/combat-settle', ['settlement']),
         ],
         participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'owner-decision', migrationStatus: 'keep',
-        statusDetail: 'The mounted Hollow Gate caller uses the server-sealed cinematic PvE duel and a one-use parent run receipt. A dormant Showdown branch also exists, but the owner has not selected a long-term engine; no automatic port is authorized.',
+        statusDetail: 'Current execution preselects one exact cinematic proof in the parent binding; duplicate starts reuse it and parent settlement accepts only its versioned engine/proof receipt. New Hollow Gate Showdown admission and adoption of unbound legacy Showdown siblings fail closed; a legacy parent may recover only the unique exact active same-player/run cinematic child. That compatibility is not a second live authority. The long-term replatform choice remains owner-controlled.',
     }),
     defineMode({
         id: 'dungeon-pet-cinematic', label: 'Dungeon pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,

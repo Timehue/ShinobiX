@@ -182,7 +182,7 @@ describe('Dungeon Rare Beast server authority', () => {
             opponentPetIds: ['generic-ai-pet-sparrow'],
             mode: '1v1',
         }, authToken, '127.0.3.3'), ordinary.res);
-        assert.equal(ordinary.out.statusCode, 409);
+        assert.equal(ordinary.out.statusCode, 410, 'retired picked-AI admission stays closed even while Dungeon owns the active lease');
         assert.notEqual(ordinary.out.body?.resumed, true);
 
         const prior = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -396,8 +396,10 @@ describe('Dungeon Rare Beast server authority', () => {
         await runCleanupCrash('token-gone', 2);
     });
 
-    it('retires a completed Dungeon lease before admitting a new ordinary pet battle', async () => {
+    it('retires a completed Dungeon lease before admitting a new social pet battle', async () => {
         const playerName = 'dungeonpetnextadmit';
+        const opponentName = 'dungeonpetnextfoe';
+        const opponentPetId = 'dungeon-pet-next-foe';
         const runToken = 'dungeonpetnext001';
         const authToken = issuePlayerToken(playerName)!;
         await installSave(playerName, runToken);
@@ -426,11 +428,26 @@ describe('Dungeon Rare Beast server authority', () => {
         const claimed = await settleDungeonRun(playerName, authToken, runToken, '127.0.11.3');
         assert.equal(claimed.statusCode, 200);
 
+        const playerSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const playerCharacter = playerSave?.character as Record<string, unknown>;
+        const playerPet = (playerCharacter.pets as Array<Record<string, unknown>>)[0];
+        await kv.set(`save:${opponentName}`, {
+            _saveVersion: 1,
+            character: {
+                ...playerCharacter,
+                name: opponentName,
+                activePetId: opponentPetId,
+                activeDungeonRun: null,
+                pets: [{ ...playerPet, id: opponentPetId, name: 'Social Recovery Foil', nickname: 'Foil' }],
+            },
+        });
+
         const next = response();
         await startHandler(request({
             playerName,
             playerPetIds: [PLAYER_PET_ID],
-            opponentPetIds: ['generic-ai-pet-sparrow'],
+            opponentName,
+            opponentPetIds: [opponentPetId],
             mode: '1v1',
         }, authToken, '127.0.11.4'), next.res);
         assert.equal(next.out.statusCode, 200);

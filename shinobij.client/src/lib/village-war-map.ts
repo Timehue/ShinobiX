@@ -42,7 +42,7 @@ export interface SectorWarContest {
     /** When the war's 72 hours end and the tallies are compared. */
     endsAt: number;
     flipped: boolean;
-    /** When a live-player battle last resolved — drives the garrison unlock. */
+    /** Retained contest liveness metadata for a future PvP-owned garrison surface. */
     lastLiveBattleAt?: number;
     startedAt?: number;
 }

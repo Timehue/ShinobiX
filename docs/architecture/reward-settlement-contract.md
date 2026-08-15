@@ -78,15 +78,23 @@ loss is more than trivially recoverable by replaying gameplay.
 - Ordinary Solo-PvE missions and Hollow Gate shinobi combat now settle from
   bound terminal `solo-pve` evidence; no rewarding client-attested win remains
   authorized for those rows.
-- Hollow Gate pet currently settles a run-bound receipt from server-replayed
-  cinematic PvE while a separate Showdown-capable branch remains unmounted.
-  The former public Pet Ranked queue launched the ordinary memory-only,
+- Hollow Gate pet settles only the exact versioned cinematic proof selected by
+  its parent combat binding. Duplicate starts reuse that proof and seed; new
+  Showdown admission and unbound legacy Showdown adoption fail closed. A legacy
+  parent may recover only the unique exact active same-player/run cinematic
+  child; that compatibility is not a second payout authority. The long-term
+  replatform choice remains owner-controlled.
+- New paid Pet Coliseum admission and progression belong to Showdown. Newly
+  issued ordinary cinematic/social tokens are explicitly no-progression;
+  already-issued pre-cutover Arena-AI tokens retain bounded server-replayed,
+  capped settlement so a deployment does not strand earned results.
+- The former public Pet Ranked queue launched the ordinary memory-only,
   no-reward realtime duel and never settled rating; it is now retired fail-closed.
   An older legacy ranked compatibility path and staged Showdown implementation
   remain unconsumed. The
   retained legacy path is also defective because its client cinematic playback
   and server legacy replay can disagree.
-  These are explicit owner/integration gaps, not permission to treat any route
+  These are explicit compatibility/integration gaps, not permission to treat any route
   as generic Pet authority.
 - The Dungeon reward now requires an exact three-proof chain. The Warden stamps
   its Solo proof; terminal Dungeon Chronicle settlement stamps the deterministic
