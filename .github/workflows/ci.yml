@@ -13,121 +13,607 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: 22.23.1
+  VITE_SENTRY_DSN: https://public@example.invalid/1
+  VITE_SENTRY_RELEASE: ci
+  VITE_BUILD_COMMIT: ${{ github.sha }}
+
 jobs:
-  test-build:
+  server_contracts:
+    name: CI / server-contracts
     runs-on: ubuntu-latest
-    # ~22 min typical, but the full suite + two builds + Playwright browser
-    # install + cross-browser smoke + audit can spike past 30 on a slow runner
-    # (observed 30m17s → cancelled). 45 gives headroom so timing variance can't
-    # cancel an otherwise-green run.
-    timeout-minutes: 45
-    env:
-      # Exercise the same Sentry-enabled bundle path Railway builds. The dummy
-      # DSN is public-format test data and sends nothing during build or smoke.
-      VITE_SENTRY_DSN: https://public@example.invalid/1
-      VITE_SENTRY_RELEASE: ci
-      VITE_BUILD_COMMIT: ${{ github.sha }}
+    timeout-minutes: 29
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-node@v7
         with:
-          # The action's own runtime, not ours: v4 ran on Node 20, which the
-          # runners now force onto 24 and will stop accepting. node-version
-          # below is unrelated — it is the Node this repo builds and tests on.
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
             package-lock.json
             shinobij.client/package-lock.json
-
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/server-contracts
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/server-contracts/provenance.txt
       - name: Install root dependencies
-        run: npm ci
-
-      - name: Install client dependencies
-        working-directory: shinobij.client
-        run: npm ci
-
-      - name: Root tests
-        run: npm test
-
+        run: npm ci 2>&1 | tee .ci-evidence/server-contracts/root-install.log
+      - name: Install client dependencies for shared tests
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/server-contracts/client-install.log
+      - name: Root tests and executable contracts
+        run: npm run test:ci 2>&1 | tee .ci-evidence/server-contracts/root-tests.log
       - name: Deployment topology contract
-        run: npm run check:deployment
-
+        run: npm run check:deployment 2>&1 | tee .ci-evidence/server-contracts/deployment.log
       - name: Rollback compatibility contract
-        run: npm run check:rollback-readiness
-
-      - name: Backup and restore safety
-        run: npm run test:backup
-
+        run: npm run check:rollback-readiness 2>&1 | tee .ci-evidence/server-contracts/rollback.log
       - name: Mission eligibility catalog
-        run: npm run test:mission-eligibility
-
+        run: npm run test:mission-eligibility 2>&1 | tee .ci-evidence/server-contracts/mission-eligibility.log
       - name: Release asset references and decodability
-        run: npm run test:release-assets
-
+        run: npm run test:release-assets 2>&1 | tee .ci-evidence/server-contracts/release-assets.log
+      - name: Pet breeding probability audit
+        run: npm run test:pet-breeding-odds 2>&1 | tee .ci-evidence/server-contracts/pet-breeding-odds.log
       - name: Tooling handoff drift
-        run: npm run check:tooling-handoffs
-
-      - name: Root audit
-        run: npm audit --audit-level=high
-
-      - name: Root build
-        run: npm run build
-
-      # Boots the real Express server against the isolated in-memory backend
-      # and walks a brand-new account through register → first save → rejected
-      # currency forgery → sanitized progression forgery → reward → refresh →
-      # relog → retry → stale autosave → Academy spar → two-account PvP create,
-      # reconnect, move idempotency, resolution, settlement, and history. Runs
-      # after the build so it certifies the built dist/server.js. Needs no
-      # database and no secrets.
-      - name: Fresh-account and combat release certification
-        run: npm run certify:release
-
-      # Short real-server concurrency gate. The longer capacity and staging
-      # Postgres soaks remain release-operator checks; this catches handler,
-      # auth, lock, server-responsiveness, and harness regressions on every change.
-      - name: Local concurrent-player smoke
-        run: npm run soak:smoke
-
-      - name: Client lint
-        working-directory: shinobij.client
-        run: npm run lint
-
-      - name: Client build
-        working-directory: shinobij.client
-        run: npm run build
-
-      - name: Install release browsers
-        working-directory: shinobij.client
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      - name: Cross-browser responsive and accessibility smoke
-        working-directory: shinobij.client
-        run: npm run test:e2e
-
-      # The real Solo/PvP and Tower combat shells have a wider viewport/DPR/zoom
-      # contract than the static responsive smoke. Keep live idle -> arm -> cancel
-      # transitions (including an authoritative exact-2v2 Tower match) in the
-      # release gate so dynamic guidance or focus cannot rescale either board.
-      - name: Combat layout and jutsu-arming matrix
-        working-directory: shinobij.client
-        env:
-          COMBAT_LAYOUT_CAPTURE_PHASE: after
-          COMBAT_LAYOUT_STRICT: "1"
-          COMBAT_LAYOUT_ARTIFACT_ROOT: ${{ github.workspace }}/shinobij.client/test-results/combat-layout/captures
-        run: npm run test:e2e:combat-layout
-
-      - name: Retain combat layout evidence
+        run: npm run check:tooling-handoffs 2>&1 | tee .ci-evidence/server-contracts/tooling-handoffs.log
+      - name: Retain server contract evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: combat-layout-evidence-${{ github.run_id }}
-          path: shinobij.client/test-results/combat-layout/
+          include-hidden-files: true
+          name: evidence-server-contracts-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/server-contracts/
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Client audit
-        working-directory: shinobij.client
-        run: npm audit --audit-level=high
+  server_build_security:
+    name: CI / server-build-security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/server-build-security
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/server-build-security/provenance.txt
+      - name: Install root dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/server-build-security/root-install.log
+      - name: Backup and restore safety
+        run: npm run test:backup 2>&1 | tee .ci-evidence/server-build-security/backup-tests.log
+      - name: Root dependency audit
+        run: npm audit --audit-level=high 2>&1 | tee .ci-evidence/server-build-security/root-audit.log
+      - name: Build server once
+        run: npm run build:server 2>&1 | tee .ci-evidence/server-build-security/server-build.log
+      - name: Package immutable server artifact
+        run: |
+          mkdir -p .ci-artifacts/server
+          tar -czf .ci-artifacts/server/server-dist.tgz dist
+          cd .ci-artifacts/server
+          sha256sum server-dist.tgz > server-dist.tgz.sha256
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: server-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/server/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain server build evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-server-build-security-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/server-build-security/
+          if-no-files-found: warn
+          retention-days: 14
+
+  client_quality:
+    name: CI / client-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/client-quality
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/client-quality/provenance.txt
+      - name: Install root tooling dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/client-quality/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-install.log
+      - name: Client lint
+        run: npm run lint --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/lint.log
+      - name: Story-content, TypeScript, and production client build
+        run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-build.log
+      - name: Build-size gate
+        run: npm run sizecheck 2>&1 | tee .ci-evidence/client-quality/build-size.log
+      - name: Visual-baseline size gate
+        run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
+      - name: Client dependency audit
+        run: npm audit --prefix shinobij.client --audit-level=high 2>&1 | tee .ci-evidence/client-quality/client-audit.log
+      - name: Package immutable client artifact
+        run: |
+          mkdir -p .ci-artifacts/client
+          tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
+          cd .ci-artifacts/client
+          sha256sum client-dist.tgz > client-dist.tgz.sha256
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: client-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/client/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain client quality evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-client-quality-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/client-quality/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release_artifact:
+    name: CI / release-artifact
+    needs: [server_build_security, client_quality]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/release-artifact
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/release-artifact/provenance.txt
+      - name: Require successful build inputs
+        if: ${{ needs.server_build_security.result != 'success' || needs.client_quality.result != 'success' }}
+        run: |
+          printf '%s\n' \
+            "server-build-security=${{ needs.server_build_security.result }}" \
+            "client-quality=${{ needs.client_quality.result }}" \
+            | tee .ci-evidence/release-artifact/upstream-results.log
+          exit 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Download server artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: server-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/server
+      - name: Download client artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: client-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/client
+      - name: Verify and assemble exact build outputs
+        run: |
+          cd .ci-artifacts/server
+          sha256sum -c server-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../client
+          sha256sum -c client-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/server/server-dist.tgz
+          tar -xzf .ci-artifacts/client/client-dist.tgz
+          node scripts/verify-dist.mjs
+      - name: Package joined release artifact
+        run: |
+          mkdir -p .ci-artifacts/release
+          tar -czf .ci-artifacts/release/release-dist.tgz dist shinobij.client/dist
+          cd .ci-artifacts/release
+          sha256sum release-dist.tgz > release-dist.tgz.sha256
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+      - name: Upload joined release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/release/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain release artifact evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-release-artifact-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/release-artifact/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release_certification:
+    name: CI / release-certification
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/release-certification
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/release-certification/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/release-certification/upstream-results.log
+          exit 1
+      - name: Install production server dependencies
+        run: npm ci --omit=dev 2>&1 | tee .ci-evidence/release-certification/root-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/release
+      - name: Verify exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+          node scripts/verify-dist.mjs
+      - name: Fresh-account and combat release certification
+        run: npm run certify:release 2>&1 | tee .ci-evidence/release-certification/certification.log
+      - name: Retain release certification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-release-certification-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/release-certification/
+          if-no-files-found: warn
+          retention-days: 14
+
+  concurrency_smoke:
+    name: CI / concurrency-smoke
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/concurrency-smoke
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/concurrency-smoke/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/concurrency-smoke/upstream-results.log
+          exit 1
+      - name: Install production server dependencies
+        run: npm ci --omit=dev 2>&1 | tee .ci-evidence/concurrency-smoke/root-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/release
+      - name: Verify exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+          node scripts/verify-dist.mjs
+      - name: Local concurrent-player smoke
+        run: npm run soak:smoke 2>&1 | tee .ci-evidence/concurrency-smoke/soak.log
+      - name: Retain concurrency evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-concurrency-smoke-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/concurrency-smoke/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_responsive:
+    name: CI / e2e-responsive
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/e2e-responsive
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-responsive/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive/upstream-results.log
+          exit 1
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive/client-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/release
+      - name: Verify and extract exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+      - name: Install release browsers
+        run: npx --prefix shinobij.client playwright install --with-deps chromium firefox webkit 2>&1 | tee .ci-evidence/e2e-responsive/browser-install.log
+      - name: Cross-browser responsive and accessibility smoke
+        run: npm run test:e2e --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive/playwright.log
+      - name: Retain responsive browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-responsive-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/e2e-responsive/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_combat_matrix:
+    name: CI / e2e-combat / ${{ matrix.shard }}
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 29
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: chromium
+            browser: chromium
+            projects: --project=chromium-layout --project=chromium-dpr125 --project=chromium-dpr15 --project=chromium-dpr2
+          - shard: firefox
+            browser: firefox
+            projects: --project=firefox-layout
+          - shard: webkit
+            browser: webkit
+            projects: --project=webkit-layout
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/e2e-combat-${{ matrix.shard }}
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-combat-${{ matrix.shard }}/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/upstream-results.log
+          exit 1
+      - name: Install production server dependencies
+        run: npm ci --omit=dev 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/client-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/release
+      - name: Verify and extract exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+          node scripts/verify-dist.mjs
+      - name: Install combat browsers
+        run: npx --prefix shinobij.client playwright install --with-deps ${{ matrix.browser }} 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/browser-install.log
+      - name: Combat layout and jutsu-arming matrix
+        env:
+          COMBAT_LAYOUT_CAPTURE_PHASE: after
+          COMBAT_LAYOUT_STRICT: "1"
+          COMBAT_LAYOUT_ARTIFACT_ROOT: ${{ github.workspace }}/shinobij.client/test-results/combat-layout/captures/${{ matrix.shard }}
+        run: npm run test:e2e:combat-layout --prefix shinobij.client -- ${{ matrix.projects }} 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/playwright.log
+      - name: Retain combat browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-combat-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/e2e-combat-${{ matrix.shard }}/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/combat-layout/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_combat:
+    name: CI / e2e-combat
+    if: ${{ always() }}
+    needs: e2e_combat_matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every combat browser shard
+        env:
+          COMBAT_MATRIX: ${{ needs.e2e_combat_matrix.result }}
+        run: |
+          mkdir -p .ci-evidence/e2e-combat
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-combat/provenance.txt
+          printf 'e2e-combat-matrix=%s\n' "$COMBAT_MATRIX" | tee .ci-evidence/e2e-combat/results.log
+          test "$COMBAT_MATRIX" = success
+      - name: Retain combat aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-combat-aggregate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/e2e-combat/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_warfront:
+    name: CI / e2e-warfront
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/e2e-warfront
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-warfront/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-warfront/upstream-results.log
+          exit 1
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-warfront/client-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-artifacts/release
+      - name: Verify and extract exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          grep -Fx "run_attempt=$GITHUB_RUN_ATTEMPT" provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+      - name: Install Warfront browser
+        run: npx --prefix shinobij.client playwright install --with-deps chromium 2>&1 | tee .ci-evidence/e2e-warfront/browser-install.log
+      - name: Warfront positional-mode browser matrix
+        run: npm run test:e2e:warfront --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-warfront/playwright.log
+      - name: Retain Warfront browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-warfront-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/e2e-warfront/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+            .playwright-mcp/aaa-adaptive/
+          if-no-files-found: warn
+          retention-days: 14
+
+  test_build:
+    name: CI / test-build
+    if: ${{ always() }}
+    needs:
+      - server_contracts
+      - server_build_security
+      - client_quality
+      - release_artifact
+      - release_certification
+      - concurrency_smoke
+      - e2e_responsive
+      - e2e_combat
+      - e2e_warfront
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every split gate
+        env:
+          SERVER_CONTRACTS: ${{ needs.server_contracts.result }}
+          SERVER_BUILD_SECURITY: ${{ needs.server_build_security.result }}
+          CLIENT_QUALITY: ${{ needs.client_quality.result }}
+          RELEASE_ARTIFACT: ${{ needs.release_artifact.result }}
+          RELEASE_CERTIFICATION: ${{ needs.release_certification.result }}
+          CONCURRENCY_SMOKE: ${{ needs.concurrency_smoke.result }}
+          E2E_RESPONSIVE: ${{ needs.e2e_responsive.result }}
+          E2E_COMBAT: ${{ needs.e2e_combat.result }}
+          E2E_WARFRONT: ${{ needs.e2e_warfront.result }}
+        run: |
+          mkdir -p .ci-evidence/test-build
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/test-build/provenance.txt
+          printf '%s\n' \
+            "server-contracts=$SERVER_CONTRACTS" \
+            "server-build-security=$SERVER_BUILD_SECURITY" \
+            "client-quality=$CLIENT_QUALITY" \
+            "release-artifact=$RELEASE_ARTIFACT" \
+            "release-certification=$RELEASE_CERTIFICATION" \
+            "concurrency-smoke=$CONCURRENCY_SMOKE" \
+            "e2e-responsive=$E2E_RESPONSIVE" \
+            "e2e-combat=$E2E_COMBAT" \
+            "e2e-warfront=$E2E_WARFRONT" \
+            | tee .ci-evidence/test-build/results.log
+          test "$SERVER_CONTRACTS" = success
+          test "$SERVER_BUILD_SECURITY" = success
+          test "$CLIENT_QUALITY" = success
+          test "$RELEASE_ARTIFACT" = success
+          test "$RELEASE_CERTIFICATION" = success
+          test "$CONCURRENCY_SMOKE" = success
+          test "$E2E_RESPONSIVE" = success
+          test "$E2E_COMBAT" = success
+          test "$E2E_WARFRONT" = success
+      - name: Retain compatibility aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-test-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/test-build/
+          if-no-files-found: warn
+          retention-days: 14
