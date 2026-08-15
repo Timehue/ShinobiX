@@ -150,7 +150,10 @@ function applyAuthoritativeAction(session: SoloPveSession, payload: SoloActionPa
     };
 }
 
-async function installArenaApi(page: Page, options: { holdAndFailFirstPracticeStart?: boolean } = {}) {
+async function installArenaApi(page: Page, options: {
+    holdAndFailFirstPracticeStart?: boolean;
+    certifyRankedQueueLifecycle?: boolean;
+} = {}) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
     let activeSession: SoloPveSession | null = null;
@@ -158,9 +161,19 @@ async function installArenaApi(page: Page, options: { holdAndFailFirstPracticeSt
     let genericResumeSuccessCount = 0;
     const practiceStartPayloads: PracticeStartPayload[] = [];
     const actionPayloads: SoloActionPayload[] = [];
+    const rankedQueueActions: string[] = [];
+    let rankedQueueJoined = false;
     let releaseFirstPracticeStart: (() => void) | null = null;
+    let releaseRankedJoin: (() => void) | null = null;
+    let releaseRankedPoll: (() => void) | null = null;
     const firstPracticeStartGate = new Promise<void>((resolve) => {
         releaseFirstPracticeStart = resolve;
+    });
+    const rankedJoinGate = new Promise<void>((resolve) => {
+        releaseRankedJoin = resolve;
+    });
+    const rankedPollGate = new Promise<void>((resolve) => {
+        releaseRankedPoll = resolve;
     });
 
     await page.route("**/api/**", async (route) => {
@@ -257,7 +270,32 @@ async function installArenaApi(page: Page, options: { holdAndFailFirstPracticeSt
         }
 
         if (path === "/api/pvp/bounty") return json(route, { ok: true, bounties: [] });
-        if (path === "/api/pvp/ranked-queue") return json(route, { enabled: false, queueSize: 0 });
+        if (path === "/api/pvp/ranked-queue") {
+            if (!options.certifyRankedQueueLifecycle) {
+                return json(route, { enabled: false, inQueue: false, queueSize: 0 });
+            }
+            if (request.method() === "GET") {
+                return json(route, { enabled: true, inQueue: rankedQueueJoined, queueSize: rankedQueueJoined ? 1 : 0 });
+            }
+
+            const payload = request.postDataJSON() as { action?: string };
+            const action = String(payload.action ?? "");
+            rankedQueueActions.push(action);
+            if (action === "join") {
+                await rankedJoinGate;
+                rankedQueueJoined = true;
+                return json(route, { enabled: true, inQueue: true, queueSize: 1, match: null });
+            }
+            if (action === "poll") {
+                await rankedPollGate;
+                return json(route, { enabled: true, inQueue: rankedQueueJoined, queueSize: rankedQueueJoined ? 1 : 0, match: null });
+            }
+            if (action === "leave") {
+                rankedQueueJoined = false;
+                return json(route, { enabled: true, inQueue: false, queueSize: 0, match: null });
+            }
+            return json(route, { error: "Unexpected ranked queue action" }, 400);
+        }
         if (path === "/api/battle-lock") return json(route, { ok: true, lock: null });
         if (path === "/api/world-state") return json(route, { territories: [], wars: [], standings: [] });
         if (path === "/api/clan/war/list") return json(route, { wars: [] });
@@ -287,6 +325,9 @@ async function installArenaApi(page: Page, options: { holdAndFailFirstPracticeSt
         actionPayloads: () => actionPayloads,
         genericResumeSuccessCount: () => genericResumeSuccessCount,
         releaseFirstPracticeStart: () => releaseFirstPracticeStart?.(),
+        rankedQueueActions: () => [...rankedQueueActions],
+        releaseRankedJoin: () => releaseRankedJoin?.(),
+        releaseRankedPoll: () => releaseRankedPoll?.(),
     };
 }
 
@@ -311,6 +352,13 @@ async function restoreVillage(page: Page) {
     await page.goto("/#/village");
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByRole("button", { name: "Enter Battle Arena" })).toBeVisible();
+}
+
+async function openArenaDistrict(page: Page) {
+    await page.goto("/#/centralHub");
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByRole("button", { name: /Arena District/ }).click();
+    await expect(page.getByRole("heading", { name: "Arena District" })).toBeVisible();
 }
 
 async function openBattleArena(page: Page) {
@@ -420,6 +468,56 @@ test("desktop Battle Arena seals practice combat, surfaces retry, acts, and resu
     await assertAuthoritativeCombatSurface(page, false);
     await expect.poll(api.genericResumeSuccessCount).toBeGreaterThanOrEqual(1);
     expect(api.practiceStartCount()).toBe(startsBeforeReload);
+});
+
+test("Arena District serializes ranked join, poll, and leave on desktop and mobile", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const isDesktop = testInfo.project.name === "chromium-desktop";
+    const isMobile = testInfo.project.name === "chromium-mobile";
+    test.skip(!isDesktop && !isMobile, "ranked lifecycle runs at the canonical desktop and mobile viewports");
+
+    const api = await installArenaApi(page, { certifyRankedQueueLifecycle: true });
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    await openArenaDistrict(page);
+
+    const queueUp = page.getByRole("button", { name: "Queue Up for Ranked" });
+    await expect(queueUp).toBeEnabled();
+    await expect(page.getByText("Players in queue:")).toContainText("0");
+    if (isDesktop) {
+        await queueUp.focus();
+        await page.keyboard.press("Enter");
+    } else {
+        await queueUp.click();
+    }
+
+    await expect.poll(() => api.rankedQueueActions()).toEqual(["join"]);
+    await expect(page.getByText("Searching for opponent...")).toBeVisible();
+    const leave = page.getByRole("button", { name: "Leave Queue" });
+    await expect(leave).toBeEnabled();
+
+    // Joining is optimistic in the UI, but polling must not begin until the
+    // server confirms this exact owner/generation as queued.
+    expect(api.rankedQueueActions()).toEqual(["join"]);
+    api.releaseRankedJoin();
+    await expect.poll(() => api.rankedQueueActions()).toEqual(["join", "poll"]);
+    await expect(page.getByText("Players in queue:")).toContainText("1");
+
+    if (isDesktop) {
+        await leave.focus();
+        await page.keyboard.press("Enter");
+    } else {
+        await leave.click();
+    }
+    await expect(queueUp).toBeEnabled();
+    await expect(page.getByText("Searching for opponent...")).toHaveCount(0);
+
+    // Leave retires the UI immediately, while its server cleanup remains
+    // serialized behind the already-issued poll.
+    await page.waitForTimeout(150);
+    expect(api.rankedQueueActions()).toEqual(["join", "poll"]);
+    api.releaseRankedPoll();
+    await expect.poll(() => api.rankedQueueActions()).toEqual(["join", "poll", "leave"]);
 });
 
 test("mobile Battle Arena exposes the same sealed board, commands, and timeline", async ({ page }, testInfo) => {
