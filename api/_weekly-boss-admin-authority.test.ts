@@ -52,6 +52,7 @@ async function post(handler: Handler, body: Json, headers: Record<string, string
 
 function existingBossState(): Json {
     return {
+        spawnId: 'authority-existing-spawn',
         weekKey: 'authority-test-week',
         aiId: 'moonshadow-oni',
         bossName: 'Moonshadow Oni',
@@ -96,7 +97,11 @@ test('content admin password/token cannot reset Weekly Boss state or leaderboard
         { 'x-admin-token': contentToken },
     ];
     for (const headers of contentCredentials) {
-        const rejected = await post(weeklyBossHandler, { kind: 'reset' }, headers);
+        const rejected = await post(weeklyBossHandler, {
+            kind: 'reset',
+            expectedSpawnId: 'authority-existing-spawn',
+            requestedSpawnId: '30000000-0000-4000-8000-000000000001',
+        }, headers);
         assert.equal(rejected.statusCode, 403);
         assert.match(String(rejected.body?.error), /full admin/i);
         const after = await kv.get<Json>(BOSS_KEY);
@@ -107,13 +112,18 @@ test('content admin password/token cannot reset Weekly Boss state or leaderboard
 
     const accepted = await post(
         weeklyBossHandler,
-        { kind: 'reset' },
+        {
+            kind: 'reset',
+            expectedSpawnId: 'authority-existing-spawn',
+            requestedSpawnId: '30000000-0000-4000-8000-000000000002',
+        },
         { 'x-admin-password': process.env.ADMIN_PASSWORD! },
     );
     assert.equal(accepted.statusCode, 200);
     assert.ok(accepted.body?.boss);
     assert.notEqual(JSON.stringify(await kv.get(BOSS_KEY)), beforeBytes);
     assert.deepEqual((await kv.get<Json>(BOSS_KEY))?.damageByPlayer, {});
+    assert.equal(typeof (await kv.get<Json>(BOSS_KEY))?.spawnId, 'string');
 });
 
 test('Weekly Boss override remains full-admin-only on /api/game-state', async () => {

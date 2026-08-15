@@ -85,6 +85,10 @@ const _noCachePrefixes = [
     // Their distributed locks only work when the lock holder reads the shared
     // latest list/state, not a process-local pre-lock snapshot.
     'audit:', 'hall:', 'game:announcements', 'game:era-state', 'era:',
+    // Weekly Boss resets and reward finalization share generation-CAS state.
+    // A cached prior spawn would defeat the distributed lock and let a late
+    // phase-3 continuation overwrite the replacement generation.
+    'game:weekly-boss-state',
     'chat:village:',
     // Solo-PvE move/state versions and their story bindings are likewise
     // distributed-lock authority. A cached pre-move session can accept an old
