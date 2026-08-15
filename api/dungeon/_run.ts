@@ -1,4 +1,5 @@
 import { dungeonWardenWasDefeated } from './_ai-fight.js';
+import { dungeonCardWasWon, dungeonPetWasWon } from './_encounter-proof.js';
 
 export const DUNGEON_KEY_ID = 'dungeon-key';
 export const DUNGEON_RELIC_ID = 'dungeon-legendary-relic';
@@ -221,6 +222,8 @@ export function mutateDungeonRun(
     } };
     if (action !== 'settle') return { ok: false as const, reason: 'invalid-dungeon-action' as const };
     if (!dungeonWardenWasDefeated(active)) return { ok: false as const, reason: 'dungeon-warden-proof-required' as const };
+    if (!dungeonCardWasWon(active)) return { ok: false as const, reason: 'dungeon-card-proof-required' as const };
+    if (!dungeonPetWasWon(active)) return { ok: false as const, reason: 'dungeon-pet-proof-required' as const };
     if (now - Math.max(0, Number(active.startedAt) || 0) < DUNGEON_MIN_RUN_MS) return { ok: false as const, reason: 'dungeon-run-too-short' as const };
     const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
     inventory.push(DUNGEON_RELIC_ID);

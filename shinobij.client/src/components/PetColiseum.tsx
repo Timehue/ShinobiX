@@ -7327,6 +7327,12 @@ export type PetColiseumDuelProps = {
     onFightAgain?: () => void;
     settlementStatus?: PetBattleSettlementStatus;
     onRetrySettlement?: () => void;
+    settlementCopy?: {
+        pending: string;
+        error: string;
+        retry: string;
+        settledExit: string;
+    };
     /** Optional server-settled reward ceremony, mounted only with the result. */
     resultSupplement?: ReactNode;
     onExit: () => void;
@@ -7342,7 +7348,7 @@ const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).sta
 const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
     !!d && typeof (d as { safeTick?: number }).safeTick === "number";
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, resultSupplement, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
     const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
@@ -8730,13 +8736,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         {resultSupplement}
                         {settlementStatus === "pending" && (
                             <div role="status" style={{ color: "#fde68a", font: "800 13px Inter, system-ui, sans-serif", marginTop: 12 }}>
-                                Sealing the Hollow Hound result…
+                                {settlementCopy?.pending ?? "Sealing the Hollow Hound result…"}
                             </div>
                         )}
                         {settlementStatus === "error" && (
                             <div role="alert" style={{ marginTop: 12 }}>
-                                <div style={{ color: "#fecaca", font: "800 13px Inter, system-ui, sans-serif" }}>Gate verification paused. Your completed duel is safe to retry.</div>
-                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>Retry Gate Settlement</button>
+                                <div style={{ color: "#fecaca", font: "800 13px Inter, system-ui, sans-serif" }}>{settlementCopy?.error ?? "Gate verification paused. Your completed duel is safe to retry."}</div>
+                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>{settlementCopy?.retry ?? "Retry Gate Settlement"}</button>
                             </div>
                         )}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 18 }}>
@@ -8759,7 +8765,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                                 disabled={!!settlementStatus && settlementStatus !== "settled"}
                                 style={{ ...resultBtn, background: "#334155", opacity: settlementStatus && settlementStatus !== "settled" ? 0.55 : 1 }}
                             >
-                                {settlementStatus === "settled" ? "Return to Gate" : "Exit"}
+                                {settlementStatus === "settled" ? (settlementCopy?.settledExit ?? "Return to Gate") : "Exit"}
                             </button>
                         </div>
                     </div>

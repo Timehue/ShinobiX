@@ -26,6 +26,15 @@ import {
     type HollowGateHoundKind,
 } from '../../shared/hollow-gate-contract.js';
 import { createCasualPveBattleSeal, type CasualPveBattleSeal } from './_casual-pve-seal.js';
+import { resolveDungeonPetAuthority } from '../dungeon/_encounter-proof.js';
+import {
+    DUNGEON_PET_BATTLE_AUTHORITY_VERSION,
+    buildDungeonRareBeast,
+    dungeonPetResultKey,
+    parseDungeonPetBattleBinding,
+    parseDungeonPetResultReceipt,
+    type DungeonPetBattleBinding,
+} from './_dungeon-battle.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -80,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const opponentName = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
         const mode = body.mode === '2v2' ? '2v2' : '1v1';
         const playerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
-        const opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
+        let opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         // The battle receipt owns both identifiers. A caller cannot search for a
         // favourable deterministic seed and then ask the server to certify it.
         const token = randomUUID().replace(/-/g, '');
@@ -111,11 +120,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let opponentPets: Pet[] = [];
         let isAiOpponent = false;
         let hollowGate: { runId: string } | null = null;
+        let dungeon: DungeonPetBattleBinding | null = null;
         let realOpponentLevel: number | null = null;
         const hollowGateBody = body.hollowGate && typeof body.hollowGate === 'object'
             ? body.hollowGate as Record<string, unknown>
             : null;
-        if (hollowGateBody) {
+        const dungeonBody = body.dungeon && typeof body.dungeon === 'object'
+            ? body.dungeon as Record<string, unknown>
+            : null;
+        if (hollowGateBody && dungeonBody) {
+            return res.status(400).json({ error: 'A pet battle cannot carry both Dungeon and Hollow Gate authority.' });
+        }
+        if (dungeonBody) {
+            if (mode !== '1v1' || playerPets.length !== 1) {
+                return res.status(400).json({ error: 'The Dungeon Rare Beast seal requires one carried pet.' });
+            }
+            try {
+                const authority = resolveDungeonPetAuthority({
+                    character: myChar ?? {},
+                    dungeonRunToken: dungeonBody.token,
+                });
+                dungeon = {
+                    authorityVersion: DUNGEON_PET_BATTLE_AUTHORITY_VERSION,
+                    runToken: authority.dungeonRunToken,
+                };
+            } catch (error) {
+                return res.status(409).json({
+                    error: error instanceof Error ? error.message : 'Dungeon Rare Beast authority is unavailable.',
+                });
+            }
+            opponentPets = [buildDungeonRareBeast()];
+            opponentPetIds = opponentPets.map((pet) => pet.id);
+            isAiOpponent = true;
+        } else if (hollowGateBody) {
             const runId = String(hollowGateBody.runId ?? '').slice(0, 96);
             const runToken = String(hollowGateBody.token ?? '').slice(0, 64);
             const requestedHoundId = opponentPetIds[0] ?? '';
@@ -162,7 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sealedOpponentLevel = realOpponentLevel != null
             ? realOpponentLevel
             : clampLevel(Math.max(1, ...opponentPets.map((p) => Number((p as { level?: unknown }).level ?? 1))));
-        const sealedRewardRyo = petArenaRyoRewardForTeam(opponentPets);
+        const sealedRewardRyo = dungeon ? 0 : petArenaRyoRewardForTeam(opponentPets);
         const rank = Math.max(0, Math.min(10, Number(myChar?.professionRank) || 0));
         const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
         const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
@@ -203,31 +240,125 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
                 : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
 
+        const tokenKey = `pet:battle-token:${playerName}:${token}`;
+        const tokenData = {
+            playerName,
+            opponentName: opponentName || undefined,
+            opponentLevel: sealedOpponentLevel,
+            rewardRyo: sealedRewardRyo,
+            reportKey,
+            seed,
+            mode,
+            createdAt: Date.now(),
+            playerPetIds,
+            // Needed to rebuild the same opponent at report time. AI pets come
+            // from the server's own roster, so these ids are not player input in
+            // any meaningful sense — but they are re-resolved, never trusted.
+            opponentPetIds,
+            ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
+            ...(dungeon ? { dungeon } : {}),
+            sealedParams,
+            ...(casualPveSeal ? { casualPveSeal } : {}),
+            authoritativeOutcome: result,
+        };
+
+        // Publish the complete seal before its global pointer. A process crash
+        // can therefore leave only an unreachable expiring seal, never a live
+        // pointer whose missing proof blocks every pet mode for the full TTL.
+        await kv.set(tokenKey, tokenData, { ex: TOKEN_TTL_SECONDS });
+
         // One outstanding receipt per player closes seed-shopping: a client must
         // settle (including a loss/draw) before it can mint another random seed.
         const activeKey = `pet:battle-active:${playerName}`;
-        const claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
+        let claimed: unknown;
+        try {
+            claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
+        } catch (claimError) {
+            await kv.del(tokenKey).catch(() => undefined);
+            throw claimError;
+        }
+        if (!claimed) {
+            // Heal the old pointer-first crash shape. CAS deletion cannot evict a
+            // concurrently replaced winner; after cleanup this request gets one
+            // chance to publish its already-complete seal.
+            const orphanToken = await kv.get<string>(activeKey);
+            if (orphanToken && !await kv.get(`pet:battle-token:${playerName}:${orphanToken}`)) {
+                await kv.delIfEqual(activeKey, orphanToken);
+                claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
+            }
+        }
         if (!claimed) {
             // A refresh may lose the in-memory receipt. Return the SAME seal only
             // when it describes the exact requested matchup; never mint a new
             // seed and never attach the old token to different pets.
-            const activeToken = await kv.get<string>(activeKey);
-            const active = activeToken ? await kv.get<{
+            let activeToken = await kv.get<string>(activeKey);
+            let active = activeToken ? await kv.get<{
                 reportKey?: string; seed?: number; mode?: string;
                 playerPetIds?: string[]; opponentPetIds?: string[];
                 casualPveSeal?: CasualPveBattleSeal;
+                hollowGate?: { runId?: string };
+                dungeon?: DungeonPetBattleBinding;
             }>(`pet:battle-token:${playerName}:${activeToken}`) : null;
             const sameIds = (a: string[] | undefined, b: string[]) => JSON.stringify(a ?? []) === JSON.stringify(b);
+            let activeDungeon = parseDungeonPetBattleBinding(active?.dungeon);
+
+            // A hard crash may occur after Dungeon proof + durable result commit
+            // but before either short-lived key is retired. That completed seal
+            // must not block a later ordinary/Hollow/Dungeon admission. Only an
+            // exact server receipt can retire it, and CAS protects a newer lease.
+            const completedDungeon = activeToken && activeDungeon
+                ? parseDungeonPetResultReceipt(await kv.get(dungeonPetResultKey(playerName, activeToken)))
+                : null;
+            if (activeToken && active && activeDungeon && completedDungeon
+                && completedDungeon.playerName.toLowerCase() === playerName.toLowerCase()
+                && completedDungeon.battleToken === activeToken
+                && completedDungeon.runToken === activeDungeon.runToken
+                && sameIds(completedDungeon.playerPetIds, active.playerPetIds ?? [])) {
+                await kv.del(`pet:battle-token:${playerName}:${activeToken}`).catch(() => undefined);
+                await kv.delIfEqual(activeKey, activeToken);
+                claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
+                if (!claimed) {
+                    activeToken = await kv.get<string>(activeKey);
+                    active = activeToken
+                        ? await kv.get<NonNullable<typeof active>>(`pet:battle-token:${playerName}:${activeToken}`)
+                        : null;
+                    activeDungeon = parseDungeonPetBattleBinding(active?.dungeon);
+                }
+            }
+            if (claimed) {
+                return res.status(200).json({
+                    ok: true,
+                    token,
+                    reportKey,
+                    seed,
+                    ...(dungeon ? { dungeon: true } : {}),
+                    ...(casualPveSeal
+                        ? {
+                            playerPets: casualPveSeal.playerPets,
+                            opponentPets: casualPveSeal.opponentPets,
+                            battleConfig: casualPveSeal.params,
+                        }
+                        : {}),
+                });
+            }
+            const sameAuthority = dungeon
+                ? activeDungeon?.runToken === dungeon.runToken && !active?.hollowGate?.runId
+                : hollowGate
+                    ? !activeDungeon && active?.hollowGate?.runId === hollowGate.runId
+                    : !activeDungeon && !active?.hollowGate?.runId;
             if (activeToken && active?.reportKey && Number.isSafeInteger(active.seed)
                 && active.mode === mode
+                && sameAuthority
                 && sameIds(active.playerPetIds, playerPetIds)
                 && sameIds(active.opponentPetIds, opponentPetIds)) {
+                await kv.del(tokenKey).catch(() => undefined);
                 return res.status(200).json({
                     ok: true,
                     token: activeToken,
                     reportKey: active.reportKey,
                     seed: active.seed,
                     resumed: true,
+                    ...(dungeon ? { dungeon: true } : {}),
                     ...(active.casualPveSeal
                         ? {
                             playerPets: active.casualPveSeal.playerPets,
@@ -237,31 +368,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : {}),
                 });
             }
+            await kv.del(tokenKey).catch(() => undefined);
             return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
-        }
-        try {
-            await kv.set(`pet:battle-token:${playerName}:${token}`, {
-                playerName,
-                opponentName: opponentName || undefined,
-                opponentLevel: sealedOpponentLevel,
-                rewardRyo: sealedRewardRyo,
-                reportKey,
-                seed,
-                mode,
-                createdAt: Date.now(),
-                playerPetIds,
-            // Needed to rebuild the same opponent at report time. AI pets come
-            // from the server's own roster, so these ids are not player input in
-            // any meaningful sense — but they are re-resolved, never trusted.
-                opponentPetIds,
-                ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
-                sealedParams,
-                ...(casualPveSeal ? { casualPveSeal } : {}),
-                authoritativeOutcome: result,
-            }, { ex: TOKEN_TTL_SECONDS });
-        } catch (writeErr) {
-            await kv.delIfEqual(activeKey, token).catch(() => undefined);
-            throw writeErr;
         }
 
         return res.status(200).json({
@@ -269,6 +377,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             token,
             reportKey,
             seed,
+            ...(dungeon ? { dungeon: true } : {}),
             ...(casualPveSeal
                 ? {
                     playerPets: casualPveSeal.playerPets,

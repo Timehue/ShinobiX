@@ -8,8 +8,9 @@
 > its [generated projection](generated/runtime-mode-registry.md).
 >
 > The current registry keeps these authorities separate: Showdown/Coliseum,
-> positional Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic
-> duels, legacy compatibility duels, and client-local pet duels. Ordinary live
+> positional Warfront/Tactical, the Gauntlet grid, ordinary and Dungeon
+> cinematic duels, legacy compatibility duels, and client-local presentation.
+> Ordinary live
 > Arena PvP now uses a server-sealed, memory-only cinematic Socket.IO lifecycle
 > with no reward. Its caller/server contract requires exactly one eligible pet
 > for 1v1 and two distinct eligible pets for 2v2, including an Auto-picked reserve;
@@ -19,11 +20,14 @@
 > ranked path is also defective because client cinematic playback can disagree
 > with legacy server settlement. New legacy notices are retired fail-closed;
 > retained notices/proofs remain recoverable. It and the staged Showdown path are separate,
-> unconsumed implementations. Hollow Gate pet uses
-> sealed cinematic PvE plus a run-bound receipt while a dormant Showdown branch
-> remains. Dungeon pet remains client-local. The historical proposal and status
-> tables below do not override any of those facts, and they do not authorize an
-> automatic port of live PvP, Ranked, Hollow Gate, or Dungeon Pet.
+> unconsumed implementations. Hollow Gate pet uses sealed cinematic PvE plus a
+> run-bound receipt while a dormant Showdown branch remains. The rewarding
+> Dungeon Rare Beast seal now validates the exact Warden→Card→Pet run, selects
+> its enemy server-side, server-replays the cinematic input log, and stamps the
+> parent-run Pet proof before `/dungeon/run` can pay. Generic story/event local
+> pet presentation remains separate and is not reward proof. The historical
+> proposal and status tables below do not override these facts or authorize an
+> automatic port of live PvP, Ranked, or Hollow Gate.
 
 **Historical starting status:** scope only, nothing implemented. Written
 2026-08-14, after the Pet Showdown rebuild (rounds 1–47) shipped to main at
@@ -262,15 +266,14 @@ counters). Same engine behind both.
 
 ### NOT done — and why each is non-trivial
 
-1. **`DungeonPetBattle`** (story/event encounters + the dungeon seal). Still a
-   client-local duel. The blocker is not effort but TRUST SHAPE: it fights an
-   `enemyOverride` supplied by the caller (authored story data), and Showdown
-   has no entry that accepts a caller-specified opponent. Adding one means a
-   server endpoint taking opponent stats from the client — a new surface that
-   needs its own authority design (authored-encounter ids resolved server-side,
-   not raw stats over the wire). These fights never touch
-   `battle-start`/`battle-result`; they report through an `onWin` callback, so
-   this is a PRESENTATION port, not a reward one.
+1. **Historical `DungeonPetBattle` gap — closed for the rewarding Dungeon
+   seal.** At this snapshot, story/event encounters and the Dungeon seal shared
+   a client-local duel with caller-supplied `enemyOverride` data. The current
+   Dungeon path does not send raw enemy stats: `/pet/battle-start` validates the
+   exact active run and constructs the fixed Rare Beast, while
+   `/pet/battle-result` replays the sealed cinematic input log and stamps the
+   Pet proof consumed by `/dungeon/run`. Generic story/event local presentation
+   remains outside that rewarding authority and is never accepted as proof.
 
 2. **`PetArena`'s legacy machinery.** `startBattle`, `mintCasualPetBattleToken`
    and `reportPetBattle` still serve the PvP and party paths woven through a

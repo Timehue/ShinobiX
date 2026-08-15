@@ -14,8 +14,19 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
-import { parseCasualPveBattleSeal, parseSealedPetSnapshots, type CasualPveBattleSeal } from './_casual-pve-seal.js';
+import { casualPvePetSnapshot, parseCasualPveBattleSeal, parseSealedPetSnapshots, type CasualPveBattleSeal } from './_casual-pve-seal.js';
 import { removePetItem } from './_progress.js';
+import { applyDungeonPetTerminal } from '../dungeon/_encounter-proof.js';
+import {
+    DUNGEON_PET_RESULT_TTL_SECONDS,
+    DUNGEON_RARE_BEAST_ID,
+    buildDungeonRareBeast,
+    dungeonPetResultKey,
+    parseDungeonPetBattleBinding,
+    parseDungeonPetResultReceipt,
+    type DungeonPetBattleBinding,
+    type DungeonPetResultReceipt,
+} from './_dungeon-battle.js';
 import {
     PET_RANKED_ACTIVE_REGISTRY_KEY,
     PET_RANKED_QUEUE_KEY,
@@ -407,6 +418,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let casualPetIds: string[] = [];
         let casualPvePlayerPets: Pet[] | null = null;
         let hollowGatePetResult: HollowGatePetResultReceipt | null = null;
+        let dungeonPetBinding: DungeonPetBattleBinding | null = null;
+        const saveKey = `save:${playerName}`;
+        const sendDungeonPetReceiptReplay = async (
+            receipt: DungeonPetResultReceipt,
+            cleanup?: { tokenKey: string; activeKey: string },
+        ) => {
+            const replaySave = await kv.get<Record<string, unknown>>(saveKey);
+            const replayCharacter = characterFromSave(replaySave);
+            if (!replayCharacter) {
+                return res.status(503).json({ error: 'Your Dungeon pet result is recorded, but your save is temporarily unavailable.' });
+            }
+            if (cleanup) {
+                await kv.del(cleanup.tokenKey).catch(() => undefined);
+                await kv.delIfEqual(cleanup.activeKey, battleToken).catch(() => undefined);
+            }
+            return res.status(200).json({
+                ok: true,
+                dungeon: true,
+                replayed: true,
+                outcome: receipt.outcome,
+                reward: 0,
+                chronicleCards: [],
+                witnessedPets: [],
+                livingWitnessProgress: [],
+                character: replayCharacter,
+                _saveVersion: Number(replaySave?._saveVersion ?? 0),
+            });
+        };
         // The reward level SEALED at battle-start (opponent actually fought). When
         // set, it — not the body-named opponent — decides the payout.
         let sealedOpponentLevel: number | null = null;
@@ -429,8 +468,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 mode?: string;
                 settleAfter?: number;
                 hollowGate?: { runId?: string };
+                dungeon?: unknown;
             }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                const priorDungeonResult = parseDungeonPetResultReceipt(
+                    await kv.get(dungeonPetResultKey(playerName, battleToken)),
+                );
+                if (priorDungeonResult?.playerName.toLowerCase() === playerName.toLowerCase()
+                    && priorDungeonResult.battleToken === battleToken) {
+                    return sendDungeonPetReceiptReplay(priorDungeonResult, {
+                        tokenKey,
+                        activeKey: `pet:battle-active:${playerName}`,
+                    });
+                }
                 const priorHollowGateResult = await kv.get<HollowGatePetResultReceipt>(hollowGatePetResultKey(playerName, battleToken));
                 if (priorHollowGateResult?.playerName === playerName) {
                     return res.status(200).json({
@@ -473,6 +523,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
+            }
+            const hasDungeonBinding = tokenData.dungeon !== undefined;
+            dungeonPetBinding = parseDungeonPetBattleBinding(tokenData.dungeon);
+            if (hasDungeonBinding && !dungeonPetBinding) {
+                return res.status(409).json({ error: 'Pet battle token carries an invalid Dungeon binding.' });
             }
             if (tokenData.mode === 'warfront') {
                 const settleAfter = Number(tokenData.settleAfter);
@@ -543,10 +598,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
             sealedOpponentLevel = opponentLevelRaw;
             const tokenReward = Number(tokenData.rewardRyo);
-            if (!Number.isSafeInteger(tokenReward) || tokenReward < 20 || tokenReward > 250) {
+            if (dungeonPetBinding) {
+                const fixedOpponent = casualPvePetSnapshot(buildDungeonRareBeast());
+                if (!casualPveSeal
+                    || casualPveSeal.params.mode !== '1v1'
+                    || casualPveSeal.playerPets.length !== 1
+                    || casualPveSeal.opponentPets.length !== 1
+                    || casualPveSeal.opponentPets[0]?.id !== DUNGEON_RARE_BEAST_ID
+                    || JSON.stringify(casualPveSeal.opponentPets[0]) !== JSON.stringify(fixedOpponent)) {
+                    return res.status(409).json({ error: 'Dungeon pet token lacks its fixed authoritative combat snapshot.' });
+                }
+            } else if (!Number.isSafeInteger(tokenReward) || tokenReward < 20 || tokenReward > 250) {
                 return res.status(409).json({ error: 'Pet battle token lacks a valid sealed reward.' });
             }
-            sealedRewardRyo = tokenReward;
+            if (dungeonPetBinding) {
+                // A durable result wins over the now-cleared parent run, but only
+                // after this live token has independently reproduced the exact
+                // server outcome and sealed participant set.
+                const priorDungeonResult = parseDungeonPetResultReceipt(
+                    await kv.get(dungeonPetResultKey(playerName, battleToken)),
+                );
+                if (priorDungeonResult) {
+                    if (priorDungeonResult.playerName.toLowerCase() !== playerName.toLowerCase()
+                        || priorDungeonResult.battleToken !== battleToken
+                        || priorDungeonResult.runToken !== dungeonPetBinding.runToken
+                        || priorDungeonResult.outcome !== outcome
+                        || JSON.stringify(priorDungeonResult.playerPetIds) !== JSON.stringify(tokenPlayerPetIds)) {
+                        return res.status(409).json({ error: 'Dungeon pet result receipt conflicts with its live battle token.' });
+                    }
+                    return sendDungeonPetReceiptReplay(priorDungeonResult, {
+                        tokenKey,
+                        activeKey: `pet:battle-active:${playerName}`,
+                    });
+                }
+            }
+            sealedRewardRyo = dungeonPetBinding ? 0 : tokenReward;
             casualBattleTokenKey = tokenKey;
             casualBattleActiveKey = `pet:battle-active:${playerName}`;
             casualBattleReceipt = battleToken;
@@ -566,6 +652,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
             if (casualBattleActiveKey) await kv.delIfEqual(casualBattleActiveKey, battleToken).catch(() => undefined);
         };
+
+        // The Dungeon Rare Beast is a run terminal, never a Coliseum faucet.
+        // Commit the terminal stamp and its sealed consumable spend in one save
+        // write. A separate 24-hour result receipt must be readable before the
+        // short battle token is retired, so a lost response can replay safely.
+        if (dungeonPetBinding && casualBattleTokenKey) {
+            try {
+                const dungeonResult = await withKvLock(saveKey, async () => {
+                    const record = await kv.get<Record<string, unknown>>(saveKey);
+                    if (!record) return { ok: false as const, status: 404, error: 'Your save is unavailable.' };
+                    const character = characterFromSave(record);
+                    if (!character) return { ok: false as const, status: 404, error: 'Your character is unavailable.' };
+                    const terminal = applyDungeonPetTerminal({
+                        character,
+                        dungeonRunToken: dungeonPetBinding!.runToken,
+                        proofId: battleToken,
+                        outcome: outcome!,
+                        petIds: casualPetIds,
+                    });
+                    if (!terminal.ok) return { ok: false as const, status: 409, error: terminal.error };
+
+                    let finalRecord = record;
+                    let finalCharacter = terminal.character;
+                    if (!terminal.alreadyApplied) {
+                        finalCharacter = spendSealedCasualConsumables(
+                            terminal.character,
+                            casualPetIds,
+                            casualPvePlayerPets,
+                        );
+                        finalRecord = bumpSaveVersion({ ...record, character: finalCharacter });
+                        await writeSaveProjected(saveKey, finalRecord, record);
+                    }
+
+                    const receipt: DungeonPetResultReceipt = {
+                        ...dungeonPetBinding!,
+                        playerName,
+                        battleToken,
+                        outcome: outcome!,
+                        playerPetIds: casualPetIds,
+                        settledAt: Date.now(),
+                    };
+                    const receiptKey = dungeonPetResultKey(playerName, battleToken);
+                    let durable = parseDungeonPetResultReceipt(await kv.get(receiptKey));
+                    if (!durable) {
+                        await kv.set(receiptKey, receipt, { nx: true, ex: DUNGEON_PET_RESULT_TTL_SECONDS });
+                        durable = parseDungeonPetResultReceipt(await kv.get(receiptKey));
+                    }
+                    if (!durable
+                        || durable.playerName.toLowerCase() !== playerName.toLowerCase()
+                        || durable.battleToken !== battleToken
+                        || durable.runToken !== dungeonPetBinding!.runToken
+                        || durable.outcome !== outcome
+                        || JSON.stringify(durable.playerPetIds) !== JSON.stringify(casualPetIds)) {
+                        throw new Error('Dungeon pet result receipt did not become durable.');
+                    }
+                    return {
+                        ok: true as const,
+                        character: finalCharacter,
+                        _saveVersion: Number(finalRecord._saveVersion ?? record._saveVersion ?? 0),
+                    };
+                }, { failClosed: true });
+                if (!dungeonResult.ok) {
+                    return res.status(dungeonResult.status).json({ error: dungeonResult.error });
+                }
+                await releaseCasualBattle();
+                return res.status(200).json({
+                    ok: true,
+                    dungeon: true,
+                    outcome,
+                    reward: 0,
+                    chronicleCards: [],
+                    witnessedPets: [],
+                    livingWitnessProgress: [],
+                    character: dungeonResult.character,
+                    _saveVersion: dungeonResult._saveVersion,
+                });
+            } catch (error) {
+                console.error('[pet/battle-result] Dungeon pet settlement failed', error);
+                return res.status(503).json({ error: 'Could not record Dungeon pet result — please retry.' });
+            }
+        }
 
         // Hollow Gate pet duels do not pay the ordinary Coliseum faucet. Their
         // server-replayed outcome becomes a one-use receipt consumed by the
@@ -627,8 +794,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 opponentLevel = Math.min(opponentLevelRaw, myLevel + 10);
             }
         }
-
-        const saveKey = `save:${playerName}`;
 
         // ── Ranked pet ladder credit (audit #7 / Stage 3 — LIVE) ────────────
         // Reached when the client sends `ranked:true` — the pet-ranked queue does:

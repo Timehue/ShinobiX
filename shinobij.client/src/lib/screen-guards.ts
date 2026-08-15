@@ -52,12 +52,14 @@ export function restoreScreenForSave(
     persisted: Screen | null,
     inHollowGateRun: boolean,
     hospitalized = false,
+    inDungeonRun = false,
 ): Screen {
     // Hospital admission is stronger than a bookmarked/last-visited hub and
     // than a stale dungeon breadcrumb. Admitted HP intentionally does not
     // regenerate, so restoring anywhere else strands the player at zero HP.
     if (hospitalized) return "hospital";
     if (inHollowGateRun) return "hollowGateShrine";
+    if (inDungeonRun) return "dungeon";
     return persisted && RESTORABLE_SCREENS.has(persisted) ? persisted : "village";
 }
 
