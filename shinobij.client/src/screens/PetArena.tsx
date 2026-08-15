@@ -38,13 +38,9 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { PetHomeTabs } from "../components/PetHomeTabs";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
-import { type DuelResult } from "../lib/pet-duel-sim";
-import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
-import { createLiveDuel, type LiveDuel } from "../lib/pet-duel-live";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { fetchRankedPetDuel } from "../lib/pet-ranked-watch-api";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
-import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
@@ -81,12 +77,8 @@ import {
 } from "../lib/pet-arena-settlement";
 import { rankedDelta } from "../lib/progression";
 import { makeId } from "../lib/utils";
-import { genericPetArenaOpponents, isGenericPetOpponent, type PetArenaOpponent } from "../data/pet-arena-opponents";
-import {
-    petTamerPveMultiplier,
-    type DuelChallenge,
-} from "../App";
-import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
+import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
+import { type DuelChallenge } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
@@ -200,14 +192,9 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
 const loadPetColiseum = () => import("../components/PetColiseum");
 const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-model-preload")
     .then((module) => module.preloadPetColiseumModels(pets));
-// The continuous-duel renderer. Still mounted for ONE entry: a sector wanderer
-// duel launched from the World Map, which is a world-initiated PvE fight against
-// a specific roaming beast. Showdown has no entry that accepts a caller-named
-// opponent of that kind yet (the authored-encounter entry takes a dungeon run
-// token or an admin-authored event id — neither describes a wanderer), so that
-// fight still resolves on the legacy engine. Every other duel this screen starts
-// is a server-resolved Showdown replay.
-const PetColiseumDuel = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseumDuel })));
+// (The PetColiseum renderer is no longer mounted from this screen at all: every
+// duel it starts is a server-resolved Showdown replay. `loadPetColiseum` above
+// survives only as a WARM-UP for the Warfront chunk below.)
 // The Showdown replay player — how EVERY duel this screen still starts is
 // shown. The server resolved the fight; this plays that resolution's event log
 // through the same battle component a live Showdown uses. Lazy, and
@@ -248,88 +235,29 @@ type PetBattleSettlementResponse = PetChronicleSettlementPayload & {
 };
 
 /*
- * What /api/pet/battle-start hands back, in the two shapes this screen still
- * starts a fight in.
+ * What /api/pet/battle-start hands back. One shape now, because every fight this
+ * screen starts is resolved by the server:
  *
- * A PLAYER CHALLENGE comes back as `script` + `winnerName`: the server resolved
- * that duel once, for both participants, when the challenge was accepted, and
- * the script IS that fight. `winnerName` is an account name rather than a side,
- * because both participants read the same object and must never be told
- * different things about who won.
+ *   - a PLAYER CHALLENGE was decided once, for both participants, when the
+ *     responder accepted (`api/pet/_pvp-duel.ts`);
+ *   - a SECTOR WANDERER duel is decided at mint, against a beast the server
+ *     picks from the caller's own saved level (`api/pet/_wanderer-duel.ts`).
  *
- * A WORLD-INITIATED PvE duel (a sector wanderer) still comes back as sealed pet
- * snapshots plus the sim config, because that fight is resolved locally on the
- * legacy engine and replayed server-side from the input log at settlement.
+ * `script` IS the fight. `outcome` is the CALLER's side of the verdict, decided
+ * by the server rather than worked out here from `winnerName`: account names are
+ * normalised before they reach a duel seal, so matching one against a display
+ * name would compare unequal for any name that normalises differently and would
+ * report every duel as a loss. `winnerName` is display only, and only a
+ * challenge has one.
  */
 type CasualPetBattleSeal = {
     token: string;
     seed: number;
     reportKey: string;
-    script?: ShowdownReplayScript;
+    script: ShowdownReplayScript;
+    outcome: "win" | "loss";
     winnerName?: string;
-    /** The CALLER's side of the verdict, decided by the server. Not derived
-     *  here from `winnerName`: account names are normalised before they reach a
-     *  duel seal, so matching one against a display name would compare unequal
-     *  for any name that normalises differently and report every duel lost. */
-    outcome?: "win" | "loss";
-    playerPets?: Pet[];
-    opponentPets?: Pet[];
-    battleConfig?: CasualPetBattleConfig;
 };
-
-type CasualPetBattleConfig = {
-    mode: "1v1" | "2v2";
-    seed: number;
-    damageMult: number;
-    hpMult: number;
-    revive: boolean;
-    applyItems: boolean;
-    accuracy: boolean;
-    terrain: string | null;
-};
-
-function parseCasualPetBattleConfig(
-    value: unknown,
-    expectedMode: CasualPetBattleConfig["mode"],
-    expectedSeed: number,
-): CasualPetBattleConfig | null {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    const config = value as Partial<CasualPetBattleConfig>;
-    if (config.mode !== expectedMode || config.seed !== expectedSeed
-        || !Number.isFinite(Number(config.damageMult)) || Number(config.damageMult) <= 0 || Number(config.damageMult) > 10
-        || !Number.isFinite(Number(config.hpMult)) || Number(config.hpMult) <= 0 || Number(config.hpMult) > 10
-        || typeof config.revive !== "boolean"
-        || typeof config.applyItems !== "boolean"
-        || typeof config.accuracy !== "boolean"
-        || (config.terrain !== null && typeof config.terrain !== "string")) return null;
-    return config as CasualPetBattleConfig;
-}
-
-function parseSealedCasualPets(value: unknown, expectedIds: readonly string[]): Pet[] | null {
-    if (!Array.isArray(value) || value.length !== expectedIds.length) return null;
-    const pets = value.filter((entry): entry is Pet => {
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
-        const pet = entry as Partial<Pet>;
-        return typeof pet.id === "string" && typeof pet.name === "string"
-            && Number.isFinite(Number(pet.hp)) && Number(pet.hp) > 0
-            && Number.isFinite(Number(pet.attack)) && Number(pet.attack) > 0
-            && Number.isFinite(Number(pet.defense)) && Number(pet.defense) >= 0
-            && Number.isFinite(Number(pet.speed)) && Number(pet.speed) > 0
-            && Array.isArray(pet.jutsus)
-            && !("image" in pet) && !("bodyImage" in pet);
-    });
-    if (pets.length !== expectedIds.length
-        || pets.some((pet, index) => pet.id !== expectedIds[index])) return null;
-    return pets;
-}
-
-function restoreSealedPetCosmetics(sealed: Pet, local: Pet | undefined): Pet {
-    return {
-        ...sealed,
-        ...(local?.image ? { image: local.image } : {}),
-        ...(local?.bodyImage ? { bodyImage: local.bodyImage } : {}),
-    };
-}
 
 type PetSettlementStatus = "pending" | "error" | "settled";
 type PetSettlementKind = "tactical" | "party" | "ranked" | "casual";
@@ -1046,15 +974,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         script: ShowdownReplayScript; playerPets: Pet[];
         id: number; // per-fight nonce → React key so "Watch again" remounts the player
     } | null>(null);
-    // The one locally-resolved fight left: a sector wanderer duel from the World
-    // Map. Mutually exclusive with watchedDuel.
-    const [duelBattle, setDuelBattle] = useState<{
-        // Exactly one of `result` / `live` is set: a precomputed timeline to watch,
-        // or a live player-controlled fight that reports its outcome via onOutcome.
-        result: DuelResult | null; live?: LiveDuel | null; onOutcome?: (result: DuelResult) => void;
-        playerPet: Pet; enemyPet: Pet; seed: number;
-        id: number;
-    } | null>(null);
     const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight id source (state, not ref → no render-time ref read)
     const [result, setResult] = useState("");
     useEffect(() => {
@@ -1078,7 +997,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setBattleReady(false);
         setBattleLog([]);
         setWatchedDuel(null);
-        setDuelBattle(null);
         setArenaMatch(null);
         setArenaCountdown(null);
         setResult("");
@@ -1105,8 +1023,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const fullscreenBattleActive = arenaMatch !== null
         || arenaCountdown !== null
         || battleReady
-        || watchedDuel !== null
-        || duelBattle !== null;
+        || watchedDuel !== null;
     useEffect(() => {
         const unresolvedBattleActive = arenaMatch !== null
             || arenaCountdown !== null
@@ -1176,54 +1093,32 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     playerPetIds: playerPets.map((pet) => pet.id),
                     opponentPetIds: opponentPets.map((pet) => pet.id),
                     ...(opponent.pvpChallengeId ? { pvpChallengeId: opponent.pvpChallengeId } : {}),
+                    ...(opponent.wanderer ? { wanderer: { id: opponent.wanderer.id } } : {}),
                 }),
             });
             if (!r.ok) return null;
             const data = await r.json().catch(() => null) as {
                 token?: unknown; seed?: unknown; reportKey?: unknown;
                 showdownScript?: unknown; winnerName?: unknown; outcome?: unknown;
-                playerPets?: unknown; opponentPets?: unknown; battleConfig?: unknown;
             } | null;
             if (typeof data?.token !== "string"
                 || !Number.isSafeInteger(Number(data.seed))
                 || typeof data.reportKey !== "string") return null;
-            if (opponent.pvpChallengeId) {
-                // A challenge duel is the server's fight or it is nothing.
-                const script = data.showdownScript && typeof data.showdownScript === "object"
-                    ? data.showdownScript as ShowdownReplayScript
-                    : null;
-                const outcome = data.outcome === "win" || data.outcome === "loss" ? data.outcome : null;
-                if (!script || typeof data.winnerName !== "string" || !data.winnerName || !outcome) return null;
-                return {
-                    token: data.token,
-                    seed: Number(data.seed),
-                    reportKey: data.reportKey,
-                    script,
-                    winnerName: data.winnerName,
-                    outcome,
-                };
-            }
-            const expectsPveSnapshots = opponentPets.every((pet) => isGenericPetOpponent(pet));
-            const sealedPlayers = data.playerPets === undefined
-                ? null
-                : parseSealedCasualPets(data.playerPets, playerPets.map((pet) => pet.id));
-            const sealedOpponents = data.opponentPets === undefined
-                ? null
-                : parseSealedCasualPets(data.opponentPets, opponentPets.map((pet) => pet.id));
-            const battleConfig = data.battleConfig === undefined
-                ? null
-                : parseCasualPetBattleConfig(data.battleConfig, mode, Number(data.seed));
-            if (expectsPveSnapshots && (!sealedPlayers || !sealedOpponents || !battleConfig)) return null;
-            if ((data.playerPets !== undefined && !sealedPlayers)
-                || (data.opponentPets !== undefined && !sealedOpponents)
-                || (data.battleConfig !== undefined && !battleConfig)) return null;
+            // The server's fight, or nothing. Both entries that reach here are
+            // resolved server-side, so a response without a script is a failure
+            // to be retried — never a licence to simulate one.
+            const script = data.showdownScript && typeof data.showdownScript === "object"
+                ? data.showdownScript as ShowdownReplayScript
+                : null;
+            const outcome = data.outcome === "win" || data.outcome === "loss" ? data.outcome : null;
+            if (!script || !outcome) return null;
             return {
                 token: data.token,
                 seed: Number(data.seed),
                 reportKey: data.reportKey,
-                ...(sealedPlayers ? { playerPets: sealedPlayers } : {}),
-                ...(sealedOpponents ? { opponentPets: sealedOpponents } : {}),
-                ...(battleConfig ? { battleConfig } : {}),
+                script,
+                outcome,
+                ...(typeof data.winnerName === "string" && data.winnerName ? { winnerName: data.winnerName } : {}),
             };
         } catch {
             return null;
@@ -1270,7 +1165,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         // matchup-card dwell time used by the preload effect above.
         void preloadPetColiseumModels([selectedPet, opponent.pet]).catch(() => undefined);
         setWatchedDuel(null); // fresh fight — clear any prior replay
-        setDuelBattle(null);
         const nextDuelId = duelNonce + 1; // React key for the duel renderer
         setDuelNonce(nextDuelId);
 
@@ -1379,126 +1273,28 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         }
 
         /*
-         * ── World-initiated PvE duel (a sector wanderer) ────────────────
+         * ── Everything else: a player challenge, or a sector wanderer ────
          *
-         * The ONE fight this screen still resolves locally. The World Map sends
-         * the player here with a specific roaming beast as the opponent, and
-         * Showdown has no entry that accepts a caller-named opponent of that
-         * shape: the authored-encounter entry takes a dungeon run token or an
-         * admin-authored event id, and the arena entry picks the opponent
-         * itself. Porting it means a new server-side selector (a wanderer id
-         * the server resolves into a beast), which is its own piece of work —
-         * so until then this stays on the legacy engine rather than losing a
-         * live world feature.
+         * BOTH ARE WATCHED, for the reason ranked is. This branch used to mint a
+         * token, take the seed that came back, and run the cinematic locally —
+         * while the server had already sealed its own verdict from that seed
+         * using a different engine. Worse, for a challenge each participant
+         * minted a SEPARATE token with a SEPARATE random seed, so the two sides
+         * were rated on unrelated fights and both could be told they had won.
          *
-         * The screen no longer offers this fight from a picker of its own. It
-         * only ever arrives as an override from the world.
-         */
-        if (!opponent.pvpChallengeId) {
-            const battleSeal1v1 = await mintCasualPetBattleToken(battleScope, opponent, "1v1", [selectedPet], [opponent.pet]);
-            if (!playerAuthorityIsActive(battleScope)) return;
-            if (!battleSeal1v1) {
-                showBattleSetupIssue(
-                    battleScope,
-                    "The pet battle seal could not be created. No duel was started and no result was put at risk.",
-                    () => { void startBattle(opponent); },
-                );
-                return;
-            }
-            const battlePlayerPet = battleSeal1v1.playerPets?.[0]
-                ? restoreSealedPetCosmetics(battleSeal1v1.playerPets[0], selectedPet)
-                : selectedPet;
-            const battleOpponentPet = battleSeal1v1.opponentPets?.[0]
-                ? restoreSealedPetCosmetics(battleSeal1v1.opponentPets[0], opponent.pet)
-                : opponent.pet;
-            const seed1v1 = battleSeal1v1.seed;
-            const reportKey1v1 = battleSeal1v1.reportKey;
-            startBattleMusic();
-            if (battlePlayerPet.loadout?.consumable) {
-                clearSpentConsumables([battlePlayerPet.id], battleScope);
-            }
-            setBattleOpponent(opponent);
-            setBattleReady(true);
-            // PvE mastery modifiers apply only against a built-in AI opponent,
-            // and a wanderer is one. Player control runs the fight live and
-            // commanded; battle-result re-derives the outcome by replaying the
-            // input log against the seal, so the reward matches what was played.
-            const pveOpp = isGenericPetOpponent(opponent.pet);
-            const controlled = pveOpp && petPlayerControlEnabled();
-            const dmgMult = battleSeal1v1.battleConfig?.damageMult ?? (pveOpp ? petTamerPveMultiplier(character) : 1);
-            const hpMult = battleSeal1v1.battleConfig?.hpMult ?? (pveOpp ? petPveHpMult(character) : 1);
-            const revive = battleSeal1v1.battleConfig?.revive ?? (pveOpp ? petAlphaBond(character) : false);
-            const applyItems = battleSeal1v1.battleConfig?.applyItems ?? true;
-            const accuracy = battleSeal1v1.battleConfig?.accuracy;
-            const terrain = battleSeal1v1.battleConfig?.terrain ?? null;
-            const liveDuel = controlled
-                ? createLiveDuel(battlePlayerPet, battleOpponentPet, seed1v1, dmgMult, hpMult, revive, applyItems, accuracy, terrain)
-                : null;
-            const duel = controlled
-                ? null
-                : runPetDuelCinematic(battlePlayerPet, battleOpponentPet, seed1v1, dmgMult, hpMult, revive, applyItems, accuracy, terrain);
-            const settle1v1 = (outcome: "win" | "loss" | "draw") => {
-                if (!playerAuthorityIsActive(battleScope)) return;
-                const battleToken = battleSeal1v1.token;
-                const inputLog = liveDuel?.inputLog();
-                setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
-                // Losses and draws settle too: the token must be redeemed so it
-                // cannot be reused and one-use consumables settle durably.
-                const settlementBody = {
-                    playerName: battleScope.playerName,
-                    outcome,
-                    opponentLevel: opponent.pet.level,
-                    reportKey: reportKey1v1,
-                    battleToken,
-                    inputLog,
-                };
-                beginPetSettlement({
-                    id: `casual:${battleToken}:${reportKey1v1}`,
-                    kind: "casual",
-                    label: "Pet Coliseum result",
-                    scope: battleScope,
-                    run: async () => {
-                        const data = await postPetBattleSettlement(settlementBody);
-                        if (!playerScopeIsActive(battleScope)) return false;
-                        const applied = applyPetBattleSettlement(data, battleScope, [battlePlayerPet.id]);
-                        if (applied && data.capped) {
-                            setBattleLog(["Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
-                        }
-                        return applied;
-                    },
-                });
-                if (pendingClanPetBattle) savePendingClanPetBattle(null);
-            };
-            setDuelBattle({
-                result: duel, live: liveDuel, onOutcome: (r) => settle1v1(r.result),
-                playerPet: battlePlayerPet, enemyPet: battleOpponentPet, seed: seed1v1, id: nextDuelId,
-            });
-            setBattleLog([]);
-            // A watch-only duel is already decided, so it settles immediately.
-            if (duel) settle1v1(duel.result);
-            return;
-        }
-
-        /*
-         * ── Player challenge, 1v1 or 2v2 ────────────────────────────────
+         * A challenge is now sealed against the challenge id when it is accepted
+         * (api/pet/_pvp-duel.ts): one seed, both rosters, one verdict. A
+         * wanderer duel is resolved at mint (api/pet/_wanderer-duel.ts) against a
+         * beast the SERVER picks from the caller's own saved level. Either way
+         * the call below returns the fight, and the outcome posted back is the
+         * server's own.
          *
-         * ALSO WATCHED, and for the same reason ranked is. This branch used to
-         * mint a token, take the seed that came back, and run the cinematic
-         * locally — while the server had already sealed its own verdict from
-         * that seed using a different engine. Worse, each participant minted a
-         * SEPARATE token with a SEPARATE random seed, so the challenger and the
-         * responder were rated on two unrelated fights and both could be told
-         * they had won.
-         *
-         * The duel is now sealed against the challenge when it is accepted
-         * (api/pet/_pvp-duel.ts): one seed, both rosters, one verdict. The call
-         * below returns that fight, and the outcome posted back is the server's
-         * own — which it re-derives from the seal at settlement rather than
-         * trusting this body.
+         * This is the last local fight on the screen, and it is gone: no
+         * `runPetDuelCinematic`, no `createLiveDuel`, no `PetColiseumDuel`.
          *
          * Consumables do not fire in a sealed duel (the fight is decided before
-         * either side settles, so a burned item could never be honestly
-         * charged), which is why nothing is cleared here.
+         * settlement, so a burned item could never be honestly charged), which
+         * is why nothing is cleared here.
          */
         const myPets = pvpParty ? opponent.challengerParty! : [opponent.selfPet ?? selectedPet];
         const theirPets = pvpParty ? opponent.opponentParty! : [opponent.pet];
@@ -1653,7 +1449,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setBattleOpponent(null);
         setBattleReady(false);
         setWatchedDuel(null);
-        setDuelBattle(null);
         setScreen(returnScreen);
     };
     const duelChronicleResultSupplement = chronicleProgress || chronicleCeremony ? (
@@ -1997,15 +1792,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             {/* THE BATTLEFIELD. Every duel this screen starts is a replay of a
                 fight the SERVER resolved — ranked from its match token, a player
-                challenge from the duel sealed when it was accepted. So there is
-                one renderer here rather than three, no onOutcome to honour (the
-                settlement already fired against the server's own verdict), and
-                no "fight again": a challenge is spent, and a rematch is a new
-                challenge. The HD-2D coliseum renderer and the continuous duel
-                player are both gone from this path. */}
-            {battleReady && selectedPet && battleOpponent && (watchedDuel || duelBattle) && (
+                challenge from the duel sealed when it was accepted, a sector
+                wanderer from the beast the server picked. So there is ONE renderer
+                here rather than three, no onOutcome to honour (the settlement
+                already fired against the server's own verdict), and no "fight
+                again": these fights are spent when they resolve. The HD-2D
+                coliseum renderer and the continuous duel player are both gone. */}
+            {battleReady && selectedPet && battleOpponent && watchedDuel && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
-                    {watchedDuel ? (
                     <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the arena…</div>}>
                         <PetShowdownReplay
                             key={watchedDuel.id}
@@ -2015,35 +1809,42 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             onExit={leaveCurrentPetBattle}
                         />
                     </Suspense>
-                    ) : duelBattle ? (
-                    // The wanderer duel: resolved locally, played by the
-                    // continuous-duel renderer. "Fight again" is offered here
-                    // because a roaming beast is a repeatable world encounter,
-                    // unlike a challenge, which is spent when it resolves.
-                    <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the arena…</div>}>
-                        <PetColiseumDuel
-                            key={duelBattle.id}
-                            playerPet={duelBattle.playerPet}
-                            enemyPet={duelBattle.enemyPet}
-                            seed={duelBattle.seed}
-                            result={duelBattle.result ?? undefined}
-                            live={duelBattle.live ?? undefined}
-                            onOutcome={duelBattle.onOutcome}
-                            sharedImages={sharedImages}
-                            onFightAgain={battleOpponent?.ranked || petSettlementBlocksExit || chronicleCeremony ? undefined : () => void startBattle(battleOpponent ?? undefined)}
-                            resultSupplement={duelChronicleResultSupplement}
-                            onExit={leaveCurrentPetBattle}
-                        />
-                    </Suspense>
-                    ) : null}
-                    {/* The Chronicle receipt used to ride inside the retired
-                        result overlay's `resultSupplement` slot, and the wanderer
-                        duel above still fills that slot. The replay player has no
-                        such slot, so for a watched duel a won card would be
-                        awarded invisibly — it renders under the arena instead.
-                        Guarded on `watchedDuel` so the two never both show it. */}
-                    {watchedDuel ? duelChronicleResultSupplement : null}
                 </div>
+            )}
+
+            {/* THE CHRONICLE RECEIPT, over the top of the arena.
+                It used to ride inside the retired result overlay's
+                `resultSupplement` slot. The replay player has no such slot AND it
+                portals itself fullscreen to document.body, so rendering the
+                receipt as an ordinary sibling would put a won card BEHIND the
+                battle — awarded invisibly, and gone the moment the player exits.
+                So it gets its own portal above it, at the z-index the rest of
+                this app's fullscreen overlays use.
+                Mobile reachability is the point of the inner box: it scrolls on
+                its own, honours the safe-area insets, and is width-capped and
+                centred so a 200%-zoom viewport can still reach the dismiss
+                control. */}
+            {watchedDuel && duelChronicleResultSupplement && createPortal(
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Pet Coliseum result"
+                    style={{
+                        position: "fixed", inset: 0, zIndex: 1000000,
+                        background: "rgba(4, 6, 12, 0.82)",
+                        display: "flex", alignItems: "flex-start", justifyContent: "center",
+                        overflowY: "auto", overscrollBehavior: "contain",
+                        paddingTop: "max(12px, env(safe-area-inset-top))",
+                        paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+                        paddingLeft: "max(12px, env(safe-area-inset-left))",
+                        paddingRight: "max(12px, env(safe-area-inset-right))",
+                    }}
+                >
+                    <div style={{ width: "min(620px, 100%)", margin: "auto", boxSizing: "border-box" }}>
+                        {duelChronicleResultSupplement}
+                    </div>
+                </div>,
+                document.body,
             )}
 
             <section className="summary-box pet-arena-log" role="log" aria-label="Pet battle log" aria-live="polite" aria-relevant="additions text">

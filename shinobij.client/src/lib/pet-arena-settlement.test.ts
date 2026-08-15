@@ -110,12 +110,17 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
     // are the same thing: a server-sealed duel this screen only watched.
     assert.match(arenaSource, /kind: isParty \? "party" : "casual"/);
     assert.match(arenaSource, /Retry Settlement/);
-    // A 2v2 no longer freezes an input log. `livePartyDuel` is gone: a party
-    // duel is resolved on the server when the challenge is accepted, so there
-    // are no local inputs to prove. The one duel this screen still resolves
-    // itself — the World Map's sector wanderer — still freezes its log.
+    // No duel this screen starts freezes an input log any more, because none of
+    // them is fought here: a challenge is resolved when it is accepted, a
+    // wanderer at mint, ranked at its token. An input log proves which buttons
+    // a LOCAL fight pressed, and there is no local fight left to prove.
     assert.doesNotMatch(arenaSource, /livePartyDuel/);
-    assert.match(arenaSource, /const inputLog = liveDuel\?\.inputLog\(\)/);
+    assert.doesNotMatch(arenaSource, /inputLog/);
+    // The legacy engine is gone from this screen entirely — the real guarantee
+    // behind all of the above.
+    for (const legacy of ["pet-duel-sim", "pet-duel-cinematic", "pet-duel-live"]) {
+        assert.doesNotMatch(arenaSource, new RegExp(legacy.replace(/-/g, "\\-")));
+    }
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /if \(petSettlementBlocksExit\)/);
 });
@@ -128,11 +133,12 @@ test("a rewarded Warfront keeps authoritative Witness progress and its final Chr
     assert.match(warfront, /\{resultSupplement \? \([\s\S]*\{resultSupplement\}/);
     assert.match(warfront, /disabled=\{resultActionsLocked\}/);
     assert.match(warfront, /disabled=\{settlementPending\}/);
-    // Fight Again is withheld while a result is still being recorded, and for
-    // the fights that cannot honestly be repeated. `battleOpponent?.hollowGate`
-    // used to lead this list; a sealed Gate duel no longer reaches this screen
-    // at all (it runs run-bound on the shrine), so the term went with it.
-    assert.match(arenaSource, /onFightAgain=\{battleOpponent\?\.ranked \|\| petSettlementBlocksExit \|\| chronicleCeremony \? undefined/);
+    // Fight Again survives only on the WARFRONT result screen, which is what
+    // this test is about. The duel screen no longer offers it at all: every
+    // fight it starts is spent when it resolves (a challenge is consumed, a
+    // ranked pairing is consumed, a wanderer is cooled down on the World Map),
+    // and the replay player it now renders has no such control to withhold.
+    assert.doesNotMatch(arenaSource, /onFightAgain/);
 });
 
 test("rewarded Warfronts render and settle only the server-minted seed", () => {
