@@ -4,7 +4,7 @@ import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";
 import { ClanWarManual } from "../components/ClanWarManual";
-import { CW_DAMAGE, CW_HP_MAX, CW_MODE_ICON, CW_MODE_LABEL } from "../constants/clan";
+import { CW_ADMITTED_CHALLENGE_MODES, CW_DAMAGE, CW_HP_MAX, CW_MODE_ICON, CW_MODE_LABEL } from "../constants/clan";
 import { cwChallengeAction, cwDeclareWar, cwListWars, type CwChallenge, type CwChallengeMode, type CwChallengeResult, type CwWar } from "../lib/clan-war-api";
 import { gameConfirm } from "../components/GameAlert";
 import { fetchClanData } from "../lib/clan-api";
@@ -279,27 +279,30 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                             </span>
                         </div>
                         <p style={{ fontSize: "0.78rem", color: "var(--text-dim)", margin: "4px 0 8px" }}>
-                            {composeMode === "pvp2v2" || composeMode === "pet2v2"
+                            {composeMode === "pet2v2"
                                 ? `2v2 modes open a send queue — a clanmate has to join from Your Queued Challenges below before ${enemyClan} sees it.`
                                 : `${enemyClan} will see your clan but not the specific challenger until they accept. Challenges expire in 1h — ignored ones cost the defender ${5} HP.`}
                         </p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
-                                {/* All five modes are picker-eligible. Cards uses a
-                                    server-managed Chronicle Showdown; both clients are
-                                    auto-pulled into ClanWarTileCardDuel on accept. */}
-                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).map(m => (
+                                {/* Only modes with an authoritative combat lifecycle
+                                    are picker-eligible. Cards uses a server-managed
+                                    Chronicle Showdown; both clients are pulled in. */}
+                                {CW_ADMITTED_CHALLENGE_MODES.map(m => (
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
                                 ))}
                             </select>
                             <button onClick={handleSend} disabled={busy || atSlotCap} style={{ padding: "0.4rem 0.8rem", background: atSlotCap ? "#1f2937" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: atSlotCap ? "var(--slate-600)" : "var(--red-400)" }}>
-                                {busy ? "Sending…" : atSlotCap ? "Slot cap reached" : (composeMode === "pvp2v2" || composeMode === "pet2v2") ? "Open 2v2 Queue" : "Send Challenge"}
+                                {busy ? "Sending…" : atSlotCap ? "Slot cap reached" : composeMode === "pet2v2" ? "Open 2v2 Queue" : "Send Challenge"}
                             </button>
                         </div>
+                        <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", margin: "6px 0 0" }}>
+                            Shinobi 2v2 is unavailable until one server-owned four-player PvP lifecycle can settle the whole challenge.
+                        </p>
                         {atSlotCap && (
                             <p style={{ fontSize: "0.78rem", color: "var(--red-400)", marginTop: 6 }}>You're at the {CW_MAX_PER_PLAYER}-slot cap. Cancel one of your active challenges or wait for them to resolve / expire.</p>
                         )}
-                        {!atSlotCap && myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
+                        {!atSlotCap && myClanmates.length === 0 && composeMode === "pet2v2" && (
                             <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You can still open a queue but no clanmates are online to fill the partner slot yet.</p>
                         )}
                     </div>
@@ -323,11 +326,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                 {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
                                                 <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
                                             </strong>
-                                            {!isSeed && (
+                                            {!isSeed && ch.mode !== "pvp2v2" && (
                                                 <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🤝 Join as Partner
                                                 </button>
                                             )}
+                                            {ch.mode === "pvp2v2" && <span className="hint">Unavailable; cancel or let this retained queue expire.</span>}
                                             {isSeed && (
                                                 <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
                                                     ✕ Cancel Queue
@@ -369,12 +373,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             {!isTwoV && !meQueued && (
                                                 <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)" }}>Accept</button>
                                             )}
-                                            {isTwoV && !meQueued && !ch.acceptedPlayer && (
+                                            {isTwoV && ch.mode !== "pvp2v2" && !meQueued && !ch.acceptedPlayer && (
                                                 <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🪑 Queue to Accept (1st)
                                                 </button>
                                             )}
-                                            {isTwoV && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
+                                            {isTwoV && ch.mode !== "pvp2v2" && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
                                                 <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🤝 Join Accept Queue (2nd)
                                                 </button>
@@ -384,6 +388,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                     ✕ Leave Accept Queue
                                                 </button>
                                             )}
+                                            {ch.mode === "pvp2v2" && <span className="hint">Unavailable; decline or leave this retained queue.</span>}
                                             {!meQueued && (
                                                 <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
                                                     Decline (clan)
@@ -477,9 +482,11 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                     {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
                                                     <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
                                                 </strong>
-                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "var(--slate-900)", borderColor: "var(--slate-600)", color: "var(--text-dim)", fontSize: "0.78rem" }}>
-                                                    ↻ Re-launch
-                                                </button>
+                                                {ch.mode === "pvp2v2"
+                                                    ? <span className="hint">No four-player combat authority; this retained record cannot launch.</span>
+                                                    : <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "var(--slate-900)", borderColor: "var(--slate-600)", color: "var(--text-dim)", fontSize: "0.78rem" }}>
+                                                        ↻ Re-launch
+                                                    </button>}
                                             </div>
                                             {hasTentative && (
                                                 <div style={{ background: "#0f1a2a", border: "1px solid var(--blue-400)", borderRadius: 4, padding: "0.4rem 0.6rem", marginBottom: 6, fontSize: "0.82rem" }}>

@@ -3,6 +3,7 @@ import { kv } from '../../_storage.js';
 import { cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
+import { clanWarChallengeAdmissionError } from './_challenge-admission.js';
 import { withKvLock } from '../../_lock.js';
 import {
     applyLazyClanWarExpiry,
@@ -19,8 +20,8 @@ import {
 
 // POST /api/clan/war/challenge
 // Body shapes:
-//   { action: 'send',         warId, mode }          — 1v1 creates 'pending'; 2v2 creates 'queuing'
-//   { action: 'join-send',    warId, challengeId }   — 2v2 only: 2nd challenger joins → flips to 'pending'
+//   { action: 'send',         warId, mode }          — 1v1 creates 'pending'; pet 2v2 creates 'queuing'
+//   { action: 'join-send',    warId, challengeId }   — pet 2v2 only: 2nd challenger joins → flips to 'pending'
 //   { action: 'leave-send',   warId, challengeId }   — 2v2 only: leave the send queue
 //   { action: 'accept',       warId, challengeId }   — 1v1 → 'accepted'; 2v2 → adds 1st defender, stays 'pending'
 //   { action: 'join-accept',  warId, challengeId }   — 2v2 only: 2nd defender joins → flips to 'accepted'
@@ -84,6 +85,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 return { status: 409 as const, body: { error: 'War has ended.', war } };
             }
+
+            const requestedChallengeMode = action === 'send'
+                ? String(body?.mode ?? '')
+                : war.pendingChallenges.find((candidate) => candidate.id === String(body?.challengeId ?? ''))?.mode;
+            const admissionError = clanWarChallengeAdmissionError(action, requestedChallengeMode);
+            if (admissionError) return { status: 410 as const, body: { error: admissionError } };
 
             // ── send ──────────────────────────────────────────────────
             if (action === 'send') {
