@@ -30,3 +30,32 @@ test('weekly boss payout receipt is committed with and gates the reward', () => 
     assert.equal(replay.character.unspentStats, 10);
     assert.deepEqual(replay.character.inventory, ['weekly-boss-core', 'dungeon-key']);
 });
+
+test('replacement spawns preserve the once-per-week payout cap', () => {
+    const reward = { name: 'repeat-contributor', ryo: 500, gotCore: true, gotKey: true };
+    const base = {
+        level: 1,
+        unspentStats: 0,
+        spentStats: {},
+        examsPassed: [],
+        ryo: 100,
+        inventory: [],
+        maxHp: 100,
+        maxChakra: 100,
+        maxStamina: 100,
+        hp: 10,
+        chakra: 10,
+        stamina: 10,
+    };
+    const spawnA = applyWeeklyBossReward(base, '2026-W32', 'boss-ai', reward, 1_000);
+    const replayA = applyWeeklyBossReward(spawnA.character, '2026-W32', 'boss-ai', reward, 2_000);
+    const replacementSpawn = applyWeeklyBossReward(replayA.character, '2026-W32', 'replacement-boss-ai', reward, 3_000);
+
+    assert.equal(spawnA.alreadyApplied, false);
+    assert.equal(replayA.alreadyApplied, true);
+    assert.equal(replacementSpawn.alreadyApplied, true, 'staff replacement cannot create a second weekly reward authority');
+    assert.equal(replacementSpawn.character.ryo, 600);
+    assert.equal(replacementSpawn.character.unspentStats, 10);
+    assert.deepEqual(replacementSpawn.character.inventory, ['weekly-boss-core', 'dungeon-key']);
+    assert.equal((replacementSpawn.character.serverSettlementReceipts as unknown[]).length, 1);
+});
