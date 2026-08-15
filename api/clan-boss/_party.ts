@@ -113,10 +113,6 @@ export async function listRegisteredPartyIds(input: {
     return pageIds(ids, input.cursor ?? null, limit);
 }
 
-export function clanBossPartiesEnabled(): boolean {
-    return process.env.DISABLE_CLAN_BOSS_PARTIES !== '1';
-}
-
 function isOpenStatus(status: ClanBossParty['status']): boolean {
     return status === 'forming' || status === 'queued';
 }

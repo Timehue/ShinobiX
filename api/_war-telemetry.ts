@@ -15,8 +15,8 @@ import { withTelemetryLock } from './_telemetry-lock.js';
 // hiccup NEVER fails the real war-economy write (every public fn swallows + logs
 // its own errors). Meant to be called from inside the writer's existing
 // withKvLock(...) right where the server computes the amount, so the logged
-// number is server-authored — never a client figure. Inert until the war feature
-// is enabled (the writers only run when ENABLE_VILLAGE_WAR=1).
+// number is server-authored — never a client figure. Its writers run only while
+// the default-on Sector Map campaign is available.
 //
 // Two stores (mirroring _economy.ts):
 //   war:eco:txns        — capped recent list (newest-first) for drill-down

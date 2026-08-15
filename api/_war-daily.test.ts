@@ -117,7 +117,7 @@ const passthroughLock = <T>(_k: string, fn: () => Promise<T>) => fn();
 const noSweep = async (): Promise<unknown[]> => [];
 
 describe('runVillageWarDailyPass (orchestration)', () => {
-    it('no-ops when disabled (default OFF)', async () => {
+    it('no-ops when explicitly disabled', async () => {
         const store = memStore();
         const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: false });
         assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0 });

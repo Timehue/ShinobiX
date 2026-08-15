@@ -16,6 +16,7 @@ import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-str
 import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
 import { sealTowerFighter } from '../towers/_seal.js';
 import { resolveMercBattle } from '../towers/_merc-fighters.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 import {
     sectorWarId,
     sectorWarKey,
@@ -74,7 +75,7 @@ import { pvpSessionMayReward } from '../pvp/session.js';
  *   - status  : read-only — the owner + active contest for a sector (or all contests).
  *   - seed    : admin — one-time idempotent seed of home-sector ownership (Phase 4d).
  *
- * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). Combat
+ * Server-gated: 404 when the default-on Sector Map campaign is disabled. Combat
  * battles run here (attack/resolve); Card battles run via /village/sector-card and
  * Pet duels via /village/sector-pet — all three settle the same contest Control HP
  * server-authoritatively. A client-claimed result never flips territory.
@@ -150,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;

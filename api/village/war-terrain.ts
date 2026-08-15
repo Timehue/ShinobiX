@@ -15,13 +15,14 @@ import {
     type TerrainRole,
     type Terrain,
 } from '../_war-state.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 /*
  * /api/village/war-terrain — POST only
  *
  * Set a home sector's terrain (the +10% jutsu-school defender buff, §17.3). The
  * seated Kage may set 3 sectors, each ANBU elder 1 (quota in canSetTerrain).
- * Admin acts as Kage. Server-gated: 404 unless ENABLE_VILLAGE_WAR=1.
+ * Admin acts as Kage. Server-gated by the default-on Sector Map campaign switch.
  * Body: { playerName, village, sector, terrain }.
  */
 
@@ -34,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;

@@ -6,7 +6,7 @@
  * without the Kage hand-deploying each one. All resolution is server-authoritative
  * (resolveMercBattle via the towers engine) — the same path the manual deploy uses.
  *
- * Server-gated: a no-op unless ENABLE_VILLAGE_WAR=1. Shares the deployOneMerc core
+ * Server-gated by the default-on Sector Map campaign. Shares the deployOneMerc core
  * with /api/village/war-merc so the two never drift.
  */
 import { kv } from './_storage.js';
@@ -26,6 +26,7 @@ import { claimMercFromBand } from './_war-merc.js';
 import { isMercTargetOnCooldown, setMercTargetCooldown, pickMercTarget, type RoamTarget } from './_merc-roam.js';
 import { wrMercTierById } from './_war-economy.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
+import { villageWarMapEnabled } from './_release-flags.js';
 import { onlineStore } from './_realtime/online-store.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 
@@ -236,9 +237,9 @@ async function liveMercTargets(names: readonly string[], enemyVillage: string, n
  *  the pick order). Village wars: each side's band hunts the lowest-HP enemy player
  *  ANYWHERE (the mercs "go where the enemy players are"). One merc per siege /
  *  per war-side per tick, so bands deplete organically; the 15-min per-target
- *  cooldown stops them spamming one player. No-op unless ENABLE_VILLAGE_WAR=1. */
+ *  cooldown stops them spamming one player. No-op when the campaign is disabled. */
 export async function runMercAutoDeploy(deps: AutoDeps = {}): Promise<MercAutoResult> {
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return { enabled: false, deployed: 0 };
+    if (!villageWarMapEnabled()) return { enabled: false, deployed: 0 };
     const now = deps.now ?? Date.now();
     const listContests = deps.listContests ?? listActiveSectorWars;
     const listVillageWars = deps.listVillageWars ?? listActiveVillageWars;

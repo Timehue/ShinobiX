@@ -9,6 +9,7 @@ import { isVillageKageSeated } from '../_war-tax-apply.js';
 import { villageWarMapView, type VillageWarMapView } from '../_war-map-view.js';
 import { listActiveSectorWars } from '../_sector-war-store.js';
 import { projectSectorWarForClient } from '../_sector-war.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 /*
  * /api/village/war-map — GET only. The read-only War-Map aggregator (Phase 6).
@@ -21,7 +22,7 @@ import { projectSectorWarForClient } from '../_sector-war.js';
  * Control-HP cap, plus every active sector-war contest. View-only — all actions
  * call the dedicated server-auth endpoints.
  *
- * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1. Requires a logged-in player.
+ * Server-gated by the default-on Sector Map campaign switch. Requires a logged-in player.
  */
 
 const TERRITORY_KEY_PREFIX = 'world:territory:';
@@ -31,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });

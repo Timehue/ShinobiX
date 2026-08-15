@@ -6,10 +6,8 @@
  * expire merc leases, stamp the day. Idempotent (the pure step no-ops on a re-run
  * the same day), so a double-fire is harmless.
  *
- * SERVER-GATED, default OFF: returns immediately unless ENABLE_VILLAGE_WAR=1.
- * (Feature flags are client-side; a cron pass needs a server-side gate, mirroring
- * the DISABLE_SNAPSHOT_CRON convention.) Nothing player-visible runs until that
- * env is set on the single always-on instance.
+ * SERVER-GATED and default on. The canonical Sector Map kill switch makes the
+ * pass a no-op without changing legacy War Hall behavior.
  *
  * The pure math lives in stepVillageWarDay (api/_war-state.ts); this is the thin
  * IO wrapper. Underscore-prefixed → a helper, not a route.
@@ -32,6 +30,7 @@ import { resetPerWarStructures, wrPerSector } from './_war-structures.js';
 import { activeVillageWarEnemiesOf } from './world-state.js';
 import { listActiveSectorWars } from './_sector-war-store.js';
 import { settleDueSectorWars } from './_sector-war-settle.js';
+import { villageWarMapEnabled } from './_release-flags.js';
 
 /** The existing village-treasury key (seal accrual target). Same slug as the
  *  war-state key and api/village/claim-daily-agenda.ts. */
@@ -91,7 +90,7 @@ export async function runVillageWarDailyPass(
         sweepSectorWars?: (now: number) => Promise<unknown[]>;
     } = {},
 ): Promise<VillageWarDailyResult> {
-    const enabled = deps.enabled ?? (process.env.ENABLE_VILLAGE_WAR === '1');
+    const enabled = deps.enabled ?? villageWarMapEnabled();
     if (!enabled) return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0 };
 
     const store: WarStore = deps.store ?? kv;

@@ -2,13 +2,21 @@
 
 Verified against commit d8948a311680b92a2a672ae0a0b35714e73e8b4f on 2026-08-14. This is a static call-path audit of the mounted client and server code. It records what is live in this revision, not what a design document or unmounted migration module says should be live.
 
+> [!NOTE]
+> This is a cited Phase-0 audit snapshot. Current executable mode, owner, route,
+> caller, and status truth lives in
+> [`shared/runtime-mode-registry.ts`](../../shared/runtime-mode-registry.ts) and
+> its [generated projection](../generated/runtime-mode-registry.md). This report
+> remains the detailed evidence behind that registry.
+
 ## Authority rules used for the audit
 
 - PvP owns casual shinobi PvP, direct challenges, ranked shinobi PvP, and human-versus-human Sector War shinobi combat.
 - Solo PvE owns normal shinobi-versus-AI combat: generic AI, World AI, ordinary AI raids, missions, story bosses, Academy sparring, Dungeon Warden, Weekly Boss, Endless, and Hollow Gate shinobi combat.
-- Tower owns Battle Towers, Tower parties, Endless Spire, Clan Boss, and Tower PvP.
+- Tower owns Battle Towers, Tower parties, Endless Spire, Clan Boss, and Tower PvP. The declared village-war mercenary battle is a valid headless Tower use; the Sector War garrison fallback is a recorded wrong-owner defect, not another Tower-owned mode.
 - Pet Showdown/Coliseum is the turn-based pet owner. Pet Warfront/Tactical is the positional pet family. Warfront and Tactical remain explicit game-mode surfaces even when they reuse that positional engine family; neither may be merged with or silently substituted for Showdown.
 - Pet Gauntlet is a separate deterministic grid auto-battler and run-state machine, not an alias for Showdown or Warfront.
+- Ordinary Pet Arena AI uses the cinematic duel authority. The legacy pet duel and client-local pet duel remain separately named compatibility/defect paths; neither is a generic Pet owner or a substitute for Showdown, Warfront, Gauntlet, or cinematic authority.
 - Chronicle/Card Clash is a separate combat family.
 - Sector War dispatches to the correct combat owner and owns only shared territory admission and settlement.
 - A rewarding authored encounter must have a server-owned encounter, enemy, outcome, proof, and idempotent settlement. A client outcome, client-selected enemy, or presentation replay is not proof.
@@ -19,13 +27,33 @@ Match status meanings:
 - **MATCH / LIMITED RECORD** — owner is correct, but only an expiring session/run record exists; there is no durable player-facing battle replay endpoint.
 - **HEADLESS** — the server resolves a declared orchestration battle from sealed snapshots without an active fight client; it is not an interactive-mode substitute.
 - **STAGED MISMATCH** — a replacement owner exists in code but the mounted public route still uses another runtime.
-- **OWNER DECISION** — the mounted route is server-authoritative, but the corrected boundary does not unambiguously select between the two pet families or the UI aliases two named modes.
+- **OWNER DECISION** — the mounted route is server-authoritative, but two distinct implementations remain and the corrected boundary does not yet select the cutover owner.
 - **SURFACE GAP** — a named product mode is admitted or required, but its independently mounted lifecycle is absent. Sharing its intended engine family does not erase the missing surface.
 - **DEFECT** — the mounted route violates an explicit owner or server-authority rule.
 
+### Current-registry reconciliation
+
+The detailed tables below remain evidence from the named Phase-0 revision. The
+[generated runtime-mode registry](../generated/runtime-mode-registry.md) has
+precedence for current row status and adds distinctions that this snapshot did
+not originally enumerate:
+
+- ordinary Pet Arena AI 1v1/2v2 uses `pet-cinematic-duel`;
+- ordinary Pet Arena PvP 1v1/2v2 uses `legacy-pet-duel` while the client presents
+  the cinematic duel, so both rows are defects;
+- Pet Ranked remains a staged `legacy-pet-duel` to `pet-showdown` mismatch;
+- Hollow Gate pet is mounted on `legacy-pet-duel` while a Showdown-capable branch
+  also exists, leaving an explicit owner-decision/dual-path mismatch; and
+- Dungeon pet remains `client-local-pet-duel` and lacks authoritative encounter
+  and terminal proof for its rewarding parent settlement.
+
+Those rows must never be collapsed into a single `pet` authority. Showdown,
+Warfront, Gauntlet, cinematic, legacy, and client-local engines remain separate
+even when one client shell presents several of them.
+
 ## Mounted route families
 
-The route registry is the first source of truth. It mounts PvP at <code>server.ts:1044-1046,1379-1390</code>, Tower at <code>server.ts:1123-1137</code>, Sector War at <code>server.ts:1173-1185</code>, ANBU Infiltration and war mercenaries at <code>server.ts:1190,1211</code>, Clan War at <code>server.ts:1240-1248</code>, Card Clash at <code>server.ts:1250-1254</code>, Clan Boss and Hollow Gate at <code>server.ts:1283-1306</code>, Solo/mission AI at <code>server.ts:1320-1339</code>, pet combat plus Gauntlet and co-op Tactical at <code>server.ts:1392-1407</code>, Weekly Boss at <code>server.ts:1419-1420</code>, and dungeon/endless/story at <code>server.ts:1449-1451,1472-1474</code>.
+For this static audit, the mounted server route registry establishes call-path evidence. It mounts PvP at <code>server.ts:1044-1046,1379-1390</code>, Tower at <code>server.ts:1123-1137</code>, Sector War at <code>server.ts:1173-1185</code>, ANBU Infiltration and war mercenaries at <code>server.ts:1190,1211</code>, Clan War at <code>server.ts:1240-1248</code>, Card Clash at <code>server.ts:1250-1254</code>, Clan Boss and Hollow Gate at <code>server.ts:1283-1306</code>, Solo/mission AI at <code>server.ts:1320-1339</code>, pet combat plus Gauntlet and co-op Tactical at <code>server.ts:1392-1407</code>, Weekly Boss at <code>server.ts:1419-1420</code>, and dungeon/endless/story at <code>server.ts:1449-1451,1472-1474</code>.
 
 ### Shinobi PvP
 
@@ -119,11 +147,10 @@ Clan War admission accepts <code>pvp1v1</code>, <code>pvp2v2</code>, <code>pet1v
 5. **Standalone Tactical Arena is not independently mounted.** The owner rule keeps Tactical and Warfront as distinct product modes while permitting both to use the same positional engine family; it only forbids merging either with Showdown. The current solo UI aliases Tactical to Warfront, so Tactical's own lifecycle/reward/replay contract is a surface gap. Co-op Tactical is separately mounted at <code>/arena/lobby</code>, but it is a zero-reward input-sealing preview and does not close the standalone gap.
 6. **Dungeon Card is server-controlled but weakly bound to the final dungeon grant.** <code>CardClashDuel</code> uses server Chronicle actions, but <code>/dungeon/run {settle}</code> does not consume a Card terminal proof. This should be closed when dungeon encounter proof is unified, even though the current card UI itself is not client-resolved.
 
-## Stale or incomplete architecture sources
+## Remaining stale or incomplete architecture sources
 
-- <code>docs/architecture/combat-runtime-inventory.md:43</code> collapses Pet Arena, Coliseum, and tactical pet into one generic Pet row. It does not enumerate Showdown versus Warfront, Pet Ladder variants, Tower PvP, Sector War dispatch modes, or the settlement/replay distinctions above.
-- <code>scripts/combat-runtime-inventory.mjs:69</code> encodes the same generic pet bucket. Its generated/machine-guarded result is therefore not an owner-complete inventory.
-- <code>docs/architecture/combat-runtime-boundaries.md:25-30</code> has only a generic <code>pet</code> boundary and cannot adjudicate Showdown versus positional Warfront.
+- <code>docs/architecture/combat-runtime-inventory.md</code> and <code>docs/architecture/combat-runtime-boundaries.md</code> now preserve the distinct Showdown, Warfront, Gauntlet, cinematic, legacy, and client-local boundaries and defer current row truth to the executable registry. They are authored cutover/boundary narratives, not competing current inventories.
+- <code>scripts/combat-runtime-inventory.mjs</code> is now a deterministic flat audit projection from the executable registry; the former compatibility export is retired and the projection must not be treated as an independent current authority.
 - <code>COMBAT_PARITY_AUDIT.md:183-190</code> says missions, Weekly Boss, and Hollow Gate are client-resolved and recommends moving them to Tower. The mounted code now routes those shinobi fights through Solo; both the diagnosis and proposed owner are stale.
 - <code>server.ts:1186-1189</code> comments that ANBU/arena challenge wiring uses Battle Towers, while the actual AI-fight handler creates Solo sessions.
 - <code>shinobij.client/src/App.tsx:5724-5725</code> comments that story bosses are Tower sessions, while <code>/story/boss-start</code> creates Solo.

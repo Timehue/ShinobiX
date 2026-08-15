@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const snapshot = await readEconomySnapshot(limit);
     const economyTx = await readEconomyTxSnapshot(limit);
     // Village-War economy telemetry (Phase 8) — per-village WR/seal faucet-vs-sink,
-    // tax split, maintenance, dormancy. Empty until ENABLE_VILLAGE_WAR is on.
+    // tax split, maintenance, dormancy. Empty until the campaign has activity.
     const war = await readWarEcoSnapshot(WAR_VILLAGES, limit);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ ok: true, ...snapshot, economyTx, war });

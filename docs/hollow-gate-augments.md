@@ -2,11 +2,23 @@
 
 Status: shipped and mandatory for browser gameplay.
 
+Current combat-owner and mounted-route status is governed by
+[`shared/runtime-mode-registry.ts`](../shared/runtime-mode-registry.ts) and its
+[generated projection](generated/runtime-mode-registry.md).
+
 Hollow Gate uses three independent authorities:
 
 - Shinobi combat: the normal `solo-pve` runtime.
-- Hollow Hound pet duels: the pet runtime and its server result receipt.
-- Dungeon/run state: the run token under `hg-run:<player>:<token>`.
+- Hollow Hound pet duels: the mounted `legacy-pet-duel` path and its run-bound
+  server result receipt. A separate Showdown-capable Hollow Gate branch exists
+  but is not the mounted caller, so the cutover owner remains unresolved.
+- Hollow Gate expedition state: the run token under
+  `hg-run:<player>:<token>`.
+
+Hollow Gate does not merge that legacy path with Showdown/Coliseum, positional
+Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic duels, or the
+client-local Dungeon pet path. Those remain distinct authorities or recorded
+compatibility/defect paths.
 
 There is no rewarding local fallback. A run without a live server token cannot
 start combat, resolve an economy event, or settle.

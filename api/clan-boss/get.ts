@@ -9,16 +9,17 @@ import {
     type ClanBossProgress,
 } from './_storage.js';
 import { loadSectorState } from './_sector-state.js';
+import { clanBossEnabled } from '../_release-flags.js';
 
 /*
  * GET /api/clan-boss/get?player=<name> — the current weekly clan-boss event: the
  * boss, the caller's clan progress (shared pool + their attempts left), and the
- * live cross-clan standings. Read-only. 404 unless ENABLE_CLAN_BOSS==='1'.
+ * live cross-clan standings. Read-only. 404 when Clan Boss is disabled.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (process.env.ENABLE_CLAN_BOSS !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!clanBossEnabled()) return res.status(404).json({ error: 'Not found.' });
     if (req.method !== 'GET') return res.status(405).end();
     try {
         const playerName = safeName(String(req.query.player ?? ''));

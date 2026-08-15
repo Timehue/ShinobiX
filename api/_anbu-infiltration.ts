@@ -15,9 +15,9 @@
  * in — War Supply cache → CLAN at 2:1, War Resource cache → VILLAGE at 1:1
  * (type-locked; docs plan §8, decision B).
  *
- * EVERYTHING HERE IS PROPOSED AND PENDING BALANCE SIGN-OFF. The feature ships
- * behind `anbuInfiltration.v1` (OFF) + `ENABLE_VILLAGE_WAR`, so these numbers can
- * never touch live players until the balance pass flips the flag.
+ * These balance constants are server-owned and independently protected by the
+ * default-on ANBU Infiltration kill switch; the Sector Map campaign switch does
+ * not control this activity.
  */
 
 // ── Balance knobs (all pending sign-off) ─────────────────────────────────────

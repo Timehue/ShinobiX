@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { PUBLIC_CAPABILITY_IDS } from '../../shared/public-capabilities.js';
 import { publicCapabilities } from './_public-capabilities.js';
 import handler from './capabilities.js';
 
@@ -21,8 +22,11 @@ function callHandler(method: string, ip: string) {
 describe('public capability projection', () => {
     it('reports repository defaults without revealing configuration names or values', () => {
         const capabilities = publicCapabilities({});
+        assert.equal(Object.isFrozen(PUBLIC_CAPABILITY_IDS), true);
+        assert.deepEqual(Object.keys(capabilities), [...PUBLIC_CAPABILITY_IDS]);
         assert.equal(capabilities.gameplay.state, 'available');
         assert.equal(capabilities.villageWar.state, 'available');
+        assert.equal(capabilities.anbuInfiltration.state, 'available');
         assert.equal(capabilities.clanBoss.state, 'available');
         assert.equal(capabilities.clanBossParties.state, 'available');
         assert.equal(capabilities.legacy.reason, 'configuration-unavailable');
@@ -38,6 +42,7 @@ describe('public capability projection', () => {
             FREEZE_ECONOMY_REWARDS: '1',
             DISABLE_NEW_REGISTRATIONS: '1',
             DISABLE_VILLAGE_WAR: '1',
+            DISABLE_ANBU_INFILTRATION: '1',
             DISABLE_CLAN_BOSS: '1',
             DISABLE_PET_BREEDING_STARTS: '1',
             DISABLE_WEEKLY_BOSS_GUARD: '1',
@@ -47,11 +52,27 @@ describe('public capability projection', () => {
         assert.equal(capabilities.gameplay.reason, 'maintenance');
         assert.equal(capabilities.gameplayMutations.reason, 'maintenance');
         assert.equal(capabilities.villageWar.reason, 'temporarily-disabled');
+        assert.equal(capabilities.anbuInfiltration.reason, 'temporarily-disabled');
+        assert.equal(capabilities.clanBoss.reason, 'temporarily-disabled');
         assert.equal(capabilities.clanBossParties.reason, 'temporarily-disabled');
         assert.equal(capabilities.legacy.state, 'available');
         assert.equal(capabilities.petBreedingStarts.reason, 'temporarily-disabled');
         assert.equal(capabilities.weeklyBossGuardCycle.reason, 'temporarily-disabled');
         assert.doesNotMatch(JSON.stringify(capabilities), /postgres|secret/);
+    });
+
+    it('keeps nested and independent capabilities aligned with canonical server gates', () => {
+        const partyOnly = publicCapabilities({ DISABLE_CLAN_BOSS_PARTIES: '1' });
+        assert.equal(partyOnly.clanBoss.state, 'available');
+        assert.equal(partyOnly.clanBossParties.state, 'temporarily-unavailable');
+
+        const coreOff = publicCapabilities({ DISABLE_CLAN_BOSS: '1', DISABLE_CLAN_BOSS_PARTIES: '0' });
+        assert.equal(coreOff.clanBoss.state, 'temporarily-unavailable');
+        assert.equal(coreOff.clanBossParties.state, 'temporarily-unavailable');
+
+        const independent = publicCapabilities({ DISABLE_VILLAGE_WAR: '1' });
+        assert.equal(independent.villageWar.state, 'temporarily-unavailable');
+        assert.equal(independent.anbuInfiltration.state, 'available');
     });
 
     it('distinguishes an economy pause from general maintenance', () => {
@@ -75,7 +96,7 @@ describe('public capability projection', () => {
     });
 
     it('enforces the public endpoint request budget', () => {
-        for (let request = 0; request < 120; request += 1) {
+        for (let request = 0; request < 600; request += 1) {
             assert.equal(callHandler('GET', '198.51.100.83').statusCode, 200);
         }
         assert.equal(callHandler('GET', '198.51.100.83').statusCode, 429);

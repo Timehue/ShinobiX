@@ -13,6 +13,7 @@ import {
     WIN_CONDITIONS,
     type WinCondition,
 } from '../_war-state.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 /*
  * /api/village/war-win-condition — POST only
@@ -22,7 +23,7 @@ import {
  * canAssignWinCondition. Pet is rejected until its server-authoritative sim is
  * wired (Phase 7) — a client-claimed pet result must never flip territory.
  *
- * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch).
+ * Server-gated: 404 when the default-on Sector Map campaign is disabled.
  * Body: { playerName, village, sector, winCondition }.
  */
 
@@ -34,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
