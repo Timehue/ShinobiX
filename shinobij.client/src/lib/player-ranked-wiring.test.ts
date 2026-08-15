@@ -25,17 +25,21 @@ describe('player-ranked queue to session wiring', () => {
         assert.match(challenge, /\.\.\.\(mode === "ranked" \? rankedAuthority : \{\}\)/);
     });
 
-    it('fails closed and includes the exact authority in both session-create paths', () => {
-        const arenaAccept = functionSlice(source('../screens/Arena.tsx'), 'acceptChallenge');
-        const appAccept = functionSlice(source('../App.tsx'), 'acceptChallengeGlobal');
-        for (const body of [arenaAccept, appAccept]) {
-            const validate = body.indexOf('playerRankedAuthorityFromChallenge(challenge)');
-            const failClosed = body.indexOf('challenge.mode === "ranked" && !rankedAuthority', validate);
-            const payload = body.indexOf('...(rankedAuthority ?? {})', failClosed);
-            const request = body.indexOf("fetch('/api/pvp/session'", failClosed);
-            assert.ok(validate >= 0 && failClosed > validate, 'ranked challenge authority must be revalidated');
-            assert.ok(request > failClosed && payload > request, 'session payload must include authority after the fail-closed guard');
-        }
+    it('delegates one fail-closed session-create path to App', () => {
+        const arena = source('../screens/Arena.tsx');
+        const app = source('../App.tsx');
+        const appAccept = functionSlice(app, 'acceptChallengeGlobal');
+        const validate = appAccept.indexOf('playerRankedAuthorityFromChallenge(challenge)');
+        const failClosed = appAccept.indexOf('challenge.mode === "ranked" && !rankedAuthority', validate);
+        const payload = appAccept.indexOf('...(rankedAuthority ?? {})', failClosed);
+        const request = appAccept.indexOf("fetch('/api/pvp/session'", failClosed);
+        assert.ok(validate >= 0 && failClosed > validate, 'ranked challenge authority must be revalidated');
+        assert.ok(request > failClosed && payload > request, 'session payload must include authority after the fail-closed guard');
+
+        assert.match(app, /onAcceptChallenge=\{\(challenge\) => \{ void acceptChallengeGlobal\(challenge\); \}\}/);
+        assert.match(arena, /if \(challenge\.mode !== "clanWarPet"\) \{\s*onAcceptChallenge\(challenge\);\s*return;/);
+        assert.match(arena, /onAcceptChallenge=\{onAcceptChallenge\}/);
+        assert.doesNotMatch(arena, /function acceptChallenge\(/);
     });
 
     it('scopes the crash-recovery PvP breadcrumb to the active account', () => {

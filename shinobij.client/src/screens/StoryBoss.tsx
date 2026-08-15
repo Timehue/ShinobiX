@@ -169,10 +169,10 @@ function StoryHallContent({
 }
 
 type SavedStoryBoss = { savedAt: number; storyProgress: number; bossHp: number; playerHp: number; ap: number; turn: number; summonedPetId: string; log: string };
-// Headless persister for the story-boss fight (isolated hooks, like
-// ArenaBattlePersister). Serializes the in-progress fight to localStorage on each
-// HP/turn change and rehydrates it on mount so a refresh resumes the same fight
-// at the same boss/player HP instead of letting the player flee to heal and retry.
+// Headless persister owned only by this legacy StoryBoss mini-game. It serializes
+// each HP/turn change and rehydrates the matching story snapshot on mount. The
+// Arena lobby has no local combat persister; sealed story encounters use their
+// server session hosts instead.
 function StoryBossPersister(props: {
     characterName: string; storyProgress: number; active: boolean;
     bossHp: number; playerHp: number; ap: number; turn: number; summonedPetId: string; log: string;

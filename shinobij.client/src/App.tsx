@@ -548,8 +548,8 @@ export type PendingArenaStoryBattle =
     | {
         // Academy Sparring Match — the onboarding "guaranteed first win".
         // A deliberately weak Lv-1 training dummy (low HP, Lv-1 offense) so a
-        // combat-ready new player wins in a few hits. On win the spar branch in
-        // completePendingArenaStoryBattle advances onboardingStep -> "cafeteria".
+        // combat-ready new player wins in a few hits. Its sealed story
+        // settlement advances onboardingStep -> "cafeteria".
         kind: "academySparring";
         returnScreen: Screen;
     };
@@ -1897,8 +1897,8 @@ export default function App() {
     const [acceptedMissionIds, setAcceptedMissionIds] = useState<string[]>([]);
     const [missionProgress, setMissionProgress] = useState<Record<string, number>>({});
     const [activeJutsuTraining, setActiveJutsuTraining] = useState<ActiveJutsuTraining | null>(null);
-    const [pendingAiProfileId, setPendingAiProfileId] = useState("");
-    const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
+    const [, setPendingAiProfileId] = useState("");
+    const [, setPendingPvpOpponent] = useState<Character | null>(null);
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
     const [pvpBattleResolved, setPvpBattleResolved] = useState(false);
     // Tracks when the current PvP battle began, used for the <15s "quick
@@ -1965,10 +1965,8 @@ export default function App() {
     // Set when a sector gambler deals the player into Chronicle Showdown.
     const [cardAutoStart, setCardAutoStart] = useState(false);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
-    // Lifted "fight in progress" flags (fed by Arena/PetArena onBattleActiveChange)
-    // so the nav lock can block leaving arena ranked / pet matches whose active
-    // state otherwise lives only inside the screen component.
-    const [arenaBattleActive, setArenaBattleActive] = useState(false);
+    // Pet fight-in-progress state remains lifted so navigation cannot leave an
+    // active pet match. Shinobi Arena combat routes to its authoritative host.
     const [petBattleActive, setPetBattleActive] = useState(false);
     const [petFullscreenActive, setPetFullscreenActive] = useState(false);
     // True while the player is in a mission AI fight launched from the Missions
@@ -2352,14 +2350,12 @@ export default function App() {
     useEffect(() => {
         if (!gameplayMutationsOpen || !character) return;
         // Don't yank players out of an active battle / story / boss screen.
-        // Mixed lobby/fight screens stay launchable until their active flag says
+        // Mixed pet/tower screens stay launchable until their active owner says
         // the player is actually committed to another fight.
         const blocksBattleScreen = BATTLE_SCREENS.has(screen)
             && (screen !== "petArena" || petBattleActive)
             && (screen !== "battleTowers" || hasActiveTowerFight());
-        const blocksActiveLobbyFight = (screen === "arenaDistrict" || screen === "battleArena") && arenaBattleActive;
-        const inBattleScreen = blocksBattleScreen || blocksActiveLobbyFight;
-        if (inBattleScreen) return;
+        if (blocksBattleScreen) return;
 
         const me = character.name.toLowerCase();
         for (const war of Object.values(sharedClanWarCache)) {
@@ -2377,7 +2373,7 @@ export default function App() {
                 return; // launch one at a time
             }
         }
-    }, [character, screen, clanWarStateVersion, launchClanWarBattle, arenaBattleActive, petBattleActive, gameplayMutationsOpen]);
+    }, [character, screen, clanWarStateVersion, launchClanWarBattle, petBattleActive, gameplayMutationsOpen]);
 
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
@@ -2524,7 +2520,7 @@ export default function App() {
             activeDungeonEvent: !!activeDungeonEvent,
             hollowGateTileGameActive,
             pendingPetBattle: !!pendingPetBattleOpponent,
-            arenaBattleActive, missionBattleActive,
+            arenaBattleActive: false, missionBattleActive,
             petBattleActive,
         });
     }
@@ -2735,7 +2731,7 @@ export default function App() {
         gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
         raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle,
         pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
-        arenaBattleActive, petBattleActive,
+        petBattleActive,
     ]);
 
     usePresenceSocket({
@@ -4100,7 +4096,7 @@ export default function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive, missionBattleActive]);
+    }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
 
     // Image category loader — fetches from shared KV store and hydrates
     // embedded image fields so all existing display code works without changes.
@@ -5482,7 +5478,7 @@ export default function App() {
         activeDungeonEvent: !!activeDungeonEvent,
         hollowGateTileGameActive,
         pendingPetBattle: !!pendingPetBattleOpponent,
-        arenaBattleActive, petBattleActive, missionBattleActive,
+        arenaBattleActive: false, petBattleActive, missionBattleActive,
     });
 
     // Stable identities for the memo'd RightMenu/MobileNav: navigate/logoutPlayer get a
@@ -5596,9 +5592,8 @@ export default function App() {
                 commitVersionedCharacter(claimed.character, claimed._saveVersion);
             }
             // No kageFinale handling here: closing the finale VN without fighting
-            // must NOT unlock the Kage system or grant the title. The legitimate
-            // consequence path is the battle WIN in completePendingArenaStoryBattle
-            // (and StoryBoss.winBossFight for the legacy Hall screen).
+            // must NOT unlock the Kage system or grant the title. Only sealed
+            // story-boss settlement may unlock it.
         }
 
         setActiveTriggeredEvent(null);
@@ -5701,38 +5696,6 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
-    // Loss path for the dungeon Warden fight. Without this the player
-    // gets sent to Hospital with activeDungeonEvent still set, then
-    // returning to the dungeon screen drops them back at the intro VN
-    // with no usable progression (the key was already consumed). Clears
-    // all dungeon state and routes them to their village.
-    async function failDungeon() {
-        if (!character || dungeonActionRef.current) return;
-        const token = activeDungeonRunToken ?? character.activeDungeonRun?.token;
-        if (token) {
-            dungeonActionRef.current = true;
-            try {
-                const result = await mutateDungeonRunServer(character.name, "abandon", token);
-                commitVersionedCharacter(result.character, result._saveVersion);
-            } catch (error) {
-                alert(error instanceof Error ? error.message : "The failed dungeon run could not be closed.");
-                return;
-            } finally {
-                dungeonActionRef.current = false;
-            }
-        }
-        setActiveDungeonRunToken(null);
-        setActiveDungeonEvent(null);
-        setDungeonLine(0);
-        setTemporaryStoryAi(null);
-        setPendingArenaStoryBattle(null);
-        setPendingAiProfileId("");
-        alert(character.activeDungeonRun?.entry === "free"
-            ? "The dungeon seal rejected you. You return to your village empty-handed."
-            : "The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
-        setScreen("village");
-    }
-
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
         const token = activeDungeonRunToken;
@@ -5821,24 +5784,6 @@ export default function App() {
         })) return alert("The sealed practice arena is unavailable. Your event remains open.");
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
-    }
-
-    function completePendingArenaStoryBattle(_survivingHp: number, _aiFightToken?: string): string {
-        throw new Error("Legacy local Arena story settlement is retired. Re-enter the sealed story or dungeon encounter.");
-    }
-
-    async function continuePendingArenaStoryBattle(
-        battleResult?: "win" | "loss" | "fled",
-        _survivingHp = 0,
-    ) {
-        const pending = pendingArenaStoryBattle;
-        const returnScreen = pending?.returnScreen ?? "storyHall";
-        setPendingArenaStoryBattle(null);
-        setTemporaryStoryAi(null);
-        setPendingAiProfileId("");
-        // A finale win queued an ending epilogue: show it now that the arena is done. Completing it lands on returnScreen (activeTriggerReturnScreen); it pays nothing and never re-fires.
-        if (storyEpilogueRef.current.queued) { setActiveTriggeredEvent(storyEpilogueRef.current.queued); setActiveTriggerReturnScreen(returnScreen); setTriggerPage(0); setTriggerLine(0); storyEpilogueRef.current = { lane: null, queued: null }; }
-        setScreen(returnScreen);
     }
 
     // ── Hollow Gate Shrine — actions ──────────────────────────────────────────
@@ -6434,7 +6379,7 @@ export default function App() {
 
     const hideBattleChrome = shouldHideBattleChrome({
         screen,
-        arenaBattleActive,
+        arenaBattleActive: false,
         petBattleActive: petBattleActive || petFullscreenActive,
     });
     const introCinematicActive = Boolean(
@@ -7426,39 +7371,19 @@ export default function App() {
                     <Arena
                         lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
                         character={character}
-                        updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
+                        updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
-                        creatorAis={playableAis}
-                        pendingAiProfileId={pendingAiProfileId}
-                        setPendingAiProfileId={setPendingAiProfileId}
-                        currentBiome={currentBiome}
-                        currentSector={currentSector}
-                        currentWeather={currentWeather}
                         playerRoster={playerRoster}
                         duelChallenges={duelChallenges}
                         setDuelChallenges={setDuelChallenges}
-                        pendingPvpOpponent={pendingPvpOpponent}
-                        setPendingPvpOpponent={setPendingPvpOpponent}
-                        raidBattleKind={raidBattleKind}
-                        setRaidBattleKind={setRaidBattleKind}
-                        creatorItems={creatorItems}
                         setScreen={navigate}
-                        sharedImages={sharedImages}
-                        pendingStoryBattle={pendingArenaStoryBattle}
-                        onPendingStoryBattleWin={completePendingArenaStoryBattle}
-                        onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
-                        onDungeonFail={failDungeon}
-                        onMissionRaidComplete={(sector, battleId) => recordMissionRaid(sector, battleId, undefined, character.name)}
-                        missionBattleActive={missionBattleActive}
-                        onMissionBattleResolved={() => { setMissionBattleActive(false); }}
-                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
-                        setPvpBattleContext={setPvpBattleContext}
-                        setPvpSeedSession={setPvpSeedSession}
-                        setPendingPetBattleOpponent={setPendingPetBattleOpponent} onAcceptPetChallenge={(c) => void acceptPetChallengeGlobal(c)}
-                        onRecordBattle={recordBattle}
+                        setPendingPetBattleOpponent={setPendingPetBattleOpponent}
+                        onAcceptChallenge={(challenge) => { void acceptChallengeGlobal(challenge); }}
+                        onDeclineChallenge={declineChallengeGlobal}
+                        onAcceptPetChallenge={(challenge) => { void acceptPetChallengeGlobal(challenge); }}
                     />
                 )}
 

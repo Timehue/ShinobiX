@@ -10,8 +10,8 @@ const hunterBoard = readFileSync(new URL("./HunterBoard.tsx", import.meta.url), 
 const logbook = readFileSync(new URL("./Logbook.tsx", import.meta.url), "utf8");
 
 test("server-owned mission battles pause regeneration and every autosave timer", () => {
-    assert.match(app, /arenaBattleActive, missionBattleActive,/,
-        "mission state must feed the shared unresolved-battle predicate used by regeneration");
+    assert.match(app, /arenaBattleActive: false, missionBattleActive,/,
+        "mission state must feed the shared unresolved-battle predicate while retired local Arena combat stays disabled");
     assert.match(app, /if \(isPresenceBattleActive\(screen\)\) return prev;/,
         "the global regeneration tick must use the shared battle predicate");
     const delayedGuard = guardedAutosave.slice(

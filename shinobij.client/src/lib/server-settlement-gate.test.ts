@@ -149,13 +149,14 @@ describe("server settlement policy", () => {
 
         const arena = source("../screens/Arena.tsx");
         assertGuardBefore(arena, "joinRankedQueue", "rankedPvp", "setRankedQueueActive(");
-        assertGuardBefore(arena, "acceptChallenge", "pvpSession", "setDuelChallenges(");
         const rankedServer = source("../../../api/pvp/ranked-queue.ts");
         assert.match(rankedServer, /rankedPvpActionAllowedDuringSettlement\(action\)/);
         assert.doesNotMatch(rankedServer, /Ranked PvP is temporarily unavailable/);
 
         const appPvp = source("../App.tsx");
         assertGuardBefore(appPvp, "acceptChallengeGlobal", "pvpSession", "setProcessingChallengeIds(");
+        assert.match(appPvp, /onAcceptChallenge=\{\(challenge\) => \{ void acceptChallengeGlobal\(challenge\); \}\}/,
+            "the Arena lobby must delegate PvP acceptance to the guarded App handler");
         const sectorAttack = appPvp.indexOf("sectorAttackPlayer={async (opponent) => {");
         const sectorGuard = appPvp.indexOf('requireServerSettlement("pvpSession")', sectorAttack);
         const sectorFetch = appPvp.indexOf("fetch('/api/pvp/session'", sectorAttack);

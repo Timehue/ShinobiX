@@ -194,9 +194,12 @@ one-human PvE mode remains in Tower merely to obtain server authority.
 
 ## 18. Local fallback paths remaining and proof they cannot reward
 
-The legacy Arena implementation still supports presentation utilities and
-explicit nonpersistent preview/simulation use. It is not a settlement authority
-for the migrated rows. Published generic starts reject unknown IDs; migrated
+At the time of this audit, the legacy Arena implementation still supported
+presentation utilities and explicit nonpersistent preview/simulation use. It
+was not a settlement authority for the migrated rows. On 2026-08-15, reverse
+reachability proved that reducer and board had no mounted admission path, so
+they and their snapshot writer were retired; `Arena.tsx` is now lobby-only.
+Published generic starts reject unknown IDs; migrated
 clients fail closed when session creation/state/settlement fails; mode endpoints
 require terminal server evidence; and the executable entrypoint/runtime
 inventory tests reject a reintroduced rewarding local caller. PvP, Pet, Card,

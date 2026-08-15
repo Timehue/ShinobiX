@@ -40,12 +40,11 @@ describe("owner-save elapsed-vital reconciliation", () => {
         assert.equal(reconcileOwnSaveReadVitals(matchingCurrent, anchor, character("Kite", { hp: 99 })), matchingCurrent);
     });
 
-    it("keeps the runtime lazy and captures all four owner reads before their requests", () => {
+    it("keeps the runtime lazy and captures the remaining canonical owner reads before their requests", () => {
         const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-        const arena = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
         const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
 
-        for (const source of [app, arena, worldMap]) {
+        for (const source of [app, worldMap]) {
             assert.match(source, /import type \{[^}]*OwnSaveRead[^}]*\} from ["'][^"']+\/own-save-read["'];/);
             assert.match(source, /const loadOwnSaveRead = \(\) => import\(["'][^"']+\/own-save-read["']\);/);
             assert.doesNotMatch(source, /import \{[^}]*captureOwnSaveRead[^}]*\} from ["'][^"']+\/own-save-read["'];/);
@@ -57,7 +56,6 @@ describe("owner-save elapsed-vital reconciliation", () => {
         assert.ok(adopter.indexOf('result !== "accepted"') < adopter.indexOf("reconcileOwnSaveReadVitals"));
 
         assert.match(app, /await loadOwnSaveRead\(\)[\s\S]*?(?:const\s+)?p2ReadAnchor = captureOwnSaveRead\(character\)[\s\S]*?fetchPlayerCombatSave\(character\.name\)[\s\S]*?await adoptOwnSaveRead\(p2ReadAnchor, p2CombatSave\.character, p2CombatSave\._saveVersion\)/);
-        assert.match(arena, /await loadOwnSaveRead\(\)[\s\S]*?const p2ReadAnchor = captureOwnSaveRead\(character\)[\s\S]*?fetchPlayerCombatSave\(character\.name\)[\s\S]*?await onOwnSaveRead\(p2ReadAnchor, p2CombatSave\.character, p2CombatSave\._saveVersion\)/);
         assert.match(worldMap, /await loadOwnSaveRead\(\)[\s\S]*?const selfReadAnchor = captureOwnSaveRead\(character\)[\s\S]*?fetchPlayerCombatSave\(character\.name\)[\s\S]*?await onOwnSaveRead\(selfReadAnchor, selfSave\.character, selfSave\._saveVersion\)/);
         assert.match(app, /loadOwnSaveRead\(\)[\s\S]*?const vanguardReadAnchor = captureOwnSaveRead\(rewarded\)[\s\S]*?return fetch\(`\/api\/save\/[\s\S]*?await adoptOwnSaveRead\(vanguardReadAnchor, serverChar, \(data as Record<string, unknown> \| null\)\?\._saveVersion\)/);
     });
