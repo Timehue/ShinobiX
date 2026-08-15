@@ -5,6 +5,7 @@ import test from "node:test";
 const worldMapSource = readFileSync(new URL("./WorldMap.tsx", import.meta.url), "utf8");
 const canvasSource = readFileSync(new URL("../components/WorldSectorCanvas.tsx", import.meta.url), "utf8");
 const commandPanelSource = readFileSync(new URL("../components/WorldSectorCommandPanel.tsx", import.meta.url), "utf8");
+const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
     return source.trimEnd().split(/\r?\n/u).length;
@@ -29,8 +30,8 @@ function assertOrdered(source: string, needles: readonly string[], contract: str
 
 test("WorldMap and its selected-sector leaves keep the projection line-budget ratchets", () => {
     assert.ok(
-        lineCount(worldMapSource) <= 5_625,
-        `WorldMap.tsx grew past 5,625 lines; selected-sector presentation belongs in its focused leaves.`,
+        lineCount(worldMapSource) <= 5_575,
+        `WorldMap.tsx grew past 5,575 lines; selected-sector presentation belongs in its focused leaves.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -39,6 +40,10 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
     assert.ok(
         lineCount(commandPanelSource) <= 285,
         `WorldSectorCommandPanel.tsx grew past 285 lines; commands and authority must remain in WorldMap.`,
+    );
+    assert.ok(
+        lineCount(overlaySource) <= 165,
+        `WorldSectorOverlayLayer.tsx grew past 165 lines; portals and workflows must remain in WorldMap.`,
     );
 });
 
@@ -57,6 +62,28 @@ test("WorldSectorCommandPanel stays hook-free, network-free, persistence-free, a
     assert.doesNotMatch(commandPanelSource, /\bcreatePortal\s*\(/u);
     assert.doesNotMatch(commandPanelSource, /\bDate\.now\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
     assert.doesNotMatch(commandPanelSource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|launchAiGuardRaid|startPvpRaid)\b/u);
+});
+
+test("WorldSectorOverlayLayer stays wrapper-free, hook-free, network-free, persistence-free, and authority-free", () => {
+    assert.doesNotMatch(overlaySource, /\buse(?:State|Effect|LayoutEffect|Reducer|Ref|Memo|Callback|ImperativeHandle)\s*\(/u);
+    assert.doesNotMatch(overlaySource, /\bfetch\s*\(/u);
+    assert.doesNotMatch(overlaySource, /\b(?:localStorage|sessionStorage)\b/u);
+    assert.doesNotMatch(overlaySource, /\bcreatePortal\s*\(/u);
+    assert.doesNotMatch(overlaySource, /\bDate\.now\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
+    assert.doesNotMatch(overlaySource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|loadSectorTerritory|isSectorTracesEnabled|isWeeklyBossRoamEnabled|weeklyBossRoamState)\b/u);
+    assert.match(overlaySource, /return \(\s*<>/u);
+    assert.doesNotMatch(overlaySource, /return \(\s*<(?:div|main|section|aside)\b/u);
+});
+
+test("WorldSectorOverlayLayer preserves direct-grid actor and marker order", () => {
+    assertOrdered(overlaySource, [
+        "wanderers.map",
+        'className="atlas-landmark atlas-hollowRift sector-rift-structure"',
+        'className="atlas-landmark sector-rift-structure"',
+        "<SectorTraceMarkers",
+        "<SectorShrineStandee",
+        "<SectorWeeklyBossActor",
+    ], "selected-sector overlay order");
 });
 
 test("selected-sector canvas preserves stage and stacking order", () => {
@@ -87,10 +114,23 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
         "onSelectTile={setSectorPlayerPos}",
         "onCrossExit={crossSectorExit}",
         "overlayLayer={",
+        "<WorldSectorOverlayLayer",
         "createPortal(",
         "encounterLayer={",
     ], "WorldMap canvas projection");
-    assert.doesNotMatch(projection, /<(?:RegionSplash|SectorGateMarker|SectorPeersLive)\b/u);
+    assert.doesNotMatch(projection, /<(?:RegionSplash|SectorGateMarker|SectorPeersLive|SectorWanderer|SectorTraceMarkers|SectorShrineStandee|SectorWeeklyBossActor)\b/u);
+    assert.match(projection, /vaultRaid && createPortal\([\s\S]*<AnbuVaultRaid/u);
+    assert.match(projection, /bossDialog && createPortal\([\s\S]*onClick=\{standBossFight\}/u);
+    assert.match(projection, /<SageOfferModal/u);
+    assert.doesNotMatch(overlaySource, /\b(?:AnbuVaultRaid|SageOfferModal|standBossFight|createPortal)\b/u);
+});
+
+test("WorldMap projects overlay time, storage, and capability decisions before rendering", () => {
+    const projection = sliceBetween(worldMapSource, "const sectorOverlayWanderers", "<WorldSectorCanvas");
+    assert.match(projection, /const sectorOverlayRift/u);
+    assert.match(projection, /const sectorOverlayVault[\s\S]*anbuViewOpen[\s\S]*territory\.ownerVillage/u);
+    assert.match(projection, /const sectorOverlayShrine[\s\S]*isSectorTracesEnabled\(\)[\s\S]*shrineForSector/u);
+    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, Date\.now\(\)\)/u);
 });
 
 test("WorldSectorCommandPanel preserves command hierarchy and action order", () => {
