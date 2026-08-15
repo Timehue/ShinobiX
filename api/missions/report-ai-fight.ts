@@ -82,16 +82,10 @@ const genericAiFightActiveKey = (playerName: string) => `ai-fight-active:${playe
 //
 // TWO AUTHORITY TRACKS, chosen by whether the token carries a runId:
 //
-//   runId present — the server engine resolved this fight, so its SESSION decides
-//     (step 4, api/missions/_ai-fight-outcome.ts): whether the player won, the HP
-//     they survived with, and the hospital stay on a defeat or a forfeit. Nothing
-//     is taken on trust. This is the track every migrated launch site uses.
-//
-//   no runId — the local-Arena fallback (a client-authored `temp-*` opponent the
-//     profile catalog cannot resolve, or DISABLE_SERVER_AI_COMBAT). There is no
-//     session to read, so calling this endpoint IS still the claim of a win, and
-//     the client keeps applying the HP/defeat itself. Step 5 retires this track
-//     along with the local engine.
+// Every accepted token carries `sessionRuntime: 'solo-pve'` and an exact
+// `sessionId`. The stored session decides whether the player won, the vitals they
+// survived with, and the hospital stay on defeat or forfeit. Tokens from the
+// retired client-resolved/Tower tracks are rejected before any mutation.
 //
 // The reward amounts were never client-supplied on either track: the token carries
 // baseXp/baseRyo (rewardSource 'server-save'), so validateAiFightRewardClaim
@@ -164,13 +158,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // ── Step 4: the SESSION decides, not the caller ──────────────────────
-        // When the token carries a runId, this fight was resolved by the server
-        // engine and its session is the authority on both questions that used to
-        // be taken on trust: did the player win, and what HP did they walk away
-        // with. A token WITHOUT a runId is the local-Arena fallback (every
-        // client-authored `temp-*` opponent, or the kill switch), which has no
-        // session to read — that track keeps the old behaviour until step 5
-        // retires it.
+        // The mandatory Solo-PvE session is authoritative for both questions
+        // that used to be taken on trust: did the player win, and what vitals did
+        // they walk away with. The token/runtime checks above make a missing or
+        // retired encounter shape a hard failure, never a client-trust fallback.
         const sealedSession: AiFightSession | null = await readSoloPveSession(sealedSessionId).catch(() => null);
         const outcome: AiFightOutcome = resolveAiFightOutcome(sealedSession);
         const playerActor = aiFightPlayerActor(sealedSession);
@@ -319,8 +310,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             );
             // The surviving HP rides in the SAME mutation as the payout, so a win
             // can never bank the reward while losing the damage it cost (or the
-            // other way round). No-op on the local-fallback track, which has no
-            // session to read an HP from.
+            // other way round). The player actor comes only from the mandatory
+            // sealed Solo-PvE session.
             const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now());
             const nextCharacter = sealedWorldContext
                 ? applyWorldAiFightSettlement(physicallySettled, sealedWorldContext, outcome, aiFightToken)

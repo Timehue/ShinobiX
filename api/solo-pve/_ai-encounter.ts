@@ -24,6 +24,14 @@ export type SoloPveAiScaling = {
     hpFloor?: number;
 };
 
+const CANONICAL_COMBAT_STATS = [
+    'strength', 'speed', 'intelligence', 'willpower',
+    'taijutsuOffense', 'taijutsuDefense',
+    'bukijutsuOffense', 'bukijutsuDefense',
+    'ninjutsuOffense', 'ninjutsuDefense',
+    'genjutsuOffense', 'genjutsuDefense',
+] as const;
+
 function finite(value: unknown, fallback: number): number {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -40,6 +48,27 @@ function specialtyForStats(stats: Record<string, number>): string {
         ['Genjutsu', 'genjutsuOffense'],
     ];
     return choices.sort((a, b) => (stats[b[1]] ?? 0) - (stats[a[1]] ?? 0))[0]?.[0] ?? 'Ninjutsu';
+}
+
+function fallbackEnemyJutsu(profileId: unknown, level: number, specialty: string): Record<string, unknown> {
+    const cleanId = typeof profileId === 'string'
+        ? profileId.replace(/[^A-Za-z0-9:_-]/g, '').slice(0, 64) || 'x'
+        : 'x';
+    return {
+        id: `ai-${cleanId}-signature`,
+        name: `${specialty} Signature`,
+        type: specialty,
+        element: 'None',
+        target: 'OPPONENT',
+        method: 'SINGLE',
+        ap: 60,
+        range: specialty === 'Taijutsu' ? 1 : 3,
+        effectPower: integer(22 + level * 0.55, 24, 72, 35),
+        chakraCost: specialty === 'Taijutsu' || specialty === 'Bukijutsu' ? 0 : 18,
+        staminaCost: specialty === 'Taijutsu' || specialty === 'Bukijutsu' ? 18 : 0,
+        cooldown: 2,
+        tags: [],
+    };
 }
 
 function fighterFromHydratedCharacter(character: Record<string, unknown>, pos: number): PvpFighter {
@@ -72,6 +101,7 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         const number = Number(value);
         if (Number.isFinite(number)) numericStats[key] = Math.max(0, Math.floor(number));
     }
+    for (const key of CANONICAL_COMBAT_STATS) numericStats[key] = Math.max(0, numericStats[key] ?? 0);
     const scaledStats = banded
         ? scaleStatsForPveDifficulty(numericStats, pveDifficultyStatMultiplier(level))
         : numericStats;
@@ -84,13 +114,19 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
     const embeddedJutsu = Array.isArray(profile.jutsu)
         ? profile.jutsu.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).id === 'string')
         : [];
-    const jutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(profile.jutsuIds, admin);
-    const aiProgram = validateServerAiRules(profile.rules, jutsu.map((entry) => String(entry.id ?? '')).filter(Boolean));
+    const authoredJutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(profile.jutsuIds, admin);
+    // Validate authored rules against the authored/resolved kit before adding a
+    // fallback. A missing referenced jutsu must still fail closed; the generic
+    // signature exists only to keep a genuinely empty, rule-free profile active.
+    const aiProgram = validateServerAiRules(profile.rules, authoredJutsu.map((entry) => String(entry.id ?? '')).filter(Boolean));
     if (!aiProgram.ok) {
         throw new Error(`AI profile ${profile.id} has an invalid server rule program: ${aiProgram.issues[0]?.message ?? 'invalid rules'}`);
     }
-    const mastery = pveAiMasteryForLevel(level);
     const specialty = typeof profile.specialty === 'string' ? profile.specialty : specialtyForStats(stats);
+    const jutsu = authoredJutsu.length > 0
+        ? authoredJutsu
+        : [fallbackEnemyJutsu(profile.id, level, specialty)];
+    const mastery = pveAiMasteryForLevel(level);
     const character: Record<string, unknown> = {
         name: typeof profile.name === 'string' ? profile.name.slice(0, 80) : 'Opponent',
         level,

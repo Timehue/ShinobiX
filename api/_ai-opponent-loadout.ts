@@ -3,18 +3,18 @@
  * `EnemyTemplate` carries — the loadout half of the generic AI-fight migration
  * (docs/runbooks/combat-mode-migration.md, step 2).
  *
- * `aiOpponentEnemyTemplate` (api/_authoritative-pve.ts) is deliberately PURE and
- * takes `resolvedJutsu` already built; this module is the impure-ish half that
- * knows about the catalogs. Keeping them apart is what lets the template stay
- * unit-testable without the catalog graph.
+ * `buildSoloPveAiEncounter` resolves this list while sealing the server-owned
+ * Solo-PvE enemy. Keeping catalog resolution here leaves that encounter builder
+ * deterministic and keeps the retired Tower-style generic-AI constructor out of
+ * the production dependency graph.
  *
  * Resolution order mirrors `resolveEquippedLoadout` (api/pvp/session.ts) so an AI
  * casts the same object a player would: the built-in server catalog
  * (api/pvp/_jutsu-catalog.ts) WINS over admin-authored content for a shared id,
  * and admin content only fills ids the built-in catalog does not carry. Unknown
- * ids are dropped rather than faked — an AI with an unresolvable loadout falls
- * back to a generic signature inside aiOpponentEnemyTemplate, so it is never
- * left unable to act.
+ * ids are dropped rather than faked — the Solo-PvE enemy builder supplies its
+ * bounded fallback signature when this resolver returns no usable jutsu, so the
+ * opponent is never left unable to act.
  *
  * Everything is run through `sanitizeJutsuList`, the same clamp/canonicalize
  * pass a PvP loadout gets: authored effectPower is capped, tag names are

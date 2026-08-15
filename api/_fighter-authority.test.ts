@@ -25,7 +25,6 @@ const SEAL_CALLERS = [
     'towers/start.ts',
     'clan-boss/assault-start.ts',
     '_merc-auto.ts',
-    '_authoritative-pve.ts',
 ] as const;
 
 const DIRECT_HYDRATOR_CALLERS = [

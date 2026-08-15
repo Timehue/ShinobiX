@@ -150,11 +150,11 @@ export function endlessWaveVitals(session: SoloPveSession, _playerName: string):
  * Build the sealed wave. The opponent is generated here from run state
  * (./_wave-opponent.ts) — the request supplies no opponent, level or stats.
  *
- * Shares `buildAiFightEncounter` with generic AI fights rather than duplicating
- * it, so a wave inherits the jutsu-mastery seal, the PvE band and the companion
- * seal. It passes its own floor id and towerId so a wave is still identifiable
- * as a wave. No `scaling` is passed: the opponent arrives ALREADY scaled by the
- * wave curve, and re-levelling it here would apply the curve twice.
+ * Shares `buildSoloPveAiEncounter` with generic AI fights, so a wave inherits
+ * the jutsu-mastery, PvE difficulty and companion seals. Its explicit encounter
+ * binding keeps the wave identifiable without a Tower floor/session. No
+ * `scaling` is passed: the opponent arrives ALREADY scaled by the wave curve,
+ * and re-levelling it here would apply the curve twice.
  */
 export function buildEndlessWaveEncounter(params: {
     playerName: string;
