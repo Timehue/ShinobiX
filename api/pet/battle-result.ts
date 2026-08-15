@@ -492,6 +492,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hollowGate?: { runId?: string };
                 dungeon?: unknown;
                 settlementPolicy?: unknown;
+                wanderer?: { id?: unknown; sector?: unknown; verb?: unknown };
+                wandererParticipatingPets?: Pet[];
             }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 const priorDungeonResult = parseDungeonPetResultReceipt(
@@ -527,6 +529,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         .filter((entry): entry is string => typeof entry === 'string')
                     : [];
                 if (priorCharacter && redeemed.includes(battleToken)) {
+                    // The save receipt proves settlement committed even when a
+                    // process died after deleting the token but before clearing
+                    // its exact active pointer. Heal that second half before
+                    // acknowledging the replay, or this spent battle can block
+                    // every Pet mode until the refreshed lease expires.
+                    try {
+                        const activeKey = `pet:battle-active:${playerName}`;
+                        const retired = await kv.delIfEqual(activeKey, battleToken);
+                        if (!retired && await kv.get<string>(activeKey) === battleToken) {
+                            return res.status(503).json({ error: 'Your pet result is recorded, but its active battle lease could not be retired — please retry.' });
+                        }
+                    } catch (error) {
+                        console.error('[pet/battle-result] casual replay pointer cleanup failed', error);
+                        return res.status(503).json({ error: 'Your pet result is recorded, but its active battle lease could not be retired — please retry.' });
+                    }
                     const replayReceipt = petWitnessReceiptForSettlement(priorCharacter, `pet-casual:${battleToken}`);
                     return res.status(200).json({
                         ok: true,
@@ -618,6 +635,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             casualPvePlayerPets = casualPveSeal?.playerPets ?? null;
             const tokenPlayerPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
+            if (tokenData.wanderer !== undefined) {
+                if (tokenData.settlementPolicy !== 'casual-no-progression'
+                    || tokenData.mode !== '1v1'
+                    || typeof tokenData.wanderer.id !== 'string'
+                    || !/^w-\d+-\d+-[01]$/.test(tokenData.wanderer.id)
+                    || !Number.isSafeInteger(Number(tokenData.wanderer.sector))
+                    || tokenData.wanderer.verb !== 'petDuel'
+                    || tokenData.casualPveSeal !== undefined
+                    || tokenData.hollowGate !== undefined
+                    || tokenData.dungeon !== undefined) {
+                    return res.status(409).json({ error: 'Natural wanderer token carries conflicting battle authority.' });
+                }
+                // Showdown resolves with consumables stripped. Preserve that
+                // immutable no-item snapshot so settlement cannot clear whatever
+                // happens to be equipped by the time the replay finishes.
+                casualPvePlayerPets = parseSealedPetSnapshots(tokenData.wandererParticipatingPets, tokenPlayerPetIds);
+                if (!casualPvePlayerPets
+                    || casualPvePlayerPets.some((pet) => Boolean(pet.loadout?.consumable))) {
+                    return res.status(409).json({ error: 'Natural wanderer token carries an invalid participating-pet snapshot.' });
+                }
+            }
             if (tokenData.mode === 'warfront') {
                 casualPvePlayerPets = parseSealedPetSnapshots(tokenData.bluePets, tokenPlayerPetIds);
                 if (!casualPvePlayerPets) {

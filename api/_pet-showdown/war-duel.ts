@@ -39,7 +39,7 @@
 
 import { createShowdownSession, showdownStateView, WEATHER_NAME } from './engine.js';
 import { resolveShowdownHeadless } from './headless.js';
-import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
+import type { ShowdownFormat, ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import { WAR_DUEL_FORMAT } from './war-team.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
@@ -53,6 +53,9 @@ export interface WarDuelInput {
     toPets: Pet[];
     /** Sector-war home ground element (defender's sector), or null/undefined. */
     terrain?: string | null;
+    /** War remains fixed at 2v2. A caller that has independently sealed a
+     * one-pet encounter may explicitly request the truthful 1v1 field shape. */
+    format?: ShowdownFormat;
 }
 
 export interface WarDuelResolution {
@@ -93,7 +96,7 @@ export function resolveWarDuel(input: WarDuelInput): WarDuelResolution {
     // tactics — did nothing in the modes that decide territory and rating. The
     // engine benches whatever exceeds the field, so a short roster still
     // fights; it just fights without reserves.
-    const format = WAR_DUEL_FORMAT;
+    const format = input.format ?? WAR_DUEL_FORMAT;
     const session = createShowdownSession({
         sessionId: input.sessionId,
         playerName: input.fromName,

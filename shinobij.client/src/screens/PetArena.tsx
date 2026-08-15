@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
+import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
@@ -180,6 +181,7 @@ const PetColiseum = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default
 // petDuelEngine.v1) — same lazy chunk, mounted instead of PetColiseum when the
 // flag is on for a non-ranked fight.
 const PetColiseumDuel = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseumDuel })));
+const PetShowdownReplay = lazyWithRetry(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
 // Hollow Warfront — the lane-war game mode that REPLACED the capture-scroll
 // Tactical Arena (Ward Seal objective, Guardian Totems, the Hollow Gate breach,
 // bounty coins + the 30 s War Council). Own lazy chunk (three-heavy).
@@ -221,6 +223,11 @@ type CasualPetBattleSeal = {
     playerPets?: Pet[];
     opponentPets?: Pet[];
     battleConfig?: CasualPetBattleConfig;
+    showdownScript?: ShowdownReplayScript;
+    outcome?: "win" | "loss";
+    wandererName?: string;
+    character?: Character;
+    _saveVersion?: number;
 };
 
 type CasualPetBattleConfig = {
@@ -267,6 +274,15 @@ function parseSealedCasualPets(value: unknown, expectedIds: readonly string[]): 
     if (pets.length !== expectedIds.length
         || pets.some((pet, index) => pet.id !== expectedIds[index])) return null;
     return pets;
+}
+
+function parseShowdownReplayScript(value: unknown): ShowdownReplayScript | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const script = value as Partial<ShowdownReplayScript>;
+    if (!script.initialState || typeof script.initialState !== "object" || Array.isArray(script.initialState)
+        || !script.finalState || typeof script.finalState !== "object" || Array.isArray(script.finalState)
+        || !Array.isArray(script.events)) return null;
+    return script as ShowdownReplayScript;
 }
 
 function restoreSealedPetCosmetics(sealed: Pet, local: Pet | undefined): Pet {
@@ -982,6 +998,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         playerReservePet?: Pet; enemyReservePet?: Pet; seed: number;
         id: number; // per-fight nonce → React key so "Fight again" remounts the player
     } | null>(null);
+    const [watchedDuel, setWatchedDuel] = useState<{
+        script: ShowdownReplayScript;
+        playerPets: Pet[];
+        id: number;
+    } | null>(null);
+    const pendingBattleStartRef = useRef<string | null>(null);
     const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight id source (state, not ref → no render-time ref read)
     const [frameIndex, setFrameIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -1016,6 +1038,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         setBattleLog([]);
         setBattleFrames([]);
         setDuelBattle(null);
+        setWatchedDuel(null);
+        pendingBattleStartRef.current = null;
         setPartyResult(null);
         setArenaMatch(null);
         setArenaCountdown(null);
@@ -1119,11 +1143,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     playerName: scope.playerName,
-                    opponentName: opponent.owner,
-                    opponentLevel: opponent.pet.level,
                     mode,
                     playerPetIds: playerPets.map((pet) => pet.id),
-                    opponentPetIds: opponentPets.map((pet) => pet.id),
+                    ...(opponent.wanderer
+                        ? { wanderer: opponent.wanderer }
+                        : {
+                            opponentName: opponent.owner,
+                            opponentLevel: opponent.pet.level,
+                            opponentPetIds: opponentPets.map((pet) => pet.id),
+                        }),
                     hollowGate: opponent.hollowGate
                         ? { token: opponent.hollowGate.token, runId: opponent.hollowGate.runId }
                         : undefined,
@@ -1133,6 +1161,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             const data = await r.json().catch(() => null) as {
                 token?: unknown; seed?: unknown; reportKey?: unknown;
                 playerPets?: unknown; opponentPets?: unknown; battleConfig?: unknown;
+                showdownScript?: unknown; outcome?: unknown;
+                wanderer?: { name?: unknown };
+                character?: unknown; _saveVersion?: unknown;
             } | null;
             if (typeof data?.token !== "string"
                 || !Number.isSafeInteger(Number(data.seed))
@@ -1142,13 +1173,31 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             const sealedPlayers = data.playerPets === undefined
                 ? null
                 : parseSealedCasualPets(data.playerPets, playerPets.map((pet) => pet.id));
+            const returnedOpponentIds = opponent.wanderer && Array.isArray(data.opponentPets)
+                ? data.opponentPets.map((pet) => pet && typeof pet === "object" && !Array.isArray(pet) ? String((pet as { id?: unknown }).id ?? "") : "")
+                : opponentPets.map((pet) => pet.id);
             const sealedOpponents = data.opponentPets === undefined
                 ? null
-                : parseSealedCasualPets(data.opponentPets, opponentPets.map((pet) => pet.id));
+                : parseSealedCasualPets(data.opponentPets, returnedOpponentIds);
             const battleConfig = data.battleConfig === undefined
                 ? null
                 : parseCasualPetBattleConfig(data.battleConfig, mode, Number(data.seed));
-            if (expectsPveSnapshots && (!sealedPlayers || !sealedOpponents || !battleConfig)) return null;
+            const showdownScript = data.showdownScript === undefined ? null : parseShowdownReplayScript(data.showdownScript);
+            const authoritativeCharacter = data.character && typeof data.character === "object" && !Array.isArray(data.character)
+                && typeof (data.character as { name?: unknown }).name === "string"
+                && String((data.character as { name?: unknown }).name).toLowerCase() === scope.playerName.toLowerCase()
+                ? data.character as Character
+                : null;
+            if (opponent.wanderer) {
+                if (!sealedPlayers || sealedPlayers.length !== 1
+                    || !sealedOpponents || sealedOpponents.length !== 1
+                    || !showdownScript
+                    || (data.outcome !== "win" && data.outcome !== "loss")
+                    || typeof data.wanderer?.name !== "string" || !data.wanderer.name
+                    || !authoritativeCharacter
+                    || !Number.isSafeInteger(Number(data._saveVersion))
+                    || data.battleConfig !== undefined) return null;
+            } else if (expectsPveSnapshots && (!sealedPlayers || !sealedOpponents || !battleConfig)) return null;
             if ((data.playerPets !== undefined && !sealedPlayers)
                 || (data.opponentPets !== undefined && !sealedOpponents)
                 || (data.battleConfig !== undefined && !battleConfig)) return null;
@@ -1159,6 +1208,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 ...(sealedPlayers ? { playerPets: sealedPlayers } : {}),
                 ...(sealedOpponents ? { opponentPets: sealedOpponents } : {}),
                 ...(battleConfig ? { battleConfig } : {}),
+                ...(showdownScript ? { showdownScript } : {}),
+                ...((data.outcome === "win" || data.outcome === "loss") ? { outcome: data.outcome } : {}),
+                ...(typeof data.wanderer?.name === "string" ? { wandererName: data.wanderer.name } : {}),
+                ...(authoritativeCharacter ? { character: authoritativeCharacter } : {}),
+                ...(Number.isSafeInteger(Number(data._saveVersion)) ? { _saveVersion: Number(data._saveVersion) } : {}),
             };
         } catch {
             return null;
@@ -1208,9 +1262,20 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         return true;
     }
 
-    async function startBattle(opponentOverride?: PetArenaOpponent) {
+    async function startBattle(opponentOverride?: PetArenaOpponent): Promise<boolean> {
         const battleScope = capturePlayerScope();
         const opponent = opponentOverride ?? selectedOpponent;
+        const finishStarted = (): true => {
+            if (opponentOverride?.wanderer && pendingPetBattleOpponent?.wanderer
+                && opponentOverride.owner === pendingPetBattleOpponent.owner
+                && opponentOverride.pet.id === pendingPetBattleOpponent.pet.id
+                && opponentOverride.battleSeed === pendingPetBattleOpponent.battleSeed
+                && opponentOverride.wanderer?.id === pendingPetBattleOpponent.wanderer?.id
+                && opponentOverride.wanderer?.sector === pendingPetBattleOpponent.wanderer?.sector) {
+                onPendingPetBattleStarted?.();
+            }
+            return true;
+        };
         const pvpParty = Boolean(opponent?.opponentParty && opponent.challengerParty);
         const startIssue = petArenaStartIssue({
             selectedPetName: selectedPet ? petDisplayName(selectedPet) : undefined,
@@ -1219,18 +1284,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             opponentPetName: opponent ? petDisplayName(opponent.pet) : undefined,
             opponentOnExpedition: opponent ? isPetOnExpedition(opponent.pet) : false,
         });
-        if (startIssue) return alert(startIssue);
+        if (startIssue) { alert(startIssue); return false; }
         // The pure preflight above establishes these invariants for TypeScript and
         // keeps audio/state changes strictly after every synchronous rejection.
-        if (!selectedPet || !opponent) return;
-        if (!playerAuthorityIsActive(battleScope)) return;
+        if (!selectedPet || !opponent) return false;
+        if (!playerAuthorityIsActive(battleScope)) return false;
         if (opponent.ranked && !opponent.petRankedToken) {
             showBattleSetupIssue(
                 battleScope,
                 "The ranked match proof is missing. The duel was not started and no rating can change.",
                 () => { void startBattle(opponent); },
             );
-            return;
+            return false;
         }
 
         setChronicleCeremony(null);
@@ -1250,8 +1315,66 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         void preloadPetColiseumModels([selectedPet, opponent.pet]).catch(() => undefined);
         setPartyResult(null);
         setDuelBattle(null); // fresh fight — clear any prior duel overlay
+        setWatchedDuel(null);
         const nextDuelId = duelNonce + 1; // React key for the duel renderer
         setDuelNonce(nextDuelId);
+
+        if (opponent.wanderer) {
+            const battleSeal = await mintCasualPetBattleToken(battleScope, opponent, "1v1", [selectedPet], []);
+            if (!playerAuthorityIsActive(battleScope)) return false;
+            if (!battleSeal?.showdownScript || !battleSeal.outcome || !battleSeal.character
+                || !battleSeal.playerPets?.[0] || !battleSeal.opponentPets?.[0]) {
+                showBattleSetupIssue(
+                    battleScope,
+                    "The wanderer duel could not be sealed. Its cooldown was not pre-spent; retry recovers the same proof if one was published.",
+                    () => { void startBattle(opponent); },
+                );
+                return false;
+            }
+            const kickoffDecision = receivePetBattleSettlement({
+                character: battleSeal.character,
+                _saveVersion: battleSeal._saveVersion,
+            }, battleScope);
+            if (kickoffDecision === "foreign") return false;
+            if (kickoffDecision === "accepted" && !onVersionedCharacter) {
+                updateCharacter((current) => current
+                    && playerScopeIsActive(battleScope)
+                    && current.name.toLowerCase() === battleScope.playerName.toLowerCase()
+                    && battleSeal.character?.name.toLowerCase() === current.name.toLowerCase()
+                    ? battleSeal.character
+                    : current);
+            }
+            const playerPet = restoreSealedPetCosmetics(battleSeal.playerPets[0], selectedPet);
+            const opponentPet = restoreSealedPetCosmetics(battleSeal.opponentPets[0], opponent.pet);
+            const sealedOpponent = { ...opponent, owner: battleSeal.wandererName ?? opponent.owner, pet: opponentPet };
+            void preloadPetColiseumModels([playerPet, opponentPet]).catch(() => undefined);
+            startBattleMusic();
+            setBattleOpponent(sealedOpponent);
+            setBattleReady(true);
+            setWatchedDuel({ script: battleSeal.showdownScript, playerPets: [playerPet], id: nextDuelId });
+            setBattleFrames([]);
+            setBattleLog(["The server sealed this natural wanderer duel on Showdown. It grants no Coliseum purse, counters, Chronicle progress, or item spend."]);
+            setIsPlaying(false);
+            setResult(battleSeal.outcome === "win" ? "Victory" : "Defeat");
+            const settlementBody = {
+                playerName: battleScope.playerName,
+                outcome: battleSeal.outcome,
+                reportKey: battleSeal.reportKey,
+                battleToken: battleSeal.token,
+            };
+            beginPetSettlement({
+                id: `wanderer:${battleSeal.token}:${battleSeal.reportKey}`,
+                kind: "casual",
+                label: "Natural wanderer pet duel",
+                scope: battleScope,
+                run: async () => {
+                    const data = await postPetBattleSettlement(settlementBody);
+                    if (!playerScopeIsActive(battleScope)) return false;
+                    return applyPetBattleSettlement(data, battleScope, []);
+                },
+            });
+            return finishStarted();
+        }
 
         // Retained 2v2 compatibility path. New social challenges use the live
         // lockstep host above; this branch only resumes an already-issued
@@ -1260,14 +1383,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             let [myLead, myReserve] = opponent.challengerParty!;
             let [enemyLead, enemyReserve] = opponent.opponentParty!;
             const battleSeal = await mintCasualPetBattleToken(battleScope, opponent, "2v2", [myLead, myReserve], [enemyLead, enemyReserve]);
-            if (!playerAuthorityIsActive(battleScope)) return;
+            if (!playerAuthorityIsActive(battleScope)) return false;
             if (!battleSeal) {
                 showBattleSetupIssue(
                     battleScope,
                     "The 2v2 battle seal could not be created. No duel was started and no result was put at risk.",
                     () => { void startBattle(opponent); },
                 );
-                return;
+                return false;
             }
             if (battleSeal.playerPets && battleSeal.opponentPets) {
                 const localLead = myLead;
@@ -1337,7 +1460,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             });
             setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
             settleParty(duel.result);
-            return;
+            return finishStarted();
         }
 
         // ── Ranked 1v1 (account-level pet ladder) ───────────────────────
@@ -1377,7 +1500,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             const myResult: "win" | "loss" | "draw" = iAmCanonicalPlayer
                 ? duel.result
                 : duel.result === "win" ? "loss" : duel.result === "loss" ? "win" : "draw";
-            if (!playerAuthorityIsActive(battleScope)) return;
+            if (!playerAuthorityIsActive(battleScope)) return false;
             startBattleMusic();
             setBattleOpponent(opponent);
             setBattleReady(true);
@@ -1438,18 +1561,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 setBattleLog(["Ranked pet draw — no Elo change."]);
             }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
-            return;
+            return finishStarted();
         }
 
         const battleSeal1v1 = await mintCasualPetBattleToken(battleScope, opponent, "1v1", [selectedPet], [opponent.pet]);
-        if (!playerAuthorityIsActive(battleScope)) return;
+        if (!playerAuthorityIsActive(battleScope)) return false;
         if (!battleSeal1v1) {
             showBattleSetupIssue(
                 battleScope,
                 "The pet battle seal could not be created. No duel was started and no result was put at risk.",
                 () => { void startBattle(opponent); },
             );
-            return;
+            return false;
         }
         const battlePlayerPet = battleSeal1v1.playerPets?.[0]
             ? restoreSealedPetCosmetics(battleSeal1v1.playerPets[0], selectedPet)
@@ -1631,13 +1754,37 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
         // Watch-only duels are already decided, so settle immediately as before.
         if (duel) settle1v1(duel.result);
+        return finishStarted();
     }
 
     useEffect(() => {
         if (!pendingPetBattleOpponent || !selectedPet) return;
-        void startBattle(pendingPetBattleOpponent);
-        onPendingPetBattleStarted?.();
-    }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
+        const key = [
+            character.name.toLowerCase(),
+            pendingPetBattleOpponent.owner,
+            pendingPetBattleOpponent.pet.id,
+            pendingPetBattleOpponent.battleSeed ?? "",
+            pendingPetBattleOpponent.wanderer?.id ?? "",
+            pendingPetBattleOpponent.wanderer?.sector ?? "",
+            selectedPet.id,
+        ].join(":");
+        if (pendingBattleStartRef.current === key) return;
+        pendingBattleStartRef.current = key;
+        void startBattle(pendingPetBattleOpponent).finally(() => {
+            if (pendingBattleStartRef.current === key) pendingBattleStartRef.current = null;
+        });
+        // Preserve the legacy queued clan-war/ranked/HG lifecycle. Only the
+        // natural wanderer journey keeps its context until kickoff is sealed.
+        if (!pendingPetBattleOpponent.wanderer) onPendingPetBattleStarted?.();
+    }, [
+        character.name,
+        pendingPetBattleOpponent?.owner,
+        pendingPetBattleOpponent?.pet.id,
+        pendingPetBattleOpponent?.battleSeed,
+        pendingPetBattleOpponent?.wanderer?.id,
+        pendingPetBattleOpponent?.wanderer?.sector,
+        selectedPet?.id,
+    ]);
 
     // Challenger side: the responder accepted + picked → launch the same match
     // (both sides hold identical embedded teams + seed) behind the countdown.
@@ -1735,6 +1882,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         setBattleOpponent(null);
         setBattleReady(false);
         setDuelBattle(null);
+        setWatchedDuel(null);
         setScreen(returnScreen);
     };
     const duelChronicleResultSupplement = chronicleProgress || chronicleCeremony ? (
@@ -2087,7 +2235,17 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
-                {duelBattle ? (
+                {watchedDuel ? (
+                    <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the sealed wanderer replay…</div>}>
+                        <PetShowdownReplay
+                            key={watchedDuel.id}
+                            script={watchedDuel.script}
+                            playerPets={watchedDuel.playerPets}
+                            sharedImages={sharedImages}
+                            onExit={leaveCurrentPetBattle}
+                        />
+                    </Suspense>
+                ) : duelBattle ? (
                     // New continuous engine (petDuelEngine.v1 ON, non-ranked): the
                     // screen already resolved the DuelResult + posted the outcome;
                     // PetColiseumDuel just PLAYS it (full-screen portal). onExit
