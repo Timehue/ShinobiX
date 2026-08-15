@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
     adminPlayerSaveUrl,
     canonicalAdminPlayerKey,
+    createAdminPlayerMutationToken,
     isAdminPlayerLookupCurrent,
+    isAdminPlayerMutationCurrent,
     prepareAdminPlayerSaveWrite,
     tagLoadedAdminPlayerSave,
 } from "./admin-player-save-owner";
@@ -63,6 +65,32 @@ describe("admin player save owner identity", () => {
                 { ok: false, reason: "payload-owner-mismatch" },
             );
         }
+    });
+
+    it("does not install a loaded snapshot with a missing, malformed, or foreign owner", () => {
+        for (const snapshot of [
+            null,
+            "Player A",
+            [{ character: { name: "Player A" } }],
+            {},
+            { character: null },
+            { character: "Player A" },
+            { character: [{ name: "Player A" }] },
+            { character: {} },
+            { character: { name: "" } },
+            { character: { name: "Player B" } },
+        ]) {
+            assert.equal(tagLoadedAdminPlayerSave("Player A", snapshot), null);
+        }
+    });
+
+    it("captures a canonical mutation owner and makes stale completions no-ops", () => {
+        const mutation = createAdminPlayerMutationToken(8, " Player.A ");
+        assert.deepEqual(mutation, { ownerKey: "playera", epoch: 9 });
+        assert.ok(mutation);
+        assert.equal(isAdminPlayerMutationCurrent(mutation, 9), true);
+        assert.equal(isAdminPlayerMutationCurrent(mutation, 10), false);
+        assert.equal(createAdminPlayerMutationToken(9, "..."), null);
     });
 
     it("fences delayed lookups by both request epoch and current target", () => {

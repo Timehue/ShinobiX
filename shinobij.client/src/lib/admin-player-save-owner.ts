@@ -10,6 +10,11 @@ export type PreparedAdminPlayerSaveWrite = Readonly<{
     snapshot: AdminPlayerSaveSnapshot;
 }>;
 
+export type AdminPlayerMutationToken = Readonly<{
+    ownerKey: string;
+    epoch: number;
+}>;
+
 export type AdminPlayerSaveWriteFailure =
     | "no-loaded-save"
     | "target-changed"
@@ -28,16 +33,24 @@ export function canonicalAdminPlayerKey(name: unknown): string {
 
 export function tagLoadedAdminPlayerSave(
     ownerName: string,
-    snapshot: AdminPlayerSaveSnapshot,
+    snapshot: unknown,
 ): LoadedAdminPlayerSave | null {
     const ownerKey = canonicalAdminPlayerKey(ownerName);
-    return ownerKey ? { ownerKey, snapshot } : null;
+    if (!ownerKey || !snapshotOwnerMatches(ownerKey, snapshot)) return null;
+    return { ownerKey, snapshot };
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
+}
+
+function snapshotOwnerMatches(ownerKey: string, snapshot: unknown): snapshot is AdminPlayerSaveSnapshot {
+    if (!isPlainRecord(snapshot)) return false;
+    const character = snapshot.character;
+    return isPlainRecord(character)
+        && canonicalAdminPlayerKey(character.name) === ownerKey;
 }
 
 export function prepareAdminPlayerSaveWrite(
@@ -50,13 +63,26 @@ export function prepareAdminPlayerSaveWrite(
         return { ok: false, reason: "target-changed" };
     }
 
-    const character = snapshot.character;
-    const payloadName = isPlainRecord(character) ? character.name : undefined;
-    if (canonicalAdminPlayerKey(payloadName) !== loaded.ownerKey) {
+    if (!snapshotOwnerMatches(loaded.ownerKey, snapshot)) {
         return { ok: false, reason: "payload-owner-mismatch" };
     }
 
     return { ok: true, write: { ownerKey: loaded.ownerKey, snapshot } };
+}
+
+export function createAdminPlayerMutationToken(
+    currentEpoch: number,
+    targetName: string,
+): AdminPlayerMutationToken | null {
+    const ownerKey = canonicalAdminPlayerKey(targetName);
+    return ownerKey ? { ownerKey, epoch: currentEpoch + 1 } : null;
+}
+
+export function isAdminPlayerMutationCurrent(
+    mutation: AdminPlayerMutationToken,
+    currentEpoch: number,
+): boolean {
+    return mutation.epoch === currentEpoch;
 }
 
 export function isAdminPlayerLookupCurrent(
