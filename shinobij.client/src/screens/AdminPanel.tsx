@@ -80,9 +80,12 @@ import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
 import {
     adminPlayerSaveUrl,
     canonicalAdminPlayerKey,
+    createAdminPlayerMutationToken,
     isAdminPlayerLookupCurrent,
+    isAdminPlayerMutationCurrent,
     prepareAdminPlayerSaveWrite,
     tagLoadedAdminPlayerSave,
+    type AdminPlayerMutationToken,
     type AdminPlayerSaveWriteFailure,
     type LoadedAdminPlayerSave,
 } from "../lib/admin-player-save-owner";
@@ -906,7 +909,9 @@ export function AdminPanel({
     const pmTargetNameRef = useRef(pmTargetName);
     const pmLoadedSaveRef = useRef<LoadedAdminPlayerSave | null>(null);
     const pmLookupEpochRef = useRef(0);
-    const pmWriteInFlightRef = useRef(false);
+    const pmMutationEpochRef = useRef(0);
+    const pmMutationActiveEpochRef = useRef<number | null>(null);
+    const pmMutationInFlightRef = useRef(false);
     const pmSnap = pmLoadedSave?.snapshot ?? null;
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [pendingPlayerBloodlines, setPendingPlayerBloodlines] = useState<ReviewBloodline[]>([]);
@@ -935,7 +940,35 @@ export function AdminPanel({
         setPmLoadedSave(null);
     }
 
+    function invalidatePmMutationContext() {
+        pmMutationEpochRef.current += 1;
+    }
+
+    function beginPmMutation(targetName: string): AdminPlayerMutationToken | null {
+        if (pmMutationInFlightRef.current) return null;
+        const mutation = createAdminPlayerMutationToken(pmMutationEpochRef.current, targetName);
+        if (!mutation) return null;
+        pmMutationEpochRef.current = mutation.epoch;
+        pmMutationActiveEpochRef.current = mutation.epoch;
+        pmMutationInFlightRef.current = true;
+        return mutation;
+    }
+
+    function finishPmMutation(mutation: AdminPlayerMutationToken) {
+        // Credential/role replacement can retire an old request and admit work
+        // in the new session before the old network continuation unwinds. Only
+        // the operation that still owns the active slot may release it.
+        if (pmMutationActiveEpochRef.current !== mutation.epoch) return;
+        pmMutationActiveEpochRef.current = null;
+        pmMutationInFlightRef.current = false;
+    }
+
+    function pmMutationIsCurrent(mutation: AdminPlayerMutationToken): boolean {
+        return isAdminPlayerMutationCurrent(mutation, pmMutationEpochRef.current);
+    }
+
     function changePmTargetName(value: string) {
+        invalidatePmMutationContext();
         pmTargetNameRef.current = value;
         setPmTargetName(value);
         invalidatePmLookup();
@@ -950,6 +983,15 @@ export function AdminPanel({
         };
     }, [adminPw, adminRole]);
 
+    useEffect(() => {
+        invalidatePmMutationContext();
+        return () => {
+            invalidatePmMutationContext();
+            pmMutationActiveEpochRef.current = null;
+            pmMutationInFlightRef.current = false;
+        };
+    }, [adminPw, adminRole]);
+
     function playerWriteIdentityMessage(reason: AdminPlayerSaveWriteFailure): string {
         if (reason === "target-changed") return "Player target changed. Look up the player again before saving.";
         if (reason === "payload-owner-mismatch") return "Loaded save identity does not match this player. Look them up again before saving.";
@@ -961,6 +1003,10 @@ export function AdminPanel({
     // client also avoids calling it when role is content; the jutsuBloodlines
     // tab falls back to /api/bloodlines/list for the bloodline gallery.
     function fetchAllKnownPlayers() {
+        fetchAllKnownPlayersIfCurrent(() => true);
+    }
+
+    function fetchAllKnownPlayersIfCurrent(isCurrent: () => boolean) {
         if (!adminPw) return;
         if (adminRole !== 'full') return;
         fetch('/api/admin/players', {
@@ -970,6 +1016,7 @@ export function AdminPanel({
         })
             .then(r => r.ok ? r.json() : null)
             .then((data: { players: { name: string; level: number; village: string; online: boolean }[]; bloodlines?: ReviewBloodline[]; approvedBloodlines?: string[] } | null) => {
+                if (!isCurrent()) return;
                 if (data?.players) setAllKnownPlayers(data.players);
                 if (data?.approvedBloodlines) {
                     setApprovedBloodlineIds(data.approvedBloodlines);
@@ -1028,6 +1075,7 @@ export function AdminPanel({
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
 
     async function pmLookup() {
+        if (pmMutationInFlightRef.current) { setPmMsg("A player save is already in progress."); return; }
         const ownerLabel = pmTargetNameRef.current.trim();
         const ownerKey = canonicalAdminPlayerKey(ownerLabel);
         if (!ownerKey) return;
@@ -1055,7 +1103,10 @@ export function AdminPanel({
             }
             if (!lookupIsCurrent()) return;
             const loaded = tagLoadedAdminPlayerSave(ownerKey, data);
-            if (!loaded) return;
+            if (!loaded) {
+                setPmMsg("❌ Loaded save identity did not match the requested player.");
+                return;
+            }
             setPmLoadedSave(loaded);
             setPmMsg(`✅ Loaded: ${ownerLabel}`);
         } catch {
@@ -1068,7 +1119,6 @@ export function AdminPanel({
         const initialCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current);
         if (!initialCheck.ok) { setPmMsg(playerWriteIdentityMessage(initialCheck.reason)); return; }
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
-        if (pmWriteInFlightRef.current) { setPmMsg("A player save is already in progress."); return; }
         // Summarize the grant and confirm before writing to the player's save.
         const giftParts: string[] = [];
         if (pmGivePetId) {
@@ -1079,9 +1129,12 @@ export function AdminPanel({
             if (giftAmt > 0) giftParts.push(`${giftAmt.toLocaleString()} ${giftKey}`);
         }
         if (giftParts.length === 0) { setPmMsg("Nothing to give — pick a pet or set an amount above 0."); return; }
-        pmWriteInFlightRef.current = true;
+        const targetLabel = pmTargetNameRef.current.trim();
+        const mutation = beginPmMutation(initialCheck.write.ownerKey);
+        if (!mutation) { setPmMsg("A player save is already in progress."); return; }
         try {
-            if (!(await gameConfirm(`Give ${pmTargetNameRef.current.trim()}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`))) return;
+            const confirmed = await gameConfirm(`Give ${targetLabel}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`);
+            if (!pmMutationIsCurrent(mutation) || !confirmed) return;
             if (pmLoadedSaveRef.current !== loaded) {
                 setPmMsg("Player target changed. Look up the player again before saving.");
                 return;
@@ -1112,21 +1165,22 @@ export function AdminPanel({
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: stringifyServerSavePayload(finalCheck.write.snapshot),
             });
+            if (!pmMutationIsCurrent(mutation)) return;
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
                 try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                if (canonicalAdminPlayerKey(pmTargetNameRef.current) === finalCheck.write.ownerKey) setPmMsg(`❌ Save failed: ${detail}`);
+                if (!pmMutationIsCurrent(mutation)) return;
+                setPmMsg(`❌ Save failed: ${detail}`);
                 return;
             }
-            const stillSelected = canonicalAdminPlayerKey(pmTargetNameRef.current) === finalCheck.write.ownerKey;
             invalidatePmLookup();
-            if (stillSelected) setPmMsg("✅ Saved! Look up the player again before making another change.");
+            setPmMsg("✅ Saved! Look up the player again before making another change.");
             setPmGivePetId("");
             setPmGiveAmounts({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
         } catch (err) {
-            if (loaded && canonicalAdminPlayerKey(pmTargetNameRef.current) === loaded.ownerKey) setPmMsg(`? Failed to save: ${String(err)}`);
+            if (pmMutationIsCurrent(mutation)) setPmMsg(`? Failed to save: ${String(err)}`);
         } finally {
-            pmWriteInFlightRef.current = false;
+            finishPmMutation(mutation);
         }
     }
 
@@ -1179,6 +1233,7 @@ export function AdminPanel({
     }
 
     function changePmEditName(value: string) {
+        invalidatePmMutationContext();
         pmEditNameRef.current = value;
         setPmEditName(value);
         invalidatePmEditLookup();
@@ -1194,6 +1249,7 @@ export function AdminPanel({
     }, [adminPw, adminRole]);
 
     async function pmEditLookup() {
+        if (pmMutationInFlightRef.current) { setPmEditMsg("❌ A player save is already in progress."); return; }
         const ownerLabel = pmEditNameRef.current.trim();
         const ownerKey = canonicalAdminPlayerKey(ownerLabel);
         if (!ownerKey) return;
@@ -1217,10 +1273,13 @@ export function AdminPanel({
             if (!res.ok) { setPmEditMsg("❌ Player not found."); return; }
             const data = await res.json() as Record<string, unknown>;
             if (!lookupIsCurrent()) return;
-            const char = data.character as Record<string, unknown> ?? {};
-            const stats = char.stats as Record<string, number> ?? {};
             const loaded = tagLoadedAdminPlayerSave(ownerKey, data);
-            if (!loaded) return;
+            if (!loaded) {
+                setPmEditMsg("❌ Loaded save identity did not match the requested player.");
+                return;
+            }
+            const char = loaded.snapshot.character as Record<string, unknown>;
+            const stats = char.stats as Record<string, number> ?? {};
             setPmEditLoadedSave(loaded);
             setPmEditFields({
                 level: (char.level as number) ?? 1,
@@ -1254,28 +1313,29 @@ export function AdminPanel({
         const checked = prepareAdminPlayerSaveWrite(loaded, pmEditNameRef.current, updatedSnap);
         if (!checked.ok) { setPmEditMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
         if (!adminPw) { setPmEditMsg("❌ Admin password missing. Log out and back into admin."); return; }
-        if (pmWriteInFlightRef.current) { setPmEditMsg("❌ A player save is already in progress."); return; }
-        pmWriteInFlightRef.current = true;
+        const mutation = beginPmMutation(checked.write.ownerKey);
+        if (!mutation) { setPmEditMsg("❌ A player save is already in progress."); return; }
         setPmEditMsg("Saving…");
         try {
             const res = await fetch(adminPlayerSaveUrl(checked.write.ownerKey, true), {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: stringifyServerSavePayload(checked.write.snapshot),
             });
+            if (!pmMutationIsCurrent(mutation)) return;
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
                 try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                if (canonicalAdminPlayerKey(pmEditNameRef.current) === checked.write.ownerKey) setPmEditMsg(`❌ Save failed: ${detail}`);
+                if (!pmMutationIsCurrent(mutation)) return;
+                setPmEditMsg(`❌ Save failed: ${detail}`);
                 return;
             }
-            const stillSelected = canonicalAdminPlayerKey(pmEditNameRef.current) === checked.write.ownerKey;
             invalidatePmEditLookup();
-            if (stillSelected) setPmEditMsg("✅ Saved! Look up the player again before making another change.");
-            fetchAllKnownPlayers();
+            setPmEditMsg("✅ Saved! Look up the player again before making another change.");
+            fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
         } catch (err) {
-            if (canonicalAdminPlayerKey(pmEditNameRef.current) === checked.write.ownerKey) setPmEditMsg(`❌ Save failed: ${String(err)}`);
+            if (pmMutationIsCurrent(mutation)) setPmEditMsg(`❌ Save failed: ${String(err)}`);
         } finally {
-            pmWriteInFlightRef.current = false;
+            finishPmMutation(mutation);
         }
     }
 
@@ -1299,58 +1359,93 @@ export function AdminPanel({
     }
 
     async function pmSoftReset() {
-        const name = pmTargetName.trim();
-        if (!name) return;
-        if (!(await gameConfirm(`Soft-reset ${name}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`, { danger: true, confirmLabel: "Soft-reset" }))) return;
+        const targetLabel = pmTargetNameRef.current.trim();
+        const ownerKey = canonicalAdminPlayerKey(targetLabel);
+        if (!ownerKey) return;
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
-        setPmMsg("Soft-resetting…");
+        const mutation = beginPmMutation(ownerKey);
+        if (!mutation) { setPmMsg("A player save is already in progress."); return; }
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+            const confirmed = await gameConfirm(`Soft-reset ${targetLabel}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`, { danger: true, confirmLabel: "Soft-reset" });
+            if (!pmMutationIsCurrent(mutation) || !confirmed) return;
+            setPmMsg("Soft-resetting…");
+            const res = await fetch(adminPlayerSaveUrl(mutation.ownerKey), {
+                headers: { "x-admin-password": adminPw },
+            });
+            if (!pmMutationIsCurrent(mutation)) return;
             if (!res.ok) { setPmMsg("❌ Player not found."); return; }
             const existing = await res.json() as Record<string, unknown>;
-            const char = (existing.character ?? {}) as Record<string, unknown>;
+            if (!pmMutationIsCurrent(mutation)) return;
+            const loaded = tagLoadedAdminPlayerSave(mutation.ownerKey, existing);
+            if (!loaded) {
+                setPmMsg("❌ Loaded save identity did not match the requested player.");
+                return;
+            }
+            const char = loaded.snapshot.character as Record<string, unknown>;
             const fresh = createCharacter(
-                (char.name as string) || name,
+                char.name as string,
                 (char.village as string) || "",
                 ((char.specialty as string) || "Ninjutsu") as JutsuType,
                 (char.bloodline as string) || "None",
             );
-            const freshSnap = { ...existing, character: fresh };
-            const saveRes = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}?signal=1`, {
+            const freshSnap = { ...loaded.snapshot, character: fresh };
+            const checked = prepareAdminPlayerSaveWrite(loaded, mutation.ownerKey, freshSnap);
+            if (!checked.ok) { setPmMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
+            const saveRes = await fetch(adminPlayerSaveUrl(checked.write.ownerKey, true), {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
-                body: stringifyServerSavePayload(freshSnap),
+                body: stringifyServerSavePayload(checked.write.snapshot),
             });
+            if (!pmMutationIsCurrent(mutation)) return;
             if (!saveRes.ok) {
                 let detail = `HTTP ${saveRes.status}`;
                 try { const data = await saveRes.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
+                if (!pmMutationIsCurrent(mutation)) return;
                 setPmMsg(`❌ Save failed: ${detail}`);
                 return;
             }
             invalidatePmLookup();
-            setPmMsg(`? ${name} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
-            fetchAllKnownPlayers();
-        } catch (e) { setPmMsg(`? Error: ${String(e)}`); }
+            setPmMsg(`? ${targetLabel} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
+            fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
+        } catch (e) {
+            if (pmMutationIsCurrent(mutation)) setPmMsg(`? Error: ${String(e)}`);
+        } finally {
+            finishPmMutation(mutation);
+        }
     }
 
     async function pmReset() {
-        if (!pmTargetName.trim()) return;
-        if (!(await gameConfirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`, { danger: true, confirmLabel: "Reset" }))) return;
-        setPmMsg("⏳ Resetting…");
+        const targetLabel = pmTargetNameRef.current.trim();
+        const ownerKey = canonicalAdminPlayerKey(targetLabel);
+        if (!ownerKey) return;
+        if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
+        const mutation = beginPmMutation(ownerKey);
+        if (!mutation) { setPmMsg("A player save is already in progress."); return; }
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
+            const confirmed = await gameConfirm(`Reset ${targetLabel}'s account to level 1? This cannot be undone.`, { danger: true, confirmLabel: "Reset" });
+            if (!pmMutationIsCurrent(mutation) || !confirmed) return;
+            setPmMsg("⏳ Resetting…");
+            const res = await fetch(adminPlayerSaveUrl(mutation.ownerKey), {
                 method: "DELETE",
                 headers: { "x-admin-password": adminPw },
             });
+            if (!pmMutationIsCurrent(mutation)) return;
             if (!res.ok) {
                 let errDetail = `HTTP ${res.status}`;
                 try { const d = await res.json() as { error?: string }; if (d.error) errDetail = d.error; } catch { /* no-op */ }
+                if (!pmMutationIsCurrent(mutation)) return;
                 setPmMsg(`❌ Reset failed: ${errDetail}`);
                 return;
             }
-            changePmTargetName("");
+            invalidatePmLookup();
+            pmTargetNameRef.current = "";
+            setPmTargetName("");
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
-            fetchAllKnownPlayers();
-        } catch (e) { setPmMsg(`❌ Reset failed: ${String(e)}`); }
+            fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
+        } catch (e) {
+            if (pmMutationIsCurrent(mutation)) setPmMsg(`❌ Reset failed: ${String(e)}`);
+        } finally {
+            finishPmMutation(mutation);
+        }
     }
 
     async function loadRankedSeasonStatus() {

@@ -46,10 +46,13 @@ test('the ?signal=1 admin path requires admin auth and an allowed target', () =>
 test('the ?signal=1 path strips forged gear before writing a content slot', () => {
     // The admin path skips sanitizeCharacterSave entirely, so it must apply the
     // admin-slot forged-item rule itself.
-    const adminBranch = src.slice(src.indexOf('adminStoredVersion'));
+    const adminBranch = src.slice(
+        src.indexOf('// ── Admin save path (?signal=1)'),
+        src.indexOf("if (req.method === 'DELETE')"),
+    );
     assert.ok(adminBranch.length > 0, 'admin write branch present');
     assert.match(
-        adminBranch.slice(0, 2500),
+        adminBranch,
         /stripForgedItems\(/,
         'admin ?signal=1 writes must strip personal forged items from creatorItems',
     );
