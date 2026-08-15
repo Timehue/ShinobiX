@@ -102,11 +102,19 @@ test("Pet Arena's App boundary reports foreign and stale responses separately", 
 });
 
 test("every authoritative Pet Arena result exposes an idempotent retry receipt", () => {
-    for (const kind of ["tactical", "party", "ranked", "casual"] as const) {
+    for (const kind of ["tactical", "ranked"] as const) {
         assert.match(arenaSource, new RegExp(`kind: "${kind}"`));
     }
+    // A player challenge settles as "party" or "casual" depending on the format
+    // the two sides agreed to. Both come from ONE settlement now, because both
+    // are the same thing: a server-sealed duel this screen only watched.
+    assert.match(arenaSource, /kind: isParty \? "party" : "casual"/);
     assert.match(arenaSource, /Retry Settlement/);
-    assert.match(arenaSource, /const inputLog = livePartyDuel\?\.inputLog\(\)/);
+    // A 2v2 no longer freezes an input log. `livePartyDuel` is gone: a party
+    // duel is resolved on the server when the challenge is accepted, so there
+    // are no local inputs to prove. The one duel this screen still resolves
+    // itself — the World Map's sector wanderer — still freezes its log.
+    assert.doesNotMatch(arenaSource, /livePartyDuel/);
     assert.match(arenaSource, /const inputLog = liveDuel\?\.inputLog\(\)/);
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /if \(petSettlementBlocksExit\)/);
