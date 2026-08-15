@@ -175,12 +175,11 @@ function isSquadMember(session: TowerSession, slug: string): boolean {
  *
  * This restores the direct public-floor identity invariant that
  * `session.encounterFloor` had opened
- * a hole in. Every solo mode built by `buildAuthoritativeSoloEncounter` (combat
- * missions, story bosses, the weekly boss, generic AI fights, the Academy spar)
- * EMBEDS a synthetic floor in the session so the engine can run it, with a
- * reserved id far outside the catalog (9_100+). `floorForSession` prefers that
- * embedded floor, so those sessions sailed past the `!floor` check and reached
- * the tower payout path — and every one of them is a real, member-owned, won
+ * a hole in. Before the Solo-PvE cutover, non-Tower modes embedded synthetic
+ * floors in Tower sessions under reserved ids outside the catalog (9_100+).
+ * `floorForSession` preferred that embedded floor, so those legacy sessions
+ * sailed past the `!floor` check and reached the tower payout path — and each
+ * was a real, member-owned, won
  * TowerSession, so nothing else here refused them.
  *
  * They paid no currency (a dynamic floor's `firstClearReward` is `{}`), but

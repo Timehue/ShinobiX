@@ -2,9 +2,8 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { pickAiAction, startRound } from './_engine.js';
 import { makeRng } from './_sim.js';
-import { buildAiFightEncounter, type AiFightProfile } from '../missions/_ai-fight-encounter.js';
-import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
+import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
 
 /*
  * Step A wiring: the four PvE band-BEHAVIOUR helpers in api/_pve-difficulty.ts
@@ -22,40 +21,16 @@ import type { TowerSession, TowerActor } from './_tower-session.js';
  * fails vacuously the moment the option under test was never in the pool.
  */
 
-const profile = AI_PROFILE_CATALOG['builtin-ai-academy-sparring'] as unknown as AiFightProfile;
-
 /** A damage jutsu weak enough to be the AI's non-lethal alternative. The stock
- *  academy kit has only two identical 60-AP bursts plus an EMPTY_GROUND flicker
- *  (which the picker excludes), so the lethal gate has nothing to prefer without
- *  one — the fixture, not the gate, would decide the result. */
+ *  engine fixture has only a 60-AP burst, so the lethal gate has nothing to
+ *  prefer without one — the fixture, not the gate, would decide the result. */
 const WEAK_JAB = {
     id: 'weak-jab', name: 'Weak Jab', type: 'Ninjutsu', element: 'Fire',
     method: 'SINGLE', target: 'OPPONENT', ap: 40, range: 4, effectPower: 2, tags: [],
 };
 
-function makeSave(): Record<string, unknown> {
-    return {
-        character: {
-            name: 'Rill', level: 20, specialty: 'Ninjutsu', maxHp: 800, hp: 800,
-            stats: {
-                strength: 100, speed: 100, intelligence: 100, willpower: 100,
-                ninjutsuOffense: 200, ninjutsuDefense: 100,
-                taijutsuOffense: 100, taijutsuDefense: 100,
-                bukijutsuOffense: 100, bukijutsuDefense: 100,
-                genjutsuOffense: 100, genjutsuDefense: 100,
-            },
-            equippedJutsuIds: ['starter-universal-flicker'],
-        },
-        savedBloodlines: [], creatorJutsus: [],
-    };
-}
-
 function build(level: number): TowerSession {
-    const session = buildAiFightEncounter({
-        playerName: 'Rill', save: makeSave(), profile,
-        runId: `aifight-band-${level}`, seed: 99, now: 1_770_000_000_000,
-        scaling: { level, statBonus: 200 },
-    });
+    const session = makePveEngineTestSession({ enemyLevel: level, runId: `pve-band-${level}` });
     startRound(session);
     return session;
 }

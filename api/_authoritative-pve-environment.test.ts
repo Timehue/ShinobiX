@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { missionEnvironment, dynamicBossFloor } from './_authoritative-pve.js';
+import { missionEnvironment } from './_authoritative-pve.js';
 
 // Locks the combat-mission battlefield theming (Phase 1 of "missions play like the
 // Arena"): the biome drives the board art + the shared +10% school terrain buff,
@@ -24,10 +24,5 @@ describe('mission battlefield environment', () => {
         assert.deepEqual(missionEnvironment('combat-a-hunt').weather, { positiveElement: 'Lightning', negativeElement: 'Earth' });
         assert.equal(missionEnvironment('combat-e-drill').weather, undefined);
         assert.equal(missionEnvironment('combat-s-crisis').weather, undefined);
-    });
-
-    it('dynamicBossFloor carries the sealed biome onto the floor (central default)', () => {
-        assert.equal(dynamicBossFloor({ id: 1, name: 'x', bossAiId: 'y', biome: 'volcano' }).biome, 'volcano');
-        assert.equal(dynamicBossFloor({ id: 1, name: 'x', bossAiId: 'y' }).biome, 'central');
     });
 });
