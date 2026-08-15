@@ -6,11 +6,13 @@
 
 Status date: 2026-08-15 (America/Chicago)
 
-Program state: **Phase 0 locally complete; Phase 1 implemented and validated locally; Phase 2 locally complete; Phase 3 implementation complete with the final integrated local gate pending**
+Program state: **Phase 0 locally complete; Phase 1 implemented and validated locally; Phase 2 locally complete; Phase 3 locally complete; Phase 4 next**
 
 Working branch: `codex/aaa-cohesion-corrected`
 
 Integrated Phase-2 revision: `d9ef64aa94b410f5d307f828ccb1871e826fbf66`
+
+Phase-3 implementation revision: `d5b2727aa`
 
 Program baseline: `d8948a311680b92a2a672ae0a0b35714e73e8b4f`
 
@@ -35,8 +37,8 @@ split workflow has yet verified Linux/Node-22 execution.
 | 0 — verified baseline and architecture truth | **Locally complete** | Baseline evidence, current deployment/storage topology, the complete static mode map, baseline repairs, and final local reruns are recorded. External and hosted checks remain explicit non-passes. |
 | 1 — reliable CI | **Implemented and validated locally** | The split workflow, contracts, evidence handling, and operator docs pass local static/discovery validation. Hosted split checks and external branch protection remain unverified, so Phase 1 is not claimed complete. |
 | 2 — mode-authority and capability registry | **Locally complete** | The executable registry, generated projection, reverse route census, canonical server capability predicates, client capability boundaries, upstream integration, frozen impacted census, complete root suite, exact release build, and built-artifact browser gate passed locally. Hosted and external evidence remains an explicit non-pass. |
-| 3 — engine-boundary hardening | **Implementation complete; final local gate pending** | Wrong-owner and duplicate-authority paths are retired or exact-bound, the registry/docs are reconciled, and focused tests pass. The complete integrated root/build/browser checkpoint must still pass before this phase is labelled locally complete. |
-| 4 — frontend decomposition | Pending | Not started. |
+| 3 — engine-boundary hardening | **Locally complete** | At implementation revision `d5b2727aa`, wrong-owner and duplicate-authority paths are retired or exact-bound, the registry/docs and focused contracts pass, and the complete root suite, full client lint, exact CI-environment release build, and built-artifact browser checkpoint all passed locally. Hosted and external evidence remains an explicit non-pass. |
+| 4 — frontend decomposition | **Next** | Not started. |
 | 5 — shared reliability infrastructure | Pending | Not started. |
 | 6 — capacity and operations certification | Pending | Not started. |
 | 7 — persistent economy and marketplace | Pending | Not started. |
@@ -167,11 +169,13 @@ therefore locally complete. This deliberately narrow claim is not a substitute
 for hosted Node-22 execution, staging, real-database, capacity, operations,
 rollback, or production-readiness evidence.
 
-### Local Phase-3 focused evidence
+### Local Phase-3 completion evidence
 
-These results were collected from the current Phase-3 worktree on local
-Windows/Node 24. They prove the changed boundaries and source contracts, but do
-not replace the pending complete integrated root/build/lint/browser checkpoint.
+These results were collected from Phase-3 implementation revision `d5b2727aa`
+on local Windows/Node 24. They establish the focused boundary contracts and the
+complete integrated local checkpoint. They do not replace hosted Linux/Node-22,
+staging, real-database, capacity, operations, rollback, or production-readiness
+evidence.
 
 | Validation | Result | Scope |
 | --- | --- | --- |
@@ -180,11 +184,18 @@ not replace the pending complete integrated root/build/lint/browser checkpoint.
 | Hollow Gate pet authority and reconnect/adversarial slices | **PASS** | 35/35 combined Hollow Gate/storage/Showdown/reconnect checks, 4/4 dedicated adversarial checks, and 13/13 final crash/abandon/receipt-key review checks. |
 | Pet Coliseum single-owner and battle-authority slices | **PASS** | 4/4 single-owner checks and 8/8 battle-authority checks. |
 | Focused type/lint checks | **PASS** | Server cPanel TypeScript passed after registry reconciliation; the client TypeScript build and focused `PetArena` lint passed on the frozen runtime/UI slice. |
+| Complete root suite | **PASS** | `npm run test:ci`: 6,443/6,443 tests across 903 suites; 0 failed/cancelled/skipped/todo; `957339.2399 ms`. |
+| Full client lint | **PASS** | The complete client lint passed on the exact Phase-3 implementation revision. |
+| Exact CI-environment release build | **PASS** | Server: `99.2 KB`; client dist: `300.3 MB`; `verify-dist` passed. Budgeted product JS/CSS: `7,696,971` raw / `2,356,511` gzip bytes; story JSON: `566,126` / `143,154`; combined: `8,263,097` / `2,499,665`; all emitted JS/CSS: `7,780,769` / `2,384,567`. The 11-file initial graph was `1.39 MB` raw / `375.3 KB` gzip. |
+| Built-artifact browser matrix | **PASS** | 42 tests discovered: 30 passed, 12 intentional project-filtered skips, 0 failed, `50.3s`, covering the exact product-truth and release-smoke matrix against the built artifact. |
 
-Phase 3 therefore has locally complete implementation and focused boundary
-evidence, but remains **final integrated local gate pending**. No final Phase-3
-revision, complete root-suite result, exact release-build result, or
-built-artifact browser result is claimed here.
+An initial broad browser command discovered 182 tests, which was the wrong scope
+for the exact built-artifact checkpoint and was intentionally stopped. It is not
+a red result and is not counted as Phase-3 browser evidence.
+
+Phase 3 is therefore locally complete at `d5b2727aa`. This deliberately narrow
+claim does not promote any hosted, staging, database, capacity, operations,
+rollback, or production-readiness non-pass.
 
 The split contexts have not run on GitHub, and the desired protection in
 `docs/required-branch-protection.md` has not been read from or applied to external
@@ -377,17 +388,16 @@ this status.
 
 ## Exact next work
 
-1. Complete the final integrated Phase-3 root test, exact release build, lint,
-   generated-document drift, and built-artifact browser gates. If they pass,
-   record Phase 3 as locally complete and begin Phase 4 without merging distinct
-   engine families. Sector garrison, Clan War shinobi 2v2, public Pet Ranked, and
-   standalone Tactical remain explicit fail-closed or route-less product gaps;
-   legacy ranked remains recovery-only and defective. Hollow Gate's future
-   replatform choice remains owner-controlled while its current executable
-   authority is already exact and singular.
+1. Begin Phase 4 frontend decomposition from the locally certified Phase-3
+   implementation revision `d5b2727aa` without merging distinct engine families.
+   Preserve Sector garrison, Clan War shinobi 2v2, public Pet Ranked, and
+   standalone Tactical as explicit fail-closed or route-less product gaps until
+   their complete owner-authoritative lifecycles exist. Legacy ranked remains
+   recovery-only and defective; Hollow Gate's future replatform choice remains
+   owner-controlled while its current executable authority is exact and singular.
 2. When valid GitHub authorization is available, push the review branch and open
-   a draft pull request that preserves the Phase-2 merge checkpoint and its
-   evidence.
+   a draft pull request that preserves the Phase-2 merge checkpoint, the
+   Phase-3 implementation revision, and their local evidence.
 3. Require all nine stable/compatibility contexts, three combat shards, the
    internal release join, and both CodeQL language checks to produce final hosted
    summaries and retained artifacts.
@@ -400,6 +410,7 @@ this status.
    available; hermetic/local passes are not substitutes.
 
 ```text
+git show -s --format="%H %P" d5b2727aa
 git show -s --format="%H %P" d9ef64aa94b410f5d307f828ccb1871e826fbf66
 git merge-base 96d23ec23547f6eb6fbb705d58f46a64c46658cb 06c9f4c69e92bd9dc8704c2b5f7b15ee36853866
 git rev-parse origin/main
