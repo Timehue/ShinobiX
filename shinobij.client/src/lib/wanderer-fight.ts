@@ -12,7 +12,6 @@ import type { Character } from "../types/character";
 // save-conflict refetch). Inferring from it made real ambush WINS resolve as losses.
 export const WANDERER_PENDING_KEY = "wandererFight.pending.v1";
 
-export type WandererFightResult = "win" | "loss" | "fled";
 export type WandererFightSettlement = {
     outcome: "win" | "loss" | "draw" | "forfeit";
     worldContext: WorldAiFightContext;
@@ -103,22 +102,6 @@ export function clearWandererFightPending(playerName: string): void {
         if (record.playerName?.trim().toLowerCase() !== playerName.trim().toLowerCase()) return;
         localStorage.removeItem(WANDERER_PENDING_KEY);
     } catch { /* private mode has no presentation marker to clear */ }
-}
-
-/**
- * Stamp the authoritative battle outcome onto the pending wanderer-fight record, if
- * one exists. No-op for every non-wanderer battle (there is no pending record) and in
- * private-browsing mode (localStorage throws). Called from the Arena when a battle
- * finalizes.
- */
-export function stampWandererFightResult(result: WandererFightResult): void {
-    try {
-        const raw = localStorage.getItem(WANDERER_PENDING_KEY);
-        if (!raw) return;
-        const rec = JSON.parse(raw) as Record<string, unknown>;
-        rec.result = result;
-        localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify(rec));
-    } catch { /* private mode / bad JSON — the map falls back to the totalAiKills delta */ }
 }
 
 /** Persist and publish only a token-sealed server settlement. WorldMap listens

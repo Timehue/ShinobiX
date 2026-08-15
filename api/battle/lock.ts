@@ -9,17 +9,15 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 /*
  * /api/battle/lock  — POST only, multiplexed by `action`
  *
- * A server-side "you are in a fight" marker so a player cannot escape a PvE
- * battle by refreshing (or by clearing localStorage and refreshing). The lock
- * lives in KV under `battle-lock:<player>`, written ONLY here — it is NOT part
- * of the client-writable save body, so the normal /api/save POST can't clear it.
+ * Compatibility marker for the remaining non-session battle screens. Current
+ * Solo PvE, PvP, and Tower combat persists and resumes through dedicated sealed
+ * session stores; this record is never combat-state or reward authority. The
+ * marker lives under `battle-lock:<player>`, outside the client-writable save.
  *
- * Decision (resume-only, no loss-on-abandon): this endpoint does NOT pay
- * rewards or apply penalties. The PvE battle outcome stays client-resolved
- * exactly as today (a loss still hospitalizes client-side). The lock's sole job
- * is anti-escape: on the next load the client reads the lock via `status` and
- * forces re-entry into the same fight. Honest disconnects are never punished —
- * they just resume.
+ * App reads the marker during boot to resume the one supported legacy snapshot
+ * or to retire pre-cutover Arena/Endless/story records without recreating local
+ * combat. This endpoint pays no rewards. A caller may explicitly resolve a
+ * cleared-state loss, which atomically hospitalizes the authoritative save.
  *
  * Actions (POST body `{ action, playerName, ... }`):
  *   - start   { battleId, kind, screen, meta? } → set the lock (idempotent; if a
@@ -32,8 +30,8 @@ import { bumpSaveVersion } from '../save/_save-version.js';
  *   - status  {}                                 → read the current lock (called
  *               on boot to decide whether to force re-entry).
  *
- * The lock self-heals via a 6h TTL so a truly abandoned fight (player gone for
- * hours) can't trap the account forever.
+ * The compatibility marker self-heals after one hour so an abandoned legacy
+ * flow cannot trap the account indefinitely.
  */
 
 export type BattleLock = {
@@ -44,10 +42,9 @@ export type BattleLock = {
     meta?: Record<string, unknown>; // optional encounter params for reconstruct-on-load
 };
 
-// 1h — matches the client ArenaBattlePersister TTL so the lock and the
-// resumable state expire TOGETHER. If the lock outlived the resumable state
-// there'd be a window where a refresh finds a lock but no resume state and
-// wrongly counts a loss; aligning the TTLs closes that window.
+// One-hour safety expiry for this compatibility marker. It is not coupled to a
+// retired Arena snapshot; unsupported markers are cleared by boot migration,
+// while sealed combat sessions own their independent server-side lifetimes.
 const LOCK_TTL_SECONDS = 60 * 60;
 const BATTLE_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 const KIND_RE = /^[A-Za-z0-9:_-]{1,40}$/;

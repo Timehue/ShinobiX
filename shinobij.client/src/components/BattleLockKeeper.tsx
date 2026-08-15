@@ -2,12 +2,11 @@ import { useEffect, useRef } from "react";
 import type { Screen } from "../types/core";
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, mintBattleId, postBattleLock } from "../lib/battle-save";
 
-// Headless child (mounts inside a battle screen) that registers/clears the
-// server battle lock as the fight starts and ends. Isolated like
-// ArenaBattlePersister so the parent's hook count is untouched. `active` is true
-// only while an unresolved, non-PvP fight is in progress (PvP has its own
-// server session). It adopts an existing battleId on resume (localStorage
-// intact) so the eventual resolve clears the right lock.
+// Headless compatibility child for the remaining non-session battle screens
+// (currently StoryBoss and the Hollow Gate tile seal). Server-sealed Solo PvE,
+// PvP, and Tower hosts recover from their own session stores and do not use this
+// component as combat authority. An existing client marker is adopted only so
+// the matching legacy lock is cleared when its screen resolves.
 export function BattleLockKeeper({ active, kind, screen, playerName }: { active: boolean; kind: string; screen: Screen; playerName: string }) {
     // Fires once per active-transition; lockedRef guards against the (mid-fight
     // stable) kind/screen/playerName deps re-running the effect and double-firing.
@@ -38,14 +37,3 @@ export function BattleLockKeeper({ active, kind, screen, playerName }: { active:
     }, [active, kind, screen, playerName]);
     return null;
 }
-
-// ── ArenaBattlePersister ─────────────────────────────────────────────────
-// Headless child component (renders nothing) that serializes a PvE Arena
-// battle to localStorage on each turn boundary and rehydrates it on mount.
-//
-// Lives as a SEPARATE component to keep its hooks isolated from Arena —
-// previous attempts to put the hooks directly inside Arena tripped React
-// error #310 (hook count mismatch) because Arena has 50+ existing hooks
-// and the interaction was unstable. With this child, Arena's hook count
-// is untouched: the persister has its own consistent hook footprint
-// (2 useEffects), independent of the parent.

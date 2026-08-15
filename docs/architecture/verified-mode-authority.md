@@ -9,6 +9,15 @@ Verified against commit d8948a311680b92a2a672ae0a0b35714e73e8b4f on 2026-08-14. 
 > its [generated projection](../generated/runtime-mode-registry.md). This report
 > remains the detailed evidence behind that registry.
 
+> [!IMPORTANT]
+> Post-audit update, 2026-08-15: the unreachable local combat reducer and board
+> were removed from `Arena.tsx`. The screen now publishes challenges and sealed
+> practice requests only. App's canonical challenge handler creates the PvP
+> session and routes its server battle ID to `PvpBattleScreen`; `AiFightHost`
+> renders practice through `MissionArenaFight`. Line-number references below
+> remain evidence for the named historical audit revision, not current Arena
+> ownership.
+
 ## Authority rules used for the audit
 
 - PvP owns casual shinobi PvP, direct challenges, ranked shinobi PvP, and human-versus-human Sector War shinobi combat.

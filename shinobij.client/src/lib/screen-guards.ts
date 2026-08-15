@@ -12,8 +12,8 @@ import { BATTLE_LOCK_ID_KEY } from "./battle-save";
 //
 // Hub/lobby screens that render correctly from the LOADED SAVE ALONE after a
 // refresh — safe to deep-link to (URL hash) and to restore from lastScreen.v1.
-// Anything NOT here is a transient / mid-encounter screen whose state lives only
-// in React; on reload it force-re-enters (battles) or routes to a safe parent.
+// Anything NOT here is transient or session-bound; on reload its dedicated
+// recovery path restores a sealed server session or routes to a safe parent.
 export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "village", "profile", "inventory", "logbook", "training",
     "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall",
@@ -25,9 +25,10 @@ export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "guides", "shinobiTiles", "sunscarFestival",
 ]);
 
-// Screens we restore on refresh: the deep-linkable hubs plus the arena
-// lobby/district family, which render fine with no fight in flight (an
-// in-progress PvE arena fight additionally resumes via ArenaBattlePersister).
+// Screens we restore on refresh: the deep-linkable hubs plus the Arena
+// lobby/district family, which is presentation-only after the local combat
+// retirement. Live fights recover through their sealed session hosts, never by
+// restoring combat state into these lobbies.
 export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     ...DEEP_LINKABLE_SCREENS,
     "arena", "battleArena", "arenaDistrict", "userHub",
@@ -82,9 +83,9 @@ export function isHospitalNavigationBlocked(hospitalized: boolean, screen: Scree
 
 // ─── Battle screens (navigation lock) ───────────────────────────────────────
 //
-// Screens that are battle-only or battle-capable. `arena` and `petArena` ALSO
-// have non-fight lobby states, so the runtime guard (isUnresolvedBattle) gates
-// those on an active-fight signal rather than on the screen alone.
+// Screens that are battle-only, session hosts, or retained compatibility
+// routing surfaces. `arena` is now lobby-only; `petArena` still has both lobby
+// and fight states, so the runtime guard gates mixed screens on explicit state.
 // Used by App-level battle-flow effects as the broad catalog, while
 // isUnresolvedBattle() below decides whether a mixed lobby/fight screen is
 // actively locked.
@@ -130,10 +131,9 @@ export function hasActiveTowerFight(): boolean {
     }
 }
 
-// True when an unresolved PvE/story fight is registered on the server lock
-// (BattleLockKeeper sets this only while a fight is actually in progress, and
-// clears it the instant the fight ends — so it cleanly distinguishes the arena
-// lobby from an arena fight).
+// True when a remaining non-session screen has mirrored an unresolved fight to
+// the compatibility lock. Sealed combat hosts use their own session ids, and
+// boot removes unsupported pre-cutover Arena markers instead of resuming them.
 export function hasActiveBattleLock(): boolean {
     try {
         return !!localStorage.getItem(BATTLE_LOCK_ID_KEY);
@@ -151,12 +151,12 @@ export interface BattleGuardSignals {
     pvpBattleId: string | null;        // tactical PvP server session
     pvpBattleResolved?: boolean;       // result screen is showing; safe to leave
     endlessBattleActive: boolean;      // server-owned Endless fight over its lobby
-    pendingArenaStoryBattle: boolean;  // story / weekly / boss / event fight (in arena)
+    pendingArenaStoryBattle: boolean;  // pre-cutover routing breadcrumb; boot retires it
     pendingEventEncounter: boolean;    // event card / pet battle
     activeDungeonEvent: boolean;       // dungeon run in progress
     hollowGateTileGameActive: boolean; // hollow-gate tile seal
     pendingPetBattle: boolean;         // pet PvP just accepted (partial — see note)
-    arenaBattleActive: boolean;        // lifted from Arena: any arena fight incl. ranked
+    arenaBattleActive: boolean;        // retired compatibility slot; App supplies false
     petBattleActive: boolean;          // lifted from PetArena: pet sim in progress
     missionBattleActive: boolean;      // lifted from Missions: server-owned MissionArenaFight
 }
@@ -174,8 +174,9 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "arena":
         case "battleArena":
         case "arenaDistrict":
-            // Lifted flag covers every arena fight (AI/ranked/endless/story/human);
-            // the lock + endless/story flags are belt-and-suspenders.
+            // These screens are lobbies after the local Arena retirement. The
+            // false compatibility flag and legacy signals remain only to fence
+            // rolling-upgrade breadcrumbs while boot routes sealed sessions.
             return s.arenaBattleActive || hasActiveBattleLock()
                 || s.endlessBattleActive || s.pendingArenaStoryBattle;
         case "pvpBattle":

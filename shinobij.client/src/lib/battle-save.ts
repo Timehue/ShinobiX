@@ -1,18 +1,17 @@
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 
-// Story-boss resume persistence (mirrors the arena persister; 1h TTL).
+// The legacy StoryBoss screen still owns this one-hour browser resume record.
+// It is independent of the retired local Arena combat path.
 export const STORY_BOSS_SAVE_TTL_MS = 60 * 60 * 1000;
 export function storyBossSaveKey(name: string): string { return `storyBoss.battle.v1.${name}`; }
 
 // ── Battle lock (server-side refresh-flee guard) ─────────────────────────
-// A PvE fight registers a server-side lock (api/battle/lock.ts) on start and
-// clears it on end. On boot the app reads the lock and forces re-entry, so a
-// refresh — or a wiped localStorage — can't escape an unresolved fight. The
-// battle STATE still lives client-side (ArenaBattlePersister); the lock only
-// makes the fight un-skippable. Resume-only: nothing is paid or punished here,
-// except the deliberate cleared-localStorage case, which the boot path resolves
-// as a loss (see applySnapshot).
+// Remaining non-session screens can register an auxiliary server lock through
+// api/battle/lock.ts. Current Solo PvE, PvP, and Tower hosts instead recover
+// their sealed sessions from their own server stores. On boot App reconciles a
+// supported legacy snapshot or retires a pre-cutover Arena/Endless/story lock;
+// this marker never supplies combat state or reward authority.
 export const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
 // Set when a fight ENDS (alongside the resolve call) and cleared once boot
 // consumes it. It distinguishes "fight ended, but the network resolve didn't
@@ -22,11 +21,10 @@ export const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
 // work — a winner whose resolve failed keeps the marker and is not penalized.
 export const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
 
-// Legacy Arena "story" context persistence. Covers the still-readable
-// pre-cutover story records that fought on screen "arena" with the combat
-// snapshot saved by ArenaBattlePersister; what's lost on refresh is the
-// pendingArenaStoryBattle context + the scaled enemy. Persist just those (images
-// stripped) so the boot path rebuilds the fight. 1h TTL.
+// Read-only schema for pre-cutover Arena story context. No writer or local
+// Arena persister remains: App reads this only during boot migration, routes a
+// recoverable server-owned run back to its sealed entry point, then removes the
+// legacy context and combat snapshot.
 const ARENA_STORY_CTX_TTL_MS = 60 * 60 * 1000;
 type ArenaStoryContext = { battle: unknown; aiId: string; ai: CreatorAi | null; savedAt: number };
 export function arenaStoryCtxKey(name: string): string { return `arenaStory.context.v1.${name}`; }
@@ -49,9 +47,10 @@ export function mintBattleId(): string {
     return `${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// Best-effort POST to the battle-lock endpoint. Never throws and never blocks
-// combat — a failed lock call just means the (already client-resolved) fight
-// isn't server-guarded that one time, which is strictly no worse than before.
+// Best-effort POST to the compatibility battle-lock endpoint. Never throws or
+// turns the marker into combat authority; sealed hosts continue to rely on
+// their own sessions, while remaining legacy screens retain their existing
+// resolution behavior if this auxiliary request fails.
 export async function postBattleLock(body: Record<string, unknown>): Promise<{ ok?: boolean; lock?: ClientBattleLock | null; alreadyLocked?: boolean } | null> {
     try {
         const res = await fetch("/api/battle/lock", {
@@ -71,10 +70,10 @@ export async function fetchBattleLockStatus(playerName: string): Promise<ClientB
     return data?.lock ?? null;
 }
 
-// True when the client can actually resume the locked fight from local state —
-// must agree with what the screen's persister will accept on mount (same key,
-// TTL, and signature), so "resume exists" ⟺ "the fight really rehydrates". A
-// kind with no persister returns false → the boot cleared-state path handles it.
+// Compatibility check for lock kinds that still support a browser snapshot.
+// Server-session hosts recover by run/session id before this branch. Retired
+// Arena, Endless, and Arena-story records return false so App's boot path can
+// clear or migrate them without reviving browser-owned combat authority.
 export function battleResumeStateExists(lock: ClientBattleLock, playerName: string, character: Character | null): boolean {
     try {
         // All current shinobi combat uses server sessions. Local Arena snapshots
@@ -106,4 +105,5 @@ export function battleResumeStateExists(lock: ClientBattleLock, playerName: stri
     return false;
 }
 
+// Legacy compatibility duration used only by retirement characterization.
 export const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;     // 1hr

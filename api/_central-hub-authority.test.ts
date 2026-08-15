@@ -4,7 +4,6 @@ import { describe, it } from "node:test";
 
 const app = readFileSync("shinobij.client/src/App.tsx", "utf8");
 const hub = readFileSync("shinobij.client/src/screens/CentralHub.tsx", "utf8");
-const arena = readFileSync("shinobij.client/src/screens/Arena.tsx", "utf8");
 const council = readFileSync("shinobij.client/src/screens/ShinobiCouncilHall.tsx", "utf8");
 const capabilities = readFileSync("api/player/_public-capabilities.ts", "utf8");
 const liveNotice = readFileSync("shinobij.client/src/lib/live-capabilities.ts", "utf8");
@@ -28,16 +27,16 @@ describe("Central Hub release authority", () => {
     it("settles keyed dungeons and every Endless Tower mutation on the server", () => {
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"start"\)/);
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"settle",\s*token\)/);
-        assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"abandon",\s*token\)/);
+        assert.match(app, /mutateDungeonRunServer\(current\.name,\s*"abandon",\s*token\)/);
         for (const action of ["start", "settle", "cashout"]) {
             assert.match(endlessActions, new RegExp(`mutateEndlessRun\\([^\\n]+,\\s*"${action}"`));
         }
         assert.match(endlessActions, /startEndlessWave\(/);
         assert.match(endlessFight, /soloPveArenaTransport/);
         assert.match(endlessFight, /MissionArenaFight/);
-        assert.doesNotMatch(`${app}\n${endlessActions}`, /payEndlessEntry\(|applyTowerCashOut\(|prepareOpponent|endlessSettlementPending/);
+        assert.doesNotMatch(`${app}\n${endlessActions}\n${endlessFight}`, /payEndlessEntry\(|applyTowerCashOut\(|prepareOpponent|endlessSettlementPending/);
         assert.doesNotMatch(endlessActions, /aiFightToken|\bhp\s*:|\bchakra\s*:|\bstamina\s*:/);
-        assert.doesNotMatch(arena, /onEndless|endlessBattleWave/);
+        assert.doesNotMatch(`${app}\n${endlessActions}\n${endlessFight}`, /onEndless|endlessBattleWave/);
     });
 
     it("uses current war receipts for Council contributors", () => {

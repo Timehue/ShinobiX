@@ -389,7 +389,6 @@ describe("save-conflict App and accessibility contracts", () => {
         // recovery raises a banner for a divergence that never happened.
         const sources: Array<[string, string]> = [
             ["App.tsx", appSource],
-            ["Arena.tsx", readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8")],
             ["WorldMap.tsx", readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8")],
         ];
         const adopts = /(?:(?:acceptExternalSaveVersion|onServerVersion\?\.)\(\s*[A-Za-z0-9_]+\?\._saveVersion|(?:adoptOwnSaveRead|onOwnSaveRead)\([^\n]+\._saveVersion\))/;

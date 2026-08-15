@@ -163,9 +163,9 @@ const aiFightPlayerKey = (name: string): string => playerSlug(name);
  * Missing or unresolvable server profiles fail closed and are shown to the
  * player; this host never runs a rewarding client-resolved fight.
  *
- * The fight is started BEFORE the screen is chosen. The old path minted its token
- * from a `battleStarted` effect INSIDE Arena, so the runId only arrived once the
- * local fight was already underway — too late to route anything.
+ * The sealed start completes before MissionArenaFight mounts, so every rendered
+ * fight already has its authoritative runId and initial session. Arena remains
+ * a lobby and owns no combat-start effect or local fallback.
  */
 export function AiFightHost({
     character,
@@ -189,7 +189,7 @@ export function AiFightHost({
     hooks?: AiFightSettleHooks;
     onSettled: (result: AiFightSettleResult) => void;
     onClose?: (returnScreen?: string) => void;
-    /** Profile → Battles reflection log, same as the local Arena records. */
+    /** Profile → Battles reflection log projected after server settlement. */
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     const [fight, setFight] = useState<ActiveFight | null>(null);

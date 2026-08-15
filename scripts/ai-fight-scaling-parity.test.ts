@@ -7,10 +7,9 @@
  * server seals a different opponent than the client shows — the exact class of
  * bug the migration exists to remove, and one no other test would catch.
  *
- * It also pins the CLAIM this module is built on: that combat missions are the
- * ONLY entry point which re-levels its AI. `relevelBuiltinAi` has a single call
- * site in the client, gated on combat missions; if a second one ever appears,
- * the server is silently wrong for that mode and this fails.
+ * AI scaling is now owned by the sealed server start. The client host submits
+ * intent and renders the returned Solo PvE session; it does not re-level a
+ * local combatant.
  *
  * Lives in scripts/ — excluded from both build roots — like the other
  * cross-build-root parity tests.
@@ -99,20 +98,14 @@ describe('AI-fight scaling parity (server ⇄ client)', () => {
         );
     });
 
-    it('combat missions are still the ONLY entry point that re-levels its AI', () => {
-        // The load-bearing premise of _ai-fight-scaling.ts. If a second call site
-        // appears, that entry point now scales on the client while the server
-        // builds it at the authored level — silently divergent.
-        const arena = readFileSync('shinobij.client/src/screens/Arena.tsx', 'utf8');
-        const calls = arena.match(/relevelBuiltinAi\(/g) ?? [];
-        assert.equal(
-            calls.length, 1,
-            `expected exactly ONE relevelBuiltinAi call site in Arena.tsx, found ${calls.length} — `
-            + 'a new entry point re-levels its AI and api/missions/_ai-fight-scaling.ts must learn it',
-        );
-        assert.ok(
-            /missionAiLevelAndBonus\(combatMissionForAi, character\.level\)/.test(arena),
-            'the surviving call site is no longer the combat-mission one — re-verify the server port',
-        );
+    it('mission re-leveling is owned by the sealed server start', () => {
+        const start = readFileSync('api/missions/ai-fight-start.ts', 'utf8');
+        const encounter = readFileSync('api/solo-pve/_ai-encounter.ts', 'utf8');
+        const host = readFileSync('shinobij.client/src/components/AiFightHost.tsx', 'utf8');
+
+        assert.doesNotMatch(host, /relevelBuiltinAi|missionAiLevelAndBonus/, 'the live AI host must not scale a local combatant');
+        assert.match(start, /resolveAiFightScaling\(\{\s*opponentId: body\.opponentId,\s*battleKind: body\.battleKind,\s*playerLevel:/, 'sealed AI start no longer resolves mission scaling from server inputs');
+        assert.match(start, /\.\.\.\(scaling \? \{ scaling \} : \{\}\)/, 'sealed AI start no longer passes resolved scaling into encounter construction');
+        assert.match(encounter, /const profile = params\.scaling && Number\.isFinite\(params\.scaling\.level\)\s*\? relevelAiProfile\(/, 'Solo PvE encounter no longer applies sealed scaling');
     });
 });

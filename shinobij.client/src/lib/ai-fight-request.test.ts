@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { onAiFightRequest, requestAiFight, type AiFightRequest } from "./ai-fight-request";
 import { creatorEventPracticeOpponent, creatorEventPracticeProfileIds } from "./creator-event-practice";
 import { builtinAis } from "./combat-ai";
@@ -34,7 +34,7 @@ test("unsubscribing restores the fail-closed no-host state", () => {
 
 const host = readFileSync(new URL("../components/AiFightHost.tsx", import.meta.url), "utf8");
 
-test("AiFightHost renders the code-split normal Arena shell", () => {
+test("AiFightHost renders the code-split authoritative solo shell", () => {
     assert.match(host, /<MissionArenaFight/);
     assert.match(host, /import\(["']\.\.\/screens\/MissionArenaFight["']\)/);
     assert.doesNotMatch(host, /<BattleTowerFight|screens\/BattleTowerFight/);
@@ -131,7 +131,7 @@ test("creator VN battles use canonical non-paying practice until an event receip
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     const launch = worldMap.slice(worldMap.indexOf("function launchCreatorEventFight"), worldMap.indexOf("if (activePetEncounter"));
-    const triggered = app.slice(app.indexOf("function startTriggeredEventArenaBattle"), app.indexOf("function completePendingArenaStoryBattle"));
+    const triggered = app.slice(app.indexOf("function startTriggeredEventArenaBattle"), app.indexOf("function pushHollowGateLog"));
     assert.match(launch, /requestAiFight\(/);
     assert.match(launch, /battleKind: "practice"/);
     assert.doesNotMatch(launch, /battleKind: "world"|setScreen\("arena"\)/);
@@ -165,7 +165,7 @@ test("Arena Combat Spar launches canonical non-paying Solo-PvE", () => {
 test("retired pending AI ids cannot revive the local Arena reducer", () => {
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     const arena = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
-    const persister = readFileSync(new URL("../components/ArenaBattlePersister.tsx", import.meta.url), "utf8");
+    const battleSave = readFileSync(new URL("./battle-save.ts", import.meta.url), "utf8");
     assert.doesNotMatch(app, /setPendingAiProfileId\(snap\.pendingAiProfileId/,
         "server/local snapshots must discard pre-cutover opponent ids");
     assert.doesNotMatch(app, /setPendingAiProfileId\(ctx\.aiId\)|setPendingArenaStoryBattle\(restoredStoryBattle\)/,
@@ -173,14 +173,13 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
     const payload = app.slice(app.indexOf("function buildPlayerSavePayload"), app.indexOf("function saveAccountProgress"));
     assert.doesNotMatch(payload, /pendingAiProfileId/,
         "new saves must stop reproducing the retired browser authority");
-    const marker = arena.indexOf("Retire pre-cutover browser snapshots");
-    const staleGuard = arena.slice(marker, arena.indexOf("useEffect(() =>", marker + 20));
-    assert.match(staleGuard, /setPendingAiProfileId\(""\)/);
-    assert.doesNotMatch(staleGuard, /startPrefight|setEnemyHp|setBattleStarted/);
+    assert.doesNotMatch(arena, /pendingAiProfileId|startPrefight|setEnemyHp|setBattleStarted|ArenaBattlePersister/);
+    assert.equal(existsSync(new URL("../components/ArenaBattlePersister.tsx", import.meta.url)), false,
+        "the retired browser snapshot writer must not remain importable");
+    assert.match(battleSave, /lock\.kind === "arena"\) return false/,
+        "legacy Arena snapshots must fail closed at the resume boundary");
     assert.match(app, /bootLock\.kind === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/,
         "a server-visible legacy Arena lock must be retired without resuming local HP");
-    assert.match(persister, /!props\.opponentName && !props\.pendingStoryKind[\s\S]{0,140}localStorage\.removeItem\(key\)/,
-        "a lockless stale reducer snapshot must also be purged on lobby mount");
 });
 
 test("rolling upgrades retire every pre-cutover local Arena story breadcrumb", () => {
@@ -192,10 +191,8 @@ test("rolling upgrades retire every pre-cutover local Arena story breadcrumb", (
     const boot = app.slice(bootStart, app.indexOf("battleResumeStateExists(bootLock", bootStart));
     assert.match(boot, /\["triggeredEvent", "academySparring"\]/);
     assert.match(boot, /localStorage\.removeItem\(arenaStoryCtxKey\(normalized\.name\)\)/);
-    const settlement = app.slice(app.indexOf("function completePendingArenaStoryBattle"), app.indexOf("async function continuePendingArenaStoryBattle"));
-    assert.match(settlement, /Legacy local Arena story settlement is retired/);
-    assert.doesNotMatch(settlement, /setCharacter|applyCurrencyRewards|addInventoryItems|\/api\/story\/settle/,
-        "a stale browser snapshot cannot pay or progress locally after upgrade");
+    assert.doesNotMatch(app, /function completePendingArenaStoryBattle|function continuePendingArenaStoryBattle/,
+        "retired local story callbacks must not remain callable after upgrade");
 });
 
 test("field-explore proof discovers cross-device active runs from server state", () => {

@@ -17,11 +17,10 @@ export function SparCoach({
     ap: number;
     enemyHp: number;
     enemyMaxHp: number;
-    /** Stacking order for the banner, which portals to `document.body` and so
-     *  competes with whatever fight screen is open. The default clears Arena's
-     *  local spar; the SEALED spar renders inside MissionArenaFight, whose own
-     *  portal sits at z-index 1000000, so that caller passes a higher value.
-     *  Get this wrong and the coaching is silently painted behind the fight. */
+    /** Stacking order for the banner, which portals to `document.body`. The
+     *  sealed Academy spar renders inside MissionArenaFight's higher overlay,
+     *  so that host supplies a value above the fight portal. Get this wrong and
+     *  the coaching is silently painted behind the fight. */
     zIndex?: number;
 }) {
     const [hidden, setHidden] = useState(false);

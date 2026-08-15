@@ -4,10 +4,6 @@ import { readFileSync } from "node:fs";
 
 const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
-const legacySolo = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
-const legacySoloBoard = readFileSync(new URL("../features/arena/components/ArenaCombatBoardStage.tsx", import.meta.url), "utf8");
-const legacySoloCommands = readFileSync(new URL("../features/arena/components/ArenaCommandDeck.tsx", import.meta.url), "utf8");
-const legacySoloTimeline = readFileSync(new URL("../features/arena/components/ArenaBattleTimeline.tsx", import.meta.url), "utf8");
 const solo = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const pvp = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
 const tacticalPve = readFileSync(new URL("../screens/BattleTowerFight.tsx", import.meta.url), "utf8");
@@ -16,24 +12,17 @@ const detailPortal = readFileSync(new URL("../components/CombatDetailPortal.tsx"
 const shellCss = css.slice(css.indexOf("SHINOBI COMBAT SHELL"));
 
 test("combat modes share HUD primitives while mission PvE retains its desktop battlefield composition", () => {
-    for (const source of [legacySolo, pvp]) {
-        assert.match(source, /<ShinobiCombatShell/);
-        assert.match(source, /<CombatHudLayout/);
-        assert.match(source, /<CombatHudMain/);
-    }
-    assert.match(legacySoloBoard, /<CombatBoardStage/);
-    assert.match(legacySoloCommands, /<CombatCommandBar/);
-    for (const source of [pvp]) {
-        assert.match(source, /<CombatBoardStage/);
-        assert.match(source, /<CombatCommandBar/);
-    }
+    assert.match(pvp, /<ShinobiCombatShell/);
+    assert.match(pvp, /<CombatHudLayout/);
+    assert.match(pvp, /<CombatHudMain/);
+    assert.match(pvp, /<CombatBoardStage/);
+    assert.match(pvp, /<CombatCommandBar/);
     assert.match(solo, /<CombatInstance/);
     assert.doesNotMatch(solo, /<ShinobiCombatShell/);
     assert.match(solo, /<CombatHudLayout/);
     assert.match(solo, /<CombatHudMain/);
     assert.doesNotMatch(solo, /<CombatBoardStage/);
     assert.match(solo, /<CombatCommandBar/);
-    assert.match(legacySoloTimeline, /<CombatBattleLogPanel/);
     assert.match(solo, /<PlainCombatBattleLog/);
     assert.match(pvp, /<PlainCombatBattleLog/);
     for (const source of [solo, pvp]) {
@@ -59,17 +48,11 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
         "authoritative PvE pet summon must remain inside the shared command slot",
     );
     assert.match(
-        legacySoloCommands,
-        /<CombatCommandBar>[\s\S]*?canSummonPet[\s\S]*?<\/CombatCommandBar>/,
-        "legacy PvE pet summon must remain inside the shared command slot",
-    );
-    assert.match(
         tacticalPve,
         /className="basic-action-bar shinobi-command-bar"[\s\S]*?type: "summon"[\s\S]*?Summon Pet/,
         "tactical PvE must expose the server-owned pet summon when a companion is sealed",
     );
     assert.match(solo, /<span>Summon Pet<\/span>/, "authoritative PvE must label the summon explicitly");
-    assert.match(legacySoloCommands, /<span>Summon Pet<\/span>/, "legacy PvE must label the summon explicitly");
 });
 
 test("shared-shell dossiers remain symmetric and mission PvE restores its desktop columns", () => {

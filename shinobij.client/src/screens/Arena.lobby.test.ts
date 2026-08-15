@@ -5,18 +5,18 @@ import test from "node:test";
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const adaptiveShellCss = readFileSync(new URL("../styles/layout/adaptive-shell.css", import.meta.url), "utf8");
 
-test("the casual Battle Arena retires pending local-AI breadcrumbs instead of starting combat", () => {
-    const retirementEffect = arenaSource.match(
-        /useEffect\(\(\) => \{[\s\S]{0,220}if \(pendingAiProfileId\) setPendingAiProfileId\(""\);[\s\S]{0,80}\}, \[pendingAiProfileId\]\);/,
-    );
+test("the casual Battle Arena publishes a sealed practice request without local combat state", () => {
+    const start = arenaSource.indexOf("function beginAiBattle");
+    const end = arenaSource.indexOf("async function challengePlayer", start);
+    assert.ok(start >= 0 && end > start, "could not find the practice-launch boundary");
+    const launch = arenaSource.slice(start, end);
 
-    assert.ok(retirementEffect, "could not find the pending-AI retirement effect");
-    assert.doesNotMatch(
-        retirementEffect[0],
-        /startPrefight|setBattleStarted\(true\)/,
-        "a legacy catalog id must never arm the retired local Arena reducer",
-    );
-    assert.doesNotMatch(arenaSource, /\/\/ A pending AI[\s\S]{0,500}startPrefight\(/);
+    assert.match(launch, /requestAiFight\(/);
+    assert.match(launch, /publishedPracticeOpponentForLevel\(aiLevel\)/);
+    assert.match(launch, /battleKind: "practice"/);
+    assert.match(launch, /returnScreen: "arena"/);
+    assert.doesNotMatch(launch, /fetch\(|startPrefight|setBattleStarted|setEnemyHp|updateCharacter/);
+    assert.doesNotMatch(arenaSource, /pendingAiProfileId|ArenaBattlePersister|ShinobiCombatShell/);
 });
 
 test("the shared mobile shell gives the Battle Arena lobby a vertical touch scroller", () => {

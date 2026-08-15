@@ -5,10 +5,9 @@ import type { Character } from "../types/character";
  *
  * Separate from every mode's reward settle on purpose. The reward settles
  * (api/story/settle, queue-combat-claim, report-ai-fight) refuse a losing run by
- * design, so a defeat used to reach the server through nothing at all: the
- * player kept their HP, was never hospitalized, and could retry immediately. The
- * local Arena has always done the opposite — surviving HP written back on every
- * exchange, `{hp: 0, hospitalized: true}` when the player falls.
+ * design, so physical consequences use this separate server report. The sealed
+ * session persists surviving HP and applies `{hp: 0, hospitalized: true}` when
+ * the player falls, preventing a defeat from becoming a free retry.
  *
  * The SERVER decides from the sealed session; this only asks. It pays nothing,
  * so it is safe to call on any resolution, including a win (where it writes back
