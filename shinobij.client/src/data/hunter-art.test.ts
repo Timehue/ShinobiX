@@ -1,9 +1,8 @@
 /*
- * Hunt beast portraits must stay reachable from COMBAT, not just the contract
- * board. Arena resolves the enemy picture through a fallback chain ending in
- * `pendingAiProfile.icon` (an emoji), so a portrait key that drifts from a
- * mission's aiProfileId fails silently: the board shows painted art and the
- * fight shows 🐗. That is the exact bug this guards.
+ * Hunt beast portraits must stay reachable from the live World encounter
+ * projection, not just the contract board. The authoritative fight host seals
+ * identity on the server; WorldMap still owns the portrait presented before
+ * that handoff and must prefer painted art to the emoji fallback.
  *
  * Static source/FS assertions rather than imports — hunter-art.ts imports .webp
  * files, which the node test runner cannot resolve.
@@ -110,15 +109,14 @@ describe("hunter-art beast portraits", () => {
         assert.ok(existsSync(join(here, rel)), `Apex banner missing on disk: ${rel}`);
     });
 
-    it("is wired into Arena's opponent image chain, above the emoji fallback", () => {
-        const arena = readFileSync(join(here, "..", "screens", "Arena.tsx"), "utf8");
-        assert.match(arena, /import\s*\{[^}]*beastPortrait[^}]*\}\s*from\s*"\.\.\/data\/hunter-art"/);
-
-        const chain = arena.split("const opponentAvatar")[1]?.split(";")[0] ?? "";
-        const portraitAt = chain.indexOf("beastPortrait");
-        const iconAt = chain.indexOf("pendingAiProfile?.icon");
-        assert.ok(portraitAt >= 0, "opponentAvatar no longer consults beastPortrait — hunts would fight an emoji.");
-        assert.ok(iconAt >= 0, "opponentAvatar no longer has the icon fallback; this test needs updating.");
-        assert.ok(portraitAt < iconAt, "beastPortrait must come BEFORE the emoji icon fallback.");
+    it("is wired into the live World encounter projection above the emoji fallback", () => {
+        const worldMap = readFileSync(join(here, "..", "screens", "WorldMap.tsx"), "utf8");
+        assert.match(worldMap, /import\s*\{[^}]*beastPortrait[^}]*\}\s*from\s*"\.\.\/data\/hunter-art"/);
+        assert.match(worldMap, /pack\.image = beast\.image \|\| beastPortrait\(beast\.id\)/,
+            "hunt-pack presentation must retain painted beast art");
+        assert.match(worldMap, /portrait=\{huntEncounter\.ai\.image \|\| beastPortrait\(huntEncounter\.ai\.id\)\}/,
+            "the encounter card must prefer painted beast art before its icon fallback");
+        assert.match(worldMap, /icon=\{huntEncounter\.ai\.icon\}/,
+            "the emoji remains a final presentation fallback");
     });
 });

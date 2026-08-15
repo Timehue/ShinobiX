@@ -131,8 +131,10 @@ retryable from terminal evidence; a client declaration is never authority.
 ## Cutover result and remaining boundary work
 
 The normal Solo cutover is complete. No rewarding migrated mode accepts a local
-outcome. Remaining local Arena execution is explicitly non-rewarding preview or
-old-save presentation compatibility.
+outcome. The unreachable local Arena reducer, board, AI policy, and snapshot
+writer have been retired; `Arena.tsx` is now a lobby and admission/delegation
+surface only. Rolling-upgrade Arena snapshots are removal-only compatibility
+data and never mount local combat.
 
 The shared AI vocabulary includes forward Tower/party concepts, but Solo only
 evaluates concepts meaningful to one-human/one-enemy state. A future Tower

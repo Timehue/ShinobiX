@@ -11,7 +11,6 @@ const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.
 const combatDetailPortalSource = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shinobiCombatShellSource = readFileSync(new URL("../components/ShinobiCombatShell.tsx", import.meta.url), "utf8");
 const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
-const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const pvpSource = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
 const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
 
@@ -240,7 +239,7 @@ test("mission desktop restores the dossier-board-dossier composition and full-wi
     assert.match(desktopTabsRule![1], /display:\s*none\s*!important/);
 });
 
-test("every shinobi fight uses the shared viewport-level combat instance", () => {
+test("every live shinobi fight uses the shared viewport-level combat instance", () => {
     assert.match(
         combatInstanceSource,
         /createPortal\(combat, document\.body\)/,
@@ -254,11 +253,6 @@ test("every shinobi fight uses the shared viewport-level combat instance", () =>
     );
 
     assert.match(towerSource, /<CombatInstance(?:\s|>)/, "tower PvE/PvP must render through CombatInstance");
-    assert.match(
-        arenaSource,
-        /<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/,
-        "legacy Arena PvE must retain a viewport-level combat boundary",
-    );
     assert.match(missionSource, /<CombatInstance(?:\s|>)/, "mission PvE must render through CombatInstance");
     assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 

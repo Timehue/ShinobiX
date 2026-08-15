@@ -1,7 +1,17 @@
 # PvE AI — smarter, bracket-aware, full turn-economy rebuild
 
-**Status:** PLAN ONLY (no code written). Authored 2026-06-18.
+**Status:** SUPERSEDED on 2026-08-15. Authored 2026-06-18; retained below as a
+historical design record only.
 **Scope:** Standard PvE enemy AI only. **PvP, ranked, and endless are explicitly out of scope** and must stay byte-identical. This changes enemy *decisions* and *loadouts* — **never** AP costs, damage formulas, tag %s, cooldowns, durations, or the bracket stat curve.
+
+> [!WARNING]
+> Do not execute the phases below against `Arena.tsx`. Their premise was the
+> now-unreachable browser-owned Arena reducer. Practice and ordinary AI fights
+> run as sealed Solo sessions through `AiFightHost` and `MissionArenaFight`; any
+> future AI behavior change belongs in the authoritative Solo/server policy and
+> must retain replay, settlement, and compatibility parity. The retired local
+> Arena AI policy and multi-action timer chain were deleted rather than
+> extracted.
 
 ---
 
@@ -14,11 +24,11 @@ jutsu so a turn reads as real shinobi decision-making, and (d) at the top bracke
 *behavior* across the brackets you already set, not just by bigger numbers — and fights
 should be fun: readable, telegraphed, answerable.
 
-## 2. What exists today (verified in code)
+## 2. Historical state captured on 2026-06-18
 
-- **Decision code:** `enemyTurn()` in [Arena.tsx](../shinobij.client/src/screens/Arena.tsx), driven by a rule
+- **Decision code at the time:** `enemyTurn()` in [Arena.tsx](../shinobij.client/src/screens/Arena.tsx), driven by a rule
   list (`buildBasicCombatAiRules` in [combat-ai.ts](../shinobij.client/src/lib/combat-ai.ts)) + the pure
-  `pickArenaAiJutsu` scorer in [arena-ai-policy.ts](../shinobij.client/src/features/arena/domain/arena-ai-policy.ts).
+  `pickArenaAiJutsu` scorer in the since-retired `arena-ai-policy.ts`.
 - **Rule conditions are player-blind:** `always | specific_round | distance_lower_than |
   distance_higher_than | hp_lower_than` ([creator-ai.ts](../shinobij.client/src/types/creator-ai.ts)). Boss "patterns"
   fire by round number, not by what you do.
@@ -58,7 +68,10 @@ each AI "proper 40 and 60 AP options" is so the multi-action loop has clean fill
 - **Decisions & loadouts only — never the math.** AP, damage, tag %s, cooldowns, durations, the band stat multipliers/caps/mercy-floor all stay identical.
 - PvP / ranked / endless gated out via the existing `isStandardPve` flag.
 - Determinism-friendly: variety from turn/state hashing, not `Math.random()`.
-- Perception logic lives in `lib/combat-ai-tactics.ts`, selection in `features/arena/domain/arena-ai-policy.ts`, and band policy in `pve-difficulty.ts`; keep Arena.tsx as the live-state/execution adapter.
+- The proposed split placed perception in `lib/combat-ai-tactics.ts`, selection
+  in the since-retired local Arena policy, and band policy in
+  `pve-difficulty.ts`. It must not be used to restore Arena as an execution
+  adapter.
 
 ---
 
@@ -90,7 +103,8 @@ Additive extensions to [creator-ai.ts](../shinobij.client/src/types/creator-ai.t
 - **Actions:** `clear_player_buffs` (the unused **Clear**), `cleanse_self` (the unused
   **Cleanse**), `shield_up`/`defend`, `reposition`/`kite`, and **`use_weapon`** (Phase 5).
 - Teach `matchesArenaAiRule()` + the `enemyTurn()` loop to evaluate/execute them.
-- **Files:** creator-ai.ts, combat-ai.ts, features/arena/domain/arena-ai-policy.ts, Arena.tsx.
+- **Historical files:** `creator-ai.ts`, `combat-ai.ts`, the retired local Arena
+  policy, and the former Arena reducer.
 
 ### Phase 3 — Band intelligence ladder (the core "fit my brackets" fix)
 Replace the binary level-30 smart flip with a per-band competence profile in

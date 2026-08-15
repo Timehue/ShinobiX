@@ -15,10 +15,9 @@ import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
  * is the authority on BOTH questions: did the player win, and what HP did they
  * walk away with.
  *
- * This matters as much for difficulty as for anti-cheat. The pre-cutover Arena
- * path hospitalized on a defeat and wrote surviving HP back to the save, so the
- * authoritative replacement must preserve that risk rather than making failed
- * hunts or raids free to retry.
+ * This matters as much for difficulty as for anti-cheat. Sealed settlement must
+ * persist surviving HP and hospitalize a knocked-out player, so failed hunts or
+ * raids cannot become free retries.
  */
 
 /** Matches the hospital stay every other defeat path applies (api/player/heal.ts). */
@@ -103,9 +102,8 @@ export function resolveAiFightOutcome(session: AiFightSession | null | undefined
  * Whether this settle should pay the sealed reward.
  *
  * Only a WIN pays, and a plain practice bout never does — no ryo, stats,
- * currency, items or kill credit — matching Arena's local practice branch, which
- * returns before it reports. Progression comes from missions, hunts, raids, real
- * PvP and training; a sparring partner is not a faucet.
+ * currency, items or kill credit. Progression comes from missions, hunts, raids,
+ * real PvP and training; a sealed sparring session is not a faucet.
  *
  * Practice still SETTLES, though: losing one costs the same hospital stay as
  * losing anything else, which is why this is a separate question from "did the
@@ -141,10 +139,9 @@ export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined
 }
 
 /**
- * Write the fight's physical consequence onto the character: the surviving HP on
- * any resolved outcome, and the hospital stay on a defeat or a forfeit. Mirrors
- * what Arena.winBattle / its defeat paths do locally, so a fight costs the same
- * whichever engine resolved it.
+ * Write the sealed fight's physical consequence onto the character: surviving
+ * HP on any resolved outcome, and a hospital stay when the player was knocked
+ * out. All Solo PvE settlement consumers share this boundary.
  */
 export function applyAiFightOutcomeToCharacter(
     character: Record<string, unknown>,
@@ -163,8 +160,8 @@ export function applyAiFightOutcomeToCharacter(
     // explicitly won by OUTLASTING the round budget, and a mission or story run
     // that times out is a failure the player walked away from. Hospitalizing on
     // "not a squad win" would send someone at full HP to a hospital bed for
-    // surviving, which is the opposite of what the local Arena does — it
-    // hospitalizes in its KO paths and nowhere else.
+    // surviving. Hospital admission follows authoritative zero HP, not a generic
+    // non-win outcome.
     if (num(playerActor.hp) <= 0) {
         return {
             ...character,

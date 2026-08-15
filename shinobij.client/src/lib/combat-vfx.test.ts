@@ -346,12 +346,11 @@ test("status plates are compact and visually distinct from their attack families
     }
 });
 
-test("PvP and PvE render the same authored motion wrapper", () => {
-    for (const screen of ["../screens/PvpBattleScreen.tsx", "../screens/Arena.tsx"]) {
-        const source = readFileSync(new URL(screen, import.meta.url), "utf8");
-        assert.match(source, /className="pvp-vfx-art"/, screen);
-        assert.match(source, /pvp-vfx-asset-\$\{asset\.plane\}/, screen);
-    }
+test("session PvP renders the authored motion wrapper", () => {
+    const screen = "../screens/PvpBattleScreen.tsx";
+    const source = readFileSync(new URL(screen, import.meta.url), "utf8");
+    assert.match(source, /className="pvp-vfx-art"/, screen);
+    assert.match(source, /pvp-vfx-asset-\$\{asset\.plane\}/, screen);
 });
 
 test("combat CSS assigns material-specific motion instead of one generic bloom", () => {

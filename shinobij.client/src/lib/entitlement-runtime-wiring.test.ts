@@ -14,11 +14,10 @@ const sectorWar = source("../screens/SectorWarPetBattle.tsx");
 const storyBoss = source("../screens/StoryBoss.tsx");
 const petLadder = source("../screens/PetLadder.tsx");
 
-test("local and public Arena pet selection consumes entitlement-projected pets", () => {
+test("outgoing and public Arena pet challenges consume entitlement-projected pets", () => {
     assert.match(arena, /const combatEligiblePets = activeCarriedPets<Pet>\(character\)/);
-    assert.match(arena, /const activeBattlePet = combatEligiblePets\.find/);
 
-    const challenge = arena.slice(arena.indexOf("async function challengePlayer"), arena.indexOf("function declineChallenge"));
+    const challenge = arena.slice(arena.indexOf("async function challengePlayer"), arena.indexOf("function startTournament"));
     assert.match(challenge, /availablePetBattleCount\(combatEligiblePets\)/);
     assert.match(challenge, /publicEligiblePets\(knownPetTarget\)/);
     assert.doesNotMatch(challenge, /knownPetTarget\.character\.pets/);

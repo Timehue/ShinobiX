@@ -50,8 +50,10 @@ test("server-owned wave selection seed is deterministic", () => {
 test("the client contains no Endless opponent, combat, or economy authority", () => {
     const math = readFileSync("shinobij.client/src/lib/endless-tower.ts", "utf8");
     const actions = readFileSync("shinobij.client/src/lib/use-endless-tower-actions.ts", "utf8");
-    const arena = readFileSync("shinobij.client/src/screens/Arena.tsx", "utf8");
+    const fight = readFileSync("shinobij.client/src/screens/EndlessTowerFight.tsx", "utf8");
     assert.doesNotMatch(math, /Math\.random|scaleEndlessAiClone|pickScaledEndlessAi|applyTowerCashOut/);
     assert.doesNotMatch(actions, /prepareOpponent|aiFightToken|\bhp\s*:|\bchakra\s*:|\bstamina\s*:/);
-    assert.doesNotMatch(arena, /onEndless|endlessBattleWave|endlessSettlementPending/);
+    assert.match(fight, /MissionArenaFight/);
+    assert.match(fight, /soloPveArenaTransport/);
+    assert.doesNotMatch(`${actions}\n${fight}`, /onEndless|endlessBattleWave|endlessSettlementPending/);
 });
