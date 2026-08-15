@@ -16,6 +16,7 @@ import { type DuelResult } from "../lib/pet-duel-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { createLiveDuel, createLivePartyDuel, type LiveDuel } from "../lib/pet-duel-live";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
+import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
@@ -573,7 +574,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
     function sendDirectPetChallenge(toName: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
-        if (targetRecord && publicEligiblePets(targetRecord).length === 0) {
+        if (targetRecord && publicEligiblePets(targetRecord).filter((pet) => isLivePetDuelAvailable(pet)).length === 0) {
             setPetChallengeMsg(`${toName} does not have a pet available for battle.`);
             return;
         }
@@ -581,26 +582,22 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             setPetChallengeMsg("Choose one of your pets first.");
             return;
         }
-        if (isPetOnExpedition(selectedPet)) {
-            setPetChallengeMsg(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
+        if (!isLivePetDuelAvailable(selectedPet, character.petBreeding)) {
+            setPetChallengeMsg(`${petDisplayName(selectedPet)} is busy with training, breeding, or an expedition reward.`);
             return;
         }
-        // 2v2 challenge needs the player to have a reserve and the target
-        // to have at least 2 pets. If either fails, fall back to 1v1.
-        const wantsParty = partyMode && combatEligiblePets.length >= 2;
-        const reserveCandidate = wantsParty
-            ? (combatEligiblePets.find(p => p.id === reservePetId && p.id !== selectedPet.id && !isPetOnExpedition(p))
-                ?? combatEligiblePets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
-                ?? null)
-            : null;
-        const targetCanParty = publicEligiblePets(targetRecord).filter((pet) => !isPetOnExpedition(pet)).length >= 2;
-        const doParty = wantsParty && !!reserveCandidate && targetCanParty;
-        if (wantsParty && !doParty) {
-            setPetChallengeMsg(
-                !reserveCandidate
-                    ? "Need a reserve pet (a second pet not on expedition). Sending a 1v1 challenge instead."
-                    : `${toName} only has one pet — sending a 1v1 challenge instead.`
-            );
+        // A requested 2v2 stays 2v2. Auto-pick supplies the local reserve; if
+        // either known roster is undersized, fail closed instead of relabelling
+        // the challenge as 1v1.
+        if (partyMode && liveDuelPets.length < 2) {
+            setPetChallengeMsg("A 2v2 challenge needs a second eligible pet that is not busy.");
+            return;
+        }
+        const targetCanParty = !targetRecord
+            || publicEligiblePets(targetRecord).filter((pet) => isLivePetDuelAvailable(pet)).length >= 2;
+        if (partyMode && !targetCanParty) {
+            setPetChallengeMsg(`${toName} needs two eligible pets for a 2v2 challenge.`);
+            return;
         }
         setBattleReady(false);
         // LIVE PvP (docs/pet-coliseum-player-control-plan.md §10). Player-versus-
@@ -610,7 +607,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // not connected the server refuses and says so.
         const liveErr = liveDuelRef.current?.challenge(
             toName,
-            doParty ? "2v2" : "1v1",
+            partyMode ? "2v2" : "1v1",
         ) ?? "Live duels need a realtime connection — reconnect and try again.";
         setPetChallengeMsg(liveErr ?? `Challenge sent to ${toName}. Waiting for them to accept…`);
         return;
@@ -960,6 +957,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const opponentPets: PetArenaOpponent[] = opponentMode === "player" ? filteredPlayerOpponentPets : genericPetArenaOpponents;
     const [selectedOpponentKey, setSelectedOpponentKey] = useState("");
     const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
+    const liveDuelPets = buildPetArenaLiveRoster(combatEligiblePets, selectedPet, reservePetId, character.petBreeding);
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
 
     // The matchup cards are visible for several seconds before Fight begins.
@@ -2120,7 +2118,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         <strong>🐾🐾 2v2 Party Battle</strong>
                         <span className="hint" style={{ marginLeft: "auto", fontSize: "0.85rem" }}>
                             {opponentMode === "player"
-                                ? "Challenges the target to a 2v2. They need 2 pets too — otherwise it falls back to 1v1."
+                                ? "Challenges the target to a strict 2v2. Both players need two eligible pets."
                                 : "Lead vs lead, then reserve vs reserve. Best of 2 wins the set."}
                         </span>
                     </label>
@@ -2223,7 +2221,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 the fight itself all live here. Renders nothing when idle. */}
             <PetDuelLiveHost
                 ref={liveDuelRef}
-                myPets={[selectedPet, partyMode ? combatEligiblePets.find((p) => p.id === reservePetId) : null].filter((p): p is Pet => !!p)}
+                myPets={liveDuelPets}
                 onError={(message) => setPetChallengeMsg(`❌ ${message}`)}
                 onOutcome={(outcome, opponent) => {
                     setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");

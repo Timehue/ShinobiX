@@ -65,9 +65,11 @@ export function sealAuthoritativePetRoster(
     requestedPets: unknown,
     mode: '1v1' | '2v2',
 ): Pet[] | null {
-    if (!Array.isArray(requestedPets) || requestedPets.length === 0) return null;
+    const required = mode === '2v2' ? 2 : 1;
+    // Cardinality is part of the authoritative mode contract. Never truncate an
+    // oversized 1v1 payload or let an undersized 2v2 masquerade behind its label.
+    if (!Array.isArray(requestedPets) || requestedPets.length !== required) return null;
     const requestedIds = requestedPets
-        .slice(0, mode === '2v2' ? 2 : 1)
         .map((pet) => pet && typeof pet === 'object' && typeof (pet as { id?: unknown }).id === 'string'
             ? (pet as { id: string }).id
             : '');

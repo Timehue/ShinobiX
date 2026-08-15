@@ -8,6 +8,16 @@
 > the renderer plan in `docs/autobattler-visual-plan.md` (the look) and
 > `docs/anime-fight-plan.md` (the juice) — this one is the **simulation**.
 
+> [!IMPORTANT]
+> Current-runtime correction (2026-08-15): the public Pet Ranked queue described
+> below is retired fail-closed because it launched an ordinary no-reward live
+> cinematic duel without ranked settlement. Ordinary live Pet Arena PvP remains
+> a separate exact-cardinality, memory-only cinematic mode. The retained legacy
+> ranked start/result compatibility path and staged Showdown path are distinct;
+> neither is the current public queue. Treat the ranked lifecycle below as
+> historical design context, not executable authority. See the
+> [generated runtime registry](generated/runtime-mode-registry.md).
+
 ---
 
 ## 0. The two things that are actually locked (and why)

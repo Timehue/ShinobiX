@@ -19,6 +19,7 @@ import {
     onDuelInvite, onDuelStart, onDuelDeclined, onDuelError,
     type BoundDuel, type DuelInvite, type DuelSide,
 } from "../lib/pet-duel-transport";
+import { liveDuelRosterIssue, selectLiveDuelRoster } from "../lib/pet-duel-live-roster";
 
 const PetColiseumDuel = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
@@ -57,14 +58,17 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
     // prediction until the fight actually resolves.
     const serverWinner = useRef<DuelSide | null | undefined>(undefined);
     const settled = useRef(false);
+    const onErrorRef = useRef(onError);
+    useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
     useImperativeHandle(ref, () => ({
         challenge(to, mode) {
             // Live-only: refused at the click with a reason, never queued.
             if (!canDuelLive()) return "Live duels need a realtime connection — reconnect and try again.";
-            if (myPets.length === 0) return "Bring at least one pet.";
+            const roster = selectLiveDuelRoster(myPets, mode);
+            if (!roster) return liveDuelRosterIssue(myPets, mode);
             if (boundRef.current) return "You are already in a duel.";
-            if (!challengeToDuel(to, mode, myPets)) return "Could not reach the server. Try again in a moment.";
+            if (!challengeToDuel(to, mode, roster)) return "Could not reach the server. Try again in a moment.";
             setAwaiting(to);
             return null;
         },
@@ -83,8 +87,16 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
         // than stacking a second prompt over the arena.
         if (boundRef.current) { declineDuel(incoming.id); return; }
         const expected = autoAcceptRef.current;
-        if (expected && expected.toLowerCase() === incoming.from.toLowerCase() && petsRef.current.length > 0) {
-            acceptDuel(incoming.id, petsRef.current);
+        if (expected && expected.toLowerCase() === incoming.from.toLowerCase()) {
+            const roster = selectLiveDuelRoster(petsRef.current, incoming.mode);
+            if (!roster) {
+                declineDuel(incoming.id);
+                onErrorRef.current(liveDuelRosterIssue(petsRef.current, incoming.mode)!);
+                return;
+            }
+            if (!acceptDuel(incoming.id, roster)) {
+                onErrorRef.current("Could not reach the server. Try again in a moment.");
+            }
             return;
         }
         setInvite(incoming);
@@ -166,15 +178,28 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
     }
 
     if (invite) {
+        const roster = selectLiveDuelRoster(myPets, invite.mode);
+        const rosterIssue = liveDuelRosterIssue(myPets, invite.mode);
         return (
             <div className="summary-box" data-testid="pet-duel-invite" style={{ padding: "1rem", textAlign: "center" }}>
                 <p style={{ margin: 0, fontWeight: 700 }}>{invite.from} challenges you to a live {invite.mode} pet duel.</p>
                 <p className="hint" style={{ marginTop: 4 }}>Both of you command your pets in real time.</p>
+                {rosterIssue && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{rosterIssue}</p>}
                 <div className="menu" style={{ justifyContent: "center", marginTop: 10 }}>
                     <button
                         className="admin-button"
-                        disabled={myPets.length === 0}
-                        onClick={() => { acceptDuel(invite.id, myPets); setInvite(null); }}
+                        disabled={!roster}
+                        onClick={() => {
+                            if (!roster) {
+                                onError(rosterIssue!);
+                                return;
+                            }
+                            if (!acceptDuel(invite.id, roster)) {
+                                onError("Could not reach the server. Try again in a moment.");
+                                return;
+                            }
+                            setInvite(null);
+                        }}
                     >Accept</button>
                     <button className="danger-button" onClick={() => { declineDuel(invite.id); setInvite(null); }}>Decline</button>
                 </div>

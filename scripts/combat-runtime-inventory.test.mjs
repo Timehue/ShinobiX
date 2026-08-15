@@ -360,6 +360,7 @@ describe('executable multi-engine runtime registry', () => {
     const socketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const socketSessionSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-session.ts'), 'utf8');
     const arenaSource = clientSource('screens/PetArena.tsx');
+    const rosterSource = clientSource('lib/pet-duel-live-roster.ts');
     const petModeIds = [
       'pet-arena-ai-1v1',
       'pet-arena-ai-2v2',
@@ -403,10 +404,20 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(arenaSource, /const pvpParty = Boolean\(/);
     assert.match(arenaSource, /sendDirectPetChallenge/);
     assert.match(arenaSource, /liveDuelRef\.current\?\.challenge/);
-    assert.match(arenaSource, /partyMode \? combatEligiblePets\.find\(\(p\) => p\.id === reservePetId\) : null/,
-      'The known live 2v2 Auto-pick defect must remain visible until the client sends its computed reserve.');
-    assert.doesNotMatch(socketSource, /mode === ['"]2v2['"][\s\S]{0,300}(?:length !== 2|length === 2)/,
-      'The known live 2v2 defect remains until the server requires two sealed pets from each participant.');
+    assert.match(arenaSource, /buildPetArenaLiveRoster\(combatEligiblePets, selectedPet, reservePetId, character\.petBreeding\)/,
+      'Pet Arena must build the live roster through the exact-cardinality helper.');
+    assert.match(arenaSource, /myPets=\{liveDuelPets\}/,
+      'The live host must receive the selected lead plus the resolved reserve.');
+    assert.match(rosterSource, /eligibleCarriedPets\.find\(\(pet\) => \([\s\S]*?pet\.id !== authoritativeLead\.id/,
+      'Auto-pick must select another eligible carried pet as the reserve.');
+    assert.match(rosterSource, /selectLiveDuelRoster\(pets, mode\)/,
+      'Client challenge and accept paths must share exact roster validation.');
+    assert.match(socketSource, /const required = mode === ['"]2v2['"] \? 2 : 1/,
+      'The server must bind roster cardinality to the requested live-duel mode.');
+    assert.match(socketSource, /requestedPets\.length !== required/,
+      'The server must reject undersized and oversized live rosters.');
+    assert.doesNotMatch(socketSource, /requestedPets[\s\S]{0,400}\.slice\(0,\s*required\)/,
+      'The server must not truncate a mismatched roster into a different encounter contract.');
     assert.match(socketSource, /randomUUID\(\)/, 'Realtime duel identity must be server minted.');
     assert.match(socketSource, /randomInt\(1, 0x7fffffff\)/, 'Realtime duel seed must be server minted.');
     assert.match(socketSource, /loadAuthoritativePetRoster/, 'Both live rosters must be loaded from server saves.');
@@ -457,8 +468,8 @@ describe('executable multi-engine runtime registry', () => {
     const rankedPetStartSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-start.ts'), 'utf8');
     const petBattleResultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
     const petLadderSource = clientSource('screens/PetLadder.tsx');
-    const petLadderQueueSource = clientSource('lib/pet-ladder-queue.ts');
     const petLadderQueuePanelSource = clientSource('components/PetLadderQueuePanel.tsx');
+    const petRankedQueueSource = readFileSync(join(ROOT, 'api', 'pvp', 'pet-ranked-queue.ts'), 'utf8');
     const petArenaSource = clientSource('screens/PetArena.tsx');
     const petBattleStartSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
     const hollowGateSettleSource = readFileSync(join(ROOT, 'api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
@@ -510,17 +521,16 @@ describe('executable multi-engine runtime registry', () => {
     assert.equal(dungeonPet.authorityEngine, E.CLIENT_LOCAL_PET_DUEL);
 
     const rankedPet = runtimeModeById('pet-ranked-live-defect');
-    assert.equal(rankedPet.status, 'defect');
-    assert.equal(rankedPet.authorityEngine, E.PET_CINEMATIC_DUEL);
-    assert.equal(rankedPet.intendedAuthorityEngine, undefined);
+    assert.equal(rankedPet.status, 'surface-gap');
+    assert.equal(rankedPet.authorityEngine, null);
+    assert.equal(rankedPet.intendedAuthorityEngine, E.PET_CINEMATIC_DUEL);
+    assert.deepEqual(rankedPet.routes, []);
     assert.match(petLadderSource, /<PetLadderQueuePanel/);
-    assert.match(petLadderSource, /<PetDuelLiveHost/);
-    assert.doesNotMatch(petLadderSource, /\/api\/pet\/ranked-start|\/api\/pet\/battle-result/);
-    assert.match(petLadderQueueSource, /\/api\/pvp\/pet-ranked-queue/);
-    assert.match(petLadderQueuePanelSource, /challengeToDuel\(match\.opponent, "1v1", petsRef\.current\)/,
-      'The public ranked pairing must remain pinned to the ordinary realtime duel until it is disabled or repaired.');
-    assert.match(petLadderSource, /autoAcceptFrom=\{queuedAgainst\}/,
-      'The paired defender must remain pinned to the ordinary realtime auto-accept path.');
+    assert.doesNotMatch(petLadderSource, /PetDuelLiveHost|autoAcceptFrom|queuedAgainst/);
+    assert.doesNotMatch(petLadderQueuePanelSource, /challengeToDuel|\/api\/pvp\/pet-ranked-queue|Find a match/);
+    assert.match(petLadderQueuePanelSource, /Ranked live queue unavailable/);
+    assert.match(petRankedQueueSource, /res\.status\(410\)/);
+    assert.doesNotMatch(petRankedQueueSource, /withKvLock|randomUUID|petRankedQueueMatchKey/);
     assert.doesNotMatch(petSocketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/);
 
     const rankedCompat = runtimeModeById('pet-ranked-legacy-compat');
