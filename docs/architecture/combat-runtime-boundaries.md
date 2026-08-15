@@ -1,6 +1,6 @@
 # Combat Runtime Boundaries
 
-Status: verified against executable routes on 2026-08-15 after the Dungeon proof-chain cutover.
+Status: verified against executable routes on 2026-08-15 after the Phase-3 boundary hardening.
 
 This is the ownership contract for combat runtimes. Server authority and Tower
 are separate concepts: normal one-player shinobi combat uses `solo-pve`, while
@@ -16,9 +16,12 @@ Tower-specific objectives. Pet and Card participant models remain independent.
   default server-authority backend. The former Tower-backed Sector garrison
   fallback is retired fail-closed and remains an explicit PvP surface gap.
 - Hollow Gate shinobi encounters are normal Solo PvE. The mounted Hollow Gate
-  pet caller uses server-sealed cinematic PvE plus its parent run receipt while
-  a separate Showdown branch exists; the long-term owner is unresolved, not a
-  generic pet boundary.
+  pet caller uses one parent-prebound cinematic proof and an exact versioned
+  result receipt. New Showdown admission and unbound legacy Showdown adoption
+  fail closed; a legacy parent may recover only the unique exact active
+  same-player/run cinematic child. The long-term replatform choice remains
+  owner-controlled; it is not a second current authority or a generic pet
+  boundary.
 - Pet Showdown/Coliseum, positional Warfront/Tactical, the Gauntlet grid,
   cinematic Pet Arena duels, legacy pet duels, and client-local pet duels are
   separate authorities or explicitly recorded compatibility paths. The
@@ -40,10 +43,10 @@ keyspace, and rollback narrative remains in
 | `pvp` | Casual, ranked, direct challenges, human-defender Sector War shinobi duels, and Clan War shinobi 1v1; Clan War shinobi 2v2 names PvP as its intended owner but new progression is retired fail-closed until a four-player lifecycle exists |
 | `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, and ANBU infiltration |
 | `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, and declared headless village-war mercenary battles; the retired Sector garrison fallback is not a Tower mode |
-| `pet-showdown` | Showdown practice, Coliseum, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
+| `pet-showdown` | Showdown practice, the sole new paid Coliseum admission and progression settlement, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
 | `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |
-| `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1/2v2 HTTP replay, exact-cardinality ordinary live PvP 1v1/2v2 Socket.IO replay, mounted Hollow Gate PvE replay, and the run-bound Dungeon Rare Beast seal; the retired live-ranked surface names this family as its intended owner but has no admitted combat lifecycle |
+| `pet-cinematic-duel` | Exact-cardinality ordinary live PvP 1v1/2v2 Socket.IO replay, exact parent-bound Hollow Gate and Dungeon PvE replays, and bounded recovery/settlement of already-issued pre-cutover Arena-AI tokens; new user-picked Arena-AI and live-ranked admission are retired fail-closed and name this family only as their intended owner |
 | `legacy-pet-duel` | New `rankedPet` challenge creation is retired fail-closed; retained notices/start tokens/results remain recoverable, although cinematic client playback and legacy server replay can disagree. It is not the public Pet Ladder queue |
 | `client-local-pet-duel` | Historical and non-rewarding local pet presentation only; it remains separately named and is never accepted as combat or reward proof |
 | `chronicle` | Card Clash, sector-card, clan-war card, and dungeon-card combat; the Dungeon Card terminal now stamps the exact active run before parent settlement |
@@ -81,10 +84,10 @@ Each runtime owns orchestration and persistence:
 | `pvp` | two-player identity, authorization, PvP turns, forfeit, history, rating, rewards |
 | `solo-pve` | one human versus server AI, optional companion, difficulty, versioned intent API, reconnect, terminal evidence |
 | `tower` | party membership, N-actor queue, objectives, boss phases, Tower terrain/modifiers and settlement |
-| `pet-showdown` | turn-based pet commands, bench/switch/stamina state, Showdown scripts, and receipts |
+| `pet-showdown` | turn-based pet commands, bench/switch/stamina state, Showdown scripts, and the only new paid Coliseum receipts |
 | `pet-warfront` | positional teams, formations, lanes/objectives, deterministic Warfront replay, and Warfront-family settlement |
 | `pet-gauntlet-grid` | run-only draft state, grid placements, deterministic transcript replay, and capped run settlement |
-| `pet-cinematic-duel` | cinematic 1v1/party input logs; server-replayed ordinary Arena AI receipts; the server-selected Dungeon Rare Beast and its parent-run proof; and server-sealed, memory-only live PvP transport with no reward/rating write |
+| `pet-cinematic-duel` | cinematic 1v1/party input logs; recovery and settlement of exact already-issued Arena-AI receipts without new admission; the parent-prebound Hollow Gate proof; the server-selected Dungeon Rare Beast and its parent-run proof; and server-sealed, memory-only live PvP transport with no reward/rating write |
 | `legacy-pet-duel` | retained sealed legacy ranked challenge inputs and compatibility settlement; new notices are retired and it is not a substitute for the public ranked surface, Showdown, Warfront, Gauntlet, or cinematic authority |
 | `client-local-pet-duel` | presentation-only local duel state; it is never valid reward proof |
 | `chronicle` | decks, hidden projections, card actions, match state, and settlement |

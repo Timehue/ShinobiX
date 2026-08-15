@@ -14,7 +14,9 @@
 > cinematic duel without ranked settlement. Ordinary live Pet Arena PvP remains
 > a separate exact-cardinality, memory-only cinematic mode. The retained legacy
 > ranked start/result compatibility path and staged Showdown path are distinct;
-> neither is the current public queue. Treat the ranked lifecycle below as
+> neither is the current public queue. New paid Coliseum admission belongs only
+> to Showdown; user-picked cinematic Arena-AI admission is retired, with bounded
+> recovery/settlement only for an exact pre-cutover token. Treat the ranked lifecycle below as
 > historical design context, not executable authority. See the
 > [generated runtime registry](generated/runtime-mode-registry.md).
 

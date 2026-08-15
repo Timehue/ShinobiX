@@ -55,7 +55,12 @@ const _noCachePrefixes = [
     // settled match; a stale queue/lobby/session can overwrite another worker's
     // participant or move while its distributed lock is correctly held.
     // `pet:` covers battle proofs/results and future pet authority by default.
-    'pet:', 'arena:lobby:', 'sector-pet:', 'hg-pet-result:',
+    'pet:', 'arena:lobby:', 'sector-pet:',
+    // Hollow Gate run, parent-combat, child-result, and retained Showdown
+    // sidecar state participate in the same cross-worker single-authority
+    // handshake. A process-local null or pre-claim binding can admit a second
+    // child engine even while the distributed lock is working correctly.
+    'hg-run:', 'hg-combat-binding:', 'hg-combat-paid:', 'hg-pet-result:', 'sd-hg:',
     'petgauntlet:', 'petladder:', 'clan-war-pet:',
     'pet-sanctuary:', 'pet-breeding-result:', 'pet-encounter:', 'pet-encounter-attempt:',
     'pet-encounter-active:', 'pet-encounter-request:', 'pet-encounter-declined:',

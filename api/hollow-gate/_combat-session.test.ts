@@ -3,8 +3,11 @@ import { test } from 'node:test';
 import { createSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
 import {
     createHollowGateCombatBinding,
+    HOLLOW_GATE_PET_AUTHORITY_VERSION,
     hollowGateCombatReward,
     hollowGateEncounterKey,
+    hollowGatePetAuthorityMatches,
+    hollowGatePetReceiptMatchesBinding,
     hollowGatePostWinHp,
     normalizeHollowGateNodeId,
     settleHollowGateCombatBinding,
@@ -54,6 +57,22 @@ test('pet Hollow Hound receipts remain a separate server-verified branch', () =>
     const active = { runId: pet.runId, nodeId: pet.nodeId, floor: pet.floor, kind: pet.kind, enemyProfileId: pet.enemyProfileId, createdAt: pet.createdAt };
     assert.equal(validateHollowGatePetClaim({ binding: pet, activeEncounter: active, playerName, token }).ok, true);
     assert.equal(validateHollowGatePetClaim({ binding: { ...pet, combatMode: 'solo-pve' }, activeEncounter: active, playerName, token }).ok, false);
+    assert.equal(pet.petAuthority?.engine, 'cinematic');
+    assert.match(pet.petAuthority?.proofId ?? '', /^[A-Za-z0-9]{8,96}$/);
+    assert.equal(hollowGatePetAuthorityMatches(pet, 'cinematic', pet.petAuthority!.proofId), true);
+    assert.equal(hollowGatePetAuthorityMatches(pet, 'showdown', pet.petAuthority!.proofId), false);
+    const receipt = {
+        version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
+        engine: 'cinematic' as const,
+        proofId: pet.petAuthority!.proofId,
+        playerName,
+        runId: pet.runId,
+        outcome: 'loss' as const,
+        playerPetIds: ['pet-1'],
+        settledAt: 2_000,
+    };
+    assert.equal(hollowGatePetReceiptMatchesBinding(pet, receipt, playerName), true);
+    assert.equal(hollowGatePetReceiptMatchesBinding(pet, { ...receipt, proofId: 'differentproof01' }, playerName), false);
 });
 
 test('node ids and encounter keys reject identity reuse', () => {

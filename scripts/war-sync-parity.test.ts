@@ -8,9 +8,9 @@
  *   · CLAN_WAR_PET_DUEL — the client REPLAYS the server-resolved pet duel with
  *     these pinned engine params; drift makes the animated fight disagree with
  *     the recorded winner. Invisible to unit tests, very visible to players.
- *   · GARRISON_UNLOCK_IDLE_MS — the client uses its copy only to decide whether
- *     to OFFER the Assault Garrison button; drift shows a button the server
- *     rejects (or hides one it would accept).
+ *   · Sector garrison admission — the retired client surface must stay absent
+ *     while the server fails the legacy action closed. Reintroducing only one
+ *     side would recreate a wrong-owner Tower combat path.
  *   · The war-morale multipliers — the server applies them at the reward seal;
  *     the client's copies are the DISPLAY mirror. Drift means players are shown
  *     one number and given another.
@@ -30,9 +30,6 @@ import { join } from 'node:path';
 
 import { CLAN_WAR_PET_DUEL as SERVER_PET_DUEL } from '../api/clan/war/_pet-duel.js';
 import {
-    GARRISON_UNLOCK_IDLE_MS as SERVER_GARRISON_IDLE,
-} from '../api/_sector-war.js';
-import {
     WAR_DEBUFF_TRAINING_XP_MULT as S_DEBUFF_XP,
     WAR_DEBUFF_JUTSU_TIME_MULT as S_DEBUFF_TIME,
     WAR_BUFF_TRAINING_XP_MULT as S_BUFF_XP,
@@ -41,7 +38,6 @@ import {
 } from '../api/_war-morale.js';
 
 import { CLAN_WAR_PET_DUEL as CLIENT_PET_DUEL } from '../shinobij.client/src/lib/clan-war-pet-api.js';
-import { GARRISON_UNLOCK_IDLE_MS as CLIENT_GARRISON_IDLE } from '../shinobij.client/src/lib/village-war-map.js';
 import {
     WAR_DEBUFF_TRAINING_XP_MULT as C_DEBUFF_XP,
     WAR_DEBUFF_JUTSU_TIME_MULT as C_DEBUFF_TIME,
@@ -54,8 +50,23 @@ test('clan-war pet duel params are identical on both sides of the replay', () =>
     assert.deepEqual({ ...CLIENT_PET_DUEL }, { ...SERVER_PET_DUEL });
 });
 
-test('the garrison unlock window shown matches the one enforced', () => {
-    assert.equal(CLIENT_GARRISON_IDLE, SERVER_GARRISON_IDLE);
+test('the retired sector garrison surface stays absent and fails closed', () => {
+    const clientApi = readFileSync(
+        join(process.cwd(), 'shinobij.client', 'src', 'lib', 'village-war-map.ts'),
+        'utf8',
+    );
+    const clientScreen = readFileSync(
+        join(process.cwd(), 'shinobij.client', 'src', 'screens', 'VillageWarMap.tsx'),
+        'utf8',
+    );
+    const serverHandler = readFileSync(
+        join(process.cwd(), 'api', 'village', 'sector-war.ts'),
+        'utf8',
+    );
+
+    assert.doesNotMatch(clientApi, /GARRISON_UNLOCK_IDLE_MS|action:\s*["']garrison["']/);
+    assert.doesNotMatch(clientScreen, /GARRISON_UNLOCK_IDLE_MS|action:\s*["']garrison["']/);
+    assert.match(serverHandler, /case 'garrison': return res\.status\(410\)/);
 });
 
 test('war-morale multipliers shown match the ones applied at the seal', () => {

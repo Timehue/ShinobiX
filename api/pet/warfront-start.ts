@@ -45,6 +45,7 @@ type ArenaRole = 'defender' | 'tracker' | 'assassin' | 'sage';
 interface ArenaSlot { pet: Pet; role: ArenaRole }
 type StoredWarfrontSeal = {
     mode?: string;
+    settlementPolicy?: 'warfront-reward';
     createdAt?: number;
     playerPetIds?: string[];
     seed?: number;
@@ -344,6 +345,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         reportKey,
                         seed,
                         mode: 'warfront',
+                        settlementPolicy: 'warfront-reward',
                         stance,
                         doctrine,
                         buyPolicy,

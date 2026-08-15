@@ -39,6 +39,20 @@ import {
     type RankedPetMatchToken,
     type RankedPetSettlementIntent,
 } from './_ranked-authority.js';
+import {
+    HOLLOW_GATE_PET_AUTHORITY_VERSION,
+    hollowGateCombatBindingKey,
+    hollowGatePetAuthorityMatches,
+    hollowGatePetReceiptMatchesBinding,
+    parseHollowGatePetResultReceipt,
+    type HollowGateCombatBinding,
+    type HollowGatePetResultReceipt,
+} from '../hollow-gate/_combat-session.js';
+import {
+    hollowGatePetResultKey,
+    retireHollowGatePetChildLease,
+    writeHollowGatePetResult,
+} from '../hollow-gate/_pet-authority.js';
 
 // Pet Arena reward recorder. Non-ranked wins require a short-lived start token
 // minted by /api/pet/battle-start for the same reportKey. The battle is still
@@ -64,7 +78,6 @@ const RANKED_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 // is attacker-controlled until auth succeeds and must never spend that player's
 // settlement budget.
 const PREAUTH_RESULT_RATE_LIMIT = 120;
-const HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 const RANKED_RESULT_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 // The dedicated 24-hour result receipt is the primary lost-response authority.
 // This bounded in-save history is also a durable fallback while its entry is
@@ -92,14 +105,6 @@ type RankedPetSaveReceipt = RankedPetSettlementReceipt & {
 };
 
 type RankedPetSaveReceiptEntry = string | RankedPetSaveReceipt;
-type HollowGatePetResultReceipt = {
-    playerName: string;
-    runId: string;
-    outcome: PetBattleOutcome;
-    playerPetIds: string[];
-    settledAt: number;
-};
-
 /** Spend exactly the consumable sealed at kickoff. A second tab may replace or
  * unequip it while the fight is playing; in that case the equip endpoint has
  * returned the old item to inventory, so remove that returned copy without
@@ -150,10 +155,6 @@ function spendSealedCasualConsumables(
         nextCharacter = removePetItem(nextCharacter, sealed) ?? nextCharacter;
     }
     return nextCharacter;
-}
-
-function hollowGatePetResultKey(playerName: string, battleToken: string): string {
-    return `hg-pet-result:${playerName}:${battleToken}`;
 }
 
 function paidReceiptKey(playerName: string, receipt: string): string {
@@ -419,6 +420,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let casualPvePlayerPets: Pet[] | null = null;
         let hollowGatePetResult: HollowGatePetResultReceipt | null = null;
         let dungeonPetBinding: DungeonPetBattleBinding | null = null;
+        // Only a pre-cutover receipt (no policy field) or the separately-owned
+        // Warfront kickoff can reach this legacy payout path. Every new ordinary
+        // battle-start token is explicitly social/no-progression; Showdown owns
+        // the paid Coliseum loop from this cutover forward.
+        let paidProgressionEligible = identity.admin;
         const saveKey = `save:${playerName}`;
         const sendDungeonPetReceiptReplay = async (
             receipt: DungeonPetResultReceipt,
@@ -446,6 +452,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 _saveVersion: Number(replaySave?._saveVersion ?? 0),
             });
         };
+        const sendHollowGatePetReceiptReplay = async (receipt: HollowGatePetResultReceipt) => {
+            try {
+                await retireHollowGatePetChildLease(playerName, battleToken);
+            } catch (error) {
+                console.error('[pet/battle-result] Hollow Gate child cleanup failed', error);
+                return res.status(503).json({ error: 'Your Hollow Gate pet result is recorded, but its battle lease could not be retired — please retry.' });
+            }
+            return res.status(200).json({
+                ok: true,
+                hollowGate: true,
+                replayed: true,
+                outcome: receipt.outcome,
+                reward: 0,
+                petReceipt: battleToken,
+            });
+        };
         // The reward level SEALED at battle-start (opponent actually fought). When
         // set, it — not the body-named opponent — decides the payout.
         let sealedOpponentLevel: number | null = null;
@@ -469,6 +491,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 settleAfter?: number;
                 hollowGate?: { runId?: string };
                 dungeon?: unknown;
+                settlementPolicy?: unknown;
             }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 const priorDungeonResult = parseDungeonPetResultReceipt(
@@ -481,15 +504,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         activeKey: `pet:battle-active:${playerName}`,
                     });
                 }
-                const priorHollowGateResult = await kv.get<HollowGatePetResultReceipt>(hollowGatePetResultKey(playerName, battleToken));
-                if (priorHollowGateResult?.playerName === playerName) {
-                    return res.status(200).json({
-                        ok: true,
-                        hollowGate: true,
-                        outcome: priorHollowGateResult.outcome,
-                        reward: 0,
-                        petReceipt: battleToken,
-                    });
+                const priorHollowGateResult = parseHollowGatePetResultReceipt(
+                    await kv.get(hollowGatePetResultKey(playerName, battleToken)),
+                );
+                const priorHollowGateBinding = priorHollowGateResult
+                    ? await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(priorHollowGateResult.runId))
+                    : null;
+                if (priorHollowGateResult
+                    && priorHollowGateResult.proofId === battleToken
+                    && hollowGatePetReceiptMatchesBinding(priorHollowGateBinding, priorHollowGateResult, playerName)) {
+                    return sendHollowGatePetReceiptReplay(priorHollowGateResult);
                 }
                 // A successful casual settlement deletes its short-lived battle
                 // token before replying. If that reply is lost, the retry must
@@ -524,6 +548,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
             }
+            const settlementPolicy = tokenData.settlementPolicy;
+            if (settlementPolicy !== undefined
+                && settlementPolicy !== 'casual-no-progression'
+                && settlementPolicy !== 'parent-mode'
+                && settlementPolicy !== 'warfront-reward') {
+                return res.status(409).json({ error: 'Pet battle token carries an unknown settlement policy.' });
+            }
+            if (settlementPolicy === 'warfront-reward' && tokenData.mode !== 'warfront') {
+                return res.status(409).json({ error: 'Pet battle token carries a mismatched reward authority.' });
+            }
+            if (tokenData.hollowGate?.runId) {
+                const priorHollowGateResult = parseHollowGatePetResultReceipt(
+                    await kv.get(hollowGatePetResultKey(playerName, battleToken)),
+                );
+                if (priorHollowGateResult) {
+                    const priorHollowGateBinding = await kv.get<HollowGateCombatBinding>(
+                        hollowGateCombatBindingKey(priorHollowGateResult.runId),
+                    );
+                    const tokenPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
+                    if (priorHollowGateResult.proofId !== battleToken
+                        || priorHollowGateResult.runId !== String(tokenData.hollowGate.runId)
+                        || JSON.stringify(priorHollowGateResult.playerPetIds) !== JSON.stringify(tokenPetIds)
+                        || !hollowGatePetReceiptMatchesBinding(priorHollowGateBinding, priorHollowGateResult, playerName)) {
+                        return res.status(409).json({ error: 'The retained Hollow Gate result conflicts with its exact battle proof.' });
+                    }
+                    return sendHollowGatePetReceiptReplay(priorHollowGateResult);
+                }
+            }
+            paidProgressionEligible = settlementPolicy === undefined || settlementPolicy === 'warfront-reward';
             const hasDungeonBinding = tokenData.dungeon !== undefined;
             dungeonPetBinding = parseDungeonPetBattleBinding(tokenData.dungeon);
             if (hasDungeonBinding && !dungeonPetBinding) {
@@ -638,9 +691,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             casualBattleReceipt = battleToken;
             casualPetIds = tokenPlayerPetIds;
             if (tokenData.hollowGate?.runId) {
+                const hollowGateRunId = String(tokenData.hollowGate.runId);
+                const hollowGateBinding = await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(hollowGateRunId));
+                if (!hollowGatePetAuthorityMatches(hollowGateBinding, 'cinematic', battleToken)
+                    || hollowGateBinding?.playerName !== playerName
+                    || hollowGateBinding.status !== 'active'
+                    || hollowGateBinding.settledAt) {
+                    return res.status(409).json({ error: 'This Hollow Gate encounter is bound to a different pet battle proof.' });
+                }
                 hollowGatePetResult = {
+                    version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
+                    engine: 'cinematic',
+                    proofId: battleToken,
                     playerName,
-                    runId: String(tokenData.hollowGate.runId),
+                    runId: hollowGateRunId,
                     outcome,
                     playerPetIds: casualPetIds,
                     settledAt: Date.now(),
@@ -738,12 +802,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // server-replayed outcome becomes a one-use receipt consumed by the
         // run-bound Hollow Gate settlement endpoint.
         if (hollowGatePetResult && casualBattleTokenKey) {
-            await kv.set(
-                hollowGatePetResultKey(playerName, battleToken),
-                hollowGatePetResult,
-                { nx: true, ex: HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS },
-            );
-            await releaseCasualBattle();
+            if (!await writeHollowGatePetResult(hollowGatePetResult)) {
+                return res.status(503).json({ error: 'Could not seal the exact Hollow Gate pet result — please retry.' });
+            }
+            try {
+                await retireHollowGatePetChildLease(playerName, battleToken);
+            } catch (error) {
+                console.error('[pet/battle-result] Hollow Gate child cleanup failed', error);
+                return res.status(503).json({ error: 'Your Hollow Gate pet result is recorded, but its battle lease could not be retired — please retry.' });
+            }
             return res.status(200).json({
                 ok: true,
                 hollowGate: true,
@@ -1218,24 +1285,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
 
-            // Daily cap: stop further reward grants once the cap is hit, but
-            // still acknowledge the call (so a streamer grinding all day
-            // doesn't see error spam — they just stop earning).
-            if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
-                const cappedCharacter = {
-                    ...spentChar,
-                    totalPetWins: Number(char.totalPetWins ?? 0) + 1,
-                    dailyPetWins,
-                    lastDailyReset: today,
+            // New ordinary player challenges are social sparring. They still
+            // spend the exact kickoff consumables and retire their one-use proof,
+            // but cannot touch ryo, the daily/lifetime counters, Living Witness,
+            // achievements/quests, or Legacy pet-duel progression.
+            if (!paidProgressionEligible) {
+                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
+                await writeSaveProjected(saveKey, spentRecord, record);
+                await releaseCasualBattle();
+                return {
+                    ok: true,
+                    outcome: 'win' as const,
+                    reward: 0,
+                    reason: 'casual-sparring',
+                    totalPetWins: Number(char.totalPetWins ?? 0),
+                    dailyPetWins: Number(char.dailyPetWins ?? 0),
+                    balances: { ryo: Number(char.ryo ?? 0) },
+                    chronicleCards: [],
+                    witnessedPets: [],
+                    livingWitnessProgress: [],
+                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    character: spentChar,
                 };
-                const witness = recordPetArenaVictory(
-                    cappedCharacter,
-                    casualPetIds,
-                    Date.now(),
-                    `pet-casual:${casualBattleReceipt || reportKey}`,
-                    casualPvePlayerPets ?? undefined,
-                );
-                const spentRecord = bumpSaveVersion({ ...record, character: witness.character });
+            }
+
+            // Daily cap: stop the whole paid progression fact, not only its
+            // currency. A capped win cannot farm leaderboard/achievement/quest
+            // counters, Living Witness, Chronicle cards, or Legacy receipts.
+            if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
+                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
                 await writeSaveProjected(saveKey, spentRecord, record);
                 await releaseCasualBattle();
                 return {
@@ -1243,14 +1321,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     outcome: 'win' as const,
                     reward: 0,
                     capped: true,
-                    totalPetWins: Number(witness.character.totalPetWins ?? 0),
+                    totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
                     balances: { ryo: Number(char.ryo ?? 0) },
-                    chronicleCards: witness.granted,
-                    witnessedPets: witness.witnessed,
-                    livingWitnessProgress: witness.livingWitnessProgress,
+                    chronicleCards: [],
+                    witnessedPets: [],
+                    livingWitnessProgress: [],
                     _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
-                    character: witness.character,
+                    character: spentChar,
                 };
             }
 
@@ -1293,6 +1371,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ok: true,
                 outcome: 'win' as const,
                 reward,
+                progressionEligible: true,
                 totalPetWins: updatedChar.totalPetWins,
                 dailyPetWins: updatedChar.dailyPetWins,
                 balances: { ryo: Number(updatedChar.ryo) },
@@ -1308,7 +1387,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const code = result.error === 'no-save' || result.error === 'no-character' ? 404 : 500;
             return res.status(code).json({ error: result.error });
         }
-        if (outcome === 'win' && battleToken) {
+        if (outcome === 'win' && battleToken && result.progressionEligible === true) {
             await bumpLegacyStats(
                 playerName,
                 { petDuelWins: 1 },

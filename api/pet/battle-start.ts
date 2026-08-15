@@ -21,6 +21,11 @@ import {
     type HollowGateCombatBinding,
 } from '../hollow-gate/_combat-session.js';
 import {
+    HOLLOW_GATE_PET_RESULT_TTL_SECONDS,
+    claimHollowGateCinematicAuthority,
+    validateHollowGateCinematicPublication,
+} from '../hollow-gate/_pet-authority.js';
+import {
     hollowGateHoundName,
     isHollowHoundEncounterId,
     type HollowGateHoundKind,
@@ -39,15 +44,17 @@ import {
 /*
  * /api/pet/battle-start - POST only
  *
- * Mints a short-lived single-use token for non-ranked Pet Coliseum rewards.
- * Casual pet combat is still client-resolved, but rewardful battle-result calls
- * must now prove a battle was intentionally started by the authenticated player
- * with the same reportKey they later redeem.
+ * Mints a short-lived single-use token for contextual pet combat. New ordinary
+ * player challenges are social sparring and seal no paid Coliseum progression;
+ * Dungeon/Hollow Gate remain parent-owned, and Warfront uses its own kickoff.
+ * Pre-cutover AI receipts can still be resumed and redeemed, but this endpoint
+ * no longer admits a new pick-your-opponent Coliseum fight.
  */
 
 const TOKEN_TTL_SECONDS = 15 * 60;
 
 const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
+const sameOrderedIds = (a: string[] | undefined, b: string[]): boolean => JSON.stringify(a ?? []) === JSON.stringify(b);
 
 /** The Hollow Hound the SERVER builds for a Hollow Gate pet encounter, scaled
  *  off the player's own pet. Exported so the Showdown arena entry fields the
@@ -92,8 +99,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         // The battle receipt owns both identifiers. A caller cannot search for a
         // favourable deterministic seed and then ask the server to certify it.
-        const token = randomUUID().replace(/-/g, '');
-        const reportKey = `pet:${token}`;
+        let token = randomUUID().replace(/-/g, '');
+        let reportKey = `pet:${token}`;
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         const identity = await authedPlayerOrAdmin(req, playerName);
@@ -102,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only start your own pet battles.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-battle-start', 30, 60_000, identity.name))) return;
-        const seed = identity.admin && Number.isSafeInteger(Number(body.seed))
+        let seed = identity.admin && Number.isSafeInteger(Number(body.seed))
             ? Number(body.seed)
             : randomInt(1, 0x7fffffff);
 
@@ -173,6 +180,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: `Hollow Gate pet encounter rejected: ${validation.reason}.` });
             }
             if (binding?.runId !== runId) return res.status(409).json({ error: 'Hollow Gate pet encounter binding drifted.' });
+            // The parent encounter chooses exactly one child proof. New parents
+            // arrive pre-bound to the mounted cinematic engine; the claim path
+            // only migrates a pre-cutover parent that had no child identity.
+            let proofId = binding.petAuthority?.proofId;
+            if (!proofId) {
+                // Pre-cutover recovery is permitted only when the global
+                // single-flight pointer already names one live cinematic seal
+                // for this exact parent. With no such server-owned identity,
+                // choosing a fresh request token here would let the caller pick
+                // which legacy child/outcome becomes authoritative.
+                const legacyActiveToken = await kv.get<string>(`pet:battle-active:${playerName}`);
+                const legacyActive = legacyActiveToken
+                    ? await kv.get<{ playerName?: string; hollowGate?: { runId?: string } }>(`pet:battle-token:${playerName}:${legacyActiveToken}`)
+                    : null;
+                if (!legacyActiveToken
+                    || legacyActive?.playerName?.toLowerCase() !== playerName.toLowerCase()
+                    || legacyActive.hollowGate?.runId !== runId) {
+                    return res.status(409).json({ error: 'This legacy Hollow Gate pet encounter has no unique retained cinematic proof.' });
+                }
+                proofId = legacyActiveToken;
+            }
+            const authority = await claimHollowGateCinematicAuthority({
+                runId,
+                playerName,
+                proofId,
+            });
+            if (!authority.ok) {
+                return res.status(409).json({ error: 'This Hollow Gate encounter is already bound to another pet battle.' });
+            }
+            token = authority.binding.petAuthority!.proofId;
+            reportKey = `pet:${token}`;
             opponentPets = [buildServerHollowHound(playerPets[0], binding.floor, requestedHoundId, binding.kind)];
             isAiOpponent = true;
             hollowGate = { runId };
@@ -186,7 +224,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
         }
-        if (!opponentPets.length) { opponentPets = opponentPetIds.map((id) => SERVER_ARENA_PETS[id]).filter(Boolean); isAiOpponent = opponentPets.length > 0; }
+        if (!opponentPets.length && opponentPetIds.some((id) => Boolean(SERVER_ARENA_PETS[id]))) {
+            // Recovery only: an older client may have lost the response carrying
+            // an already-issued cinematic AI receipt. Return that exact immutable
+            // proof when it still owns the active pointer, but never mint a new
+            // user-picked paid Coliseum battle. New paid admission belongs to
+            // Showdown's `arena` action.
+            const activeToken = await kv.get<string>(`pet:battle-active:${playerName}`);
+            const active = activeToken ? await kv.get<{
+                playerName?: string; opponentName?: string; reportKey?: string; seed?: number; mode?: string;
+                playerPetIds?: string[]; opponentPetIds?: string[]; settlementPolicy?: unknown;
+                casualPveSeal?: CasualPveBattleSeal;
+            }>(`pet:battle-token:${playerName}:${activeToken}`) : null;
+            if (activeToken
+                && active
+                && active.settlementPolicy === undefined
+                && active.playerName?.toLowerCase() === playerName.toLowerCase()
+                && active.mode === mode
+                && typeof active.reportKey === 'string'
+                && Number.isSafeInteger(active.seed)
+                && sameOrderedIds(active.playerPetIds, playerPetIds)
+                && sameOrderedIds(active.opponentPetIds, opponentPetIds)
+                && active.casualPveSeal) {
+                return res.status(200).json({
+                    ok: true,
+                    token: activeToken,
+                    reportKey: active.reportKey,
+                    seed: active.seed,
+                    resumed: true,
+                    playerPets: active.casualPveSeal.playerPets,
+                    opponentPets: active.casualPveSeal.opponentPets,
+                    battleConfig: active.casualPveSeal.params,
+                });
+            }
+            return res.status(410).json({
+                error: 'The pick-your-opponent Pet Coliseum is retired. Enter the paid Showdown arena instead.',
+            });
+        }
         if (opponentPets.length !== expectedTeamSize || new Set(opponentPets.map((pet) => String(pet.id))).size !== expectedTeamSize) {
             return res.status(409).json({ error: `A complete server-known ${mode} opponent team is required.` });
         }
@@ -224,7 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             accuracy: true,
             terrain: null,
         } : null;
-        const casualPveSeal = sealedParams
+        let casualPveSeal = sealedParams
             ? createCasualPveBattleSeal(playerPets, opponentPets, sealedParams)
             : null;
 
@@ -257,6 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             opponentPetIds,
             ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
             ...(dungeon ? { dungeon } : {}),
+            settlementPolicy: dungeon || hollowGate ? 'parent-mode' : 'casual-no-progression',
             sealedParams,
             ...(casualPveSeal ? { casualPveSeal } : {}),
             authoritativeOutcome: result,
@@ -265,16 +340,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Publish the complete seal before its global pointer. A process crash
         // can therefore leave only an unreachable expiring seal, never a live
         // pointer whose missing proof blocks every pet mode for the full TTL.
-        await kv.set(tokenKey, tokenData, { ex: TOKEN_TTL_SECONDS });
+        let ownsPublishedSeal = true;
+        if (hollowGate) {
+            // The parent-selected token is stable across retries, so publish it
+            // once. A second request adopts the first complete snapshot instead
+            // of overwriting it with a newly rolled seed (outcome shopping).
+            const published = await kv.set(tokenKey, tokenData, { nx: true, ex: HOLLOW_GATE_PET_RESULT_TTL_SECONDS });
+            if (!published) {
+                ownsPublishedSeal = false;
+                const existing = await kv.get<{
+                    playerName?: string; reportKey?: string; seed?: number; mode?: string;
+                    playerPetIds?: string[]; opponentPetIds?: string[];
+                    casualPveSeal?: CasualPveBattleSeal;
+                    hollowGate?: { runId?: string };
+                }>(tokenKey);
+                if (!existing
+                    || existing.playerName?.toLowerCase() !== playerName.toLowerCase()
+                    || existing.hollowGate?.runId !== hollowGate.runId
+                    || existing.mode !== mode
+                    || typeof existing.reportKey !== 'string'
+                    || !Number.isSafeInteger(existing.seed)
+                    || !sameOrderedIds(existing.playerPetIds, playerPetIds)
+                    || !sameOrderedIds(existing.opponentPetIds, opponentPetIds)
+                    || !existing.casualPveSeal) {
+                    return res.status(409).json({ error: 'The sealed Hollow Gate pet proof conflicts with this encounter.' });
+                }
+                reportKey = existing.reportKey;
+                seed = Number(existing.seed);
+                casualPveSeal = existing.casualPveSeal;
+            }
+        } else {
+            await kv.set(tokenKey, tokenData, { ex: TOKEN_TTL_SECONDS });
+        }
 
         // One outstanding receipt per player closes seed-shopping: a client must
         // settle (including a loss/draw) before it can mint another random seed.
         const activeKey = `pet:battle-active:${playerName}`;
+        const hollowGatePublicationIsValid = async (proofId: string): Promise<boolean> => !hollowGate
+            || validateHollowGateCinematicPublication({
+                runId: hollowGate.runId,
+                playerName,
+                proofId,
+            });
         let claimed: unknown;
         try {
             claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
         } catch (claimError) {
-            await kv.del(tokenKey).catch(() => undefined);
+            if (ownsPublishedSeal) await kv.del(tokenKey).catch(() => undefined);
             throw claimError;
         }
         if (!claimed) {
@@ -299,7 +411,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hollowGate?: { runId?: string };
                 dungeon?: DungeonPetBattleBinding;
             }>(`pet:battle-token:${playerName}:${activeToken}`) : null;
-            const sameIds = (a: string[] | undefined, b: string[]) => JSON.stringify(a ?? []) === JSON.stringify(b);
             let activeDungeon = parseDungeonPetBattleBinding(active?.dungeon);
 
             // A hard crash may occur after Dungeon proof + durable result commit
@@ -313,7 +424,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && completedDungeon.playerName.toLowerCase() === playerName.toLowerCase()
                 && completedDungeon.battleToken === activeToken
                 && completedDungeon.runToken === activeDungeon.runToken
-                && sameIds(completedDungeon.playerPetIds, active.playerPetIds ?? [])) {
+                && sameOrderedIds(completedDungeon.playerPetIds, active.playerPetIds ?? [])) {
                 await kv.del(`pet:battle-token:${playerName}:${activeToken}`).catch(() => undefined);
                 await kv.delIfEqual(activeKey, activeToken);
                 claimed = await kv.set(activeKey, token, { nx: true, ex: TOKEN_TTL_SECONDS });
@@ -326,6 +437,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             if (claimed) {
+                if (!await hollowGatePublicationIsValid(token)) {
+                    return res.status(409).json({ error: 'The Hollow Gate encounter ended before its pet battle became active.' });
+                }
                 return res.status(200).json({
                     ok: true,
                     token,
@@ -349,9 +463,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (activeToken && active?.reportKey && Number.isSafeInteger(active.seed)
                 && active.mode === mode
                 && sameAuthority
-                && sameIds(active.playerPetIds, playerPetIds)
-                && sameIds(active.opponentPetIds, opponentPetIds)) {
-                await kv.del(tokenKey).catch(() => undefined);
+                && sameOrderedIds(active.playerPetIds, playerPetIds)
+                && sameOrderedIds(active.opponentPetIds, opponentPetIds)) {
+                if (ownsPublishedSeal && activeToken !== token) await kv.del(tokenKey).catch(() => undefined);
+                if (!await hollowGatePublicationIsValid(activeToken)) {
+                    return res.status(409).json({ error: 'The Hollow Gate encounter ended before its pet battle became active.' });
+                }
                 return res.status(200).json({
                     ok: true,
                     token: activeToken,
@@ -368,10 +485,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : {}),
                 });
             }
-            await kv.del(tokenKey).catch(() => undefined);
+            if (ownsPublishedSeal) await kv.del(tokenKey).catch(() => undefined);
             return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
         }
 
+        if (!await hollowGatePublicationIsValid(token)) {
+            return res.status(409).json({ error: 'The Hollow Gate encounter ended before its pet battle became active.' });
+        }
         return res.status(200).json({
             ok: true,
             token,

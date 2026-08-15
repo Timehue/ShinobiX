@@ -16,12 +16,19 @@ import {
     hollowGateCombatReward,
     hollowGateEncounterKey,
     HOLLOW_GATE_COMBAT_TTL_SECONDS,
+    hollowGatePetReceiptMatchesBinding,
+    isHollowGatePetAuthority,
+    parseHollowGatePetResultReceipt,
     settleHollowGateCombatBinding,
     validateHollowGatePetClaim,
     validateHollowGateSoloPveSession,
     type HollowGateCombatBinding,
     type HollowGateCombatReward,
 } from './_combat-session.js';
+import {
+    hollowGatePetResultKey,
+    retireHollowGatePetChildLease,
+} from './_pet-authority.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import {
     creditHollowGateLedger,
@@ -46,14 +53,6 @@ type CombatReceipt = {
     petDefeat?: boolean;
     reward: HollowGateCombatReward;
     elementalShards: number;
-    settledAt: number;
-};
-
-type HollowGatePetResultReceipt = {
-    playerName: string;
-    runId: string;
-    outcome: 'win' | 'loss' | 'draw';
-    playerPetIds: string[];
     settledAt: number;
 };
 
@@ -158,12 +157,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const [run, binding, session, storedReceipt] = await Promise.all([
+            const [run, loadedBinding, session, storedReceipt] = await Promise.all([
                 kv.get<HollowGateRunToken>(runKey),
                 kv.get<HollowGateCombatBinding>(bindingKey),
                 readSoloPveSession(runId),
                 kv.get<CombatReceipt>(receiptKey),
             ]);
+            const binding = loadedBinding;
             if (!binding || binding.playerName !== playerName) return { status: 404, body: { error: 'Encounter not found.' } };
             let existingReceipt = storedReceipt;
             if (existingReceipt) {
@@ -207,9 +207,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const validation = validateHollowGatePetClaim({ binding, activeEncounter: run.activeEncounter, playerName, token });
                 if (!validation.ok) return { status: 409, body: { error: `Hollow Gate pet settlement rejected: ${validation.reason}.` } };
                 if (!petReceipt) return { status: 400, body: { error: 'A server-verified Hollow Hound pet result is required.' } };
-                const verifiedPetResult = await kv.get<HollowGatePetResultReceipt>(`hg-pet-result:${playerName}:${petReceipt}`);
-                if (!verifiedPetResult || verifiedPetResult.playerName !== playerName || verifiedPetResult.runId !== runId) {
-                    return { status: 409, body: { error: 'The Hollow Hound pet result is invalid, expired, or belongs to another encounter.' } };
+                if (!binding.petAuthority) {
+                    return { status: 409, body: { error: 'This legacy Hollow Hound encounter has no exact server-selected child proof.' } };
+                }
+                const verifiedPetResult = parseHollowGatePetResultReceipt(
+                    await kv.get(hollowGatePetResultKey(playerName, petReceipt)),
+                );
+                if (!verifiedPetResult
+                    || verifiedPetResult.proofId !== petReceipt
+                    || !hollowGatePetReceiptMatchesBinding(binding, verifiedPetResult, playerName)) {
+                    return { status: 409, body: { error: 'The Hollow Hound result is not the exact child proof selected by this encounter.' } };
                 }
                 won = verifiedPetResult.outcome === 'win';
                 petDefeat = !won;
@@ -387,6 +394,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true, ttlSec: 15 });
 
         if (result.status === 200) {
+            if (initialBinding.combatMode === 'pet'
+                && isHollowGatePetAuthority(initialBinding.petAuthority)
+                && initialBinding.petAuthority.engine === 'cinematic') {
+                try {
+                    await retireHollowGatePetChildLease(playerName, initialBinding.petAuthority.proofId);
+                } catch (error) {
+                    console.error('[hollow-gate/combat-settle] Pet child cleanup failed', error);
+                    return res.status(503).json({ error: 'The Hollow Gate result is settled, but its pet battle lease could not be retired — please retry.' });
+                }
+            }
             if (initialBinding.combatMode === 'solo-pve') {
                 const [terminal, receipt] = await Promise.all([
                     readSoloPveSession(runId),

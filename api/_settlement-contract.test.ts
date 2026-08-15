@@ -90,15 +90,18 @@ describe('reward-settlement contract inventory', () => {
         // so the retry hits the already-resolved branch, which the receipt makes
         // idempotent.
         const source = read('pet/showdown.ts');
-        const settling = source.slice(source.indexOf('Finishing turn'));
+        const settlingStart = source.indexOf('Finishing turn');
+        const settlingEnd = source.indexOf("return res.status(200).json({ ok: true, events, state: viewOf(session), ...settlement });", settlingStart);
+        assert.ok(settlingStart >= 0 && settlingEnd > settlingStart, 'the terminal settlement block must remain discoverable');
+        const settling = source.slice(settlingStart, settlingEnd);
         assert.doesNotMatch(
-            settling.slice(0, 1200),
+            settling,
             /kv\.del\(key\)/,
             'the settling turn must not delete the session — a dropped response would be unrecoverable',
         );
         assert.match(
-            settling.slice(0, 1200),
-            /kv\.set\(key, session, \{ ex: SESSION_TTL_SECONDS \}\)/,
+            settling,
+            /if \(!replayed\) await kv\.set\(key, session, \{ ex: SESSION_TTL_SECONDS \}\)/,
             'the settling turn must persist the finished session to its normal TTL',
         );
         assert.match(
