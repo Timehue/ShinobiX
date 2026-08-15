@@ -14,18 +14,21 @@ actually enforceable — which is what makes this redesign worth doing.
 - The standard run is exactly **five floors**, shared by client and server.
 - Every current `battle`, `elite`, ambush, and boss node is a **Hollow Hound**.
   If the active pet is battle-ready, the player explicitly chooses either
-  mission/explore-style shinobi PvE or a tactical Pet Coliseum duel against the
-  reskinned Oni Hound. There is no random combat-mode roll.
+  mission/explore-style shinobi PvE or a server-sealed cinematic Hollow Hound
+  duel. This parent mode is separate from the paid Showdown Coliseum. There is
+  no random combat-mode roll.
 - Combat tiles resolve only after a server-accepted win. Old saved
   `tile_game`/`pet_battle` nodes migrate into this same Hound encounter flow.
 - Player healing, lifesteal, pet summoning, consumables, and post-fight healing
   are sealed during Gate combat. The Shrine Keeper is the intentional exception.
 - Run token, immutable floor manifest, position, encounter identity, floor
   progression, pet results, rewards, HP, and every shard consumable settle
-  through the server. Pet duel outcomes use their separate pet receipt.
+  through the server. A Pet-mode parent preselects one cinematic proof and
+  accepts only its exact versioned result receipt.
 - The Leave tile extracts transactionally. **Emergency Forfeit** is always
   available as the recovery path for a broken encounter; it applies the normal
-  death/loot-retention rules and sends the player to the hospital.
+  death/loot-retention rules, locks the parent combat binding, revokes any bound
+  Pet proof/token/result, and sends the player to the hospital.
 - Server-seeded floors regenerate deterministically. Each generated gameplay
   manifest is structurally validated and sealed once; all later node checks use
   that run-owned manifest, never mutable saved tiles. A descent is sealed before

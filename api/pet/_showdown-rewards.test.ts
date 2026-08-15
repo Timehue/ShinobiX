@@ -18,9 +18,19 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import { createShowdownSession } from '../_pet-showdown/engine.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
+
+process.env.NODE_ENV = 'test';
+process.env.SHINOBIX_QA_MEMORY_KV = '1';
+process.env.ENABLE_LEGACY = '1';
+
+after(() => {
+    delete process.env.SHINOBIX_QA_MEMORY_KV;
+    delete process.env.ENABLE_LEGACY;
+});
 
 const src = readFileSync(join(process.cwd(), 'api', 'pet', 'showdown.ts'), 'utf8');
 
@@ -80,11 +90,13 @@ describe('showdown.ts wires practice as unpaid', () => {
         assert.deepEqual(seals, ['false', '!hollowGate'], 'only these two seal forms may exist, in this order');
 
         const practiceAt = indexOfOrFail("action === 'start'");
-        const arenaAt = indexOfOrFail("action === 'arena'");
+        const arenaAt = indexOfOrFail("if (action === 'arena') {");
+        const hollowGateRetirement = indexOfOrFail("action === 'arena' && body.hollowGate != null");
         const paidSeal = src.indexOf('rewardEligible: !hollowGate');
         const practiceSeal = src.indexOf('rewardEligible: false');
         assert.ok(paidSeal > arenaAt, 'the paying seal belongs to the arena entry');
         assert.ok(practiceSeal > practiceAt && practiceSeal < arenaAt, 'the practice entry seals itself unpaid');
+        assert.ok(hollowGateRetirement < arenaAt, 'new Hollow Gate Showdown admission must fail before the paid arena branch');
 
         // `hollowGate` must be SERVER-derived — built only after the run token
         // and combat binding validate — never lifted from the body. A client
@@ -99,7 +111,7 @@ describe('showdown.ts wires practice as unpaid', () => {
         // The payout rides on sealedOpponentLevel, derived from the opponent the
         // SERVER builds. A body-supplied tier would let a player dial the
         // opposition down and farm the faucet at full price.
-        const arenaAt = indexOfOrFail("action === 'arena'");
+        const arenaAt = indexOfOrFail("if (action === 'arena') {");
         const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
         assert.equal(/body\.tier/.test(arenaBlock), false, 'the arena entry must not read a tier from the body');
         assert.ok(/const tier: ShowdownTier = avgLevel/.test(arenaBlock), 'its tier is derived from the team brought');
@@ -136,5 +148,155 @@ describe('showdown.ts wires practice as unpaid', () => {
         for (const forbidden of ['ryo', 'totalPetWins', 'dailyPetWins', 'writeSaveProjected', 'redeemedPetBattleTokens']) {
             assert.equal(branch.includes(forbidden), false, `the practice branch must not touch ${forbidden}`);
         }
+    });
+
+    it('suppresses ordinary settlement before validating a retained Hollow Gate terminal', () => {
+        const terminalAt = indexOfOrFail("if (action === 'turn')");
+        const sidecarAt = src.indexOf('const hgBinding = await kv.get<ShowdownHollowGateBinding>', terminalAt);
+        const paidAt = src.indexOf("if (!hgBinding && session.outcome === 'win')", terminalAt);
+        const exactParentAt = src.indexOf("hollowGatePetAuthorityMatches(parent, 'showdown', session.sessionId)", terminalAt);
+        assert.ok(sidecarAt > terminalAt && sidecarAt < paidAt,
+            'the server-only HG sidecar must load before ordinary Showdown settlement');
+        assert.ok(exactParentAt > paidAt,
+            'retained HG recovery validates its exact parent only after paid settlement has been suppressed');
+    });
+
+    it('transfers paid win witness and Legacy semantics exactly once, with receipt-aware recovery', async () => {
+        const playerName = 'showdownparityprobe';
+        const session = createShowdownSession({
+            sessionId: 'ShowdownParityReceipt01', playerName, format: '1v1', tier: 'scrapper', seed: 17,
+            playerPets: [pet('p1')], enemyPets: [pet('e1')], enemyTeamName: 'Foes', rewardEligible: true,
+        });
+        const [{ kv }, { settleShowdownWin }, { bumpLegacyStats }] = await Promise.all([
+            import('../_storage.js'),
+            import('./showdown.js'),
+            import('../_legacy-track.js'),
+        ]);
+        await kv.set(`save:${playerName}`, {
+            _saveVersion: 1,
+            character: {
+                name: playerName, level: 30, ryo: 10, totalPetWins: 4, dailyPetWins: 2,
+                lastDailyReset: new Date().toISOString().slice(0, 10), starterCardsClaimed: true,
+                tileCards: [], pets: [{ ...pet('p1'), nickname: 'Witness Ember', chronicleArenaWins: 9 }],
+            },
+        });
+
+        const first = await settleShowdownWin(playerName, session);
+        assert.ok(Number(first.reward) > 0);
+        assert.equal(first.progressionEligible, true);
+        assert.equal(first.totalPetWins, 5);
+        assert.equal(first.dailyPetWins, 3);
+        assert.deepEqual(first.chronicleCards, ['pet-witness-fire']);
+        assert.deepEqual(first.livingWitnessProgress, [{
+            sourceReceipt: 'sd:ShowdownParityReceipt01',
+            petId: 'p1',
+            petName: 'Pet p1',
+            cardId: 'pet-witness-fire',
+            wins: 10,
+            threshold: 10,
+            deedRecorded: true,
+            cardPressed: true,
+        }]);
+
+        // Model a process stopping after the paid save write but before its
+        // best-effort Legacy hook. A terminal replay must advertise that one
+        // missing side effect without paying or witnessing again.
+        const recovery = await settleShowdownWin(playerName, session);
+        assert.equal(recovery.reward, 0);
+        assert.equal(recovery.progressionEligible, true);
+        assert.deepEqual(recovery.chronicleCards, ['pet-witness-fire']);
+        await bumpLegacyStats(playerName, { petDuelWins: 1 }, {
+            receiptId: `pet-showdown:${session.sessionId}`,
+            characterForBootstrap: recovery.character as Record<string, unknown>,
+        });
+        const statsAfterRepair = await kv.get<Record<string, unknown>>(`legacy:stats:${playerName}`);
+        const saveAfterRepair = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+
+        const replay = await settleShowdownWin(playerName, session);
+        assert.equal(replay.reward, 0);
+        assert.equal(replay.progressionEligible, false, 'a recorded Legacy receipt suppresses normal replay work');
+        assert.equal(replay.totalPetWins, 5);
+        assert.equal(replay.dailyPetWins, 3);
+        assert.deepEqual(replay.chronicleCards, ['pet-witness-fire']);
+        assert.deepEqual(await kv.get(`legacy:stats:${playerName}`), statsAfterRepair);
+        const saveAfterReplay = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        assert.equal(saveAfterReplay?._saveVersion, saveAfterRepair?._saveVersion, 'terminal replay does not rewrite counters or witness state');
+
+        const paidMarker = await kv.get<Record<string, unknown>>(`pet:battle-paid:${playerName}:sd:${session.sessionId}`);
+        assert.equal(paidMarker?.legacyApplied, true, 'the finite session keeps a durable Legacy-applied marker');
+        await kv.set(`legacy:stats:${playerName}`, { ...statsAfterRepair, activityReceipts: [] });
+        const afterReceiptRotation = await settleShowdownWin(playerName, session);
+        assert.equal(afterReceiptRotation.progressionEligible, false,
+            'rolling Legacy history cannot reopen a still-replayable terminal session');
+        assert.equal(afterReceiptRotation.totalPetWins, 5);
+        assert.deepEqual(afterReceiptRotation.chronicleCards, ['pet-witness-fire']);
+    });
+
+    it('credits Living Witness only to the immutable opening field, never an unproven bench selection', async () => {
+        const playerName = 'showdownfieldwitness';
+        const session = createShowdownSession({
+            sessionId: 'ShowdownFieldReceipt01', playerName, format: '1v1', tier: 'scrapper', seed: 23,
+            playerPets: [pet('lead'), pet('bench-a'), pet('bench-b')],
+            enemyPets: [pet('enemy-lead'), pet('enemy-a'), pet('enemy-b')],
+            enemyTeamName: 'Foes', rewardEligible: true,
+        });
+        const [{ kv }, { settleShowdownWin }] = await Promise.all([
+            import('../_storage.js'),
+            import('./showdown.js'),
+        ]);
+        await kv.set(`save:${playerName}`, {
+            _saveVersion: 1,
+            character: {
+                name: playerName, level: 30, ryo: 0, totalPetWins: 0, dailyPetWins: 0,
+                lastDailyReset: new Date().toISOString().slice(0, 10), tileCards: [],
+                pets: [pet('lead'), pet('bench-a'), pet('bench-b')],
+            },
+        });
+
+        const settled = await settleShowdownWin(playerName, session);
+        assert.deepEqual(
+            (settled.livingWitnessProgress as Array<Record<string, unknown>>).map((entry) => entry.petId),
+            ['lead'],
+        );
+        const character = settled.character as Record<string, unknown>;
+        const wins = Object.fromEntries((character.pets as Array<Record<string, unknown>>)
+            .map((entry) => [entry.id, Number(entry.chronicleArenaWins ?? 0)]));
+        assert.deepEqual(wins, { lead: 1, 'bench-a': 0, 'bench-b': 0 });
+    });
+
+    it('stops all paid progression at the Showdown daily cap', async () => {
+        const playerName = 'showdowncapprobe';
+        const session = createShowdownSession({
+            sessionId: 'ShowdownCapReceipt01', playerName, format: '1v1', tier: 'scrapper', seed: 19,
+            playerPets: [pet('p1')], enemyPets: [pet('e1')], enemyTeamName: 'Foes', rewardEligible: true,
+        });
+        const [{ kv }, { settleShowdownWin }] = await Promise.all([
+            import('../_storage.js'),
+            import('./showdown.js'),
+        ]);
+        await kv.set(`save:${playerName}`, {
+            _saveVersion: 1,
+            character: {
+                name: playerName, level: 30, ryo: 10, totalPetWins: 40,
+                dailyPetWins: SHOWDOWN_DAILY_WIN_CAP, lastDailyReset: new Date().toISOString().slice(0, 10),
+                starterCardsClaimed: true, tileCards: [],
+                pets: [{ ...pet('p1'), chronicleArenaWins: 9 }],
+            },
+        });
+
+        const capped = await settleShowdownWin(playerName, session);
+        assert.equal(capped.capped, true);
+        assert.equal(capped.reward, 0);
+        assert.equal(capped.progressionEligible, undefined);
+        assert.equal(capped.totalPetWins, 40);
+        assert.deepEqual(capped.chronicleCards, undefined);
+        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const character = save?.character as Record<string, unknown>;
+        assert.equal(save?._saveVersion, 1);
+        assert.equal(character.ryo, 10);
+        assert.equal(character.totalPetWins, 40);
+        assert.equal(((character.pets as Array<Record<string, unknown>>)[0]).chronicleArenaWins, 9);
+        assert.deepEqual(character.tileCards, []);
+        assert.equal(await kv.get(`legacy:stats:${playerName}`), null);
     });
 });

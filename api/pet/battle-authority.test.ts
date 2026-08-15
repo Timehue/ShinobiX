@@ -127,7 +127,7 @@ test('unauthenticated forged names cannot consume a victim settlement budget', a
     assert.equal(valid.out.body?.ok, true);
 });
 
-test('casual pet start ignores a chosen seed, seals pet-strength reward, and permits only one active receipt', async () => {
+test('new user-picked AI starts fail closed while an already-issued receipt can resume and settle', async () => {
     const body = {
         playerName: PLAYER,
         playerPetIds: ['owned-pet'],
@@ -136,14 +136,50 @@ test('casual pet start ignores a chosen seed, seals pet-strength reward, and per
         seed: 0,
         reportKey: 'caller-selected',
     };
+    const rejected = response();
+    await startHandler(request(body), rejected.res);
+    assert.equal(rejected.out.statusCode, 410);
+    assert.match(String(rejected.out.body?.error), /pick-your-opponent Pet Coliseum is retired/);
+    assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null, 'rejected admission must not publish a proof');
+
+    const [{ createCasualPveBattleSeal }, { replayCasualPetDuel }, { SERVER_ARENA_PETS }] = await Promise.all([
+        import('./_casual-pve-seal.js'),
+        import('./_duel-replay.js'),
+        import('./_arena-ai.js'),
+    ]);
+    const saved = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
+    const savedPet = ((saved?.character as Record<string, unknown>).pets as unknown[])[0] as never;
+    const aiPet = SERVER_ARENA_PETS['generic-ai-pet-sparrow'];
+    const params = {
+        mode: '1v1' as const, seed: 71, damageMult: 1, hpMult: 1,
+        revive: false, applyItems: true, accuracy: true, terrain: null,
+    };
+    const casualPveSeal = createCasualPveBattleSeal([savedPet], [aiPet], params);
+    const legacyToken = 'LegacyAiReceipt01';
+    const legacyReportKey = `pet:${legacyToken}`;
+    await kv.set(`pet:battle-token:${PLAYER}:${legacyToken}`, {
+        playerName: PLAYER,
+        reportKey: legacyReportKey,
+        seed: params.seed,
+        opponentLevel: aiPet.level,
+        rewardRyo: 20,
+        playerPetIds: ['owned-pet'],
+        opponentPetIds: [aiPet.id],
+        sealedParams: params,
+        casualPveSeal,
+        authoritativeOutcome: replayCasualPetDuel(casualPveSeal.playerPets, casualPveSeal.opponentPets, params, []).outcome,
+        mode: '1v1',
+        // Deliberately no settlementPolicy: this is a pre-cutover receipt.
+    }, { ex: 15 * 60 });
+    await kv.set(`pet:battle-active:${PLAYER}`, legacyToken, { ex: 15 * 60 });
+
     const first = response();
     await startHandler(request(body), first.res);
     assert.equal(first.out.statusCode, 200);
-    assert.ok(Number(first.out.body?.seed) > 0);
-    assert.notEqual(first.out.body?.reportKey, 'caller-selected');
-
-    const stored = await kv.get<{ rewardRyo?: number }>(`pet:battle-token:${PLAYER}:${String(first.out.body?.token)}`);
-    assert.ok(Number(stored?.rewardRyo) >= 20);
+    assert.equal(first.out.body?.resumed, true);
+    assert.equal(first.out.body?.token, legacyToken);
+    assert.equal(first.out.body?.reportKey, legacyReportKey);
+    assert.equal(first.out.body?.seed, params.seed);
 
     const duplicate = response();
     await startHandler(request(body), duplicate.res);
@@ -207,7 +243,7 @@ test('casual pet start ignores a chosen seed, seals pet-strength reward, and per
 
     const next = response();
     await startHandler(request(body), next.res);
-    assert.equal(next.out.statusCode, 200);
+    assert.equal(next.out.statusCode, 410, 'settling an old receipt must not reopen legacy admission');
 });
 
 test('casual PvE settlement replays the kickoff snapshot after the saved pet mutates', async () => {
@@ -235,6 +271,44 @@ test('casual PvE settlement replays the kickoff snapshot after the saved pet mut
         },
     });
 
+    // Model a receipt minted immediately before the single-owner cutover. The
+    // kickoff snapshot remains redeemable even though no new generic-AI proof
+    // can be created now.
+    const [{ createCasualPveBattleSeal }, { replayCasualPetDuel }, { SERVER_ARENA_PETS }] = await Promise.all([
+        import('./_casual-pve-seal.js'),
+        import('./_duel-replay.js'),
+        import('./_arena-ai.js'),
+    ]);
+    const aiPet = SERVER_ARENA_PETS['generic-ai-pet-sparrow'];
+    const battleConfig = {
+        mode: '1v1' as const, seed: 73, damageMult: 1, hpMult: 1,
+        revive: false, applyItems: true, accuracy: true, terrain: null,
+    };
+    const casualPveSeal = createCasualPveBattleSeal([kickoffPet] as never, [aiPet], battleConfig);
+    const legacyToken = 'LegacySnapshotReceipt01';
+    const legacyReportKey = `pet:${legacyToken}`;
+    const authoritativeOutcome = replayCasualPetDuel(
+        casualPveSeal.playerPets,
+        casualPveSeal.opponentPets,
+        battleConfig,
+        [],
+    ).outcome;
+    assert.equal(authoritativeOutcome, 'win');
+    await kv.set(`pet:battle-token:${playerName}:${legacyToken}`, {
+        playerName,
+        reportKey: legacyReportKey,
+        seed: battleConfig.seed,
+        opponentLevel: aiPet.level,
+        rewardRyo: 20,
+        playerPetIds: [kickoffPet.id],
+        opponentPetIds: [aiPet.id],
+        sealedParams: battleConfig,
+        casualPveSeal,
+        authoritativeOutcome,
+        mode: '1v1',
+    }, { ex: 15 * 60 });
+    await kv.set(`pet:battle-active:${playerName}`, legacyToken, { ex: 15 * 60 });
+
     const started = response();
     await startHandler(request({
         playerName,
@@ -246,20 +320,19 @@ test('casual PvE settlement replays the kickoff snapshot after the saved pet mut
 
     const playerPets = started.out.body?.playerPets as never[];
     const opponentPets = started.out.body?.opponentPets as never[];
-    const battleConfig = started.out.body?.battleConfig as never;
+    const returnedBattleConfig = started.out.body?.battleConfig as never;
     assert.equal(playerPets.length, 1);
     assert.equal('image' in (playerPets[0] as object), false, 'the proof excludes save-owned inline art');
     assert.equal('training' in (playerPets[0] as object), false, 'the proof excludes mutable care state');
 
-    const { replayCasualPetDuel } = await import('./_duel-replay.js');
-    const sealedOutcome = replayCasualPetDuel(playerPets as never, opponentPets as never, battleConfig, []).outcome;
+    const sealedOutcome = replayCasualPetDuel(playerPets as never, opponentPets as never, returnedBattleConfig, []).outcome;
     const mutatedPet = {
         ...kickoffPet,
         name: 'Rewritten Pet', nickname: 'Mutated Ember', element: 'Fire',
         hp: 1, attack: 1, defense: 0, speed: 1,
         image: 'replacement-art', training: undefined,
     };
-    const mutableOutcome = replayCasualPetDuel([mutatedPet] as never, opponentPets as never, battleConfig, []).outcome;
+    const mutableOutcome = replayCasualPetDuel([mutatedPet] as never, opponentPets as never, returnedBattleConfig, []).outcome;
     assert.equal(sealedOutcome, 'win');
     assert.equal(mutableOutcome, 'loss', 'the fixture must discriminate sealed from current-save replay');
 

@@ -139,6 +139,7 @@ describe('executable multi-engine runtime registry', () => {
     const expectedIds = EXPECTED_RUNTIME_MODE_CONTRACTS.map((contract) => contract.id);
     const expectedFactIds = Object.keys(EXPECTED_RUNTIME_MODE_FACTS);
     const expectedMetadataIds = Object.keys(EXPECTED_RUNTIME_MODE_METADATA);
+    assert.equal(ids.length, 56, 'The corrected Phase-3 inventory must retain the independently pinned 56-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
@@ -353,7 +354,7 @@ describe('executable multi-engine runtime registry', () => {
     assert.deepEqual(failures, [], failures.join('\n'));
   });
 
-  it('pins ordinary Pet Arena AI to HTTP receipts and live PvP to the realtime cinematic authority', () => {
+  it('retires user-picked Pet Arena AI while preserving live PvP and issued-token recovery', () => {
     const startSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
     const resultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
     const replaySource = readFileSync(join(ROOT, 'api', 'pet', '_duel-replay.ts'), 'utf8');
@@ -384,13 +385,42 @@ describe('executable multi-engine runtime registry', () => {
       assert.equal(
         mode.replayKind,
         id.includes('-ai-')
-          ? 'server-replayed-cinematic-input-log-with-receipt'
+          ? 'none'
           : 'memory-only-server-replayed-lockstep-cinematic-log',
       );
     }
 
+    const issuedTokenCompat = runtimeModeById('pet-arena-ai-issued-token-compat');
+    assert.ok(issuedTokenCompat, 'issued Pet Arena AI tokens need an explicit compatibility row');
+    assert.deepEqual(
+      {
+        authorityEngine: issuedTokenCompat.authorityEngine,
+        intendedAuthorityEngine: issuedTokenCompat.intendedAuthorityEngine ?? null,
+        participantModel: issuedTokenCompat.participantModel,
+        rewardPolicy: issuedTokenCompat.rewardPolicy,
+        status: issuedTokenCompat.status,
+      },
+      EXPECTED_RUNTIME_MODE_FACTS['pet-arena-ai-issued-token-compat'],
+    );
+    assert.equal(issuedTokenCompat.replayKind, 'server-replayed-cinematic-input-log-with-receipt');
+    assert.deepEqual(
+      issuedTokenCompat.routes.map((route) => ({ path: route.path, roles: route.roles })),
+      [
+        { path: '/pet/battle-start', roles: ['recovery'] },
+        { path: '/pet/battle-result', roles: ['settlement'] },
+      ],
+      'compatibility may resume and settle an exact issued token but must expose no new start role',
+    );
+    const paidColiseum = runtimeModeById('pet-coliseum');
+    assert.ok(paidColiseum?.clientEntries.includes('screens/PetArena.tsx'),
+      'the paid Showdown-owned Coliseum row must include its Arena CTA');
+
     assert.match(startSource, /const mode = body\.mode === '2v2' \? '2v2' : '1v1'/);
-    assert.match(startSource, /SERVER_ARENA_PETS/, 'AI opponents must come from the server roster.');
+    assert.match(startSource, /return res\.status\(410\)\.json\(\{[\s\S]{0,200}pick-your-opponent Pet Coliseum is retired/,
+      'new context-free cinematic AI admission must fail closed with 410');
+    assert.match(startSource, /active\.settlementPolicy === undefined/,
+      'only a pre-cutover active proof may resume through the retired AI admission shape');
+    assert.match(startSource, /settlementPolicy: dungeon \|\| hollowGate \? 'parent-mode' : 'casual-no-progression'/);
     assert.match(startSource, /isAiOpponent \? \{[\s\S]*?mode,[\s\S]*?seed,/, 'AI modes must seal cinematic replay parameters.');
     assert.match(replaySource, /createLiveCinematicDuel/);
     assert.match(replaySource, /createLivePartyCinematicDuel/);
@@ -398,9 +428,14 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(resultSource, /dailyPetWins >= DAILY_ARENA_WIN_CAP/);
     assert.match(resultSource, /recordPetArenaVictory\(/);
     assert.match(resultSource, /\{ petDuelWins: 1 \}/);
+    assert.match(resultSource, /result\.progressionEligible === true/,
+      'legacy progression must follow only a newly committed pre-cap paid receipt');
     assert.match(arenaSource, /mintCasualPetBattleToken\([^\n]+"2v2"/);
     assert.match(arenaSource, /mintCasualPetBattleToken\([^\n]+"1v1"/);
-    assert.match(arenaSource, /opponentMode === "ai"/);
+    assert.doesNotMatch(arenaSource, /opponentMode === "ai"|setOpponentMode\("ai"\)|Choose both contenders/,
+      'PetArena must not expose a new user-picked cinematic AI entry');
+    assert.match(arenaSource, /setScreen\("petColiseum"\)/,
+      'the paid Coliseum CTA must enter the server-owned Showdown arena');
     assert.match(arenaSource, /const pvpParty = Boolean\(/);
     assert.match(arenaSource, /sendDirectPetChallenge/);
     assert.match(arenaSource, /liveDuelRef\.current\?\.challenge/);
@@ -478,6 +513,9 @@ describe('executable multi-engine runtime registry', () => {
     const cardAiStartSource = readFileSync(join(ROOT, 'api', 'card-clash', 'ai-start.ts'), 'utf8');
     const cardAiMoveSource = readFileSync(join(ROOT, 'api', 'card-clash', 'ai-move.ts'), 'utf8');
     const hollowGateSettleSource = readFileSync(join(ROOT, 'api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
+    const hollowGateCombatSource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_combat-session.ts'), 'utf8');
+    const hollowGatePetAuthoritySource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_pet-authority.ts'), 'utf8');
+    const petShowdownSource = readFileSync(join(ROOT, 'api', 'pet', 'showdown.ts'), 'utf8');
     const petSocketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const gauntletHandlerSource = readFileSync(join(ROOT, 'api', 'pet', 'gauntlet.ts'), 'utf8');
     const gauntletRuntimeSource = readFileSync(join(ROOT, 'api', '_pet-sim', 'gauntlet-sim.ts'), 'utf8');
@@ -556,14 +594,23 @@ describe('executable multi-engine runtime registry', () => {
     const hollowGatePet = runtimeModeById('hollow-gate-pet-cinematic');
     assert.equal(hollowGatePet.status, 'owner-decision');
     assert.equal(hollowGatePet.authorityEngine, E.PET_CINEMATIC_DUEL);
+    assert.match(hollowGatePet.statusDetail, /preselects one exact cinematic proof/);
+    assert.match(hollowGatePet.statusDetail, /New Hollow Gate Showdown admission and adoption of unbound legacy Showdown siblings fail closed/);
+    assert.match(hollowGatePet.statusDetail, /unique exact active same-player\/run cinematic child/);
+    assert.match(hollowGatePet.statusDetail, /long-term replatform choice remains owner-controlled/);
+    assert.match(hollowGateCombatSource, /petAuthority:\s*\{[\s\S]*?engine: 'cinematic',[\s\S]*?proofId: randomUUID/);
+    assert.match(hollowGatePetAuthoritySource, /claimHollowGateCinematicAuthority/);
     assert.match(petBattleStartSource, /hollowGateCombatBindingKey\(runId\)/);
     assert.match(petBattleStartSource, /validateHollowGatePetClaim\(\{[\s\S]*?activeEncounter: run\?\.activeEncounter/);
-    assert.match(petBattleStartSource, /binding\?\.runId !== runId/);
+    assert.match(petBattleStartSource, /token = authority\.binding\.petAuthority!\.proofId/);
     assert.match(petBattleResultSource, /replayCasualPetDuel/);
-    assert.match(petBattleResultSource, /hollowGatePetResultKey\(playerName, battleToken\)/);
+    assert.match(petBattleResultSource, /writeHollowGatePetResult\(hollowGatePetResult\)/);
     assert.match(petBattleResultSource, /reward: 0/);
-    assert.match(hollowGateSettleSource, /`hg-pet-result:\$\{playerName\}:\$\{petReceipt\}`/);
-    assert.match(hollowGateSettleSource, /verifiedPetResult\.runId !== runId/);
+    assert.match(petShowdownSource, /action === 'arena' && body\.hollowGate != null/);
+    assert.match(petShowdownSource, /Hollow Gate pet encounters use the sealed cinematic duel/);
+    assert.match(hollowGateSettleSource, /hollowGatePetResultKey\(playerName, petReceipt\)/);
+    assert.match(hollowGateSettleSource, /verifiedPetResult\.proofId !== petReceipt/);
+    assert.match(hollowGateSettleSource, /hollowGatePetReceiptMatchesBinding\(binding, verifiedPetResult, playerName\)/);
 
     const tactical = runtimeModeById('tactical-arena');
     assert.equal(tactical.status, 'surface-gap');

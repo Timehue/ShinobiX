@@ -101,12 +101,13 @@ test("Pet Arena's App boundary reports foreign and stale responses separately", 
     assert.match(arenaSource, /if \(decision === "stale"\)[\s\S]*clearSpentConsumables/);
 });
 
-test("every authoritative Pet Arena result exposes an idempotent retry receipt", () => {
+test("every retained authoritative Pet Arena result exposes an idempotent retry receipt", () => {
     for (const kind of ["tactical", "party", "ranked", "casual"] as const) {
         assert.match(arenaSource, new RegExp(`kind: "${kind}"`));
     }
     assert.match(arenaSource, /Retry Settlement/);
-    assert.match(arenaSource, /const inputLog = livePartyDuel\?\.inputLog\(\)/);
+    assert.match(arenaSource, /id: `party:\$\{battleToken\}:\$\{reportKey\}`/);
+    assert.doesNotMatch(arenaSource, /livePartyDuel/);
     assert.match(arenaSource, /const inputLog = liveDuel\?\.inputLog\(\)/);
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /if \(petSettlementBlocksExit\)/);

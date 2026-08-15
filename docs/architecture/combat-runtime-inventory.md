@@ -56,28 +56,42 @@ boundary distinctions are mandatory:
   intended-PvP surface gap: new send/join/accept progression returns `410`, and
   retained queue records are cleanup-only until one four-player authority can
   settle the whole challenge.
-- `pet-showdown` owns Showdown practice, Coliseum, its ladder mode, and the
-  Showdown-backed Sector/Clan War pet modes.
+- `pet-showdown` owns Showdown practice, the sole new paid Coliseum admission,
+  its ladder mode, and the Showdown-backed Sector/Clan War pet modes. Paid
+  Coliseum ryo, counters, Living Witness, and Legacy progression settle only
+  from the exact pre-cap Showdown receipt.
 - `pet-warfront` owns positional Warfront and its ladder/co-op reuse. Standalone
   Tactical remains a distinct named surface and is currently a recorded surface
   gap; permitted engine-family reuse does not merge the modes.
 - `pet-gauntlet-grid` owns the deterministic Gauntlet draft/grid/transcript
   lifecycle. It is neither Showdown nor Warfront.
-- `pet-cinematic-duel` owns ordinary Pet Arena AI 1v1/2v2 through sealed HTTP
-  receipts and ordinary live PvP 1v1/2v2 through the memory-only `petduel:*`
-  transport. Live PvP has no reward or rating settlement and is not the legacy
-  HTTP challenge flow. The client supplies an explicitly selected or Auto-picked
-  reserve, and the server requires exactly one eligible pet for 1v1 or two
-  distinct eligible pets for 2v2; a requested 2v2 cannot degrade to 1v1.
+- New user-picked Pet Arena AI 1v1/2v2 admission is retired fail-closed. The
+  cinematic runtime keeps only a bounded compatibility path: `/pet/battle-start`
+  may recover the exact active pre-cutover unmarked token, and
+  `/pet/battle-result` may server-replay and settle that issued proof under its
+  original cap. It cannot mint a new paid bout; new paid Coliseum progression
+  belongs to Showdown.
+- `pet-cinematic-duel` still owns ordinary live PvP 1v1/2v2 through the
+  memory-only `petduel:*` transport. Live PvP has no reward or rating settlement
+  and is not the legacy HTTP challenge flow. The client supplies an explicitly
+  selected or Auto-picked reserve, and the server requires exactly one eligible
+  pet for 1v1 or two distinct eligible pets for 2v2; a requested 2v2 cannot
+  degrade to 1v1.
 - The public Pet Ranked queue is retired fail-closed: its route returns `410`
   and its UI cannot pair or launch the ordinary no-reward realtime duel. A future
   live-ranked cinematic lifecycle must share one server-owned match proof with
   rating settlement. New `rankedPet` challenge notices also return `410`; the
   older start/result lifecycle remains a separate mounted `legacy-pet-duel`
-  compatibility path for retained notices and proofs. Its cinematic client playback can disagree with legacy server
-  settlement, while Showdown ranked code is staged but uncalled. Hollow Gate pet
-  uses sealed cinematic PvE plus a parent run receipt; its dormant Showdown branch
-  leaves only the long-term owner decision open.
+  compatibility path for retained notices and proofs. Its cinematic client
+  playback can disagree with legacy server settlement, while Showdown ranked
+  code is staged but uncalled.
+- Hollow Gate pet currently has one executable authority. The parent combat
+  binding preselects one versioned cinematic proof, duplicate starts reuse its
+  exact seal and seed, and parent settlement accepts only the matching
+  engine/proof receipt. New Hollow Gate Showdown admission and unbound legacy
+  Showdown adoption fail closed. A legacy parent may recover only the unique
+  exact active same-player/run cinematic child. A future replatform remains an
+  owner decision, but that compatibility is not a second live authority.
 - Dungeon pet uses `pet-cinematic-duel`. `/pet/battle-start` validates the exact
   active run after the Warden and Card seals, selects the fixed Rare Beast, and
   seals the replay. `/pet/battle-result` server-replays the input log and stamps

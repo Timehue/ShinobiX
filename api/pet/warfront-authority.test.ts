@@ -175,6 +175,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.ok(responseRed.every((pet) => !('image' in pet) && !('bodyImage' in pet)), 'sealed rivals must omit unbounded inline art');
 
     const seal = await kv.get<Record<string, unknown>>(`pet:battle-token:${PLAYER}:${token}`);
+    assert.equal(seal?.settlementPolicy, 'warfront-reward', 'Warfront remains an explicit non-Coliseum reward authority');
     assert.equal(seal?.seed, seed);
     assert.equal(seal?.reportKey, reportKey);
     assert.equal(seal?.opponentStance, 'balanced');
