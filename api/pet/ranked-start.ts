@@ -27,10 +27,10 @@ import {
 /*
  * /api/pet/ranked-start - POST { opponentName, petId? }
  *
- * This is a queue-binding endpoint, not a direct-challenge endpoint. Both
- * players must first opt into /api/pvp/pet-ranked-queue. Matchmaking writes two
- * reciprocal records with the same private pair id and chooses one initiator;
- * only that initiator can bind the pair to a server-seeded combat proof here.
+ * Compatibility-only queue binding, not a public direct-challenge endpoint.
+ * The live public queue is retired because it launched an unrelated no-reward
+ * realtime duel. This handler remains mounted only so a reciprocal pairing that
+ * was already minted before retirement can become one server-seeded proof.
  *
  * A single registry record reserves BOTH participants before the token is
  * returned. That gives one-active-match protection without a half-reserved
@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!isRankedPetStartClaim(claim)
                     || claim.matchToken !== active.matchToken
                     || !claimNamesMatch(claim, me, opponent)) {
-                    return { status: 409, body: { error: 'Your active ranked match authority is incomplete. Wait for it to expire, then queue again.' } };
+                    return { status: 409, body: { error: 'Your active ranked match authority is incomplete. Wait for it to expire; new live ranked matchmaking is unavailable.' } };
                 }
                 if (await kv.get(`pet:ranked-result:${claim.matchToken}`)) {
                     return { status: 409, body: { error: 'That ranked pet match is already settled.' } };
@@ -150,11 +150,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 || opponentMatch.initiator !== false
                 || myMatch.pairId !== opponentMatch.pairId
                 || Number(myMatch.createdAt) !== Number(opponentMatch.createdAt)) {
-                return { status: 409, body: { error: 'Both players must be paired by the ranked pet queue before a match can start.' } };
+                return { status: 409, body: { error: 'A retained reciprocal ranked pairing is required; new live ranked matchmaking is unavailable.' } };
             }
             const age = now - Number(myMatch.createdAt);
             if (age < -5_000 || age > PET_RANKED_QUEUE_MATCH_TTL_SECONDS * 1_000) {
-                return { status: 409, body: { error: 'That ranked pet queue match expired. Queue again.' } };
+                return { status: 409, body: { error: 'That ranked pet compatibility pairing expired; new live ranked matchmaking is unavailable.' } };
             }
             if (registry[opponent]) {
                 return { status: 409, body: { error: 'Your opponent already has an active ranked pet match.' } };
@@ -230,7 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
         console.error('[pet/ranked-start]', error);
         if (error instanceof LockContendedError) {
-            return res.status(503).json({ error: 'Ranked pet matchmaking is busy. Please retry.' });
+            return res.status(503).json({ error: 'Ranked pet compatibility recovery is busy. Please retry.' });
         }
         return res.status(500).json({ error: 'Internal server error.' });
     }

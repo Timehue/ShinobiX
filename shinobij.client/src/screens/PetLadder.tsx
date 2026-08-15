@@ -17,7 +17,6 @@ import { petPvpGearById, petConsumableById } from "../data/pet-config";
 const PetWarfrontMatch = lazy(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 import { LADDER_FORMATIONS, LADDER_DOCTRINES, asFormation, asTeamDoctrine, type WfStance, type WfDoctrine } from "../lib/pet-ladder-setup";
 import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
-import { PetDuelLiveHost } from "../components/PetDuelLiveHost";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeCarriedPets } from "../lib/entitlements";
@@ -86,12 +85,6 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const [offer, setOffer] = useState<OfferOpponent[] | null>(null);
     const [replay, setReplay] = useState<ChallengeResult | null>(null);
     const [outcome, setOutcome] = useState<{ won: boolean; rank: number | null } | null>(null);
-    // Live ranked matchmaking: the queue pairs two players and the lockstep
-    // host runs the fight. `queuedAgainst` arms the auto-accept so the paired
-    // player is not asked to confirm a duel they just queued for.
-    const [queuedAgainst, setQueuedAgainst] = useState<string | null>(null);
-    const [liveDuelActive, setLiveDuelActive] = useState(false);
-    const [ladderNote, setLadderNote] = useState<string | null>(null);
     // Tactical defense is more than a team: it is the whole pre-match setup a
     // player would make if they were present. Seeded from the saved defense.
     // DERIVED from the saved defense with a local override, rather than mirrored
@@ -107,10 +100,6 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const teamSize = mode === "tactical" ? 4 : 1;
     // Admin-comped entitlements can expire while this screen remains mounted.
     const available = activeCarriedPets<Pet>(character).filter((p) => !isPetOnExpedition(p));
-    // Queue with the pet you have picked to defend your rank; falling back to the
-    // first available one keeps "Find a match" usable before a defense is set.
-    const pickedQueuePet = available.find((pet) => pet.id === picks[0]) ?? available[0];
-    const ladderQueuePets = pickedQueuePet ? [pickedQueuePet] : [];
     const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
 
     const refresh = useCallback(async () => {
@@ -262,34 +251,10 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 </div>
             )}
 
-            {/* Live ranked matchmaking + the duel it produces. Coliseum only —
-                tactical 4v4 is still the sealed server resolve. */}
+            {/* Live-ranked admission is retired fail-closed. The asynchronous
+                Coliseum and Tactical ladder modes below remain authoritative. */}
             {mode === "coliseum" && (
-                <>
-                    <PetLadderQueuePanel
-                        playerName={name}
-                        level={character.level}
-                        elo={character.petRankedRating ?? 1000}
-                        pets={ladderQueuePets}
-                        duelActive={liveDuelActive}
-                        onMatched={(opponent) => { setQueuedAgainst(opponent); setLiveDuelActive(true); }}
-                    />
-                    <PetDuelLiveHost
-                        myPets={ladderQueuePets}
-                        autoAcceptFrom={queuedAgainst}
-                        onError={(message) => { setErr(message); setQueuedAgainst(null); setLiveDuelActive(false); }}
-                        onOutcome={(result, opponent) => {
-                            setQueuedAgainst(null);
-                            setLiveDuelActive(false);
-                            setErr(null);
-                            setOutcome({ won: result === "win", rank: null });
-                            setLadderNote(result === "win" ? `You beat ${opponent}.` : result === "draw" ? `Draw with ${opponent}.` : `${opponent} took that one.`);
-                            void refresh();
-                        }}
-                        sharedImages={sharedImages}
-                    />
-                    {ladderNote && <p className="hint" style={{ textAlign: "center" }}>{ladderNote}</p>}
-                </>
+                <PetLadderQueuePanel />
             )}
 
             {/* Two columns: defense + challenge (left) | the ladder (right) */}

@@ -46,9 +46,10 @@ not originally enumerate:
 - ordinary Pet Arena AI 1v1/2v2 uses `pet-cinematic-duel`;
 - ordinary Pet Arena live PvP 1v1/2v2 uses the server-sealed, memory-only
   `petduel:*` transport and `pet-cinematic-duel`, with no reward or rating write;
-  2v2 currently permits a degraded one-pet roster and is therefore a defect;
-- the public Pet Ranked queue incorrectly hands its match to that same no-reward
-  realtime duel and never settles rating, while the older ranked compatibility
+  the client supplies an explicitly selected or Auto-picked reserve and the
+  server enforces exact one-pet/two-pet cardinality for 1v1/2v2;
+- the broken public Pet Ranked queue is retired fail-closed and cannot pair or
+  launch that no-reward realtime duel, while the older ranked compatibility
   route and a staged Showdown implementation remain separate and unconsumed;
   the retained legacy route is itself defective because cinematic client
   playback can disagree with the legacy server replay;
