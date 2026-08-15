@@ -14,35 +14,52 @@ export type ChronicleDeckResolution = {
     usedRequested: boolean;
 };
 
+export type ChronicleDeckMutation =
+    | {
+        ok: true;
+        character: Record<string, unknown>;
+        value: Omit<ChronicleDeckResolution, 'saveVersion'>;
+    }
+    | { ok: false; status: 400; error: string };
+
+/** Pure deck/save decision shared by ordinary starts and authority-bound
+ * encounter starts. Keeping validation inside the caller's existing save lock
+ * lets an encounter verify its parent run and persist the approved deck in one
+ * atomic mutation. */
+export function resolveChronicleDeckMutation(
+    character: Record<string, unknown>,
+    requested: readonly string[],
+): ChronicleDeckMutation {
+    const { current, granted: missingStarterCopies } = starterCardTopUp(character.tileCards);
+    const owned = [...current, ...missingStarterCopies];
+    const ownedCounts = countChronicleCards(owned);
+    const saved = Array.isArray(character.cardClashDeck)
+        ? character.cardClashDeck.filter((id): id is string => typeof id === 'string')
+        : [];
+    // A current client may submit its just-saved selection before the normal
+    // autosave debounce lands. Admit it only when every card, copy limit and
+    // deck-size rule validates against the server-owned collection. A bad
+    // submission never influences migration; fall back to the persisted deck.
+    const usedRequested = Boolean(requested.length && validateDeckIds(requested, ownedCounts).valid);
+    const deck = usedRequested
+        ? [...requested]
+        : validateDeckIds(saved, ownedCounts).valid
+            ? [...saved]
+            : migrateLegacyDeck(saved, owned, true).deck;
+    if (!validateDeckIds(deck, ownedCounts).valid) {
+        return { ok: false, status: 400, error: 'No legal 40-card Chronicle deck is available.' };
+    }
+    return {
+        ok: true,
+        // Persist the exact server-approved list in the same locked write as
+        // starter grants, closing the local-save/PvP-join race.
+        character: { ...character, tileCards: owned, cardClashDeck: deck },
+        value: { deck, usedRequested },
+    };
+}
+
 export async function resolveChronicleDeckWithSave(playerName: string, requested: readonly string[], admin = false): Promise<ChronicleDeckResolution | null> {
-    const resolved = await mutatePlayerSave(playerName, ({ character }) => {
-        const { current, granted: missingStarterCopies } = starterCardTopUp(character.tileCards);
-        const owned = [...current, ...missingStarterCopies];
-        const ownedCounts = countChronicleCards(owned);
-        const saved = Array.isArray(character.cardClashDeck)
-            ? character.cardClashDeck.filter((id): id is string => typeof id === 'string')
-            : [];
-        // A current client may submit its just-saved selection before the normal
-        // autosave debounce lands. Admit it only when every card, copy limit and
-        // deck-size rule validates against the server-owned collection. A bad
-        // submission never influences migration; fall back to the persisted deck.
-        const usedRequested = Boolean(requested.length && validateDeckIds(requested, ownedCounts).valid);
-        const deck = usedRequested
-            ? [...requested]
-            : validateDeckIds(saved, ownedCounts).valid
-                ? [...saved]
-                : migrateLegacyDeck(saved, owned, true).deck;
-        if (!validateDeckIds(deck, ownedCounts).valid) {
-            return { ok: false as const, status: 400, error: 'No legal 40-card Chronicle deck is available.' };
-        }
-        return {
-            ok: true as const,
-            // Persist the exact server-approved list in the same locked write as
-            // starter grants, closing the local-save/PvP-join race.
-            character: { ...character, tileCards: owned, cardClashDeck: deck },
-            value: { deck, usedRequested },
-        };
-    });
+    const resolved = await mutatePlayerSave(playerName, ({ character }) => resolveChronicleDeckMutation(character, requested));
     if (!resolved.ok) {
         if (!admin) return null;
         return {

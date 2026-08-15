@@ -103,10 +103,10 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('pet-ranked-live-defect', []),
   C('pet-ranked-legacy-compat', [route('/player/challenge', 'lifecycle'), route('/pet/ranked-start', 'start+state'), route('/pet/battle-result', 'settlement')]),
   C('hollow-gate-pet-cinematic', [route('/hollow-gate/combat-start', 'lifecycle'), route('/pet/battle-start', 'start+state'), route('/pet/battle-result', 'lifecycle'), route('/hollow-gate/combat-settle', 'settlement')]),
-  C('dungeon-pet-client-local', [route('/dungeon/run', 'settlement')]),
+  C('dungeon-pet-cinematic', [route('/pet/battle-start', 'start+state'), route('/pet/battle-result', 'settlement'), route('/dungeon/run', 'settlement')]),
   C('card-clash-freeplay', [route('/card-clash/queue', 'lifecycle+start'), route('/card-clash/match', 'action+settlement+state')]),
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
-  C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+state'), route('/dungeon/run', 'settlement')]),
+  C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/dungeon/run', 'settlement')]),
 ]);
 
 const F = (authorityEngine, intendedAuthorityEngine, participantModel, rewardPolicy, status) => ({
@@ -170,10 +170,10 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'pet-ranked-live-defect': F(null, 'pet-cinematic-duel', 'two-player', 'none', 'surface-gap'),
   'pet-ranked-legacy-compat': F('legacy-pet-duel', null, 'two-player', 'server-settled', 'defect'),
   'hollow-gate-pet-cinematic': F('pet-cinematic-duel', null, 'solo', 'parent-mode-settlement', 'owner-decision'),
-  'dungeon-pet-client-local': F('client-local-pet-duel', null, 'solo', 'parent-mode-settlement', 'defect'),
+  'dungeon-pet-cinematic': F('pet-cinematic-duel', null, 'solo', 'parent-mode-settlement', 'match'),
   'card-clash-freeplay': F('chronicle', null, 'two-player', 'server-progression', 'match'),
   'card-clash-ai': F('chronicle', null, 'solo', 'server-capped', 'match'),
-  'dungeon-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'defect'),
+  'dungeon-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
 });
 
 /** Capability bindings are independently pinned because a valid capability id
@@ -243,10 +243,10 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'pet-ranked-live-defect': M('pet-legacy', 'none'),
   'pet-ranked-legacy-compat': M('pet-legacy', 'sealed-legacy-ranked-outcome-and-receipt'),
   'hollow-gate-pet-cinematic': M('pet-legacy', 'server-replayed-cinematic-input-log-and-parent-run-receipt', 'hollow-gate'),
-  'dungeon-pet-client-local': M('pet-legacy', 'client-presentation-only', 'dungeon'),
+  'dungeon-pet-cinematic': M('pet-legacy', 'server-replayed-cinematic-input-log-and-parent-run-receipt', 'dungeon'),
   'card-clash-freeplay': M('card', 'expiring-chronicle-projection'),
   'card-clash-ai': M('card', 'expiring-chronicle-projection'),
-  'dungeon-card': M('card', 'expiring-chronicle-projection', 'dungeon'),
+  'dungeon-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'dungeon'),
 });
 
 /**

@@ -1,17 +1,59 @@
 import { describe, it } from 'node:test'; import { strict as assert } from 'node:assert'; import { DUNGEON_MIN_RUN_MS, mutateDungeonRun, resolveFreeDungeonMiss } from './_run.js';
 import { applyDungeonWardenSettlement } from './_ai-fight.js';
+import { applyDungeonCardTerminal, applyDungeonPetTerminal, dungeonCardMatchId } from './_encounter-proof.js';
 describe('dungeon run authority', () => {
-    it('consumes one key and settles once after the sealed duration', () => {
-        const start = mutateDungeonRun({ inventory: ['dungeon-key'], itemStacks: [] }, 'start', '', 'token12345', 1000); assert.equal(start.ok, true); if (!start.ok) return;
+    it('consumes one key and settles once only after all three authoritative win proofs', () => {
+        const start = mutateDungeonRun({ name: 'Kiri', inventory: ['dungeon-key'], itemStacks: [] }, 'start', '', 'token12345', 1000); assert.equal(start.ok, true); if (!start.ok) return;
         assert.deepEqual(start.character.inventory, []);
         assert.equal(mutateDungeonRun(start.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS - 1).ok, false);
         const unproved = mutateDungeonRun(start.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS);
         assert.equal(unproved.ok, false);
+        if (!unproved.ok) assert.equal(unproved.reason, 'dungeon-warden-proof-required');
         const proved = applyDungeonWardenSettlement({ character: start.character, dungeonRunToken: 'token12345', opponentId: 'dungeon-warden-50', proofId: 'aifightproof123', outcome: 'win', now: 2000 });
         assert.equal(proved.ok, true); if (!proved.ok) return;
-        const settled = mutateDungeonRun(proved.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS); assert.equal(settled.ok, true); if (!settled.ok) return;
+        const missingCard = mutateDungeonRun(proved.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS);
+        assert.equal(missingCard.ok, false);
+        if (!missingCard.ok) assert.equal(missingCard.reason, 'dungeon-card-proof-required');
+
+        const matchId = dungeonCardMatchId('Kiri', 'token12345');
+        const card = applyDungeonCardTerminal({
+            character: proved.character, dungeonRunToken: 'token12345', matchId, outcome: 'player', now: 3000,
+        });
+        assert.equal(card.ok, true); if (!card.ok) return;
+        const missingPet = mutateDungeonRun(card.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS);
+        assert.equal(missingPet.ok, false);
+        if (!missingPet.ok) assert.equal(missingPet.reason, 'dungeon-pet-proof-required');
+
+        const pet = applyDungeonPetTerminal({
+            character: card.character, dungeonRunToken: 'token12345', proofId: 'petfightproof123',
+            outcome: 'win', petIds: ['pet-1'], now: 4000,
+        });
+        assert.equal(pet.ok, true); if (!pet.ok) return;
+        const tooShort = mutateDungeonRun(pet.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS - 1);
+        assert.equal(tooShort.ok, false);
+        if (!tooShort.ok) assert.equal(tooShort.reason, 'dungeon-run-too-short');
+        const settled = mutateDungeonRun(pet.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS); assert.equal(settled.ok, true); if (!settled.ok) return;
         assert.equal(settled.character.fateShards, 5); assert.deepEqual(settled.character.inventory, ['dungeon-legendary-relic']);
         const replay = mutateDungeonRun(settled.character, 'settle', 'token12345', 'x', 999999); assert.equal(replay.ok, true); if (replay.ok) assert.equal(replay.alreadyApplied, true);
+    });
+    it('preserves redeemed-run replay but does not grandfather an active Warden-only run', () => {
+        const redeemed = mutateDungeonRun({
+            redeemedDungeonRuns: ['redeemedtoken01'], activeDungeonRun: null, inventory: ['kept-item'],
+        }, 'settle', 'redeemedtoken01', 'unusedtoken01', 999999);
+        assert.equal(redeemed.ok, true);
+        if (redeemed.ok) {
+            assert.equal(redeemed.alreadyApplied, true);
+            assert.deepEqual(redeemed.character.inventory, ['kept-item']);
+        }
+
+        const legacyActive = mutateDungeonRun({
+            activeDungeonRun: {
+                token: 'legacyactive01', startedAt: 1, combatAuthorityVersion: 1,
+                wardenDefeated: true, wardenProofId: 'wardenproof001',
+            },
+        }, 'settle', 'legacyactive01', 'unusedtoken02', 999999);
+        assert.equal(legacyActive.ok, false);
+        if (!legacyActive.ok) assert.equal(legacyActive.reason, 'dungeon-card-proof-required');
     });
     it('rejects keyless starts and supports abandon without payout', () => {
         assert.equal(mutateDungeonRun({ inventory: [] }, 'start', '', 'token12345').ok, false);

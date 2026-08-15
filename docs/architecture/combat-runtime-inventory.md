@@ -2,7 +2,7 @@
 
 Baseline: ShinobiX `b815be4fe0088735df444fd7a1464c5e0c3bfa48` on 2026-08-04.
 Reference only: a third-party shinobi RPG at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`.
-WorldMap authority inventory re-verified on 2026-08-13.
+WorldMap authority inventory re-verified on 2026-08-13; Dungeon parent proofs reconciled on 2026-08-15.
 
 > [!IMPORTANT]
 > This is the hand-authored Solo-PvE cutover, keyspace, migration, and rollback
@@ -78,11 +78,15 @@ boundary distinctions are mandatory:
   settlement, while Showdown ranked code is staged but uncalled. Hollow Gate pet
   uses sealed cinematic PvE plus a parent run receipt; its dormant Showdown branch
   leaves only the long-term owner decision open.
-- Dungeon pet uses `client-local-pet-duel`; because the rewarding parent
-  settlement consumes no server-selected pet encounter or terminal pet proof,
-  that row remains a defect rather than a valid reusable authority.
-- Chronicle/Card Clash remains independent. Dungeon Card uses Chronicle for its
-  fight but still lacks a terminal-proof binding at the rewarding parent settle.
+- Dungeon pet uses `pet-cinematic-duel`. `/pet/battle-start` validates the exact
+  active run after the Warden and Card seals, selects the fixed Rare Beast, and
+  seals the replay. `/pet/battle-result` server-replays the input log and stamps
+  the exact Pet terminal proof; `/dungeon/run` requires that win before the
+  parent reward and its redeemed-run receipt can commit.
+- Chronicle/Card Clash remains independent. Dungeon Card uses one deterministic
+  run-bound Chronicle match; terminal `/card-clash/ai-move` stamps its outcome
+  into the active run, and `/dungeon/run` requires the authoritative Card win.
+  Neither child seal pays the Dungeon reward independently.
 
 ## Authority fields required after migration
 

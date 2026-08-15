@@ -26,6 +26,10 @@ import {
   type AiMatchResult,
   type AiMatchSession,
 } from "./_ai-engine.js";
+import {
+  DUNGEON_CARD_AUTHORITY_VERSION,
+  applyDungeonCardTerminal,
+} from "../dungeon/_encounter-proof.js";
 
 const MATCH_ID_RE = /^[0-9a-fA-F-]{20,80}$/;
 const ACTIONS = new Set([
@@ -102,6 +106,57 @@ async function authoritativePlayerSnapshot(playerName: string): Promise<{
     ...(Number.isFinite(saveVersion) && saveVersion > 0
       ? { _saveVersion: saveVersion }
       : {}),
+  };
+}
+
+async function settleDungeonCard(
+  session: StoredSession,
+  now: number,
+): Promise<
+  | {
+      ok: true;
+      character: Record<string, unknown>;
+      saveVersion: number;
+    }
+  | { ok: false; status: number; error: string }
+> {
+  const dungeonRunToken = session.dungeonRunToken;
+  if (
+    !dungeonRunToken ||
+    session.dungeonAuthorityVersion !== DUNGEON_CARD_AUTHORITY_VERSION
+  ) {
+    return {
+      ok: false,
+      status: 409,
+      error: "The Dungeon Card session has no current authority binding.",
+    };
+  }
+  const settled = await mutatePlayerSave(
+    session.playerName,
+    ({ character }) => {
+      const applied = applyDungeonCardTerminal({
+        character,
+        dungeonRunToken,
+        matchId: session.matchId,
+        outcome: session.winner ?? "draw",
+        now,
+      });
+      if (!applied.ok) {
+        return { ok: false as const, status: 409, error: applied.error };
+      }
+      return {
+        ok: true as const,
+        character: applied.character,
+        value: null,
+        write: !applied.alreadyApplied,
+      };
+    },
+  );
+  if (!settled.ok) return settled;
+  return {
+    ok: true,
+    character: settled.character,
+    saveVersion: settled._saveVersion,
   };
 }
 
@@ -220,6 +275,32 @@ async function persistOrSettle(
   }
   const now = Date.now();
   if (session.settlementMode === "external") {
+    if (session.dungeonRunToken) {
+      // Lock order is deliberately cc-ai -> save: persistOrSettle is called
+      // inside the match lock, and mutatePlayerSave acquires the nested save
+      // lock. The run proof commits before settledAt, so a lost response can
+      // safely replay the same idempotent proof mutation.
+      const dungeon = await settleDungeonCard(session, now);
+      if (!dungeon.ok) {
+        await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+        return {
+          status: dungeon.status as 404 | 409 | 503,
+          body: { error: dungeon.error },
+        };
+      }
+      session.settledAt = now;
+      await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+      return {
+        status: 200 as const,
+        body: {
+          ok: true,
+          session: projectAiMatch(session),
+          character: dungeon.character,
+          _saveVersion: dungeon.saveVersion,
+          ...steps,
+        },
+      };
+    }
     session.settledAt = now;
     await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
     return {
@@ -314,6 +395,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: { error: "This duel used retired rules; start a new duel." },
           };
         if (action === "state") {
+          if (isDone(session) && !session.settledAt) {
+            return persistOrSettle(session, key);
+          }
           if (session.settledAt && await repairAiLegacyCredit(session, key)) {
             await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
           }
