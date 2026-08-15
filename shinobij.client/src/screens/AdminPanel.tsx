@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AdminRole, Biome, JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank, Screen } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary, VersionedCharacterCommit } from "../types/character";
 import type { ArmorQuality, EquipmentSlot, GameItem, Jutsu, ReviewBloodline, SavedBloodline, Stats } from "../types/combat";
@@ -72,11 +72,18 @@ import {
 import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib/village-leadership-images";
 import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
-import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
+import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
+import {
+    createAdminWeeklyBossOperationFence,
+    persistAdminWeeklyBossOverride,
+    spawnAdminWeeklyBoss,
+    type AdminWeeklyBossOperationFence,
+    type AdminWeeklyBossOperationToken,
+} from "../lib/admin-weekly-boss-operations";
 import {
     adminPlayerSaveUrl,
     canonicalAdminPlayerKey,
@@ -780,6 +787,17 @@ export function AdminPanel({
     // should fight smart without bumping their level.
     const [aiMasterAi, setAiMasterAi] = useState(false);
     const [adminWeeklyBossAiId, setAdminWeeklyBossAiId] = useState("");
+    const canOperateWeeklyBoss = adminRole === 'full';
+    const weeklyBossOperationFenceRef = useRef<AdminWeeklyBossOperationFence | null>(null);
+    if (!weeklyBossOperationFenceRef.current) {
+        weeklyBossOperationFenceRef.current = createAdminWeeklyBossOperationFence({
+            adminCredential: adminPw,
+            adminRole,
+        });
+    }
+    const weeklyBossOperationFence = weeklyBossOperationFenceRef.current;
+    weeklyBossOperationFence.syncContext({ adminCredential: adminPw, adminRole });
+    const [weeklyBossOperationBusy, setWeeklyBossOperationBusy] = useState(false);
     const [aiLevel, setAiLevel] = useState(10);
     const [aiVillage, setAiVillage] = useState("Admin Arena");
     const [aiHp, setAiHp] = useState(1200);
@@ -795,13 +813,93 @@ export function AdminPanel({
     const [aiFindQuery, setAiFindQuery] = useState("");
     const [itemLibQuery, setItemLibQuery] = useState("");
     const [cardLibQuery, setCardLibQuery] = useState("");
+
+    useEffect(() => {
+        setWeeklyBossOperationBusy(false);
+    }, [adminPw, adminRole]);
+
+    useLayoutEffect(() => {
+        weeklyBossOperationFence.activate();
+        return () => weeklyBossOperationFence.dispose();
+    }, [weeklyBossOperationFence]);
+
+    function beginWeeklyBossOperation(): AdminWeeklyBossOperationToken | null {
+        const operationToken = weeklyBossOperationFence.begin();
+        if (!operationToken) return null;
+        setWeeklyBossOperationBusy(true);
+        return operationToken;
+    }
+
+    function weeklyBossOperationIsCurrent(operationToken: AdminWeeklyBossOperationToken): boolean {
+        return weeklyBossOperationFence.isCurrent(operationToken);
+    }
+
+    function finishWeeklyBossOperation(operationToken: AdminWeeklyBossOperationToken) {
+        if (!weeklyBossOperationFence.finish(operationToken)) return;
+        setWeeklyBossOperationBusy(false);
+    }
+
+    async function setWeeklyBossOverride(ai: CreatorAi) {
+        const operationToken = beginWeeklyBossOperation();
+        if (!operationToken) return;
+        try {
+            const result = await persistAdminWeeklyBossOverride(fetch, operationToken.adminCredential, ai.id, (committedAiId) => {
+                if (weeklyBossOperationIsCurrent(operationToken)) setSharedWeeklyBossAiId(committedAiId);
+            });
+            if (!weeklyBossOperationIsCurrent(operationToken)) return;
+            if (!result.ok) {
+                alert(`Override failed: ${result.error}`);
+                return;
+            }
+            alert(`Override set to ${ai.name}. Hit "Spawn Now" to summon it.`);
+        } finally {
+            finishWeeklyBossOperation(operationToken);
+        }
+    }
+
+    async function clearWeeklyBossOverride() {
+        const operationToken = beginWeeklyBossOperation();
+        if (!operationToken) return;
+        try {
+            const result = await persistAdminWeeklyBossOverride(fetch, operationToken.adminCredential, null, (committedAiId) => {
+                if (!weeklyBossOperationIsCurrent(operationToken)) return;
+                setSharedWeeklyBossAiId(committedAiId);
+                setAdminWeeklyBossAiId("");
+            });
+            if (!weeklyBossOperationIsCurrent(operationToken)) return;
+            if (!result.ok) {
+                alert(`Clear override failed: ${result.error}`);
+                return;
+            }
+            alert("Override cleared. Spawn Now will fall back to a random boss AI.");
+        } finally {
+            finishWeeklyBossOperation(operationToken);
+        }
+    }
+
+    async function spawnWeeklyBossNow() {
+        const operationToken = beginWeeklyBossOperation();
+        if (!operationToken) return;
+        try {
+            const result = await spawnAdminWeeklyBoss(fetch, operationToken.adminCredential);
+            if (!weeklyBossOperationIsCurrent(operationToken)) return;
+            if (!result.ok) {
+                alert(`Spawn failed: ${result.error}`);
+                return;
+            }
+            const boss = result.data.boss;
+            alert(`Boss spawned: ${boss?.bossName ?? boss?.aiId ?? "(unnamed)"}. 72h timer started.`);
+        } finally {
+            finishWeeklyBossOperation(operationToken);
+        }
+    }
     // Tabs Admin 2 (content role) is NOT allowed to access. Hidden from the
     // tab switcher AND clamped at state level so a refresh / stale session-
     // storage / manual setState can't slip them in. Server-side, the
     // matching endpoints (admin/players, admin/moderation, admin/server-reset,
-    // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride) gate
-    // on isFullAdmin — so even if a content admin somehow landed on these
-    // tabs, the underlying actions would 401.
+    // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride, and the
+    // weekly-boss reset operation) gate on isFullAdmin — so even if a content
+    // admin somehow reached the controls, the underlying actions reject them.
     const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation', 'legacy']);
     const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation" | "legacy" | "diagnostics">("jutsuBloodlines");
     const [adminStoryContent, setAdminStoryContent] = useState<StoryContentPayload[]>([]);
@@ -3736,6 +3834,8 @@ export function AdminPanel({
                     </section>
 
                     {/* ── Weekly Boss Override ── */}
+                    {canOperateWeeklyBoss && (
+                    <>
                     <h3>Weekly Boss</h3>
                     <section className="summary-box">
                         <p className="hint">
@@ -3778,52 +3878,25 @@ export function AdminPanel({
                                     )}
                                     <div className="menu">
                                         <button
-                                            disabled={!selectedBossAi}
+                                            disabled={!canOperateWeeklyBoss || weeklyBossOperationBusy || !selectedBossAi}
                                             onClick={() => {
                                                 if (!selectedBossAi) return;
-                                                persistSharedGameState({ kind: "weeklyBossOverride", aiId: selectedBossAi.id });
-                                                setSharedWeeklyBossAiId(selectedBossAi.id);
-                                                alert(`Override set to ${selectedBossAi.name}. Hit "Spawn Now" to summon it.`);
+                                                void setWeeklyBossOverride(selectedBossAi);
                                             }}
                                         >
                                             Set as Override
                                         </button>
                                         <button
                                             style={{ background: "linear-gradient(135deg, #b45309, #facc15)", color: "#1c1917", fontWeight: 700 }}
-                                            onClick={async () => {
-                                                // Calls the existing /api/weekly-boss reset endpoint
-                                                // (admin-only). Server reads the override key inside
-                                                // buildFreshBossState and spawns whatever AI is set,
-                                                // overwriting any active boss. No-op if no AI
-                                                // override is set AND no fallback boss list exists.
-                                                try {
-                                                    const r = await fetch("/api/weekly-boss", {
-                                                        method: "POST",
-                                                        headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({ kind: "reset" }),
-                                                    });
-                                                    const data = await r.json();
-                                                    if (!r.ok) {
-                                                        alert(`Spawn failed: ${data?.error ?? "unknown error"}`);
-                                                        return;
-                                                    }
-                                                    alert(`Boss spawned: ${data?.boss?.bossName ?? data?.boss?.aiId ?? "(unnamed)"}. 72h timer started.`);
-                                                } catch (err) {
-                                                    alert(`Spawn failed: ${err instanceof Error ? err.message : "network error"}`);
-                                                }
-                                            }}
+                                            disabled={!canOperateWeeklyBoss || weeklyBossOperationBusy}
+                                            onClick={() => { void spawnWeeklyBossNow(); }}
                                         >
                                             🪄 Spawn Now
                                         </button>
                                         <button
                                             className="danger-button"
-                                            disabled={!sharedWeeklyBossAiIdCache}
-                                            onClick={() => {
-                                                persistSharedGameState({ kind: "weeklyBossOverride", aiId: null });
-                                                setSharedWeeklyBossAiId("");
-                                                setAdminWeeklyBossAiId("");
-                                                alert("Override cleared. Spawn Now will fall back to a random boss AI.");
-                                            }}
+                                            disabled={!canOperateWeeklyBoss || weeklyBossOperationBusy || !sharedWeeklyBossAiIdCache}
+                                            onClick={() => { void clearWeeklyBossOverride(); }}
                                         >
                                             Clear Override
                                         </button>
@@ -3832,6 +3905,8 @@ export function AdminPanel({
                             );
                         })()}
                     </section>
+                    </>
+                    )}
                 </div>
             )}
 
