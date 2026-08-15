@@ -23,7 +23,6 @@ import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/character-progress";
 import { SceneAmbience } from "../components/SceneAmbience";
-import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
@@ -76,10 +75,6 @@ import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
 const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
-import { SectorScene } from "../components/SectorScene";
-import { SectorScene3D } from "../components/SectorScene3D";
-import { SectorForeground } from "../components/SectorForeground";
-import { SectorScatter } from "../components/SectorScatter";
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
@@ -167,6 +162,7 @@ import {
     type SharedPvpBattleContext,
 } from "../App";
 import { villagePageImage } from "../lib/village-page-image";
+import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
@@ -2500,29 +2496,6 @@ export function WorldMap({
         return villageOutskirtsSectorNumber(villageName);
     }
 
-    // Background image for enemy village territory pages
-    function villageTerritorySectorBg(villageName: string): string {
-        return villagePageImage(villageName);
-    }
-
-    // Bespoke painted top-down MAP for a village's Outer Territory page. The generic
-    // `virtualSector` (outskirts + 4) is chosen for explore/battle logic and can land
-    // in a wholly DIFFERENT biome's sector art — e.g. Stormveil's outskirts 31 + 4 =
-    // sector 35, a carnival cactus-flat (a circus) instead of its harbor. Villages
-    // with a hand-made in-region territory board override the IMAGE here; gameplay
-    // (virtualSector) is untouched. Assets: scripts/gen-village-outskirts.mjs.
-    function villageOuterTerritoryMapUrl(villageName: string): string | undefined {
-        if (villageName === "Stormveil Village") return "/sector-map/stormveil-outskirts.webp";
-        if (villageName === "Frostfang Village") return "/sector-map/frostfang-outskirts.webp";
-        if (villageName === "Moonshadow Village") return "/sector-map/moonshadow-outskirts.webp";
-        // Ashen Leaf deliberately has NO bespoke board: four generation attempts
-        // (guidance 3.8 → 4.6) all produced a European abbey on a coastal headland
-        // rather than a torii on forest floor, so it falls through to its virtual
-        // sector instead — which the renumbering made in-region (13, Headland
-        // Woods, an Ashen Leaf forest board that already passed art QA).
-        return undefined;
-    }
-
     function enterLandmark(location: typeof locations[number]) {
         setCurrentBiome(location.biome);
         setCurrentWeather(weatherForBiome(location.biome));
@@ -4697,16 +4670,9 @@ export function WorldMap({
         const loc = selectedVillageTerritory;
         const biome = loc.biome;
         const weather = weatherForBiome(biome);
-        const territoryBg = villageTerritorySectorBg(loc.name);
         // Pick a virtual sector number inside the enemy territory for explore/battle logic
         const virtualSector = villageOutskirtsSector(loc.name) + 4;
-        // Same painted top-down adventure MAP as the numbered-sector outskirts
-        // (flag-gated, default ON). Without this the enemy "Outer Territory" page was
-        // the lone sector view still stacking the old over-scaled vista + scattered
-        // ground props + foreground foliage band, which read as a cluttered mess
-        // instead of a clean backdrop. Opt-out (sectorMap.v1=off) falls back to it.
-        const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name) ?? sectorMapUrl(biome, virtualSector);
-        const sectorMapMode = !!sectorMapSrc;
+        const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name, virtualSector);
         return (
             <div className="map-instance">
                 <div className="instance-frame">
@@ -4717,17 +4683,7 @@ export function WorldMap({
                         </div>
 
                         <div className="pixel-map walkable-sector-map sector-image-map">
-                            {sectorMapMode ? (
-                                <SectorMap image={sectorMapSrc} />
-                            ) : (
-                                <>
-                                    <SectorScene image={territoryBg} biome={biome} focus={sectorPlayerPos} />
-                                    <SectorScene3D image={territoryBg} biome={biome} focus={sectorPlayerPos} />
-                                    <SectorScatter sector={virtualSector} biome={biome} />
-                                    <DayNightSky />
-                                </>
-                            )}
-                            {!sectorMapMode && <SceneAmbience3D biome={biome} />}
+                            <SectorMap image={sectorMapSrc} />
                             <SceneAmbience biome={biome} weather={weather} />
                             <SceneCritters biome={biome} />
                             {Array.from({ length: 144 }).map((_, index) => {
@@ -4748,7 +4704,6 @@ export function WorldMap({
                                 name={character.name}
                                 biome={loc.biome}
                             />
-                            {!sectorMapMode && <SectorForeground biome={loc.biome} focus={sectorPlayerPos} />}
                         </div>
                     </main>
 
