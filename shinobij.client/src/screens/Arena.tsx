@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/immutability, react-hooks/purity */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { getSocketAuth } from "../authFetch";
 import type { Screen } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
@@ -15,12 +16,24 @@ import { fetchClanData } from "../lib/clan-api";
 import { activeCarriedPets } from "../lib/entitlements";
 import { availablePetBattleCount, isPetOnExpedition } from "../lib/pet";
 import { publicEligiblePets } from "../lib/public-pet-roster";
+import { accountKey } from "../lib/player-accounts";
 import {
     playerRankedAuthorityFromQueueMatch,
     type PlayerRankedAuthority,
 } from "../lib/player-ranked-authority";
+import {
+    createRankedQueueLifecycle,
+    rankedChallengeSettlementDecision,
+    type RankedChallengeSettlementTracking,
+    type RankedQueueClientSession,
+} from "../lib/ranked-queue-lifecycle";
 import { publishedPracticeOpponentForLevel } from "../lib/creator-event-practice";
 import { requestAiFight } from "../lib/ai-fight-request";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
+import {
+    useCapabilityMutationAvailability,
+    useLiveCapabilities,
+} from "../lib/live-capabilities-context";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { makeId } from "../lib/utils";
 import {
@@ -45,7 +58,7 @@ type ArenaProps = {
     creatorJutsus: Jutsu[];
     playerRoster: PlayerRecord[];
     duelChallenges: DuelChallenge[];
-    setDuelChallenges: (challenges: DuelChallenge[]) => void;
+    setDuelChallenges: Dispatch<SetStateAction<DuelChallenge[]>>;
     setScreen: (screen: Screen) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
@@ -54,6 +67,40 @@ type ArenaProps = {
     onDeclineChallenge: (challenge: DuelChallenge) => void;
     onAcceptPetChallenge?: (challenge: DuelChallenge) => void;
 };
+
+type RankedQueuePayload = {
+    enabled?: unknown;
+    inQueue?: unknown;
+    queueSize?: unknown;
+    match?: unknown;
+    error?: unknown;
+};
+
+type PlayerChallengeOutcome = "sent" | "rejected" | "unknown" | "retired";
+
+type PlayerChallengeResult = Readonly<{
+    outcome: PlayerChallengeOutcome;
+    challengeId?: string;
+}>;
+
+type TrackedRankedChallenge = RankedChallengeSettlementTracking & Readonly<{
+    session: RankedQueueClientSession;
+}>;
+
+const RANKED_QUEUE_REQUEST_TIMEOUT_MS = 12_000;
+const RANKED_CHALLENGE_SETTLEMENT_TIMEOUT_MS = 180_000;
+
+function rankedQueuePayload(value: unknown): RankedQueuePayload | null {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? value as RankedQueuePayload
+        : null;
+}
+
+function parseRankedQueueSize(value: unknown): number | null {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0
+        ? Math.floor(value)
+        : null;
+}
 
 /**
  * Battle Arena and Arena District are lobby surfaces only.
@@ -80,12 +127,19 @@ export function Arena({
     onDeclineChallenge,
     onAcceptPetChallenge,
 }: ArenaProps) {
+    const rankedMutationAvailability = useCapabilityMutationAvailability();
+    const { mutationAvailability } = useLiveCapabilities();
+    const rankedMutationsAvailable = capabilityAdmissionAllowed(rankedMutationAvailability);
+    const rankedQueueOwnerKey = accountKey(character.name);
+    const [rankedQueueLifecycle] = useState(() => createRankedQueueLifecycle());
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
     const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>("ranked");
     const [battleArenaTab, setBattleArenaTab] = useState<BattleArenaLobbyTab>("spar");
     const [playerRankedEnabled, setPlayerRankedEnabled] = useState(false);
     const [rankedQueueActive, setRankedQueueActive] = useState(false);
+    const [rankedQueueSession, setRankedQueueSession] = useState<RankedQueueClientSession | null>(null);
+    const [trackedRankedChallenge, setTrackedRankedChallenge] = useState<TrackedRankedChallenge | null>(null);
     const [rankedQueueSize, setRankedQueueSize] = useState(0);
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
@@ -98,6 +152,114 @@ export function Arena({
         challenge.toName.toLowerCase() === character.name.toLowerCase()
     );
 
+    function rankedMutationAllowedNow(): boolean {
+        return capabilityAdmissionAllowed(mutationAvailability());
+    }
+
+    function clearRankedQueueUi() {
+        setRankedQueueSession(null);
+        setTrackedRankedChallenge(null);
+        setRankedQueueActive(false);
+        setRankedQueueSize(0);
+    }
+
+    function retireRankedQueueUi(session?: RankedQueueClientSession): RankedQueueClientSession | null {
+        const retired = rankedQueueLifecycle.retire(session);
+        if (retired || !session) clearRankedQueueUi();
+        return retired;
+    }
+
+    function leaveRankedQueueOnServer(
+        owner: Pick<RankedQueueClientSession, "ownerKey"> & Partial<Pick<RankedQueueClientSession, "phase">>,
+        releaseConsumedMatch = false,
+    ): Promise<void> {
+        return rankedQueueLifecycle.runCleanup(async () => {
+            // A consumed match is no longer queue work. Leave would delete its
+            // durable match mirror/admission while a challenge is in flight.
+            if (owner.phase === "launching" && !releaseConsumedMatch) return;
+            const authName = getSocketAuth().name;
+            if (!authName || accountKey(authName) !== owner.ownerKey || !rankedMutationAllowedNow()) return;
+            try {
+                await fetch("/api/pvp/ranked-queue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: authName, action: "leave" }),
+                    signal: AbortSignal.timeout(RANKED_QUEUE_REQUEST_TIMEOUT_MS),
+                });
+            } catch {
+                // The server expires abandoned entries; cleanup is best-effort.
+            }
+        });
+    }
+
+    useEffect(() => {
+        const retired = rankedQueueLifecycle.bindOwner(rankedQueueOwnerKey);
+        clearRankedQueueUi();
+        if (retired) void leaveRankedQueueOnServer(retired);
+        return () => {
+            const disposed = rankedQueueLifecycle.disposeOwner(rankedQueueOwnerKey);
+            if (disposed) void leaveRankedQueueOnServer(disposed);
+        };
+    }, [rankedQueueLifecycle, rankedQueueOwnerKey]);
+
+    useEffect(() => {
+        if (rankedMutationsAvailable) return;
+        retireRankedQueueUi();
+        setPlayerRankedEnabled(false);
+    }, [rankedMutationsAvailable, rankedQueueLifecycle]);
+
+    useEffect(() => {
+        const tracked = trackedRankedChallenge;
+        if (!tracked) return;
+        const sameTracking = (candidate: TrackedRankedChallenge | null) => Boolean(
+            candidate
+            && candidate.challengeId === tracked.challengeId
+            && candidate.session.ownerKey === tracked.session.ownerKey
+            && candidate.session.generation === tracked.session.generation,
+        );
+        const clearTracking = () => {
+            setTrackedRankedChallenge((current) => sameTracking(current) ? null : current);
+        };
+        const retireTracked = (releaseExpiredProof: boolean) => {
+            const retired = rankedQueueLifecycle.retire(tracked.session);
+            clearTracking();
+            if (!retired) return;
+            setRankedQueueSession((current) => current?.ownerKey === tracked.session.ownerKey
+                && current.generation === tracked.session.generation ? null : current);
+            setRankedQueueActive(false);
+            setRankedQueueSize(0);
+            if (releaseExpiredProof) void leaveRankedQueueOnServer(retired, true);
+        };
+
+        if (!rankedQueueLifecycle.isCurrent(tracked.session)) {
+            clearTracking();
+            return;
+        }
+        const decision = rankedChallengeSettlementDecision(tracked, duelChallenges, Date.now());
+        if (decision === "observed") {
+            setTrackedRankedChallenge((current) => sameTracking(current)
+                ? { ...current!, observed: true }
+                : current);
+            return;
+        }
+        if (decision === "resolved" || decision === "disappeared") {
+            // Decline already releases the server admission; disappearance is
+            // App consuming that resolution or pruning its authoritative TTL.
+            retireTracked(false);
+            return;
+        }
+        if (decision === "expired") {
+            retireTracked(true);
+            return;
+        }
+
+        const timeout = window.setTimeout(
+            () => retireTracked(true),
+            Math.max(0, tracked.expiresAt - Date.now()),
+        );
+        return () => window.clearTimeout(timeout);
+    }, [duelChallenges, rankedQueueLifecycle, trackedRankedChallenge]);
+
     useEffect(() => {
         const refreshArenaState = () => {
             setArenaTournament(loadArenaTournament());
@@ -109,84 +271,219 @@ export function Arena({
     }, []);
 
     useEffect(() => {
+        if (!rankedMutationsAvailable) return;
         let active = true;
-        fetch(`/api/pvp/ranked-queue?name=${encodeURIComponent(character.name)}`, { cache: "no-store" })
-            .then((response) => response.ok ? response.json() : null)
-            .then((data: { enabled?: boolean; queueSize?: number } | null) => {
-                if (!active) return;
-                const enabled = data?.enabled === true;
-                setPlayerRankedEnabled(enabled);
-                setRankedQueueSize(enabled ? data?.queueSize ?? 0 : 0);
-                if (!enabled) setRankedQueueActive(false);
-            })
-            .catch(() => {
-                if (active) setPlayerRankedEnabled(false);
-            });
-        return () => { active = false; };
-    }, [character.name]);
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), RANKED_QUEUE_REQUEST_TIMEOUT_MS);
+        const observedGeneration = rankedQueueLifecycle.currentSession()?.generation ?? null;
+        const statusStillCurrent = () => active
+            && (rankedQueueLifecycle.currentSession()?.generation ?? null) === observedGeneration;
 
-    useEffect(() => {
-        if (!rankedQueueActive) return;
-        let active = true;
-        const poll = () => {
-            if (document.visibilityState === "hidden") return;
-            fetch("/api/pvp/ranked-queue", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: character.name,
-                    level: character.level,
-                    elo: character.rankedRating ?? 1000,
-                    action: "poll",
-                }),
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (!active) return;
-                    if (data.enabled !== true) {
-                        setPlayerRankedEnabled(false);
-                        setRankedQueueActive(false);
-                        setRankedQueueSize(0);
-                        return;
-                    }
-                    setRankedQueueSize(data.queueSize ?? 0);
-                    if (data.match) {
-                        const rankedAuthority = playerRankedAuthorityFromQueueMatch(data.match);
-                        if (!rankedAuthority) {
-                            setRankedQueueActive(false);
-                            alert("The ranked server returned an incomplete match proof. Rejoin the queue before starting a battle.");
-                            return;
-                        }
-                        setRankedQueueActive(false);
-                        if (data.match.initiator !== false) {
-                            const opponentName = data.match.opponent;
-                            const stub = {
-                                name: opponentName,
-                                level: data.match.opponentLevel ?? 1,
-                                village: "",
-                                specialty: "Ninjutsu",
-                                character: {
-                                    ...character,
-                                    name: opponentName,
-                                    rankedRating: data.match.opponentElo ?? 1000,
-                                } as Character,
-                                currentSector: 0,
-                                lastSeenAt: Date.now(),
-                            } as PlayerRecord;
-                            void challengePlayer(stub, "ranked", 0, false, rankedAuthority);
-                        }
-                    }
-                    if (!data.inQueue) setRankedQueueActive(false);
-                })
-                .catch(() => {});
-        };
-        poll();
-        const id = window.setInterval(poll, 3000);
+        void (async () => {
+            try {
+                const response = await fetch(
+                    `/api/pvp/ranked-queue?name=${encodeURIComponent(character.name)}`,
+                    { cache: "no-store", signal: controller.signal },
+                );
+                const data = rankedQueuePayload(await response.json().catch(() => null));
+                if (!statusStillCurrent()) return;
+                const size = parseRankedQueueSize(data?.queueSize);
+                if (!response.ok || !data || typeof data.enabled !== "boolean"
+                    || typeof data.inQueue !== "boolean" || size === null) {
+                    retireRankedQueueUi();
+                    setPlayerRankedEnabled(false);
+                    return;
+                }
+
+                setPlayerRankedEnabled(data.enabled);
+                setRankedQueueSize(data.enabled ? size : 0);
+                if (!data.enabled || !data.inQueue) {
+                    retireRankedQueueUi();
+                    return;
+                }
+
+                const queued = rankedQueueLifecycle.adoptQueued(rankedQueueOwnerKey);
+                setRankedQueueSession(queued);
+                setRankedQueueActive(true);
+            } catch {
+                if (!statusStillCurrent()) return;
+                retireRankedQueueUi();
+                setPlayerRankedEnabled(false);
+            } finally {
+                window.clearTimeout(timeout);
+            }
+        })();
+
         return () => {
             active = false;
-            window.clearInterval(id);
+            controller.abort();
+            window.clearTimeout(timeout);
         };
-    }, [rankedQueueActive]);
+    }, [character.name, rankedMutationsAvailable, rankedQueueLifecycle, rankedQueueOwnerKey]);
+
+    useEffect(() => {
+        const session = rankedQueueSession;
+        if (!rankedQueueActive || session?.phase !== "queued" || !rankedMutationsAvailable) return;
+        let stopped = false;
+        let timeout: number | undefined;
+
+        const scheduleNextPoll = () => {
+            if (!stopped && rankedQueueLifecycle.isCurrent(session)) {
+                timeout = window.setTimeout(() => { void poll(); }, 3000);
+            }
+        };
+        const retireAfterPollFailure = (message: string, disable = false) => {
+            const retired = retireRankedQueueUi(session);
+            if (!retired) return;
+            if (disable) setPlayerRankedEnabled(false);
+            alert(message);
+            void leaveRankedQueueOnServer(retired);
+        };
+        const poll = async () => {
+            if (stopped || !rankedQueueLifecycle.isCurrent(session)) return;
+            if (document.visibilityState === "hidden") {
+                scheduleNextPoll();
+                return;
+            }
+            if (!rankedMutationAllowedNow()) {
+                retireRankedQueueUi(session);
+                setPlayerRankedEnabled(false);
+                return;
+            }
+
+            try {
+                const result = await rankedQueueLifecycle.run(session, "poll", async () => {
+                    if (!rankedMutationAllowedNow()) throw new Error("ranked-mutations-unavailable");
+                    const response = await fetch("/api/pvp/ranked-queue", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            name: character.name,
+                            level: character.level,
+                            elo: character.rankedRating ?? 1000,
+                            action: "poll",
+                        }),
+                        signal: AbortSignal.timeout(RANKED_QUEUE_REQUEST_TIMEOUT_MS),
+                    });
+                    const data = rankedQueuePayload(await response.json().catch(() => null));
+                    return { response, data };
+                });
+                if (result.status === "busy") {
+                    scheduleNextPoll();
+                    return;
+                }
+                if (result.status === "retired") return;
+                if (!rankedMutationAllowedNow()) {
+                    retireRankedQueueUi(session);
+                    setPlayerRankedEnabled(false);
+                    return;
+                }
+
+                const { response, data } = result.value;
+                const size = parseRankedQueueSize(data?.queueSize);
+                if (!response.ok || !data || typeof data.enabled !== "boolean"
+                    || typeof data.inQueue !== "boolean" || size === null) {
+                    const message = typeof data?.error === "string"
+                        ? data.error
+                        : "The ranked queue returned an incomplete response. Rejoin to continue searching.";
+                    retireAfterPollFailure(message, data?.enabled === false);
+                    return;
+                }
+                if (!data.enabled) {
+                    retireAfterPollFailure(
+                        typeof data.error === "string"
+                            ? data.error
+                            : "Ranked matchmaking is temporarily unavailable. Rejoin when the rollout resumes.",
+                        true,
+                    );
+                    return;
+                }
+
+                setRankedQueueSize(size);
+                if (data.match !== null && data.match !== undefined) {
+                    const rankedAuthority = playerRankedAuthorityFromQueueMatch(data.match);
+                    const match = data.match && typeof data.match === "object" && !Array.isArray(data.match)
+                        ? data.match as Record<string, unknown>
+                        : null;
+                    const opponentName = typeof match?.opponent === "string" ? match.opponent.trim() : "";
+                    if (!rankedAuthority || !match || !opponentName || typeof match.initiator !== "boolean") {
+                        retireAfterPollFailure(
+                            "The ranked server returned an incomplete match proof. Rejoin the queue before starting a battle.",
+                        );
+                        return;
+                    }
+
+                    const launchingSession = rankedQueueLifecycle.consumeMatch(session);
+                    if (!launchingSession) return;
+                    setRankedQueueSession(launchingSession);
+                    setRankedQueueActive(false);
+                    let challengeResult: PlayerChallengeResult = { outcome: "sent" };
+                    if (match.initiator === true) {
+                        const stub = {
+                            name: opponentName,
+                            level: typeof match.opponentLevel === "number" ? match.opponentLevel : 1,
+                            village: "",
+                            specialty: "Ninjutsu",
+                            character: {
+                                ...character,
+                                name: opponentName,
+                                rankedRating: typeof match.opponentElo === "number" ? match.opponentElo : 1000,
+                            } as Character,
+                            currentSector: 0,
+                            lastSeenAt: Date.now(),
+                        } as PlayerRecord;
+                        challengeResult = await challengePlayer(stub, "ranked", 0, false, rankedAuthority, launchingSession);
+                        if ((challengeResult.outcome === "sent" || challengeResult.outcome === "unknown")
+                            && challengeResult.challengeId) {
+                            setTrackedRankedChallenge({
+                                session: launchingSession,
+                                challengeId: challengeResult.challengeId,
+                                observed: false,
+                                expiresAt: Date.now() + RANKED_CHALLENGE_SETTLEMENT_TIMEOUT_MS,
+                            });
+                        }
+                    }
+                    // Success/transport-unknown and responder outcomes remain
+                    // launching until the durable challenge settles or this
+                    // owner/capability is invalidated. That prevents Queue Up
+                    // from consuming the same server admission a second time.
+                    if (challengeResult.outcome !== "rejected") return;
+                    const retired = rankedQueueLifecycle.retire(launchingSession);
+                    if (retired) {
+                        // A definitive 4xx proves no durable challenge was created, so
+                        // this admission can be released. Success and transport-
+                        // unknown outcomes must preserve the proof for acceptance.
+                        void leaveRankedQueueOnServer(retired, true);
+                    }
+                    setRankedQueueSession((current) => current?.ownerKey === launchingSession.ownerKey
+                        && current.generation === launchingSession.generation ? null : current);
+                    return;
+                }
+
+                if (!data.inQueue) {
+                    retireAfterPollFailure("You are no longer in the ranked queue. Queue up again to keep searching.");
+                    return;
+                }
+                scheduleNextPoll();
+            } catch {
+                if (!rankedMutationAllowedNow()) {
+                    const retired = retireRankedQueueUi(session);
+                    if (retired) {
+                        setPlayerRankedEnabled(false);
+                        alert("Ranked matchmaking is unavailable while progress-changing actions are paused.");
+                    }
+                    return;
+                }
+                retireAfterPollFailure("Couldn't reach the ranked queue. Rejoin to continue searching.");
+            }
+        };
+
+        void poll();
+        return () => {
+            stopped = true;
+            if (timeout !== undefined) window.clearTimeout(timeout);
+        };
+    }, [rankedMutationsAvailable, rankedQueueActive, rankedQueueLifecycle, rankedQueueSession]);
 
     useEffect(() => {
         let active = true;
@@ -209,42 +506,80 @@ export function Arena({
         return () => { active = false; };
     }, [character.clan]);
 
-    function joinRankedQueue() {
+    async function joinRankedQueue() {
+        if (rankedQueueLifecycle.currentSession()?.phase === "launching") {
+            alert("Your ranked match is already launching. Wait for its challenge to settle.");
+            return;
+        }
         if (!requireServerSettlement("rankedPvp")) return;
         if (!playerRankedEnabled) {
             alert("Ranked PvP is temporarily unavailable while the v2 authority rollout completes.");
             return;
         }
+        if (!rankedMutationsAvailable || !rankedMutationAllowedNow()) {
+            alert("Ranked matchmaking is unavailable while progress-changing actions are paused.");
+            return;
+        }
+
+        const joiningSession = rankedQueueLifecycle.beginJoin(rankedQueueOwnerKey);
+        setRankedQueueSession(joiningSession);
         setRankedQueueActive(true);
-        fetch("/api/pvp/ranked-queue", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name: character.name,
-                level: character.level,
-                elo: character.rankedRating ?? 1000,
-                action: "join",
-            }),
-        })
-            .then(async (response) => {
-                const data = await response.json().catch(() => ({} as Record<string, unknown>));
-                if (!response.ok) {
-                    setRankedQueueActive(false);
-                    alert(typeof data?.error === "string" ? data.error : "Couldn't join the ranked queue.");
-                    return;
-                }
-                setRankedQueueSize((data as { queueSize?: number }).queueSize ?? 0);
-            })
-            .catch(() => {});
+        try {
+            const result = await rankedQueueLifecycle.run(joiningSession, "join", async () => {
+                if (!rankedMutationAllowedNow()) throw new Error("ranked-mutations-unavailable");
+                const response = await fetch("/api/pvp/ranked-queue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: character.name,
+                        level: character.level,
+                        elo: character.rankedRating ?? 1000,
+                        action: "join",
+                    }),
+                    signal: AbortSignal.timeout(RANKED_QUEUE_REQUEST_TIMEOUT_MS),
+                });
+                const data = rankedQueuePayload(await response.json().catch(() => null));
+                return { response, data };
+            });
+            if (result.status !== "completed") return;
+
+            const { response, data } = result.value;
+            const size = parseRankedQueueSize(data?.queueSize);
+            if (!response.ok || !data || data.enabled !== true || data.inQueue !== true || size === null) {
+                const retired = retireRankedQueueUi(joiningSession);
+                if (data?.enabled === false) setPlayerRankedEnabled(false);
+                alert(typeof data?.error === "string"
+                    ? data.error
+                    : "The ranked queue did not confirm your entry. Please try again.");
+                if (retired) void leaveRankedQueueOnServer(retired);
+                return;
+            }
+            if (!rankedMutationAllowedNow()) {
+                retireRankedQueueUi(joiningSession);
+                setPlayerRankedEnabled(false);
+                return;
+            }
+
+            const queuedSession = rankedQueueLifecycle.confirmJoined(joiningSession);
+            if (!queuedSession) return;
+            setRankedQueueSession(queuedSession);
+            setRankedQueueSize(size);
+        } catch {
+            if (!rankedQueueLifecycle.isCurrent(joiningSession)) return;
+            const retired = retireRankedQueueUi(joiningSession);
+            const mutationsAvailable = rankedMutationAllowedNow();
+            if (!mutationsAvailable) setPlayerRankedEnabled(false);
+            alert(mutationsAvailable
+                ? "Couldn't reach the ranked queue. Please try again."
+                : "Ranked matchmaking is unavailable while progress-changing actions are paused.");
+            if (retired) void leaveRankedQueueOnServer(retired);
+        }
     }
 
     function leaveRankedQueue() {
-        setRankedQueueActive(false);
-        fetch("/api/pvp/ranked-queue", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: character.name, action: "leave" }),
-        }).catch(() => {});
+        const retired = rankedQueueLifecycle.retire();
+        clearRankedQueueUi();
+        void leaveRankedQueueOnServer(retired ?? { ownerKey: rankedQueueOwnerKey });
     }
 
     function beginAiBattle() {
@@ -264,27 +599,37 @@ export function Arena({
         clanWarPoints = 0,
         party = false,
         rankedAuthority?: PlayerRankedAuthority,
-    ) {
+        rankedSession?: RankedQueueClientSession,
+    ): Promise<PlayerChallengeResult> {
         if (mode === "ranked" && !rankedAuthority) {
             alert("A current server-ranked match proof is required. Rejoin the ranked queue.");
-            return;
+            return { outcome: "rejected" };
+        }
+        const rankedChallengeCurrent = () => mode !== "ranked" || Boolean(
+            rankedSession
+            && rankedQueueLifecycle.isCurrent(rankedSession)
+            && rankedMutationAllowedNow(),
+        );
+        if (!rankedChallengeCurrent()) {
+            alert("That ranked queue session is no longer current. Rejoin the queue.");
+            return { outcome: "retired" };
         }
         const isPetMode = mode === "clanWarPet" || mode === "rankedPet";
         const availablePetCount = availablePetBattleCount(combatEligiblePets);
         if (isPetMode && availablePetCount < 1) {
             alert("You need a pet that is not on an expedition before sending a pet battle challenge.");
-            return;
+            return { outcome: "rejected" };
         }
         if (party && availablePetCount < 2) {
             alert("A 2v2 pet battle needs two pets not away on an expedition.");
-            return;
+            return { outcome: "rejected" };
         }
         const knownPetTarget = isPetMode
             ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase())
             : undefined;
         if (knownPetTarget && availablePetBattleCount(publicEligiblePets(knownPetTarget)) < (party ? 2 : 1)) {
             alert(`${opponent.name} does not have a pet available for battle.`);
-            return;
+            return { outcome: "rejected" };
         }
 
         const challengePet = isPetMode
@@ -331,19 +676,35 @@ export function Arena({
             clanWarPoints,
             ...(partyPetIds ? { petParty: true, challengerPetIds: partyPetIds } : {}),
         };
+        const result = (outcome: PlayerChallengeOutcome): PlayerChallengeResult => ({
+            outcome,
+            challengeId: challenge.id,
+        });
         try {
+            if (!rankedChallengeCurrent()) return result("retired");
             const response = await fetch("/api/player/challenge", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ targetName: opponent.name, challenge }),
+                ...(mode === "ranked" ? { signal: AbortSignal.timeout(RANKED_QUEUE_REQUEST_TIMEOUT_MS) } : {}),
             });
+            if (!rankedChallengeCurrent()) return result("retired");
             if (!response.ok) {
                 const data = await response.json().catch(() => ({} as { error?: string }));
-                alert(data?.error ?? `${opponent.name} is not reachable live right now. Challenge was not sent.`);
-                return;
+                if (!rankedChallengeCurrent()) return result("retired");
+                // The API may persist the authoritative record before a later
+                // enqueue/kick failure produces 5xx. Only an application-level
+                // 4xx proves this challenge was rejected before its commit.
+                const definitiveRejection = response.status >= 400 && response.status < 500;
+                if (mode === "ranked" && !definitiveRejection) {
+                    alert("Ranked challenge delivery could not be confirmed. It may still arrive; matchmaking will unlock when it settles or expires.");
+                } else {
+                    alert(data?.error ?? `${opponent.name} is not reachable live right now. Challenge was not sent.`);
+                }
+                return result(definitiveRejection ? "rejected" : "unknown");
             }
-            setDuelChallenges([
-                ...duelChallenges.filter((candidate) => !(
+            setDuelChallenges((current) => [
+                ...current.filter((candidate) => !(
                     candidate.fromName === character.name &&
                     !candidate.accepted &&
                     !candidate.declined &&
@@ -352,8 +713,15 @@ export function Arena({
                 challenge,
             ]);
             alert(`${mode === "ranked" ? "Ranked challenge" : mode === "rankedPet" ? "Ranked pet challenge" : mode === "clanWarPet" ? (partyPetIds ? "2v2 pet challenge" : "Pet challenge") : "Challenge"} sent to ${opponent.name}.`);
+            return result("sent");
         } catch {
-            alert(`${opponent.name} is not reachable live right now. Challenge was not sent.`);
+            if (!rankedChallengeCurrent()) return result("retired");
+            if (mode === "ranked") {
+                alert("Ranked challenge delivery could not be confirmed. It may still arrive; matchmaking will unlock when it settles or expires.");
+            } else {
+                alert(`${opponent.name} is not reachable live right now. Challenge was not sent.`);
+            }
+            return result("unknown");
         }
     }
 
@@ -484,7 +852,7 @@ export function Arena({
             opponentName: challenge.fromName,
             createdAt: Date.now(),
         });
-        setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+        setDuelChallenges((current) => current.filter((candidate) => candidate.id !== challenge.id));
         fetch("/api/player/challenge", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -545,7 +913,7 @@ export function Arena({
             tournamentRemaining={tournamentRemaining}
             matchRemaining={matchRemaining}
             isAdminTournamentManager={isAdminAccountName(character.name)}
-            playerRankedEnabled={playerRankedEnabled}
+            playerRankedEnabled={playerRankedEnabled && rankedMutationsAvailable}
             rankedQueueActive={rankedQueueActive}
             rankedQueueSize={rankedQueueSize}
             spectatorFights={activeSpectatorFights}
