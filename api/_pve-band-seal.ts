@@ -2,11 +2,9 @@
  * Step B of the AI-fight migration: arm the standard-PvE difficulty layer on the
  * OTHER server PvE modes (docs/handoffs/ai-fight-migration-handoff.md).
  *
- * Step 3b built the curve (api/_pve-difficulty.ts) and the engine half (the
- * per-hit / per-turn / mercy clamp in api/towers/_engine.ts, plus the band AI
- * behaviour from step A). Both were gated on a session having SEALED
- * `pveGuard`, and only `buildAiFightEncounter` did. This module is the single
- * place every other entry point calls to arm it.
+ * Step 3b built the shared curve (api/_pve-difficulty.ts). The current Solo-PvE
+ * builder uses the rollback predicate here and seals its native difficulty
+ * guard; `sealPveBand` remains the Tower-session form for Tower engine modes.
  *
  * SHIPPED ON. `DISABLE_PVE_DIFFICULTY_GUARD=1` is a rollback switch, not a
  * launch gate — the default path is the armed one, per the owner ruling
@@ -34,7 +32,7 @@ import type { TowerSession, TowerActor } from './towers/_tower-session.js';
 export type PveBandMode =
     | 'MISSION'      // api/missions/combat-start.ts   — guard + full band
     | 'STORY'        // api/story/boss-start.ts        — guard + full band
-    | 'AI_FIGHT'     // api/missions/_ai-fight-encounter.ts (seals its own, step 3b)
+    | 'AI_FIGHT'     // api/solo-pve/_ai-encounter.ts
     | 'TOWER'        // api/towers/start.ts            — guard only (towers + Spire)
     | 'CLAN_BOSS';   // api/clan-boss/assault-start.ts — guard only
 

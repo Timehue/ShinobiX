@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const root = (() => {
@@ -15,12 +15,30 @@ const root = (() => {
 })();
 const src = () => readFileSync(join(root, 'api/missions/ai-fight-start.ts'), 'utf8');
 
+function productionTypeScriptFiles(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) return productionTypeScriptFiles(path);
+        return entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')
+            ? [path]
+            : [];
+    });
+}
+
 describe('generic AI fight standalone-runtime contract', () => {
     it('builds and persists a solo-pve session, never a Tower session', () => {
         const text = src();
         assert.match(text, /buildSoloPveAiEncounter\(/);
         assert.match(text, /writeSoloPveSession\(session\)/);
         assert.doesNotMatch(text, /buildAiFightEncounter\(|writeSession\(|_tower-store|TowerSession/);
+    });
+
+    it('does not reintroduce the retired Tower generic-AI constructor anywhere in production', () => {
+        const retired = /\b(?:buildAiFightEncounter|buildAuthoritativeSoloEncounter|aiFightFloor|dynamicBossFloor|aiOpponentEnemyTemplate|AI_FIGHT_FLOOR_ID|ENDLESS_WAVE_FLOOR_ID)\b/;
+        const offenders = productionTypeScriptFiles(join(root, 'api'))
+            .filter((file) => retired.test(readFileSync(file, 'utf8')))
+            .map((file) => file.slice(root.length + 1).replaceAll('\\', '/'));
+        assert.deepEqual(offenders, []);
     });
 
     it('returns a mandatory sessionId and session', () => {

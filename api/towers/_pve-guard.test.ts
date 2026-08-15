@@ -3,10 +3,9 @@ import { strict as assert } from 'node:assert';
 import { applyJutsu } from '../pvp/move.js';
 import { endTurn, runAiUntilHuman, startRound } from './_engine.js';
 import { makeRng } from './_sim.js';
-import { buildAiFightEncounter, type AiFightProfile } from '../missions/_ai-fight-encounter.js';
-import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
 import type { TowerSession } from './_tower-session.js';
 import type { TowerFloor } from './_floor-catalog.js';
+import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
 
 /*
  * Step 3b wiring: the standard-PvE hit guard, end to end.
@@ -20,34 +19,11 @@ import type { TowerFloor } from './_floor-catalog.js';
  * did not seal a pveGuard, so PvP and un-migrated PvE are untouched.
  */
 
-const profile = AI_PROFILE_CATALOG['builtin-ai-academy-sparring'] as unknown as AiFightProfile;
-
-function makeSave(level: number, maxHp: number): Record<string, unknown> {
-    return {
-        character: {
-            name: 'Rill', level, specialty: 'Ninjutsu', maxHp, hp: maxHp,
-            stats: {
-                strength: 100, speed: 100, intelligence: 100, willpower: 100,
-                ninjutsuOffense: 200, ninjutsuDefense: 100,
-                taijutsuOffense: 100, taijutsuDefense: 100,
-                bukijutsuOffense: 100, bukijutsuDefense: 100,
-                genjutsuOffense: 100, genjutsuDefense: 100,
-            },
-            equippedJutsuIds: ['starter-universal-flicker'],
-        },
-        savedBloodlines: [], creatorJutsus: [],
-    };
-}
-
 function build(scalingLevel: number, playerMaxHp = 800): TowerSession {
-    return buildAiFightEncounter({
-        playerName: 'Rill',
-        save: makeSave(20, playerMaxHp),
-        profile,
-        runId: `aifight-guard-${scalingLevel}`,
-        seed: 99,
-        now: 1_770_000_000_000,
-        scaling: { level: scalingLevel, statBonus: 200 },
+    return makePveEngineTestSession({
+        enemyLevel: scalingLevel,
+        playerMaxHp,
+        runId: `pve-guard-${scalingLevel}`,
     });
 }
 

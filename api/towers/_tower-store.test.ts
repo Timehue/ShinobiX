@@ -259,11 +259,10 @@ describe('Battle Towers borrowed-ally assist (capped, once per run)', () => {
 });
 
 describe('the tower reward channels pay CATALOG floors only', () => {
-    // Regression: every solo mode built by buildAuthoritativeSoloEncounter
-    // (combat missions, story bosses, the weekly boss, generic AI fights, the
-    // Academy spar) EMBEDS a synthetic floor in the session under a reserved id
-    // outside the catalog. floorForSession prefers that embedded floor, so those
-    // runs reached the tower payout path — and each is a genuinely won,
+    // Regression: before the Solo-PvE cutover, non-Tower modes embedded a
+    // synthetic floor in a Tower session under a reserved id outside the
+    // catalog. floorForSession preferred that embedded floor, so those legacy
+    // runs reached the tower payout path — and each was a genuinely won,
     // member-owned TowerSession, so no other check refused them.
     //
     // They paid no currency (a dynamic floor's firstClearReward is {}), but the

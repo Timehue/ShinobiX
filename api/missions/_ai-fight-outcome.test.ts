@@ -116,9 +116,9 @@ describe('aiFightPaysReward — only a win pays, and practice never does', () =>
         }
     });
 
-    it('treats a missing battleKind as payable (the local-fallback track)', () => {
-        // A token minted before battleKind was sealed still settles as it always
-        // did; only an explicit 'practice' suppresses the reward.
+    it('treats a missing battleKind as payable for legacy token compatibility', () => {
+        // A token minted before battleKind was sealed retains its historical
+        // payout rule; only an explicit 'practice' suppresses the reward.
         assert.equal(aiFightPaysReward('win', undefined), true);
     });
 
@@ -183,8 +183,8 @@ describe('applyAiFightOutcomeToCharacter — a fight costs the same on either en
     });
 
     it('leaves the character untouched when there is no actor to read', () => {
-        // The local-fallback track, which still applies its own HP client-side.
-        // Guessing a cost with no evidence would be worse than doing nothing.
+        // Mounted settlement rejects a missing actor; the pure helper still
+        // refuses to guess a cost for legacy/corrupt callers.
         assert.deepEqual(applyAiFightOutcomeToCharacter({ ...base }, 'loss', undefined, now), base);
     });
 

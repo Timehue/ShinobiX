@@ -15,11 +15,10 @@ import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
  * is the authority on BOTH questions: did the player win, and what HP did they
  * walk away with.
  *
- * This matters as much for difficulty as for anti-cheat. The local Arena path
- * hospitalizes on a defeat and writes the surviving HP back to the save, so a
- * hunt or a village raid carries real risk. A server fight that skipped that
- * would make every migrated fight free to lose and free to retry — the whole
- * risk side of the loop, gone.
+ * This matters as much for difficulty as for anti-cheat. The pre-cutover Arena
+ * path hospitalized on a defeat and wrote surviving HP back to the save, so the
+ * authoritative replacement must preserve that risk rather than making failed
+ * hunts or raids free to retry.
  */
 
 /** Matches the hospital stay every other defeat path applies (api/player/heal.ts). */
@@ -155,8 +154,8 @@ export function applyAiFightOutcomeToCharacter(
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
     // No actor to read means no evidence of what the fight cost. Guessing would
-    // be worse than doing nothing — this is also the local-fallback track, which
-    // still applies its own HP client-side.
+    // be worse than doing nothing. Mounted AI-fight settlement rejects this
+    // shape; the guard remains for legacy/corrupt callers of this pure helper.
     if (!playerActor) return character;
 
     // ⚠ The hospital keys off the player being DOWN, not off `winner !== squad`.

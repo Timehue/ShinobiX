@@ -43,7 +43,7 @@ export type PveMasteryMode =
  * • ANBU VAULT. It now runs on the independent Solo PvE engine against a
  *   canonically hydrated snapshot of a REAL player, including that player's own
  *   jutsuMastery. Tower-mode mastery must not mutate the separate runtime.
- * • AI FIGHTS. `buildAiFightEncounter` already seals its own mastery (step 3b).
+ * • AI FIGHTS. `buildSoloPveAiEncounter` seals mastery in its own runtime.
  * • HOLLOW GATE. It now runs on the independent Solo PvE engine.
  *
  * ⚠ SPIRE gets its own switch because the Endless Spire's bosses are level 100,

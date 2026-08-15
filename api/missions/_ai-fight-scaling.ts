@@ -2,9 +2,9 @@
  * Step 3c of the AI-fight migration: derive the encounter's SCALING from server
  * state, never from the request body.
  *
- * Until now `buildAiFightEncounter` was called with no `scaling`, so the server
- * opponent was built at its AUTHORED level while the client may have rebuilt it
- * at a different one. `body.opponentLevel` exists on the request but is
+ * The live Solo-PvE builder uses the AUTHORED level when `scaling` is absent,
+ * while some entry points need a server-owned rebuild. `body.opponentLevel`
+ * exists on the request but is
  * deliberately NOT read for the encounter — a client-chosen level is a
  * client-chosen difficulty, which is the authority this migration exists to
  * remove.

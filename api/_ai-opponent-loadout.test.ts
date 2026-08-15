@@ -89,7 +89,7 @@ describe('resolveAiProfileJutsu', () => {
         assert.equal(resolveAiProfileJutsu(many, noAdmin).length, MAX_AI_LOADOUT_JUTSU);
     });
 
-    it('returns [] for junk input so the template falls back to a signature', () => {
+    it('returns [] for junk input so the Solo-PvE builder falls back to a signature', () => {
         for (const junk of [undefined, null, 'not-an-array', 42, {}, [], [null, 7, {}]]) {
             assert.deepEqual(resolveAiProfileJutsu(junk, noAdmin), [], `junk input: ${JSON.stringify(junk)}`);
         }
