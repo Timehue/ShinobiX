@@ -52,6 +52,10 @@ boundary distinctions are mandatory:
   Spire, Clan Boss, and Tower PvP. Village-war mercenary combat is an explicitly
   declared headless Tower use. Sector War's former Tower-backed garrison fallback
   is retired fail-closed and remains an explicit PvP surface gap.
+- PvP owns Clan War shinobi 1v1. Clan War shinobi 2v2 remains a distinct
+  intended-PvP surface gap: new send/join/accept progression returns `410`, and
+  retained queue records are cleanup-only until one four-player authority can
+  settle the whole challenge.
 - `pet-showdown` owns Showdown practice, Coliseum, its ladder mode, and the
   Showdown-backed Sector/Clan War pet modes.
 - `pet-warfront` owns positional Warfront and its ladder/co-op reuse. Standalone
@@ -68,9 +72,9 @@ boundary distinctions are mandatory:
 - The public Pet Ranked queue is retired fail-closed: its route returns `410`
   and its UI cannot pair or launch the ordinary no-reward realtime duel. A future
   live-ranked cinematic lifecycle must share one server-owned match proof with
-  rating settlement. The older `rankedPet` challenge/start/result lifecycle
-  remains a separate mounted `legacy-pet-duel` compatibility path for retained
-  proofs; its cinematic client playback can disagree with legacy server
+  rating settlement. New `rankedPet` challenge notices also return `410`; the
+  older start/result lifecycle remains a separate mounted `legacy-pet-duel`
+  compatibility path for retained notices and proofs. Its cinematic client playback can disagree with legacy server
   settlement, while Showdown ranked code is staged but uncalled. Hollow Gate pet
   uses sealed cinematic PvE plus a parent run receipt; its dormant Showdown branch
   leaves only the long-term owner decision open.

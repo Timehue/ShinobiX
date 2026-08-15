@@ -195,3 +195,32 @@ test('acceptance rejects a challenger pet that became busy after the invitation 
     assert.match(String(accepted.body?.error), /reselect eligible, combat-ready carried pets/i);
     assert.equal((await kv.get<Record<string, unknown>>(`challenges:record:${id}`))?.status, 'pending');
 });
+
+test('new legacy ranked-pet notices stay retired even when private engine flags are enabled', async () => {
+    const challenger = 'challengerankedretiredone';
+    const responder = 'challengerankedretiredtwo';
+    const challengerPets = await seedPlayer(challenger);
+    await seedPlayer(responder);
+    const id = 'challenge-ranked-retired-001';
+    process.env.ENABLE_PET_RANKED_SERVER_V1 = '1';
+    process.env.ENABLE_PET_RANKED_PUBLIC_CHALLENGES_V1 = '1';
+    try {
+        const sent = await post(challenger, {
+            targetName: responder,
+            challenge: {
+                id,
+                fromName: challenger,
+                toName: responder,
+                mode: 'rankedPet',
+                challengerPetId: challengerPets[0].id,
+            },
+        }, '127.0.0.77');
+        assert.equal(sent.statusCode, 410);
+        assert.match(String(sent.body?.error), /legacy ranked pet challenges are unavailable/i);
+        assert.equal(await kv.get(`challenges:record:${id}`), null);
+        assert.equal(await kv.get(`challenges:${responder}`), null);
+    } finally {
+        delete process.env.ENABLE_PET_RANKED_SERVER_V1;
+        delete process.env.ENABLE_PET_RANKED_PUBLIC_CHALLENGES_V1;
+    }
+});

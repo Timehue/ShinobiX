@@ -320,7 +320,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         clientEntries: ['App.tsx', 'lib/clan-war-api.ts'],
         routes: [mountedRoute('/clan/war/challenge', 'clan/war/challenge', ['lifecycle'])],
         participantModel: 'party', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
-        statusDetail: 'The challenge is admitted, but the client explicitly refuses launch until a safe aggregate 2v2 protocol exists.',
+        statusDetail: 'New send/join/accept progression is retired fail-closed. Retained queue records remain cleanup-only and cannot launch until one server-owned four-player PvP lifecycle can settle the whole challenge.',
     }),
 
     defineMode({
@@ -692,7 +692,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
             mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
         ],
         participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'sealed-legacy-ranked-outcome-and-receipt', status: 'defect',
-        statusDetail: 'The old rankedPet challenge/start/result compatibility path remains mounted and source-reachable, but the client displays runPetDuelCinematic while settlement replays legacy runPetDuel, so an active compatibility notice can display a winner that the server rejects. The current Pet Ladder queue does not enter this path; retain it only for compatibility until active notices and the intended live ranked engine are resolved.',
+        statusDetail: 'New rankedPet challenge creation is retired fail-closed. Retained notices/start tokens/results remain recoverable, but the client displays runPetDuelCinematic while settlement replays legacy runPetDuel, so a retained compatibility notice can display a winner that the server rejects. The current Pet Ladder queue does not enter this path.',
     }),
     defineMode({
         id: 'hollow-gate-pet-cinematic', label: 'Hollow Gate pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,

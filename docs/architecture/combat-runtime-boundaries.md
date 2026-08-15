@@ -35,14 +35,14 @@ keyspace, and rollback narrative remains in
 
 | Runtime | Mounted or intended boundary summary |
 |---|---|
-| `pvp` | Casual, ranked, direct challenges, and human-defender Sector War shinobi duels |
+| `pvp` | Casual, ranked, direct challenges, human-defender Sector War shinobi duels, and Clan War shinobi 1v1; Clan War shinobi 2v2 names PvP as its intended owner but new progression is retired fail-closed until a four-player lifecycle exists |
 | `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, and ANBU infiltration |
 | `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, and declared headless village-war mercenary battles; the retired Sector garrison fallback is not a Tower mode |
 | `pet-showdown` | Showdown practice, Coliseum, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
 | `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |
 | `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1/2v2 HTTP replay, exact-cardinality ordinary live PvP 1v1/2v2 Socket.IO replay, and mounted Hollow Gate PvE replay; the retired live-ranked surface names this family as its intended owner but has no admitted combat lifecycle |
-| `legacy-pet-duel` | The source-reachable `rankedPet` compatibility challenge/start/result settlement; its cinematic client playback and legacy server replay can disagree, and it is not the public Pet Ladder queue |
+| `legacy-pet-duel` | New `rankedPet` challenge creation is retired fail-closed; retained notices/start tokens/results remain recoverable, although cinematic client playback and legacy server replay can disagree. It is not the public Pet Ladder queue |
 | `client-local-pet-duel` | Dungeon pet presentation; its rewarding parent flow lacks server encounter and terminal proof and is a defect |
 | `chronicle` | Card Clash, sector-card, clan-war card, and dungeon-card combat; the Dungeon parent settlement binding remains a separate defect |
 
@@ -83,7 +83,7 @@ Each runtime owns orchestration and persistence:
 | `pet-warfront` | positional teams, formations, lanes/objectives, deterministic Warfront replay, and Warfront-family settlement |
 | `pet-gauntlet-grid` | run-only draft state, grid placements, deterministic transcript replay, and capped run settlement |
 | `pet-cinematic-duel` | cinematic 1v1/party input logs; server-replayed ordinary Arena AI receipts; and server-sealed, memory-only live PvP transport with no reward/rating write |
-| `legacy-pet-duel` | sealed legacy ranked challenge inputs and compatibility settlement; it is not a substitute for the public ranked surface, Showdown, Warfront, Gauntlet, or cinematic authority |
+| `legacy-pet-duel` | retained sealed legacy ranked challenge inputs and compatibility settlement; new notices are retired and it is not a substitute for the public ranked surface, Showdown, Warfront, Gauntlet, or cinematic authority |
 | `client-local-pet-duel` | presentation-only local duel state; it is never valid reward proof |
 | `chronicle` | decks, hidden projections, card actions, match state, and settlement |
 

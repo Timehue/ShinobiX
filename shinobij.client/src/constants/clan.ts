@@ -67,6 +67,9 @@ export const clanMissionDefinitions = [
 // type in App.tsx. Moves to types/clan-war.ts in a future pass.
 type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
 
+/** Player-admitted modes; shinobi 2v2 stays typed for retained record cleanup. */
+export const CW_ADMITTED_CHALLENGE_MODES = ["pvp1v1", "pet1v1", "pet2v2", "tilecards"] as const satisfies readonly CwChallengeMode[];
+
 export const CW_HP_MAX = 1000;
 
 // Damage dealt to the opposing clan's war HP for each completed
