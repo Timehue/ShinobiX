@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, mergePreservingImages } from './_utils.js';
-import { authedPlayerOrAdmin } from './_auth.js';
+import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { withKvLock } from './_lock.js';
 import { applyDerivedLevel, type XpCharacter } from './_xp-engine.js';
 import { bumpSaveVersion } from './save/_save-version.js';
@@ -643,7 +643,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // fresh server (no state in KV yet) can never bootstrap: loadOrInitBoss
             // returns null → the guard 409s → the reset branch is never reached.
             if (kind === 'reset') {
-                if (!identity.admin) return res.status(403).json({ error: 'Admin only.' });
+                if (!isFullAdmin(req)) return res.status(403).json({ error: 'Full admin only.' });
                 const fresh = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
                     const next = await buildFreshBossState(isoWeekKey());
                     if (next) await kv.set(WEEKLY_BOSS_STATE_KEY, next);
