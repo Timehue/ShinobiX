@@ -8,6 +8,13 @@ adding a payout endpoint means adding it to that table with its mechanism.
 
 Full per-path evidence: `docs/audits/reward-settlement-audit.md` (Phase 0).
 
+Combat owner, mounted-route, and mismatch truth is maintained separately in
+[`shared/runtime-mode-registry.ts`](../../shared/runtime-mode-registry.ts) and
+its [generated projection](../generated/runtime-mode-registry.md). This document
+defines payout/idempotency mechanisms; it does not authorize a client outcome or
+collapse Showdown, Warfront, Gauntlet, cinematic, legacy, and client-local pet
+engines into one runtime.
+
 ## Sanctioned mechanisms (strongest first)
 
 1. **In-save receipt in the payout write** — the receipt
@@ -63,14 +70,22 @@ loss is more than trivially recoverable by replaying gameplay.
   so a crash between payout and session-mark can no longer double-pay on
   retry — the codebase's only duplicate-direction window is closed.
 
-## Deliberately unchanged (documented trade-offs)
+## Current settlement notes and remaining trade-offs
 
 - `claim-mission.ts` consumes the combat token before the payout write:
   moving the delete after the write would open a duplicate window on
   repeatable missions. Loss-only, self-healing by re-fight; kept.
-- Hollow Gate haul ceiling / PvE win claim, casual-PvP local grants, legacy
-  E/D missions: bounded client-trust by design; fighter-authority work is
-  P0-3.
+- Ordinary Solo-PvE missions and Hollow Gate shinobi combat now settle from
+  bound terminal `solo-pve` evidence; no rewarding client-attested win remains
+  authorized for those rows.
+- Hollow Gate pet currently settles a run-bound receipt from the mounted legacy
+  pet duel while a separate Showdown-capable branch remains unmounted. Pet
+  Ranked likewise remains on the mounted legacy duel with a staged Showdown
+  replacement. These are explicit owner/cutover mismatches, not permission to
+  treat either route as generic Pet authority.
+- Dungeon pet remains a client-local presentation whose rewarding parent
+  settlement consumes no server-selected encounter or terminal pet proof. It is
+  a recorded authority defect, not sanctioned bounded client trust.
 - Tower/weekly-boss/HG NX receipts keep their rollback-in-catch shape; a hard
   process kill can still strand one (loss-only). Migration to mechanism 1 is
   future hardening, not P0-2.

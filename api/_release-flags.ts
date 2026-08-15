@@ -15,3 +15,30 @@ export function petBreedingStartsEnabled(env: NodeJS.ProcessEnv = process.env): 
 export function weeklyBossGuardEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.DISABLE_WEEKLY_BOSS_GUARD !== '1';
 }
+
+/**
+ * Public Village War capability means the Sector Map campaign, not the legacy
+ * War Hall. The campaign ships on and has one exact emergency kill switch.
+ * Deprecated ENABLE_VILLAGE_WAR values deliberately have no effect.
+ */
+export function villageWarMapEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_VILLAGE_WAR !== '1';
+}
+
+/**
+ * Weekly Clan Boss operations ship on unless the exact core kill switch is set.
+ * Deprecated ENABLE_CLAN_BOSS values deliberately have no effect.
+ */
+export function clanBossEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_CLAN_BOSS !== '1';
+}
+
+/** Party operations inherit the core Clan Boss switch and add a narrower rollback. */
+export function clanBossPartiesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return clanBossEnabled(env) && env.DISABLE_CLAN_BOSS_PARTIES !== '1';
+}
+
+/** ANBU Infiltration is independent of the Sector Map campaign and ships on. */
+export function anbuInfiltrationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_ANBU_INFILTRATION !== '1';
+}

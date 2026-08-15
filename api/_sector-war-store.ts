@@ -7,8 +7,8 @@
  *   - the token:    `shared:sector-war-token:<bid>` (single-use battle authorization)
  *
  * All orchestration (locks, WR debit, the territory flip) lives in the endpoint
- * `api/village/sector-war.ts`; this file only reads/writes the records. Behind
- * ENABLE_VILLAGE_WAR via its only caller — nothing imports it on the prod path.
+ * `api/village/sector-war.ts`; this file only reads/writes the records. Its
+ * production callers are protected by the default-on Sector Map campaign gate.
  *
  * Note the prefixes don't collide: a `keys('shared:sector-war:*')` scan matches
  * `shared:sector-war:<id>` but NOT `shared:sector-war-token:<bid>` (the char after

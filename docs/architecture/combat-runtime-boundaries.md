@@ -3,32 +3,47 @@
 Status: verified against executable routes on 2026-08-13 after the WorldMap cutover.
 
 This is the ownership contract for combat runtimes. Server authority and Tower
-are separate concepts: normal one-player shinobi combat uses `solo-pve` while
-real parties, N-actor queues, and objectives use Tower.
+are separate concepts: normal one-player shinobi combat uses `solo-pve`, while
+the enumerated Tower modes use Tower for shinobi parties, N-actor queues, or
+Tower-specific objectives. Pet and Card participant models remain independent.
 
 ## Owner decisions
 
 - One human shinobi against one AI uses `solo-pve` and the normal Arena UI.
 - Player-versus-player combat stays in `pvp`.
-- Battle Towers, Endless Spire, and Clan Boss own genuine party, N-actor, and
-  objective combat. Tower is not the default server-authority backend.
-- Hollow Gate shinobi encounters are normal Solo PvE; Hollow Hounds use the pet
-  runtime.
-- Pet Arena and Card Clash remain independent games.
+- Battle Towers (solo or party), Endless Spire, Clan Boss, Tower PvP, and the
+  declared headless village-war mercenary battle use Tower. Tower is not the
+  default server-authority backend. Sector War's Tower-backed garrison fallback
+  remains a wrong-owner defect; it does not expand Tower ownership.
+- Hollow Gate shinobi encounters are normal Solo PvE. The mounted Hollow Gate
+  pet caller uses the legacy pet duel while a separate Showdown branch exists;
+  that dual path is an unresolved owner decision, not a generic pet boundary.
+- Pet Showdown/Coliseum, positional Warfront/Tactical, the Gauntlet grid,
+  cinematic Pet Arena duels, legacy pet duels, and client-local pet duels are
+  separate authorities or explicitly recorded compatibility/defect paths.
+- Card Clash remains an independent Chronicle game.
 
 ## Verified current inventory
 
-The detailed executable matrix is in
-`docs/architecture/combat-runtime-inventory.md` and is guarded by
-`scripts/combat-runtime-inventory.mjs`.
+Current executable mode, owner, route, caller, and status truth lives in
+[`shared/runtime-mode-registry.ts`](../../shared/runtime-mode-registry.ts) and
+its [generated projection](../generated/runtime-mode-registry.md). The table
+below remains a hand-authored boundary summary; the detailed Solo cutover,
+keyspace, and rollback narrative remains in
+[`combat-runtime-inventory.md`](combat-runtime-inventory.md).
 
-| Runtime | Player-facing owners |
+| Runtime | Mounted or intended boundary summary |
 |---|---|
-| `pvp` | Casual, ranked, direct challenges, and sector-war shinobi duels |
+| `pvp` | Casual, ranked, direct challenges, and human-defender Sector War shinobi duels |
 | `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, and ANBU infiltration |
-| `tower` | Battle Towers, Endless Spire, and Clan Boss party assaults |
-| `pet` | Hollow Hound receipts, Pet Arena/Coliseum, and pet-ranked modes |
-| `card` | Card Clash and sector-card contests |
+| `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, and declared headless village-war mercenary battles; the Sector garrison fallback is a recorded wrong-owner use |
+| `pet-showdown` | Showdown practice, Coliseum, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
+| `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
+| `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |
+| `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1 and 2v2 server replay |
+| `legacy-pet-duel` | Ordinary Pet Arena PvP, Pet Ranked, and mounted Hollow Gate pet paths; their individual defect, staged-mismatch, or owner-decision statuses remain explicit |
+| `client-local-pet-duel` | Dungeon pet presentation; its rewarding parent flow lacks server encounter and terminal proof and is a defect |
+| `chronicle` | Card Clash, sector-card, clan-war card, and dungeon-card combat; the Dungeon parent settlement binding remains a separate defect |
 
 `story/spar-start` and `endless/wave-start` both exist, are registered, and have
 real client callers. Their rewarding paths require terminal Solo evidence.
@@ -63,8 +78,13 @@ Each runtime owns orchestration and persistence:
 | `pvp` | two-player identity, authorization, PvP turns, forfeit, history, rating, rewards |
 | `solo-pve` | one human versus server AI, optional companion, difficulty, versioned intent API, reconnect, terminal evidence |
 | `tower` | party membership, N-actor queue, objectives, boss phases, Tower terrain/modifiers and settlement |
-| `pet` | pet stats, moves, matchmaking, replay/receipt validation |
-| `card` | decks, card rules, match state and settlement |
+| `pet-showdown` | turn-based pet commands, bench/switch/stamina state, Showdown scripts, and receipts |
+| `pet-warfront` | positional teams, formations, lanes/objectives, deterministic Warfront replay, and Warfront-family settlement |
+| `pet-gauntlet-grid` | run-only draft state, grid placements, deterministic transcript replay, and capped run settlement |
+| `pet-cinematic-duel` | cinematic 1v1/party input logs and server-replayed ordinary Arena AI settlement |
+| `legacy-pet-duel` | sealed legacy duel inputs/replay and compatibility settlements; it is not a substitute for Showdown, Warfront, Gauntlet, or cinematic authority |
+| `client-local-pet-duel` | presentation-only local duel state; it is never valid reward proof |
+| `chronicle` | decks, hidden projections, card actions, match state, and settlement |
 
 No runtime may read another runtime's key as victory proof.
 

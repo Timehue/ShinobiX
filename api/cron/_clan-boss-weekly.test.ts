@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyClanBossRewardToRecord } from './_clan-boss-weekly.js';
+import { applyClanBossRewardToRecord, runClanBossWeekly } from './_clan-boss-weekly.js';
 
 describe('Clan Boss weekly reward record', () => {
     const reward = { ryo: 30_000, fateShards: 3, boneCharms: 5, clanXp: 1_500 };
@@ -37,5 +37,18 @@ describe('Clan Boss weekly reward record', () => {
         assert.equal(second.applied, true);
         assert.deepEqual(second.record.clanBossRewardReceipts, ['2026-W29', '2026-W30']);
         assert.equal((second.record.treasury as Record<string, unknown>).ryo, 60_000);
+    });
+});
+
+describe('Clan Boss weekly release gate', () => {
+    it('preserves the disabled no-op response under the exact core kill switch', async () => {
+        const previous = process.env.DISABLE_CLAN_BOSS;
+        process.env.DISABLE_CLAN_BOSS = '1';
+        try {
+            assert.deepEqual(await runClanBossWeekly(), { enabled: false, spawned: null, settled: [] });
+        } finally {
+            if (previous === undefined) delete process.env.DISABLE_CLAN_BOSS;
+            else process.env.DISABLE_CLAN_BOSS = previous;
+        }
     });
 });

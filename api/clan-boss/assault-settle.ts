@@ -17,19 +17,20 @@ import { completeParty } from './_party.js';
 import { announce } from '../_announce.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { clanBossEnabled } from '../_release-flags.js';
 
 /*
  * POST /api/clan-boss/assault-settle — bank a FINISHED clan-boss assault into the
  * clan's weekly pool. The result (damage/rounds/wipe/clean) is read from the
  * server-authoritative tower session — the client reports nothing. Idempotent: the
  * assault side-record's `settled` flag (checked + set under the progress lock)
- * guarantees a run banks exactly once. Gated off — 404 unless ENABLE_CLAN_BOSS==='1'.
+ * guarantees a run banks exactly once. Gated off with a hidden 404 when disabled.
  * Body: { runId, playerName }.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (process.env.ENABLE_CLAN_BOSS !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!clanBossEnabled()) return res.status(404).json({ error: 'Not found.' });
     if (req.method !== 'POST') return res.status(405).end();
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});

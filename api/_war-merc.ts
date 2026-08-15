@@ -8,7 +8,7 @@
  * construction + the headless battle resolution live separately (built next, on
  * top of the Battle Towers engine).
  *
- * Behind ENABLE_VILLAGE_WAR — nothing live imports the endpoint until launch.
+ * Its live endpoint is protected by the default-on Sector Map campaign gate.
  */
 import { wrMercTierById, comebackCostMultiplier, mercBandSize } from './_war-economy.js';
 import { mercCostMultiplier } from './_war-structures.js';

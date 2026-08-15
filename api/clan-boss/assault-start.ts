@@ -14,7 +14,8 @@ import { makeRng } from '../towers/_sim.js';
 import { readSession, writeSession, setTowerInvite } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { loadAssault, saveAssault, selectClanBossParty } from './_assault.js';
-import { activatePartyStart, clanBossPartiesEnabled, loadParty, preparePartyStart, reopenPartyStart } from './_party.js';
+import { activatePartyStart, loadParty, preparePartyStart, reopenPartyStart } from './_party.js';
+import { clanBossEnabled, clanBossPartiesEnabled } from '../_release-flags.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { configureClanBossEncounter } from './_encounter-config.js';
 import {
@@ -31,13 +32,13 @@ import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_to
  * Reserves one of the host's weekly attempts, then mints a Battle-Towers session on
  * the week's clan-boss floor (host + up to 2 clanmate allies). The fight then runs
  * through the EXISTING /api/towers/action loop + battle screen; api/clan-boss/
- * assault-settle banks the server-computed damage into the clan's pool. Gated off by
- * default — 404 unless ENABLE_CLAN_BOSS==='1'. Body: { hostName, allies?: string[] }.
+ * assault-settle banks the server-computed damage into the clan's pool. Default on;
+ * returns 404 when the core Clan Boss kill switch is set. Body: { hostName, allies?: string[] }.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (process.env.ENABLE_CLAN_BOSS !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!clanBossEnabled()) return res.status(404).json({ error: 'Not found.' });
     if (req.method !== 'POST') return res.status(405).end();
     let preparedParty: { id: string; requestId: string } | null = null;
     try {

@@ -79,6 +79,7 @@ import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import worldStateHandler   from './api/world-state.js';
 import { seedHomeSectorOwnership } from './api/world-state.js';
+import { villageWarMapEnabled } from './api/_release-flags.js';
 import messagesHandler     from './api/messages.js';
 import reportHandler       from './api/report.js';
 import perfBeaconHandler   from './api/perf-beacon.js';
@@ -469,15 +470,9 @@ process.once('SIGINT', () => gracefulShutdown(0, 'SIGINT'));
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
-// Village War Map is now ALWAYS ON (Combat/Card/Pet sector wars, mercenaries, the
-// merc cron). Every handler + cron gates on ENABLE_VILLAGE_WAR==='1', so default it
-// on here once, at startup, for the whole process. Kill-switch: set DISABLE_VILLAGE_WAR=1
-// to turn the entire system back off without code changes.
-if (process.env.DISABLE_VILLAGE_WAR !== '1') process.env.ENABLE_VILLAGE_WAR = '1';
-
-// Weekly Clan Boss Gauntlet — ON by default in the testing phase (every clan-boss
-// handler + the cron gate on ENABLE_CLAN_BOSS==='1'). Kill-switch: DISABLE_CLAN_BOSS=1.
-if (process.env.DISABLE_CLAN_BOSS !== '1') process.env.ENABLE_CLAN_BOSS = '1';
+// Village War Map and Weekly Clan Boss ship on by default. Their handlers and
+// background jobs read the canonical server-only release helpers directly, so
+// an emergency kill switch cannot disagree with process-start mutation.
 
 // Legacy is the one live system with a REQUIRED opt-in: api/_legacy-track.ts
 // gates on ENABLE_LEGACY==='1' and every /legacy/* route 404s without it — while
@@ -1162,35 +1157,35 @@ route('/village/claim-map-control', villageClaimMapControlHandler);
 route('/village/hire-mercenary', hireMercenaryHandler);
 // Village War Map structures — Kage-only server-authoritative upgrade: debits
 // Honor Seals from the village treasury, raises a shared structure level.
-// Server-gated (404 unless ENABLE_VILLAGE_WAR=1) — inert until launch.
+// Server-gated by the default-on Sector Map campaign kill switch.
 route('/village/war-structure', villageWarStructureHandler);
 // Village War Map — Kage sets a home sector's sector-war win-condition (Combat/
-// Card; max-7 diversity rule). Server-gated (404 unless ENABLE_VILLAGE_WAR=1).
+// Card; max-7 diversity rule). Server-gated by the Sector Map campaign switch.
 route('/village/war-win-condition', villageWarWinConditionHandler);
 // Village War Map — Kage (3 sectors) / elders (1 each) set a home sector's
-// terrain (the defender jutsu-school buff). Server-gated (404 unless flag).
+// terrain (the defender jutsu-school buff). Gated by the Sector Map switch.
 route('/village/war-terrain', villageWarTerrainHandler);
 // Village War Map — sector-war battle wiring (Phase 4c): the Kage declares a
 // contest (250 WR), a single-use token binds the resulting PvP battle, and
 // resolve applies the authoritative winner to Control HP — flipping the sector's
-// ownerVillage on capture. Server-gated (404 unless ENABLE_VILLAGE_WAR=1).
+// ownerVillage on capture. Server-gated by the Sector Map campaign switch.
 route('/village/sector-war', villageSectorWarHandler);
 // Village War Map — sector-war "Card" win-condition (Phase 4c-2): an interactive
 // 6-turn Card Clash between an attacker- and defender-village member, settling
-// the same contest Control HP (forked clan-war engine). Gated (404 unless flag).
+// the same contest Control HP (forked clan-war engine). Gated by the Sector Map switch.
 route('/village/sector-card', villageSectorCardHandler);
 // Village War Map — sector-war "Pet" win-condition (Phase 7): a deterministic 1v1
 // pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
 // the same contest Control HP. The client replays the same (pets, seed). Gated.
 route('/village/sector-pet',  villageSectorPetHandler);
 // Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
-// turn-in action switch): fight a daily-sealed Anbu snapshot (Battle Towers
-// engine) to skim 1% of the enemy war economy into turn-in caches. NEVER flips
-// sector ownership. Gated (404 unless ENABLE_VILLAGE_WAR=1 + ENABLE_ANBU_INFILTRATION=1).
+// turn-in action switch): fight a daily-sealed Anbu snapshot (Solo PvE engine)
+// to skim 1% of the enemy war economy into turn-in caches. NEVER flips
+// sector ownership. Independently gated by the default-on ANBU kill switch.
 route('/village/anbu-infiltration', anbuInfiltrationHandler);
 // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
-// GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
+// GET only, gated by the Sector Map campaign switch.
 route('/village/war-map', villageWarMapHandler);
 // Daily village tax (the ryo sink). Idempotent per UTC day via the server-owned
 // lastTaxDate stamp; DISABLE_VILLAGE_TAX=1 is the kill switch.
@@ -1207,7 +1202,7 @@ route('/village/war-mission', villageWarMissionHandler);
 route('/war/claim-reward', warClaimRewardHandler);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
-// sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
+// sector wars. POST hire/list/attack, gated by the Sector Map campaign switch.
 route('/village/war-merc', villageWarMercHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
@@ -1280,7 +1275,7 @@ route('/clan/exchange/purchase', clanExchangePurchaseHandler);
 route('/clan/chat/get',  clanChatGetHandler);
 route('/clan/chat/send', clanChatSendHandler);
 
-// ─── Clan Boss Gauntlet: weekly server-wide co-op competition (404 unless ENABLE_CLAN_BOSS=1) ─
+// ─── Clan Boss Gauntlet: default-on weekly server-wide co-op competition ──────
 // get returns the week's boss + clan pool + standings; assault-start mints a co-op
 // tower session on the clan-boss floor; assault-settle banks the finished fight's
 // server-computed damage into the clan's shared pool. Weekly cron ranks + rewards top 3.
@@ -1733,7 +1728,7 @@ server.listen(PORT, () => {
     // and a second run seeds 0), so booting is a safe time to run it. Fire-and-
     // forget — a storage blip here must not affect startup, and the admin
     // `seed` action remains as the manual re-run path.
-    if (process.env.ENABLE_VILLAGE_WAR === '1') {
+    if (villageWarMapEnabled()) {
         void seedHomeSectorOwnership()
             .then(({ seeded, sectors }) => { if (seeded > 0) console.log(`[war-map] self-seeded ${seeded} unowned home sector(s): ${sectors.join(', ')}`); })
             .catch((err) => console.error('[war-map] territory self-seed failed (admin seed action still available):', (err as Error).message));

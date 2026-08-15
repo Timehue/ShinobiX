@@ -13,6 +13,7 @@ import { mercHireCost, addOrRefreshLease, MERC_LEASE_MS } from '../_war-merc.js'
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { activeContestOnSector } from '../_sector-war-store.js';
 import { deployOneMerc } from '../_merc-auto.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 /*
  * /api/village/war-merc — POST only. Village-War mercenaries (Phase 5, §17.5 "B").
@@ -25,7 +26,7 @@ import { deployOneMerc } from '../_merc-auto.js';
  *   - list : read-only — the village WR pool + the merc tier menu + the active
  *            leases.
  *
- * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). The hire is
+ * Server-gated by the default-on Sector Map campaign switch. The hire is
  * server-authoritative (the cost is recomputed here from the sealed tier table,
  * never a client figure) — mirrors the WR-spend pattern in sector-war.ts.
  */
@@ -49,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;

@@ -17,9 +17,10 @@ import { assessVillageTax, villageTaxEnabled } from '../_war-tax-apply.js';
  * The response carries the post-debit balances plus what was taken and why, so
  * the UI can tell the player their village lost ground and it cost them.
  *
- * Server-gated: the whole system rides ENABLE_VILLAGE_WAR, and DISABLE_VILLAGE_TAX=1
- * is the tax-specific kill switch. When off this returns `{ enabled: false }`
- * rather than 404, so the client can distinguish "off" from "broken".
+ * Server-gated: the whole system rides the default-on Sector Map campaign, and
+ * DISABLE_VILLAGE_TAX=1 is the tax-specific kill switch. When off this returns
+ * `{ enabled: false }` rather than 404, so the client can distinguish "off" from
+ * "broken".
  */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

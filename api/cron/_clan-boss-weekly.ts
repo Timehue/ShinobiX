@@ -7,7 +7,7 @@
  *       reward the top 3 (+ a participation payout for other clans that killed their
  *       boss) into the clan TREASURY, archive the standings, announce the winner.
  *
- * No-op unless ENABLE_CLAN_BOSS==='1'. Rewards are exactly-once (receipt claimed
+ * Default on and a no-op under the canonical Clan Boss kill switch. Rewards are exactly-once (receipt claimed
  * INSIDE the clan-save lock, so a contended credit is retried, never lost).
  */
 import { kv } from '../_storage.js';
@@ -22,6 +22,7 @@ import {
 } from '../clan-boss/_storage.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { mergePreservingImages } from '../_utils.js';
+import { clanBossEnabled } from '../_release-flags.js';
 
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
 
@@ -57,7 +58,7 @@ export function applyClanBossRewardToRecord(
 }
 
 export async function runClanBossWeekly(now: number = Date.now()): Promise<{ enabled: boolean; spawned: string | null; settled: string[] }> {
-    if (process.env.ENABLE_CLAN_BOSS !== '1') return { enabled: false, spawned: null, settled: [] };
+    if (!clanBossEnabled()) return { enabled: false, spawned: null, settled: [] };
     const spawned = await ensureCurrentWeek(now);
     const settled = await settleEndedWeeks(now);
     return { enabled: true, spawned, settled };

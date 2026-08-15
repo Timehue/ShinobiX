@@ -4,13 +4,20 @@ Baseline: ShinobiX `b815be4fe0088735df444fd7a1464c5e0c3bfa48` on 2026-08-04.
 Reference only: a third-party shinobi RPG at `df6dcd0d7d4b23d9cf309ea3a0159f366f764869`.
 WorldMap authority inventory re-verified on 2026-08-13.
 
-This is the executable-truth matrix for the solo-PvE cutover. The companion
-machine inventory lives in `scripts/combat-runtime-inventory.mjs`; its test
-checks Express registration, handler imports, client callers, and terminal
-migration claims. `migrated` and `complete` are both terminal: either label
-requires the current runtime to equal its target and requires active callers
-for its action and state routes. “Local” below means the normal Arena client
-resolver, not a server combat session.
+> [!IMPORTANT]
+> This is the hand-authored Solo-PvE cutover, keyspace, migration, and rollback
+> narrative for the baseline above. Current executable mode, owner, route,
+> caller, and status truth lives in
+> [`shared/runtime-mode-registry.ts`](../../shared/runtime-mode-registry.ts) and
+> its [generated projection](../generated/runtime-mode-registry.md).
+> `scripts/combat-runtime-inventory.mjs` is a deterministic flat audit projection,
+> not a compatibility API or an independent authority. The former 28-row
+> `COMBAT_RUNTIME_INVENTORY` export has been retired.
+
+Within this cutover matrix, `migrated` and `complete` are both terminal: either
+label requires the current runtime to equal its target and requires active
+callers for its action and state routes. “Local” below means the normal Arena
+client resolver, not a server combat session.
 
 | Player-facing mode | Start / action / state | Client host | Session / keyspace | Authority and settlement | Current → target | Migration / rollback |
 |---|---|---|---|---|---|---|
@@ -33,15 +40,37 @@ resolver, not a server combat session.
 | Weekly Boss | `weekly-boss` / `solo-pve/action` / `solo-pve/state` | `WeeklyBossArena` → `WeeklyBossFight` | Solo session + weekly run binding + per-spawn contribution receipts | One human attacks one boss per attempt; Solo owns actions/damage/vitals/items while the shared leaderboard banks terminal damage once | solo-PvE | Migrated. The 20-round score attack, guard cycle, damage caps, stamina cost, reconnect TTL, and server-wide contribution system are preserved. |
 | Endless | `endless/run` + `endless/wave-start` / `solo-pve/action` / `solo-pve/state` | Endless action hook + runtime-neutral `Arena` | Durable Endless run + wave binding + Solo session | Solo session owns opponent/actions/outcome/vitals/items; wave settle advances and rewards once | solo-PvE | Migrated; terminal settlement is retryable and the sealed opponent is never rerolled. |
 | Hollow Gate shinobi | `hollow-gate/combat-start` / `solo-pve/action` / `solo-pve/state` / `combat-settle` | Hollow Gate screen + normal `Arena` | Durable HG run/manifest/ledger + combat binding + Solo session | Solo session owns combat; HG owns movement, encounter identity, exact reward credits, extraction/death reconciliation, and recovery markers | solo-PvE | Migrated; no rewarding tokenless or client-haul path remains. |
-| Hollow Gate pet | HG event roll/befriend plus pet combat start/settle | `PetArena` | Pet receipt + HG binding/ledger | Pet engine/receipt decides result; HG consumes only matching pet proof and credits the exact ledger once | Pet → Pet | Kept separate; shinobi sessions are rejected. |
-| Battle Towers | `towers/start` / `towers/action` / `towers/state` | `BattleTowerFight` | `TowerSession`, `tower:<runId>` | N-actor queue, objectives, actors, items and Tower settle are server-owned | Tower → Tower | Keep. |
-| Endless Spire | Tower start with `mode: spire` / Tower action/state | `BattleTowerFight` | N-actor Tower session and Spire leaderboard | Tower objectives/actors/settlement | Tower → Tower | Keep; this is distinct from normal solo Endless. |
-| Clan Boss | `clan-boss/assault-start` / Tower action/state / assault settle | `ClanBoss` | Party Tower session + clan assault binding | Server party actors, boss state, contribution and clan receipt | Tower party → Tower | Keep. |
 | Anbu infiltration | `village/anbu-infiltration` start/state/settle plus `solo-pve/action` | `AnbuVaultRaid` using the normal Arena shell | Solo session + durable infiltration binding/recovery record | One human and an optional sealed companion fight one defender; Solo owns actions/outcome/vitals/items and infiltration settlement consumes terminal evidence once | solo-PvE | Migrated. The retired custom `act` operation returns 410; support is the same server-owned companion model as normal Arena, not an independent party slot. |
-| Sector war shinobi | PvP session/move/state plus sector-war registration/resolve | `WorldMap` + `PvpBattleScreen` | PvP session + sector-war single-use token/receipt | PvP decides winner; sector-war binding applies world consequence once | PvP → PvP | Keep. |
-| Sector war card | `village/sector-card` | `SectorCardBattle` | Card session keyspace | Card engine decides result and applies contest receipt | Card → Card | Keep. |
-| Pet Arena / Coliseum / tactical pet | Pet start/result or pet-specific route | `PetArena` | Pet tokens/sessions/receipts | Pet engine and server replay/validation own persistent result | Pet → Pet | Keep. |
-| Card Clash | `card-clash/*` | `CardHall` / `CardClashFreePlay` | Card match/deck state | Card engine owns actions and settlement | Card → Card | Keep. |
+
+The rows above preserve the Solo-PvE cutover evidence and its adjacent PvP
+reference rows. Current non-Solo mode rows are not duplicated in another
+hand-maintained table; use the
+[generated runtime-mode registry](../generated/runtime-mode-registry.md). Its
+boundary distinctions are mandatory:
+
+- Tower covers Battle Towers (solo or party), Tower party admission, Endless
+  Spire, Clan Boss, and Tower PvP. Village-war mercenary combat is an explicitly
+  declared headless Tower use. Sector War's Tower-backed garrison fallback is a
+  wrong-owner defect because the rewarding shinobi contest requires PvP.
+- `pet-showdown` owns Showdown practice, Coliseum, its ladder mode, and the
+  Showdown-backed Sector/Clan War pet modes.
+- `pet-warfront` owns positional Warfront and its ladder/co-op reuse. Standalone
+  Tactical remains a distinct named surface and is currently a recorded surface
+  gap; permitted engine-family reuse does not merge the modes.
+- `pet-gauntlet-grid` owns the deterministic Gauntlet draft/grid/transcript
+  lifecycle. It is neither Showdown nor Warfront.
+- `pet-cinematic-duel` owns ordinary Pet Arena AI 1v1 and 2v2. Ordinary Pet
+  Arena PvP 1v1 and 2v2 still settle through `legacy-pet-duel` while presenting
+  the cinematic fight, so both PvP rows remain defects.
+- Pet Ranked also remains on `legacy-pet-duel` while a Showdown cutover is
+  staged. Hollow Gate pet is a separate dual-path mismatch: the mounted caller
+  uses `legacy-pet-duel`, while a Showdown-capable branch exists but is not the
+  mounted lifecycle; ownership/cutover remains unresolved.
+- Dungeon pet uses `client-local-pet-duel`; because the rewarding parent
+  settlement consumes no server-selected pet encounter or terminal pet proof,
+  that row remains a defect rather than a valid reusable authority.
+- Chronicle/Card Clash remains independent. Dungeon Card uses Chronicle for its
+  fight but still lacks a terminal-proof binding at the rewarding parent settle.
 
 ## Authority fields required after migration
 
@@ -64,6 +93,6 @@ WorldMap callers additionally declare one of two inventory contracts:
   Solo outcome is redeemed through the generic token receipt and any owning
   progress proof is derived from that sealed result.
 
-These descriptors are ratcheted in the machine inventory. A removed descriptor,
-an unknown/`partial-*` status, a runtime mismatch, or a missing Solo action/state
-caller fails the focused inventory test.
+These descriptors are ratcheted in the shared registry and its deterministic
+audit projection. A removed descriptor, an unknown/`partial-*` status, a runtime
+mismatch, or a missing Solo action/state caller fails the focused registry audit.

@@ -1,13 +1,17 @@
-export type PublicCapabilityId =
-    | 'gameplay'
-    | 'gameplayMutations'
-    | 'registrations'
-    | 'villageWar'
-    | 'clanBoss'
-    | 'clanBossParties'
-    | 'legacy'
-    | 'petBreedingStarts'
-    | 'weeklyBossGuardCycle';
+export const PUBLIC_CAPABILITY_IDS = Object.freeze([
+    'gameplay',
+    'gameplayMutations',
+    'registrations',
+    'villageWar',
+    'anbuInfiltration',
+    'clanBoss',
+    'clanBossParties',
+    'legacy',
+    'petBreedingStarts',
+    'weeklyBossGuardCycle',
+] as const);
+
+export type PublicCapabilityId = typeof PUBLIC_CAPABILITY_IDS[number];
 
 export type PublicCapabilityState = 'available' | 'temporarily-unavailable' | 'actions-paused';
 export type PublicCapabilityReason =

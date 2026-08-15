@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { RUNTIME_AUTHORITY_ENGINES, runtimeModeById } from '../shared/runtime-mode-registry.js';
 
 const root = process.cwd();
 const read = (path: string) => readFile(resolve(root, path), 'utf8');
@@ -42,7 +43,11 @@ test('ANBU start and report paths retain durable replay state', async () => {
     assert.doesNotMatch(store, /infilPaidKey|INFIL_PAID_TTL/);
 });
 
-test('combat runtime inventory records the participant-model decision', async () => {
-    const inventory = await read('scripts/combat-runtime-inventory.mjs');
-    assert.match(inventory, /mode: 'Anbu infiltration'[\s\S]*actionRoute: '\/solo-pve\/action'[\s\S]*current: 'solo-pve'[\s\S]*status: 'migrated'/);
+test('runtime mode registry records the ANBU participant and Solo authority decision', () => {
+    const mode = runtimeModeById('anbu-infiltration');
+    assert.ok(mode);
+    assert.equal(mode.authorityEngine, RUNTIME_AUTHORITY_ENGINES.SOLO_PVE);
+    assert.equal(mode.participantModel, 'solo');
+    assert.equal(mode.status, 'match');
+    assert.ok(mode.routes.some((route) => route.path === '/solo-pve/action' && route.roles.includes('action')));
 });

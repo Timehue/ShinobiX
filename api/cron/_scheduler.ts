@@ -174,8 +174,7 @@ async function fire(): Promise<void> {
         console.error('[cron-scheduler] ranked-season rollover threw:', (err as Error).message);
     }
     // Weekly Clan Boss Gauntlet: spawn the week's boss (once) + settle/reward any
-    // ended week. ON by default in testing (server.ts sets ENABLE_CLAN_BOSS unless
-    // DISABLE_CLAN_BOSS=1); no-ops if disabled.
+    // ended week. Default on; the canonical core kill switch makes it a no-op.
     try {
         const cb = await runLeasedJob(clanBossLeaseName(), LEASE_TTL.clanBoss, () => runClanBossWeekly());
         if (cb && cb.enabled && (cb.spawned || cb.settled.length)) {
@@ -185,7 +184,7 @@ async function fire(): Promise<void> {
         console.error('[cron-scheduler] clan-boss weekly threw:', (err as Error).message);
     }
     // Village War Map daily pass (WR accrual + structure upkeep + merc-lease
-    // expiry). No-op unless ENABLE_VILLAGE_WAR=1 — server-gated, default OFF.
+    // expiry). Default on; the canonical Sector Map kill switch makes it a no-op.
     try {
         const w = await runLeasedJob('village-war-daily', LEASE_TTL.villageWar, () => runVillageWarDailyPass());
         if (w && w.enabled && w.ran > 0) {
@@ -251,7 +250,7 @@ export function startSnapshotCron(): void {
     // keeps restarts or a second scheduler from creating duplicate daily copies.
     if (!snapshotDisabled) void runBootSnapshotCatchUp();
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
-    // low-HP enemy defenders on their own. No-op unless ENABLE_VILLAGE_WAR=1.
+    // low-HP enemy defenders on their own. The Sector Map kill switch makes it a no-op.
     _mercInterval = setInterval(() => {
         void runLeasedJob('merc-auto', LEASE_TTL.mercAuto, () => runMercAutoDeploy())
             .then((r) => { if (r && r.enabled && r.deployed > 0) console.log(`[cron-scheduler] merc auto-snipe: ${r.deployed} deployed.`); })
@@ -259,8 +258,8 @@ export function startSnapshotCron(): void {
     }, MERC_TICK_MS);
     _mercInterval.unref?.();
     // Kick the clan-boss weekly pass once on boot so the current week's boss is live
-    // immediately when the feature is enabled (rather than dark until the next 03:00
-    // tick). No-op unless ENABLE_CLAN_BOSS=1; NX-guarded so it never double-spawns.
+    // immediately (rather than dark until the next 03:00 tick). The core kill switch
+    // makes it a no-op; NX guards ensure it never double-spawns.
     void runLeasedJob(clanBossLeaseName(), LEASE_TTL.clanBoss, () => runClanBossWeekly())
         .catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
     console.log(`[cron-scheduler] daily jobs scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
