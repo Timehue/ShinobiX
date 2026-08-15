@@ -1,21 +1,17 @@
 import { useState } from "react";
 import { gameConfirm } from "../components/GameAlert";
-import type { PetArenaOpponent } from "../data/pet-arena-opponents";
+import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
 import type { Character, HollowGateShrineRun, HollowGateTile } from "../types/character";
 import type { Screen } from "../types/core";
-import type { Pet } from "../types/pet";
+import { hollowGateHoundName, hollowHoundEncounterId } from "../../../shared/hollow-gate-contract";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 import {
-    buildHollowHoundOpponent,
     generateHollowGateShrineRun,
     hollowGatePetEncounterSeed,
 } from "./hollow-gate-dungeon";
 import type { HollowGatePveFightRef } from "./hollow-gate-pve";
-import {
-    hollowGateAlphaCinematicImage,
-    hollowGateHoundCombatImage,
-} from "./hollow-gate-presentation";
+import { hollowGateAlphaCinematicImage } from "./hollow-gate-presentation";
 import {
     finalizeHollowGateRunEnd,
     reportHollowGateRunError,
@@ -32,13 +28,13 @@ type SetState<T> = (value: T | ((previous: T) => T)) => void;
 export function useHollowGateAppFlow(params: {
     character: Character | null;
     run: HollowGateShrineRun | null;
-    petPool: Pet[];
     sharedImages: Record<string, string>;
     setCharacter: SetState<Character | null>;
     setRun: SetState<HollowGateShrineRun | null>;
     setEvent: SetState<HollowGateEventModal>;
     setHiddenChamber: SetState<HiddenChamberState>;
-    setPendingPetBattle: SetState<PetArenaOpponent | null>;
+    /** The run-bound Showdown pet encounter, or null when none is open. */
+    setPetFight: SetState<HollowGatePetFightRef | null>;
     setScreen: SetState<Screen>;
     clearRunState: (exit?: boolean) => void;
     clearLog: () => void;
@@ -48,13 +44,12 @@ export function useHollowGateAppFlow(params: {
     const {
         character,
         run,
-        petPool,
         sharedImages,
         setCharacter,
         setRun,
         setEvent,
         setHiddenChamber,
-        setPendingPetBattle,
+        setPetFight,
         setScreen,
         clearRunState,
         clearLog,
@@ -105,6 +100,20 @@ export function useHollowGateAppFlow(params: {
         if (confirmed) await leave({ death: true });
     }
 
+    /*
+     * A sealed pet duel now runs on the SHOWDOWN engine, bound to this run.
+     *
+     * It used to hand the Pet Arena screen a hand-built Hound and a client seed;
+     * the arena minted a battle-start token and fought the legacy sim. The
+     * server has accepted a run-bound Showdown bout — with the identical
+     * `hg-pet-result` receipt — since the Gate port landed, but nothing called
+     * it. This is that caller, and it stays on the shrine screen rather than
+     * detouring through the arena, because the encounter belongs to the run.
+     *
+     * Nothing about the Hound is decided here any more. `houndId` is only the
+     * encounter's IDENTITY (its shape is checked server-side); the creature
+     * itself is built by the server from the run's own binding.
+     */
     function launchPetFight(fight: HollowGatePveFightRef) {
         if (!character) return;
         const token = run?.runToken ?? character.hollowGateRun?.runToken;
@@ -113,28 +122,15 @@ export function useHollowGateAppFlow(params: {
             window.alert("The active pet for this sealed duel is unavailable. Use Emergency Forfeit if the pet cannot be restored.");
             return;
         }
-        const battleSeed = hollowGatePetEncounterSeed(fight.runId);
-        const image = hollowGateHoundCombatImage(sharedImages);
-        const wild = buildHollowHoundOpponent(petPool, activePet, fight.floor, image, battleSeed, fight.kind);
-        if (!wild) {
-            window.alert("The Hollow Hound model is unavailable. Use Emergency Forfeit to leave this run safely.");
-            return;
-        }
-        pushLog(`[Pet Duel] ${activePet.name} enters the seal against ${wild.name}.`);
-        setPendingPetBattle({
-            owner: "Hollow Gate",
-            pet: wild,
-            battleSeed,
-            returnScreen: "hollowGateShrine",
-            hollowGate: {
-                token,
-                runId: fight.runId,
-                nodeId: fight.nodeId,
-                floor: fight.floor,
-                kind: fight.kind,
-            },
+        pushLog(`[Pet Duel] ${activePet.name} enters the seal against ${hollowGateHoundName(fight.floor, fight.kind)}.`);
+        setPetFight({
+            token,
+            runId: fight.runId,
+            nodeId: fight.nodeId,
+            floor: fight.floor,
+            kind: fight.kind,
+            houndId: hollowHoundEncounterId(hollowGatePetEncounterSeed(fight.runId)),
         });
-        setScreen("petArena");
     }
 
     function markResolvedTile(tiles: HollowGateTile[], nodeId?: string): HollowGateTile[] {
@@ -207,16 +203,15 @@ export function useHollowGateAppFlow(params: {
             : "Hollow Hound defeated. Threat dissipates — the Torch of Reiki, though, keeps burning down.");
     }
 
-    function onPetBattleEnd(result: HollowGateCombatSettleResult, opponent: PetArenaOpponent) {
-        const gate = opponent.hollowGate;
-        if (!gate) return;
+    function onPetBattleEnd(result: HollowGateCombatSettleResult, gate: HollowGatePetFightRef) {
+        setPetFight(null);
         if (result.won) {
             onBattleWin({
                 isBoss: gate.kind === "boss",
                 isAmbush: gate.kind === "ambush",
                 nodeId: gate.nodeId,
             });
-            pushLog(`${opponent.pet.name} is driven back by your pet. The sealed path opens.`);
+            pushLog(`${hollowGateHoundName(gate.floor, gate.kind)} is driven back by your pet. The sealed path opens.`);
             return;
         }
         setRun((previous) => {

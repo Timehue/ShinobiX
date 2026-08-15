@@ -16,15 +16,6 @@ export type PetArenaOpponent = {
     // battle ends. Defaults to "centralHub" inside PetArena. Used by the
     // Hollow Gate pet_battle tile to return the player to the shrine.
     returnScreen?: Screen;
-    /** One sealed Hollow Gate encounter. The Pet Arena reports its replayed
-     * result back to this binding instead of paying ordinary Coliseum rewards. */
-    hollowGate?: {
-        token: string;
-        runId: string;
-        nodeId: string;
-        floor: number;
-        kind: "battle" | "elite" | "ambush" | "beast" | "boss";
-    };
     // ── Party (2v2) extensions ────────────────────────────────────────
     // When opponentParty is set, the incoming battle should resolve as a
     // 2-pet set. challengerParty is the player's locked-in pair (carried

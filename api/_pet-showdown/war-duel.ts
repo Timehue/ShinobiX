@@ -39,7 +39,7 @@
 
 import { createShowdownSession, showdownStateView, WEATHER_NAME } from './engine.js';
 import { resolveShowdownHeadless } from './headless.js';
-import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
+import type { ShowdownFormat, ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import { WAR_DUEL_FORMAT } from './war-team.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
@@ -53,6 +53,17 @@ export interface WarDuelInput {
     toPets: Pet[];
     /** Sector-war home ground element (defender's sector), or null/undefined. */
     terrain?: string | null;
+    /**
+     * Field size. Defaults to WAR_DUEL_FORMAT (2v2 + bench) — the owner ruling
+     * for war duels, and what every war caller wants.
+     *
+     * It is overridable for ONE reason: the ranked pet queue seals exactly one
+     * pet per side into its match token, so a 2v2 there would be two solo pets
+     * standing in a format built for reserves, and the bench tactics the format
+     * exists for would do nothing. A caller that seals one pet should say 1v1
+     * rather than let the format lie about the fight.
+     */
+    format?: ShowdownFormat;
 }
 
 export interface WarDuelResolution {
@@ -93,7 +104,7 @@ export function resolveWarDuel(input: WarDuelInput): WarDuelResolution {
     // tactics — did nothing in the modes that decide territory and rating. The
     // engine benches whatever exceeds the field, so a short roster still
     // fights; it just fights without reserves.
-    const format = WAR_DUEL_FORMAT;
+    const format = input.format ?? WAR_DUEL_FORMAT;
     const session = createShowdownSession({
         sessionId: input.sessionId,
         playerName: input.fromName,
