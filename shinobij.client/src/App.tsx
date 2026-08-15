@@ -3069,6 +3069,9 @@ export default function App() {
                 fetchPlayerCombatSave(challenge.fromName),
                 fetchPlayerCombatSave(character.name),
             ]);
+            // p2 is US: reading our own save settles elapsed state and can bump
+            // the stored version, so adopt it or the next autosave 409s.
+            acceptExternalSaveVersion(p2CombatSave?._saveVersion, character.name);
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
@@ -3205,7 +3208,7 @@ export default function App() {
             setCharacter(normalized);
             currentAccountNameRef.current = snap.character.name;
             setCurrentAccountName(snap.character.name);
-            rehydrateSaveConflictDraft(snap.character.name, snap);
+            void rehydrateSaveConflictDraft(snap.character.name, snap);
             setCurrentBiome(snap.currentBiome ?? "central");
             setActiveTraining(snap.activeTraining ?? null);
             setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
@@ -4642,20 +4645,25 @@ export default function App() {
         }
         beginBlockingRestore();
 
-        await restoreSaveConflictRevision({
+        const { declined } = await restoreSaveConflictRevision({
             visibleDraft, sessionEpoch: restoreSessionEpoch, runExclusive: savePersistenceRef.current!.runExclusive,
             isCurrentSession: isCurrentSaveSession, loadDraft: loadConflictDraftForAccount,
             latestVersion: latestSaveVersionRef, currentSnapshot: () => latestSaveRef.current,
             captureConflict: captureSaveConflictDraft, applySnapshot: applyServerSnapshot,
             discardRevision: discardSaveConflictRevision,
         });
+        // The write is durable either way. Say plainly which parts the server kept
+        // authority over rather than reporting the whole restore as a failure.
+        if (declined.length) {
+            alert(`Your device draft was restored. The server keeps authority over ${declined.join(", ").toLowerCase()}, so those stayed at the server's values.`);
+        }
     }
 
     useEffect(() => {
         if (!saveConflictDraft) return;
         const nextExpiry = Math.min(...saveConflictDraft.revisions.map((revision) => revision.expiresAt));
         const timer = window.setTimeout(
-            () => { rehydrateSaveConflictDraft(saveConflictDraft.accountName); },
+            () => { void rehydrateSaveConflictDraft(saveConflictDraft.accountName); },
             Math.max(0, nextExpiry - Date.now() + 50),
         );
         return () => window.clearTimeout(timer);
@@ -4898,7 +4906,7 @@ export default function App() {
         scopeSaveAuthorityToAccount(characterToCreate.name);
         currentAccountNameRef.current = characterToCreate.name;
         setCurrentAccountName(characterToCreate.name); setCharacter(characterToCreate);
-        rehydrateSaveConflictDraft(characterToCreate.name);
+        void rehydrateSaveConflictDraft(characterToCreate.name);
         setCurrentBiome("central");
         setActiveTraining(null);
         setActiveJutsuTraining(null);
@@ -4950,7 +4958,7 @@ export default function App() {
         currentAccountNameRef.current = snap.character.name;
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
-        rehydrateSaveConflictDraft(snap.character.name, snap);
+        void rehydrateSaveConflictDraft(snap.character.name, snap);
         setCurrentBiome(snap.currentBiome ?? "central");
         setActiveTraining(snap.activeTraining ?? null);
         setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
@@ -7391,6 +7399,7 @@ export default function App() {
                         lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
                         character={character}
                         updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter}
+                        onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorAis={playableAis}
@@ -7530,6 +7539,14 @@ export default function App() {
                                 .then(data => {
                                     const serverChar = data?.character as Character | undefined;
                                     if (!serverChar) return;
+                                    // Adopt the version this read was served at. A GET of your OWN
+                                    // save can settle elapsed state and bump `_saveVersion`; dropping
+                                    // it here left latestSaveVersionRef stale, so the next autosave
+                                    // 409'd and the conflict recovery raised a banner for a
+                                    // divergence that did not exist.
+                                    if (saveAuthorityAccountKeyRef.current === saveConflictAccountKey(character.name)) {
+                                        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, (data as Record<string, unknown> | null)?._saveVersion);
+                                    }
                                     setCharacter(prev => prev ? ({
                                         ...prev,
                                         honorSeals: serverChar.honorSeals ?? prev.honorSeals,

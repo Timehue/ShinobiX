@@ -1,9 +1,13 @@
 import {
     buildSaveConflictRestorePayload,
     detectSaveConflictAreas,
+    isResolvedConflictAreas,
     latestSaveConflictRevision,
+    loadSaveOwnershipClassifier,
     saveConflictAccountKey,
     stringifySaveConflictPayload,
+    SAVE_TIMING_ONLY_AREA,
+    SERVER_MANAGED_AREA,
     type SaveConflictDraft,
     type SaveConflictRevision,
 } from "./save-conflict";
@@ -19,15 +23,31 @@ function exactSaveVersion(value: unknown): number | null {
     return Number.isSafeInteger(value) && Number(value) > 0 ? Number(value) : null;
 }
 
-function timingOnly(left: unknown, right: unknown): boolean {
-    const areas = detectSaveConflictAreas(left, right);
-    return areas.length === 1 && areas[0] === "Save timing only";
+/**
+ * True when the difference between two local snapshots holds nothing worth
+ * protecting — either no semantic change at all, or one confined to fields the
+ * server owns and would discard from a generic save anyway.
+ */
+function nothingRecoverable(left: unknown, right: unknown): boolean {
+    return isResolvedConflictAreas(detectSaveConflictAreas(left, right));
 }
 
 /**
- * Restore one protected revision as an exclusive, exact-version transaction.
- * The selected revision is discarded only after the authoritative read-back is
- * byte-semantically equivalent and carries the same version as the write ack.
+ * Restore one protected revision as an exclusive transaction.
+ *
+ * The revision is discarded once the write is DURABLE — the server acknowledged
+ * it and the authoritative read-back is at or past the acknowledged version.
+ *
+ * It deliberately does NOT require the server to echo the draft back. A generic
+ * save is sanitized: the server copies its own stored values over every
+ * server-owned field (api/save/_state-ownership.ts), so a byte-semantic equality
+ * check can only pass for a draft that diverged in purely client-owned state.
+ * Requiring it meant the restore wrote successfully, failed its own
+ * verification, reported "the server changed", and kept the draft forever — the
+ * banner could never be cleared by the button meant to clear it.
+ *
+ * What the server declined to take is reported back as `declined` so the caller
+ * can tell the player the truth instead of raising an error.
  */
 export async function restoreSaveConflictRevision<TPayload extends Record<string, unknown>>(params: {
     visibleDraft: SaveConflictDraft;
@@ -42,13 +62,19 @@ export async function restoreSaveConflictRevision<TPayload extends Record<string
     discardRevision: (revision: SaveConflictRevision) => void;
     request?: typeof fetch;
     timeoutMs?: number;
-}): Promise<void> {
+}): Promise<{ declined: string[] }> {
     const request = params.request ?? fetch;
+    // Null until the exclusive body actually commits, so a queue that resolves
+    // without running the work can never be reported to the player as a restore.
+    let outcome: { declined: string[] } | null = null;
     const assertCurrent = (accountKey: string) => {
         if (!params.isCurrentSession(accountKey, params.sessionEpoch)) {
             throw new Error("The active account changed. The local draft remains protected.");
         }
     };
+    // Both the advanced-local guard and the declined-areas report classify by
+    // ownership, so the mirror must be resident before either runs.
+    await loadSaveOwnershipClassifier().catch(() => undefined);
     await params.runExclusive(async () => {
         assertCurrent(params.visibleDraft.accountKey);
         const draft = params.loadDraft(params.visibleDraft.accountName) ?? params.visibleDraft;
@@ -61,7 +87,7 @@ export async function restoreSaveConflictRevision<TPayload extends Record<string
             const currentLocal = params.currentSnapshot();
             if (currentLocal
                 && saveConflictAccountKey(currentLocal.name) === draft.accountKey
-                && (!startingLocal || currentLocal.revision > startingLocal.revision || !timingOnly(startingLocal.payload, currentLocal.payload))) {
+                && (!startingLocal || currentLocal.revision > startingLocal.revision || !nothingRecoverable(startingLocal.payload, currentLocal.payload))) {
                 params.captureConflict(currentLocal.name, { ...currentLocal.payload, _baseSaveVersion: params.latestVersion.current });
             }
         };
@@ -117,12 +143,25 @@ export async function restoreSaveConflictRevision<TPayload extends Record<string
             throw new Error("The authoritative restore response belonged to a different account. The local draft remains protected.");
         }
 
-        if (exactSaveVersion(verified._saveVersion) !== acknowledgedVersion || !timingOnly(selected.payload, verified)) {
+        const verifiedVersion = exactSaveVersion(verified._saveVersion);
+        if (verifiedVersion === null || verifiedVersion < acknowledgedVersion) {
+            // The authoritative save is BEHIND the version we were just handed —
+            // the write we acknowledged is not the one being served. Keep the
+            // draft; this is the one case where the restore genuinely did not stick.
             applyAuthoritative(verified);
-            throw new Error("The server changed before the restored draft could be verified. The local draft remains protected.");
+            throw new Error("The server could not confirm the restored draft is live. The local draft remains protected.");
         }
+
+        // Everything the sanitizer refused to take from the draft. Reported, not
+        // thrown: the write is durable and the draft has served its purpose.
+        const declined = detectSaveConflictAreas(selected.payload, verified)
+            .filter((area) => area !== SAVE_TIMING_ONLY_AREA && area !== SERVER_MANAGED_AREA);
+
         applyAuthoritative(verified);
         assertCurrent(draft.accountKey);
         params.discardRevision(selected);
+        outcome = { declined };
     });
+    if (!outcome) throw new Error("The restore never ran. The local draft remains protected.");
+    return outcome;
 }

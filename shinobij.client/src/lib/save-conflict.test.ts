@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import {
+    loadSaveOwnershipClassifier,
     SAVE_CONFLICT_DRAFT_TTL_MS,
     buildSaveConflictRestorePayload,
     createSaveConflictDraftStore,
@@ -28,6 +29,11 @@ class MemoryStorage implements SaveConflictStorage {
 }
 
 describe("save-conflict drafts", () => {
+    // The ownership mirror is code-split out of the boot bundle, so classification
+    // is only correct once it is resident. Production awaits it at both call
+    // sites (pinned by the contract test below); the tests do the same.
+    before(async () => { await loadSaveOwnershipClassifier(); });
+
     it("strips embedded images recursively while preserving gameplay data", () => {
         const sanitized = sanitizeSaveConflictPayload({
             character: {
@@ -132,7 +138,11 @@ describe("save-conflict drafts", () => {
         assert.equal((JSON.parse(exported) as { revisionCount: number }).revisionCount, 1);
     });
 
-    it("reports cohesive story, pet, and Chronicle conflict areas", () => {
+    it("collapses a server-owned divergence instead of offering it as recoverable", () => {
+        // storyProgress, pets, and tileCards are all server-owned: the sanitizer
+        // copies the stored value back over whatever a generic save sends, so a
+        // restore of these is guaranteed to be discarded. Reporting them as
+        // recoverable is what left the banner unclearable.
         const local = {
             character: {
                 storyProgress: { chapter: 4 },
@@ -147,7 +157,40 @@ describe("save-conflict drafts", () => {
                 tileCards: [],
             },
         };
+        assert.deepEqual(detectSaveConflictAreas(local, server), ["Server-managed progress"]);
+    });
+
+    it("reports cohesive story, pet, and Chronicle areas for client-owned divergence", () => {
+        const local = {
+            character: {
+                storyTraits: ["stoic"],
+                activePetId: "fox",
+                cardClashDeck: ["tc-001"],
+            },
+        };
+        const server = {
+            character: {
+                storyTraits: [],
+                activePetId: "owl",
+                cardClashDeck: [],
+            },
+        };
         assert.deepEqual(detectSaveConflictAreas(local, server), ["Story & Legacy", "Companions", "Living Chronicle"]);
+    });
+
+    it("names only the restorable half of a mixed divergence", () => {
+        const local = { character: { level: 40, rank: "jonin", nindo: "walk softly" }, currentSector: 12 };
+        const server = { character: { level: 38, rank: "chunin", nindo: "" }, currentSector: 9 };
+        // level and rank are server-owned; the sector is not.
+        assert.deepEqual(detectSaveConflictAreas(local, server), ["Travel & world position"]);
+    });
+
+    it("treats a vitals-only divergence as nothing to recover", () => {
+        // settleSaveRecordForRead re-projects vitals from `_saveAt` on every read,
+        // so a device copy of them is never observable.
+        const local = { character: { name: "Kaya", hp: 900, chakra: 400, stamina: 120 } };
+        const server = { character: { name: "Kaya", hp: 1000, chakra: 500, stamina: 200 } };
+        assert.deepEqual(detectSaveConflictAreas(local, server), ["Server-managed progress"]);
     });
 
     it("recognizes an unload guard that the server already persisted", () => {
@@ -176,7 +219,7 @@ describe("save-conflict drafts", () => {
         assert.deepEqual(visible.at(-1), [captured.revisions[0].id], "the active account can still restore from memory");
     });
 
-    it("rehydrates against authority and removes timing-only guards", () => {
+    it("rehydrates against authority and removes timing-only guards", async () => {
         const storage = new MemoryStorage();
         const visible: Array<number | null> = [];
         const store = createSaveConflictDraftStore({
@@ -191,7 +234,7 @@ describe("save-conflict drafts", () => {
         });
         assert.equal(storage.length, 1);
 
-        const remaining = store.rehydrate("Kaya", {
+        const remaining = await store.rehydrate("Kaya", {
             character: { name: "Kaya", level: 9, portrait: "https://cdn/avatar.webp" },
             _saveVersion: 13,
             _saveAt: 123_456,
@@ -328,6 +371,52 @@ describe("save-conflict App and accessibility contracts", () => {
     it("rehydrates conflict state after authoritative snapshots", () => {
         assert.match(appSource, /rehydrateSaveConflictDraft\(snap\.character\.name, snap\)/);
         assert.match(appSource, /createSaveConflictDraftStore\(\{/);
+    });
+
+    it("adopts the save version from every read of the player's OWN combat save", () => {
+        // fetchPlayerCombatSave(character.name) reads YOUR save, and the server
+        // settles elapsed state on an owner read — a completed journey, an expired
+        // Hollow Gate run — which bumps `_saveVersion`. Dropping it strands the
+        // client on a stale base version, so its next autosave 409s and conflict
+        // recovery raises a banner for a divergence that never happened.
+        const sources: Array<[string, string]> = [
+            ["App.tsx", appSource],
+            ["Arena.tsx", readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8")],
+            ["WorldMap.tsx", readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8")],
+        ];
+        const adopts = /(?:acceptExternalSaveVersion|onServerVersion\?\.)\(\s*[A-Za-z0-9_]+\?\._saveVersion/;
+
+        for (const [name, source] of sources) {
+            const ownReads = [...source.matchAll(/fetchPlayerCombatSave\(character\.name\)/g)];
+            assert.ok(ownReads.length > 0, `${name} should still read its own combat save`);
+            for (const match of ownReads) {
+                assert.match(
+                    source.slice(match.index, match.index + 900),
+                    adopts,
+                    `${name} reads its own combat save without adopting the version it was served at`,
+                );
+            }
+        }
+    });
+
+    it("loads the ownership mirror before classifying, at every classification site", () => {
+        // The mirror is code-split, and detectSaveConflictAreas degrades to
+        // "everything is restorable" without it. That degradation is the exact
+        // shape of the original bug — a draft of purely server-owned fields
+        // offered as recoverable — so both sites must await the load first.
+        const conflictSource = readFileSync(new URL("./save-conflict.ts", import.meta.url), "utf8");
+        const restoreSource = readFileSync(new URL("./save-conflict-restore.ts", import.meta.url), "utf8");
+
+        const rehydrateBody = conflictSource.slice(conflictSource.indexOf("const rehydrate = async"));
+        const load = rehydrateBody.indexOf("await loadSaveOwnershipClassifier()");
+        const classify = rehydrateBody.indexOf("updateSaveConflictAreas(draft, serverSnapshot)");
+        assert.ok(load > 0 && classify > 0, "rehydrate must load the mirror and classify");
+        assert.ok(load < classify, "the mirror must be resident BEFORE areas are recomputed");
+
+        const restoreLoad = restoreSource.indexOf("await loadSaveOwnershipClassifier()");
+        const restoreExclusive = restoreSource.indexOf("await params.runExclusive");
+        assert.ok(restoreLoad > 0, "restore must load the mirror");
+        assert.ok(restoreLoad < restoreExclusive, "load the mirror before the exclusive restore body runs");
     });
 
     it("renders a nonmodal, keyboard-native, busy and error-announcing banner", () => {

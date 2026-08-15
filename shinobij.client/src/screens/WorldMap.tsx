@@ -5131,6 +5131,10 @@ export function WorldMap({
                                                     fetchPlayerCombatSave(character.name),
                                                     fetchPlayerCombatSave(guardChar.name),
                                                 ]);
+                                                // Our own read settles elapsed state (an arrival, an
+                                                // expired run) and can bump the stored version; adopt
+                                                // it or our next autosave 409s on a stale base.
+                                                onServerVersion?.(selfSave?._saveVersion);
                                                 const selfChar = selfSave?.character ?? character;
                                                 const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
                                                 const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;
