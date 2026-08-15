@@ -6,20 +6,21 @@
 
 Status date: 2026-08-15 (America/Chicago)
 
-Program state: **Phase 0 locally complete; Phase 1 implemented and validated locally; Phase 2 in progress**
+Program state: **Phase 0 locally complete; Phase 1 implemented and validated locally; Phase 2 locally complete; Phase 3 next**
 
 Working branch: `codex/aaa-cohesion-corrected`
 
-Working-tree commit base: `5ae4a4828f84a20a3a085b63b1469feea7fa3d8b`
+Integrated Phase-2 revision: `d9ef64aa94b410f5d307f828ccb1871e826fbf66`
 
 Program baseline: `d8948a311680b92a2a672ae0a0b35714e73e8b4f`
 
-Observed `origin/main` on 2026-08-15: `06c9f4c69e92bd9dc8704c2b5f7b15ee36853866`
+Integrated `origin/main` revision observed on 2026-08-15: `06c9f4c69e92bd9dc8704c2b5f7b15ee36853866`
 
-The newer observed `origin/main` is pending integration. It is not part of the
-working-tree commit base or any local evidence reported for this checkpoint.
+Merge parents: program first parent
+`96d23ec23547f6eb6fbb705d58f46a64c46658cb`; integrated upstream second
+parent `06c9f4c69e92bd9dc8704c2b5f7b15ee36853866`.
 
-Phase-0 worktree state before this file was added: clean
+Program-branch state immediately before this status update: clean
 
 Local runtime observed during discovery: Node `v24.15.0`, npm `11.12.1`
 
@@ -33,7 +34,7 @@ split workflow has yet verified Linux/Node-22 execution.
 | --- | --- | --- |
 | 0 — verified baseline and architecture truth | **Locally complete** | Baseline evidence, current deployment/storage topology, the complete static mode map, baseline repairs, and final local reruns are recorded. External and hosted checks remain explicit non-passes. |
 | 1 — reliable CI | **Implemented and validated locally** | The split workflow, contracts, evidence handling, and operator docs pass local static/discovery validation. Hosted split checks and external branch protection remain unverified, so Phase 1 is not claimed complete. |
-| 2 — mode-authority and capability registry | **In progress** | The executable registry, generated projection, reverse route census, canonical server capability predicates, and client capability implementation are present in this working tree. Integration of the newer upstream revision and the final complete test/build/browser gate remain pending. |
+| 2 — mode-authority and capability registry | **Locally complete** | The executable registry, generated projection, reverse route census, canonical server capability predicates, client capability boundaries, upstream integration, frozen impacted census, complete root suite, exact release build, and built-artifact browser gate passed locally. Hosted and external evidence remains an explicit non-pass. |
 | 3 — engine-boundary hardening | Pending | Not started. |
 | 4 — frontend decomposition | Pending | Not started. |
 | 5 — shared reliability infrastructure | Pending | Not started. |
@@ -87,17 +88,21 @@ generic-Pet table.
 
 ## Current check status
 
-The Phase-1 worktree no longer contains the old monolithic 45-minute workflow.
+The program branch no longer contains the old monolithic 45-minute workflow.
 GitHub run `31850478893` for `d8948a3` remains valid **historical baseline
 evidence**: the former `test-build` timed out after starting combat test 18 of 30
 and skipped client audit. It is not current workflow truth and does not validate
 or invalidate the new split jobs. GitHub CodeQL run `31850478918` for the same
-baseline succeeded, but it likewise does not certify this worktree revision.
+baseline succeeded, but it likewise does not certify the integrated program
+revision.
 
-This working tree remains based on `5ae4a4828`; the separately observed
-`origin/main` at `06c9f4c69` has not yet been integrated. Results below therefore
-describe the isolated program tree only and must not be read as validation of the
-newer upstream revision or of a future integrated tree.
+The exact integrated Phase-2 revision is merge commit `d9ef64aa94b410f5d307f828ccb1871e826fbf66`,
+with program first parent `96d23ec23547f6eb6fbb705d58f46a64c46658cb`,
+upstream second parent `06c9f4c69e92bd9dc8704c2b5f7b15ee36853866`,
+and common program baseline `d8948a311680b92a2a672ae0a0b35714e73e8b4f`.
+Results below describe that exact integrated tree. They are local Windows/Node-24
+evidence only and are not hosted Linux/Node-22, staging, database, capacity, or
+production-readiness evidence.
 
 The new workflow pins Node `22.23.1` and declares nine stable/compatibility check
 names: `CI / server-contracts`, `CI / server-build-security`,
@@ -141,18 +146,23 @@ performs that locked install explicitly.
 | Runtime registry and audit projection | **PASS** | 21/21 focused tests cover 55 independently pinned modes, generated-document parity, reverse Express/client route and Socket.IO transport census, inert surface gaps, all six pet authority separations, and immutable compatibility projection. |
 | ANBU typed registry consumer | **PASS** | 3/3 tests retain Solo PvE ownership and reject the retired Tower/custom-action path. |
 | Canonical server release flags and public projection | **PASS** | 53/53 focused tests plus 198/198 broader ANBU, Clan Boss, and Village War tests; final source/flag contract 8/8 and public projection 6/6. |
-| Strict server TypeScript | **PASS** | `npx tsc -p tsconfig.cpanel.json --noEmit --pretty false`. |
+| Upstream integration and adversarial review | **PASS after repair** | The two-parent merge has no conflicts or unmerged entries and retains all 14 upstream-touched paths. Review found and repaired the admin elapsed-read ownership defect; no P0/P1 remained in the reviewed Phase-2 paths. |
+| Frozen impacted census | **PASS** | Client: 424/424 tests across 55 files. Server and source contracts: 331/331 tests across 33 files. |
+| Elapsed-state and save-recovery regressions | **PASS** | Isolated elapsed-state persistence: 3/3. Corrected Tower, save-flight, and session-load slice: 20/20. |
+| Strict TypeScript and client lint | **PASS** | Server `npx tsc -p tsconfig.cpanel.json --noEmit --pretty false`, client `npx tsc -b`, and the complete client lint all passed. |
 | Runtime documentation drift | **PASS** | Generation and immediate `--check` agree byte-for-byte; generated output has no timestamp or SHA. |
+| Complete root suite | **PASS** | `npm run test:ci`: 6,387/6,387 tests across 892 suites; 0 failed/cancelled/skipped/todo; `710057.6022 ms`. |
+| Exact CI-environment release build | **PASS** | Required Sentry/release/build metadata was present. Server: `99.2 KB`; client dist: `300.3 MB`. Budgeted product JS/CSS: `7,694,029` raw / `2,356,743` gzip bytes; story JSON: `566,126` / `143,154`; combined: `8,260,155` / `2,499,897`; all emitted JS/CSS: `7,777,827` / `2,384,799`. The 11-file initial graph was `1,456,273` raw / `384,488` gzip bytes, 512 bytes under the `385,000`-byte cap; `verify-dist` passed. |
+| Built-artifact browser matrix | **PASS** | 42 tests discovered: 30 passed, 12 intentional project-filtered skips, 0 failed, `45.4s`, covering the product-truth player-focus and release-smoke suites against the built artifact. |
 
-The client capability implementation is now present across the strict
+The integrated client capability implementation spans the strict
 fresh/stale/unknown store, admission boundaries, navigation and mixed-feature
-gates, background mutation writers, Activity Spine, and admin diagnostics. That
-implementation has not yet crossed the final upstream-integration and complete
-Phase-2 test/build/browser gate, so this status does not claim Phase 2 locally
-complete.
-
-These are local focused results, not a substitute for the final complete Phase-2
-test/build/browser gates or hosted Node-22 execution.
+gates, background mutation writers, Activity Spine, and admin diagnostics. The
+integrated upstream save/recovery work and all Phase-2 changes crossed the
+complete local test, build, lint, and built-artifact browser gates. Phase 2 is
+therefore locally complete. This deliberately narrow claim is not a substitute
+for hosted Node-22 execution, staging, real-database, capacity, operations,
+rollback, or production-readiness evidence.
 
 The split contexts have not run on GitHub, and the desired protection in
 `docs/required-branch-protection.md` has not been read from or applied to external
@@ -194,7 +204,8 @@ onboarding or Express journeys must run it explicitly.
    `scripts/combat-runtime-inventory.mjs` into a deterministic audit projection, and
    expands its independent facts, reverse route census, surface-gap contract,
    capability bindings, and generated documentation. The registry slice is
-   locally accepted; Phase 2 remains open for final integration and complete gates.
+   locally complete on the integrated revision; hosted and external evidence
+   remains open.
 2. **Ordinary live Pet Arena PvP uses the cinematic duel authority, but its 2v2
    roster contract is under-enforced.** Live 1v1 is a matching server-sealed,
    memory-only, no-reward Socket.IO lifecycle. Live 2v2 uses the same authority,
@@ -229,13 +240,14 @@ onboarding or Express journeys must run it explicitly.
    client-attested Solo outcomes, and other findings that later reports claim
    fixed. They must not be promoted into implementation work until traced in
    current code.
-8. **The Phase-2 authority slice is locally accepted.** The reconciled boundary,
+8. **The Phase-2 authority slice is locally complete.** The reconciled boundary,
    inventory, authority-map, settlement, Hollow Gate, and historical pet-scope
    documents now defer current row truth to the shared registry and preserve the
    distinct Tower and pet-family boundaries. The registry, generated projection,
    audit integration, and canonical server flag predicates passed focused review.
-   The client capability implementation is present, but pending upstream
-   integration and complete gates keep Phase 2 in progress.
+   The client capability implementation and upstream save/recovery integration
+   passed the complete local test, build, lint, and browser gates. Hosted and
+   external certification remain non-passes.
 9. **Sector War's garrison fallback uses the wrong shinobi engine.** The combat
    win condition resolves a territory-affecting AI garrison through the Tower
    mercenary runtime instead of the owner-selected PvP family. This garrison
@@ -301,8 +313,8 @@ scan. The applicable root and client `CLAUDE.md` instructions were read.
   verified through an authorized repository-settings read.
 - The corrected handoff, baseline report, verified mode-authority report, CI
   operator guide, and desired branch-protection policy now exist. The external
-  protection state, hosted split-run evidence, implementation/regression review,
-  capacity, operations, and rollback evidence remain non-passes until verified.
+  protection state, hosted split-run evidence, capacity, operations, and rollback
+  evidence remain non-passes until verified.
 
 ## External blocks and non-claims
 
@@ -314,7 +326,9 @@ blocked evidence, not failed product assertions:
 - production environment/configuration observation;
 - disposable multi-account and multi-human Clan Boss/browser exercises;
 - production or staging rollback drill;
-- GitHub branch-protection mutation, if permissions are unavailable.
+- review-branch push, draft pull-request publication, hosted CI/CodeQL run and
+  artifact evidence, and GitHub branch-protection read/mutation; the available
+  GitHub authorization in this environment is invalid or unavailable.
 
 No destructive production operation, deployment, environment change, database
 migration, production load test, or production-data mutation is authorized by
@@ -322,29 +336,27 @@ this status.
 
 ## Exact next work
 
-1. Reconcile the observed `origin/main` revision `06c9f4c69` into the isolated
-   program branch, preserving the `d8948a3` historical baseline and reviewing any
-   overlapping runtime/capability changes explicitly.
-2. Finish the Phase-2 integration review and run the focused final reruns plus the
-   complete test/build/browser gate on the resulting exact tree; do not promote
-   the current implementation-only checkpoint into a completion claim.
-3. Push the review branch and require all nine stable/compatibility contexts, three
-   combat shards, the internal release join, and both CodeQL language checks to
-   produce final hosted summaries and retained artifacts.
-4. After GitHub has observed the new contexts, apply the documented `main`
-   protection with strict up-to-date checks. Retain `CI / test-build` during the
-   migration, verify an ordinary PR and `main` run, then remove only that
-   compatibility requirement and record the external rule identifier.
-5. Continue Phase 3 work on the confirmed Sector garrison, Dungeon Pet/Card,
+1. Continue Phase 3 work on the confirmed Sector garrison, Dungeon Pet/Card,
    live Pet 2v2 roster, public Pet Ranked, legacy-ranked compatibility, Hollow
    Gate Pet owner decision, Clan War shinobi 2v2, and standalone Tactical defects
    without merging distinct engine families.
-6. Keep the real isolated-database restore, staging health, database audits, and
+2. When valid GitHub authorization is available, push the review branch and open
+   a draft pull request that preserves the Phase-2 merge checkpoint and its
+   evidence.
+3. Require all nine stable/compatibility contexts, three combat shards, the
+   internal release join, and both CodeQL language checks to produce final hosted
+   summaries and retained artifacts.
+4. After GitHub has observed those contexts, apply the documented `main`
+   protection with strict up-to-date checks. Retain `CI / test-build` during the
+   migration, verify an ordinary PR and `main` run, then remove only that
+   compatibility requirement and record the external rule identifier.
+5. Keep the real isolated-database restore, staging health, database audits, and
    production capacity checks externally blocked until authorized targets are
    available; hermetic/local passes are not substitutes.
 
 ```text
-git rev-parse HEAD
+git show -s --format="%H %P" d9ef64aa94b410f5d307f828ccb1871e826fbf66
+git merge-base 96d23ec23547f6eb6fbb705d58f46a64c46658cb 06c9f4c69e92bd9dc8704c2b5f7b15ee36853866
 git rev-parse origin/main
 git status --short
 node --import tsx --test scripts/ci-workflow-contract.test.mjs scripts/ci-package-scripts.test.mjs
