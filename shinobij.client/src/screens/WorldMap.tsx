@@ -351,7 +351,6 @@ export function WorldMap({
     creatorRaids,
     petEncounterVn,
     ancientChestVn,
-    setPendingPvpOpponent,
     setRaidBattleKind,
     setPendingPetBattleOpponent,
     requestCardChallenge,
@@ -397,7 +396,6 @@ export function WorldMap({
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
     ancientChestVn: CreatorEvent;
-    setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     setPendingPetBattleOpponent: (o: PetArenaOpponent | null) => void;
     requestCardChallenge: () => void;
@@ -748,7 +746,6 @@ export function WorldMap({
             // inflated (or denied) by a transient outage.
             setPvpBattleId('');
             setPvpSeedSession(null);
-            setPendingPvpOpponent(null);
             setRaidBattleKind("none");
             setScreen("worldMap");
             alert("Couldn't reach the battle server. Please try the raid again in a moment.");
@@ -1234,7 +1231,6 @@ export function WorldMap({
         setCurrentSector(sector);
         setCurrentBiome(b);
         setCurrentWeather(weatherForSector(sector, b));
-        setPendingPvpOpponent(null);
         const launched = requestAiFight({
             opponentId: worldEncounter.sourceId,
             opponentLevel: ai.level ?? character.level,
@@ -1257,7 +1253,6 @@ export function WorldMap({
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         if (aiRaidLaunchInFlight.current) return;
         aiRaidLaunchInFlight.current = true;
-        setPendingPvpOpponent(null);
         setup?.();
         try {
             const raidProof = await mintAiRaidToken({ playerName: character.name, opponentId: aiId, sector });
@@ -5251,7 +5246,6 @@ export function WorldMap({
                                                 // The local fallback would award PvP-win counters / honor
                                                 // seals / ryo / XP from a client-decided outcome with no
                                                 // server session to cross-check.
-                                                setPendingPvpOpponent(null);
                                                 setRaidBattleKind("none");
                                                 alert("Couldn't reach the battle server. Please try challenging the guard again in a moment.");
                                                 return;
