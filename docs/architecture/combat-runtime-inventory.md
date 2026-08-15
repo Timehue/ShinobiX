@@ -59,13 +59,19 @@ boundary distinctions are mandatory:
   gap; permitted engine-family reuse does not merge the modes.
 - `pet-gauntlet-grid` owns the deterministic Gauntlet draft/grid/transcript
   lifecycle. It is neither Showdown nor Warfront.
-- `pet-cinematic-duel` owns ordinary Pet Arena AI 1v1 and 2v2. Ordinary Pet
-  Arena PvP 1v1 and 2v2 still settle through `legacy-pet-duel` while presenting
-  the cinematic fight, so both PvP rows remain defects.
-- Pet Ranked also remains on `legacy-pet-duel` while a Showdown cutover is
-  staged. Hollow Gate pet is a separate dual-path mismatch: the mounted caller
-  uses `legacy-pet-duel`, while a Showdown-capable branch exists but is not the
-  mounted lifecycle; ownership/cutover remains unresolved.
+- `pet-cinematic-duel` owns ordinary Pet Arena AI 1v1/2v2 through sealed HTTP
+  receipts and ordinary live PvP 1v1/2v2 through the memory-only `petduel:*`
+  transport. Live PvP has no reward or rating settlement and is not the legacy
+  HTTP challenge flow. The 1v1 lifecycle is coherent; the 2v2 caller/server
+  contract currently permits a one-pet roster under the 2v2 label and remains
+  a recorded defect.
+- The public Pet Ranked queue currently hands its pair to that ordinary
+  no-reward realtime duel and therefore does not settle rank. The older
+  `rankedPet` challenge/start/result lifecycle remains a separate mounted
+  `legacy-pet-duel` compatibility path whose cinematic client playback can
+  disagree with legacy server settlement, while Showdown ranked code is staged
+  but uncalled. Hollow Gate pet uses sealed cinematic PvE plus a parent run receipt;
+  its dormant Showdown branch leaves only the long-term owner decision open.
 - Dungeon pet uses `client-local-pet-duel`; because the rewarding parent
   settlement consumes no server-selected pet encounter or terminal pet proof,
   that row remains a defect rather than a valid reusable authority.

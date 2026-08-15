@@ -52,6 +52,10 @@ export function projectRuntimeMode(mode) {
       ...route,
       roles: [...route.roles],
     })),
+    transports: (mode.transports ?? []).map((transport) => ({
+      ...transport,
+      roles: [...transport.roles],
+    })),
     startRoute: start?.path ?? null,
     actionRoute: action?.path ?? null,
     stateRoute: state?.path ?? null,

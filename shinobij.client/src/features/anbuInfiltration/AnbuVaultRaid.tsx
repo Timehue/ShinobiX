@@ -28,6 +28,7 @@ import {
     startInfiltration,
     reportInfiltration,
     fetchInfiltrationState,
+    anbuInfiltrationAdmissionEnabled,
     anbuAvatarForVillage,
     anbuDisplayName,
     type InfilReportResponse,
@@ -36,6 +37,7 @@ import { MissionArenaFight } from "../../screens/MissionArenaFight";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../../lib/solo-pve-arena-adapter";
 import type { SoloPveSession } from "../../lib/solo-pve-api";
 import type { BattleHistoryEntry, Character, HollowGateShrineRun, VersionedCharacterCommit } from "../../types/character";
+import { useCapabilityMutationAvailability, useLiveCapabilities } from "../../lib/live-capabilities-context";
 
 const STEP_MS = 170;
 const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48;
@@ -62,6 +64,9 @@ export function AnbuVaultRaid({
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     onExit: () => void;
 }) {
+    const anbuMutationAvailability = useCapabilityMutationAvailability("anbuInfiltration");
+    const { mutationAvailability, viewAvailability } = useLiveCapabilities();
+    const actionsAvailable = anbuInfiltrationAdmissionEnabled(anbuMutationAvailability);
     // The vault interior + the explored-tile set live in ONE state so `seen`
     // accumulates inside the same event-driven update that moves the player
     // (the strict hooks lints bar both render-time ref mutation and
@@ -93,6 +98,7 @@ export function AnbuVaultRaid({
     });
     useEffect(() => {
         if (!resumeRunId) return;
+        if (viewAvailability("anbuInfiltration") !== "available") return;
         let alive = true;
         fetchInfiltrationState(resumeRunId, character.name)
             .then(res => {
@@ -108,7 +114,7 @@ export function AnbuVaultRaid({
             });
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [resumeRunId]);
+    }, [resumeRunId, viewAvailability]);
 
     const w = run.width;
     const playerIdx = run.playerY * w + run.playerX;
@@ -130,11 +136,14 @@ export function AnbuVaultRaid({
         pathRef.current = [];
         if (timerRef.current != null) { window.clearTimeout(timerRef.current); timerRef.current = null; }
     }
-
     // ── the vault: start the server-auth Anbu fight (fired from the boss-room
     //    Challenge confirm, not on step) ────────────────────────────────────────
     async function enterVault() {
         if (startingRef.current || phaseRef.current !== "traverse") return;
+        if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
+            setError("ANBU infiltration actions are paused. No raid attempt was started.");
+            return;
+        }
         setStarting(true); setError(null);
         try {
             const res = await startInfiltration(character.name, sector);
@@ -175,7 +184,7 @@ export function AnbuVaultRaid({
     }
 
     function walkTo(targetIdx: number) {
-        if (phase !== "traverse" || starting) return;
+        if (!actionsAvailable || phase !== "traverse" || starting) return;
         const path = findHollowGatePath(runRef.current, targetIdx, seenRef.current);
         if (!path || path.length === 0) return;
         stopWalk();
@@ -209,6 +218,9 @@ export function AnbuVaultRaid({
     // Report the terminal Solo PvE evidence through the vault economy route and
     // install the authoritative settled character it returns.
     async function settleInfiltration(runId: string, _playerName: string): Promise<unknown> {
+        if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
+            throw new Error("ANBU settlement is paused. Keep this run open and retry when live admission returns.");
+        }
         const r = await reportInfiltration(runId, character.name);
         try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
         if (r.ok && "character" in r && r.character && !onVersionedCharacter(r.character, r._saveVersion)) return r;
@@ -216,6 +228,22 @@ export function AnbuVaultRaid({
         setPhase("result");
         return r;
     }
+
+    const guardedArenaTransport = useMemo(() => ({
+        ...soloPveArenaTransport,
+        fetchState: (sessionId: string, playerName: string) => {
+            if (viewAvailability("anbuInfiltration") !== "available") {
+                return Promise.reject(new Error("ANBU recovery status is temporarily unavailable."));
+            }
+            return soloPveArenaTransport.fetchState(sessionId, playerName);
+        },
+        submitAction: (...args: Parameters<typeof soloPveArenaTransport.submitAction>) => {
+            if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
+                return Promise.reject(new Error("ANBU combat actions are temporarily paused."));
+            }
+            return soloPveArenaTransport.submitAction(...args);
+        },
+    }), [mutationAvailability, viewAvailability]);
 
     // ── render helpers ─────────────────────────────────────────────────────────
     const themeImg = (role: string) => sharedImages[`shrine:icon-theme-warvault-${role}`];
@@ -256,7 +284,7 @@ export function AnbuVaultRaid({
                 sharedImages={sharedImages}
                 runId={fight.runId}
                 initialSession={soloPveSessionForArena(fight.session)}
-                transport={soloPveArenaTransport}
+                transport={guardedArenaTransport}
                 onExit={() => {
                     // Leaving pre-report abandons the run (the attempt stays
                     // burned — the raid-start mint-cap rule); post-report just

@@ -1,7 +1,10 @@
+import { useMemo } from "react";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { Character } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
+import { useLiveCapabilities } from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 
 // Weekly Boss = a SOLO score-attack against an unkillable, server-shared boss,
 // rendered on the normal Arena shell (MissionArenaFight) — the same format as
@@ -31,13 +34,29 @@ export function WeeklyBossFight({
     settleFn: (runId: string, playerName: string) => Promise<unknown>;
     onExit: () => void;
 }) {
+    const { mutationAvailability, viewAvailability } = useLiveCapabilities();
+    const guardedTransport = useMemo(() => ({
+        ...soloPveArenaTransport,
+        fetchState: (sessionId: string, playerName: string) => {
+            if (!capabilityAdmissionAllowed(viewAvailability())) {
+                return Promise.reject(new Error("Weekly Boss recovery status is temporarily unavailable."));
+            }
+            return soloPveArenaTransport.fetchState(sessionId, playerName);
+        },
+        submitAction: (...args: Parameters<typeof soloPveArenaTransport.submitAction>) => {
+            if (!capabilityAdmissionAllowed(mutationAvailability())) {
+                return Promise.reject(new Error("Weekly Boss combat actions are temporarily paused."));
+            }
+            return soloPveArenaTransport.submitAction(...args);
+        },
+    }), [mutationAvailability, viewAvailability]);
     return (
         <MissionArenaFight
             character={character}
             sharedImages={sharedImages}
             runId={runId}
             initialSession={soloPveSessionForArena(initialSession)}
-            transport={soloPveArenaTransport}
+            transport={guardedTransport}
             settleFn={settleFn}
             settleOnAnyDone
             // Weekly settlement atomically owns contribution, usage costs, and

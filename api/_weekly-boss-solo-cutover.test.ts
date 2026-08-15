@@ -9,6 +9,7 @@ import {
 
 test('Weekly Boss is a one-human/one-AI Solo PvE score attack', () => {
     const api = readFileSync('api/weekly-boss.ts', 'utf8');
+    const arena = readFileSync('shinobij.client/src/screens/WeeklyBossArena.tsx', 'utf8');
     const fight = readFileSync('shinobij.client/src/screens/WeeklyBossFight.tsx', 'utf8');
     const legacyArena = readFileSync('shinobij.client/src/screens/Arena.tsx', 'utf8');
     const towerEngine = readFileSync('api/towers/_engine.ts', 'utf8');
@@ -27,6 +28,13 @@ test('Weekly Boss is a one-human/one-AI Solo PvE score attack', () => {
     assert.doesNotMatch(api, /cleanWeeklyBossDamageEvents|validateWeeklyBossFightClaim|WEEKLY_BOSS_DMG_ABSOLUTE_CAP/);
     assert.match(api, /weeklyBossActiveRunKey/);
     assert.match(api, /weekly-start-/);
+    assert.match(api, /req\.query\.recoverFight === '1'/);
+    assert.match(api, /kind === 'startFight' \|\| kind === 'resumeFight'/);
+    assert.match(api, /if \(recoveryOnly && \(!run \|\| !session\)\)/,
+        'resume-only recovery must stop before the new-run creation branch');
+    assert.match(arena, /recoverFight=1&weekKey=/);
+    assert.match(arena, /kind: "resumeFight"/);
+    assert.match(arena, /onClick=\{\(\) => \{ void recoverAuthoritativeFight\(\); \}\}/);
 });
 
 test('Weekly Boss attempt reservation is resumable and rolls back only its own receipt', () => {

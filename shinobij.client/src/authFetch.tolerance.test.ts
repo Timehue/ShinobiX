@@ -1,7 +1,13 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
-import { buildSaveVersionEventDetail } from "./authFetch";
+import {
+    attachAdminSessionCredential,
+    buildSaveVersionEventDetail,
+    clearRecoveryAdminSession,
+    setAdminSession,
+    setRecoveryAdminSession,
+} from "./authFetch";
 
 /*
  * A brief storage blip must not eject a player from an active fight.
@@ -24,6 +30,134 @@ import { buildSaveVersionEventDetail } from "./authFetch";
 const source = readFileSync(new URL("./authFetch.ts", import.meta.url), "utf8");
 
 describe("transient 401 tolerance", () => {
+    it("clears a tokenless admin fallback before player requests resume", () => {
+        const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+        const values = new Map<string, string>();
+        const storage: Storage = {
+            get length() { return values.size; },
+            clear: () => values.clear(),
+            getItem: (key) => values.get(key) ?? null,
+            key: (index) => [...values.keys()][index] ?? null,
+            removeItem: (key) => { values.delete(key); },
+            setItem: (key, value) => { values.set(key, String(value)); },
+        };
+        Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: storage });
+        try {
+            setAdminSession(null, "legacy-admin-password");
+            const operatorHeaders = new Headers();
+            attachAdminSessionCredential(operatorHeaders);
+            assert.equal(operatorHeaders.get("x-admin-password"), "legacy-admin-password");
+
+            setAdminSession(null, null);
+            assert.equal(storage.getItem("admin:pw"), null);
+            assert.equal(storage.getItem("admin:token"), null);
+            const resumedPlayerHeaders = new Headers();
+            attachAdminSessionCredential(resumedPlayerHeaders);
+            assert.equal(resumedPlayerHeaders.get("x-admin-password"), null);
+            assert.equal(resumedPlayerHeaders.get("x-admin-token"), null);
+        } finally {
+            if (previousStorage) Object.defineProperty(globalThis, "sessionStorage", previousStorage);
+            else Reflect.deleteProperty(globalThis, "sessionStorage");
+        }
+    });
+
+    it("consumes recovery credentials after reload without clearing a normal admin session", () => {
+        const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+        const values = new Map<string, string>();
+        const storage: Storage = {
+            get length() { return values.size; },
+            clear: () => values.clear(),
+            getItem: (key) => values.get(key) ?? null,
+            key: (index) => [...values.keys()][index] ?? null,
+            removeItem: (key) => { values.delete(key); },
+            setItem: (key, value) => { values.set(key, String(value)); },
+        };
+        Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: storage });
+        try {
+            assert.equal(setRecoveryAdminSession("recovery-token", "unused-fallback"), true);
+            assert.equal(storage.getItem("admin:recovery-session"), "1");
+            assert.equal(storage.getItem("admin:token"), "recovery-token");
+            assert.equal(clearRecoveryAdminSession(), true, "next boot consumes the recovery-owned credential");
+            const resumedPlayerHeaders = new Headers();
+            attachAdminSessionCredential(resumedPlayerHeaders);
+            assert.equal(resumedPlayerHeaders.get("x-admin-token"), null);
+            assert.equal(resumedPlayerHeaders.get("x-admin-password"), null);
+
+            setAdminSession(null, "ordinary-admin-password");
+            assert.equal(clearRecoveryAdminSession(), false, "ordinary AdminPanel credentials have no recovery marker");
+            const ordinaryAdminHeaders = new Headers();
+            attachAdminSessionCredential(ordinaryAdminHeaders);
+            assert.equal(ordinaryAdminHeaders.get("x-admin-password"), "ordinary-admin-password");
+        } finally {
+            if (previousStorage) Object.defineProperty(globalThis, "sessionStorage", previousStorage);
+            else Reflect.deleteProperty(globalThis, "sessionStorage");
+        }
+    });
+
+    it("fails recovery login closed when its ownership marker cannot persist", () => {
+        const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+        const values = new Map<string, string>([["admin:pw", "stale-admin-password"]]);
+        const storage: Storage = {
+            get length() { return values.size; },
+            clear: () => values.clear(),
+            getItem: (key) => values.get(key) ?? null,
+            key: (index) => [...values.keys()][index] ?? null,
+            removeItem: (key) => { values.delete(key); },
+            setItem: (key, value) => {
+                if (key === "admin:recovery-session") throw new Error("storage unavailable");
+                values.set(key, String(value));
+            },
+        };
+        Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: storage });
+        try {
+            assert.equal(setRecoveryAdminSession(null, "new-admin-password"), false);
+            assert.equal(storage.getItem("admin:recovery-session"), null);
+            assert.equal(storage.getItem("admin:pw"), null);
+            assert.equal(storage.getItem("admin:token"), null);
+            const headers = new Headers();
+            attachAdminSessionCredential(headers);
+            assert.equal(headers.get("x-admin-password"), null);
+            assert.equal(headers.get("x-admin-token"), null);
+        } finally {
+            if (previousStorage) Object.defineProperty(globalThis, "sessionStorage", previousStorage);
+            else Reflect.deleteProperty(globalThis, "sessionStorage");
+        }
+    });
+
+    it("retains the recovery marker until a partial credential clear can retry", () => {
+        const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+        const values = new Map<string, string>();
+        let failPasswordRemoval = false;
+        const storage: Storage = {
+            get length() { return values.size; },
+            clear: () => values.clear(),
+            getItem: (key) => values.get(key) ?? null,
+            key: (index) => [...values.keys()][index] ?? null,
+            removeItem: (key) => {
+                if (failPasswordRemoval && key === "admin:pw") throw new Error("storage unavailable");
+                values.delete(key);
+            },
+            setItem: (key, value) => { values.set(key, String(value)); },
+        };
+        Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: storage });
+        try {
+            assert.equal(setRecoveryAdminSession(null, "recovery-password"), true);
+            failPasswordRemoval = true;
+            assert.equal(clearRecoveryAdminSession(), false);
+            assert.equal(storage.getItem("admin:recovery-session"), "1", "marker survives a partial clear");
+
+            failPasswordRemoval = false;
+            const resumedPlayerHeaders = new Headers();
+            attachAdminSessionCredential(resumedPlayerHeaders);
+            assert.equal(storage.getItem("admin:recovery-session"), null, "next request retries the marked cleanup");
+            assert.equal(resumedPlayerHeaders.get("x-admin-password"), null);
+            assert.equal(resumedPlayerHeaders.get("x-admin-token"), null);
+        } finally {
+            if (previousStorage) Object.defineProperty(globalThis, "sessionStorage", previousStorage);
+            else Reflect.deleteProperty(globalThis, "sessionStorage");
+        }
+    });
+
     it("gates the session-expired modal on duration as well as count", () => {
         assert.match(source, /const TRANSIENT_401_TOLERANCE = \d+;/);
         assert.match(source, /const TRANSIENT_401_GRACE_MS = [\d_]+;/);

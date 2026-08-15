@@ -10,6 +10,12 @@ import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
 import { WeeklyBossFight } from "./WeeklyBossFight";
 import type { SoloPveSession } from "../lib/solo-pve-api";
+import {
+    useCapabilityMutationAvailability,
+    useCapabilityViewAvailability,
+    useLiveCapabilities,
+} from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 
 // ─── Weekly Boss Arena ────────────────────────────────────────────────────────
 // Shared score-attack boss fought through the authoritative Solo PvE runtime.
@@ -33,6 +39,12 @@ export function WeeklyBossArena({
     playerRoster: PlayerRecord[];
     sharedImages?: Record<string, string>;
 }) {
+    const weeklyBossViewAvailability = useCapabilityViewAvailability();
+    const weeklyBossMutationAvailability = useCapabilityMutationAvailability();
+    const guardCycleAvailability = useCapabilityViewAvailability("weeklyBossGuardCycle");
+    const { mutationAvailability, viewAvailability } = useLiveCapabilities();
+    const weeklyBossViewOpen = capabilityAdmissionAllowed(weeklyBossViewAvailability);
+    const weeklyBossActionsAvailable = capabilityAdmissionAllowed(weeklyBossMutationAvailability);
     const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
     const [fightEnabled, setFightEnabled] = useState(true);
     const [fightDisabledReason, setFightDisabledReason] = useState<string | null>(null);
@@ -42,6 +54,7 @@ export function WeeklyBossArena({
     const [fight, setFight] = useState<{ runId: string; session: SoloPveSession } | null>(null);
 
     const refresh = useCallback(async () => {
+        if (!capabilityAdmissionAllowed(viewAvailability())) return;
         try {
             const r = await fetch("/api/weekly-boss", { method: "GET" });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -54,21 +67,26 @@ export function WeeklyBossArena({
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [viewAvailability]);
 
     useEffect(() => {
+        if (!weeklyBossViewOpen) return;
         void refresh();
         return visiblePoll(refresh, 15000);
-    }, [refresh]);
+    }, [refresh, weeklyBossViewOpen]);
 
     async function launchAuthoritativeFight() {
         if (startingFight) return;
+        if (!weeklyBossActionsAvailable || !capabilityAdmissionAllowed(mutationAvailability())) {
+            setError("New Weekly Boss fights are paused. Leaderboard status and accepted-fight recovery remain available.");
+            return;
+        }
         setStartingFight(true);
         try {
             const response = await fetch("/api/weekly-boss", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ kind: "startFight" }),
+                body: JSON.stringify({ kind: "startFight", weekKey: bossState?.weekKey }),
             });
             const data = await response.json().catch(() => ({})) as { runId?: string; session?: SoloPveSession; character?: Character; _saveVersion?: number; error?: string };
             if (!response.ok || !data?.runId || !data?.session) {
@@ -84,7 +102,69 @@ export function WeeklyBossArena({
         }
     }
 
+    async function recoverAuthoritativeFight() {
+        if (startingFight) return;
+        if (!capabilityAdmissionAllowed(viewAvailability())) {
+            setError("Weekly Boss recovery status is temporarily unavailable.");
+            return;
+        }
+        const weekKey = bossState?.weekKey;
+        if (!weekKey) {
+            setError("Weekly Boss status changed. Refresh and try recovery again.");
+            return;
+        }
+        setStartingFight(true);
+        try {
+            let response = await fetch(`/api/weekly-boss?recoverFight=1&weekKey=${encodeURIComponent(weekKey)}`, {
+                method: "GET",
+                cache: "no-store",
+                headers: { Accept: "application/json" },
+            });
+            let data = await response.json().catch(() => ({})) as {
+                runId?: string;
+                session?: SoloPveSession;
+                character?: Character;
+                _saveVersion?: number;
+                code?: string;
+                error?: string;
+            };
+
+            // A process can fail after persisting a prepared session but before
+            // its idempotent attempt/stamina saga reaches ready. Discovery above
+            // remains read-only; this separately named mutation may finish only
+            // that exact accepted run and is incapable of creating a new one.
+            if (response.status === 409
+                && data.code === "weekly-boss-recovery-needs-finalization"
+                && data.runId) {
+                if (!capabilityAdmissionAllowed(mutationAvailability())) {
+                    setError("Your interrupted fight was found. Resume it after progress-changing actions reopen.");
+                    return;
+                }
+                response = await fetch("/api/weekly-boss", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ kind: "resumeFight", weekKey, runId: data.runId }),
+                });
+                data = await response.json().catch(() => ({})) as typeof data;
+            }
+
+            if (!response.ok || !data.runId || !data.session) {
+                setError(data.error ?? "No interrupted Weekly Boss fight is available.");
+                return;
+            }
+            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
+            setFight({ runId: data.runId, session: data.session });
+        } catch (cause) {
+            setError(String((cause as Error).message || cause));
+        } finally {
+            setStartingFight(false);
+        }
+    }
+
     async function settleAuthoritativeFight(runId: string): Promise<unknown> {
+        if (!capabilityAdmissionAllowed(mutationAvailability())) {
+            throw new Error("Weekly Boss settlement is paused. Keep this fight open and retry when live actions return.");
+        }
         const response = await fetch("/api/weekly-boss", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -99,14 +179,22 @@ export function WeeklyBossArena({
 
     if (fight) {
         return (
-            <WeeklyBossFight
-                character={character}
-                sharedImages={sharedImages}
-                runId={fight.runId}
-                initialSession={fight.session}
-                settleFn={settleAuthoritativeFight}
-                onExit={() => { setFight(null); void refresh(); }}
-            />
+            <>
+                {!weeklyBossActionsAvailable && (
+                    <div className="card" role="status" style={{ padding: "0.8rem 1rem", maxWidth: 720, margin: "1rem auto" }}>
+                        <strong><GiPadlock style={WB_ICON} />Weekly Boss actions paused.</strong>{" "}
+                        This accepted fight stays mounted for inspection and recovery; combat requests resume only after live admission returns.
+                    </div>
+                )}
+                <WeeklyBossFight
+                    character={character}
+                    sharedImages={sharedImages}
+                    runId={fight.runId}
+                    initialSession={fight.session}
+                    settleFn={settleAuthoritativeFight}
+                    onExit={() => { setFight(null); void refresh(); }}
+                />
+            </>
         );
     }
 
@@ -121,6 +209,7 @@ export function WeeklyBossArena({
         ? (sharedImages[`ai:${bossState.aiId}`] || bossAi?.image || "")
         : "";
 
+    if (!weeklyBossViewOpen) return <div className="card" role="status" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Checking Weekly Boss availability…</div>;
     if (loading) return <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Loading weekly boss…</div>;
 
     if (!bossState || !bossState.aiId) {
@@ -153,6 +242,11 @@ export function WeeklyBossArena({
     const attemptsUsed = bossState.attemptsByPlayer?.[myKey] ?? 0;
     const attemptsLeft = Math.max(0, WEEKLY_BOSS_MAX_ATTEMPTS - attemptsUsed);
     const lockedOut = attemptsLeft <= 0;
+    const staminaBlocked = (character.stamina ?? 0) < 20;
+    // When local guards or the global mutation freeze block the ordinary
+    // button, expose the server's read-only accepted-run probe. The probe cannot
+    // turn stale local state into a fresh attempt or stamina debit.
+    const acceptedFightRecoveryNeeded = lockedOut || staminaBlocked || !weeklyBossActionsAvailable;
     const contributionDisabled = !fightEnabled;
     const contributionDisabledCopy = fightDisabledReason === "weekly_boss_server_authority_required"
         ? "Weekly Boss contribution is paused for public beta until server-authoritative settlement is live."
@@ -180,6 +274,11 @@ export function WeeklyBossArena({
             <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
             <p style={{ color: "var(--text-dim)", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
             {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            {guardCycleAvailability !== "available" && (
+                <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                    <GiPadlock style={WB_ICON} />{guardCycleAvailability === "unknown" ? "Guard-cycle status is being checked. The core Weekly Boss fight remains available." : "The Weekly Boss guard cycle is temporarily disabled. The core fight remains available."}
+                </div>
+            )}
             <div style={{ background: "#1a1a2e", border: "1px solid var(--red-400)", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
                     {bossImage && (
@@ -239,6 +338,21 @@ export function WeeklyBossArena({
                     <GiPadlock style={WB_ICON} />{contributionDisabledCopy}
                 </div>
             )}
+            {!weeklyBossActionsAvailable && (
+                <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                    <GiPadlock style={WB_ICON} />New fights are paused. Leaderboard and attempt status remain readable.
+                </div>
+            )}
+            {!roaming && !expired && acceptedFightRecoveryNeeded && (
+                <button
+                    type="button"
+                    disabled={startingFight || !weeklyBossViewOpen}
+                    style={{ width: "100%", padding: "0.65rem", opacity: weeklyBossViewOpen ? 1 : 0.6 }}
+                    onClick={() => { void recoverAuthoritativeFight(); }}
+                >
+                    {startingFight ? "Checking for interrupted fight…" : "Check for interrupted fight"}
+                </button>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
                 {roaming ? (
                     <button
@@ -256,18 +370,20 @@ export function WeeklyBossArena({
                     </button>
                 ) : (
                     <button
-                        disabled={startingFight || expired || lockedOut || contributionDisabled || (character.stamina ?? 0) < 20}
+                        disabled={startingFight || !weeklyBossActionsAvailable || expired || lockedOut || contributionDisabled || staminaBlocked}
                         style={{
                             padding: "0.8rem",
                             background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
                             borderColor: "var(--red-400)",
                             fontWeight: 700,
-                            opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1,
+                            opacity: expired || lockedOut || contributionDisabled || !weeklyBossActionsAvailable ? 0.6 : 1,
                         }}
                         onClick={() => { void launchAuthoritativeFight(); }}
                     >
                         {expired
                             ? <><GiTombstone style={WB_ICON} />Despawned</>
+                            : !weeklyBossActionsAvailable
+                                ? <><GiPadlock style={WB_ICON} />Fight paused</>
                             : contributionDisabled
                                 ? <><GiPadlock style={WB_ICON} />Contribution paused</>
                             : lockedOut

@@ -4,7 +4,7 @@ import {
     type TavernMessage,
 } from "../App";
 import { type PlayerRecord } from "../types/character";
-import { titleStyleColor, isLegacyServerLive } from "../lib/legacy";
+import { titleStyleColor, useLegacyAvailability } from "../lib/legacy";
 import { tavernGossipLine } from "../lib/legacy-rumors";
 import { GameIcon } from "../components/icons/GameIcon";
 import { GiCrown, GiLaurelCrown, GiTalk } from "react-icons/gi";
@@ -25,6 +25,7 @@ const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
 
 export
 function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerRoster }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void; playerRoster: PlayerRecord[] }) {
+    const legacyAvailable = useLegacyAvailability();
     const [messages, setMessages] = useState<TavernMsg[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
@@ -36,9 +37,13 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     // message was posted with.
     const [seatedKage, setSeatedKage] = useState<string | null>(null);
     // Rotating "gossip of the day" strip — a second Legacy discovery surface.
-    // Only shown once the server confirms Legacy is live (isLegacyServerLive
-    // caches a single probe); world-flavored, never this player's stats.
-    const [gossip, setGossip] = useState<string | null>(null);
+    // Only shown while the public capability confirms Legacy is live;
+    // world-flavored, never this player's stats.
+    const [gossipDayBucket] = useState(() => Math.floor(Date.now() / 86_400_000));
+    const gossip = useMemo(() => {
+        if (!legacyAvailable) return null;
+        return tavernGossipLine(character.name, gossipDayBucket);
+    }, [character.name, gossipDayBucket, legacyAvailable]);
     const logRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     // Track last known message count so we skip re-renders when nothing changed
@@ -141,19 +146,6 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     // this never yanks a player who's merely re-polling with no new messages).
     useEffect(() => { logRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [messages]);
 
-    // Legacy tavern gossip — probe once whether the server has Legacy live, then
-    // pick today's line. Skipped entirely (strip hidden) when Legacy is off, so
-    // a rollback never leaves misleading legend-talk in the tavern.
-    useEffect(() => {
-        let alive = true;
-        void isLegacyServerLive().then((live) => {
-            if (!alive || !live) return;
-            const dayBucket = Math.floor(Date.now() / 86_400_000);
-            setGossip(tavernGossipLine(character.name, dayBucket));
-        });
-        return () => { alive = false; };
-    }, [character.name]);
-
     async function send() {
         const text = input.trim();
         if (!text || sending) return;
@@ -205,7 +197,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
                 </div>
             </div>
-            {gossip && (
+            {legacyAvailable && gossip && (
                 <div
                     className="tavern-gossip"
                     style={{

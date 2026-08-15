@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const guardedAutosave = readFileSync(new URL("../lib/use-capability-guarded-autosave.ts", import.meta.url), "utf8");
 const missions = readFileSync(new URL("./Missions.tsx", import.meta.url), "utf8");
 const arena = readFileSync(new URL("./MissionArenaFight.tsx", import.meta.url), "utf8");
 const hunterBoard = readFileSync(new URL("./HunterBoard.tsx", import.meta.url), "utf8");
@@ -13,13 +14,24 @@ test("server-owned mission battles pause regeneration and every autosave timer",
         "mission state must feed the shared unresolved-battle predicate used by regeneration");
     assert.match(app, /if \(isPresenceBattleActive\(screen\)\) return prev;/,
         "the global regeneration tick must use the shared battle predicate");
-    assert.equal(
-        [...app.matchAll(/if \(!charDirtyRef\.current \|\| isPresenceBattleActive\(\)\) return;/g)].length,
-        2,
-        "both debounced and interval autosaves must pause during the mission fight",
+    const delayedGuard = guardedAutosave.slice(
+        guardedAutosave.indexOf("const persistDirtySnapshot"),
+        guardedAutosave.indexOf("const flushDirtySnapshot"),
     );
-    assert.match(app, /if \(isPresenceBattleActive\(\) \|\| \(!flushSaveRef\.current/,
+    const immediateGuard = guardedAutosave.slice(
+        guardedAutosave.indexOf("const flushDirtySnapshot"),
+        guardedAutosave.indexOf("useEffect(() =>"),
+    );
+    assert.match(delayedGuard, /isPresenceBattleActive\(\)/,
+        "the shared delayed-write boundary must pause during the mission fight");
+    assert.match(guardedAutosave, /setTimeout\([\s\S]*persistDirtySnapshot\(\)[\s\S]*3000/,
+        "the debounced autosave must delegate to the guarded delayed-write boundary");
+    assert.match(guardedAutosave, /setInterval\(persistDirtySnapshot, 15_000\)/,
+        "the interval autosave must delegate to the guarded delayed-write boundary");
+    assert.match(immediateGuard, /isPresenceBattleActive\(\)/,
         "the immediate-flush autosave must pause too");
+    assert.match(app, /intervalPresenceActive: isPresenceBattleActive\(\)[\s\S]*isPresenceBattleActive, persistSave/,
+        "App must provide both the current render state and last-mile battle predicate");
     assert.match(app, /onMissionBattleStart=\{\(\) => setMissionBattleActive\(true\)\} onMissionBattleEnd=\{\(\) => setMissionBattleActive\(false\)\}/);
 });
 

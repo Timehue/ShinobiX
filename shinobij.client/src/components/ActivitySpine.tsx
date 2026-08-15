@@ -4,11 +4,14 @@ import {
     normalizeMasteryFocus,
     type ActivityHorizon,
     type ActivitySpine as ActivitySpineData,
+    type ActivitySpineItem,
     type MasteryFocus,
 } from "../../../shared/activity-spine";
+import { PUBLIC_CAPABILITY_IDS } from "../../../shared/public-capabilities";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { captureProductEvent } from "../lib/analytics";
+import { useLiveCapabilities } from "../lib/live-capabilities-context";
 
 const HORIZON_LABEL: Record<ActivityHorizon, string> = {
     now: "Now",
@@ -30,6 +33,15 @@ export function ActivitySpine({
     const [spine, setSpine] = useState<ActivitySpineData | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "offline" | "error">("loading");
     const [retry, setRetry] = useState(0);
+    const { availability, snapshot } = useLiveCapabilities();
+    const projectedAdmissionAllowed = (capabilityIds: ActivitySpineItem["requiredCapabilityIds"]): boolean =>
+        !!capabilityIds?.length && capabilityIds.every((id) => availability(id) === "available");
+    const focusAdmissionAllowed = (["gameplay", "gameplayMutations"] as const)
+        .every((id) => availability(id) === "available");
+    const capabilityStateSignature = [
+        snapshot.freshness,
+        ...PUBLIC_CAPABILITY_IDS.map((id) => `${id}:${availability(id)}`),
+    ].join("|");
 
     useEffect(() => {
         const controller = new AbortController();
@@ -50,9 +62,10 @@ export function ActivitySpine({
                 if (import.meta.env.DEV) console.warn("[activity-spine]", error);
             });
         return () => controller.abort();
-    }, [character.name, focus, retry]);
+    }, [character.name, focus, retry, capabilityStateSignature]);
 
     const chooseFocus = (next: MasteryFocus) => {
+        if (!(["gameplay", "gameplayMutations"] as const).every((id) => availability(id) === "available")) return;
         setSpine(null);
         setStatus("loading");
         updateCharacter((prev) => prev ? { ...prev, masteryFocus: next } : prev);
@@ -75,7 +88,12 @@ export function ActivitySpine({
             </div>
             <label className="activity-focus-select">
                 <span>Mastery focus</span>
-                <select aria-label="Mastery focus" value={focus} onChange={(event) => chooseFocus(normalizeMasteryFocus(event.target.value))}>
+                <select
+                    aria-label="Mastery focus"
+                    value={focus}
+                    disabled={!focusAdmissionAllowed}
+                    onChange={(event) => chooseFocus(normalizeMasteryFocus(event.target.value))}
+                >
                     {MASTERY_FOCUS_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                 </select>
             </label>
@@ -108,13 +126,32 @@ export function ActivitySpine({
                         <h4>{HORIZON_LABEL[horizon]}</h4>
                         {spine.horizons[horizon].map((activity) => {
                             const blockerId = `${activity.id}-blocker`;
-                            return <article className={`activity-card is-${activity.eligibility}`} key={activity.id}>
+                            const liveAdmissionAllowed = projectedAdmissionAllowed(activity.requiredCapabilityIds);
+                            const blocked = activity.eligibility === "blocked" || !liveAdmissionAllowed;
+                            const effectiveBlocker = activity.blocker ?? (!liveAdmissionAllowed
+                                ? "Live eligibility is unavailable. Wait for capability refresh before starting this activity."
+                                : undefined);
+                            const effectiveEligibility = blocked ? "blocked" : activity.eligibility;
+                            const openActivity = () => {
+                                // Re-evaluate against wall-clock freshness at the
+                                // click boundary; a long-idle render must not admit
+                                // an action from an expired capability snapshot.
+                                if (!projectedAdmissionAllowed(activity.requiredCapabilityIds)) return;
+                                navigate(activity.screen, activity.context, horizon);
+                            };
+                            return <article className={`activity-card is-${effectiveEligibility}`} key={activity.id}>
                                 <div className="activity-card-topline"><strong>{activity.title}</strong><span>{activity.commitment}</span></div>
                                 <p>{activity.why}</p>
                                 {activity.progress ? <p className="activity-card-progress">Progress: {activity.progress}</p> : null}
-                                {activity.blocker ? <p id={blockerId} className="activity-card-blocker">Blocked: {activity.blocker}</p> : null}
+                                {effectiveBlocker ? <p id={blockerId} className="activity-card-blocker">Blocked: {effectiveBlocker}</p> : null}
+                                {activity.recoveryOnly ? <small>Recovery-only record: new actions are disabled.</small> : null}
                                 {activity.reward ? <small>Use / reward: {activity.reward}</small> : null}
-                                <button type="button" aria-describedby={activity.blocker ? blockerId : undefined} onClick={() => navigate(activity.screen, activity.context, horizon)}>
+                                <button
+                                    type="button"
+                                    aria-describedby={effectiveBlocker ? blockerId : undefined}
+                                    disabled={blocked}
+                                    onClick={blocked ? undefined : openActivity}
+                                >
                                     {activity.cta}
                                 </button>
                             </article>;

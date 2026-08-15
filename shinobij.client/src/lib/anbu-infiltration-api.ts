@@ -11,17 +11,27 @@
  */
 import type { SoloPveSession } from './solo-pve-api';
 import type { Character } from '../types/character';
+import type { CapabilityAvailability } from './live-capabilities';
+import { capabilityPreferenceAllowsAdmission } from './live-capability-admission';
 
 // ── Feature toggle (client half) ─────────────────────────────────────────────
-/** LIVE by default. localStorage `anbuInfiltration.v1` = "0" is the only off
- *  switch; anything else (incl. unset) is ON. The server is on by default too
- *  (kill switch: DISABLE_ANBU_INFILTRATION=1). */
+/** Presentation preference only. localStorage `anbuInfiltration.v1` = "0" is
+ *  the only opt-out; anything else (incl. unset) is ON. Admission callers must
+ *  use anbuInfiltrationAdmissionEnabled so this preference can never override
+ *  the server-published public capability state. */
 export function anbuInfiltrationEnabled(): boolean {
     try {
         return localStorage.getItem('anbuInfiltration.v1') !== '0';
     } catch {
         return true;
     }
+}
+
+/** True only when both the local presentation preference and public service
+ * truth permit a NEW infiltration. Existing recovery/turn-in UI may continue
+ * to use the presentation preference without opening another run. */
+export function anbuInfiltrationAdmissionEnabled(availability: CapabilityAvailability): boolean {
+    return capabilityPreferenceAllowsAdmission(anbuInfiltrationEnabled(), availability);
 }
 
 // ── Per-village masked Anbu defender (public/anbu/<slug>.webp) ────────────────

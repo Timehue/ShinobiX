@@ -8,6 +8,7 @@ import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, ga
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
+import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
 import { SaveConflictBanner } from "./components/SaveConflictBanner";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
@@ -63,6 +64,20 @@ import { resolveDungeonWardenPortrait } from "./lib/ai-fight-art";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { useViewportContract } from "./lib/use-viewport-contract";
+import {
+    useCapabilityMutationAvailability,
+    useCapabilityViewAvailability,
+    useLiveCapabilities,
+} from "./lib/live-capabilities-context";
+import {
+    capabilityAdmissionAllowed,
+    playerSurfaceBlockerMode,
+    playerLoginAdmissionMessage,
+    registrationAdmissionMessage,
+    sectorMapAdmissionMessage,
+    villageWarScreenMountAllowed,
+} from "./lib/live-capability-admission";
+import { useCapabilityGuardedAutosave } from "./lib/use-capability-guarded-autosave";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { presenceCharacter, peerIsTraveling } from "./lib/presence-character";
@@ -1393,6 +1408,12 @@ export function stringifyServerSavePayload(payload: unknown) {
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
+    const { mutationAvailability, viewAvailability } = useLiveCapabilities();
+    const gameplayViewAvailability = useCapabilityViewAvailability();
+    const gameplayMutationAvailability = useCapabilityMutationAvailability();
+    const villageWarAvailability = useCapabilityViewAvailability("villageWar");
+    const gameplayViewOpen = capabilityAdmissionAllowed(gameplayViewAvailability);
+    const gameplayMutationsOpen = capabilityAdmissionAllowed(gameplayMutationAvailability);
     // Which durable battle record the "battleLog" screen is showing. Set by the
     // Profile battle list; the screen itself fetches from the server by id.
     const [viewedBattleId, setViewedBattleId] = useState<string | null>(null);
@@ -1407,6 +1428,17 @@ export default function App() {
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
+
+    // State restoration, hashes, and leaf components can all write `screen`
+    // directly. Keep the render boundary fail-closed as well as the normal
+    // navigate() path so a paused Sector campaign never mounts its polling
+    // screen for even one render.
+    useEffect(() => {
+        if (villageWarAvailability !== "unavailable" || villageWarScreenMountAllowed(screen, villageWarAvailability)) return;
+        const fallback: Screen = character ? "worldMap" : "start";
+        perfNotifyScreen(fallback);
+        setScreen(fallback);
+    }, [screen, villageWarAvailability, character]);
 
     // Session-expiry handling (audit #14 + data-loss fix). A token-first client
     // that dropped its stored password can't re-mint an expired 24h token (or one
@@ -1446,6 +1478,7 @@ export default function App() {
     const [restoringSession, setRestoringSession] = useState<boolean>(() => Boolean(bootAccountName));
     const [restoreFailed, setRestoreFailed] = useState(false);
     const sessionLoadGenerationRef = useRef(0);
+    const bootRestoreStartedRef = useRef(false);
     // Phase 1.3 (see docs/load-and-refresh-perf-audit-2026-06-08.md): true while
     // a refresh has optimistically painted the cached HUB screen and is
     // reconciling against the server in the background. A blocking overlay sits
@@ -1560,7 +1593,7 @@ export default function App() {
     }, [character?.name, currentAccountName]);
 
     // Drain the durable combat-claim outbox on login/reconnect (lib/claim-outbox).
-    useClaimOutboxDrain(character?.name, (snapshot) => {
+    useClaimOutboxDrain(gameplayMutationsOpen ? character?.name : undefined, (snapshot) => {
         const activeName = characterRef.current?.name.toLowerCase();
         if (!activeName || activeName !== snapshot.playerName.toLowerCase()
             || activeName !== snapshot.character.name.toLowerCase()) return;
@@ -1586,7 +1619,7 @@ export default function App() {
     const achievementGateRef = useRef(createAchievementSyncGate());
     useEffect(() => {
         const playerName = character?.name;
-        if (!character || !playerName) return;
+        if (!gameplayMutationsOpen || !character || !playerName) return;
         const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
         const plan = planAchievementSync({
             eligibleIds,
@@ -1627,7 +1660,7 @@ export default function App() {
                 releaseAchievementSync(achievementGateRef.current);
             }
         })();
-    }, [character]);
+    }, [character, gameplayMutationsOpen]);
 
     // Auto-dismiss toasts one at a time so a flood doesn't pile up forever.
     useEffect(() => {
@@ -1681,6 +1714,7 @@ export default function App() {
     const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [worldStateVersion, setWorldStateVersion] = useState(0);
     const refreshWorldStateSnapshot = useCallback(async () => {
+        if (!capabilityAdmissionAllowed(viewAvailability())) return;
         try {
             const response = await fetch(WORLD_STATE_API, {
                 cache: "no-cache",
@@ -1692,7 +1726,7 @@ export default function App() {
         } catch {
             // The normal 15-second poll retries offline/transient failures.
         }
-    }, []);
+    }, [viewAvailability]);
     // Bumped whenever the clan-war list is refreshed. Drives the
     // reward auto-claim effect below (parallel to worldStateVersion
     // for village wars).
@@ -1701,18 +1735,18 @@ export default function App() {
     // Also covers clan war crates now that claimPendingWarCrates scans
     // sharedClanWarCache; ClanHall fires its own claim too once clanData
     // is loaded.
-    useWarRewardClaims(character, setCharacter, commitVersionedCharacter, worldStateVersion, clanWarStateVersion);
+    useWarRewardClaims(gameplayMutationsOpen ? character : null, setCharacter, commitVersionedCharacter, worldStateVersion, clanWarStateVersion);
     // Daily village tax — a ryo sink that scales with how much ground your village
     // has LOST. Server-idempotent per UTC day; the debit must be adopted here
     // because ryo is client-owned in the save ledger.
-    useVillageTax(character, setCharacter, (version) => { acceptExternalSaveVersion(version, character?.name ?? currentAccountName); }, gameToast);
+    useVillageTax(gameplayMutationsOpen ? character : null, setCharacter, (version) => { acceptExternalSaveVersion(version, character?.name ?? currentAccountName); }, gameToast);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
     // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).
     // Clan-less players are skipped: claimPendingWarCrates short-circuits on an
     // empty `clan`, so polling the uncached endpoint for them is pure waste.
     useEffect(() => {
-        if (!tabVisible) return;
+        if (!gameplayViewOpen || !tabVisible) return;
         if (!character) return;
         if (!character.clan) return;
         let alive = true;
@@ -1730,7 +1764,7 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [tabVisible, character?.name, character?.clan]);
+    }, [gameplayViewOpen, tabVisible, character?.name, character?.clan]);
 
     const [, setSharedGameStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
@@ -1763,14 +1797,15 @@ export default function App() {
     // (Other clients still adopt it via pullSharedAdminContent.) Idempotent + guarded,
     // so pull paths that set editablePets and edits to unowned pets are cheap no-ops.
     useEffect(() => {
+        if (!gameplayMutationsOpen) return;
         if (!registerPublishedPetTemplates(editablePets)) return;
         setCharacter((prev) => {
             const pets = prev && renormalizedIfChanged(prev.pets, normalizePet);
             return pets ? { ...prev!, pets } : prev;
         });
-    }, [editablePets]);
+    }, [editablePets, gameplayMutationsOpen]);
     useEffect(() => {
-        if (!tabVisible || !character?.name || restoringSession) return;
+        if (!gameplayViewOpen || !tabVisible || !character?.name || restoringSession) return;
         let inFlight = false;
         async function refreshWorldState() {
             if (inFlight) return;
@@ -1786,9 +1821,9 @@ export default function App() {
         return () => {
             clearInterval(id);
         };
-    }, [character?.name, refreshWorldStateSnapshot, restoringSession, tabVisible]);
+    }, [character?.name, gameplayViewOpen, refreshWorldStateSnapshot, restoringSession, tabVisible]);
     useEffect(() => {
-        if (!tabVisible || !character?.name || restoringSession) return;
+        if (!gameplayViewOpen || !tabVisible || !character?.name || restoringSession) return;
         let alive = true;
         let inFlight = false;
         async function refreshSharedGameState() {
@@ -1814,14 +1849,14 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [currentAccountName, character?.name, restoringSession, tabVisible]);
+    }, [currentAccountName, character?.name, gameplayViewOpen, restoringSession, tabVisible]);
     // Village leadership portraits are large base64 images that change rarely,
     // so they ride a separate slow poll (api/game-state.ts ?images=1) instead of
     // the 5s game-state frame — keeping the hot frame ~355KB lighter per poll.
     // Only logged-in players need them (Town Hall / admin), so this stays idle
     // pre-login. Bumps the shared version itself when the portraits actually change.
     useEffect(() => {
-        if (!tabVisible || !character?.name || restoringSession || (screen !== "townHall" && screen !== "adminPanel")) return;
+        if (!gameplayViewOpen || !tabVisible || !character?.name || restoringSession || (screen !== "townHall" && screen !== "adminPanel")) return;
         let alive = true;
         let lastSig = "";
         async function refreshLeadershipImages() {
@@ -1846,7 +1881,7 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [character?.name, restoringSession, screen, tabVisible]);
+    }, [character?.name, gameplayViewOpen, restoringSession, screen, tabVisible]);
     useEffect(() => {
         setEditablePets((currentPets) => {
             const mergedPets = mergeMissingBuiltInPets(currentPets);
@@ -2314,7 +2349,7 @@ export default function App() {
     // hasn't completed yet — server status is the source of truth).
     const autoLaunchedClanWarChallenges = useRef<Set<string>>(new Set());
     useEffect(() => {
-        if (!character) return;
+        if (!gameplayMutationsOpen || !character) return;
         // Don't yank players out of an active battle / story / boss screen.
         // Mixed lobby/fight screens stay launchable until their active flag says
         // the player is actually committed to another fight.
@@ -2341,7 +2376,7 @@ export default function App() {
                 return; // launch one at a time
             }
         }
-    }, [character, screen, clanWarStateVersion, launchClanWarBattle, arenaBattleActive, petBattleActive]);
+    }, [character, screen, clanWarStateVersion, launchClanWarBattle, arenaBattleActive, petBattleActive, gameplayMutationsOpen]);
 
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
@@ -2509,7 +2544,7 @@ export default function App() {
     }
 
     useEffect(() => {
-        if (!character) return;
+        if (!gameplayMutationsOpen || !character) return;
         let heartbeatEffectActive = true;
         async function heartbeat() {
             const char = characterRef.current;
@@ -2704,14 +2739,14 @@ export default function App() {
         const id = setInterval(heartbeat, interval);
         return () => { retireHeartbeat(); clearInterval(id); };
     }, [
-        character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
+        gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
         raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle,
         pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
         arenaBattleActive, petBattleActive,
     ]);
 
     usePresenceSocket({
-        characterName: character?.name,
+        characterName: gameplayViewOpen ? character?.name : undefined,
         characterRef,
         currentSectorRef,
         heartbeatRef,
@@ -2867,7 +2902,7 @@ export default function App() {
 
     // Fetch full server player list (includes offline players from registry)
     useEffect(() => {
-        if (!character?.name) return;
+        if (!gameplayViewOpen || !character?.name) return;
         async function fetchRoster() {
             try {
                 const res = await fetch('/api/player/roster');
@@ -2912,14 +2947,14 @@ export default function App() {
         // ≤60s stale by design (the server's process cache bakes the online flags in).
         const id = setInterval(fetchRoster, 60000);
         return () => clearInterval(id);
-    }, [character?.name, currentSector]);
+    }, [character?.name, currentSector, gameplayViewOpen]);
 
     useEffect(() => {
         // /api/bloodlines/list is auth-gated (it scans every save), so it 401s
         // for anonymous visitors. The public-bloodline gallery only shows inside
         // the logged-in codex anyway, so skip the fetch until a character is
         // active — this drops a wasted 401 on every cold landing.
-        if (!character?.name) return;
+        if (!gameplayViewOpen || !character?.name) return;
         async function fetchPublicBloodlines() {
             try {
                 const res = await fetch('/api/bloodlines/list');
@@ -2935,7 +2970,7 @@ export default function App() {
         fetchPublicBloodlines();
         const id = setInterval(fetchPublicBloodlines, 300000);
         return () => clearInterval(id);
-    }, [character?.name]);
+    }, [character?.name, gameplayViewOpen]);
 
     // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
     // the shared PvP battle (battleId present) or legacy arena as fallback.
@@ -3178,6 +3213,9 @@ export default function App() {
     }
 
     useEffect(() => {
+        if (!gameplayViewOpen || bootRestoreStartedRef.current) return;
+        bootRestoreStartedRef.current = true;
+        let restoreCompleted = false;
         // Helper: apply a full server/local snapshot to state
         function applySnapshot(snap: ReturnType<typeof buildPlayerSavePayload>, bootLock?: ClientBattleLock | null) {
             const snapshotAccountKey = saveConflictAccountKey(snap.character.name);
@@ -3638,6 +3676,7 @@ export default function App() {
                 // optimistic paint).
                 else revertRestoreToLogin();
             }).finally(() => {
+                restoreCompleted = true;
                 window.clearTimeout(restoreTimer);
                 if (!restoreLoad.isCurrent()) return;
                 setRestoringSession(false);
@@ -3647,14 +3686,18 @@ export default function App() {
             // No stored account → brand-new / anonymous visitor: show the login
             // form immediately, nothing to restore.
             setRestoringSession(false);
+            restoreCompleted = true;
         }
-        return () => { sessionLoadGenerationRef.current += 1; };
+        return () => {
+            sessionLoadGenerationRef.current += 1;
+            if (!restoreCompleted) bootRestoreStartedRef.current = false;
+        };
         // No stored account = anonymous visitor on the landing screen. The shared
         // admin content (custom jutsu/items/events) pulls Admin 1 / Admin 2 saves,
         // which 401 without auth — so skip it here. It loads as soon as they log in
         // or create a character (both call pullSharedAdminContent), dropping two
         // wasted 401s on every cold landing.
-    }, []);
+    }, [gameplayViewOpen]);
 
     useEffect(() => {
         try {
@@ -4690,7 +4733,7 @@ export default function App() {
     }, []);
     // Global wiring: auto-promote a queued 2nd jutsu training (activeJutsuTraining.next)
     // the instant the active one finishes — works on any screen. Logic in lib/jutsu-training-queue.
-    useJutsuTrainingQueueRunner(character?.name ?? "", activeJutsuTraining, setActiveJutsuTrainingNow, commitVersionedCharacter);
+    useJutsuTrainingQueueRunner(gameplayMutationsOpen ? character?.name ?? "" : "", activeJutsuTraining, setActiveJutsuTrainingNow, commitVersionedCharacter);
 
     useEffect(() => {
         if (!character || !currentAccountName) {
@@ -4771,54 +4814,15 @@ export default function App() {
         if (pendingTravel) flushSaveRef.current = true;
     }, [acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel, character, currentAccountName]);
 
-    // Debounced auto-save — whenever the character state changes, schedule a
-    // server save within 3 seconds. This ensures currency gains, mission
-    // completions, PvP wins, etc. are persisted quickly rather than waiting
-    // for the 15-second interval. The debounce prevents rapid-fire saves when
-    // multiple updates happen in quick succession (e.g. battle rewards).
     const saveSoonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(() => {
-        if (!character || !currentAccountName || !charDirtyRef.current || isPresenceBattleActive()) return;
-        if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current);
-        saveSoonTimerRef.current = setTimeout(() => {
-            saveSoonTimerRef.current = null;
-            if (!charDirtyRef.current || isPresenceBattleActive()) return;
-            const snap = latestSaveRef.current;
-            if (!snap) return;
-            charDirtyRef.current = false;
-            void persistSave(snap);
-        }, 3000);
-        return () => { if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current); };
-    }, [character, currentAccountName, currentSector, pendingTravel, missionBattleActive]);
-
-    useEffect(() => {
-        const id = setInterval(() => {
-            // Only save if the character actually changed locally since the last server sync.
-            // A second logged-in device that loaded from server and did nothing will have
-            // charDirtyRef=false and skip the save entirely — preserving the other device's progress.
-            if (!charDirtyRef.current || isPresenceBattleActive()) return;
-            const snap = latestSaveRef.current;
-            if (!snap) return;
-            charDirtyRef.current = false; // optimistically clear; restored on failure
-            void persistSave(snap);
-        }, 15_000);
-        return () => clearInterval(id);
-    }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive, missionBattleActive]);
-
-    // Immediate flush on training start/stop OR a fresh KO (hospitalized
-    // false→true while charDirtyRef, not a load-while-admitted): losses set
-    // hospitalized client-side only, so without this, clicking "Pay & Discharge"
-    // inside the 3s debounce hit "not hospitalized" until autosave landed.
-    useEffect(() => {
-        if (isPresenceBattleActive() || (!flushSaveRef.current && !(character?.hospitalized && charDirtyRef.current))) return;
-        flushSaveRef.current = false;
-        if (!character || !currentAccountName) return;
-        const snap = latestSaveRef.current;
-        if (!snap) return;
-        if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; }
-        charDirtyRef.current = false;
-        void persistSave(snap);
-    }, [activeTraining, activeJutsuTraining, character?.hospitalized, pendingTravel, missionProgress, missionBattleActive]);
+    useCapabilityGuardedAutosave({
+        enabled: gameplayMutationsOpen,
+        debounceTriggers: { character, accountName: currentAccountName, sector: currentSector, pendingTravel, missionBattleActive },
+        intervalPresenceActive: isPresenceBattleActive(),
+        immediateTriggers: { activeTraining, activeJutsuTraining, hospitalized: Boolean(character?.hospitalized), pendingTravel, missionProgress, missionBattleActive },
+        debounceTimerRef: saveSoonTimerRef, dirtyRef: charDirtyRef, flushRef: flushSaveRef,
+        latestSnapshotRef: latestSaveRef, mutationAvailability, isPresenceBattleActive, persistSave,
+    });
 
     // Reflection log: append a finished battle to the rolling last-N history
     // (Profile → Battles). Functional update so it merges onto the latest
@@ -4844,13 +4848,24 @@ export default function App() {
                 accountKey: unloadAccountKey, sessionEpoch: unloadSessionEpoch, latestVersion: latestSaveVersionRef.current,
                 unresolved: savePersistenceRef.current?.getUnresolvedPost() ?? null, liveSnapshot: latestSaveRef.current,
                 captureConflict: captureSaveConflictDraft, discardRevision: discardSaveConflictRevision,
-                isCurrentSession: isCurrentSaveSession });
+                isCurrentSession: isCurrentSaveSession,
+                send: capabilityAdmissionAllowed(mutationAvailability()) });
         }
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, []);
+    }, [mutationAvailability]);
 
     async function createPlayerAccount(newCharacter: Character, password: string) {
+        // CharacterCreator can remain open while capability truth changes. This
+        // is the last client-side checkpoint before the registration POST.
+        const currentGameplay = viewAvailability();
+        const currentRegistration = mutationAvailability("registrations");
+        if (!capabilityAdmissionAllowed(currentRegistration)) {
+            alert(capabilityAdmissionAllowed(currentGameplay)
+                ? registrationAdmissionMessage(currentRegistration)
+                : playerLoginAdmissionMessage(currentGameplay));
+            return;
+        }
         const createLoad = beginSessionLoad(sessionLoadGenerationRef, newCharacter.name);
         // Registration gives us a useful network window to warm the cinematic
         // that appears immediately after the first save succeeds.
@@ -5000,6 +5015,11 @@ export default function App() {
     }
 
     async function loginPlayerAccount(name: string, password: string) {
+        const currentAvailability = viewAvailability();
+        if (!capabilityAdmissionAllowed(currentAvailability)) {
+            alert(playerLoginAdmissionMessage(currentAvailability));
+            return;
+        }
         const loginLoad = beginSessionLoad(sessionLoadGenerationRef, name);
 
         // Always verify password against the server first — this is the authoritative check.
@@ -5415,7 +5435,7 @@ export default function App() {
     // touching character or mission presentation state.
     useEffect(() => {
         const owner = character?.name;
-        if (!owner) return;
+        if (!gameplayMutationsOpen || !owner) return;
         let active = true;
         const drain = () => void flushRaidReportOutbox(owner).then((result) => {
             if (active && result) void applyRaidReportDrain(result);
@@ -5426,7 +5446,7 @@ export default function App() {
             active = false;
             window.removeEventListener("online", drain);
         };
-    }, [character?.name]);
+    }, [character?.name, gameplayMutationsOpen]);
 
     // Purge pre-cutover Arena story context after boot has had one chance to
     // route it to a sealed host. Current fights never persist browser authority.
@@ -5460,6 +5480,11 @@ export default function App() {
     const stableLogout = useCallback(() => { void logoutPlayerRef.current(); }, []);
 
     function navigate(nextScreen: Screen, authoritativeCharacter?: Character) {
+        const currentVillageWarAvailability = viewAvailability("villageWar");
+        if (!villageWarScreenMountAllowed(nextScreen, currentVillageWarAvailability)) {
+            alert(sectorMapAdmissionMessage(currentVillageWarAvailability));
+            return;
+        }
         // Lock: cannot leave during an active battle (any type — isUnresolvedBattle).
         if (inBattleRef.current) {
             alert("⚔️ You cannot leave during a battle. Finish the fight first!");
@@ -6409,7 +6434,10 @@ export default function App() {
         && character.name !== "Admin 2",
     );
 
+    const surfaceBlockerMode = playerSurfaceBlockerMode(Boolean(character), screen, gameplayViewAvailability);
+
     return (
+        <MaintenanceOperatorBoundary mode={surfaceBlockerMode}>
         <AdaptiveGameShell
             biome={currentBiome}
             screen={screen}
@@ -6592,7 +6620,7 @@ export default function App() {
                 {/* Hidden on the full-screen battle boards — the in-combat side HUDs
                     already show the player's HP/chakra/stamina, so the top status bar
                     is redundant there and just costs vertical space. */}
-                {screen === "start" && restoringSession && (
+                {screen === "start" && restoringSession && gameplayViewAvailability !== "unavailable" && (
                     <div className="start-screen">
                         <div className="start-title-block">
                             <h1 className="start-title">
@@ -6629,7 +6657,7 @@ export default function App() {
                         </div>
                     </div>
                 )}
-                {screen === "start" && !restoringSession && (
+                {screen === "start" && (!restoringSession || gameplayViewAvailability === "unavailable") && (
                     <StartScreen
                         onCreate={createPlayerAccount}
                         onLogin={loginPlayerAccount}
@@ -7327,9 +7355,9 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
-                {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "sectorCard" && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "sectorPet" && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "villageWarMap" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
@@ -7665,6 +7693,7 @@ export default function App() {
                 onDismissMission={(id) => setMissionToasts(prev => prev.filter(x => x.id !== id))}
             />
         </AdaptiveGameShell>
+        </MaintenanceOperatorBoundary>
     );
 }
 /* ── Mobile banner timer widget ──────────────────────────────────────

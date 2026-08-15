@@ -6,10 +6,19 @@ Date: 2026-08-14 (America/Chicago)
 
 Repository: `Timehue/ShinobiX`
 
-This document records the inspected Phase 0 starting point and the local evidence
-collected from the isolated worktree after discovery. The tables distinguish local,
+This document records the then-current Phase 0 starting point and the local
+evidence collected from the isolated worktree after discovery. The tables
+distinguish local,
 hosted, blocked, running, superseded, and not-run results. A local pass is not a
 hosted Linux/Node-22 pass, and file/config inspection is not a passing test result.
+
+Historical-snapshot errata: the Pet Ranked and Hollow Gate Pet findings in the
+mode-authority section below preserve the Phase-0 interpretation available when
+this baseline was sealed. Later call-path inspection superseded those two
+present-tense conclusions. Current factual precedence belongs to
+`shared/runtime-mode-registry.ts`, `docs/generated/runtime-mode-registry.md`, and
+`docs/aaa-program-status.md`; this baseline must not be used as a current runtime
+inventory.
 
 ## Source and environment
 

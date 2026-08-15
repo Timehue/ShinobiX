@@ -1087,6 +1087,26 @@ export default defineConfig({
                     if (normalizedId.includes('node_modules/@sentry/')) {
                         return 'sentry-vendor';
                     }
+                    // Live capability truth is an always-loaded control plane,
+                    // but its store/admission/provider code changes on a slower
+                    // cadence than App's large gameplay coordinator. Keep this
+                    // small initial module family in one cacheable chunk so an
+                    // unrelated App edit does not make players redownload it or
+                    // push the monolithic entry past its audited ceiling.
+                    if (
+                        normalizedId.endsWith('/shared/public-capabilities.ts') ||
+                        normalizedId.endsWith('/src/lib/live-capabilities.ts') ||
+                        normalizedId.endsWith('/src/lib/live-capabilities-context.ts') ||
+                        normalizedId.endsWith('/src/lib/live-capability-admission.ts') ||
+                        normalizedId.endsWith('/src/lib/player-auth-policy.ts') ||
+                        normalizedId.endsWith('/src/lib/session-load-authority.ts') ||
+                        normalizedId.endsWith('/src/lib/release-safe-content.ts') ||
+                        normalizedId.endsWith('/src/lib/use-capability-guarded-autosave.ts') ||
+                        normalizedId.endsWith('/src/components/LiveCapabilitiesProvider.tsx') ||
+                        normalizedId.endsWith('/src/components/PlayerSurfaceBlocker.tsx')
+                    ) {
+                        return 'live-capabilities';
+                    }
                     // Pet sprite/card resolution is shared by the app shell and
                     // many lazy combat screens. Keep that stable presentation
                     // layer in its own cacheable chunk so adding a species or
