@@ -189,6 +189,29 @@ export function adminSaveTargetAllowed(targetName: string, fullAdmin: boolean, a
     return anyAdmin && (targetName === 'admin1' || targetName === 'admin2');
 }
 
+/**
+ * Admin player-save tooling posts a snapshot it previously loaded. The route
+ * key and the snapshot character must name the same player; otherwise a stale
+ * UI target can copy one player's entire save over another player. Shared clan
+ * blobs and the two admin content slots are deliberately outside this player
+ * identity boundary.
+ */
+export function adminPlayerSaveOwnerMismatch(
+    targetName: string,
+    incoming: Record<string, unknown>,
+    isClanSave: boolean,
+): boolean {
+    if (isClanSave || isAdminContentSlot(targetName)) return false;
+    const character = incoming.character;
+    if (!character || typeof character !== 'object' || Array.isArray(character)) return true;
+    const prototype = Object.getPrototypeOf(character);
+    if (prototype !== Object.prototype && prototype !== null) return true;
+    const incomingName = (character as Record<string, unknown>).name;
+    if (typeof incomingName !== 'string') return true;
+    const incomingOwnerKey = safeName(incomingName);
+    return !incomingOwnerKey || incomingOwnerKey !== targetName;
+}
+
 // Character-level fields stripped under ?combatOnly=1 — none of these affect
 // combat resolution (only meta progression / cosmetic / lifetime counters).
 // Whitelisting was considered but a blacklist is safer here since combat
@@ -2440,6 +2463,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (isAdminSave) {
                 if (!adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
                     return res.status(401).json({ error: 'Admin authentication required.' });
+                }
+                if (adminPlayerSaveOwnerMismatch(name, incoming as Record<string, unknown>, isClanSave)) {
+                    return res.status(409).json({
+                        error: 'Save character identity does not match the target player. Reload before saving.',
+                    });
                 }
             } else {
                 // Non-admin saves: player can save their own; clan saves are
