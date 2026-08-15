@@ -62,16 +62,18 @@ boundary distinctions are mandatory:
 - `pet-cinematic-duel` owns ordinary Pet Arena AI 1v1/2v2 through sealed HTTP
   receipts and ordinary live PvP 1v1/2v2 through the memory-only `petduel:*`
   transport. Live PvP has no reward or rating settlement and is not the legacy
-  HTTP challenge flow. The 1v1 lifecycle is coherent; the 2v2 caller/server
-  contract currently permits a one-pet roster under the 2v2 label and remains
-  a recorded defect.
-- The public Pet Ranked queue currently hands its pair to that ordinary
-  no-reward realtime duel and therefore does not settle rank. The older
-  `rankedPet` challenge/start/result lifecycle remains a separate mounted
-  `legacy-pet-duel` compatibility path whose cinematic client playback can
-  disagree with legacy server settlement, while Showdown ranked code is staged
-  but uncalled. Hollow Gate pet uses sealed cinematic PvE plus a parent run receipt;
-  its dormant Showdown branch leaves only the long-term owner decision open.
+  HTTP challenge flow. The client supplies an explicitly selected or Auto-picked
+  reserve, and the server requires exactly one eligible pet for 1v1 or two
+  distinct eligible pets for 2v2; a requested 2v2 cannot degrade to 1v1.
+- The public Pet Ranked queue is retired fail-closed: its route returns `410`
+  and its UI cannot pair or launch the ordinary no-reward realtime duel. A future
+  live-ranked cinematic lifecycle must share one server-owned match proof with
+  rating settlement. The older `rankedPet` challenge/start/result lifecycle
+  remains a separate mounted `legacy-pet-duel` compatibility path for retained
+  proofs; its cinematic client playback can disagree with legacy server
+  settlement, while Showdown ranked code is staged but uncalled. Hollow Gate pet
+  uses sealed cinematic PvE plus a parent run receipt; its dormant Showdown branch
+  leaves only the long-term owner decision open.
 - Dungeon pet uses `client-local-pet-duel`; because the rewarding parent
   settlement consumes no server-selected pet encounter or terminal pet proof,
   that row remains a defect rather than a valid reusable authority.

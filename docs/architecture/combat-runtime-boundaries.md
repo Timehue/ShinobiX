@@ -41,7 +41,7 @@ keyspace, and rollback narrative remains in
 | `pet-showdown` | Showdown practice, Coliseum, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
 | `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |
-| `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1/2v2 HTTP replay, ordinary live PvP 1v1/2v2 Socket.IO replay (with a current degraded-roster defect in 2v2), the currently broken public ranked queue's no-reward duel, and mounted Hollow Gate PvE replay |
+| `pet-cinematic-duel` | Ordinary Pet Arena AI 1v1/2v2 HTTP replay, exact-cardinality ordinary live PvP 1v1/2v2 Socket.IO replay, and mounted Hollow Gate PvE replay; the retired live-ranked surface names this family as its intended owner but has no admitted combat lifecycle |
 | `legacy-pet-duel` | The source-reachable `rankedPet` compatibility challenge/start/result settlement; its cinematic client playback and legacy server replay can disagree, and it is not the public Pet Ladder queue |
 | `client-local-pet-duel` | Dungeon pet presentation; its rewarding parent flow lacks server encounter and terminal proof and is a defect |
 | `chronicle` | Card Clash, sector-card, clan-war card, and dungeon-card combat; the Dungeon parent settlement binding remains a separate defect |

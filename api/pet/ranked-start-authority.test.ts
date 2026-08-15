@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { after, before, test } from 'node:test';
 
 process.env.NODE_ENV = 'test';
@@ -9,7 +10,6 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 type Out = { statusCode: number; body?: Record<string, unknown> };
 
 let kv: typeof import('../_storage.js').kv;
-let queueHandler: Handler;
 let startHandler: Handler;
 let issuePlayerToken: (name: string) => string | null;
 
@@ -53,20 +53,35 @@ async function post(handler: Handler, player: string, body: Record<string, unkno
 }
 
 async function queuePair(a: string, b: string): Promise<Record<string, unknown>> {
-    const joinedA = await post(queueHandler, a, { name: a, action: 'join' });
-    const joinedB = await post(queueHandler, b, { name: b, action: 'join' });
-    assert.equal(joinedA.statusCode, 200);
-    assert.equal(joinedB.statusCode, 200);
-    const polled = await post(queueHandler, a, { name: a, action: 'poll' });
-    assert.equal(polled.statusCode, 200);
-    assert.ok(polled.body?.match);
-    return polled.body?.match as Record<string, unknown>;
+    const pairId = randomUUID();
+    const createdAt = Date.now();
+    const initiator = a < b ? a : b;
+    const matchA = {
+        opponent: b,
+        opponentElo: 1000,
+        opponentLevel: 20,
+        initiator: a === initiator,
+        createdAt,
+        pairId,
+    };
+    const matchB = {
+        opponent: a,
+        opponentElo: 1000,
+        opponentLevel: 20,
+        initiator: b === initiator,
+        createdAt,
+        pairId,
+    };
+    await Promise.all([
+        kv.set(`pvp:pet-ranked-queue:match:${a}`, matchA, { ex: 30 }),
+        kv.set(`pvp:pet-ranked-queue:match:${b}`, matchB, { ex: 30 }),
+    ]);
+    return a === initiator ? matchA : matchB;
 }
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
-    queueHandler = (await import('../pvp/pet-ranked-queue.js')).default as unknown as Handler;
     startHandler = (await import('./ranked-start.js')).default as unknown as Handler;
     for (const [index, name] of players.entries()) {
         const pet = {
@@ -106,12 +121,12 @@ test('an authenticated caller cannot mint a ranked proof for an arbitrary victim
         petId: `${players[0]}-pet`,
     });
     assert.equal(out.statusCode, 409);
-    assert.match(String(out.body?.error), /paired by the ranked pet queue/i);
+    assert.match(String(out.body?.error), /retained reciprocal ranked pairing/i);
     assert.deepEqual(await kv.keys('pet:ranked-token:*'), []);
     assert.equal(await kv.get('pet:ranked-active'), null);
 });
 
-test('reciprocal queue consent mints one token and concurrent/lost-response retries reuse it', async () => {
+test('a retained reciprocal compatibility proof mints one token and concurrent/lost-response retries reuse it', async () => {
     const [alpha, bravo] = players;
     const match = await queuePair(alpha, bravo);
     assert.equal(match.initiator, true);
@@ -146,21 +161,22 @@ test('reciprocal queue consent mints one token and concurrent/lost-response retr
     assert.equal(replay.body?.matchToken, matchToken);
 });
 
-test('only the queue-selected initiator may bind a pair and one active match blocks a second pairing', async () => {
+test('only the proof-selected initiator may bind a pair and one active match blocks a second compatibility proof', async () => {
     const delta = players[3];
     const echo = players[4];
     const match = await queuePair(delta, echo);
     assert.equal(match.initiator, true);
     const nonInitiator = await post(startHandler, echo, { opponentName: delta, petId: `${echo}-pet` });
     assert.equal(nonInitiator.statusCode, 409);
-    assert.match(String(nonInitiator.body?.error), /paired by the ranked pet queue/i);
+    assert.match(String(nonInitiator.body?.error), /retained reciprocal ranked pairing/i);
 
     const alpha = players[0];
     const charlie = players[2];
-    const secondJoin = await post(queueHandler, alpha, { name: alpha, action: 'join' });
-    assert.equal(secondJoin.statusCode, 409);
-    assert.match(String(secondJoin.body?.error), /active ranked pet match/i);
-    assert.equal(await kv.get(`pvp:pet-ranked-queue:match:${charlie}`), null, 'a blocked requeue cannot orphan a new opponent');
+    await queuePair(alpha, charlie);
+    const secondStart = await post(startHandler, alpha, { opponentName: charlie, petId: `${alpha}-pet` });
+    assert.equal(secondStart.statusCode, 409);
+    assert.match(String(secondStart.body?.error), /active ranked pet match/i);
+    assert.ok(await kv.get(`pvp:pet-ranked-queue:match:${charlie}`), 'the unconsumed compatibility proof remains recoverable');
 });
 
 test('a held matchmaking lock fails closed without minting or reserving either player', async () => {

@@ -80,9 +80,10 @@ loss is more than trivially recoverable by replaying gameplay.
   authorized for those rows.
 - Hollow Gate pet currently settles a run-bound receipt from server-replayed
   cinematic PvE while a separate Showdown-capable branch remains unmounted.
-  The public Pet Ranked queue instead launches the ordinary memory-only,
-  no-reward realtime duel and never settles rating; an older legacy ranked
-  compatibility path and staged Showdown implementation remain unconsumed. The
+  The former public Pet Ranked queue launched the ordinary memory-only,
+  no-reward realtime duel and never settled rating; it is now retired fail-closed.
+  An older legacy ranked compatibility path and staged Showdown implementation
+  remain unconsumed. The
   retained legacy path is also defective because its client cinematic playback
   and server legacy replay can disagree.
   These are explicit owner/integration gaps, not permission to treat any route

@@ -11,9 +11,11 @@
 > positional Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic
 > duels, legacy compatibility duels, and client-local pet duels. Ordinary live
 > Arena PvP now uses a server-sealed, memory-only cinematic Socket.IO lifecycle
-> with no reward; its 2v2 caller/server contract currently permits a degraded
-> one-pet roster and remains defective. The public Pet Ranked queue incorrectly
-> launches that same no-reward duel and never settles rank. The older legacy
+> with no reward. Its caller/server contract requires exactly one eligible pet
+> for 1v1 and two distinct eligible pets for 2v2, including an Auto-picked reserve;
+> it never degrades a requested 2v2. The public Pet Ranked queue that launched
+> the same no-reward duel is now retired fail-closed; no new pair or live duel is
+> admitted until combat and rating share one server-owned match proof. The older legacy
 > ranked path is also defective because client cinematic playback can disagree
 > with legacy server settlement; it and the staged Showdown path are separate,
 > unconsumed implementations. Hollow Gate pet uses

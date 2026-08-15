@@ -1,211 +1,59 @@
-import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { LockContendedError } from '../_lock.js';
-import { randomUUID } from 'node:crypto';
-import {
-    PET_RANKED_QUEUE_KEY,
-    PET_RANKED_QUEUE_MATCH_TTL_SECONDS,
-    PET_RANKED_ACTIVE_REGISTRY_KEY,
-    petRankedQueueMatchKey,
-    pruneRankedPetActiveRegistry,
-} from '../pet/_ranked-authority.js';
-// NOTE: pet ranked is NOT gated by the player-side ranked-match-token system.
-// The pet ladder settles via api/pet/battle-result.ts, which requires its OWN
-// server-minted token from /api/pet/ranked-start (different keyspace:
-// pet:ranked-token:<id>). Don't import mintRankedMatchToken here.
 
-type QueueEntry = {
-    name: string;
-    level: number;
-    elo: number;
-    joinedAt: number;
-};
+export const PET_RANKED_LIVE_QUEUE_RETIRED_MESSAGE =
+    'Live Pet Ranked matchmaking is unavailable until one authoritative combat and rating lifecycle is selected.';
 
-// Separate queue blob from the player ranked ladder so pet ranked and player
-// ranked matchmaking never cross-match. Elo is derived from petRankedRating.
-const QUEUE_KEY = PET_RANKED_QUEUE_KEY;
-const KV_TTL_SECONDS = 2 * 60 * 60;   // 2-hour TTL
-const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-queue)
-// Durable per-player match record (audit #10) — see ranked-queue.ts for the
-// rationale. BOTH matched players get one so neither silently vanishes from the
-// queue when only one polled; short TTL re-opens matchmaking if no fight starts.
-const MATCH_TTL_SECONDS = PET_RANKED_QUEUE_MATCH_TTL_SECONDS;
-const matchKey = petRankedQueueMatchKey;
-// Matchmaking level band — mirrors ranked-queue.ts. Widens linearly with the
-// caller's wait so a sparse pet-ladder level eventually matches anyone, but
-// the initial pairing prefers same-level opponents.
-const LEVEL_BAND_BASE = 10;
-const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000;
-
+/**
+ * Retired admission boundary for the former public live Pet Ranked queue.
+ *
+ * The queue paired players and then launched the ordinary memory-only cinematic
+ * duel, which has no ranked proof or rating settlement. Keep the mounted route
+ * fail-closed so stale clients receive an explicit answer, while already-minted
+ * legacy ranked tokens may still settle through their compatibility endpoint.
+ */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
+    res.setHeader('Cache-Control', 'no-store');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        // Return queue status for a specific player (don't expose other names)
-        const name = typeof req.query.name === 'string' ? safeName(req.query.name) : '';
-        const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
-        const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
-        const inQueue = active.some(e => e.name === name);
-        res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json({ inQueue, queueSize: active.length });
+        return res.status(410).json({
+            available: false,
+            inQueue: false,
+            queueSize: 0,
+            match: null,
+            error: PET_RANKED_LIVE_QUEUE_RETIRED_MESSAGE,
+        });
     }
 
     if (req.method === 'POST') {
+        let body: Record<string, unknown>;
         try {
-            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { name, action } = body as {
-                name?: string;
-                level?: number;
-                elo?: number;
-                action?: 'join' | 'leave' | 'poll';
-            };
-            if (!name || !action) return res.status(400).json({ error: 'Missing name or action.' });
-
-            // Require auth, body name must match identity.
-            const identity = await authedPlayerOrAdmin(req, name);
-            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== safeName(name)) {
-                return res.status(403).json({ error: 'Cannot queue as another player.' });
-            }
-
-            // Throttle join/leave/poll per identity (keyed on name, not raw IP, so
-            // two players behind one NAT aren't starved). Mirrors ranked-queue.ts —
-            // without this, spam serializes on the shared QUEUE_KEY lock and degrades
-            // matchmaking latency for everyone. ~60/min covers the ~2-3s poll cadence.
-            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-ranked-queue', 60, 60_000, identity.name))) return;
-
-            // Pre-derive server-side level/elo for the join path before
-            // entering the lock so the lock body stays fast.
-            let serverLevel = 1;
-            let serverElo = 1000;
-            if (action === 'join' && !identity.admin) {
-                try {
-                    const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                    const char = (save?.character ?? null) as Record<string, unknown> | null;
-                    if (char) {
-                        if (typeof char.level === 'number') serverLevel = char.level;
-                        if (typeof char.petRankedRating === 'number') serverElo = char.petRankedRating;
-                    }
-                } catch {
-                    // best-effort; defaults apply
-                }
-            }
-
-            // Serialize join/leave/poll against the shared QUEUE_KEY blob so
-            // two concurrent writers can't get→filter→push→set and silently
-            // drop one of the writes. Self-healing on next poll (the dropped
-            // entry re-queues), so this is defense-in-depth.
-            const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(QUEUE_KEY, async () => {
-                const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
-                const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
-
-                if (action === 'join') {
-                    const activeMatches = pruneRankedPetActiveRegistry(
-                        await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY),
-                    );
-                    if (activeMatches[safeName(name)]) {
-                        return {
-                            status: 409,
-                            body: { error: 'Finish your active ranked pet match before joining the queue again.' },
-                        };
-                    }
-                }
-
-                if (action === 'leave') {
-                    const filtered = active.filter(e => e.name !== safeName(name));
-                    await Promise.all([
-                        kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
-                        kv.del(matchKey(safeName(name))),  // drop any pending match too
-                    ]);
-                    return { status: 200, body: { inQueue: false, queueSize: filtered.length, match: null } };
-                }
-
-                if (action === 'join') {
-                    // Remove existing entry for this player, then add fresh
-                    const filtered = active.filter(e => e.name !== safeName(name));
-                    const entry: QueueEntry = {
-                        name: safeName(name),
-                        level: serverLevel,
-                        elo: serverElo,
-                        joinedAt: Date.now(),
-                    };
-                    filtered.push(entry);
-                    await Promise.all([
-                        kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
-                        kv.del(matchKey(safeName(name))),  // clear any stale prior match
-                    ]);
-                    return { status: 200, body: { inQueue: true, queueSize: filtered.length, match: null } };
-                }
-
-                if (action === 'poll') {
-                    // #10: if a prior poll (mine OR the opponent's) already matched
-                    // me, return that durable match instead of re-matching — so the
-                    // side that didn't poll first still gets the match rather than a
-                    // bare inQueue:false that looks like "you left".
-                    const myMatch = await kv.get<Record<string, unknown>>(matchKey(safeName(name)));
-                    if (myMatch) {
-                        return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
-                    }
-
-                    const me = active.find(e => e.name === safeName(name));
-                    if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
-
-                    const others = active.filter(e => e.name !== me.name);
-                    if (others.length === 0) {
-                        const refreshed = active.map(e => e.name === me.name ? { ...e, joinedAt: Date.now() } : e);
-                        await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
-                        return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
-                    }
-
-                    // Level band — mirrors ranked-queue.ts. Widens with the
-                    // caller's wait time, falls back to pure-Elo if nothing fits.
-                    const waitMs = Math.max(0, Date.now() - me.joinedAt);
-                    const band = LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
-                    const inBand = others.filter(e => Math.abs(e.level - me.level) <= band);
-                    const candidates = inBand.length > 0 ? inBand : others;
-                    candidates.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
-                    const opponent = candidates[0];
-                    const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
-                    // Deterministic initiator (lexicographically smaller slug) so
-                    // exactly ONE side sends the ranked challenge and the other
-                    // waits for it — no double-challenge, no silent drop. Both get a
-                    // durable match record so neither vanishes if a poll is missed.
-                    const initiatorName = me.name < opponent.name ? me.name : opponent.name;
-                    const now = Date.now();
-                    const pairId = randomUUID();
-                    const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now, pairId };
-                    const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now, pairId };
-                    // NOTE: no mintRankedMatchToken(..., 'pet') call here. The
-                    // pet ladder is gated by /api/pet/ranked-start (own keyspace:
-                    // pet:ranked-token:<id>) and settled by /api/pet/battle-result,
-                    // not by pvp/session.ts. A pet-side `ranked` claim through
-                    // session.ts would fail the player-token consume and degrade
-                    // to casual, which is the correct conservative outcome.
-                    await Promise.all([
-                        kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
-                        kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
-                        kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
-                    ]);
-
-                    return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
-                }
-
-                return { status: 400, body: { error: 'Invalid action.' } };
-            }, { failClosed: true });
-            return res.status(out.status).json(out.body);
-        } catch (err) {
-            console.error('[pvp/pet-ranked-queue]', safeLogValue(err));
-            if (err instanceof LockContendedError) {
-                return res.status(503).json({ error: 'Pet ranked matchmaking is busy. Please retry.' });
-            }
-            return res.status(500).json({ error: 'Internal server error.' });
+            body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Record<string, unknown>;
+        } catch {
+            return res.status(400).json({ error: 'Invalid request body.' });
         }
+        const name = typeof body?.name === 'string' ? body.name : '';
+        const action = body?.action;
+        if (!name || !['join', 'leave', 'poll'].includes(String(action))) {
+            return res.status(400).json({ error: 'Missing name or valid action.' });
+        }
+
+        const identity = await authedPlayerOrAdmin(req, name);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== safeName(name)) {
+            return res.status(403).json({ error: 'Cannot queue as another player.' });
+        }
+
+        return res.status(410).json({
+            available: false,
+            inQueue: false,
+            queueSize: 0,
+            match: null,
+            error: PET_RANKED_LIVE_QUEUE_RETIRED_MESSAGE,
+        });
     }
 
     return res.status(405).end();

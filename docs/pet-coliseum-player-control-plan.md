@@ -669,7 +669,15 @@ desynchronise.
   Three decisions only. A doctrine that needed a spreadsheet would be a worse
   answer than the AI it replaces.
 
-## 12. Ladder as a live PvP queue
+## 12. SUPERSEDED: Ladder as a live PvP queue
+
+> [!IMPORTANT]
+> This experiment is no longer an admitted product path. The queue launched the
+> ordinary memory-only, no-reward cinematic duel and never shared a proof with
+> ranked rating settlement. `/api/pvp/pet-ranked-queue` now returns `410`, and
+> the client exposes no join, poll, or live-duel action. The text below is kept
+> only as implementation history; re-admission requires one server-owned match
+> proof shared by combat and rating.
 
 `api/pvp/pet-ranked-queue.ts` already exists and does the hard part: join/leave/
 poll, a level band that widens with wait time, durable per-player match records,
