@@ -6,6 +6,7 @@ const worldMapSource = readFileSync(new URL("./WorldMap.tsx", import.meta.url), 
 const canvasSource = readFileSync(new URL("../components/WorldSectorCanvas.tsx", import.meta.url), "utf8");
 const commandPanelSource = readFileSync(new URL("../components/WorldSectorCommandPanel.tsx", import.meta.url), "utf8");
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
+const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
     return source.trimEnd().split(/\r?\n/u).length;
@@ -30,8 +31,8 @@ function assertOrdered(source: string, needles: readonly string[], contract: str
 
 test("WorldMap and its selected-sector leaves keep the projection line-budget ratchets", () => {
     assert.ok(
-        lineCount(worldMapSource) <= 5_575,
-        `WorldMap.tsx grew past 5,575 lines; selected-sector presentation belongs in its focused leaves.`,
+        lineCount(worldMapSource) <= 5_380,
+        `WorldMap.tsx grew past 5,380 lines; selected-sector presentation belongs in its focused leaves.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -44,6 +45,10 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
     assert.ok(
         lineCount(overlaySource) <= 165,
         `WorldSectorOverlayLayer.tsx grew past 165 lines; portals and workflows must remain in WorldMap.`,
+    );
+    assert.ok(
+        lineCount(dialogSource) <= 375,
+        `WorldWandererDialog.tsx grew past 375 lines; workflows and authority must remain in WorldMap.`,
     );
 });
 
@@ -73,6 +78,36 @@ test("WorldSectorOverlayLayer stays wrapper-free, hook-free, network-free, persi
     assert.doesNotMatch(overlaySource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|loadSectorTerritory|isSectorTracesEnabled|isWeeklyBossRoamEnabled|weeklyBossRoamState)\b/u);
     assert.match(overlaySource, /return \(\s*<>/u);
     assert.doesNotMatch(overlaySource, /return \(\s*<(?:div|main|section|aside)\b/u);
+});
+
+test("WorldWandererDialog stays hook-free, network-free, persistence-free, portal-free, and authority-free", () => {
+    assert.doesNotMatch(dialogSource, /\buse(?:State|Effect|LayoutEffect|Reducer|Ref|Memo|Callback|ImperativeHandle)\s*\(/u);
+    assert.doesNotMatch(dialogSource, /\bfetch\s*\(/u);
+    assert.doesNotMatch(dialogSource, /\b(?:localStorage|sessionStorage)\b/u);
+    assert.doesNotMatch(dialogSource, /\bcreatePortal\s*\(/u);
+    assert.doesNotMatch(dialogSource, /\bDate\.now\s*\(|\bnew Date\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
+    assert.doesNotMatch(dialogSource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|postWandererService|engageMerc|coolWanderer)\b/u);
+    assert.match(dialogSource, /return \(\s*<div className="card"/u);
+    assert.doesNotMatch(dialogSource, /position:\s*"fixed"|inset:\s*0|zIndex:\s*9999/u);
+});
+
+test("WorldWandererDialog preserves forced-choice dismissal and button order", () => {
+    const attackChoices = sliceBetween(dialogSource, 'wandererDialog.w.verb === "attack"', ') : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter"');
+    assertOrdered(attackChoices, [
+        'onClick={dismissWandererDialog}>Pass in peace</button>',
+        'onClick={() => startWandererAttack(wandererDialog.w, false)}',
+        '>Fight anyway</button>',
+        'onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}',
+        '>Fight</button>',
+        'onClick={dismissWandererDialog}>Flee</button>',
+    ], "wanderer attack choice order");
+    const bountyChoices = sliceBetween(dialogSource, 'wandererDialog.w.verb === "bountyHunter"', ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
+    assertOrdered(bountyChoices, [
+        'startBountyHunterFight(wandererDialog.w)',
+        '"Stand & Fight"',
+        'onClick={dismissWandererDialog}>Flee</button>',
+    ], "bounty hunter forced-choice order");
+    assert.match(dialogSource, /wandererDialog\.w\.verb === "merchant"[\s\S]*onClick=\{closeWandererDialog\}>Leave<\/button>/u);
 });
 
 test("WorldSectorOverlayLayer preserves direct-grid actor and marker order", () => {
@@ -131,6 +166,29 @@ test("WorldMap projects overlay time, storage, and capability decisions before r
     assert.match(projection, /const sectorOverlayVault[\s\S]*anbuViewOpen[\s\S]*territory\.ownerVillage/u);
     assert.match(projection, /const sectorOverlayShrine[\s\S]*isSectorTracesEnabled\(\)[\s\S]*shrineForSector/u);
     assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, Date\.now\(\)\)/u);
+});
+
+test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected contextual decisions", () => {
+    const projections = sliceBetween(worldMapSource, "const wandererDialogEmissary", "return (");
+    assert.match(projections, /const wandererLegacyTrial = legacyAvailable && character\.legacy && wandererDialogEmissary \? \([\s\S]*<EmissaryTrialPanel[\s\S]*onVersionedCharacter=\{onVersionedCharacter\}/u);
+    assert.match(projections, /const wandererDialogNow[\s\S]*Date\.now\(\)/u);
+    assert.match(projections, /const wandererDialogDayBucket[\s\S]*wandererDayBucket\(new Date\(\)\)/u);
+    assert.match(projections, /const wandererDialogAtWar[\s\S]*activeVillageWarsFor\(character\.village\)/u);
+
+    const portal = sliceBetween(worldMapSource, "{wandererDialog && createPortal(", "document.body,");
+    assertOrdered(portal, [
+        "onClick={handleWandererBackdropClick}",
+        "<WorldWandererDialog",
+        "now={wandererDialogNow}",
+        "emissaryDayBucket={wandererDialogDayBucket}",
+        "atWar={wandererDialogAtWar}",
+        "legacyTrial={wandererLegacyTrial}",
+        "dismissWandererDialog={dismissWandererDialog}",
+        "handleStoryReckoningAbandon={handleStoryReckoningAbandon}",
+    ], "wanderer portal projection");
+    assert.match(worldMapSource, /function handleWandererBackdropClick\(\)[\s\S]*requiresWandererChoice\(wandererDialog\)[\s\S]*dismissWandererDialog\(\)/u);
+    assert.match(worldMapSource, /async function tradeWithWanderer[\s\S]*postWandererService/u);
+    assert.match(worldMapSource, /async function acceptEpic[\s\S]*fetch\("\/api\/sector\/questbook"/u);
 });
 
 test("WorldSectorCommandPanel preserves command hierarchy and action order", () => {

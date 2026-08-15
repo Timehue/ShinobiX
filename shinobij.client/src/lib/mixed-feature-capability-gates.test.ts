@@ -130,6 +130,7 @@ describe("mixed-feature public capability wiring", () => {
     it("keeps cached World Map operations visible but blocks fresh Village War, ANBU, and Legacy mutations", () => {
         const worldMap = source("../screens/WorldMap.tsx");
         const sageModal = source("../components/SageOfferModal.tsx");
+        const wandererDialog = source("../components/WorldWandererDialog.tsx");
 
         assert.match(worldMap, /useCapabilityViewAvailability\("villageWar"\)/);
         assert.match(worldMap, /useCapabilityMutationAvailability\("villageWar"\)/);
@@ -141,6 +142,9 @@ describe("mixed-feature public capability wiring", () => {
         assert.match(worldMap, /vaultRaid && createPortal\([\s\S]*anbuAdmissionOpen \? \([\s\S]*<AnbuVaultRaid[\s\S]*ANBU operation paused[\s\S]*vault run remains recoverable/);
         assert.match(worldMap, /if \(legacyAvailable\) return;[\s\S]*setSageOffer\(null\);[\s\S]*setSageVnEvent\(null\);[\s\S]*setSageChoiceOpen\(false\)/);
         assert.match(worldMap, /legacyAvailable && sageChoiceOpen && sageOffer/);
+        assert.match(worldMap, /const wandererLegacyTrial = legacyAvailable && character\.legacy && wandererDialogEmissary/);
+        assert.match(worldMap, /legacyTrial=\{wandererLegacyTrial\}/);
+        assert.doesNotMatch(wandererDialog, /\b(?:legacyAvailable|mutationAvailability|capabilityAdmissionAllowed|EmissaryTrialPanel)\b/);
         assert.match(worldMap, /actionsAllowed=\{legacyActionsAvailable\}/);
         assert.match(worldMap, /canMutate=\{\(\) => capabilityAdmissionAllowed\(mutationAvailability\("legacy"\)\)\}/);
         assert.match(sageModal, /if \(!actionsAllowed \|\| !canMutate\(\)\)/);
