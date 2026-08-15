@@ -4,6 +4,7 @@ import test from "node:test";
 
 const worldMapSource = readFileSync(new URL("./WorldMap.tsx", import.meta.url), "utf8");
 const canvasSource = readFileSync(new URL("../components/WorldSectorCanvas.tsx", import.meta.url), "utf8");
+const commandPanelSource = readFileSync(new URL("../components/WorldSectorCommandPanel.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
     return source.trimEnd().split(/\r?\n/u).length;
@@ -26,14 +27,18 @@ function assertOrdered(source: string, needles: readonly string[], contract: str
     }
 }
 
-test("WorldMap and its canvas leaf keep the first projection line-budget ratchet", () => {
+test("WorldMap and its selected-sector leaves keep the projection line-budget ratchets", () => {
     assert.ok(
-        lineCount(worldMapSource) <= 5_700,
-        `WorldMap.tsx grew past 5,700 lines; selected-sector presentation belongs in its focused leaves.`,
+        lineCount(worldMapSource) <= 5_625,
+        `WorldMap.tsx grew past 5,625 lines; selected-sector presentation belongs in its focused leaves.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
         `WorldSectorCanvas.tsx grew past 220 lines; overlays and controllers must remain separate.`,
+    );
+    assert.ok(
+        lineCount(commandPanelSource) <= 285,
+        `WorldSectorCommandPanel.tsx grew past 285 lines; commands and authority must remain in WorldMap.`,
     );
 });
 
@@ -43,6 +48,15 @@ test("WorldSectorCanvas stays hook-free, network-free, and persistence-free", ()
     assert.doesNotMatch(canvasSource, /\b(?:localStorage|sessionStorage)\b/u);
     assert.doesNotMatch(canvasSource, /\bDate\.now\s*\(/u);
     assert.doesNotMatch(canvasSource, /\bcreatePortal\s*\(/u);
+});
+
+test("WorldSectorCommandPanel stays hook-free, network-free, persistence-free, and authority-free", () => {
+    assert.doesNotMatch(commandPanelSource, /\buse(?:State|Effect|LayoutEffect|Reducer|Ref|Memo|Callback|ImperativeHandle)\s*\(/u);
+    assert.doesNotMatch(commandPanelSource, /\bfetch\s*\(/u);
+    assert.doesNotMatch(commandPanelSource, /\b(?:localStorage|sessionStorage)\b/u);
+    assert.doesNotMatch(commandPanelSource, /\bcreatePortal\s*\(/u);
+    assert.doesNotMatch(commandPanelSource, /\bDate\.now\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
+    assert.doesNotMatch(commandPanelSource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|launchAiGuardRaid|startPvpRaid)\b/u);
 });
 
 test("selected-sector canvas preserves stage and stacking order", () => {
@@ -68,7 +82,7 @@ test("selected-sector canvas preserves stage and stacking order", () => {
 });
 
 test("WorldMap retains controller and portal ownership around the canvas slots", () => {
-    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", '<aside className="instance-actions sector-command-panel"');
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "<WorldSectorCommandPanel");
     assertOrdered(projection, [
         "onSelectTile={setSectorPlayerPos}",
         "onCrossExit={crossSectorExit}",
@@ -77,4 +91,45 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
         "encounterLayer={",
     ], "WorldMap canvas projection");
     assert.doesNotMatch(projection, /<(?:RegionSplash|SectorGateMarker|SectorPeersLive)\b/u);
+});
+
+test("WorldSectorCommandPanel preserves command hierarchy and action order", () => {
+    assertOrdered(commandPanelSource, [
+        '<aside className="instance-actions sector-command-panel"',
+        '<header className="sector-panel-heading">',
+        '{territory && (',
+        '<SectorTracesCard',
+        '<h4>Players Here</h4>',
+        '{hunt && (',
+        '<div className="sector-action-grid" aria-label="Sector actions">',
+    ], "selected-sector command hierarchy");
+    const actions = commandPanelSource.slice(commandPanelSource.indexOf('<div className="sector-action-grid"'));
+    assertOrdered(actions, [
+        '<span>Explore</span>',
+        'onClick={onHunt}',
+        '<span>Recover</span>',
+        '<span>Leave</span>',
+    ], "selected-sector action order");
+    assert.match(commandPanelSource, /aria-label=\{`Sector \$\{sector\} command panel`\}/u);
+    assert.match(commandPanelSource, /player\.status === "Traveling"[\s\S]*player\.status === "Fighting"[\s\S]*"Attack"/u);
+});
+
+test("WorldMap keeps live Village War admission checks around command-panel async work", () => {
+    const raidController = sliceBetween(
+        worldMapSource,
+        "async function handleSelectedSectorVillageWarRaid",
+        "function handleSelectedSectorPlayerAttack",
+    );
+    assertOrdered(raidController, [
+        'mutationAvailability("villageWar")',
+        "await fetchSavedPlayerCharacter(guard.name)",
+        'mutationAvailability("villageWar")',
+        "await startPvpRaid",
+        "await launchAiGuardRaid",
+        "function handleSelectedSectorControlledRaid",
+        'mutationAvailability("villageWar")',
+        "void launchAiGuardRaid",
+    ], "selected-sector Village War authority");
+    assert.match(worldMapSource, /onRaidEnemyVillage=\{handleSelectedSectorVillageWarRaid\}/u);
+    assert.match(worldMapSource, /onAttackPlayer=\{handleSelectedSectorPlayerAttack\}/u);
 });
