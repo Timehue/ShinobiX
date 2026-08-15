@@ -18,6 +18,7 @@ const bloodlineImageHashKey = 'shared:imgfields:bloodline';
 // save keys from it avoids a full save:* keyspace scan (a recursive walk of
 // the entire disk overlay) on every call.
 const REGISTRY_KEY = 'player:registry';
+const ADMIN_CONTENT_SLOTS = new Set(['admin1', 'admin2']);
 
 type RawBloodline = Record<string, unknown>;
 type PublicBloodlineEntry = {
@@ -31,6 +32,7 @@ type PublicBloodlineEntry = {
     totalPoints: number;
     ownerName: string;
     ownerKey: string;
+    ownerImage?: string;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -72,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // player count. Clan saves (save:clan-*) carry no savedBloodlines, so
         // excluding them is output-identical and saves wasted reads.
         const nonAdminKeys = Object.keys(registry ?? {})
-            .filter(slug => !slug.toLowerCase().startsWith('admin') && !slug.toLowerCase().startsWith('clan-'))
+            .filter((slug) => !ADMIN_CONTENT_SLOTS.has(slug.toLowerCase()) && !slug.toLowerCase().startsWith('clan-'))
             .map(slug => `save:${slug}`);
         const snapshots = nonAdminKeys.length
             ? await kv.mget<Record<string, unknown>[]>(...nonAdminKeys)
@@ -94,7 +96,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     id,
                     name: String(bloodline.name),
                     rank: String(bloodline.rank ?? 'B Rank'),
-                    image: sharedBloodlineImages[`bloodline:${id}`] ?? (bloodline.image ? String(bloodline.image) : undefined),
+                    image: bloodline.image ? String(bloodline.image) : sharedBloodlineImages[`bloodline:${id}`],
+                    ownerImage: bloodline.image ? String(bloodline.image) : undefined,
                     specialElement: bloodline.specialElement ? String(bloodline.specialElement) : undefined,
                     lore: bloodline.lore ? String(bloodline.lore) : undefined,
                     jutsus: Array.isArray(bloodline.jutsus) ? bloodline.jutsus : [],

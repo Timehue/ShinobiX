@@ -1,12 +1,14 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, mergePreservingImages, safeName } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { recordAudit } from '../_audit.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { withKvLock } from '../_lock.js';
 
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
+const ADMIN_CONTENT_OWNER_KEYS = new Set(['admin', 'admin1', 'admin2']);
 
 // Explicit allowlist of fields that can be merged into an existing bloodline
 // via the `update` action. Anything else in the body is ignored. Prevents
@@ -34,8 +36,14 @@ function isShortText(v: unknown, max: number): boolean {
     return typeof v === 'string' && v.length <= max;
 }
 
-function filterBloodlineFields(input: Record<string, unknown> | undefined): Record<string, unknown> {
-    if (!input || typeof input !== 'object') return {};
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
+
+function filterBloodlineFields(input: unknown): Record<string, unknown> {
+    if (!isPlainRecord(input)) return {};
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(input)) {
         if (!BLOODLINE_UPDATE_ALLOWED_FIELDS.has(k)) continue;
@@ -76,27 +84,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { action, ownerKey, bloodlineId, bloodline } = body as {
-            action?: 'approve' | 'delete' | 'update';
-            ownerKey?: string;
-            bloodlineId?: string;
-            bloodline?: Record<string, unknown>;
-        };
-
-        if (!bloodlineId || (action !== 'approve' && action !== 'delete' && action !== 'update')) {
+        if (!isPlainRecord(body)) return res.status(400).json({ error: 'Invalid request body.' });
+        const action = body.action;
+        const rawOwnerKey = body.ownerKey;
+        const rawBloodlineId = body.bloodlineId;
+        const bloodline = body.bloodline;
+        if (action !== 'approve' && action !== 'delete' && action !== 'update') {
             return res.status(400).json({ error: 'Missing action or bloodlineId.' });
         }
+        if (typeof rawBloodlineId !== 'string' || !rawBloodlineId.trim() || rawBloodlineId.trim().length > 128) {
+            return res.status(400).json({ error: 'Invalid bloodlineId.' });
+        }
+        if (rawOwnerKey !== undefined && (typeof rawOwnerKey !== 'string' || !rawOwnerKey.trim() || rawOwnerKey.length > 80)) {
+            return res.status(400).json({ error: 'Invalid ownerKey.' });
+        }
+        if (action === 'update' && !isPlainRecord(bloodline)) {
+            return res.status(400).json({ error: 'Invalid bloodline update.' });
+        }
 
-        const cleanOwnerKey = safeName(ownerKey ?? '');
-        const key = reviewKey(cleanOwnerKey || 'admin', bloodlineId);
+        const bloodlineId = rawBloodlineId.trim();
+        const cleanOwnerKey = safeName(rawOwnerKey ?? 'admin');
+        if (!cleanOwnerKey) return res.status(400).json({ error: 'Invalid ownerKey.' });
+        const key = reviewKey(cleanOwnerKey, bloodlineId);
         const approved = await loadApprovedBloodlines();
 
-        if ((action === 'delete' || action === 'update') && cleanOwnerKey && cleanOwnerKey !== 'admin' && !cleanOwnerKey.startsWith('admin')) {
+        if ((action === 'delete' || action === 'update') && !ADMIN_CONTENT_OWNER_KEYS.has(cleanOwnerKey)) {
             const saveKey = `save:${cleanOwnerKey}`;
             const adminLockKey = `admin-lock:${cleanOwnerKey}`;
             const resetSignalKey = `reset-signal:${cleanOwnerKey}`;
-            const snap = await kv.get<Record<string, unknown>>(saveKey);
-            if (snap) {
+            const mutationResult = await withKvLock(saveKey, async () => {
+                const snap = await kv.get<Record<string, unknown>>(saveKey);
+                if (!snap) return 'missing' as const;
                 const rawBloodlines = Array.isArray(snap.savedBloodlines) ? snap.savedBloodlines : [];
                 // Pre-check: does the bloodlineId actually exist on this
                 // save? If not, the filter/map below is a no-op and we'd
@@ -109,6 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Nothing to do — owner doesn't actually hold this bloodline.
                     // Still update the approved-list below so admin can curate
                     // entries pre-emptively.
+                    return 'missing' as const;
                 } else {
                     const nextBloodlines = action === 'delete'
                         ? rawBloodlines.filter((savedBloodline) => {
@@ -121,12 +140,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             // injected into player saves via this endpoint.
                             return { ...(savedBloodline as Record<string, unknown>), ...filterBloodlineFields(bloodline), id: bloodlineId };
                         });
+                    const next = mergePreservingImages(
+                        bumpSaveVersion({ ...snap, savedBloodlines: nextBloodlines }),
+                        snap,
+                    );
+                    // Publish the reload fence before releasing the same save
+                    // lock used by ordinary player writes. No autosave can slip
+                    // between the admin mutation and its invalidation signal.
                     await Promise.all([
+                        kv.set(saveKey, next),
                         kv.set(adminLockKey, 1, { ex: 300 }),
-                        kv.set(saveKey, bumpSaveVersion({ ...snap, savedBloodlines: nextBloodlines })),
                         kv.set(resetSignalKey, 1, { ex: 300 }),
                     ]);
+                    return action === 'update' ? 'updated' as const : 'deleted' as const;
                 }
+            }, { failClosed: true });
+            if (action === 'update' && mutationResult !== 'updated') {
+                return res.status(409).json({ error: 'Bloodline no longer exists in that player save.' });
             }
         }
 
@@ -137,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             domain: 'content', actor: 'admin', action: `bloodline.${action}`,
             entityType: 'bloodline', entityId: bloodlineId,
             after: action === 'update' ? filterBloodlineFields(bloodline) : undefined,
-            meta: { ownerKey: cleanOwnerKey || 'admin' },
+            meta: { ownerKey: cleanOwnerKey },
         });
         return res.status(200).json({ ok: true, approvedBloodlines: nextApproved });
     } catch (err) {

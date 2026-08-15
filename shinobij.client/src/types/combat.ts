@@ -150,6 +150,8 @@ export type SavedBloodline = {
 export type ReviewBloodline = SavedBloodline & {
     ownerName?: string;
     ownerKey?: string;
+    /** Exact image stored on this owner's save before any shared presentation fallback. */
+    ownerImage?: string;
 };
 
 export type ActiveTraining = {

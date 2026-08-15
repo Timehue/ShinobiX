@@ -96,6 +96,14 @@ import {
     type AdminPlayerSaveWriteFailure,
     type LoadedAdminPlayerSave,
 } from "../lib/admin-player-save-owner";
+import {
+    ADMIN_BLOODLINE_OWNER_KEY,
+    adminBloodlineOwnerId,
+    canonicalBloodlineOwnerKey,
+    findAdminBloodlineByOwnerId,
+    prepareAdminBloodlineApproval,
+    sameAdminBloodlineOwner,
+} from "../lib/admin-bloodline-owner";
 
 type EditableVnPage = {
     title: string;
@@ -154,7 +162,6 @@ export function AdminPanel({
     setScreen,
     onSave,
     onReloadImages,
-    onEditBloodline,
     onTestHollowGate,
     onHollowGateForceUnlock,
     onHollowGateResetIntro,
@@ -765,6 +772,21 @@ export function AdminPanel({
     const [raidDescription, setRaidDescription] = useState("A powerful enemy has appeared. Defeat all waves to claim the reward.");
     const [editingBloodlineId, setEditingBloodlineId] = useState("");
     const [editingBloodlineOwnerKey, setEditingBloodlineOwnerKey] = useState("");
+    const editingBloodlineOwnerIdRef = useRef("");
+    const bloodlineEditOperationEpochRef = useRef(0);
+    const bloodlineEditImageEpochRef = useRef(0);
+    const activeBloodlineEditRef = useRef<{
+        ownerId: string;
+        epoch: number;
+        authContext: string;
+    } | null>(null);
+    const bloodlineEditAuthContext = `${adminRole ?? ""}\u0000${adminPw}`;
+    const bloodlineEditAuthContextRef = useRef(bloodlineEditAuthContext);
+    if (bloodlineEditAuthContextRef.current !== bloodlineEditAuthContext) {
+        bloodlineEditAuthContextRef.current = bloodlineEditAuthContext;
+        bloodlineEditOperationEpochRef.current += 1;
+        bloodlineEditImageEpochRef.current += 1;
+    }
     const [bloodlineEditName, setBloodlineEditName] = useState("");
     const [bloodlineEditRank, setBloodlineEditRank] = useState<Rank>("A Rank");
     const [bloodlineEditElement, setBloodlineEditElement] = useState("");
@@ -772,7 +794,7 @@ export function AdminPanel({
     const [bloodlineEditLore, setBloodlineEditLore] = useState("");
     const [bloodlineRankFilter, setBloodlineRankFilter] = useState<"All" | Rank>("All");
     const [bloodlineSort, setBloodlineSort] = useState<"name" | "rank" | "points" | "jutsus">("name");
-    const [selectedBloodlineId, setSelectedBloodlineId] = useState("");
+    const [selectedBloodlineOwnerId, setSelectedBloodlineOwnerId] = useState("");
     const [eventBiomeFilter, setEventBiomeFilter] = useState<"All" | Biome>("All");
     const [eventSort, setEventSort] = useState<"name" | "type" | "biome" | "level">("name");
     const [selectedEventId, setSelectedEventId] = useState("");
@@ -820,7 +842,12 @@ export function AdminPanel({
 
     useLayoutEffect(() => {
         weeklyBossOperationFence.activate();
-        return () => weeklyBossOperationFence.dispose();
+        return () => {
+            weeklyBossOperationFence.dispose();
+            bloodlineEditOperationEpochRef.current += 1;
+            bloodlineEditImageEpochRef.current += 1;
+            editingBloodlineOwnerIdRef.current = "";
+        };
     }, [weeklyBossOperationFence]);
 
     function beginWeeklyBossOperation(): AdminWeeklyBossOperationToken | null {
@@ -1013,6 +1040,7 @@ export function AdminPanel({
     const pmSnap = pmLoadedSave?.snapshot ?? null;
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [pendingPlayerBloodlines, setPendingPlayerBloodlines] = useState<ReviewBloodline[]>([]);
+    const bloodlineApprovalInFlightRef = useRef(new Set<string>());
     const [serverResetMsg, setServerResetMsg] = useState("");
     // Ranked seasons (admin start / force-rollover). Seasons do NOT auto-start.
     const [rankedSeasonMsg, setRankedSeasonMsg] = useState("");
@@ -1101,33 +1129,37 @@ export function AdminPanel({
     // client also avoids calling it when role is content; the jutsuBloodlines
     // tab falls back to /api/bloodlines/list for the bloodline gallery.
     function fetchAllKnownPlayers() {
-        fetchAllKnownPlayersIfCurrent(() => true);
+        void fetchAllKnownPlayersIfCurrent(() => true);
     }
 
-    function fetchAllKnownPlayersIfCurrent(isCurrent: () => boolean) {
+    async function fetchAllKnownPlayersIfCurrent(isCurrent: () => boolean): Promise<void> {
         if (!adminPw) return;
         if (adminRole !== 'full') return;
-        fetch('/api/admin/players', {
+        try {
+            const response = await fetch('/api/admin/players', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
             body: JSON.stringify({}),
-        })
-            .then(r => r.ok ? r.json() : null)
-            .then((data: { players: { name: string; level: number; village: string; online: boolean }[]; bloodlines?: ReviewBloodline[]; approvedBloodlines?: string[] } | null) => {
-                if (!isCurrent()) return;
-                if (data?.players) setAllKnownPlayers(data.players);
-                if (data?.approvedBloodlines) {
-                    setApprovedBloodlineIds(data.approvedBloodlines);
-                }
-                if (data?.bloodlines) {
-                    setPendingPlayerBloodlines(data.bloodlines.map((bloodline) => ({
-                        ...bloodline,
-                        rank: bloodline.rank as Rank,
-                        jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
-                    })));
-                }
-            })
-            .catch(() => {/* silently ignore */});
+            });
+            const data = response.ok
+                ? await response.json() as { players: { name: string; level: number; village: string; online: boolean }[]; bloodlines?: ReviewBloodline[]; approvedBloodlines?: string[] }
+                : null;
+            if (!isCurrent()) return;
+            if (data?.players) setAllKnownPlayers(data.players);
+            if (data?.approvedBloodlines) {
+                setApprovedBloodlineIds(data.approvedBloodlines);
+            }
+            if (data?.bloodlines) {
+                setPendingPlayerBloodlines(data.bloodlines.map((bloodline) => ({
+                    ...bloodline,
+                    rank: bloodline.rank as Rank,
+                    jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
+                })));
+            }
+        } catch {
+            // Review refresh is best-effort; the caller's operation fence still
+            // owns whether a late response may publish state.
+        }
     }
 
     // Auto-fetch wherever bloodlines/player review data is shown.
@@ -1429,7 +1461,7 @@ export function AdminPanel({
             }
             invalidatePmEditLookup();
             setPmEditMsg("✅ Saved! Look up the player again before making another change.");
-            fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
+            void fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
         } catch (err) {
             if (pmMutationIsCurrent(mutation)) setPmEditMsg(`❌ Save failed: ${String(err)}`);
         } finally {
@@ -1503,7 +1535,7 @@ export function AdminPanel({
             }
             invalidatePmLookup();
             setPmMsg(`? ${targetLabel} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
-            fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
+            void fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
         } catch (e) {
             if (pmMutationIsCurrent(mutation)) setPmMsg(`? Error: ${String(e)}`);
         } finally {
@@ -1538,7 +1570,7 @@ export function AdminPanel({
             pmTargetNameRef.current = "";
             setPmTargetName("");
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
-            fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
+            void fetchAllKnownPlayersIfCurrent(() => pmMutationIsCurrent(mutation));
         } catch (e) {
             if (pmMutationIsCurrent(mutation)) setPmMsg(`❌ Reset failed: ${String(e)}`);
         } finally {
@@ -1651,7 +1683,7 @@ export function AdminPanel({
     }
 
     function bloodlineReviewKey(bloodline: ReviewBloodline) {
-        return `${bloodline.ownerKey ?? "admin"}:${bloodline.id}`;
+        return adminBloodlineOwnerId(bloodline);
     }
 
     async function saveBloodlineReviewAction(action: "approve" | "delete", bloodline: ReviewBloodline) {
@@ -1673,31 +1705,30 @@ export function AdminPanel({
 
     async function pmApproveBloodline(bloodline: ReviewBloodline) {
         const reviewKey = bloodlineReviewKey(bloodline);
-        const cleanBloodline: SavedBloodline = {
-            id: bloodline.id,
-            name: bloodline.name,
-            rank: bloodline.rank,
-            image: bloodline.image,
-            specialElement: bloodline.specialElement,
-            lore: bloodline.lore,
-            jutsus: bloodline.jutsus.map(normalizeJutsu),
-            totalPoints: bloodline.totalPoints,
-        };
-        if (!savedBloodlines.some((existing) => existing.id === cleanBloodline.id)) {
-            if (cleanBloodline.image) void publishSharedImage('bloodline:' + cleanBloodline.id, cleanBloodline.image);
-            for (const jutsu of cleanBloodline.jutsus) {
-                if (jutsu.image) void publishSharedImage('jutsu:' + jutsu.id, jutsu.image);
-            }
-            setSavedBloodlines([...savedBloodlines, cleanBloodline]);
-            setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
-        }
-        const next = Array.from(new Set([...approvedBloodlineIds, reviewKey]));
-        setApprovedBloodlineIds(next);
+        if (!reviewKey || bloodlineApprovalInFlightRef.current.has(reviewKey)) return;
+        bloodlineApprovalInFlightRef.current.add(reviewKey);
         try {
+            const cleanBloodline = prepareAdminBloodlineApproval({
+                ...bloodline,
+                jutsus: bloodline.jutsus.map(normalizeJutsu),
+            });
+            if (!savedBloodlines.some((existing) => existing.id === cleanBloodline.id)) {
+                if (cleanBloodline.image?.startsWith('data:image/')) void publishSharedImage('bloodline:' + cleanBloodline.id, cleanBloodline.image);
+                for (const jutsu of cleanBloodline.jutsus) {
+                    if (jutsu.image?.startsWith('data:image/')) void publishSharedImage('jutsu:' + jutsu.id, jutsu.image);
+                }
+                setSavedBloodlines((current) => current.some((existing) => existing.id === cleanBloodline.id)
+                    ? current
+                    : [...current, cleanBloodline]);
+                setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+            }
+            setApprovedBloodlineIds((current) => Array.from(new Set([...current, reviewKey])));
             await saveBloodlineReviewAction("approve", bloodline);
             setPmMsg(`✅ Approved ${bloodline.name}.`);
         } catch {
             setPmMsg("⚠️ Approved locally, but server review state did not save.");
+        } finally {
+            bloodlineApprovalInFlightRef.current.delete(reviewKey);
         }
     }
 
@@ -1720,9 +1751,17 @@ export function AdminPanel({
 
     async function deleteAdminSavedBloodline(bloodline: SavedBloodline) {
         if (!(await gameConfirm(`Delete ${bloodline.name} from the admin bloodline list?`, { danger: true, confirmLabel: "Delete" }))) return;
+        const ownerId = adminBloodlineOwnerId({ ...bloodline, ownerKey: ADMIN_BLOODLINE_OWNER_KEY });
         setSavedBloodlines(savedBloodlines.filter((candidate) => candidate.id !== bloodline.id));
-        if (editingBloodlineId === bloodline.id) { setEditingBloodlineId(""); setEditingBloodlineOwnerKey(""); }
-        if (selectedBloodlineId === bloodline.id) setSelectedBloodlineId("");
+        if (adminBloodlineOwnerId({ id: editingBloodlineId, ownerKey: editingBloodlineOwnerKey }) === ownerId) {
+            bloodlineEditOperationEpochRef.current += 1;
+            bloodlineEditImageEpochRef.current += 1;
+            activeBloodlineEditRef.current = null;
+            editingBloodlineOwnerIdRef.current = "";
+            setEditingBloodlineId("");
+            setEditingBloodlineOwnerKey("");
+        }
+        if (selectedBloodlineOwnerId === ownerId) setSelectedBloodlineOwnerId("");
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
     const [leadershipImages, setLeadershipImages] = useState<VillageLeadershipImages>(() => loadVillageLeadershipImages());
@@ -1765,14 +1804,27 @@ export function AdminPanel({
     ];
     const reviewBloodlines: ReviewBloodline[] = [
         ...savedBloodlines.map((bloodline) => ({ ...bloodline, ownerName: "Admin", ownerKey: "admin" })),
-        ...pendingPlayerBloodlines.filter((bloodline) => !savedBloodlines.some((saved) => saved.id === bloodline.id)),
+        ...pendingPlayerBloodlines.filter((bloodline) => !savedBloodlines.some((saved) => sameAdminBloodlineOwner(
+            { ...saved, ownerKey: ADMIN_BLOODLINE_OWNER_KEY },
+            bloodline,
+        ))),
     ];
-    const adminPanelBloodlines = [
-        ...allEditableBloodlines,
+    const adminPanelBloodlines: ReviewBloodline[] = [
+        ...allEditableBloodlines.map((bloodline) => ({
+            ...bloodline,
+            ownerName: "Admin",
+            ownerKey: ADMIN_BLOODLINE_OWNER_KEY,
+        })),
         ...reviewBloodlines.filter((bloodline) =>
-            !allEditableBloodlines.some((existing) => existing.id === bloodline.id)
+            !allEditableBloodlines.some((existing) => sameAdminBloodlineOwner(
+                { ...existing, ownerKey: ADMIN_BLOODLINE_OWNER_KEY },
+                bloodline,
+            ))
         ),
     ];
+    const adminOwnedPanelBloodlines = adminPanelBloodlines.filter(
+        (bloodline) => canonicalBloodlineOwnerKey(bloodline.ownerKey) === ADMIN_BLOODLINE_OWNER_KEY,
+    );
     function updateLeadershipImage(village: string, slot: "kage" | number, image: string) {
         const shareKey = typeof slot === 'number' ? `leader:${village}:elder:${slot}` : `leader:${village}:kage`;
         publishSharedImage(shareKey, image);
@@ -1791,7 +1843,13 @@ export function AdminPanel({
             if (bloodlineSort === "jutsus") return b.jutsus.length - a.jutsus.length;
             return String(a[bloodlineSort]).localeCompare(String(b[bloodlineSort])) || a.name.localeCompare(b.name);
         });
-    const selectedBloodline = sortedBloodlines.find((bloodline) => bloodline.id === selectedBloodlineId) ?? sortedBloodlines[0];
+    const selectedBloodline = findAdminBloodlineByOwnerId(sortedBloodlines, selectedBloodlineOwnerId) ?? sortedBloodlines[0];
+    const selectedBloodlineOwnerKey = selectedBloodline
+        ? canonicalBloodlineOwnerKey(selectedBloodline.ownerKey)
+        : "";
+    const selectedBloodlineIsAdmin = selectedBloodlineOwnerKey === ADMIN_BLOODLINE_OWNER_KEY;
+    const selectedBloodlineIsSavedAdmin = selectedBloodlineIsAdmin
+        && savedBloodlines.some((candidate) => candidate.id === selectedBloodline?.id);
     const sortedEditableEvents = [...allEditableEvents]
         .filter((event) => eventKindFilter === "All" || (event.eventKind ?? "reward") === eventKindFilter)
         .filter((event) => eventBiomeFilter === "All" || event.biome === eventBiomeFilter)
@@ -1871,14 +1929,18 @@ export function AdminPanel({
     }
 
     function applyBloodlineImage(rawImage: string) {
+        const ownerId = editingBloodlineOwnerIdRef.current;
+        const imageEpoch = ++bloodlineEditImageEpochRef.current;
         setBloodlineEditImage(rawImage);
         const safeRawImage = safeImageSource(rawImage);
         if (!safeRawImage) return;
         void compactImage(safeRawImage).then((image) => {
+            if (
+                !ownerId
+                || editingBloodlineOwnerIdRef.current !== ownerId
+                || bloodlineEditImageEpochRef.current !== imageEpoch
+            ) return;
             setBloodlineEditImage(image);
-            if (!editingBloodlineId) return;
-            void publishSharedImage('bloodline:' + editingBloodlineId, image);
-            setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
         });
     }
 
@@ -2455,64 +2517,105 @@ export function AdminPanel({
         alert("Level-scaled AI HP, chakra, stamina, and stats applied.");
     }
 
-    function loadAdminBloodline(bloodline: SavedBloodline) {
+    function loadAdminBloodline(bloodline: ReviewBloodline) {
+        bloodlineEditOperationEpochRef.current += 1;
+        bloodlineEditImageEpochRef.current += 1;
+        const ownerId = adminBloodlineOwnerId(bloodline);
+        editingBloodlineOwnerIdRef.current = ownerId;
+        setSelectedBloodlineOwnerId(ownerId);
         setEditingBloodlineId(bloodline.id);
-        setEditingBloodlineOwnerKey((bloodline as ReviewBloodline).ownerKey ?? "");
+        setEditingBloodlineOwnerKey(canonicalBloodlineOwnerKey(bloodline.ownerKey));
         setBloodlineEditName(bloodline.name);
         setBloodlineEditRank(bloodline.rank);
         setBloodlineEditElement(bloodline.specialElement ?? "");
-        setBloodlineEditImage(bloodline.image ?? "");
+        setBloodlineEditImage(
+            canonicalBloodlineOwnerKey(bloodline.ownerKey) === ADMIN_BLOODLINE_OWNER_KEY
+                ? bloodline.image ?? ""
+                : bloodline.ownerImage ?? "",
+        );
         setBloodlineEditLore(bloodline.lore ?? "");
     }
 
     async function saveAdminBloodlineEdit() {
         if (!editingBloodlineId) return alert("Load an existing bloodline first.");
-        const sourceBloodline = adminPanelBloodlines.find((bloodline) => bloodline.id === editingBloodlineId);
-        if (!sourceBloodline) return alert("Loaded bloodline was not found.");
-        const isPlayerBloodline = editingBloodlineOwnerKey && editingBloodlineOwnerKey !== "admin";
-        const updatedBloodline: SavedBloodline = {
-            ...sourceBloodline,
-            id: savedBloodlines.some((bloodline) => bloodline.id === editingBloodlineId) || isPlayerBloodline ? editingBloodlineId : `bloodline-${makeId()}`,
-            name: bloodlineEditName.trim() || sourceBloodline.name,
-            rank: bloodlineEditRank,
-            specialElement: bloodlineEditElement.trim(),
-            image: bloodlineEditImage,
-            lore: bloodlineEditLore.trim(),
-        };
-        // Republish the cover image under the FINAL id. The id can be reminted
-        // above (editing a built-in mints a fresh `bloodline-*` id), but
-        // applyBloodlineImage published under the loaded id — without this the
-        // saved override's `bloodline:<id>` key wouldn't exist and the image
-        // would never hydrate. No-ops for an unchanged /api/img reference.
-        if (bloodlineEditImage) void publishSharedImage('bloodline:' + updatedBloodline.id, bloodlineEditImage);
-        if (isPlayerBloodline) {
-            const res = await fetch('/api/admin/bloodline-review', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-                body: JSON.stringify({
-                    action: 'update',
-                    ownerKey: editingBloodlineOwnerKey,
-                    bloodlineId: editingBloodlineId,
-                    bloodline: updatedBloodline,
-                }),
-            });
-            if (!res.ok) return alert(`Could not update player bloodline (${res.status}).`);
-            setPendingPlayerBloodlines(pendingPlayerBloodlines.map((bloodline) =>
-                bloodline.id === editingBloodlineId && bloodline.ownerKey === editingBloodlineOwnerKey
-                    ? { ...updatedBloodline, ownerKey: bloodline.ownerKey, ownerName: bloodline.ownerName }
-                    : bloodline
-            ));
-            alert(`${updatedBloodline.name} updated in ${editingBloodlineOwnerKey}'s save.`);
-            fetchAllKnownPlayers();
-            return;
+        const editingOwnerId = adminBloodlineOwnerId({
+            id: editingBloodlineId,
+            ownerKey: editingBloodlineOwnerKey,
+        });
+        if (!editingOwnerId || editingBloodlineOwnerIdRef.current !== editingOwnerId) {
+            return alert("Loaded bloodline owner changed. Load it again before saving.");
         }
-        setSavedBloodlines(savedBloodlines.some((bloodline) => bloodline.id === editingBloodlineId)
-            ? savedBloodlines.map((bloodline) => bloodline.id === editingBloodlineId ? updatedBloodline : bloodline)
-            : [...savedBloodlines, updatedBloodline]);
-        setEditingBloodlineId(updatedBloodline.id);
-        setSelectedBloodlineId(updatedBloodline.id);
-        alert(`${bloodlineEditName || "Bloodline"} updated.`);
-        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+        if (activeBloodlineEditRef.current) return alert("A bloodline update is already in progress.");
+        const operation = {
+            ownerId: editingOwnerId,
+            epoch: ++bloodlineEditOperationEpochRef.current,
+            authContext: bloodlineEditAuthContextRef.current,
+        };
+        activeBloodlineEditRef.current = operation;
+        const operationIsCurrent = () => (
+            activeBloodlineEditRef.current === operation
+            && bloodlineEditOperationEpochRef.current === operation.epoch
+            && editingBloodlineOwnerIdRef.current === operation.ownerId
+            && bloodlineEditAuthContextRef.current === operation.authContext
+        );
+        const sourceBloodline = findAdminBloodlineByOwnerId(adminPanelBloodlines, editingOwnerId);
+        try {
+            if (!sourceBloodline) {
+                if (operationIsCurrent()) alert("Loaded bloodline was not found.");
+                return;
+            }
+            const isPlayerBloodline = editingBloodlineOwnerKey !== ADMIN_BLOODLINE_OWNER_KEY;
+            const updatedBloodline: SavedBloodline = {
+                ...sourceBloodline,
+                id: savedBloodlines.some((bloodline) => bloodline.id === editingBloodlineId) || isPlayerBloodline ? editingBloodlineId : `bloodline-${makeId()}`,
+                name: bloodlineEditName.trim() || sourceBloodline.name,
+                rank: bloodlineEditRank,
+                specialElement: bloodlineEditElement.trim(),
+                image: bloodlineEditImage,
+                lore: bloodlineEditLore.trim(),
+            };
+            if (isPlayerBloodline) {
+                const res = await fetch('/api/admin/bloodline-review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                    body: JSON.stringify({
+                        action: 'update',
+                        ownerKey: editingBloodlineOwnerKey,
+                        bloodlineId: editingBloodlineId,
+                        bloodline: updatedBloodline,
+                    }),
+                });
+                if (!operationIsCurrent()) return;
+                if (!res.ok) return alert(`Could not update player bloodline (${res.status}).`);
+                setPendingPlayerBloodlines((current) => current.map((bloodline) =>
+                    sameAdminBloodlineOwner(bloodline, sourceBloodline)
+                        ? { ...updatedBloodline, ownerKey: bloodline.ownerKey, ownerName: bloodline.ownerName }
+                        : bloodline
+                ));
+                alert(`${updatedBloodline.name} updated in ${editingBloodlineOwnerKey}'s save.`);
+                await fetchAllKnownPlayersIfCurrent(operationIsCurrent);
+                return;
+            }
+            // Admin-authored and built-in overrides share the admin image
+            // namespace. Player-owned drafts stay entirely inside the exact
+            // owner save updated above.
+            if (bloodlineEditImage) void publishSharedImage('bloodline:' + updatedBloodline.id, bloodlineEditImage);
+            setSavedBloodlines(savedBloodlines.some((bloodline) => bloodline.id === editingBloodlineId)
+                ? savedBloodlines.map((bloodline) => bloodline.id === editingBloodlineId ? updatedBloodline : bloodline)
+                : [...savedBloodlines, updatedBloodline]);
+            setEditingBloodlineId(updatedBloodline.id);
+            setEditingBloodlineOwnerKey(ADMIN_BLOODLINE_OWNER_KEY);
+            const updatedOwnerId = adminBloodlineOwnerId({
+                id: updatedBloodline.id,
+                ownerKey: ADMIN_BLOODLINE_OWNER_KEY,
+            });
+            editingBloodlineOwnerIdRef.current = updatedOwnerId;
+            setSelectedBloodlineOwnerId(updatedOwnerId);
+            alert(`${bloodlineEditName || "Bloodline"} updated.`);
+            setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+        } finally {
+            if (activeBloodlineEditRef.current === operation) activeBloodlineEditRef.current = null;
+        }
     }
 
     // Stat-derived leveling (docs/leveling-without-xp-map.md): level is a pure
@@ -4282,21 +4385,30 @@ export function AdminPanel({
                         </div>
                         {sortedBloodlines.length === 0 ? <div className="summary-box">No saved bloodlines yet.</div> : (
                             <>
-                                <select value={selectedBloodline?.id ?? ""} onChange={(e) => setSelectedBloodlineId(e.target.value)}>
-                                    {sortedBloodlines.map((bloodline) => <option key={bloodline.id} value={bloodline.id}>{bloodline.name} | {bloodline.rank} | {bloodline.jutsus.length} jutsus</option>)}
+                                <select
+                                    value={selectedBloodline ? adminBloodlineOwnerId(selectedBloodline) : ""}
+                                    onChange={(e) => setSelectedBloodlineOwnerId(e.target.value)}
+                                >
+                                    {sortedBloodlines.map((bloodline) => {
+                                        const ownerId = adminBloodlineOwnerId(bloodline);
+                                        const ownerLabel = canonicalBloodlineOwnerKey(bloodline.ownerKey) === ADMIN_BLOODLINE_OWNER_KEY
+                                            ? "Admin"
+                                            : bloodline.ownerName || bloodline.ownerKey;
+                                        return <option key={ownerId} value={ownerId}>{bloodline.name} | {bloodline.rank} | {bloodline.jutsus.length} jutsus | {ownerLabel}</option>;
+                                    })}
                                 </select>
                                 {selectedBloodline && (
                                     <div className="summary-box">
                                         <strong>{selectedBloodline.name}</strong>
                                         <p>{selectedBloodline.rank} | {selectedBloodline.specialElement || "No special element"} | {selectedBloodline.jutsus.length} jutsus | Points {selectedBloodline.totalPoints}{starterSavedBloodlines.some((builtIn) => builtIn.id === selectedBloodline.id) ? " | Built-in" : ""}</p>
                                         {selectedBloodline.image && <div className="admin-event-list-preview"><img src={selectedBloodline.image} alt={selectedBloodline.name} /></div>}
-                                        {!selectedBloodline.image && <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${selectedBloodline.name} ${selectedBloodline.specialElement || "chakra"} ${selectedBloodline.rank} bloodline kekkei genkai clan eye art`} onImage={(img) => { void compressDataUrl(img, 512, 0.82).then((image) => { publishSharedImage('bloodline:' + selectedBloodline.id, image); setSavedBloodlines(savedBloodlines.map((b) => b.id === selectedBloodline.id ? { ...b, image } : b)); }); }} />}
+                                        {!selectedBloodline.image && selectedBloodlineIsAdmin && <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${selectedBloodline.name} ${selectedBloodline.specialElement || "chakra"} ${selectedBloodline.rank} bloodline kekkei genkai clan eye art`} onImage={(img) => { void compressDataUrl(img, 512, 0.82).then((image) => { publishSharedImage('bloodline:' + selectedBloodline.id, image); setSavedBloodlines((current) => current.map((bloodline) => bloodline.id === selectedBloodline.id ? { ...bloodline, image } : bloodline)); }); }} />}
                                         <div className="menu">
                                             <button onClick={() => loadAdminBloodline(selectedBloodline)}>Edit Bloodline</button>
-                                            {savedBloodlines.some((candidate) => candidate.id === selectedBloodline.id) ? (
+                                            {selectedBloodlineIsSavedAdmin ? (
                                                 <button className="danger-button" onClick={() => deleteAdminSavedBloodline(selectedBloodline)}>Delete</button>
-                                            ) : (selectedBloodline as ReviewBloodline).ownerKey && (selectedBloodline as ReviewBloodline).ownerKey !== "admin" ? (
-                                                <button className="danger-button" onClick={() => pmDeleteBloodline(selectedBloodline as ReviewBloodline)}>Delete From Player Save</button>
+                                            ) : !selectedBloodlineIsAdmin ? (
+                                                <button className="danger-button" onClick={() => pmDeleteBloodline(selectedBloodline)}>Delete From Player Save</button>
                                             ) : null}
                                         </div>
                                         <JutsuDropdownList
@@ -4394,11 +4506,11 @@ export function AdminPanel({
 
                     <section className="summary-box">
                         <h4>Bulk Bloodline Image Generation</h4>
-                        <p className="hint">Generates AI images for all bloodlines that don't have an image yet.</p>
-                        <p className="hint">Bloodlines without images: <strong>{adminPanelBloodlines.filter((b) => !b.image).length}</strong> / {adminPanelBloodlines.length}</p>
+                        <p className="hint">Generates AI images for admin-owned bloodlines that don't have an image yet. Player-owned art stays scoped to its save.</p>
+                        <p className="hint">Admin bloodlines without images: <strong>{adminOwnedPanelBloodlines.filter((bloodline) => !bloodline.image).length}</strong> / {adminOwnedPanelBloodlines.length}</p>
                         <button disabled={jutsuIsGenerating} onClick={async () => {
-                            const missing = adminPanelBloodlines.filter((b) => !b.image);
-                            if (missing.length === 0) { setJutsuGenStatus("All bloodlines already have images!"); return; }
+                            const missing = adminOwnedPanelBloodlines.filter((bloodline) => !bloodline.image);
+                            if (missing.length === 0) { setJutsuGenStatus("All admin bloodlines already have images!"); return; }
                             setJutsuIsGenerating(true);
                             let done = 0;
                             for (const bl of missing) {
@@ -5632,10 +5744,7 @@ export function AdminPanel({
                                             <p className="hint" style={{ margin: 0 }}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
                                             {bl.lore && <p className="hint" style={{ margin: "4px 0 0" }}>{bl.lore}</p>}
                                         </div>
-                                        <button onClick={() => {
-                                            const base: SavedBloodline = { id: bl.id, name: bl.name, rank: bl.rank, image: bl.image, specialElement: bl.specialElement, lore: bl.lore, jutsus: bl.jutsus, totalPoints: bl.totalPoints };
-                                            onEditBloodline?.(base);
-                                        }}>✏️ Edit</button>
+                                        <button onClick={() => { loadAdminBloodline(bl); setActiveAdminPanel("jutsuBloodlines"); }}>✏️ Edit</button>
                                         <button onClick={() => pmApproveBloodline(bl)}>✅ Approve</button>
                                         <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>🗑️ Delete</button>
                                     </div>
