@@ -5470,7 +5470,11 @@ export function Arena({
                                                     headers: { 'Content-Type': 'application/json' },
                                                     body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
                                                 }).catch(() => {});
-                                                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+                                                // The challenge id is the duel's identity: the server
+                                                // seals ONE fight against it on accept, and both
+                                                // participants read that same fight back. Without it
+                                                // the Coliseum has nothing to load.
+                                                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed, pvpChallengeId: challenge.id });
                                                 setScreen("petArena");
                                                 return;
                                             }

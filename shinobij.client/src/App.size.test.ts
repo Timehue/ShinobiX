@@ -183,7 +183,7 @@ import { readFileSync } from "node:fs";
 // settle}.ts) paid for by draining the retired local Endless authority + the pure half of
 // pickRandomEndlessAi → lib/endless-tower (−22). App keeps only the App-local
 // setTemporaryStoryAi registration.)
-const MAX_LINES = 7_727;
+const MAX_LINES = 7_726;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

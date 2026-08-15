@@ -22,6 +22,14 @@ export type PetArenaOpponent = {
     // from a PvP party challenge so we don't re-pick on the player's side).
     opponentParty?: [Pet, Pet];
     challengerParty?: [Pet, Pet];
+    // ── Player-challenge duels (1v1 and 2v2) ──────────────────────────
+    // The accepted challenge's id. The server sealed ONE duel against it when
+    // the responder accepted — both teams, one seed, one verdict — so both
+    // participants' /api/pet/battle-start calls resolve to the same fight and
+    // watch the same script. Without it a challenge duel cannot start: there is
+    // no local simulation to fall back to, and inventing one is the bug the
+    // seal exists to end.
+    pvpChallengeId?: string;
     // ── Ranked 1v1 extensions ─────────────────────────────────────────
     // Set when this opponent came from the pet-ranked ladder queue. The
     // battle resolves deterministically (canonical sim) and the result
