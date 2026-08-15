@@ -16,9 +16,9 @@ should be fun: readable, telegraphed, answerable.
 
 ## 2. What exists today (verified in code)
 
-- **Decision code:** `enemyTurn()` in [Arena.tsx](../shinobij.client/src/screens/Arena.tsx) (~3507), driven by a rule
-  list (`buildBasicCombatAiRules` in [combat-ai.ts](../shinobij.client/src/lib/combat-ai.ts)) + a scorer
-  (`highestPowerAiJutsu` → `smartAiJutsuPick`).
+- **Decision code:** `enemyTurn()` in [Arena.tsx](../shinobij.client/src/screens/Arena.tsx), driven by a rule
+  list (`buildBasicCombatAiRules` in [combat-ai.ts](../shinobij.client/src/lib/combat-ai.ts)) + the pure
+  `pickArenaAiJutsu` scorer in [arena-ai-policy.ts](../shinobij.client/src/features/arena/domain/arena-ai-policy.ts).
 - **Rule conditions are player-blind:** `always | specific_round | distance_lower_than |
   distance_higher_than | hp_lower_than` ([creator-ai.ts](../shinobij.client/src/types/creator-ai.ts)). Boss "patterns"
   fire by round number, not by what you do.
@@ -53,12 +53,12 @@ each AI "proper 40 and 60 AP options" is so the multi-action loop has clean fill
 
 ## 4. Constraints (hard)
 
-- No rewrite — extend `smartAiJutsuPick` / `buildBasicCombatAiRules` / the band helpers.
+- No rewrite — extend `pickArenaAiJutsu` / `buildBasicCombatAiRules` / the band helpers.
 - Client-only. No `api/` change, no Supabase/schema change. PvE combat already runs client-side; rewards stay gated by their existing server-authoritative paths.
 - **Decisions & loadouts only — never the math.** AP, damage, tag %s, cooldowns, durations, the band stat multipliers/caps/mercy-floor all stay identical.
 - PvP / ranked / endless gated out via the existing `isStandardPve` flag.
 - Determinism-friendly: variety from turn/state hashing, not `Math.random()`.
-- New tactics logic lives in a new `lib/combat-ai-tactics.ts` (keep Arena.tsx from growing); band policy stays in `pve-difficulty.ts` next to the existing easy-band helpers.
+- Perception logic lives in `lib/combat-ai-tactics.ts`, selection in `features/arena/domain/arena-ai-policy.ts`, and band policy in `pve-difficulty.ts`; keep Arena.tsx as the live-state/execution adapter.
 
 ---
 
@@ -89,8 +89,8 @@ Additive extensions to [creator-ai.ts](../shinobij.client/src/types/creator-ai.t
   `player_low_ap`, `player_used` (last action), `self_has_debuff`.
 - **Actions:** `clear_player_buffs` (the unused **Clear**), `cleanse_self` (the unused
   **Cleanse**), `shield_up`/`defend`, `reposition`/`kite`, and **`use_weapon`** (Phase 5).
-- Teach `aiRuleMatches()` + the `enemyTurn()` loop to evaluate/execute them.
-- **Files:** creator-ai.ts, combat-ai.ts, Arena.tsx.
+- Teach `matchesArenaAiRule()` + the `enemyTurn()` loop to evaluate/execute them.
+- **Files:** creator-ai.ts, combat-ai.ts, features/arena/domain/arena-ai-policy.ts, Arena.tsx.
 
 ### Phase 3 — Band intelligence ladder (the core "fit my brackets" fix)
 Replace the binary level-30 smart flip with a per-band competence profile in
