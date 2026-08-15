@@ -434,9 +434,16 @@ function seedFrom(sector: number, bucket: number): number {
     return h >>> 0;
 }
 
-function naturalWanderer(sourceId: string, character: Record<string, unknown>, requestedSector: number, now: number) {
+/** Reconstruct one natural wanderer from the exact roster algorithm the World
+ * Map uses. Other server entrypoints import this rather than accepting the
+ * client's preview/name/verb as encounter authority. */
+export function resolveNaturalWorldWanderer(sourceId: string, character: Record<string, unknown>, requestedSector: number, now: number) {
     const parsed = parseNaturalWandererId(sourceId);
-    if (!parsed || parsed.dayBucket !== wandererDayBucketFromMs(now) || parsed.index > 1) return null;
+    if (!parsed
+        || !Number.isSafeInteger(parsed.sector) || parsed.sector < 1 || parsed.sector > MAX_WORLD_SECTOR
+        || !Number.isSafeInteger(parsed.dayBucket) || parsed.dayBucket < 0
+        || !Number.isSafeInteger(parsed.index) || parsed.index < 0 || parsed.index > 1
+        || parsed.dayBucket !== wandererDayBucketFromMs(now)) return null;
     const moves = character.wandererMoves && typeof character.wandererMoves === 'object' && !Array.isArray(character.wandererMoves)
         ? character.wandererMoves as Record<string, unknown>
         : {};
@@ -564,14 +571,14 @@ export async function buildWorldAiFightSpec(params: {
             return { profile: runtimeProfile('world-wanderer-nemesis', name, level + tier, Math.min(12, tier * 2), 'bruiser'), environment,
                 context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: name, finalStage: true } };
         }
-        const wanderer = naturalWanderer(request.sourceId, character, request.sector, now);
+        const wanderer = resolveNaturalWorldWanderer(request.sourceId, character, request.sector, now);
         if (!wanderer || wanderer.verb !== 'attack') throw new Error('world-wanderer-not-attackable');
         return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, wanderer.name, level + 1, 0, 'bruiser'), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: wanderer.name, finalStage: true } };
     }
 
     if (request.kind === 'patrol') {
-        const wanderer = naturalWanderer(request.sourceId, character, request.sector, now);
+        const wanderer = resolveNaturalWorldWanderer(request.sourceId, character, request.sector, now);
         if (!wanderer || wanderer.verb !== 'patrol') throw new Error('world-wanderer-not-patrol');
         const village = typeof character.village === 'string' ? character.village : '';
         const hostile = village ? (await activeVillageWarEnemiesOf(village)).length > 0 : false;

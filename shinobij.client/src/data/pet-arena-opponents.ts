@@ -25,6 +25,9 @@ export type PetArenaOpponent = {
         floor: number;
         kind: "battle" | "elite" | "ambush" | "beast" | "boss";
     };
+    /** Exact natural World Map wanderer context. The preview pet is cosmetic;
+     * battle-start reconstructs this roster slot and builds the real beast. */
+    wanderer?: { id: string; sector: number };
     // ── Party (2v2) extensions ────────────────────────────────────────
     // When opponentParty is set, the incoming battle should resolve as a
     // 2-pet set. challengerParty is the player's locked-in pair (carried
