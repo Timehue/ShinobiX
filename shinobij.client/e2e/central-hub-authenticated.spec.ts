@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 
 type SavePayload = {
     character?: Record<string, unknown>;
@@ -24,6 +25,15 @@ async function installAuthenticatedApi(page: Page) {
         const path = url.pathname;
 
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
+        if (path === "/api/player/capabilities") {
+            return json(route, {
+                ok: true,
+                capabilities: Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
+                    id,
+                    { state: "available", reason: "available" },
+                ])),
+            });
+        }
         if (path === "/api/player-auth") return json(route, { ok: true, token: "e2e-session-token" });
 
         if (path.toLowerCase() === "/api/save/auditninja") {

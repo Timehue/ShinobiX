@@ -26,38 +26,39 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import "../styles/battle-skin.css";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
-import {
-    GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
-    GiColiseum, GiFirstAidKit,
-    GiVillage, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
-    GiRollingDices, GiTwoCoins,
-    // Command-deck glyphs (one per basic action).
-    GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
-} from "react-icons/gi";
+import { GiFirstAidKit, GiVillage, GiShield } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
-import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
+import type { Biome, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
 import type { Pet, PetJutsu } from "../types/pet";
-import { JUTSU_MAX_LEVEL, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
+import { BattleArenaLobby } from "../features/arena/components/BattleArenaLobby";
+import { ArenaDistrictLobby } from "../features/arena/components/ArenaDistrictLobby";
+import { ArenaCombatBoardStage } from "../features/arena/components/ArenaCombatBoardStage";
+import { ArenaCommandDeck } from "../features/arena/components/ArenaCommandDeck";
+import { ArenaBattleTimeline } from "../features/arena/components/ArenaBattleTimeline";
+import { matchesArenaAiRule, pickArenaAiJutsu } from "../features/arena/domain/arena-ai-policy";
+import type {
+    ArenaBattleActionEntry as BattleActionEntry,
+    ArenaBattleActor as BattleActor,
+    ArenaCombatStatus as CombatStatus,
+    ArenaCombatVfx,
+    ArenaDistrictTab,
+    ArenaHitFx,
+    ArenaSelectedCombatAction as SelectedCombatAction,
+    BattleArenaLobbyTab,
+} from "../features/arena/types";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
-import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
-import { CombatDetailPortal } from "../components/CombatDetailPortal";
-import { BackToVillageButton } from "../components/BackToVillageButton";
-import { BountyBoardPanel } from "../components/BountyBoardPanel";
-import { BattleTabBar } from "../components/BattleTabBar";
 import {
     CombatApPanel,
-    CombatBattleLogPanel,
-    CombatBoardStage,
-    CombatCommandBar,
     CombatEnvironmentStrip,
     CombatHudHeader,
     CombatHudLayout,
@@ -69,34 +70,28 @@ import { interpolateFlavor } from "../lib/battle-log-format";
 import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
 import { playPetSfx } from "../lib/pet-sfx";
 import { isMercAiId } from "../lib/merc-ai";
-import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
-import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
-import { FighterHpBadge } from "../components/FighterHpBadge";
-import { BattlefieldActor } from "../components/BattlefieldActor";
-import { JutsuEffectCards } from "../components/JutsuEffectCards";
-import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
+import { PET_CONSUMABLE_PVE_HEAL_PCT, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { battlefieldAiSprite, defaultAiRivalSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
+import { aiArmorFactorForProfile, aiStatsForLevel } from "../lib/ai-stats";
 import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
-import { cappedPostDamage, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
+import { cappedPostDamage, getJutsuMastery, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost } from "../lib/jutsu-scaling";
+import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveAiCompetence } from "../lib/pve-difficulty";
 import { advancePveGroundZonesForTurn, pveGroundZoneDebuff, type PveGroundZone } from "../lib/pve-ground-zones";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
-import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
-import { jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffectsOpponent, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { minActionCost } from "../lib/combat-affordability";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
-import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
+import { combatLoadoutSlots, normalizeEquipmentSlot } from "../lib/equipment";
 import { earnedStatPoints, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
@@ -111,7 +106,6 @@ import { requestAiFight } from "../lib/ai-fight-request";
 import { publishedPracticeOpponentForLevel } from "../lib/creator-event-practice";
 import { useBoardScale } from "../lib/use-board-scale";
 import {
-    TACTICAL_ARENA_PET_REQUIREMENT,
     availablePetBattleCount,
     isPetOnExpedition,
     petCombatDamage,
@@ -122,8 +116,6 @@ import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
 import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
-import { petCardImage } from "../lib/pet-battle-anim";
-import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import type { OwnSaveReadCommit } from "../lib/own-save-read";
 const loadOwnSaveRead = () => import("../lib/own-save-read");
@@ -263,29 +255,6 @@ export function Arena({
     // Battles) for later reflection. Display-only — carries no rewards.
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
-    type CombatStatus = {
-        name: string;
-        rounds: number;
-        activeRound?: number;
-        amount?: number;
-        percent?: number;
-        // 'Increase Discipline' only: the style the buff is locked to (captured
-        // from the cast jutsu's type; read by disciplineBonusFromStatuses).
-        discipline?: string;
-        kind: "positive" | "negative";
-    };
-    type BattleActor = "player" | "enemy";
-    type BattleActionEntry = {
-        round: number;
-        actor: string;
-        actorRole: BattleActor;
-        actionId: string;
-        description: string;
-        actionNumber: number;
-        createdAt: number;
-    };
-    type SelectedCombatAction = "move" | undefined;
-
     const gridWidth = 12;
     const gridHeight = 10;
 
@@ -397,7 +366,7 @@ export function Arena({
     // Floating ±damage/heal numbers over a fighter on every HP change (D3 — PvE
     // parity with PvP's pvp-hit-fx). Purely cosmetic overlay; reuses the same CSS
     // classes/palette. Per-HP refs dedup so each transition fires once.
-    const [pveHitFx, setPveHitFx] = useState<{ id: string; x: number; y: number; amount: number; kind: "damage" | "heal" }[]>([]);
+    const [pveHitFx, setPveHitFx] = useState<ArenaHitFx[]>([]);
     const prevPlayerHpRef = useRef<number | null>(null);
     const prevEnemyHpRef = useRef<number | null>(null);
     // Explicit floating-number events, queued by the action handlers with the TRUE
@@ -425,7 +394,6 @@ export function Arena({
     useEffect(() => { combatFastRef.current = combatFast; }, [combatFast]);
     useEffect(() => { try { setCombatFast(localStorage.getItem("combatFast.v1") === "1"); } catch { /* ignore */ } }, []);
     const combatFxSeq = useRef(0);
-    type ArenaCombatVfx = { id: number; points: Array<{ x: number; y: number }>; spec: CombatVfxSpec };
     const [combatVfx, setCombatVfx] = useState<ArenaCombatVfx[]>([]);
 
     const combatTilePoint = (tile: number): { x: number; y: number } | null => {
@@ -595,9 +563,9 @@ export function Arena({
 
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [activeArenaTab, setActiveArenaTab] = useState<"clanWar" | "tournaments" | "ranked" | "spectate" | "petBattles">("ranked");
+    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>("ranked");
     // Battle Arena hub (village casual-spar hub) sub-tabs: sparring/challenges vs the bounty board.
-    const [battleArenaTab, setBattleArenaTab] = useState<"spar" | "bounty">("spar");
+    const [battleArenaTab, setBattleArenaTab] = useState<BattleArenaLobbyTab>("spar");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
     const [playerRankedEnabled, setPlayerRankedEnabled] = useState(false);
@@ -824,12 +792,6 @@ export function Arena({
     const [ap, setAp] = useState(100);
     const [enemyAp, setEnemyAp] = useState(100);
     const [turn, setTurn] = useState(1);
-    // Easy-band "teach, don't ambush" pacing: in the opening rounds an easy-band
-    // enemy holds its burst/signature jutsu, so the AI move-pickers fall through
-    // to weaker attacks / movement first. Standard PvE only.
-    const easyHoldBurst = isStandardPve && pveEasyBandHoldsBurst(opponentLevel, turn);
-    const applyEasyBurstHold = (jutsus: Jutsu[]): Jutsu[] =>
-        easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
     // Mint the reward token when an AI battle begins, not after the client says
@@ -3784,20 +3746,18 @@ export function Arena({
     }
 
     function aiRuleMatches(rule: AiRule) {
-        const dist = distance(playerPos, enemyPos);
-        if (rule.condition === "always") return true;
-        if (rule.condition === "specific_round") return turn === rule.value;
-        if (rule.condition === "distance_lower_than") return dist < rule.value;
-        if (rule.condition === "distance_higher_than") return dist > rule.value;
-        if (rule.condition === "hp_lower_than") return (enemyHp / enemyMaxHp) * 100 < rule.value;
-        // Player-reactive conditions (Phase 2) — read the player's live state so a
-        // rule can answer what the player is doing, not just the clock/distance.
-        if (rule.condition === "player_hp_lower_than") return (playerHp / Math.max(1, character.maxHp)) * 100 < rule.value;
-        if (rule.condition === "player_has_shield") return playerShield > 0;
-        if (rule.condition === "player_has_buff") return activeStatuses(playerStatuses).filter((s) => s.kind === "positive").length >= Math.max(1, rule.value);
-        if (rule.condition === "player_low_ap") return ap < (rule.value || 50);
-        if (rule.condition === "self_has_debuff") return activeStatuses(enemyStatuses).filter((s) => s.kind === "negative").length >= Math.max(1, rule.value);
-        return false;
+        return matchesArenaAiRule(rule, {
+            distanceToPlayer: distance(playerPos, enemyPos),
+            turn,
+            enemyHp,
+            enemyMaxHp,
+            playerHp,
+            playerMaxHp: character.maxHp,
+            playerShield,
+            playerAp: ap,
+            activePlayerStatuses: activeStatuses(playerStatuses),
+            activeEnemyStatuses: activeStatuses(enemyStatuses),
+        });
     }
 
     // Reused damage estimator — calls calculateDamage with the AI's current
@@ -3825,261 +3785,32 @@ export function Arena({
         }
     }
 
-    // Damage the player will take from ALREADY-ACTIVE DoT effects this turn
-    // (Wound + Poison + Drain). Folded into lethal detection so a single
-    // killing-blow jutsu doesn't need to do the full HP solo — if the player
-    // is bleeding 200/turn from a stacked Wound and is at 250 HP, a 60-damage
-    // jutsu can lethal.
-    function activePlayerDotThisTurn(): number {
-        let dot = 0;
-        for (const s of playerStatuses) {
-            if (s.name === "Wound")  dot += s.amount || 0;
-            if (s.name === "Drain")  dot += s.amount ?? 50;
-            // Under combatResourcesV2 Poison deals NO passive per-round damage (it only
-            // bites when the poisoned fighter spends to cast), so it must not count toward
-            // guaranteed incoming-DoT lethality here.
-            if (s.name === "Poison" && !COMBAT_RESOURCES_V2) dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
-        }
-        return dot;
-    }
-
-    // Expanded jutsu pool for level-30+ smart AI. Pulls from THE FULL game
-    // jutsu pool (allJutsus, includes starters + admin-created), filtered to
-    // what this AI could reasonably wield:
-    //   • No bloodline-locked jutsus (AI has no bloodline)
-    //   • Element compatibility — favor the AI's primary jutsu type's element
-    //     range over a random Lightning AI casting Water moves
-    //   • Rank cap by AI level so a level-30 mob doesn't pull a level-100
-    //     mythic Ninjutsu from the pool:
-    //         level 30-49  → AP ≤ 60  (rough B-rank cutoff)
-    //         level 50-79  → AP ≤ 80  (A-rank)
-    //         level 80+    → AP ≤ 100 (S-rank, full power)
-    //   • Chakra/stamina the AI can actually pay
-    //   • Always includes the AI's equipped loadout (enemyAiJutsus) — even
-    //     if it would otherwise be filtered out — so admin-curated AIs
-    //     still get their flavor moves.
-    function smartExpandedJutsuPool(): Jutsu[] {
-        const lvl = opponentLevel ?? 1;
-        const apCap = lvl >= 80 ? 100 : lvl >= 50 ? 80 : 60;
-        // Primary element of the AI's loadout — used to bias element
-        // matching (we don't HARD-filter so the AI keeps utility access).
-        const primaryType = aiPrimaryJutsuType(enemyAiJutsus);
-        const primaryEls = new Set<JutsuElement>();
-        for (const j of enemyAiJutsus) if (j.element && j.element !== "None") primaryEls.add(j.element);
-
-        const fromPool = allJutsus.filter((jutsu) => {
-            if (jutsu.bloodlineRank) return false;                          // bloodline-locked
-            if (jutsu.ap > apCap) return false;                             // rank cap
-            if (jutsu.chakraCost > enemyChakra) return false;               // can't pay chakra
-            if (jutsu.staminaCost > enemyStamina) return false;             // can't pay stamina
-            // Element bias — if the AI has a clear primary type AND this
-            // jutsu's type matches AND its element differs from the AI's
-            // pool elements, skip it. Keeps a Lightning AI from spamming
-            // Water moves. None-element + matching-type utility passes.
-            if (primaryType && jutsu.type !== "Any" && jutsu.type !== primaryType) {
-                // Allow cross-type if the AI has no jutsus of this type's
-                // element — small openness so the AI can grab a useful Stun
-                // or Heal it doesn't already have access to.
-                if (jutsu.tags.length === 0) return false;
-            }
-            if (primaryEls.size > 0 && jutsu.element && jutsu.element !== "None" && !primaryEls.has(jutsu.element)) {
-                return false;
-            }
-            return true;
-        });
-
-        // Merge with equipped loadout, dedup by id (loadout wins on ties).
-        const merged = new Map<string, Jutsu>();
-        for (const j of fromPool)       merged.set(j.id, j);
-        for (const j of enemyAiJutsus)  merged.set(j.id, j);
-        return Array.from(merged.values());
-    }
-
-    // SMART AI — used for opponents at level 30+. Pulls from the FULL game
-    // jutsu pool (filtered by element/rank/affordability), then scores with
-    // a multi-axis tactical model:
-    //   1. LETHAL — any jutsu (alone OR combined with active player DoT)
-    //      that KOs the player → fire immediately, cheapest first.
-    //   2. SUSTAIN — at HP < 35%, grab heal/sustain.
-    //   3. NO-REDUNDANT STATUS — skip a stun if player is already stunned,
-    //      a poison/wound/drain if that DoT is already stacking, etc.
-    //   4. ELEMENT MATCHUP — small bonus when the jutsu element matches a
-    //      gap in the player's defensive stat allocation.
-    //   5. SYNERGY — if I land a Stun, the player loses AP next turn → my
-    //      follow-up nuke gets a setup bonus. If player has Decrease
-    //      Damage Taken active → my big jutsus get penalized.
-    //   6. AP-EFFICIENCY + SIGNATURE-RESERVE (carried over).
-    function smartAiJutsuPick(availableAp: number): Jutsu | undefined {
-        const expanded = smartExpandedJutsuPool();
-        // Easy band holds its burst jutsu in the opening rounds (no-op otherwise).
-        const usable = applyEasyBurstHold(expanded
-            .filter((jutsu) => jutsu.ap <= availableAp)
-            .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
-            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range));
-
-        // 1. Lethal scan — include active DoT damage in the KO threshold so
-        // a setup jutsu can finish through chip damage. Cheapest lethal wins.
-        // Gated in the easy band: the AI only deliberately goes for the kill when
-        // the player is already very low, so a healthy learner isn't executed.
-        const allowLethal = !isStandardPve || pveEasyBandAllowsLethal(opponentLevel, playerHp / Math.max(1, character.maxHp));
-        const dotThisTurn = activePlayerDotThisTurn();
-        const requiredKo = Math.max(0, playerHp + playerShield - dotThisTurn);
-        let bestLethal: { jutsu: Jutsu; ap: number } | null = null;
-        for (const jutsu of usable) {
-            const dmg = estimateAiJutsuDamage(jutsu);
-            if (dmg >= requiredKo && dmg > 0) {
-                if (!bestLethal || jutsu.ap < bestLethal.ap) bestLethal = { jutsu, ap: jutsu.ap };
-            }
-        }
-        if (allowLethal && bestLethal) return bestLethal.jutsu;
-
-        // 2. Sustain trigger — heal at 40% so a single nuke can't catch the
-        // AI mid-heal. Previous 35% left zero buffer against a follow-up hit
-        // (heal ≈ one standard hit; nuke is 1.2× that).
-        const hpPct = enemyHp / Math.max(1, enemyMaxHp);
-        if (hpPct < 0.40) {
-            const healish = usable.find(j => isSelfSupportJutsu(j));
-            if (healish) return healish;
-        }
-
-        // Pre-compute facts the score function reuses.
-        const playerMaxHp = Math.max(1, character.maxHp);
-        const playerStunned    = playerStatuses.some(s => s.name === "Stun");
-        const playerSealed     = playerStatuses.some(s => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal");
-        const playerPoisoned   = playerStatuses.some(s => s.name === "Poison");
-        const playerWounded    = playerStatuses.some(s => s.name === "Wound");
-        const playerDrained    = playerStatuses.some(s => s.name === "Drain");
-        const playerDmgUp      = playerStatuses.some(s => s.name === "Increase Damage Taken" || s.name === "Ignition");
-        const playerDmgDown    = playerStatuses.some(s => s.name === "Decrease Damage Taken");
-        // Lower of player's two combat resources — a low-resource player is
-        // already throttled, so resource-drain jutsus lose value.
-        const playerLowAp      = ap < 50; // engine-side player AP
-
-        // ── Stack-awareness pre-computes (diminishing returns aware) ──
-        // multiplicativeTagMultiplier already applies diminishing returns per
-        // stack, so 2nd stack of any amp tag gives much less than the 1st,
-        // and 3rd+ is near-wasted. The AI used to keep applying these even
-        // when stacked — these counts let the score function penalize it.
-        const selfIdgStacks      = enemyStatuses.filter(s => s.name === "Increase Damage Given").length;
-        const playerIdtStacks    = playerStatuses.filter(s => s.name === "Increase Damage Taken").length;
-        const playerIgnStacks    = playerStatuses.filter(s => s.name === "Ignition" || statusMatchesName(s, "Ignition")).length;
-        // Defensive stacks the AI itself has on
-        const selfDdtStacks      = enemyStatuses.filter(s => s.name === "Decrease Damage Taken").length;
-        const playerDdgStacks    = playerStatuses.filter(s => s.name === "Decrease Damage Given").length;
-
-        // ── Pierce-vs-armor signal ──
-        // playerArmorFactor is 0.25..1.0 where lower = more armor mitigation.
-        // <0.55 means the player has stacked ≥45% raw armor DR — Pierce is
-        // disproportionately valuable here since it bypasses both armor and
-        // any active shield.
-        const playerHeavyArmor = playerArmorFactor < 0.55;
-        const playerShielded   = playerShield > 0;
-
-        return usable.sort((a, b) => {
-            const tacticalScore = (jutsu: Jutsu) => {
-                let score = jutsu.effectPower;
-                const dmg = estimateAiJutsuDamage(jutsu);
-
-                // ── Self-support
-                if (isSelfSupportJutsu(jutsu) && hpPct > 0.70) score -= 50;
-                else if (isSelfSupportJutsu(jutsu) && hpPct < 0.50) score += 15;
-
-                // ── Control / pressure baseline (unchanged)
-                if (isControlJutsu(jutsu)) score += 12;
-                if (isPressureJutsu(jutsu)) score += 8;
-
-                // ── No-redundant status — heavy penalty so the AI never
-                // re-applies a status already active on the player.
-                const tagNames = jutsu.tags.map(t => t.name);
-                if (playerStunned   && tagNames.includes("Stun"))           score -= 40;
-                if (playerSealed    && (tagNames.includes("Bloodline Seal") || tagNames.includes("Seal") || tagNames.includes("Elemental Seal"))) score -= 30;
-                if (playerPoisoned  && tagNames.includes("Poison"))         score -= 25;
-                if (playerWounded   && tagNames.includes("Wound"))          score -= 25;
-                if (playerDrained   && tagNames.includes("Drain"))          score -= 25;
-                if (playerLowAp     && tagNames.includes("Lag"))            score -= 20;
-
-                // ── Diminishing-returns awareness for amp tags ──
-                // 1st stack of an amp tag is huge; 2nd is half-value; 3rd+
-                // is near-wasted under multiplicativeTagMultiplier's curve.
-                // Score the cast accordingly so the AI pivots to damage
-                // once a stack is up rather than spamming the buff.
-                if (tagNames.includes("Increase Damage Given")) {
-                    score += selfIdgStacks === 0 ? 14 : selfIdgStacks === 1 ? -2 : -25;
-                }
-                if (tagNames.includes("Increase Damage Taken")) {
-                    score += playerIdtStacks === 0 ? 12 : playerIdtStacks === 1 ? -2 : -25;
-                }
-                if (tagNames.includes("Ignition")) {
-                    score += playerIgnStacks === 0 ? 12 : playerIgnStacks === 1 ? -2 : -25;
-                }
-                if (tagNames.includes("Decrease Damage Taken")) {
-                    score += selfDdtStacks === 0 ? 10 : selfDdtStacks === 1 ? -2 : -20;
-                }
-                if (tagNames.includes("Decrease Damage Given")) {
-                    score += playerDdgStacks === 0 ? 10 : playerDdgStacks === 1 ? -2 : -20;
-                }
-
-                // ── Pierce-vs-armor bonus ──
-                // Pierce bypasses both armor and shield in PvE (set to
-                // flat 900 when ap≥60). Against a heavy-armor or shielded
-                // player it's worth far more than its raw effect power.
-                if (tagNames.includes("Pierce")) {
-                    if (playerHeavyArmor) score += 25;
-                    if (playerShielded)   score += 30;
-                }
-
-                // ── Mirror — only useful when carrying ≥1 transferable debuff
-                // (post-fix it copies, doesn't strip from self). Penalize
-                // casting Mirror in clean state since it'd send nothing.
-                if (tagNames.includes("Mirror")) {
-                    const selfNegStacks = enemyStatuses.filter(s => s.kind === "negative" && s.name !== "Wound" && s.name !== "Poison" && s.name !== "Drain" && !statusMatchesName(s, "Ignition")).length;
-                    score += selfNegStacks >= 2 ? 22 : selfNegStacks === 1 ? 6 : -15;
-                }
-
-                // ── Synergy bonuses — set up future damage / capitalize on
-                // player's current debuffs.
-                if (playerDmgUp && dmg > 0) score += 8;     // their Ignition / IDT is up — hit harder
-                if (playerDmgDown && dmg > 0) score -= 10;  // their DDT is up — save the AP
-                if (playerStunned && dmg > 0 && jutsu.ap >= 50) score += 12; // big hit while they can't react
-
-                // ── AP-efficiency bonus
-                if (dmg > 0) score += (dmg / Math.max(1, jutsu.ap)) * 1.5;
-
-                // ── Signature-reserve logic
-                if (jutsu.ap >= 60) {
-                    if (dmg / playerMaxHp >= 0.35) score += 10;
-                    else                          score -= 20;
-                }
-                return score;
-            };
-            return tacticalScore(b) - tacticalScore(a) || b.ap - a.ap;
-        })[0];
-    }
-
     function highestPowerAiJutsu(availableAp = 100) {
-        // Gating: opponents at level 30+ use the smart AI automatically, and
-        // admins can flag an AI as masterAi to force it on at any level (elite /
-        // boss mobs). Routed through pveAiCompetence.usesSmartScorer so the
-        // basic→smart threshold lives in ONE place (lib/pve-difficulty.ts).
-        if (pveAiCompetence(opponentLevel, pendingAiProfile?.masterAi).usesSmartScorer) {
-            return smartAiJutsuPick(availableAp);
-        }
-        return applyEasyBurstHold([...enemyAiJutsus]
-            .filter((jutsu) => jutsu.ap <= availableAp)
-            .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
-            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range))
-            .sort((a, b) => {
-                const tacticalScore = (jutsu: Jutsu) => {
-                    let score = jutsu.effectPower;
-                    if (isSelfSupportJutsu(jutsu) && enemyHp / enemyMaxHp > 0.65) score -= 45;
-                    if (isControlJutsu(jutsu)) score += 8;
-                    if (isPressureJutsu(jutsu)) score += 6;
-                    return score;
-                };
-                return tacticalScore(b) - tacticalScore(a) || b.ap - a.ap;
-            })[0];
+        return pickArenaAiJutsu({
+            allJutsus,
+            enemyAiJutsus,
+            opponentLevel,
+            usesSmartScorer: pveAiCompetence(opponentLevel, pendingAiProfile?.masterAi).usesSmartScorer,
+            enemyChakra,
+            enemyStamina,
+            enemyJutsuCooldowns,
+            availableAp,
+            distanceToPlayer: distance(playerPos, enemyPos),
+            turn,
+            isStandardPve,
+            enemyHp,
+            enemyMaxHp,
+            playerHp,
+            playerMaxHp: character.maxHp,
+            playerShield,
+            playerAp: ap,
+            playerArmorFactor,
+            playerStatuses,
+            enemyStatuses,
+            combatResourcesV2: COMBAT_RESOURCES_V2,
+            estimateDamage: estimateAiJutsuDamage,
+        });
     }
-
     function enemyUseAiJutsu(jutsu: Jutsu, availableAp = 100) {
         if (jutsu.ap > availableAp) return false;
         if ((enemyJutsuCooldowns[jutsu.id] ?? 0) > 0) return false;
@@ -5270,332 +5001,136 @@ export function Arena({
         const tournamentRemaining = arenaTournament ? Math.max(0, arenaTournament.endsAt - Date.now()) : 0;
         const matchRemaining = arenaTournament ? Math.max(0, arenaTournament.matchDeadline - Date.now()) : 0;
         const isAdminTournamentManager = isAdminAccountName(character.name);
+
         if (lobbyMode === "battleArena") {
             const incomingSpars = incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack);
-            const incomingPetSpars = incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints);
-            // Pet-battle modes gate on how many pets you can actually field (not on
-            // expedition): 1v1 needs 1 (everyone starts with a pet), 2v2 needs 2.
+            const incomingPetSpars = incomingChallenges.filter((challenge) => challenge.mode === "clanWarPet" && !challenge.clanWarPoints);
             return (
-                <div className="card arena-lobby">
-                    <BackToVillageButton onClick={() => setScreen("village")} />
-                    <h2><GiCrossedSwords style={ARENA_ICON} />Battle Arena</h2>
-                    <p>Your hub for casual sparring — combat, pets, and cards — plus the bounty board.</p>
-
-                    <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
-                        <button className={battleArenaTab === "spar" ? "active" : ""} onClick={() => setBattleArenaTab("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar &amp; Challenges</button>
-                        <button className={battleArenaTab === "bounty" ? "active" : ""} onClick={() => setBattleArenaTab("bounty")}><GiTwoCoins style={ARENA_ICON} />Bounty Board</button>
-                    </div>
-
-                    {battleArenaTab === "spar" && (
-                        <>
-                            {/* ── Combat Spar: vs AI ─────────────────────────────── */}
-                            <section className="summary-box">
-                                <h3><GiCrossedSwords style={ARENA_ICON} />Combat Spar — Fight AI</h3>
-                                <p className="hint">Pick an AI level (1–{MAX_LEVEL}) and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
-                                <label>AI Level</label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={MAX_LEVEL}
-                                    value={aiLevel}
-                                    onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))}
-                                />
-                                <button onClick={beginAiBattle}>Start AI Battle</button>
-                            </section>
-
-                            {/* ── Challenge a player: combat spar OR 1v1 pet battle ── */}
-                            <section className="summary-box">
-                                <h3><GiBoxingGlove style={ARENA_ICON} />Challenge a Player</h3>
-                                <p className="hint">Search a player, then send a casual combat spar or a 1v1 pet battle. They get a pop-up to Accept or Decline.</p>
-                                <label>Search Player Name</label>
-                                <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                                {sparSearch.trim() && (
-                                    <div className="jutsu-list">
-                                        {sparOpponents.length === 0 ? (
-                                            <>
-                                                <p className="hint">No roster match. Send a spar challenge directly.</p>
-                                                <button onClick={() => {
-                                                    const name = sparSearch.trim();
-                                                    if (!name || name === character.name) return;
-                                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                                    challengePlayer(stub);
-                                                }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
-                                            </>
-                                        ) : sparOpponents.map((player) => (
-                                            <div className="summary-box" key={`spar-${player.name}`}>
-                                                <strong>{player.name}</strong>
-                                                <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                                <div className="menu">
-                                                    <button onClick={() => challengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar Challenge</button>
-                                                    <button
-                                                        disabled={availablePetCount < 1}
-                                                        title={availablePetCount < 1 ? "You need one available pet" : undefined}
-                                                        onClick={() => challengePlayer(player, "clanWarPet", 0)}
-                                                    ><GiPawPrint aria-hidden="true" /> Pet Battle (1v1)</button>
-                                                    <button
-                                                        disabled={availablePetCount < 2}
-                                                        title={availablePetCount < 2 ? "Raise a second pet (not on an expedition) to unlock 2v2" : undefined}
-                                                        onClick={() => challengePlayer(player, "clanWarPet", 0, true)}
-                                                    ><GiPawPrint aria-hidden="true" /> Pet Battle (2v2)</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-
-                            <section className="summary-box">
-                                <h3>Incoming Spar Requests</h3>
-                                {incomingSpars.length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingSpars.map((challenge) => (
-                                    <div className="summary-box" key={challenge.id}>
-                                        <strong>{challenge.fromName}</strong>
-                                        <p>Casual spar request to {challenge.toName}</p>
-                                        <div className="menu">
-                                            <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
-                                            <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </section>
-
-                            {/* ── Pet Spar ───────────────────────────────────────── */}
-                            <section className="summary-box">
-                                <h3><GiPawPrint style={ARENA_ICON} />Pet Spar</h3>
-                                <p className="hint">Head to the Casual Pet Coliseum for a friendly pet duel against AI or a challenged player — no ladder rating on the line.</p>
-                                <button
-                                    disabled={availablePetCount < 1}
-                                    title={availablePetCount < 1 ? "You need one pet that is not on an expedition" : undefined}
-                                    onClick={() => setScreen("petArena")}
-                                ><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
-                                {availablePetCount < 1 && <p className="hint" style={{ color: "var(--gold-2)" }}>Locked: you need one available pet. Pets currently on expeditions cannot battle.</p>}
-                                {incomingPetSpars.map((challenge) => (
-                                    <div className="summary-box" key={challenge.id}>
-                                        <strong>{challenge.fromName}</strong> wants a pet battle!
-                                        <div className="menu">
-                                            <button onClick={() => onAcceptPetChallenge?.(challenge)}><GiColiseum style={ARENA_ICON} />Accept Pet Battle</button>
-                                            <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </section>
-
-                            {/* ── Card Battle Spar ───────────────────────────────── */}
-                            <section className="summary-box">
-                                <h3><GiRollingDices style={ARENA_ICON} />Card Battle Spar</h3>
-                                <p className="hint">Play Shinobi Chronicle Showdown against the AI or a live free-play opponent at the Card Hall.</p>
-                                <button onClick={() => setScreen("shinobiTiles")}><GiRollingDices style={ARENA_ICON} />Open Card Hall</button>
-                            </section>
-                        </>
-                    )}
-
-                    {battleArenaTab === "bounty" && (
-                        <BountyBoardPanel character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} />
-                    )}
-                </div>
+                <BattleArenaLobby
+                    character={character}
+                    updateCharacter={updateCharacter}
+                    playerRoster={playerRoster}
+                    activeTab={battleArenaTab}
+                    aiLevel={aiLevel}
+                    sparSearch={sparSearch}
+                    sparOpponents={sparOpponents}
+                    incomingSpars={incomingSpars}
+                    incomingPetSpars={incomingPetSpars}
+                    availablePetCount={availablePetCount}
+                    onBack={() => setScreen("village")}
+                    onTabChange={setBattleArenaTab}
+                    onAiLevelChange={setAiLevel}
+                    onBeginAiBattle={beginAiBattle}
+                    onSparSearchChange={setSparSearch}
+                    onSendDirectSpar={(name) => {
+                        if (!name || name === character.name) return;
+                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                        challengePlayer(stub);
+                    }}
+                    onChallengePlayer={challengePlayer}
+                    onAcceptChallenge={acceptChallenge}
+                    onDeclineChallenge={declineChallenge}
+                    onAcceptPetChallenge={onAcceptPetChallenge}
+                    onOpenPetArena={() => setScreen("petArena")}
+                    onOpenCardHall={() => setScreen("shinobiTiles")}
+                />
             );
         }
+
+        const incomingClanWarChallenges = incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints));
+        const activeSpectatorFights = spectatorFights.filter((fight) => fight.battleId);
+        const pendingSpectatorChallenges = duelChallenges.filter((challenge) =>
+            !challenge.accepted &&
+            !challenge.declined &&
+            (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")
+        );
+
+        const acceptDistrictChallenge = (challenge: DuelChallenge) => {
+            if (challenge.mode === "clanWarPet") {
+                const challengerPet = challenge.challenger.pets.find((pet) => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find((pet) => !isPetOnExpedition(pet));
+                const responderPet = combatEligiblePets.find((pet) => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
+                if (!challengerPet || !responderPet) {
+                    alert("Both players need a pet before this pet battle can start.");
+                    return;
+                }
+                savePendingClanPetBattle({
+                    clanName: character.clan,
+                    points: challenge.clanWarPoints ?? 25,
+                    opponentName: challenge.fromName,
+                    createdAt: Date.now(),
+                });
+                setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+                fetch('/api/player/challenge', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
+                }).catch(() => {});
+                fetch('/api/player/challenge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
+                }).catch(() => {});
+                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+                setScreen("petArena");
+                return;
+            }
+            acceptChallenge(challenge);
+        };
+
+        const spectateFight = (fight: ArenaSpectatorFight) => {
+            if (fight.battleId && setPvpBattleId && setPvpRole) {
+                fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: character.name, action: "join" }),
+                }).catch(() => {});
+                setPvpBattleId(fight.battleId);
+                setPvpRole("p1");
+                setScreen("pvpBattle" as Screen);
+            } else {
+                alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
+            }
+        };
+
         return (
-            <div className="card arena-lobby">
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                    <button className="back-to-hub-btn" onClick={() => setScreen("centralHub")}>← Central Hub</button>
-                    <h2 style={{ margin: 0 }}>Arena District</h2>
-                </div>
-                <p>Clan battles, ranked mode, tournaments, spectator view, and pet battles are handled here.</p>
-
-                <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
-                    <button className={activeArenaTab === "clanWar" ? "active" : ""} onClick={() => setActiveArenaTab("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
-                    <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
-                    <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
-                    <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
-                    <button
-                        className={activeArenaTab === "petBattles" ? "active" : ""}
-                        disabled={!combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}
-                        title={!combatEligiblePets.some((pet) => !isPetOnExpedition(pet)) ? "You need one available carried pet" : undefined}
-                        onClick={() => setActiveArenaTab("petBattles")}
-                    ><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</button>
-                </div>
-
-                {activeArenaTab === "clanWar" && (
-                    <>
-                        <section className="summary-box">
-                            <h3>Clan War Challenges</h3>
-                            {!character.clan ? <p className="hint">Join a clan to see clan war opponents.</p> : !opponentClanData ? <p className="hint">Your clan is not currently at war with a player clan.</p> : (
-                                <>
-                                    <p className="hint">War opponent: <strong>{opponentClanData.name}</strong>. Winners earn clan war points.</p>
-                                    <div className="jutsu-list">
-                                        {clanWarOpponents.length === 0 ? <p className="hint">No online roster records found for enemy clan members yet.</p> : clanWarOpponents.map((player) => (
-                                            <div className="summary-box" key={`war-${player.name}`}>
-                                                <strong>{player.name}</strong>
-                                                <p>Level {player.level} | {player.specialty}</p>
-                                                <div className="menu">
-                                                    <button onClick={() => challengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
-                                                    <button onClick={() => challengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
-                                                    <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </section>
-
-                        <section className="summary-box">
-                            <h3>Incoming Clan War Challenges</h3>
-                            {incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints)).length === 0 ? <p className="hint">No incoming clan war challenges.</p> : incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints)).map((challenge) => (
-                                <div className="summary-box" key={challenge.id}>
-                                    <strong>{challenge.fromName}</strong>
-                                    <p>{challenge.mode ?? "standard"} challenge to {challenge.toName} | {challenge.clanWarPoints} clan points</p>
-                                    <div className="menu">
-                                        <button onClick={() => {
-                                            if (challenge.mode === "clanWarPet") {
-                                                const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
-                                                const responderPet = combatEligiblePets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? combatEligiblePets.find(pet => !isPetOnExpedition(pet));
-                                                if (!challengerPet || !responderPet) {
-                                                    alert("Both players need a pet before this pet battle can start.");
-                                                    return;
-                                                }
-                                                savePendingClanPetBattle({
-                                                    clanName: character.clan,
-                                                    points: challenge.clanWarPoints ?? 25,
-                                                    opponentName: challenge.fromName,
-                                                    createdAt: Date.now(),
-                                                });
-                                                setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-                                                fetch('/api/player/challenge', {
-                                                    method: 'DELETE',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
-                                                }).catch(() => {});
-                                                fetch('/api/player/challenge', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
-                                                }).catch(() => {});
-                                                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
-                                                setScreen("petArena");
-                                                return;
-                                            }
-                                            acceptChallenge(challenge);
-                                        }}>{challenge.mode === "clanWarPet" ? "Open Pet Coliseum" : "Accept Duel"}</button>
-                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </section>
-                    </>
-                )}
-
-                {activeArenaTab === "tournaments" && (
-                    <section className="summary-box">
-                        <h3>Tournaments</h3>
-                        {arenaTournament ? (
-                            <>
-                                <p><strong>{arenaTournament.name}</strong> | Started by {arenaTournament.createdBy}</p>
-                                <p>Event ends in {Math.ceil(tournamentRemaining / (60 * 60 * 1000))} hour(s). Match timer: {Math.ceil(matchRemaining / (60 * 60 * 1000))} hour(s).</p>
-                                <p className="hint">Participants: {arenaTournament.participants.join(", ") || "No participants"}</p>
-                                <p className="hint">Advanced: {arenaTournament.advancedPlayers.join(", ") || "None yet"}</p>
-                                {isAdminTournamentManager && <div className="jutsu-list">{arenaTournament.participants.map((name) => <div className="summary-box" key={`advance-${name}`}><strong>{name}</strong><button onClick={() => advanceTournamentPlayer(name)}>Advance Player</button></div>)}</div>}
-                                {isAdminTournamentManager && <button className="danger-button" onClick={clearTournament}>End Tournament</button>}
-                            </>
-                        ) : (
-                            <>
-                                <p className="hint">Only Admin 1 or Admin 2 can start a weekly tournament.</p>
-                                <button disabled={!isAdminTournamentManager} onClick={startTournament}>{isAdminTournamentManager ? "Start 1 Week Tournament" : "Admin Only"}</button>
-                            </>
-                        )}
-                    </section>
-                )}
-
-                {activeArenaTab === "ranked" && (
-                    <section className="summary-box">
-                        <h3>Ranked Battles</h3>
-                        <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                        <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
-                        <p>Players in queue: <strong>{rankedQueueSize}</strong></p>
-                        <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
-                            {rankedQueueActive ? (
-                                <button className="danger-button" onClick={leaveRankedQueue}>Leave Queue</button>
-                            ) : (
-                                <button disabled={!playerRankedEnabled} onClick={joinRankedQueue}>
-                                    {playerRankedEnabled ? "Queue Up for Ranked" : "Ranked Rollout Pending"}
-                                </button>
-                            )}
-                        </div>
-                        {!playerRankedEnabled && <p className="hint">Ranked matchmaking is temporarily paused during the v2 authority rollout.</p>}
-                        {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
-
-                        <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
-                        <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Coliseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
-                    </section>
-                )}
-
-                {activeArenaTab === "spectate" && (
-                    <section className="summary-box">
-                        <h3>Spectator Board</h3>
-                        <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
-                        {spectatorFights.filter((fight) => fight.battleId).length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
-                            <div className="jutsu-list">
-                                {spectatorFights.filter((fight) => fight.battleId).map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => {
-                                    if (fight.battleId && setPvpBattleId && setPvpRole) {
-                                        // Join as spectator
-                                        fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ name: character.name, action: "join" }),
-                                        }).catch(() => {});
-                                        setPvpBattleId(fight.battleId);
-                                        setPvpRole("p1"); // spectator uses p1 view but can't act
-                                        setScreen("pvpBattle" as Screen);
-                                    } else {
-                                        alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
-                                    }
-                                }}>Spectate</button></div>)}
-                                {duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
-                            </div>
-                        )}
-                    </section>
-                )}
-
-                {activeArenaTab === "petBattles" && (
-                    <section className="summary-box">
-                        <h3><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</h3>
-                        <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you. Casual pet sparring lives in the Village Battle Arena.</p>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
-                            {[
-                                { mode: "coliseum" as const, requirement: 1, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Coliseum", sub: "1v1 ranked ladder" },
-                                { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Tactical", sub: "4v4 ranked ladder" },
-                            ].map((c) => {
-                                const locked = availablePetCount < c.requirement;
-                                return (
-                                    <button key={c.mode} type="button"
-                                        disabled={locked}
-                                        title={locked ? `Locked: ${availablePetCount}/${c.requirement} available pets` : undefined}
-                                        onClick={() => { sessionStorage.setItem("petLadder.mode", c.mode); setScreen("petLadder"); }}
-                                        style={{ position: "relative", padding: 0, border: "1px solid rgba(244,196,81,.3)", borderRadius: 14, overflow: "hidden", cursor: locked ? "not-allowed" : "pointer", textAlign: "left", height: 132, background: "#11141f" }}>
-                                        <img src={c.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: locked ? .32 : .85, filter: locked ? "grayscale(.75)" : undefined }} />
-                                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,18,.05), rgba(8,10,18,.85))" }} />
-                                        <div style={{ position: "absolute", left: 14, right: 14, bottom: 12 }}>
-                                            <div style={{ fontSize: 19, fontWeight: 800, color: "#f7d98a", textShadow: "0 2px 8px #000" }}>{c.emoji} {c.title}</div>
-                                            <div style={{ fontSize: 12.5, color: "rgba(231,237,247,.9)", textShadow: "0 1px 5px #000" }}>
-                                                {locked ? `Locked · ${availablePetCount}/${c.requirement} available pets` : `${c.sub} · climb the global rankings`}
-                                            </div>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
-            </div>
+            <ArenaDistrictLobby
+                character={character}
+                activeTab={activeArenaTab}
+                hasAvailablePet={combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}
+                availablePetCount={availablePetCount}
+                opponentClanData={opponentClanData}
+                clanWarOpponents={clanWarOpponents}
+                incomingClanWarChallenges={incomingClanWarChallenges}
+                arenaTournament={arenaTournament}
+                tournamentRemaining={tournamentRemaining}
+                matchRemaining={matchRemaining}
+                isAdminTournamentManager={isAdminTournamentManager}
+                playerRankedEnabled={playerRankedEnabled}
+                rankedQueueActive={rankedQueueActive}
+                rankedQueueSize={rankedQueueSize}
+                spectatorFights={activeSpectatorFights}
+                pendingSpectatorChallenges={pendingSpectatorChallenges}
+                onBack={() => setScreen("centralHub")}
+                onTabChange={setActiveArenaTab}
+                onChallengePlayer={challengePlayer}
+                onAcceptDistrictChallenge={acceptDistrictChallenge}
+                onDeclineChallenge={declineChallenge}
+                onAdvanceTournamentPlayer={advanceTournamentPlayer}
+                onClearTournament={clearTournament}
+                onStartTournament={startTournament}
+                onJoinRankedQueue={joinRankedQueue}
+                onLeaveRankedQueue={leaveRankedQueue}
+                onRefreshFights={() => setSpectatorFights(loadArenaActiveFights())}
+                onSpectateFight={spectateFight}
+                onViewPendingChallenge={() => alert("This fight has not started yet.")}
+                onOpenPetLadder={(mode) => {
+                    sessionStorage.setItem("petLadder.mode", mode);
+                    setScreen("petLadder");
+                }}
+            />
         );
     }
 
-    const timelineRounds = battleHistory.reduce<{ round: number; entries: BattleActionEntry[] }[]>((groups, entry) => {
-        const group = groups.find((candidate) => candidate.round === entry.round);
-        if (group) group.entries.push(entry);
-        else groups.push({ round: entry.round, entries: [entry] });
-        return groups;
-    }, []);
     const showRookieCombatTip = battleStarted
         && !battleEnded
         && !isAcademySpar
@@ -5842,525 +5377,125 @@ export function Arena({
                         </div>
                     </CombatApPanel>
 
-                    <CombatBoardStage>
-                    <div
-                        className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
-                        ref={battlefieldCallbackRef}
-                    >
-                        {/*
-                          Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
-                          overflow:hidden clips at exactly the right boundary regardless
-                          of how the browser applies transform vs. overflow interaction.
-                          Centred inside the battlefield via absolute left/top offsets.
-                        */}
-                        <div style={(() => {
-                            const scaledW = GRID_LAYER_W * effectiveScale;
-                            const scaledH = GRID_LAYER_H * effectiveScale;
-                            // Measured container, or the scaled board itself before
-                            // the first measurement. The old code fell back to
-                            // battlefieldRef.current?.clientWidth here, which was
-                            // dead weight AND a ref read during render: the state
-                            // is written synchronously by the callback ref the
-                            // moment the element attaches, so any render where the
-                            // state is still 0 is a render where the ref is still
-                            // null and both paths land on the scaled size.
-                            const cW = boardContainerSize.w || scaledW;
-                            const cH = boardContainerSize.h || scaledH;
-                            const leftOffset = Math.max(0, (cW - scaledW) / 2);
-                            const topOffset  = Math.max(0, (cH - scaledH) / 2);
-                            return {
-                                position: "absolute" as const,
-                                left:   `${leftOffset}px`,
-                                top:    `${topOffset}px`,
-                                width:  `${scaledW}px`,
-                                height: `${scaledH}px`,
-                                overflow: "hidden",
-                            };
-                        })()}>
-                        <div
-                            className="hex-grid-layer"
-                            style={{
-                                // Grid layer occupies its full pre-scale size; the transform
-                                // shrinks it to exactly fill the clip-wrapper above.
-                                position: "absolute" as const,
-                                width: `${GRID_LAYER_W}px`,
-                                height: `${GRID_LAYER_H}px`,
-                                transform: `scale(${effectiveScale})`,
-                                transformOrigin: "top left",
-                                left: "0",
-                                top: "0",
-                            }}
-                        >
-                            {/* Avatar overlay — sits above tiles, not clipped by hex clip-path */}
-                            {(() => {
+                    <ArenaCombatBoardStage
+                        currentBiome={currentBiome}
+                        currentSector={currentSector}
+                        battlefieldCallbackRef={battlefieldCallbackRef}
+                        boardContainerSize={boardContainerSize}
+                        effectiveScale={effectiveScale}
+                        gridLayerWidth={GRID_LAYER_W}
+                        gridLayerHeight={GRID_LAYER_H}
+                        gridWidth={gridWidth}
+                        hexWidth={HEX_W}
+                        hexHeight={HEX_H}
+                        xStep={X_STEP}
+                        yStep={Y_STEP}
+                        orbSize={ORB}
+                        playerPos={playerPos}
+                        playerBattleAvatar={playerBattleAvatar}
+                        playerName={character.name}
+                        playerHp={playerHp}
+                        playerMaxHp={character.maxHp}
+                        enemyPos={enemyPos}
+                        opponentAvatar={opponentAvatar}
+                        opponentName={opponentName}
+                        opponentBattleSprite={opponentBattleSprite}
+                        enemyHp={enemyHp}
+                        enemyMaxHp={enemyMaxHp}
+                        isPetAlive={isPetAlive}
+                        summonedPet={summonedPet}
+                        petPos={petPos}
+                        petHp={petHp}
+                        petMaxHp={petMaxHp}
+                        petTurnsRemaining={petTurnsRemaining}
+                        sharedImages={sharedImages}
+                        pveHitFx={pveHitFx}
+                        boardGrid={boardGrid}
+                        combatVfxLayerRef={combatVfxLayerRef}
+                        combatVfx={combatVfx}
+                        renderCombatVfx={renderArenaCombatVfx}
+                    />
 
-                                const orbForPos = (pos: number, isEnemy: boolean, imgSrc: string, altText: string, spriteSrc?: string | null) => {
-                                    const row = Math.floor(pos / gridWidth);
-                                    const col = pos % gridWidth;
-                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2;
-                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
-                                    return (
-                                        // Glide between cells instead of snapping (Move / Push / Pull /
-                                        // ground relocation) so units read as walking, not teleporting. The
-                                        // stable key keeps the same DOM node, so CSS transitions a position
-                                        // change but never the initial mount.
-                                        <BattlefieldActor
-                                            key={isEnemy ? "enemy-orb" : "player-orb"}
-                                            side={isEnemy ? "enemy" : "player"}
-                                            label={altText}
-                                            portrait={imgSrc}
-                                            sprite={spriteSrc}
-                                            fallback={altText.slice(0, 2).toUpperCase()}
-                                            style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}
-                                        />
-                                    );
-                                };
-                                // Summoned pet — now a FULL-SIZE actor on its own tile (was a
-                                // tiny companion orb glued to the player). A Glow Collar
-                                // (pet.loadout.collar) still lights it up.
-                                const petActorOrb = (pos: number, pet: Pet) => {
-                                    const row = Math.floor(pos / gridWidth);
-                                    const col = pos % gridWidth;
-                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2;
-                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
-                                    const collarVisual = petCollarVisual(pet.loadout?.collar);
-                                    // Glide between cells (see orbForPos) rather than snapping.
-                                    const style: Record<string, string | number> = { position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" };
-                                    if (collarVisual) style["--collar-glow"] = collarVisual.glow;
-                                    const orbGlowClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
-                                    const petImg = petCardImage(pet, sharedImages);
-                                    return (
-                                        <div key="pet-actor-orb" className={`avatar-orb pet-summon-orb${orbGlowClass} ${petVisualVariantClass(pet)}`} style={style as React.CSSProperties}>
-                                            <span className="avatar-orb-fallback" style={{ fontSize: ORB * 0.5 }} aria-hidden="true"><GiPawPrint /></span>
-                                            {petImg && <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} fetchPriority="high" />}
-                                            {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
-                                        </div>
-                                    );
-                                };
-                                // Slim always-visible HP bar floating just above a fighter's orb
-                                // (mobile-safe — no extra side HUD column). One helper for the
-                                // player, the enemy, and the summoned pet via the shared
-                                // FighterHpBadge; the pet passes a name+turns caption, the two
-                                // fighters show cur/max numbers. Same x/y math as orbForPos so the
-                                // bar sits over the token and glides with it.
-                                const hpBadgeFor = (
-                                    pos: number,
-                                    key: string,
-                                    hp: number,
-                                    maxHp: number,
-                                    side: "player" | "enemy" | "pet",
-                                    caption?: string,
-                                ) => {
-                                    const row = Math.floor(pos / gridWidth);
-                                    const col = pos % gridWidth;
-                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2;
-                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB - 16;
-                                    return (
-                                        <FighterHpBadge
-                                            key={key}
-                                            left={x}
-                                            top={y}
-                                            width={ORB}
-                                            hp={hp}
-                                            maxHp={maxHp}
-                                            side={side}
-                                            caption={caption}
-                                            showNumbers={caption == null}
-                                        />
-                                    );
-                                };
-                                return (
-                                    <>
-                                        {orbForPos(playerPos, false, playerBattleAvatar, character.name)}
-                                        {/* Player + enemy HP bars use the same x/y math as orbForPos so
-                                            each bar rides its own token. Both are unconditional, like the
-                                            orbs themselves — every fighter gets a token, a standing base
-                                            and an HP bar whether or not their portrait resolved. */}
-                                        {hpBadgeFor(playerPos, "player-hp-badge", playerHp, character.maxHp, "player")}
-                                        {isPetAlive && summonedPet && petActorOrb(petPos, summonedPet)}
-                                        {isPetAlive && summonedPet && hpBadgeFor(petPos, "pet-hp-badge", petHp, petMaxHp, "pet", `${petDisplayName(summonedPet)} · ${petTurnsRemaining}⟳`)}
-                                        {orbForPos(enemyPos, true, opponentAvatar, opponentName, opponentBattleSprite)}
-                                        {hpBadgeFor(enemyPos, "enemy-hp-badge", enemyHp, enemyMaxHp, "enemy")}
-                                    </>
-                                );
-                            })()}
-                            {/* Floating ±damage/heal numbers (D3) — above the orbs, same
-                                coordinate origin as the board layer; never intercept clicks. */}
-                            {pveHitFx.map((fx) => (
-                                <span
-                                    key={fx.id}
-                                    className={`pvp-hit-fx pvp-hit-${fx.kind}`}
-                                    style={{ left: `${fx.x}px`, top: `${Math.max(fx.y, 16)}px`, zIndex: 20, pointerEvents: "none" }}
-                                    aria-hidden="true"
-                                >
-                                    {fx.kind === "damage" ? "−" : "+"}{fx.amount}
-                                </span>
-                            ))}
-                            {boardGrid}
-                        </div>
-                        </div>{/* end clip-wrapper */}
-                        {/* Cosmetic elemental cast/impact particles (jutsu VFX). Sits
-                            above the board, never intercepts clicks. Skipped on weak
-                            devices (no canvas → no rAF particle loop). */}
-                        <div ref={combatVfxLayerRef} className="arena-combat-vfx-layer" aria-hidden="true">
-                            {combatVfx.map(renderArenaCombatVfx)}
-                        </div>
-                        {/* Sprite-sheet effect overlay (CC0 art / KV override), above
-                            the particles. Re-keyed per cast so it restarts cleanly. */}
-                    </div>
-                    </CombatBoardStage>
+                    <ArenaCommandDeck
+                        battleTab={battleTabs.tab}
+                        setBattleTab={battleTabs.setTab}
+                        unreadBattleEntries={battleTabs.unread}
+                        showRookieCombatTip={showRookieCombatTip}
+                        battleEnded={battleEnded}
+                        activeActor={activeActor}
+                        actionsThisTurn={actionsThisTurn}
+                        character={character}
+                        lensDiscipline={playerLensDiscipline(character)}
+                        playerHp={playerHp}
+                        ap={ap}
+                        adjustedApCost={adjustedApCost}
+                        cooldowns={cooldowns}
+                        selectedActionId={selectedActionId}
+                        canSummonPet={canSummonPet}
+                        activeBattlePetCanSummon={activeBattlePetCanSummon}
+                        summonedPet={summonedPet}
+                        petSummonedThisFight={petSummonedThisFight}
+                        activeBattlePetSummonNote={activeBattlePetSummonNote}
+                        opponentName={opponentName}
+                        equippedJutsus={equippedJutsus}
+                        combatEquippedItems={combatEquippedItems}
+                        pendingTargetJutsuId={pendingTargetJutsuId}
+                        pendingTargetWeapon={pendingTargetWeapon}
+                        jutsuCooldowns={jutsuCooldowns}
+                        inspectedJutsu={inspectedJutsu}
+                        inspectedCombatItem={inspectedCombatItem}
+                        inspectedJutsuId={inspectedJutsuId}
+                        inspectedCombatItemId={inspectedCombatItemId}
+                        combatItemConsumed={combatItemConsumed}
+                        canUseCombatItem={canUseCombatItem}
+                        combatItemSummary={combatItemSummary}
+                        onBasicAttack={basicAttack}
+                        onToggleMove={() => {
+                            setPendingTargetJutsuId("");
+                            setSelectedActionId((current) => current === "move" ? undefined : "move");
+                            setLog("Move selected. Click an adjacent tile.");
+                        }}
+                        onBasicHeal={basicHeal}
+                        onClearEnemyPositiveEffects={clearEnemyPositiveEffects}
+                        onCleansePlayerNegativeEffects={cleansePlayerNegativeEffects}
+                        onSummonActivePet={summonActivePet}
+                        onFlee={flee}
+                        onWaitTurn={waitTurn}
+                        onSelectJutsu={(jutsu) => {
+                            setInspectedJutsuId("");
+                            setInspectedCombatItemId("");
+                            selectCombatJutsu(jutsu);
+                        }}
+                        onActivateCombatItem={(item) => {
+                            setInspectedJutsuId("");
+                            activateEquippedCombatItem(item);
+                        }}
+                        onInspectJutsu={(id) => {
+                            setInspectedCombatItemId("");
+                            setInspectedJutsuId(id);
+                        }}
+                        onInspectCombatItem={(id) => {
+                            setInspectedJutsuId("");
+                            setInspectedCombatItemId(id);
+                        }}
+                        onCloseJutsu={() => setInspectedJutsuId("")}
+                        onCloseCombatItem={() => setInspectedCombatItemId("")}
+                    />
 
-                    <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
-
-                    {showRookieCombatTip && (
-                        <div className="rookie-combat-tip">
-                            <strong>First Fight Plan</strong>
-                            <span>Spend AP on Attack or jutsu, click highlighted targets, then Wait when AP runs low. The Battle Log records every result.</span>
-                        </div>
-                    )}
-
-                    <CombatCommandBar>
-                        {/* Affordance feedback: each action disables when it can't be
-                            taken (not your turn / 5 actions used / not enough AP·SP·CP /
-                            on cooldown), mirroring each handler's own guards so a
-                            disabled button can never block a legal action. Wait stays
-                            live (it also skips the enemy-turn delay). */}
-                        <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>40 AP | 10 SP</small></button>
-                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
-                        <button
-                            onClick={basicHeal}
-                            title={playerHp >= character.maxHp ? "You are already at full HP" : "Restore 10% HP"}
-                            disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || playerHp >= character.maxHp || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}
-                        ><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{playerHp >= character.maxHp ? "Full HP - not needed" : `60 AP | 10 CP | CD ${cooldowns.basicHeal ?? 0}`}</small></button>
-                        <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
-                        <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
-                        {canSummonPet && (
-                            <button
-                                onClick={summonActivePet}
-                                disabled={!activeBattlePetCanSummon || Boolean(summonedPet) || petSummonedThisFight || activeActor !== "player"}
-                                title={activeBattlePetSummonNote}
-                            >
-                                <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
-                                <span>Summon Pet</span>
-                                <small>{summonedPet ? `${petDisplayName(summonedPet)} fighting` : petSummonedThisFight ? "Pet already used" : activeBattlePetSummonNote}</small>
-                            </button>
-                        )}
-                        <button
-                            onClick={flee}
-                            disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}
-                        >
-                            <i className="cmd-icon" aria-hidden="true"><GiRun /></i>
-                            <span>Flee</span>
-                            <small>100 AP | 50%</small>
-                        </button>
-                        <button onClick={waitTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
-                    </CombatCommandBar>
-
-                    <div className="jutsu-layout-card combat-jutsu-bar">
-                        {/* Armed jutsu indicator removed — the jutsu card highlight
-                             and log message are enough feedback while targeting. */}
-
-                        {equippedJutsus.length === 0 && combatEquippedItems.length === 0 ? (
-                            <div className="summary-box">
-                                No equipped jutsus or combat items. Equip trained jutsus, weapons, or items from Profile.
-                            </div>
-                        ) : (
-                            <>
-                                <div className="combat-equipped-jutsu-grid">
-                                    {/* ── Jutsu cards ── */}
-                                    {equippedJutsus.map((jutsu) => {
-                                        const isArmed = pendingTargetJutsuId === jutsu.id;
-                                        const cooldown = jutsuCooldowns[jutsu.id] ?? 0;
-                                        const isOnCooldown = cooldown > 0;
-                                        const image = jutsu.image;
-
-                                        const FallbackIcon =
-                                            jutsu.type === "Taijutsu" ? GiBoxingGlove :
-                                                jutsu.type === "Bukijutsu" ? GiCrossedSwords :
-                                                    jutsu.type === "Genjutsu" ? GiEyeball :
-                                                        GiFireSpellCast;
-
-                                        return (
-                                            <div
-                                                key={jutsu.id}
-                                                className={`combat-jutsu-card-wrap ${isArmed ? "selected-action" : ""}`}
-                                            >
-                                                {isOnCooldown && <span className="combat-cd-badge" title={`${cooldown} round(s) until ready`}>{cooldown}</span>}
-                                                <button
-                                                    type="button"
-                                                    className={`combat-jutsu-button ${isArmed ? "selected-action" : ""} ${isOnCooldown ? "jutsu-on-cooldown" : ""}`}
-                                                    disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || isOnCooldown || ap < adjustedApCost(jutsu.ap)}
-                                                    title={isOnCooldown ? `${jutsu.name} cooldown: ${cooldown} rounds` : `${jutsu.name} | ${jutsu.ap} AP | Range ${jutsu.range}`}
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        setInspectedJutsuId("");
-                                                        setInspectedCombatItemId("");
-                                                        selectCombatJutsu(jutsu);
-                                                    }}
-                                                >
-                                                    <span className="combat-jutsu-thumb">
-                                                        <strong className="combat-jutsu-fallback-icon"><FallbackIcon size={22} aria-hidden="true" /></strong>
-                                                        {image && <img src={image} alt={jutsu.name} />}
-                                                    </span>
-
-                                                    <span className="combat-jutsu-name">{jutsu.name}</span>
-
-                                                    {/* "CD 0" is noise on every card; an ACTIVE cooldown
-                                                        already shows as the corner pip. Dropping it keeps
-                                                        the cost line inside the card without truncating. */}
-                                                    <span className="combat-jutsu-info">
-                                                        {jutsu.ap} AP · R{jutsu.range}{isOnCooldown ? ` · CD ${cooldown}` : ""}
-                                                    </span>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    className="combat-jutsu-help"
-                                                    id={`solo-combat-detail-trigger-jutsu-${jutsu.id}`}
-                                                    aria-haspopup="dialog"
-                                                    aria-controls={`solo-combat-detail-jutsu-${jutsu.id}`}
-                                                    aria-expanded={inspectedJutsuId === jutsu.id}
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        setInspectedCombatItemId("");
-                                                        setInspectedJutsuId(jutsu.id);
-                                                    }}
-                                                    title={`View ${jutsu.name} details`}
-                                                >
-                                                    ?
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-
-                                    {/* ── Weapon & item cards (inline after jutsu) ── */}
-                                    {combatEquippedItems.map((item) => {
-                                        const slot = normalizeEquipmentSlot(item.slot);
-                                        const isWeapon = slot === "hand" || slot === "thrown";
-                                        const ItemIcon = slot === "thrown" ? GiTargeted : slot === "hand" ? GiCrossedSwords : slot === "potion" ? GiHealthPotion : GiBriefcase;
-                                        const itemAp = item.apCost ?? (slot === "thrown" ? 40 : slot === "hand" ? 40 : 35);
-                                        const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
-                                        // Consumables (thrown/item/potion) show remaining supply and disable
-                                        // when out of stock — or, for the potion, at its per-battle sip cap.
-                                        const consumed = combatItemConsumed(item);
-                                        const owned = consumed ? countItem(character, item.id) : null;
-                                        const usable = canUseCombatItem(item);
-                                        const countSuffix = owned != null ? ` ×${owned}` : "";
-                                        // Hand/thrown weapons cool down between uses (tracked in
-                                        // jutsuCooldowns keyed by item id, set on use). Grey the card
-                                        // out + disable it while the cooldown ticks, matching the jutsu
-                                        // cards. Consumables never set a cooldown, so itemCd stays 0.
-                                        const itemCd = jutsuCooldowns[item.id] ?? 0;
-                                        const onCooldown = itemCd > 0;
-                                        const cdSuffix = onCooldown ? ` | CD ${itemCd}` : "";
-                                        const actionText = isWeapon
-                                            ? `${itemAp} AP | R${weaponDisplayRange}${countSuffix}${cdSuffix}`
-                                            : `${itemAp} AP | Use${countSuffix}${cdSuffix}`;
-                                        const isArmed = pendingTargetWeapon?.id === item.id;
-
-                                        return (
-                                            <div className={`combat-jutsu-card-wrap combat-item-card-wrap ${isWeapon ? "combat-weapon-card" : "combat-consumable-card"}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
-                                                {onCooldown && <span className="combat-cd-badge" title={`${itemCd} round(s) until ready`}>{itemCd}</span>}
-                                                <button
-                                                    type="button"
-                                                    className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                    title={onCooldown ? `${item.name} — on cooldown (${itemCd} round(s) left)` : isArmed ? `${item.name} armed — click ${opponentName} to fire` : !usable ? `${item.name} — none left this battle` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
-                                                    disabled={!usable || onCooldown || battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(itemAp)}
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        setInspectedJutsuId("");
-                                                        activateEquippedCombatItem(item);
-                                                    }}
-                                                >
-                                                    <span className="combat-jutsu-thumb combat-item-thumb">
-                                                        <strong className="combat-jutsu-fallback-icon"><ItemIcon size={22} aria-hidden="true" /></strong>
-                                                        {item.image && <img src={item.image} alt={item.name} />}
-                                                    </span>
-                                                    <span className="combat-jutsu-name">{item.name}</span>
-                                                    <span className="combat-jutsu-info">{equipmentSlotLabel(item.slot)} | {actionText}</span>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    className="combat-jutsu-help"
-                                                    id={`solo-combat-detail-trigger-item-${item.id}`}
-                                                    aria-haspopup="dialog"
-                                                    aria-controls={`solo-combat-detail-item-${item.id}`}
-                                                    aria-expanded={inspectedCombatItemId === item.id}
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        setInspectedJutsuId("");
-                                                        setInspectedCombatItemId(item.id);
-                                                    }}
-                                                    title={`View ${item.name} details`}
-                                                >
-                                                    ?
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {inspectedJutsu && (() => {
-                                    const mastery = getJutsuMastery(character, inspectedJutsu.id);
-                                    // Show the EFFECTIVE (rank-capped) level so the displayed EP/effects
-                                    // match what actually lands in combat (see the castJutsu clamp above).
-                                    const effLevel = Math.min(mastery.level, jutsuLevelCapForLevel(character.level));
-                                    const scaled = scaleJutsuByLevel(inspectedJutsu, effLevel);
-                                    const cooldown = jutsuCooldowns[inspectedJutsu.id] ?? 0;
-                                    const cleanTarget = inspectedJutsu.target.toLowerCase().replaceAll("_", " ");
-                                    const cleanMethod = inspectedJutsu.method.toLowerCase().replaceAll("_", " ");
-
-                                    return (
-                                        <CombatDetailPortal
-                                            id={`solo-combat-detail-jutsu-${inspectedJutsu.id}`}
-                                            labelId={`solo-combat-detail-label-jutsu-${inspectedJutsu.id}`}
-                                            triggerId={`solo-combat-detail-trigger-jutsu-${inspectedJutsu.id}`}
-                                            onClose={() => setInspectedJutsuId("")}
-                                        >
-                                            <div className="combat-jutsu-detail-header">
-                                                <div>
-                                                    <strong id={`solo-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong>
-                                                    <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}{mastery.level > effLevel ? ` · combat-capped to ${effLevel} at your rank` : ""}</small>
-                                                </div>
-
-                                                <button
-                                                    type="button"
-                                                    data-combat-detail-close
-                                                    aria-label="Close combat details"
-                                                    onClick={() => setInspectedJutsuId("")}
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-
-                                            <div className="combat-jutsu-detail-grid">
-                                                <span><strong>Type:</strong> {inspectedJutsu.type}</span>
-                                                <span><strong>Element:</strong> {inspectedJutsu.element}</span>
-                                                <span><strong>AP:</strong> {inspectedJutsu.ap}</span>
-                                                <span><strong>Range:</strong> {inspectedJutsu.range}</span>
-                                                <span><strong>Cooldown:</strong> {cooldown > 0 ? `${cooldown} active` : inspectedJutsu.cooldown}</span>
-                                                <span><strong>Target:</strong> {cleanTarget}</span>
-                                                <span><strong>Method:</strong> {cleanMethod}</span>
-                                                <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
-                                                <span><strong>Chakra Usage:</strong> {jutsuResourceDisplay(inspectedJutsu, "chakra", character.level, character.specialty, mastery.level)}</span>
-                                                <span><strong>Stamina Usage:</strong> {jutsuResourceDisplay(inspectedJutsu, "stamina", character.level, character.specialty, mastery.level)}</span>
-                                            </div>
-
-                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return (
-                                                <p className="combat-jutsu-detail-desc">
-                                                    <strong style={{ color: "#c084fc" }}><GiTargeted aria-hidden="true" /> {t.short}:</strong> {t.detail}
-                                                </p>
-                                            ); })()}
-
-                                            {inspectedJutsu.description && (
-                                                <p className="combat-jutsu-detail-desc">
-                                                    {inspectedJutsu.description}
-                                                </p>
-                                            )}
-
-                                            <div className="combat-jutsu-effects-list">
-                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={effLevel} lensDiscipline={playerLensDiscipline(character)} />
-                                            </div>
-                                        </CombatDetailPortal>
-                                    );
-                                })()}
-
-                                {inspectedCombatItem && (
-                                    <CombatDetailPortal
-                                        id={`solo-combat-detail-item-${inspectedCombatItem.id}`}
-                                        labelId={`solo-combat-detail-label-item-${inspectedCombatItem.id}`}
-                                        triggerId={`solo-combat-detail-trigger-item-${inspectedCombatItem.id}`}
-                                        className="combat-item-detail-popover"
-                                        onClose={() => setInspectedCombatItemId("")}
-                                    >
-                                        <div className="combat-jutsu-detail-header">
-                                            <div>
-                                                <strong id={`solo-combat-detail-label-item-${inspectedCombatItem.id}`}>{inspectedCombatItem.name}</strong>
-                                                <small>{equipmentSlotLabel(inspectedCombatItem.slot)} | {inspectedCombatItem.rarity}</small>
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                data-combat-detail-close
-                                                aria-label="Close combat details"
-                                                onClick={() => setInspectedCombatItemId("")}
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-
-                                        <div className="combat-jutsu-detail-grid">
-                                            <span><strong>Action:</strong> {["hand", "thrown"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? "Weapon attack" : "Support item"}</span>
-                                            <span><strong>AP:</strong> {inspectedCombatItem.apCost ?? (normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 40 : ["hand"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? 40 : 35)}</span>
-                                            <span><strong>Range:</strong> {normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 4 : normalizeEquipmentSlot(inspectedCombatItem.slot) === "hand" ? 1 : "Self"}</span>
-                                            <span><strong>Rarity:</strong> {inspectedCombatItem.rarity}</span>
-                                        </div>
-
-                                        <p className="combat-jutsu-detail-desc">
-                                            {inspectedCombatItem.description}
-                                        </p>
-
-                                        <div className="combat-item-effect-box">
-                                            <strong>Combat Bonuses</strong>
-                                            <p>{combatItemSummary(inspectedCombatItem)}</p>
-                                        </div>
-                                    </CombatDetailPortal>
-                                )}
-                            </>
-                        )}
-                    </div>
-                    <CombatBattleLogPanel
-                        className="combat-timeline"
-                        ref={combatLogRef}
-                        turnLabel={activeActor === "player" ? `${character.name}'s turn` : `${opponentName}'s turn`}
-                    >
-                        {battleHistory.length === 0 ? (
-                            <p>No entries yet.</p>
-                        ) : (
-                            timelineRounds.map((roundGroup) => {
-                                const maxLogRound = timelineRounds[timelineRounds.length - 1]?.round ?? 0;
-                                const roundOpen = logRoundOverridesA[roundGroup.round] ?? (roundGroup.round >= maxLogRound - 1);
-                                return (
-                                <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={roundGroup.round}>
-                                    <button type="button" className="timeline-round-header timeline-round-toggle" aria-expanded={roundOpen}
-                                        onClick={() => setLogRoundOverridesA((prev) => ({ ...prev, [roundGroup.round]: !roundOpen }))}>
-                                        <span className="timeline-round-chevron" aria-hidden="true">▾</span>
-                                        <span>Round {roundGroup.round}</span>
-                                        <small>{new Date(roundGroup.entries[0]?.createdAt ?? Date.now()).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</small>
-                                        <span className="timeline-round-count">{roundGroup.entries.length}</span>
-                                    </button>
-                                    {roundOpen && roundGroup.entries.map((entry) => {
-                                        const [headLine, ...effectLines] = entry.description.split("\n");
-                                        const role = entry.actorRole === "player" ? "player" : entry.actorRole === "enemy" ? "enemy" : "system";
-                                        return (
-                                            <BattleActionBlock
-                                                key={`${entry.round}-${entry.actionId}-${entry.actionNumber}`}
-                                                action={{ role, actor: entry.actor, actionNumber: entry.actionNumber, headline: headLine ?? "", effectLines }}
-                                                selfName={character.name}
-                                                oppName={opponentName}
-                                            />
-                                        );
-                                    })}
-                                </section>
-                                );
-                            })
-                        )}
-                    </CombatBattleLogPanel>
-
-                    {/* Whose-turn banner — pinned to the board panel's bottom-right
-                        corner (absolute, so it takes no grid row). Purely a readout
-                        of activeActor; it drives nothing. */}
-                    {battleStarted && !battleEnded && (
-                        <div className={`combat-turn-banner${activeActor === "player" ? " ctb-player" : " ctb-enemy"}`} aria-hidden="true">
-                            <span className="ctb-name">{activeActor === "player" ? character.name : opponentName}</span>
-                            <span className="ctb-suffix">'s Turn</span>
-                        </div>
-                    )}
+                    <ArenaBattleTimeline
+                        combatLogRef={combatLogRef}
+                        activeActor={activeActor}
+                        playerName={character.name}
+                        opponentName={opponentName}
+                        battleHistory={battleHistory}
+                        logRoundOverrides={logRoundOverridesA}
+                        onToggleRound={(round, currentlyOpen) => {
+                            setLogRoundOverridesA((previous) => ({ ...previous, [round]: !currentlyOpen }));
+                        }}
+                        formatEntryTime={(createdAt) => new Date(createdAt ?? Date.now()).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}
+                        battleStarted={battleStarted}
+                        battleEnded={battleEnded}
+                    />
                 </CombatHudMain>
                 <CombatSideHud
                     name={opponentName}
