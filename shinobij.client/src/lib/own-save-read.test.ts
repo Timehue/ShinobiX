@@ -55,7 +55,7 @@ describe("owner-save elapsed-vital reconciliation", () => {
         assert.ok(adopter.indexOf("await loadOwnSaveRead()") < adopter.indexOf("acceptExternalSaveVersion(settledVersion, anchor.accountName)"));
         assert.ok(adopter.indexOf('result !== "accepted"') < adopter.indexOf("reconcileOwnSaveReadVitals"));
 
-        assert.match(app, /await loadOwnSaveRead\(\)[\s\S]*?(?:const\s+)?p2ReadAnchor = captureOwnSaveRead\(character\)[\s\S]*?fetchPlayerCombatSave\(character\.name\)[\s\S]*?await adoptOwnSaveRead\(p2ReadAnchor, p2CombatSave\.character, p2CombatSave\._saveVersion\)/);
+        assert.match(app, /await loadOwnSaveRead\(\)[\s\S]*?(?:const\s+)?p2ReadAnchor = captureOwnSaveRead\(acceptingCharacter\)[\s\S]*?fetchPlayerCombatSave\(acceptingCharacter\.name\)[\s\S]*?await adoptOwnSaveRead\(p2ReadAnchor, p2CombatSave\.character, p2CombatSave\._saveVersion\)/);
         assert.match(worldMap, /await loadOwnSaveRead\(\)[\s\S]*?const selfReadAnchor = captureOwnSaveRead\(character\)[\s\S]*?fetchPlayerCombatSave\(character\.name\)[\s\S]*?await onOwnSaveRead\(selfReadAnchor, selfSave\.character, selfSave\._saveVersion\)/);
         assert.match(app, /loadOwnSaveRead\(\)[\s\S]*?const vanguardReadAnchor = captureOwnSaveRead\(rewarded\)[\s\S]*?return fetch\(`\/api\/save\/[\s\S]*?await adoptOwnSaveRead\(vanguardReadAnchor, serverChar, \(data as Record<string, unknown> \| null\)\?\._saveVersion\)/);
     });
