@@ -31,7 +31,9 @@ export type ActivitySpineItem = {
     commitment: string;
     screen: string;
     cta: string;
+    /** Eligibility of this CTA, not necessarily of the eventual goal it prepares. */
     eligibility: ActivityEligibility;
+    /** Prerequisite guidance may accompany an eligible remediation CTA. */
     blocker?: string;
     reward?: string;
     progress?: string;

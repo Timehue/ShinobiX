@@ -197,6 +197,7 @@ describe("full save-payload revision", () => {
 
 describe("save-persistence wiring in App.tsx", () => {
     const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    const autosaveSource = readFileSync(new URL("./use-capability-guarded-autosave.ts", import.meta.url), "utf8");
 
     it("connects extracted autosaves and in-App required saves to one coordinator", () => {
         const initialization = appSource.slice(
@@ -208,7 +209,10 @@ describe("save-persistence wiring in App.tsx", () => {
         assert.match(initialization, /dirty: charDirtyRef/);
         assert.match(initialization, /failureCount: saveFailCountRef/);
         assert.match(appSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
-        assert.ok((appSource.match(/void persistSave\(snap\)/g) ?? []).length >= 3, "every autosave trigger uses the extracted persistence path");
+        assert.match(appSource, /useCapabilityGuardedAutosave\(\{[\s\S]*?persistSave,[\s\S]*?\}\)/,
+            "App must delegate every delayed autosave clock to the guarded hook");
+        assert.equal((autosaveSource.match(/void persistSave\(snapshot\)/g) ?? []).length, 2,
+            "both guarded dirty/flush paths must use the extracted persistence coordinator");
         assert.match(
             appSource,
             /return savePersistenceRef\.current!\.persistRequired\(\(\) => \{/,

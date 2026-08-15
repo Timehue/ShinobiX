@@ -123,6 +123,8 @@ import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId,
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
+import type { OwnSaveReadCommit } from "../lib/own-save-read";
+const loadOwnSaveRead = () => import("../lib/own-save-read");
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { getAllItems } from "../lib/items";
 import { getBloodlineMultiplier } from "../lib/combat-math";
@@ -384,6 +386,7 @@ export function WorldMap({
     creatorItems: wmCreatorItems,
     onServerVersion,
     onVersionedCharacter,
+    onOwnSaveRead,
     onLaunchWeeklyBoss,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -437,6 +440,7 @@ export function WorldMap({
     // befriending), so the next autosave isn't rejected as stale.
     onServerVersion?: (version?: number) => boolean;
     onVersionedCharacter: VersionedCharacterCommit;
+    onOwnSaveRead: OwnSaveReadCommit;
     // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
     // through App's launchWeeklyBossFight so damage → the shared leaderboard and
     // the 3-attempt cap — same path as the "Fight Boss" button.
@@ -5195,10 +5199,13 @@ export function WorldMap({
 
                                             if (guardChar) {
                                                 // Embed jutsu so server can resolve moves
+                                                const { captureOwnSaveRead } = await loadOwnSaveRead();
+                                                const selfReadAnchor = captureOwnSaveRead(character);
                                                 const [selfSave, guardSave] = await Promise.all([
                                                     fetchPlayerCombatSave(character.name),
                                                     fetchPlayerCombatSave(guardChar.name),
                                                 ]);
+                                                if (selfSave && await onOwnSaveRead(selfReadAnchor, selfSave.character, selfSave._saveVersion) === "foreign") return;
                                                 const selfChar = selfSave?.character ?? character;
                                                 const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
                                                 const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;

@@ -19,6 +19,8 @@ export type SettleResult<T extends SaveRecord = SaveRecord> = {
     vitalsChanged: boolean;
     travelChanged: boolean;
     hollowGateRunCleared: boolean;
+    /** The world-geo migration stamp advanced — a later read cannot re-derive it for free. */
+    geoChanged: boolean;
 };
 
 function num(value: unknown, fallback = 0): number {
@@ -249,7 +251,7 @@ export function settleSaveRecord<T extends SaveRecord>(
         }
     }
 
-    return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared };
+    return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared, geoChanged: geo.changed };
 }
 
 export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<string, boolean>> {
@@ -285,7 +287,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
     opts: { persist?: boolean; now?: number } = {},
 ): Promise<SettleResult<T>> {
     const slug = safeName(playerName);
-    if (!slug) return { record, changed: false, vitalsChanged: false, travelChanged: false, hollowGateRunCleared: false };
+    if (!slug) return { record, changed: false, vitalsChanged: false, travelChanged: false, hollowGateRunCleared: false, geoChanged: false };
     const now = Math.max(0, Math.floor(opts.now ?? Date.now()));
     const [lockFlags, hollowGateRunExpired] = await Promise.all([
         battleLockFlagsForPlayers([slug]),
@@ -326,6 +328,15 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             }
         }
         if (!next.changed) return next;
+
+        // Persist the same settled vitals returned to the owner. Many
+        // server-authoritative admissions (training, Weekly Boss, combat starts)
+        // intentionally read the raw save while holding their own save lock. If
+        // an owner GET only projected regeneration, those later mutations would
+        // continue to see the pre-regeneration stamina/HP indefinitely and could
+        // reject an action the player's authoritative read just showed as ready.
+        // The response includes this bumped version, and owner client call sites
+        // must adopt it before their next optimistic save.
         const versioned = bumpSaveVersion(next.record);
         await kv.set(saveKey, mergePreservingImages(versioned, fresh));
         return { ...next, record: versioned };

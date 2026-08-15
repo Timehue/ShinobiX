@@ -69,6 +69,24 @@ test('settleSaveRecord does not regenerate during battle locks or Hollow Gate ru
     assert.equal((hollow.record.character as Record<string, unknown>).hp, 10);
 });
 
+test('a vitals-only settle remains a durable authoritative change', () => {
+    const result = settleSaveRecord(save(), { now: NOW });
+    assert.equal(result.changed, true);
+    assert.equal(result.vitalsChanged, true);
+    assert.equal(result.travelChanged, false);
+    assert.equal(result.hollowGateRunCleared, false);
+    assert.equal(result.geoChanged, false);
+});
+
+test('settleSaveRecord reports geoChanged when the one-time migration runs', () => {
+    const legacy = save({ currentSector: 12 });
+    delete (legacy as Record<string, unknown>).worldGeoV;
+    const migrated = settleSaveRecord(legacy, { now: NOW });
+    assert.equal(migrated.geoChanged, true, 'a migrated geo stamp must still be persisted');
+    assert.equal(migrated.record.currentSector, OLD_TO_NEW_SECTOR[12]);
+    assert.equal(settleSaveRecord(save(), { now: NOW }).geoChanged, false);
+});
+
 test('settleSaveRecord completes expired pending travel', () => {
     const result = settleSaveRecord(save({
         pendingTravel: { destinationSector: 42, arrivalAt: NOW - 1 },

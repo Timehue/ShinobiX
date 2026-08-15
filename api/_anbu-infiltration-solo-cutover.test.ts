@@ -22,7 +22,9 @@ test('ANBU combat has no Tower runtime dependency and retires its custom action 
     assert.match(handler, /hydrateCharacterFromSave\(char, \{\}, rec \?\? null/);
     assert.doesNotMatch(handler, /raiderLoadout|hostLoadout|sealTowerFighter|sealTowerItemCharges/);
     assert.doesNotMatch(client, /infiltrationAct|raiderLoadout|hostLoadout/);
-    assert.match(screen, /transport=\{soloPveArenaTransport\}/);
+    assert.match(screen, /const guardedArenaTransport = useMemo\(\(\) => \(\{[\s\S]*\.\.\.soloPveArenaTransport/);
+    assert.match(screen, /soloPveArenaTransport\.(?:fetchState|submitAction)/);
+    assert.match(screen, /transport=\{guardedArenaTransport\}/);
     assert.doesNotMatch(screen, /infiltrationAct|towerSessionForArena|createTowerArenaTransport/);
 });
 

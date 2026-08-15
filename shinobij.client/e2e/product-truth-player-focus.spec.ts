@@ -49,19 +49,20 @@ const allAvailable: PublicCapabilities = {
 };
 
 function spine(focus: string) {
+    const requiredCapabilityIds = ["gameplay", "gameplayMutations"] as const;
     const selected = focus === "auto" ? "auto" : focus;
     const resolved = focus === "auto" ? "ranked-pvp" : focus;
     const focused = focus === "towers-spire"
-        ? { id: "focus-towers-week", title: "Challenge Battle Tower floor 31", why: "Tower floors test squad construction and tactical consistency on your own schedule.", commitment: "15–30 min", progress: "Best floor 30 • Endless wave 42", screen: "battleTowers", cta: "Review Towers", eligibility: "eligible", context: "towers" }
+        ? { id: "focus-towers-week", title: "Challenge Battle Tower floor 31", why: "Tower floors test squad construction and tactical consistency on your own schedule.", commitment: "15–30 min", progress: "Best floor 30 • Endless wave 42", screen: "battleTowers", cta: "Review Towers", eligibility: "eligible", context: "towers", requiredCapabilityIds }
         : focus === "companions"
-            ? { id: "focus-companion-week", title: "Choose your first companion", why: "Care, expeditions, and arena practice build a companion identity separate from ordinary shinobi combat.", commitment: "10–20 min", progress: "No companion active", screen: "pets", cta: "Visit Pet Yard", eligibility: "blocked", blocker: "Choose a companion at the Pet Yard first.", context: "companions" }
-            : { id: "focus-ranked-week", title: "Play a focused Ranked PvP set", why: "A short set turns ordinary PvP execution into season standing and a durable competitive record.", commitment: "10–20 min", progress: "1320 rating • 25 ranked wins", screen: "battleArena", cta: "Open Ranked PvP", eligibility: "eligible", context: "pvp" };
+            ? { id: "focus-companion-week", title: "Choose your first companion", why: "Care, expeditions, and arena practice build a companion identity separate from ordinary shinobi combat.", commitment: "10–20 min", progress: "No companion active", screen: "pets", cta: "Visit Pet Yard", eligibility: "eligible", blocker: "Choose a companion at the Pet Yard first.", context: "companions", requiredCapabilityIds }
+            : { id: "focus-ranked-week", title: "Play a focused Ranked PvP set", why: "A short set turns ordinary PvP execution into season standing and a durable competitive record.", commitment: "10–20 min", progress: "1320 rating • 25 ranked wins", screen: "battleArena", cta: "Open Ranked PvP", eligibility: "eligible", context: "pvp", requiredCapabilityIds };
     const long = focus === "towers-spire"
         ? { ...focused, id: "focus-towers-long", title: "Climb toward Spire tier 7", commitment: "Multi-session", progress: "Highest Spire tier 6", cta: "Open Towers and Spire" }
         : focus === "companions"
-            ? { ...focused, id: "focus-companion-long", title: "Grow your companion arena record", commitment: "Multi-session", cta: "Visit Pet Yard" }
+            ? { ...focused, id: "focus-companion-long", title: "Grow your companion arena record", commitment: "Multi-session", screen: "petLadder", cta: "Review Pet Ladder", eligibility: "blocked", runtimeModeId: "pet-ladder-showdown" }
         : { ...focused, id: "focus-special-jonin-prestige", title: "Pursue the Special Jonin distinction", why: "This optional ceremony recognizes prestige; it does not block leveling, stats, jutsu, or content.", commitment: "Multi-session", progress: "25/100 PvP kills", screen: "logbook", cta: "Review Optional Prestige" };
-    const routine = { id: "routine", title: "Run a level-appropriate mission", why: "A short mission advances your current build.", commitment: "5–10 min", screen: "missions", cta: "Open Missions", eligibility: "eligible", context: "progression" };
+    const routine = { id: "routine", title: "Run a level-appropriate mission", why: "A short mission advances your current build.", commitment: "5–10 min", screen: "missions", cta: "Open Missions", eligibility: "eligible", context: "progression", requiredCapabilityIds };
     return { generatedAt: Date.now(), returningPlayer: false, selectedFocus: selected, resolvedFocus: resolved, horizons: { now: [{ ...routine, id: "now", horizon: "now" }], today: [{ ...routine, id: "today", horizon: "today" }], "this-week": [{ ...focused, horizon: "this-week" }], "long-term": [{ ...long, horizon: "long-term" }] } };
 }
 
