@@ -454,7 +454,6 @@ describe('executable multi-engine runtime registry', () => {
   it('locks the owner-authoritative engine boundaries without hiding live defects', () => {
     const E = RUNTIME_AUTHORITY_ENGINES;
     const sectorWarSource = readFileSync(join(ROOT, 'api', 'village', 'sector-war.ts'), 'utf8');
-    const mercFighterSource = readFileSync(join(ROOT, 'api', 'towers', '_merc-fighters.ts'), 'utf8');
     const rankedPetStartSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-start.ts'), 'utf8');
     const petBattleResultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
     const petLadderSource = clientSource('screens/PetLadder.tsx');
@@ -499,11 +498,12 @@ describe('executable multi-engine runtime registry', () => {
     }
 
     const garrison = runtimeModeById('sector-war-shinobi-garrison');
-    assert.equal(garrison.status, 'defect');
-    assert.equal(garrison.authorityEngine, E.TOWER);
+    assert.equal(garrison.status, 'surface-gap');
+    assert.equal(garrison.authorityEngine, null);
     assert.equal(garrison.intendedAuthorityEngine, E.PVP);
-    assert.match(sectorWarSource, /resolveMercBattle/);
-    assert.match(mercFighterSource, /createTowerSession/);
+    assert.deepEqual(garrison.routes, []);
+    assert.doesNotMatch(sectorWarSource, /resolveMercBattle|sealTowerFighter/);
+    assert.match(sectorWarSource, /case 'garrison': return res\.status\(410\)/);
 
     const dungeonPet = runtimeModeById('dungeon-pet-client-local');
     assert.equal(dungeonPet.status, 'defect');
@@ -596,8 +596,14 @@ describe('executable multi-engine runtime registry', () => {
     );
     assert.deepEqual(
       new Set(sectorModes.map((mode) => mode.authorityEngine)),
-      new Set([RUNTIME_AUTHORITY_ENGINES.PVP, RUNTIME_AUTHORITY_ENGINES.TOWER, RUNTIME_AUTHORITY_ENGINES.CHRONICLE, RUNTIME_AUTHORITY_ENGINES.PET_SHOWDOWN]),
+      new Set([null, RUNTIME_AUTHORITY_ENGINES.PVP, RUNTIME_AUTHORITY_ENGINES.TOWER, RUNTIME_AUTHORITY_ENGINES.CHRONICLE, RUNTIME_AUTHORITY_ENGINES.PET_SHOWDOWN]),
     );
+
+    const retiredGarrison = runtimeModeById('sector-war-shinobi-garrison');
+    assert.equal(retiredGarrison.status, 'surface-gap');
+    assert.equal(retiredGarrison.authorityEngine, null);
+    assert.equal(retiredGarrison.intendedAuthorityEngine, RUNTIME_AUTHORITY_ENGINES.PVP);
+    assert.deepEqual(retiredGarrison.routes, []);
   });
 });
 

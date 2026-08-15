@@ -13,8 +13,8 @@ Tower-specific objectives. Pet and Card participant models remain independent.
 - Player-versus-player combat stays in `pvp`.
 - Battle Towers (solo or party), Endless Spire, Clan Boss, Tower PvP, and the
   declared headless village-war mercenary battle use Tower. Tower is not the
-  default server-authority backend. Sector War's Tower-backed garrison fallback
-  remains a wrong-owner defect; it does not expand Tower ownership.
+  default server-authority backend. The former Tower-backed Sector garrison
+  fallback is retired fail-closed and remains an explicit PvP surface gap.
 - Hollow Gate shinobi encounters are normal Solo PvE. The mounted Hollow Gate
   pet caller uses server-sealed cinematic PvE plus its parent run receipt while
   a separate Showdown branch exists; the long-term owner is unresolved, not a
@@ -37,7 +37,7 @@ keyspace, and rollback narrative remains in
 |---|---|
 | `pvp` | Casual, ranked, direct challenges, and human-defender Sector War shinobi duels |
 | `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, and ANBU infiltration |
-| `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, and declared headless village-war mercenary battles; the Sector garrison fallback is a recorded wrong-owner use |
+| `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, and declared headless village-war mercenary battles; the retired Sector garrison fallback is not a Tower mode |
 | `pet-showdown` | Showdown practice, Coliseum, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
 | `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |
