@@ -4994,23 +4994,6 @@ export function WorldMap({
                 {/* Hovered (or in-flight) walking route from where the player
                     stands — the sandbox-MMO-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
-                {/* Sea names are deliberately NOT drawn over the 2026-07 keyart:
-                    its coastline runs close to the frame on every side, so there
-                    is no open-water margin wide enough to letter without the
-                    label landing on land. Hidden in 11-sector-explore-….css. */}
-                <div className="sea-label sea-north">Hoppo Sea</div>
-                <div className="sea-label sea-east">Rimawari Ocean</div>
-                <div className="sea-label sea-south">Zubunure Sea</div>
-
-                <div className="atlas-landmass continent-west"></div>
-                <div className="atlas-landmass continent-east"></div>
-                <div className="atlas-landmass frozen-north"></div>
-                <div className="atlas-landmass island-south"></div>
-
-                <div className="atlas-region-label label-volcano">Land of Volcanoes</div>
-                <div className="atlas-region-label label-forest">Land of Swamps</div>
-                <div className="atlas-region-label label-fire">Land of Fire</div>
-                <div className="atlas-region-label label-ice">Land of Glaciers</div>
                 {sectorPoints.map((sector) => {
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
