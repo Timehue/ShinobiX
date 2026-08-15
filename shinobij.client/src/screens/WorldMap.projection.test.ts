@@ -31,8 +31,8 @@ function assertOrdered(source: string, needles: readonly string[], contract: str
 
 test("WorldMap and its selected-sector leaves keep the projection line-budget ratchets", () => {
     assert.ok(
-        lineCount(worldMapSource) <= 5_380,
-        `WorldMap.tsx grew past 5,380 lines; selected-sector presentation belongs in its focused leaves.`,
+        lineCount(worldMapSource) <= 5_255,
+        `WorldMap.tsx grew past 5,255 lines; retired overview fallbacks must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -50,6 +50,21 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         lineCount(dialogSource) <= 375,
         `WorldWandererDialog.tsx grew past 375 lines; workflows and authority must remain in WorldMap.`,
     );
+});
+
+test("WorldMap keeps one exhaustive early chest flow and no unreachable overview fallback", () => {
+    const chestVnBranch = "if (activeChest && !chestVnDone) {";
+    const chestRevealBranch = "if (activeChest && chestVnDone) {";
+    const travelingBranch = "if (isTraveling) {";
+
+    assert.equal(worldMapSource.split(chestVnBranch).length - 1, 1);
+    assert.equal(worldMapSource.split(chestRevealBranch).length - 1, 1);
+    assertOrdered(worldMapSource, [chestVnBranch, chestRevealBranch, travelingBranch], "early chest returns before travel");
+
+    const overviewStart = worldMapSource.indexOf("{wmZoom.active ? (");
+    assert.ok(overviewStart > worldMapSource.indexOf(travelingBranch), "final overview must follow the traveling return");
+    const finalOverview = worldMapSource.slice(overviewStart);
+    assert.doesNotMatch(finalOverview, /\bactiveChest\b/u);
 });
 
 test("WorldSectorCanvas stays hook-free, network-free, and persistence-free", () => {
