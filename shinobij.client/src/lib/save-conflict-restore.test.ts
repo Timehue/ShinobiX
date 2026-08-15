@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import {
     createSaveConflictRevision,
     latestSaveConflictRevision,
+    loadSaveOwnershipClassifier,
     type SaveConflictDraft,
     type SaveConflictRevision,
 } from "./save-conflict";
@@ -123,6 +124,12 @@ function assertNoAuthoritySideEffects(harness: ReturnType<typeof createHarness>)
 }
 
 describe("exclusive save-conflict restore", () => {
+    // restoreSaveConflictRevision awaits the code-split ownership chunk. Warm it
+    // once here so a COLD dynamic import never lands inside a timing-sensitive
+    // test — on CI that shifted when the loop had ref'd work and stranded the
+    // unref'd AbortSignal.timeout below, cancelling the suite.
+    before(async () => { await loadSaveOwnershipClassifier(); });
+
     it("requires a positive safe-integer acknowledgement version", async () => {
         for (const invalidVersion of [undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "6"]) {
             let calls = 0;
@@ -394,7 +401,17 @@ describe("exclusive save-conflict restore", () => {
         }) as typeof fetch;
         const h = createHarness({ request, timeoutMs: 10 });
 
-        await assert.rejects(h.restore(), /timeout/i);
+        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
+        // loop open. The verification request here settles only when that abort
+        // fires, so without a ref'd handle the loop can drain first and the test
+        // hangs as "Promise resolution is still pending". Hold one across the
+        // assertion — this is what the abort is racing, not a sleep.
+        const keepLoopAlive = setInterval(() => {}, 1_000);
+        try {
+            await assert.rejects(h.restore(), /timeout/i);
+        } finally {
+            clearInterval(keepLoopAlive);
+        }
         assert.equal(calls, 2);
         assert.equal(signals.length, 2);
         assert.equal(signals[1].aborted, true);
