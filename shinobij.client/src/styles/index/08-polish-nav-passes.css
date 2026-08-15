@@ -100,10 +100,6 @@ button {
     box-shadow: inset 0 0 80px rgba(0, 38, 87, .58), 0 16px 40px rgba(0,0,0,.34);
 }
 
-.atlas-landmass {
-    filter: drop-shadow(0 8px 10px rgba(0,0,0,.42));
-}
-
 .atlas-sector {
     font-size: 17px;
     transition: transform .12s ease, filter .12s ease;

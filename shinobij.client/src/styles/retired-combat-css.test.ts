@@ -10,6 +10,7 @@ const textExtensions = new Set([
     ".mjs", ".svg", ".ts", ".tsx", ".txt", ".xml",
 ]);
 const retiredClassFamily = /\b(?:hex-zoom-|story-journey-|story-fight-portal\b|pvp-(?:rich-|log-|round-|block-|actor-|effect-|uses-text\b|jutsu-name\b|victory-text\b)|tower-action-(?:deck|status|resources)\b|tower-fight-(?:objective|round|zoom)\b)/;
+const retiredWorldMapDrawingClass = /\b(?:sea-label|sea-(?:north|east|south)|atlas-landmass|continent-(?:west|east)|frozen-north|island-south|atlas-region-label|label-(?:volcano|forest|fire|ice))\b/;
 
 function filesUnder(root: string, accept: (path: string) => boolean): string[] {
     if (!existsSync(root)) return [];
@@ -43,6 +44,30 @@ test("retired combat selector families stay ownerless and absent from shipped CS
             return match ? [`${relative(clientRoot, path)}: ${match[0]}`] : [];
         });
     assert.deepEqual(cssOffenders, [], "retired ownerless selectors must not return to shipped CSS");
+});
+
+test("retired world-map drawing classes stay ownerless and absent from shipped CSS", () => {
+    const productionText = [
+        ...filesUnder(sourceRoot, isProductionText),
+        ...filesUnder(join(clientRoot, "public"), isProductionText),
+        join(clientRoot, "index.html"),
+    ].filter(existsSync);
+    const sourceOffenders = productionText.flatMap((path) => {
+        const match = readFileSync(path, "utf8").match(retiredWorldMapDrawingClass);
+        return match ? [`${relative(clientRoot, path)}: ${match[0]}`] : [];
+    });
+    assert.deepEqual(sourceOffenders, [], "a retired world-map drawing class gained a production owner");
+
+    const cssOffenders = filesUnder(sourceRoot, (path) => extname(path).toLowerCase() === ".css")
+        .flatMap((path) => {
+            const match = readFileSync(path, "utf8").match(retiredWorldMapDrawingClass);
+            return match ? [`${relative(clientRoot, path)}: ${match[0]}`] : [];
+        });
+    assert.deepEqual(cssOffenders, [], "retired world-map drawing selectors must not return to shipped CSS");
+
+    const chartingCss = readFileSync(join(sourceRoot, "components", "world-map-charting.css"), "utf8");
+    assert.match(chartingCss, /\.world-region-label\s*\{/);
+    assert.match(chartingCss, /\.world-poi-plate\s*\{/);
 });
 
 test("the Story archive interlude modifier remains tied to its typed dynamic owner", () => {

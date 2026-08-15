@@ -31,8 +31,8 @@ function assertOrdered(source: string, needles: readonly string[], contract: str
 
 test("WorldMap and its selected-sector leaves keep the projection line-budget ratchets", () => {
     assert.ok(
-        lineCount(worldMapSource) <= 5_210,
-        `WorldMap.tsx grew past 5,210 lines; retired selected-view fallbacks must stay retired.`,
+        lineCount(worldMapSource) <= 5_190,
+        `WorldMap.tsx grew past 5,190 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -65,6 +65,15 @@ test("WorldMap keeps one exhaustive early chest flow and no unreachable overview
     assert.ok(overviewStart > worldMapSource.indexOf(travelingBranch), "final overview must follow the traveling return");
     const finalOverview = worldMapSource.slice(overviewStart);
     assert.doesNotMatch(finalOverview, /\bactiveChest\b/u);
+});
+
+test("world overview keeps live charting before sector markers without retired drawing layers", () => {
+    const overviewStart = worldMapSource.indexOf("{wmZoom.active ? (");
+    assert.ok(overviewStart >= 0, "missing final world overview");
+    const finalOverview = worldMapSource.slice(overviewStart);
+
+    assertOrdered(finalOverview, ["<WorldRoadsOverlay />", "<WorldPoiPlates />", "{sectorPoints.map"], "world overview charting order");
+    assert.doesNotMatch(finalOverview, /\b(?:sea-label|atlas-landmass|atlas-region-label)\b/u);
 });
 
 test("selected enemy-village territory uses its total SectorMap path without retired scene fallbacks", () => {
