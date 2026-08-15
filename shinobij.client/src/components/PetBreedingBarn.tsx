@@ -25,6 +25,12 @@ import { shouldApplyBreedingStatus } from "../lib/pet-breeding-status-guard";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet, PetBreedingSession } from "../types/pet";
 import { BreedingCountdown } from "./BreedingCountdown";
+import {
+    useCapabilityMutationAvailability,
+    useCapabilityViewAvailability,
+    useLiveCapabilities,
+} from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 
 const EGG_ART: Record<string, string> = { Fire: eggFire, Water: eggWater, Wind: eggWind, Lightning: eggLightning, Earth: eggEarth };
 const CREST_ART: Record<string, string> = { Fire: crestFire, Water: crestWater, Wind: crestWind, Lightning: crestLightning, Earth: crestEarth };
@@ -53,6 +59,13 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
     onServerVersion: (version: number) => void;
     sharedImages: Record<string, string>;
 }) {
+    const breedingReadAvailability = useCapabilityViewAvailability();
+    const breedingStartAvailability = useCapabilityMutationAvailability("petBreedingStarts");
+    const breedingRecoveryMutationAvailability = useCapabilityMutationAvailability();
+    const { mutationAvailability, viewAvailability } = useLiveCapabilities();
+    const breedingReadAvailable = capabilityAdmissionAllowed(breedingReadAvailability);
+    const breedingStartsAvailable = capabilityAdmissionAllowed(breedingStartAvailability);
+    const breedingRecoveryActionsAvailable = capabilityAdmissionAllowed(breedingRecoveryMutationAvailability);
     const [parent1Id, setParent1Id] = useState("");
     const [parent2Id, setParent2Id] = useState("");
     const [sessionOverride, setSessionOverride] = useState<PetBreedingSession | null | undefined>(undefined);
@@ -67,6 +80,9 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
     const latestSaveVersionRef = useRef(0);
     const rareStingTimer = useRef<number | null>(null);
     const modalRef = useRef<HTMLDivElement | null>(null);
+    const trackedSessionId = sessionOverride === undefined
+        ? character.petBreeding?.sessionId ?? null
+        : sessionOverride?.sessionId ?? null;
     const commitServerCharacter = useCallback((nextCharacter: Character, version: number): boolean => {
         if (onVersionedCharacter) return onVersionedCharacter(nextCharacter, version);
         onServerVersion(version);
@@ -79,6 +95,7 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         if (rareStingTimer.current !== null) window.clearTimeout(rareStingTimer.current);
     }, []);
     const refresh = useCallback(async (signal?: AbortSignal) => {
+        if (!capabilityAdmissionAllowed(viewAvailability())) return;
         const requestNo = ++refreshRequestRef.current;
         try {
             const result = await fetchBreedingStatus(character.name, signal);
@@ -101,13 +118,19 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         } catch (error) {
             if ((error as Error).name !== "AbortError") setMessage((error as Error).message);
         }
-    }, [character.name, commitServerCharacter, onServerVersion]);
+    }, [character.name, commitServerCharacter, onServerVersion, viewAvailability]);
     useEffect(() => {
+        if (!breedingReadAvailable) return;
         const controller = new AbortController();
         const initial = window.setTimeout(() => void refresh(controller.signal), 0);
+        return () => { controller.abort(); window.clearTimeout(initial); };
+    }, [breedingReadAvailable, refresh]);
+    useEffect(() => {
+        if (!breedingReadAvailable || !trackedSessionId) return;
+        const controller = new AbortController();
         const id = window.setInterval(() => void refresh(controller.signal), 45_000);
-        return () => { controller.abort(); window.clearTimeout(initial); window.clearInterval(id); };
-    }, [refresh]);
+        return () => { controller.abort(); window.clearInterval(id); };
+    }, [breedingReadAvailable, refresh, trackedSessionId]);
     useEffect(() => {
         if (!confirmOpen && !hatchedPet) return;
         const modal = modalRef.current;
@@ -158,10 +181,11 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         feedbackRef.current = { sessionId: session.sessionId, state: session.state, progress, complete: Boolean(complete) };
     }, [session]);
     const odds = useMemo(() => parent1 && parent2 ? breedingOddsForPets(parent1, parent2) : null, [parent1, parent2]);
-    const canStart = Boolean(parent1 && parent2 && carriedParentIds.has(parent1.id) && carriedParentIds.has(parent2.id) && parent1.id !== parent2.id && parent1.element === parent2.element && !clientPetBreedingBlocker(character, parent1) && !clientPetBreedingBlocker(character, parent2));
+    const pairingEligible = Boolean(parent1 && parent2 && carriedParentIds.has(parent1.id) && carriedParentIds.has(parent2.id) && parent1.id !== parent2.id && parent1.element === parent2.element && !clientPetBreedingBlocker(character, parent1) && !clientPetBreedingBlocker(character, parent2));
+    const canStart = breedingStartsAvailable && pairingEligible;
 
     async function confirmStart() {
-        if (!parent1 || !parent2 || !canStart || busy) return;
+        if (!breedingStartsAvailable || !capabilityAdmissionAllowed(mutationAvailability("petBreedingStarts")) || !parent1 || !parent2 || !canStart || busy) return;
         primePetSfx();
         setBusy(true); setMessage("");
         refreshRequestRef.current += 1;
@@ -176,7 +200,7 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
     }
 
     async function hatch() {
-        if (!session || busy) return;
+        if (!breedingRecoveryActionsAvailable || !capabilityAdmissionAllowed(mutationAvailability()) || !session || busy) return;
         primePetSfx();
         setBusy(true); setMessage("");
         refreshRequestRef.current += 1;
@@ -202,12 +226,13 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         <div className="pet-home-section-heading"><div><span className="pet-home-kicker">One barn · 24-hour ritual</span><h2 id="breeding-barn-title">Breeding Barn</h2></div><strong>{session ? "Occupied" : "Available"}</strong></div>
         {message && <p className="pet-home-message" role="status">{message}</p>}
         {!session ? <div className="breeding-setup">
+            {!breedingStartsAvailable && <p className="pet-home-message" role="status">{breedingStartAvailability === "unknown" ? "Checking whether new companion pairings are available…" : "New companion pairings are temporarily paused. Existing timers and eggs remain visible; hatching follows the global action gate."}</p>}
             <div className="breeding-parent-grid"><ParentPicker label="First parent" value={parent1Id} character={character} other={parent2} onChange={(id) => { primePetSfx(); playPetSfx("command"); setParent1Id(id); }} sharedImages={sharedImages} /><span className="breeding-link">×</span><ParentPicker label="Second parent" value={parent2Id} character={character} other={parent1} onChange={(id) => { primePetSfx(); playPetSfx("command"); setParent2Id(id); }} sharedImages={sharedImages} /></div>
             {odds && <div className="breeding-odds"><span><b>{odds.parent1}%</b> First species</span><span><b>{odds.parent2}%</b> Second species</span><span><b>{odds.alternate}%</b> Same element/tier</span><span><b>{odds.randomNonStandard}%</b> Rare+ surprise</span><span className="chromatic"><b>{odds.chromatic}%</b> Chromatic (independent)</span><span className="apex"><b>{odds.apexTrait}%</b> Apex Shrine trait (independent)</span></div>}
             <p className="breeding-contract">Each parent spends one breeding use when the sealed result is created. The species and Chromatic rolls remain private until hatch.</p>
             <button type="button" className="pet-home-primary" disabled={!canStart || busy} onClick={() => { primePetSfx(); playPetSfx("command"); setConfirmOpen(true); }}>Begin 24-hour breeding</button>
-        </div> : session.state === "breeding" ? <div className="breeding-in-progress"><div className="breeding-parent-names"><span>{session.parentNames[0]}</span><i><img src={CREST_ART[session.parentElement]} alt="" />{session.parentElement}</i><span>{session.parentNames[1]}</span></div><BreedingCountdown readyAt={session.readyAt} onElapsed={() => void refresh()} /><p>The result is sealed. Parents remain committed until the timer reaches zero.</p></div> : <div className="egg-nursery"><div className="egg-stage"><img src={EGG_ART[session.parentElement] ?? eggEarth} alt={`${session.parentElement} companion egg`} /><span><img className="element-crest" src={CREST_ART[session.parentElement]} alt="" />{session.parentElement} egg</span></div><div className="hatch-requirements"><h3>Hatch bonds</h3>{session.requirements?.map((requirement) => <div key={requirement.id} className={`hatch-requirement requirement-${requirement.category}`}><span>{requirement.label}</span><progress aria-label={`${requirement.label}: ${requirement.progress} of ${requirement.target}`} value={requirement.progress} max={requirement.target} /><b>{requirement.progress}/{requirement.target}</b></div>)}</div><button type="button" className="pet-home-primary" disabled={!complete || busy} onClick={() => void hatch()}>{complete ? yardFull ? "Hatch to Sanctuary" : "Hatch companion" : "Complete all three bonds"}</button>{yardFull && <p className="hatch-overflow-note">Your carried roster is full ({activeCarriedPets(character).length}/{maxPets(character)} combat-carried; {character.pets.length} owned). This companion will hatch safely into the Sanctuary.</p>}</div>}
-        {confirmOpen && parent1 && parent2 && <div className="pet-home-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmOpen(false); }}><div ref={modalRef} className="pet-home-modal" role="dialog" aria-modal="true" aria-labelledby="breed-confirm-title" aria-describedby="breed-confirm-copy" tabIndex={-1}><span className="pet-home-kicker">Final confirmation</span><h3 id="breed-confirm-title">Commit {petDisplayName(parent1)} and {petDisplayName(parent2)}?</h3><p id="breed-confirm-copy">One breeding use will be permanently consumed from each parent. Breeding takes 24 real hours and cannot be canceled or rerolled. The sealed result cannot be previewed.</p><div className="pet-home-modal-actions"><button type="button" onClick={() => setConfirmOpen(false)}>Cancel</button><button type="button" className="pet-home-primary" disabled={busy} onClick={() => void confirmStart()}>{busy ? "Sealing…" : "Commit parents"}</button></div></div></div>}
+        </div> : session.state === "breeding" ? <div className="breeding-in-progress"><div className="breeding-parent-names"><span>{session.parentNames[0]}</span><i><img src={CREST_ART[session.parentElement]} alt="" />{session.parentElement}</i><span>{session.parentNames[1]}</span></div><BreedingCountdown readyAt={session.readyAt} onElapsed={() => void refresh()} /><p>The result is sealed. Parents remain committed until the timer reaches zero.</p></div> : <div className="egg-nursery"><div className="egg-stage"><img src={EGG_ART[session.parentElement] ?? eggEarth} alt={`${session.parentElement} companion egg`} /><span><img className="element-crest" src={CREST_ART[session.parentElement]} alt="" />{session.parentElement} egg</span></div><div className="hatch-requirements"><h3>Hatch bonds</h3>{session.requirements?.map((requirement) => <div key={requirement.id} className={`hatch-requirement requirement-${requirement.category}`}><span>{requirement.label}</span><progress aria-label={`${requirement.label}: ${requirement.progress} of ${requirement.target}`} value={requirement.progress} max={requirement.target} /><b>{requirement.progress}/{requirement.target}</b></div>)}</div>{!breedingRecoveryActionsAvailable && <p className="pet-home-message" role="status">Hatching is paused, but this egg and its bond progress remain safe and visible.</p>}<button type="button" className="pet-home-primary" disabled={!complete || busy || !breedingRecoveryActionsAvailable} onClick={() => void hatch()}>{!breedingRecoveryActionsAvailable ? "Hatching paused" : complete ? yardFull ? "Hatch to Sanctuary" : "Hatch companion" : "Complete all three bonds"}</button>{yardFull && <p className="hatch-overflow-note">Your carried roster is full ({activeCarriedPets(character).length}/{maxPets(character)} combat-carried; {character.pets.length} owned). This companion will hatch safely into the Sanctuary.</p>}</div>}
+        {confirmOpen && parent1 && parent2 && <div className="pet-home-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmOpen(false); }}><div ref={modalRef} className="pet-home-modal" role="dialog" aria-modal="true" aria-labelledby="breed-confirm-title" aria-describedby="breed-confirm-copy" tabIndex={-1}><span className="pet-home-kicker">Final confirmation</span><h3 id="breed-confirm-title">Commit {petDisplayName(parent1)} and {petDisplayName(parent2)}?</h3><p id="breed-confirm-copy">One breeding use will be permanently consumed from each parent. Breeding takes 24 real hours and cannot be canceled or rerolled. The sealed result cannot be previewed.</p><div className="pet-home-modal-actions"><button type="button" onClick={() => setConfirmOpen(false)}>Cancel</button><button type="button" className="pet-home-primary" disabled={busy || !breedingStartsAvailable} onClick={() => void confirmStart()}>{busy ? "Sealing…" : "Commit parents"}</button></div></div></div>}
         {hatchedPet && <div className="pet-home-modal-backdrop hatch-cinematic"><div ref={modalRef} className={`pet-home-modal hatch-reveal ${petVisualVariantClass(hatchedPet)}${apexTrait ? " hatch-reveal--apex" : ""}`} role="dialog" aria-modal="true" aria-labelledby="hatch-title" aria-describedby="hatch-summary" tabIndex={-1}><img className="hatch-sanctum" src={hatchSanctum} alt="" /><img className={`hatch-aura ${hatchedPet.paletteVariantId ? "hatch-aura--chromatic" : "hatch-aura--rare"}`} src={hatchedPet.paletteVariantId ? chromaticOverlay : rareOverlay} alt="" /><span className="pet-home-kicker">Bond awakened</span><h3 id="hatch-title">{petDisplayName(hatchedPet)}</h3><div className="hatch-pet-stage">{hatchedArt ? <img className="hatch-pet" src={hatchedArt} alt={petDisplayName(hatchedPet)} /> : <span className="hatch-pet-fallback" aria-label={`${petDisplayName(hatchedPet)} artwork unavailable`}>{hatchInitials}</span>}</div><p id="hatch-summary">{hatchedPet.rarity} · {hatchedPet.element} · {hatchedPet.trait} · Generation {hatchedPet.generation}</p>{apexTrait && <><strong className="apex-trait-ribbon">Apex trait · {apexTrait}</strong><small className="apex-trait-copy">{petTraitDescriptions[apexTrait]}</small></>}{hatchedPet.paletteVariantId && <strong className="chromatic-ribbon">Chromatic miracle</strong>}{hatchedDestination === "sanctuary" && <p className="hatch-sanctuary-note">Your carried roster was full, so this companion is resting safely in the Sanctuary.</p>}<button type="button" className="pet-home-primary" onClick={() => setHatchedPet(null)}>{hatchedDestination === "sanctuary" ? "Rest well" : "Welcome home"}</button></div></div>}
     </section>;
 }

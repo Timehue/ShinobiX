@@ -16,15 +16,15 @@ Deploy the new commit, then verify `/health`, authenticated `/health/db`, login/
 
 ## Application rollback
 
-1. Set `FREEZE_ECONOMY_REWARDS=1` if the incident can duplicate, lose, or corrupt value. Use `MAINTENANCE_MODE=1` only when reads/login are unsafe too.
+1. Set `FREEZE_ECONOMY_REWARDS=1` to reject new unsafe-method player requests if the incident can duplicate, lose, or corrupt value. Use `MAINTENANCE_MODE=1` when Express reads/login are unsafe too. These request gates do not stop GET-side-effect, scheduled, realtime/game-loop, or external writers; independently stop and verify those writers whenever the rollback requires true quiescence.
 2. In Railway, choose the recorded prior healthy deployment and select **Rollback**. Do not remove the current deployment until the rollback is healthy.
 3. Require `/health` and authenticated `/health/db` to pass, then test an existing account whose save was written by the newer build. Confirm its unknown/new fields remain present after the old build saves.
 4. Confirm presence reconnects, settlement replay remains single-application, images load, and cron health is fresh.
-5. Remove the freeze only after Sentry, Better Stack, database connections, and economic reconciliation remain healthy.
+5. Remove every request, job, realtime, and feature control used for the incident only after Sentry, Better Stack, database connections, and economic reconciliation remain healthy.
 
 ## Database rollback rule
 
-Do not reverse a database change by dropping a table or column during an incident. Roll the application back while leaving additive schema in place. Destructive contract cleanup belongs in a later release after the previous application is no longer a rollback target and a restore drill has passed. If data itself is corrupt, keep writes frozen and follow `BACKUP_RESTORE_RUNBOOK.md`; restoring production is a separate owner-authorized incident action.
+Do not reverse a database change by dropping a table or column during an incident. Roll the application back while leaving additive schema in place. Destructive contract cleanup belongs in a later release after the previous application is no longer a rollback target and a restore drill has passed. If data itself is corrupt, keep request admission paused, independently quiesce all writers, and follow `BACKUP_RESTORE_RUNBOOK.md`; restoring production is a separate owner-authorized incident action.
 
 ## Evidence
 

@@ -3,6 +3,14 @@ import { useState, useCallback, useEffect } from "react";
 import { starterJutsus } from "../data/jutsu";
 import { starterItems } from "../data/starter-items";
 import { shinobiTileCards } from "../data/tile-cards";
+import {
+    PUBLIC_CAPABILITY_IDS,
+    type PublicCapabilityId,
+    type PublicCapabilityReason,
+    type PublicCapabilityState,
+    type PublicCapabilities,
+    type PublicCapabilitiesResponse,
+} from "../../../shared/public-capabilities";
 
 // ─── Admin Diagnostics Panel ──────────────────────────────────────────────────
 // Read-only operations/observability surface backing the reliability work:
@@ -40,7 +48,56 @@ type AuditEntry = {
     reason?: string; meta?: Record<string, unknown>;
 };
 type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
-type DiagnosticsSection = "assets" | "receipts" | "audit" | "economy" | "beta" | "operations" | "index";
+type DiagnosticsSection = "capabilities" | "assets" | "receipts" | "audit" | "economy" | "beta" | "operations" | "index";
+type RuntimeCapabilityRow = {
+    modeId: string;
+    label: string;
+    capabilityIds: readonly PublicCapabilityId[];
+    blockingCapabilityId: PublicCapabilityId | null;
+    state: PublicCapabilityState;
+    reason: PublicCapabilityReason;
+};
+type RuntimeCapabilityProjection = {
+    capabilities: PublicCapabilities;
+    runtimeModes: readonly RuntimeCapabilityRow[];
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPublicCapabilityId(value: unknown): value is PublicCapabilityId {
+    return typeof value === "string" && (PUBLIC_CAPABILITY_IDS as readonly string[]).includes(value);
+}
+
+function validCapabilityState(state: unknown, reason: unknown): boolean {
+    return (state === "available" && reason === "available")
+        || (state === "actions-paused" && reason === "operations-paused")
+        || (state === "temporarily-unavailable" && (
+            reason === "maintenance" || reason === "temporarily-disabled" || reason === "configuration-unavailable"
+        ));
+}
+
+function parseRuntimeCapabilityProjection(value: unknown): RuntimeCapabilityProjection | null {
+    if (!isRecord(value) || value.ok !== true || !isRecord(value.capabilities) || !Array.isArray(value.runtimeModes)) return null;
+    const capabilities = value.capabilities;
+    const runtimeModes = value.runtimeModes;
+    if (!PUBLIC_CAPABILITY_IDS.every((id) => {
+        const capability = capabilities[id];
+        return isRecord(capability) && validCapabilityState(capability.state, capability.reason);
+    })) return null;
+    if (!runtimeModes.every((row) => isRecord(row)
+        && typeof row.modeId === "string"
+        && typeof row.label === "string"
+        && Array.isArray(row.capabilityIds)
+        && row.capabilityIds.every(isPublicCapabilityId)
+        && (row.blockingCapabilityId === null || isPublicCapabilityId(row.blockingCapabilityId))
+        && validCapabilityState(row.state, row.reason))) return null;
+    return {
+        capabilities: capabilities as PublicCapabilities,
+        runtimeModes: runtimeModes as RuntimeCapabilityRow[],
+    };
+}
 
 type PlayerIndexHealth = {
     version: number;
@@ -144,7 +201,36 @@ const pill: React.CSSProperties = { display: "inline-block", background: "#2a2a3
 const mono: React.CSSProperties = { fontFamily: "monospace", fontSize: "0.82rem" };
 
 export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
-    const [section, setSection] = useState<DiagnosticsSection>("assets");
+    const [section, setSection] = useState<DiagnosticsSection>("capabilities");
+
+    // Exact current server projection. One authenticated no-store response owns
+    // both public states and the matrix derived from that same point-in-time state.
+    const [capabilityResponse, setCapabilityResponse] = useState<PublicCapabilitiesResponse | null>(null);
+    const [runtimeCapabilityRows, setRuntimeCapabilityRows] = useState<readonly RuntimeCapabilityRow[]>([]);
+    const [capabilityStatus, setCapabilityStatus] = useState("");
+    const loadCapabilities = useCallback(async () => {
+        setCapabilityResponse(null);
+        setRuntimeCapabilityRows([]);
+        setCapabilityStatus("Loading...");
+        try {
+            const response = await fetch("/api/admin/runtime-mode-capabilities", {
+                cache: "no-store",
+                headers: { Accept: "application/json", "x-admin-password": adminPw },
+            });
+            const data: unknown = await response.json();
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const projection = parseRuntimeCapabilityProjection(data);
+            if (!projection) throw new Error("Invalid runtime capability projection");
+            setCapabilityResponse(Object.freeze({ ok: true, capabilities: projection.capabilities }));
+            setRuntimeCapabilityRows(projection.runtimeModes);
+            setCapabilityStatus("");
+        } catch (error) {
+            setCapabilityResponse(null);
+            setRuntimeCapabilityRows([]);
+            setCapabilityStatus(`X ${(error as Error).message}`);
+        }
+    }, [adminPw]);
+    useEffect(() => { if (section === "capabilities") void loadCapabilities(); }, [section, loadCapabilities]);
 
     // ── Battle receipts ──────────────────────────────────────────────────────
     const [battleId, setBattleId] = useState("");
@@ -414,21 +500,71 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
     const betaCount = (key: string): number => betaMetrics?.totals.events[key] ?? 0;
     const betaTopEntries = (values: Record<string, number>, limit = 12): Array<[string, number]> =>
         Object.entries(values).sort((a, b) => b[1] - a[1]).slice(0, limit);
-
     // ── Render ───────────────────────────────────────────────────────────────
     return (
         <div>
             <h3>🛠️ Diagnostics</h3>
             <p style={{ color: "#9aa", fontSize: "0.85rem", marginTop: 0 }}>
-                Read-only operations tools — assets, battle receipts, audit log, economy, beta telemetry, and player index health.
+                Read-only operations tools — public capabilities, assets, battle receipts, audit log, economy, beta telemetry, and player index health.
             </p>
             <div className="admin-diagnostics-tabs" role="tablist" aria-label="Diagnostics sections">
-                {(["assets", "receipts", "audit", "economy", "beta", "operations", "index"] as const).map((s) => (
+                {(["capabilities", "assets", "receipts", "audit", "economy", "beta", "operations", "index"] as const).map((s) => (
                     <button key={s} type="button" role="tab" aria-selected={section === s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
-                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : s === "operations" ? "Clan Boss" : "Player Index"}
+                        {s === "capabilities" ? "Capabilities" : s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : s === "operations" ? "Clan Boss" : "Player Index"}
                     </button>
                 ))}
             </div>
+
+            {section === "capabilities" && (
+                <div>
+                    <button type="button" onClick={() => void loadCapabilities()}>Refresh capability projection</button>
+                    {capabilityStatus && <span style={{ marginLeft: 8, color: "#f88" }}>{capabilityStatus}</span>}
+                    {!capabilityResponse && !capabilityStatus && (
+                        <p style={{ color: "#9aa" }}>Opening this section reads a no-store server projection of current public capability truth.</p>
+                    )}
+                    {capabilityResponse && (
+                        <>
+                            <div style={{ ...box, overflowX: "auto" }}>
+                                <strong>Exact current public capability projection</strong>
+                                <table style={{ width: "100%", marginTop: 8, borderCollapse: "collapse", ...mono }}>
+                                    <thead><tr><th align="left">Capability</th><th align="left">State</th><th align="left">Reason</th></tr></thead>
+                                    <tbody>
+                                        {PUBLIC_CAPABILITY_IDS.map((id) => {
+                                            const capability = capabilityResponse.capabilities[id];
+                                            return (
+                                                <tr key={id}>
+                                                    <td>{id}</td>
+                                                    <td>{capability.state}</td>
+                                                    <td>{capability.reason}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style={{ ...box, overflowX: "auto" }}>
+                                <strong>Executable runtime-mode admission matrix</strong>
+                                <p style={{ color: "#9aa", fontSize: "0.78rem", margin: "4px 0" }}>
+                                    Effective state is projected server-side from the executable registry and the same canonical public capability source.
+                                </p>
+                                <table style={{ width: "100%", marginTop: 8, borderCollapse: "collapse", ...mono }}>
+                                    <thead><tr><th align="left">Mode</th><th align="left">Admission gates</th><th align="left">Effective state</th><th align="left">Reason</th></tr></thead>
+                                    <tbody>
+                                        {runtimeCapabilityRows.map((row) => (
+                                            <tr key={row.modeId}>
+                                                <td>{row.label} <small>({row.modeId})</small></td>
+                                                <td>{row.capabilityIds.join(", ")}</td>
+                                                <td>{row.state}{row.blockingCapabilityId ? ` (${row.blockingCapabilityId})` : ""}</td>
+                                                <td>{row.reason}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {section === "assets" && (
                 <div>

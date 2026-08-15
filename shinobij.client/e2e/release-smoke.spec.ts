@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
         body: JSON.stringify({
             ok: true,
             capabilities: Object.fromEntries([
-                'gameplay', 'gameplayMutations', 'registrations', 'villageWar', 'clanBoss',
+                'gameplay', 'gameplayMutations', 'registrations', 'villageWar', 'anbuInfiltration', 'clanBoss',
                 'clanBossParties', 'legacy', 'petBreedingStarts', 'weeklyBossGuardCycle',
             ].map((id) => [id, { state: 'available', reason: 'available' }])),
         }),

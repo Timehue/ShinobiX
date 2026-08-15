@@ -1,15 +1,9 @@
-import { useEffect, useState } from "react";
-import type { PublicCapabilities } from "../../../shared/public-capabilities";
-import { liveServiceNotice, loadPublicCapabilities } from "../lib/live-capabilities";
+import { liveServiceNotice } from "../lib/live-service-notice";
+import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import type { Screen } from "../types/core";
 
 export function LiveServiceNotice({ screen }: { screen: Screen }) {
-    const [capabilities, setCapabilities] = useState<PublicCapabilities | null>(null);
-    useEffect(() => {
-        let current = true;
-        void loadPublicCapabilities().then((next) => { if (current) setCapabilities(next); });
-        return () => { current = false; };
-    }, []);
+    const { snapshot: { capabilities } } = useLiveCapabilities();
     const notice = capabilities ? liveServiceNotice(screen, capabilities) : null;
     if (!notice) return null;
     return (

@@ -22,6 +22,8 @@ import {
 } from "../../constants/profession";
 import type { Character, Screen } from "../../App";
 import type { VersionedCharacterCommit } from "../../types/character";
+import { useCapabilityViewAvailability } from "../../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../../lib/live-capability-admission";
 
 const ACCENT = "#f97316";
 
@@ -36,6 +38,9 @@ export function VanguardHub({
     setScreen: (s: Screen) => void;
     onBack: () => void;
 }) {
+    const villageWarAvailability = useCapabilityViewAvailability("villageWar");
+    const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
+    const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
     const sealsToday = character.dailyHonorSealsEarned ?? 0;
     const sealsTodayPct = Math.max(0, Math.min(100, Math.round((sealsToday / VANGUARD_DAILY_SEAL_CAP) * 100)));
@@ -96,10 +101,14 @@ export function VanguardHub({
                 <button onClick={() => setScreen("villageWar")} style={{ borderColor: ACCENT }}>
                     🔥 Raid a Village
                 </button>
+                <button onClick={() => setScreen("villageWarMap")} disabled={!sectorMapOpen} title={!sectorMapOpen ? sectorMapStatus : undefined} style={{ borderColor: ACCENT }}>
+                    🗺️ Sector Map
+                </button>
                 <button onClick={() => setScreen("arenaDistrict")} style={{ borderColor: ACCENT }}>
                     🏟️ Arena District
                 </button>
             </div>
+            {!sectorMapOpen && <p className="hint" role="status" style={{ marginTop: "-0.9rem" }}>{sectorMapStatus}</p>}
 
             <DailyProfessionMissions character={character} />
             <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />

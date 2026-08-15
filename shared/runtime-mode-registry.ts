@@ -67,6 +67,19 @@ export type RuntimeRoute = {
     clientCallerRequired?: boolean;
 };
 
+export type RuntimeTransport = {
+    /** Non-HTTP gameplay transport mounted alongside Express. */
+    kind: 'socket.io';
+    /** Stable event-family marker rather than one event pretending to be a route. */
+    channel: `${string}:*`;
+    /** Path relative to api/, without the TypeScript extension. */
+    serverHandler: string;
+    /** Path relative to shinobij.client/src/. */
+    clientAdapter: string;
+    roles: readonly RuntimeRouteRole[];
+    persistence: 'memory-only' | 'durable';
+};
+
 export const RUNTIME_COMPATIBILITY_KEYS = Object.freeze([
     'flowDescriptor',
     'combatAuthority',
@@ -104,6 +117,7 @@ type RuntimeModeBase = {
     category: RuntimeModeCategory;
     clientEntries: readonly string[];
     routes: readonly RuntimeRoute[];
+    transports?: readonly RuntimeTransport[];
     participantModel: RuntimeParticipantModel;
     rewardPolicy: RuntimeRewardPolicy;
     replayKind: string;
@@ -174,6 +188,23 @@ function mountedRoute(path: `/${string}`, handler: string, roles: readonly Runti
     return Object.freeze({ path, handler, roles: Object.freeze([...roles]) });
 }
 
+function socketTransport(
+    channel: `${string}:*`,
+    serverHandler: string,
+    clientAdapter: string,
+    roles: readonly RuntimeRouteRole[],
+    persistence: RuntimeTransport['persistence'],
+): RuntimeTransport {
+    return Object.freeze({
+        kind: 'socket.io',
+        channel,
+        serverHandler,
+        clientAdapter,
+        roles: Object.freeze([...roles]),
+        persistence,
+    });
+}
+
 function deepFreeze<T>(value: T): T {
     if (value == null || typeof value !== 'object' || Object.isFrozen(value)) return value;
     for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
@@ -206,6 +237,7 @@ function defineMode(mode: RuntimeModeInput): RuntimeMode {
         ...mode,
         clientEntries: [...mode.clientEntries],
         routes: [...mode.routes],
+        transports: [...(mode.transports ?? [])],
         ...(mode.compatibility ? { compatibility: { ...mode.compatibility } } : {}),
         intentionallySeparateFrom: INTENTIONAL_ENGINE_SEPARATIONS[separationOwner],
     });
@@ -632,42 +664,44 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'server-capped', replayKind: 'server-replayed-cinematic-input-log-with-receipt', status: 'match',
     }),
     defineMode({
-        id: 'pet-arena-pvp-1v1', label: 'Pet Arena PvP 1v1', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,
-        clientEntries: ['App.tsx', 'screens/Arena.tsx', 'screens/PetArena.tsx'],
-        routes: [
-            mountedRoute('/player/challenge', 'player/challenge', ['lifecycle']),
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
-            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
-        ],
-        participantModel: 'two-player', rewardPolicy: 'server-capped', replayKind: 'server-sealed-legacy-outcome-with-client-cinematic-presentation', status: 'defect',
-        statusDetail: 'Settlement seals the legacy pet-duel simulation while the mounted client presents the cinematic duel, so the displayed and rewarded outcomes can diverge.',
+        id: 'pet-arena-pvp-1v1', label: 'Pet Arena live PvP 1v1', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        clientEntries: ['screens/PetArena.tsx', 'components/PetDuelLiveHost.tsx', 'lib/pet-duel-transport.ts'],
+        routes: [],
+        transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
+        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match',
     }),
     defineMode({
-        id: 'pet-arena-pvp-2v2', label: 'Pet Arena PvP 2v2', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,
-        clientEntries: ['App.tsx', 'screens/Arena.tsx', 'screens/PetArena.tsx'],
-        routes: [
-            mountedRoute('/player/challenge', 'player/challenge', ['lifecycle']),
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
-            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
-        ],
-        participantModel: 'two-player', rewardPolicy: 'server-capped', replayKind: 'server-sealed-legacy-outcome-with-client-cinematic-presentation', status: 'defect',
-        statusDetail: 'Settlement seals the legacy pet-party simulation while the mounted client presents the cinematic party duel, so the displayed and rewarded outcomes can diverge.',
+        id: 'pet-arena-pvp-2v2', label: 'Pet Arena live PvP 2v2', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        clientEntries: ['screens/PetArena.tsx', 'components/PetDuelLiveHost.tsx', 'lib/pet-duel-transport.ts'],
+        routes: [],
+        transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
+        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'defect',
+        statusDetail: 'The realtime server accepts one or two sealed pets for a 2v2 session, and the current client can send only the selected pet when the reserve picker is left on Auto-pick. Both participants can therefore enter a degraded one-pet roster under a 2v2 label.',
     }),
     defineMode({
-        id: 'pet-ranked-legacy', label: 'Pet ranked', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,
-        intendedAuthorityEngine: E.PET_SHOWDOWN,
-        clientEntries: ['App.tsx', 'screens/Arena.tsx', 'screens/PetArena.tsx', 'screens/HallOfLegends.tsx', 'lib/pet-ladder-queue.ts'],
+        id: 'pet-ranked-live-defect', label: 'Pet ranked live queue', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        clientEntries: ['screens/PetLadder.tsx', 'screens/HallOfLegends.tsx', 'components/PetLadderQueuePanel.tsx', 'components/PetDuelLiveHost.tsx', 'lib/pet-ladder-queue.ts', 'lib/pet-duel-transport.ts'],
         routes: [
             mountedRoute('/pvp/pet-ranked-queue', 'pvp/pet-ranked-queue', ['lifecycle']),
             mountedRoute('/ranked-season', 'ranked-season', ['leaderboard', 'record']),
+        ],
+        transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
+        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'defect',
+        statusDetail: 'The public ranked queue launches the ordinary no-reward realtime duel and never consumes the durable ranked match proof or settles pet rating. The mounted legacy and staged Showdown pipelines are not called by this surface; owner selection is required before it can admit ranked play.',
+    }),
+    defineMode({
+        id: 'pet-ranked-legacy-compat', label: 'Pet ranked legacy compatibility challenge', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,
+        clientEntries: ['screens/Arena.tsx', 'screens/PetArena.tsx'],
+        routes: [
+            mountedRoute('/player/challenge', 'player/challenge', ['lifecycle']),
             mountedRoute('/pet/ranked-start', 'pet/ranked-start', ['start', 'state']),
             mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
         ],
-        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'sealed-legacy-cinematic-inputs', status: 'staged-mismatch',
-        statusDetail: 'The mounted ranked start/result path still imports legacy pet authority while a Showdown implementation is staged.',
+        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'sealed-legacy-ranked-outcome-and-receipt', status: 'defect',
+        statusDetail: 'The old rankedPet challenge/start/result compatibility path remains mounted and source-reachable, but the client displays runPetDuelCinematic while settlement replays legacy runPetDuel, so an active compatibility notice can display a winner that the server rejects. The current Pet Ladder queue does not enter this path; retain it only for compatibility until active notices and the intended live ranked engine are resolved.',
     }),
     defineMode({
-        id: 'hollow-gate-pet-legacy', label: 'Hollow Gate pet', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,
+        id: 'hollow-gate-pet-cinematic', label: 'Hollow Gate pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
         orchestrationOwner: O.HOLLOW_GATE,
         clientEntries: ['lib/hollow-gate-combat-api.ts', 'screens/PetArena.tsx'],
         routes: [
@@ -676,8 +710,8 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
             mountedRoute('/pet/battle-result', 'pet/battle-result', ['lifecycle']),
             mountedRoute('/hollow-gate/combat-settle', 'hollow-gate/combat-settle', ['settlement']),
         ],
-        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'sealed-legacy-cinematic-inputs-and-run-receipt', status: 'owner-decision', migrationStatus: 'keep',
-        statusDetail: 'The mounted caller uses the legacy duel while a Showdown Hollow Gate branch also exists; cutover ownership remains unresolved.',
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'owner-decision', migrationStatus: 'keep',
+        statusDetail: 'The mounted Hollow Gate caller uses the server-sealed cinematic PvE duel and a one-use parent run receipt. A dormant Showdown branch also exists, but the owner has not selected a long-term engine; no automatic port is authorized.',
     }),
     defineMode({
         id: 'dungeon-pet-client-local', label: 'Dungeon pet', category: 'pet-legacy', authorityEngine: E.CLIENT_LOCAL_PET_DUEL,

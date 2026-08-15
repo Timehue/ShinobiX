@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
     evaluateLaunchControl,
     newRegistrationsDisabled,
+    presenceStateJobsDisabled,
     scheduledJobsDisabled,
 } from './_launch-controls.js';
 
@@ -11,6 +12,7 @@ describe('emergency launch controls', () => {
     it('allows normal traffic when every switch is absent', () => {
         assert.deepEqual(evaluateLaunchControl({ path: '/save/alice', method: 'POST' }, {}), { allowed: true });
         assert.equal(newRegistrationsDisabled({}), false);
+        assert.equal(presenceStateJobsDisabled({}), false);
         assert.equal(scheduledJobsDisabled({}), false);
     });
 
@@ -52,7 +54,7 @@ describe('emergency launch controls', () => {
         assert.equal(newRegistrationsDisabled(env), true);
     });
 
-    it('economy freeze blocks every gameplay mutation while preserving reads and recovery', () => {
+    it('economy freeze blocks unsafe player HTTP methods while preserving reads and recovery', () => {
         const env = { FREEZE_ECONOMY_REWARDS: '1' };
         for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
             const decision = evaluateLaunchControl({ path: '/api/shop/settle', method }, env);
@@ -60,7 +62,22 @@ describe('emergency launch controls', () => {
             if (!decision.allowed) assert.equal(decision.code, 'gameplay_mutations_frozen');
         }
         assert.deepEqual(evaluateLaunchControl({ path: '/shop/settle', method: 'GET' }, env), { allowed: true });
-        assert.deepEqual(evaluateLaunchControl({ path: '/player-auth', method: 'POST' }, env), { allowed: true });
+        assert.deepEqual(evaluateLaunchControl({ path: '/weekly-boss', method: 'GET' }, env), { allowed: true });
+        assert.deepEqual(evaluateLaunchControl({ path: '/world-state', method: 'GET' }, env), { allowed: true });
+        for (const action of ['verify', 'change', 'adminreset']) {
+            assert.deepEqual(evaluateLaunchControl({ path: '/player-auth', method: 'POST', body: { action } }, env), { allowed: true });
+        }
+        for (const body of [
+            { action: 'register' },
+            { action: 'delete' },
+            { action: 'unknown' },
+            {},
+            '{malformed',
+        ]) {
+            const blocked = evaluateLaunchControl({ path: '/player-auth', method: 'POST', body }, env);
+            assert.equal(blocked.allowed, false);
+            if (!blocked.allowed) assert.equal(blocked.code, 'gameplay_mutations_frozen');
+        }
         assert.deepEqual(evaluateLaunchControl({ path: '/admin/economy', method: 'POST' }, env), { allowed: true });
         assert.deepEqual(evaluateLaunchControl({ path: '/perf-beacon', method: 'POST' }, env), { allowed: true });
     });
@@ -71,6 +88,13 @@ describe('emergency launch controls', () => {
         assert.equal(scheduledJobsDisabled({ DISABLE_SCHEDULED_JOBS: 'true' }), false);
     });
 
+    it('presence/game-loop writer switch is exact and independent from sockets', () => {
+        assert.equal(presenceStateJobsDisabled({ DISABLE_PRESENCE_STATE_JOBS: '1' }), true);
+        assert.equal(presenceStateJobsDisabled({ DISABLE_PRESENCE_STATE_JOBS: '0' }), false);
+        assert.equal(presenceStateJobsDisabled({ DISABLE_PRESENCE_STATE_JOBS: 'true' }), false);
+        assert.equal(presenceStateJobsDisabled({ DISABLE_REALTIME: '1' }), false);
+    });
+
     it('is wired into Express, direct registration, and the in-process scheduler', () => {
         const server = readFileSync('server.ts', 'utf8');
         const auth = readFileSync('api/player-auth.ts', 'utf8');
@@ -78,5 +102,7 @@ describe('emergency launch controls', () => {
         assert.match(server, /evaluateLaunchControl\(\{/);
         assert.match(auth, /newRegistrationsDisabled\(\)/);
         assert.match(scheduler, /scheduledJobsDisabled\(\)/);
+        assert.match(server, /presenceStateJobsDisabled\(\)/);
+        assert.match(server, /presence snapshots and game loop disabled via DISABLE_PRESENCE_STATE_JOBS=1/);
     });
 });

@@ -16,12 +16,15 @@ function unavailable(reason: PublicCapabilityReason = 'temporarily-disabled') {
 
 export function publicCapabilities(env: NodeJS.ProcessEnv = process.env): PublicCapabilities {
     const maintenance = env.MAINTENANCE_MODE === '1';
-    const mutationsFrozen = env.FREEZE_ECONOMY_REWARDS === '1';
+    // This public state mirrors the shared Express unsafe-method admission gate.
+    // It deliberately does not claim that GET settlement, cron, realtime, or
+    // storage writers are quiescent.
+    const unsafeHttpActionsPaused = env.FREEZE_ECONOMY_REWARDS === '1';
     return {
         gameplay: maintenance ? unavailable('maintenance') : available,
         gameplayMutations: maintenance
             ? unavailable('maintenance')
-            : mutationsFrozen
+            : unsafeHttpActionsPaused
                 ? { state: 'actions-paused', reason: 'operations-paused' }
                 : available,
         registrations: maintenance

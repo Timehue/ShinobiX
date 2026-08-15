@@ -21,8 +21,8 @@ Search save failures by request ID. Search battle and reward receipts by their d
 
 ## Emergency actions
 
-- Save corruption/loss: freeze mutations if ongoing, snapshot affected records, trace request IDs, compare current/snapshot records, and use isolated restore evidence before owner-authorized production restore.
-- Duplicate rewards/economy inflation: set `FREEZE_ECONOMY_REWARDS=1`, retain receipts, run economy reconciliation, identify the first bad commit/request, correct through audited tools, then remove the freeze after replay tests.
+- Save corruption/loss: reject new unsafe-method player requests if ongoing, independently quiesce non-HTTP and GET-side-effect writers when required, snapshot affected records, trace request IDs, compare current/snapshot records, and use isolated restore evidence before owner-authorized production restore.
+- Duplicate rewards/economy inflation: set `FREEZE_ECONOMY_REWARDS=1` to reject new unsafe-method player requests, apply the affected feature/job/realtime controls, retain receipts, run economy reconciliation, identify the first bad commit/request, correct through audited tools, then remove controls after replay tests.
 - Chat abuse/ban evasion: preserve the minimum moderation evidence, silence/ban, review IP-linked accounts only through admin access, remove messages, and record the audit action. Do not export chat into product analytics.
 - Broken ranked season: stop new queue/season mutation, preserve standings and battle receipts, use ranked admin controls, and communicate whether results are paused or void.
 - Broken war event: follow `CONTROLLED_WAR_EVENT_RUNBOOK.md` and set `DISABLE_VILLAGE_WAR=1`.

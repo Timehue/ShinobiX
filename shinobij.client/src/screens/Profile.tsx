@@ -18,7 +18,9 @@ import { ProgressionPanel } from "../components/ProgressionPanel";
 import { ShinobiIdentityCard } from "../components/ShinobiIdentityCard";
 import { LegacyPanel } from "./LegacyPanel";
 import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
-import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, useLegacyAvailability } from "../lib/legacy";
+import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, useLegacyAvailability, useLegacyMutationAvailability } from "../lib/legacy";
+import { useLiveCapabilities } from "../lib/live-capabilities-context";
+import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -65,6 +67,8 @@ export function Profile({
     onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const legacyAvailable = useLegacyAvailability();
+    const legacyActionsAvailable = useLegacyMutationAvailability();
+    const { mutationAvailability } = useLiveCapabilities();
     const [feedingAura, setFeedingAura] = useState(false);
     const feedingAuraRef = useRef(false);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
@@ -147,18 +151,12 @@ export function Profile({
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
     const [profileMutationBusy, setProfileMutationBusy] = useState(false);
     const profileMutationBusyRef = useRef(false);
-    // Title style/icon pickers are a Legacy-wave feature: shown only once the
-    // SERVER's ENABLE_LEGACY is confirmed live (session-cached probe), so a
-    // player can never spend shards on a cosmetic the save sanitizer would
-    // strip while the flag is still off.
-    const [legacyLive, setLegacyLive] = useState(false);
-    useEffect(() => {
-        let cancelled = false;
-        void isLegacyServerLive().then((live) => { if (!cancelled) setLegacyLive(live); });
-        return () => { cancelled = true; };
-    }, []);
+    // Title style/icon pickers are a Legacy-wave feature. The shared public
+    // capability keeps these paid actions in sync with operational truth.
+    const legacyLive = legacyAvailable;
     const TITLE_COST = 10;
     const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>('overview');
+    const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
         const result = await settleProfileAction(character.name, action);
@@ -276,6 +274,7 @@ export function Profile({
     // once per change; both are server-allowlisted at save time so nothing
     // outside the pickers ever persists. Cosmetic only — never stats.
     async function purchaseTitleStyle(styleId: string) {
+        if (!legacyActionsAvailable || !capabilityAdmissionAllowed(mutationAvailability("legacy"))) return;
         if (!requireServerSettlement("profileFateShardTitle")) return;
         if ((character.customTitleStyle ?? "") === styleId) return;
         if (styleId !== "" && (character.fateShards ?? 0) < TITLE_STYLE_COST) {
@@ -284,12 +283,14 @@ export function Profile({
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
         await runProfileMutation(async () => {
             if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return false;
+            if (!capabilityAdmissionAllowed(mutationAvailability("legacy"))) return false;
             return styleId === ''
                 ? mutateProfileTitle('style', styleId)
                 : runPaidProfileAction({ type: 'purchase-title-style', styleId });
         });
     }
     async function purchaseTitleIcon(icon: string) {
+        if (!legacyActionsAvailable || !capabilityAdmissionAllowed(mutationAvailability("legacy"))) return;
         if (!requireServerSettlement("profileFateShardTitle")) return;
         if ((character.customTitleIcon ?? "") === icon) return;
         if (icon !== "" && (character.fateShards ?? 0) < TITLE_ICON_COST) {
@@ -298,6 +299,7 @@ export function Profile({
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
         await runProfileMutation(async () => {
             if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return false;
+            if (!capabilityAdmissionAllowed(mutationAvailability("legacy"))) return false;
             return icon === ''
                 ? mutateProfileTitle('icon', icon)
                 : runPaidProfileAction({ type: 'purchase-title-icon', icon });
@@ -498,15 +500,15 @@ export function Profile({
                     <button
                         type="button"
                         key={id}
-                        className={`pmtab${mobileTab === id ? ' pmtab-active' : ''}`}
-                        aria-current={mobileTab === id ? 'page' : undefined}
+                        className={`pmtab${visibleMobileTab === id ? ' pmtab-active' : ''}`}
+                        aria-current={visibleMobileTab === id ? 'page' : undefined}
                         onClick={() => setMobileTab(id)}
                     >{label}</button>
                 ))}
             </nav>
 
             {/* ── Overview tab ─────────────────────────── */}
-            <div className={mobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
+            <div className={visibleMobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
             <ShinobiIdentityCard
                 character={character}
                 avatarSrc={character.avatarImage}
@@ -697,7 +699,7 @@ export function Profile({
                                 <select
                                     value={character.customTitleStyle ?? ""}
                                     onChange={(e) => void purchaseTitleStyle(e.target.value)}
-                                    disabled={profileMutationBusy}
+                                    disabled={profileMutationBusy || !legacyActionsAvailable}
                                 >
                                     {TITLE_STYLES.map((s) => (
                                         <option key={s.id} value={s.id}>{s.label}</option>
@@ -709,7 +711,7 @@ export function Profile({
                                 <select
                                     value={character.customTitleIcon ?? ""}
                                     onChange={(e) => void purchaseTitleIcon(e.target.value)}
-                                    disabled={profileMutationBusy}
+                                    disabled={profileMutationBusy || !legacyActionsAvailable}
                                 >
                                     {TITLE_ICONS.map((i) => (
                                         <option key={i || "none"} value={i}>{i || "— none —"}</option>
@@ -718,6 +720,7 @@ export function Profile({
                             </label>
                         </div>
                     )}
+                    {character.customTitle && legacyLive && !legacyActionsAvailable && <p className="hint" role="status">Legacy title purchases are temporarily paused. Your current title remains visible.</p>}
                 </div>
             </details>
 
@@ -741,7 +744,7 @@ export function Profile({
             </div>{/* end overview tab */}
 
             {/* ── Stats tab ────────────────────────────── */}
-            <div className={mobileTab !== 'stats' ? 'profile-tab-hidden' : ''}>
+            <div className={visibleMobileTab !== 'stats' ? 'profile-tab-hidden' : ''}>
             <ProgressionPanel character={character} />
             <section className="profile-build-panel">
                 <div className="stat-header">
@@ -771,7 +774,7 @@ export function Profile({
             </div>{/* end stats tab */}
 
             {/* ── Jutsu tab ────────────────────────────── */}
-            <div className={mobileTab !== 'jutsu' ? 'profile-tab-hidden' : ''}>
+            <div className={visibleMobileTab !== 'jutsu' ? 'profile-tab-hidden' : ''}>
             {(() => {
                 const learnedAnyJutsus = allJutsus.filter((jutsu) => getJutsuMastery(character, jutsu.id).level >= 1);
                 const learnedJutsus = learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
@@ -798,7 +801,7 @@ export function Profile({
             </div>{/* end jutsu tab */}
 
             {/* ── Achievements tab ─────────────────────── */}
-            <div className={mobileTab !== 'achievements' ? 'profile-tab-hidden' : ''}>
+            <div className={visibleMobileTab !== 'achievements' ? 'profile-tab-hidden' : ''}>
             <section className="achievements-panel">
                 <div className="achievements-heading">
                     <h3>Achievements</h3>
@@ -852,14 +855,14 @@ export function Profile({
             </div>{/* end achievements tab */}
 
             {/* ── Battle Logs tab ──────────────────────── */}
-            <div className={mobileTab !== 'battlelogs' ? 'profile-tab-hidden' : ''}>
+            <div className={visibleMobileTab !== 'battlelogs' ? 'profile-tab-hidden' : ''}>
                 <BattleLogHistoryPanel character={character} onOpenBattle={onOpenBattle} />
             </div>{/* end battle logs tab */}
 
             {/* ── Legacy tab (fully gated: no empty tab/heading when the
                  server flag is off, keeping "off = byte-identical") ──────── */}
             {legacyAvailable && (
-            <div className={mobileTab !== 'legacy' ? 'profile-tab-hidden' : ''}>
+            <div className={visibleMobileTab !== 'legacy' ? 'profile-tab-hidden' : ''}>
             <section className="profile-overview-panel" style={{ display: 'block' }}>
                 <h3 style={{ marginTop: 0 }}>Legacy</h3>
                 <LegacyPanel

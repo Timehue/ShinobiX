@@ -13,11 +13,16 @@ const css = read("./styles/index/36-clan-boss-operation.css");
 describe("Clan Boss operation client contract", () => {
     it("renders all four activity horizons with actionable eligibility context and commitment", () => {
         for (const horizon of ["Now", "Today", "This Week", "Long Term"]) assert.match(activity, new RegExp(`\\b${horizon}\\b`));
-        assert.match(activity, /is-\$\{activity\.eligibility\}/);
+        assert.match(activity, /is-\$\{effectiveEligibility\}/);
         assert.match(activity, /activity\.commitment/);
         assert.match(activity, /activity\.blocker/);
-        assert.match(activity, /aria-describedby=\{activity\.blocker \? blockerId : undefined\}/);
-        assert.doesNotMatch(activity, /disabled=\{activity\.eligibility === "blocked"\}/);
+        assert.match(activity, /aria-describedby=\{effectiveBlocker \? blockerId : undefined\}/);
+        assert.match(activity, /projectedAdmissionAllowed\(activity\.requiredCapabilityIds\)/);
+        assert.match(activity, /!!capabilityIds\?\.length && capabilityIds\.every/);
+        assert.doesNotMatch(activity, /runtime-mode-(?:registry|capabilities)/);
+        assert.match(activity, /const blocked = activity\.eligibility === "blocked" \|\| !liveAdmissionAllowed/);
+        assert.match(activity, /disabled=\{blocked\}/);
+        assert.match(activity, /onClick=\{blocked \? undefined :/);
     });
 
     it("uses only server party state and never presents offline members as AI", () => {
@@ -27,11 +32,27 @@ describe("Clan Boss operation client contract", () => {
         assert.match(lobby, /No offline player will be replaced or presented as AI/);
     });
 
-    it("keeps the party kill switch on the explicit server-owned solo path", () => {
+    it("keeps the public party capability on the explicit server-owned solo path", () => {
         assert.match(api, /response\.status === 404[\s\S]*parties-disabled/);
-        assert.match(boss, /errorCode === "parties-disabled"/);
+        assert.match(boss, /useCapabilityViewAvailability\("clanBossParties"\)/);
+        assert.match(boss, /useCapabilityMutationAvailability\("clanBossParties"\)/);
+        assert.match(boss, /partiesAvailable \? fetchClanBossParty\(character\.name\) : Promise\.resolve\(null\)/);
+        assert.match(boss, /partyState\?\.errorCode === "parties-disabled"/);
+        assert.match(boss, /const soloCompatibility = !partiesUsable/);
+        assert.match(boss, /const party = partiesUsable \? partyState\?\.party : undefined/);
         assert.match(boss, /Solo Compatibility/);
         assert.match(boss, /startClanBossAssault\(character\.name, party\?\.id, party\?\.version/);
+    });
+
+    it("keeps accepted-operation recovery visible while mutation admission is frozen", () => {
+        assert.match(boss, /useCapabilityViewAvailability\("clanBoss"\)/);
+        assert.match(boss, /useCapabilityMutationAvailability\("clanBoss"\)/);
+        assert.match(boss, /if \(!clanBossAvailable \|\| fight\) return;[\s\S]*fetchMyRun/);
+        assert.match(boss, /pendingRun \? <button[\s\S]*Rejoin your accepted operation/);
+        assert.match(boss, /if \(fight && !clanBossActionsAvailable\) \{[\s\S]*accepted run remains server-owned[\s\S]*Return to operation status/);
+        assert.match(boss, /if \(fight\) \{[\s\S]*<BattleTowerFight/);
+        assert.match(boss, /mutationAvailability\("clanBoss"\)[\s\S]*startClanBossAssault/);
+        assert.doesNotMatch(boss, /if \(!clanBossAvailable \|\| !clanBossActionsAvailable\) return null/);
     });
 
     it("distinguishes an intentional party-route 404 from an outage at runtime", async () => {

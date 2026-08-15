@@ -4,11 +4,13 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { buildActivitySpine } from './_activity-spine.js';
+import { publicCapabilities } from './_public-capabilities.js';
 import { progressionHoldForCharacter } from '../_xp-engine.js';
 import { STORY_LEVELS } from '../story/_settle.js';
 import { activePartyForPlayer } from '../clan-boss/_party.js';
 import { clanBossAttemptsLeft, clanBossWeekId, loadClanBossProgress, loadClanBossWeek, resolveClanBossDef } from '../clan-boss/_storage.js';
 import { loadSectorState } from '../clan-boss/_sector-state.js';
+import { discoverActivityTowerRecovery } from './_activity-spine-tower-recovery.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -29,10 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const weekId = clanBossWeekId(now);
         const week = await loadClanBossWeek(weekId);
         const boss = resolveClanBossDef(week);
-        const [progress, party, sector] = await Promise.all([
+        const [progress, party, sector, towerRecovery] = await Promise.all([
             clanName && week ? loadClanBossProgress(weekId, clanName) : null,
             clanName ? activePartyForPlayer(playerName) : null,
             boss && week ? loadSectorState(weekId, boss) : null,
+            discoverActivityTowerRecovery(playerName),
         ]);
         const activeTraining = record?.activeTraining as { endsAt?: number } | null | undefined;
         const activeJutsuTraining = record?.activeJutsuTraining as { endsAt?: number } | null | undefined;
@@ -52,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? character.endlessTowerRun as Record<string, unknown>
             : null;
         const spine = buildActivitySpine({
+            capabilities: publicCapabilities(),
             now,
             level,
             hospitalized: character.hospitalized === true,
@@ -68,11 +72,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastLoginRewardDate: typeof character.lastLoginRewardDate === 'string' ? character.lastLoginRewardDate : '',
             focus: req.query.focus ?? character.masteryFocus,
             progressionHold: progressionHoldForCharacter(character),
-            resume: hollowRun && hollowRun.completed !== true
-                ? { title: 'Resume your Hollow Gate run', screen: 'hollowGateShrine' }
+            resume: towerRecovery ?? (hollowRun && hollowRun.completed !== true
+                ? { title: 'Resume your Hollow Gate run', screen: 'hollowGateShrine', runtimeModeId: 'hollow-gate-shinobi' }
                 : endlessRun
-                    ? { title: 'Resume your Endless Tower run', screen: 'endlessTower', context: 'towers' }
-                    : null,
+                    ? { title: 'Resume your Endless Tower run', screen: 'endlessTower', context: 'towers', runtimeModeId: 'endless' }
+                    : null),
             facts: {
                 story: {
                     completed: storyProgress,

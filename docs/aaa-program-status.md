@@ -4,15 +4,20 @@
 > engine is required per distinct game mode; the program does not authorize a
 > single combat engine for the whole game.
 
-Status date: 2026-08-14 (America/Chicago)
+Status date: 2026-08-15 (America/Chicago)
 
 Program state: **Phase 0 locally complete; Phase 1 implemented and validated locally; Phase 2 in progress**
 
 Working branch: `codex/aaa-cohesion-corrected`
 
-Verified local `HEAD`: `3a3b95b7c0492c5aa10ccc3f8bf4f1ba1360c018`
+Working-tree commit base: `5ae4a4828f84a20a3a085b63b1469feea7fa3d8b`
 
-Fetched `origin/main` baseline: `d8948a311680b92a2a672ae0a0b35714e73e8b4f`
+Program baseline: `d8948a311680b92a2a672ae0a0b35714e73e8b4f`
+
+Observed `origin/main` on 2026-08-15: `06c9f4c69e92bd9dc8704c2b5f7b15ee36853866`
+
+The newer observed `origin/main` is pending integration. It is not part of the
+working-tree commit base or any local evidence reported for this checkpoint.
 
 Phase-0 worktree state before this file was added: clean
 
@@ -28,7 +33,7 @@ split workflow has yet verified Linux/Node-22 execution.
 | --- | --- | --- |
 | 0 — verified baseline and architecture truth | **Locally complete** | Baseline evidence, current deployment/storage topology, the complete static mode map, baseline repairs, and final local reruns are recorded. External and hosted checks remain explicit non-passes. |
 | 1 — reliable CI | **Implemented and validated locally** | The split workflow, contracts, evidence handling, and operator docs pass local static/discovery validation. Hosted split checks and external branch protection remain unverified, so Phase 1 is not claimed complete. |
-| 2 — mode-authority and capability registry | **In progress** | The executable registry, generated projection, reverse route census, and canonical server capability predicates are locally validated in this checkpoint. Client navigation, admission, polling, Activity Spine, and admin integration remain. |
+| 2 — mode-authority and capability registry | **In progress** | The executable registry, generated projection, reverse route census, canonical server capability predicates, and client capability implementation are present in this working tree. Integration of the newer upstream revision and the final complete test/build/browser gate remain pending. |
 | 3 — engine-boundary hardening | Pending | Not started. |
 | 4 — frontend decomposition | Pending | Not started. |
 | 5 — shared reliability infrastructure | Pending | Not started. |
@@ -54,12 +59,22 @@ The Phase-0 inventory must preserve and prove these distinct authorities:
   pathfinding, objective, and tactical replay engine family; Warfront and
   Tactical remain distinct named modes.
 - Pet Gauntlet: a separate deterministic grid draft/run/transcript authority.
-- Pet cinematic duel: ordinary Arena AI 1v1/2v2 server replay, distinct from the
-  legacy pet duel still mounted for Arena PvP, Ranked, and Hollow Gate paths.
+- Pet cinematic duel: ordinary Arena AI 1v1/2v2 server-replayed HTTP receipts;
+  ordinary live PvP 1v1 server-sealed, memory-only, and intentionally no-reward;
+  the live 2v2 path using the same authority but defectively accepting a one-pet
+  roster under a 2v2 label; the broken public ranked queue's no-reward fight;
+  and mounted Hollow Gate pet PvE.
+- Legacy pet duel: the source-reachable ranked compatibility challenge/start/result
+  path, distinct from the public Pet Ladder queue and all modern pet engines. It
+  remains defective because cinematic client playback can disagree with the
+  server's legacy replay.
 - Client-local pet duel: presentation-only code, currently used by the defective
   Dungeon pet parent flow and never valid as reward proof.
 - Card Clash: the separate card rules, hidden information, response windows, and
   settlement domain.
+- Clan War: shinobi 1v1 delegates to PvP, Pet 1v1/2v2 delegates to Showdown, and
+  Tile Cards delegates to Chronicle. Only admitted shinobi 2v2 lacks a safe
+  mounted aggregate fight lifecycle and is an explicit surface gap.
 
 Sector War may orchestrate receipts from several engines, but its shared
 territory settlement is not combat authority.
@@ -78,6 +93,11 @@ evidence**: the former `test-build` timed out after starting combat test 18 of 3
 and skipped client audit. It is not current workflow truth and does not validate
 or invalidate the new split jobs. GitHub CodeQL run `31850478918` for the same
 baseline succeeded, but it likewise does not certify this worktree revision.
+
+This working tree remains based on `5ae4a4828`; the separately observed
+`origin/main` at `06c9f4c69` has not yet been integrated. Results below therefore
+describe the isolated program tree only and must not be read as validation of the
+newer upstream revision or of a future integrated tree.
 
 The new workflow pins Node `22.23.1` and declares nine stable/compatibility check
 names: `CI / server-contracts`, `CI / server-build-security`,
@@ -118,11 +138,18 @@ performs that locked install explicitly.
 
 | Validation | Result | Scope |
 | --- | --- | --- |
-| Runtime registry and audit projection | **PASS** | 20/20 focused tests cover 54 independently pinned modes, generated-document parity, reverse Express/client route census, inert surface gaps, all six pet authority separations, and immutable compatibility projection. |
+| Runtime registry and audit projection | **PASS** | 21/21 focused tests cover 55 independently pinned modes, generated-document parity, reverse Express/client route and Socket.IO transport census, inert surface gaps, all six pet authority separations, and immutable compatibility projection. |
 | ANBU typed registry consumer | **PASS** | 3/3 tests retain Solo PvE ownership and reject the retired Tower/custom-action path. |
 | Canonical server release flags and public projection | **PASS** | 53/53 focused tests plus 198/198 broader ANBU, Clan Boss, and Village War tests; final source/flag contract 8/8 and public projection 6/6. |
 | Strict server TypeScript | **PASS** | `npx tsc -p tsconfig.cpanel.json --noEmit --pretty false`. |
 | Runtime documentation drift | **PASS** | Generation and immediate `--check` agree byte-for-byte; generated output has no timestamp or SHA. |
+
+The client capability implementation is now present across the strict
+fresh/stale/unknown store, admission boundaries, navigation and mixed-feature
+gates, background mutation writers, Activity Spine, and admin diagnostics. That
+implementation has not yet crossed the final upstream-integration and complete
+Phase-2 test/build/browser gate, so this status does not claim Phase 2 locally
+complete.
 
 These are local focused results, not a substitute for the final complete Phase-2
 test/build/browser gates or hosted Node-22 execution.
@@ -167,12 +194,13 @@ onboarding or Express journeys must run it explicitly.
    `scripts/combat-runtime-inventory.mjs` into a deterministic audit projection, and
    expands its independent facts, reverse route census, surface-gap contract,
    capability bindings, and generated documentation. The registry slice is
-   locally accepted; Phase 2 remains open for player-facing capability integration.
-2. **Ordinary Pet Arena PvP presents one simulation and settles another.** The
-   AI 1v1/2v2 routes use the cinematic duel authority, but the PvP 1v1/2v2 routes
-   still seal `legacy-pet-duel` outcomes while the mounted client presents the
-   cinematic duel. Both PvP rows remain defects; this is not evidence for a
-   generic Pet engine.
+   locally accepted; Phase 2 remains open for final integration and complete gates.
+2. **Ordinary live Pet Arena PvP uses the cinematic duel authority, but its 2v2
+   roster contract is under-enforced.** Live 1v1 is a matching server-sealed,
+   memory-only, no-reward Socket.IO lifecycle. Live 2v2 uses the same authority,
+   but the server accepts one or two sealed pets and the Auto-pick client can
+   submit only the selected pet, degrading a 2v2-labelled fight to one pet per
+   participant. The 1v1 row is a match; only the 2v2 row carries this defect.
 3. **The historical combat parity audit still contains prohibited advice.**
    `COMBAT_PARITY_AUDIT.md` is bannered as superseded, but its parity-gap table
    still recommends moving ordinary Arena, mission, Weekly Boss, and Hollow Gate
@@ -181,14 +209,14 @@ onboarding or Express journeys must run it explicitly.
 4. **The pet retirement scope is historical, not current authority.**
    `docs/pet-duel-engine-unification-scope.md` now marks both its initial scope
    and later “live on main” note as superseded history, links the generated
-   registry, and records the current Arena PvP, Ranked, Hollow Gate, and Dungeon
-   mismatches without collapsing Showdown, Warfront, Gauntlet, cinematic,
+   registry, and records the current Arena live 2v2, Ranked, Hollow Gate, and
+   Dungeon mismatches without collapsing Showdown, Warfront, Gauntlet, cinematic,
    legacy, or client-local engines.
 5. **Current settlement and Hollow Gate contracts now defer combat ownership to
    the registry.** `docs/architecture/reward-settlement-contract.md` no longer
    treats migrated Solo missions or Hollow Gate shinobi wins as bounded client
    trust, and `docs/hollow-gate-augments.md` identifies the mounted Hollow Gate
-   legacy pet path plus the separate unmounted Showdown branch. Older dated
+   cinematic pet path plus the separate unmounted Showdown branch. Older dated
    reward audits remain historical evidence and require explicit scoping when
    cited.
 6. **The database audit mixes current and retired topology.**
@@ -205,27 +233,40 @@ onboarding or Express journeys must run it explicitly.
    inventory, authority-map, settlement, Hollow Gate, and historical pet-scope
    documents now defer current row truth to the shared registry and preserve the
    distinct Tower and pet-family boundaries. The registry, generated projection,
-   audit integration, and canonical server flag predicates passed focused review;
-   incomplete client capability integration keeps Phase 2 in progress.
+   audit integration, and canonical server flag predicates passed focused review.
+   The client capability implementation is present, but pending upstream
+   integration and complete gates keep Phase 2 in progress.
 9. **Sector War's garrison fallback uses the wrong shinobi engine.** The combat
-   win condition resolves a rewarding AI garrison through the Tower mercenary
-   runtime instead of the owner-selected PvP family. Its settlement also has
-   best-effort Legacy/Era side effects beyond territory contribution, so the
-   Sector layer must not be described as territory-only or wholly exact-once.
+   win condition resolves a territory-affecting AI garrison through the Tower
+   mercenary runtime instead of the owner-selected PvP family. This garrison
+   branch settles only Sector contest contribution through its contest receipt. It
+   does not run the Legacy/Era sidecars; those best-effort sidecars belong to the
+   separate human-defender PvP resolution path.
 10. **Dungeon encounter settlement lacks two required proofs.** Dungeon Pet
     selects the enemy and resolves the outcome on the client, while final dungeon
     settlement checks only the run, Warden proof, and elapsed time. Dungeon Card
     uses server-owned Chronicle actions, but final settlement does not consume its
     terminal proof either.
-11. **The public Pet Ranked route remains on the legacy simulation.** A staged
-    Showdown-based authority exists, but the mounted start/result path still uses
-    the legacy pet duel. It is server-authoritative, yet it does not match the
-    intended same-mode Showdown cutover.
-12. **Hollow Gate Pet has two authority paths.** The mounted client uses the
-    legacy pet start/result flow, while the Showdown handler contains a separate
-    Hollow Gate-capable path that the caller does not use. A verified cutover and
-    replay-compatibility decision is required before either path is retired.
-13. **Tactical Arena is currently only a Warfront alias.** Sharing the positional
+11. **The public Pet Ranked queue does not settle rank.** It pairs players and
+    launches the ordinary server-sealed, memory-only, no-reward realtime duel,
+    never consuming the ranked proof through the mounted legacy start/result
+    pipeline. That compatibility path and a staged Showdown implementation both
+    exist, but neither is called by the current public surface.
+12. **The legacy ranked compatibility path is independently defective.** Its
+    mounted, source-reachable challenge/start/result path can display cinematic
+    client playback whose winner disagrees with the server's legacy replay. It is
+    not the public Pet Ladder queue and must be retained only as compatibility
+    until active notices and the intended ranked lifecycle are resolved.
+13. **Hollow Gate Pet has two authority paths.** The mounted client uses the
+    server-sealed cinematic PvE start/result flow and run-bound receipt, while
+    the Showdown handler contains a separate Hollow Gate-capable path that the
+    caller does not use. A long-term owner and replay-compatibility decision is
+    required before either path is retired.
+14. **Clan War's engine gap is specifically shinobi 2v2.** Shinobi 1v1 uses PvP,
+    Pet 1v1/2v2 uses Showdown, and Tile Cards uses Chronicle. The server admits a
+    shinobi 2v2 challenge, but the client explicitly refuses to launch it because
+    no safe aggregate PvP protocol exists; one 1v1 cannot decide that challenge.
+15. **Tactical Arena is currently only a Warfront alias.** Sharing the positional
     Tactical engine family is allowed, but the owner handoff requires Warfront and
     Tactical Arena to remain distinct named modes. The missing independent surface
     is an open product/route gap, not an undecided owner requirement.
@@ -281,20 +322,24 @@ this status.
 
 ## Exact next work
 
-1. Complete Phase-2 capability consumption in client navigation, exact admission
-   controls, mixed-feature tabs, polling, Activity Spine, and admin diagnostics;
-   then run the complete test/build/browser gate on the final Phase-2 tree.
-2. Push the review branch and require all nine stable/compatibility contexts, three
+1. Reconcile the observed `origin/main` revision `06c9f4c69` into the isolated
+   program branch, preserving the `d8948a3` historical baseline and reviewing any
+   overlapping runtime/capability changes explicitly.
+2. Finish the Phase-2 integration review and run the focused final reruns plus the
+   complete test/build/browser gate on the resulting exact tree; do not promote
+   the current implementation-only checkpoint into a completion claim.
+3. Push the review branch and require all nine stable/compatibility contexts, three
    combat shards, the internal release join, and both CodeQL language checks to
    produce final hosted summaries and retained artifacts.
-3. After GitHub has observed the new contexts, apply the documented `main`
+4. After GitHub has observed the new contexts, apply the documented `main`
    protection with strict up-to-date checks. Retain `CI / test-build` during the
    migration, verify an ordinary PR and `main` run, then remove only that
    compatibility requirement and record the external rule identifier.
-4. Continue Phase 3 work on the confirmed Sector garrison, Dungeon Pet/Card,
-   ordinary Pet Arena PvP, Pet Ranked, Hollow Gate Pet, and standalone Tactical
-   defects without merging distinct engine families.
-5. Keep the real isolated-database restore, staging health, database audits, and
+5. Continue Phase 3 work on the confirmed Sector garrison, Dungeon Pet/Card,
+   live Pet 2v2 roster, public Pet Ranked, legacy-ranked compatibility, Hollow
+   Gate Pet owner decision, Clan War shinobi 2v2, and standalone Tactical defects
+   without merging distinct engine families.
+6. Keep the real isolated-database restore, staging health, database audits, and
    production capacity checks externally blocked until authorized targets are
    available; hermetic/local passes are not substitutes.
 

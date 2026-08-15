@@ -22,7 +22,7 @@ import { sendStandardDuel } from "../lib/duel-challenge";
 import { RankBadge } from "../components/RankBadge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
-import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, type LegacyDefView } from "../lib/legacy";
+import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, useLegacyAvailability, type LegacyDefView } from "../lib/legacy";
 import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
@@ -70,6 +70,7 @@ export function UserView({
     onMessage: () => void;
     onBack: () => void;
 }) {
+    const legacyAvailable = useLegacyAvailability();
     const lower = viewingName.toLowerCase();
     const rosterEntry = playerRoster.find(p => p.name.toLowerCase() === lower);
     const serverEntry = allServerPlayers.find(p => p.name.toLowerCase() === lower);
@@ -97,13 +98,13 @@ export function UserView({
     const [viewedLegacyDef, setViewedLegacyDef] = useState<LegacyDefView | null>(null);
     const viewedLegacyId = viewedCharacter?.legacy?.legacyId ?? null;
     useEffect(() => {
-        if (!viewedLegacyId) return;
+        if (!legacyAvailable || !viewedLegacyId) return;
         let alive = true;
         void fetchLegacyDefinitions().then(d => {
             if (alive) setViewedLegacyDef(d?.legacies.find(l => l.id === viewedLegacyId) ?? null);
         });
         return () => { alive = false; };
-    }, [viewedLegacyId]);
+    }, [legacyAvailable, viewedLegacyId]);
 
     if (!viewedCharacter) {
         return (
@@ -229,7 +230,7 @@ export function UserView({
                     strict id-match guard, so flag-off (definitions 404 → null def)
                     renders nothing and stays byte-identical. Rank is owner-only:
                     name/title/flavor/era/stage only, single violet accent. */}
-                {viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (() => {
+                {legacyAvailable && viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (() => {
                     const L = viewedCharacter.legacy;
                     const roman = ["", "I", "II", "III", "IV", "V"][L.stage] ?? L.stage;
                     const earnedTitle = L.titles?.[L.titles.length - 1] ?? viewedLegacyDef.title;

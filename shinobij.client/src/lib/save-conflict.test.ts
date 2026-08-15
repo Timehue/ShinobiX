@@ -257,7 +257,10 @@ describe("save-conflict App and accessibility contracts", () => {
         const unload = appSource.slice(unloadStart, appSource.indexOf("window.addEventListener('beforeunload'", unloadStart));
         assert.match(unload, /protectSaveOnUnload\(\{/);
         assert.match(unload, /unresolved: savePersistenceRef\.current\?\.getUnresolvedPost\(\) \?\? null/);
+        assert.match(unload, /send: capabilityAdmissionAllowed\(mutationAvailability\(\)\)/);
         assert.match(unloadSource, /if \(!params\.dirty && !params\.flightBusy && !activeUnresolved\) return/);
+        assert.ok(unloadSource.indexOf("const guard = latestSaveConflictRevision") < unloadSource.indexOf("if (params.send === false) return"),
+            "mutation freeze must preserve the durable local guard before suppressing the network write");
         assert.ok(unloadSource.indexOf("const guard = latestSaveConflictRevision") < unloadSource.indexOf("params.request ?? fetch"),
             "unload must synchronously protect the chosen immutable body before attempting keepalive");
     });

@@ -21,6 +21,7 @@ type LaunchControlRequest = {
 
 const ALLOWED: LaunchControlDecision = { allowed: true };
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const PLAYER_AUTH_RECOVERY_ACTIONS = new Set(['verify', 'change', 'adminreset']);
 
 function enabled(env: NodeJS.ProcessEnv, name: string): boolean {
     return env[name] === '1';
@@ -90,13 +91,19 @@ export function evaluateLaunchControl(
         };
     }
 
-    // This deliberately freezes every gameplay mutation, not just known reward
-    // routes. During an economy incident, a broad stop is safer than maintaining
-    // a fragile allow/deny list that can miss a newly added settlement endpoint.
+    // This deliberately rejects every unsafe-method player HTTP action at the
+    // shared route boundary. It is not a process/storage quiescence fence: GET
+    // settlement, cron, realtime, and other in-process writers need independent
+    // controls and verification.
     if (
         enabled(env, 'FREEZE_ECONOMY_REWARDS')
         && UNSAFE_METHODS.has(method)
-        && path !== '/player-auth'
+        // Only explicit credential recovery remains reachable. Account delete
+        // is a multi-resource mutation (save + auth record); allowing this half
+        // while the save DELETE is frozen can orphan the save and lock the
+        // player out. Registration, delete, malformed, and unknown actions all
+        // follow the same public gameplayMutations gate as the client.
+        && !(path === '/player-auth' && PLAYER_AUTH_RECOVERY_ACTIONS.has(actionFrom(req.body) ?? ''))
         && path !== '/perf-beacon'
     ) {
         return {
@@ -117,4 +124,11 @@ export function newRegistrationsDisabled(env: NodeJS.ProcessEnv = process.env): 
 
 export function scheduledJobsDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return enabled(env, 'DISABLE_SCHEDULED_JOBS');
+}
+
+/** Stops the in-process presence snapshot and one-second game-loop writers.
+ * Socket.IO has its own DISABLE_REALTIME switch because HTTP presence can
+ * normally keep using these jobs when websocket transport alone is disabled. */
+export function presenceStateJobsDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return enabled(env, 'DISABLE_PRESENCE_STATE_JOBS');
 }

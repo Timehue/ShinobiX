@@ -59,3 +59,15 @@ test('the public capability route is wired and its contract excludes raw environ
     assert.match(handler, /publicCapabilities\(\)/);
     assert.doesNotMatch(handler, /process\.env|Object\.entries\(process\.env\)|DATABASE_URL|TOKEN|PASSWORD|SECRET/);
 });
+
+test('request-boundary launch controls never claim process or storage quiescence', () => {
+    const status = read('docs/LIVE_PRODUCT_STATUS.md');
+    const emergency = read('docs/EMERGENCY_LAUNCH_CONTROLS.md');
+    const migration = read('api/admin/migrate-to-base.ts');
+    assert.doesNotMatch(status, /gameplay-mutation freeze pauses writes and rewards/i);
+    assert.doesNotMatch(emergency, /new endpoint cannot escape/i);
+    assert.doesNotMatch(migration, /maintenance mode genuinely pauses every gameplay save/i);
+    assert.match(emergency, /neither[\s\S]{0,120}is a complete write or\s+storage-quiescence fence/i);
+    assert.match(emergency, /DISABLE_PRESENCE_STATE_JOBS=1/);
+    assert.match(migration, /MAINTENANCE_MODE alone only pauses Express player API traffic/);
+});

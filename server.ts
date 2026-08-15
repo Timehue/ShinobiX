@@ -66,6 +66,7 @@ import adminPlayersHandler from './api/admin/players.js';
 import adminGrantSubscriptionHandler from './api/admin/grant-subscription.js';
 import adminGrantItemHandler from './api/admin/grant-item.js';
 import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
+import adminRuntimeModeCapabilitiesHandler from './api/admin/runtime-mode-capabilities.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
 import adminContentPublishHandler from './api/admin/content-publish.js';
@@ -336,7 +337,7 @@ import { safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER } from 
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
 import { classifyBodyLimit } from './api/_body-limits.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
-import { evaluateLaunchControl } from './api/_launch-controls.js';
+import { evaluateLaunchControl, presenceStateJobsDisabled } from './api/_launch-controls.js';
 import { captureExpressException } from './api/_sentry-context.js';
 import { sanitizeSentryEvent } from './shared/observability-sanitize.js';
 import {
@@ -408,7 +409,9 @@ function gracefulShutdown(code: number, reason: string): void {
     // sectors and the online count reads 0 until each client's next heartbeat. Started
     // before the awaits below so it is queued even if the 4s backstop fires.
     stopPresenceSnapshots();
-    void savePresenceSnapshot().catch(() => undefined);
+    if (!presenceStateJobsDisabled()) {
+        void savePresenceSnapshot().catch(() => undefined);
+    }
     // Close the realtime layer and the pg pool cleanly on the way out. Both are
     // shutdown-only and fire-and-forget under the 4s backstop below, so they can
     // only improve the exit path, never hang it:
@@ -1057,6 +1060,7 @@ route('/admin/players',      adminPlayersHandler);
 route('/admin/grant-subscription', adminGrantSubscriptionHandler);
 route('/admin/grant-item', adminGrantItemHandler);
 route('/admin/player-index-health', adminPlayerIndexHealthHandler);
+route('/admin/runtime-mode-capabilities', adminRuntimeModeCapabilitiesHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
 route('/admin/content-publish', adminContentPublishHandler);
@@ -1713,12 +1717,16 @@ server.listen(PORT, () => {
     // not present an empty world for a beat. Rows past the offline window are dropped
     // on restore, and a live heartbeat always wins, so this can only ever add players
     // who were genuinely online seconds ago.
-    void restorePresenceSnapshot()
-        .then((restored) => { if (restored > 0) console.log(`[presence] restored ${restored} online player(s) across restart`); })
-        .catch(() => undefined);
-    startPresenceSnapshots();
-    // Phase 2: start the 1s in-memory presence/game tick (single instance).
-    startGameLoop();
+    if (presenceStateJobsDisabled()) {
+        console.log('[presence] presence snapshots and game loop disabled via DISABLE_PRESENCE_STATE_JOBS=1');
+    } else {
+        void restorePresenceSnapshot()
+            .then((restored) => { if (restored > 0) console.log(`[presence] restored ${restored} online player(s) across restart`); })
+            .catch(() => undefined);
+        startPresenceSnapshots();
+        // Phase 2: start the 1s in-memory presence/game tick (single instance).
+        startGameLoop();
+    }
     // Vercel removal: the always-on server now runs the daily save-snapshot
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();

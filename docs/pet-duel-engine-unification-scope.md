@@ -9,12 +9,18 @@
 >
 > The current registry keeps these authorities separate: Showdown/Coliseum,
 > positional Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic
-> duels, legacy pet duels, and client-local pet duels. Ordinary Arena PvP still
-> settles through the legacy duel while presenting the cinematic fight; Pet
-> Ranked remains a staged legacy-to-Showdown mismatch; Hollow Gate pet remains
-> mounted on the legacy duel while a Showdown-capable branch also exists; and
-> Dungeon pet remains client-local. This historical proposal does not override
-> any of those facts.
+> duels, legacy compatibility duels, and client-local pet duels. Ordinary live
+> Arena PvP now uses a server-sealed, memory-only cinematic Socket.IO lifecycle
+> with no reward; its 2v2 caller/server contract currently permits a degraded
+> one-pet roster and remains defective. The public Pet Ranked queue incorrectly
+> launches that same no-reward duel and never settles rank. The older legacy
+> ranked path is also defective because client cinematic playback can disagree
+> with legacy server settlement; it and the staged Showdown path are separate,
+> unconsumed implementations. Hollow Gate pet uses
+> sealed cinematic PvE plus a run-bound receipt while a dormant Showdown branch
+> remains. Dungeon pet remains client-local. The historical proposal and status
+> tables below do not override any of those facts, and they do not authorize an
+> automatic port of live PvP, Ranked, Hollow Gate, or Dungeon Pet.
 
 **Historical starting status:** scope only, nothing implemented. Written
 2026-08-14, after the Pet Showdown rebuild (rounds 1–47) shipped to main at

@@ -11,7 +11,10 @@ function deepFreeze(value) {
 }
 
 const route = (path, roles) => `${path}:${roles}`;
-const C = (id, routes) => ({ id, routeSignatures: routes });
+const transport = (kind, channel, serverHandler, clientAdapter, roles, persistence) => (
+  `${kind}:${channel}:${serverHandler}:${clientAdapter}:${roles}:${persistence}`
+);
+const C = (id, routes, transports = []) => ({ id, routeSignatures: routes, transportSignatures: transports });
 const SOLO_AI = [
   route('/missions/ai-fight-start', 'start'),
   route('/solo-pve/action', 'action'),
@@ -38,7 +41,14 @@ const CASUAL_PET = [
   route('/pet/battle-start', 'start+state'),
   route('/pet/battle-result', 'settlement'),
 ];
-const CASUAL_PET_PVP = [route('/player/challenge', 'lifecycle'), ...CASUAL_PET];
+const LIVE_PET_DUEL = [transport(
+  'socket.io',
+  'petduel:*',
+  '_realtime/pet-duel-socket',
+  'lib/pet-duel-transport.ts',
+  'action+settlement+start+state',
+  'memory-only',
+)];
 
 /** Exact mounted route/role expectations, maintained outside the registry. */
 export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
@@ -88,10 +98,11 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('pet-gauntlet', [route('/pet/gauntlet', 'settlement+start+state')]),
   C('pet-arena-ai-1v1', CASUAL_PET),
   C('pet-arena-ai-2v2', CASUAL_PET),
-  C('pet-arena-pvp-1v1', CASUAL_PET_PVP),
-  C('pet-arena-pvp-2v2', CASUAL_PET_PVP),
-  C('pet-ranked-legacy', [route('/pvp/pet-ranked-queue', 'lifecycle'), route('/ranked-season', 'leaderboard+record'), route('/pet/ranked-start', 'start+state'), route('/pet/battle-result', 'settlement')]),
-  C('hollow-gate-pet-legacy', [route('/hollow-gate/combat-start', 'lifecycle'), route('/pet/battle-start', 'start+state'), route('/pet/battle-result', 'lifecycle'), route('/hollow-gate/combat-settle', 'settlement')]),
+  C('pet-arena-pvp-1v1', [], LIVE_PET_DUEL),
+  C('pet-arena-pvp-2v2', [], LIVE_PET_DUEL),
+  C('pet-ranked-live-defect', [route('/pvp/pet-ranked-queue', 'lifecycle'), route('/ranked-season', 'leaderboard+record')], LIVE_PET_DUEL),
+  C('pet-ranked-legacy-compat', [route('/player/challenge', 'lifecycle'), route('/pet/ranked-start', 'start+state'), route('/pet/battle-result', 'settlement')]),
+  C('hollow-gate-pet-cinematic', [route('/hollow-gate/combat-start', 'lifecycle'), route('/pet/battle-start', 'start+state'), route('/pet/battle-result', 'lifecycle'), route('/hollow-gate/combat-settle', 'settlement')]),
   C('dungeon-pet-client-local', [route('/dungeon/run', 'settlement')]),
   C('card-clash-freeplay', [route('/card-clash/queue', 'lifecycle+start'), route('/card-clash/match', 'action+settlement+state')]),
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
@@ -154,10 +165,11 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'pet-gauntlet': F('pet-gauntlet-grid', null, 'solo', 'server-capped', 'match'),
   'pet-arena-ai-1v1': F('pet-cinematic-duel', null, 'solo', 'server-capped', 'match'),
   'pet-arena-ai-2v2': F('pet-cinematic-duel', null, 'solo', 'server-capped', 'match'),
-  'pet-arena-pvp-1v1': F('legacy-pet-duel', null, 'two-player', 'server-capped', 'defect'),
-  'pet-arena-pvp-2v2': F('legacy-pet-duel', null, 'two-player', 'server-capped', 'defect'),
-  'pet-ranked-legacy': F('legacy-pet-duel', 'pet-showdown', 'two-player', 'server-settled', 'staged-mismatch'),
-  'hollow-gate-pet-legacy': F('legacy-pet-duel', null, 'solo', 'parent-mode-settlement', 'owner-decision'),
+  'pet-arena-pvp-1v1': F('pet-cinematic-duel', null, 'two-player', 'none', 'match'),
+  'pet-arena-pvp-2v2': F('pet-cinematic-duel', null, 'two-player', 'none', 'defect'),
+  'pet-ranked-live-defect': F('pet-cinematic-duel', null, 'two-player', 'none', 'defect'),
+  'pet-ranked-legacy-compat': F('legacy-pet-duel', null, 'two-player', 'server-settled', 'defect'),
+  'hollow-gate-pet-cinematic': F('pet-cinematic-duel', null, 'solo', 'parent-mode-settlement', 'owner-decision'),
   'dungeon-pet-client-local': F('client-local-pet-duel', null, 'solo', 'parent-mode-settlement', 'defect'),
   'card-clash-freeplay': F('chronicle', null, 'two-player', 'server-progression', 'match'),
   'card-clash-ai': F('chronicle', null, 'solo', 'server-capped', 'match'),
@@ -226,10 +238,11 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'pet-gauntlet': M('pet-tactical', 'server-replayed-decision-transcript-and-receipt'),
   'pet-arena-ai-1v1': M('pet-legacy', 'server-replayed-cinematic-input-log-with-receipt'),
   'pet-arena-ai-2v2': M('pet-legacy', 'server-replayed-cinematic-input-log-with-receipt'),
-  'pet-arena-pvp-1v1': M('pet-legacy', 'server-sealed-legacy-outcome-with-client-cinematic-presentation'),
-  'pet-arena-pvp-2v2': M('pet-legacy', 'server-sealed-legacy-outcome-with-client-cinematic-presentation'),
-  'pet-ranked-legacy': M('pet-legacy', 'sealed-legacy-cinematic-inputs'),
-  'hollow-gate-pet-legacy': M('pet-legacy', 'sealed-legacy-cinematic-inputs-and-run-receipt', 'hollow-gate'),
+  'pet-arena-pvp-1v1': M('pet-legacy', 'memory-only-server-replayed-lockstep-cinematic-log'),
+  'pet-arena-pvp-2v2': M('pet-legacy', 'memory-only-server-replayed-lockstep-cinematic-log'),
+  'pet-ranked-live-defect': M('pet-legacy', 'memory-only-server-replayed-lockstep-cinematic-log'),
+  'pet-ranked-legacy-compat': M('pet-legacy', 'sealed-legacy-ranked-outcome-and-receipt'),
+  'hollow-gate-pet-cinematic': M('pet-legacy', 'server-replayed-cinematic-input-log-and-parent-run-receipt', 'hollow-gate'),
   'dungeon-pet-client-local': M('pet-legacy', 'client-presentation-only', 'dungeon'),
   'card-clash-freeplay': M('card', 'expiring-chronicle-projection'),
   'card-clash-ai': M('card', 'expiring-chronicle-projection'),

@@ -10,7 +10,7 @@ const mobileCss = readFileSync("shinobij.client/src/styles/index/23-mobile-shell
 const themeCss = readFileSync("shinobij.client/src/styles/veiled-steel.css", "utf8");
 const groups = ["world", "growth", "character", "support", "system"];
 const internalScreens = [
-    "tavern", "worldMap", "userHub", "messages", "missions", "training", "professions", "logbook",
+    "tavern", "worldMap", "villageWarMap", "userHub", "messages", "missions", "training", "professions", "logbook",
     "profile", "inventory", "jutsuTraining", "home", "bloodlineMaker", "guides",
 ];
 
@@ -40,6 +40,17 @@ test("grouping preserves every internal menu destination and current-page afford
     assert.match(desktop, /setAudioMuted/);
     assert.match(desktop, /preloadScreen/);
     assert.match(mobile, /preloadScreen/);
+    assert.match(desktop, /target === "villageWarMap" && !sectorMapOpen/);
+    assert.match(mobile, /target === "villageWarMap" && !sectorMapOpen/);
+});
+
+test("Sector navigation composes the gameplay view gate without treating mutation freeze as an outage", () => {
+    assert.match(desktop, /useCapabilityViewAvailability\("villageWar"\)/);
+    assert.match(mobile, /useCapabilityViewAvailability\("villageWar"\)/);
+    assert.doesNotMatch(desktop, /useCapabilityMutationAvailability\("villageWar"\)/);
+    assert.doesNotMatch(mobile, /useCapabilityMutationAvailability\("villageWar"\)/);
+    assert.match(desktop, /const sectorMapOpen = capabilityAdmissionAllowed\(villageWarAvailability\)/);
+    assert.match(mobile, /const sectorMapOpen = capabilityAdmissionAllowed\(villageWarAvailability\)/);
 });
 
 test("grouped menus stay compact, scrollable, and touch-safe", () => {
