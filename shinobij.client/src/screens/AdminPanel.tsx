@@ -77,6 +77,15 @@ import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
+import {
+    adminPlayerSaveUrl,
+    canonicalAdminPlayerKey,
+    isAdminPlayerLookupCurrent,
+    prepareAdminPlayerSaveWrite,
+    tagLoadedAdminPlayerSave,
+    type AdminPlayerSaveWriteFailure,
+    type LoadedAdminPlayerSave,
+} from "../lib/admin-player-save-owner";
 
 type EditableVnPage = {
     title: string;
@@ -892,8 +901,13 @@ export function AdminPanel({
 
     // --- Player Management tab state ---
     const [pmTargetName, setPmTargetName] = useState("");
-    const [pmSnap, setPmSnap] = useState<Record<string, unknown> | null>(null);
+    const [pmLoadedSave, setPmLoadedSaveState] = useState<LoadedAdminPlayerSave | null>(null);
     const [pmMsg, setPmMsg] = useState("");
+    const pmTargetNameRef = useRef(pmTargetName);
+    const pmLoadedSaveRef = useRef<LoadedAdminPlayerSave | null>(null);
+    const pmLookupEpochRef = useRef(0);
+    const pmWriteInFlightRef = useRef(false);
+    const pmSnap = pmLoadedSave?.snapshot ?? null;
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [pendingPlayerBloodlines, setPendingPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [serverResetMsg, setServerResetMsg] = useState("");
@@ -910,6 +924,37 @@ export function AdminPanel({
     const [seedSectorsMsg, setSeedSectorsMsg] = useState("");
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
     const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
+
+    function setPmLoadedSave(loaded: LoadedAdminPlayerSave | null) {
+        pmLoadedSaveRef.current = loaded;
+        setPmLoadedSaveState(loaded);
+    }
+
+    function invalidatePmLookup() {
+        pmLookupEpochRef.current += 1;
+        setPmLoadedSave(null);
+    }
+
+    function changePmTargetName(value: string) {
+        pmTargetNameRef.current = value;
+        setPmTargetName(value);
+        invalidatePmLookup();
+        setPmMsg("");
+    }
+
+    useEffect(() => {
+        invalidatePmLookup();
+        return () => {
+            pmLookupEpochRef.current += 1;
+            pmLoadedSaveRef.current = null;
+        };
+    }, [adminPw, adminRole]);
+
+    function playerWriteIdentityMessage(reason: AdminPlayerSaveWriteFailure): string {
+        if (reason === "target-changed") return "Player target changed. Look up the player again before saving.";
+        if (reason === "payload-owner-mismatch") return "Loaded save identity does not match this player. Look them up again before saving.";
+        return "Look up a player first.";
+    }
 
     // Fetch all server-saved players (registry + presence). Full admin only —
     // Admin 2 can't access this endpoint (server-side isFullAdmin gate). The
@@ -983,25 +1028,47 @@ export function AdminPanel({
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
 
     async function pmLookup() {
-        if (!pmTargetName.trim()) return;
+        const ownerLabel = pmTargetNameRef.current.trim();
+        const ownerKey = canonicalAdminPlayerKey(ownerLabel);
+        if (!ownerKey) return;
+        const requestEpoch = pmLookupEpochRef.current + 1;
+        pmLookupEpochRef.current = requestEpoch;
         setPmMsg("Looking up…");
-        setPmSnap(null);
+        setPmLoadedSave(null);
+        const lookupIsCurrent = () => isAdminPlayerLookupCurrent(
+            requestEpoch,
+            pmLookupEpochRef.current,
+            ownerKey,
+            pmTargetNameRef.current,
+        );
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
+            const res = await fetch(adminPlayerSaveUrl(ownerKey), {
                 headers: adminPw ? { "x-admin-password": adminPw } : {},
             });
+            if (!lookupIsCurrent()) return;
             if (res.status === 404) { setPmMsg("⚠️ No server save found for that name (player may use local-only save)."); return; }
             if (!res.ok) { setPmMsg(`❌ Server error ${res.status} — check the player name and try again.`); return; }
             let data: Record<string, unknown>;
-            try { data = await res.json(); } catch { setPmMsg("❌ Save exists but response was not valid JSON."); return; }
-            setPmSnap(data);
-            setPmMsg(`✅ Loaded: ${pmTargetName.trim()}`);
-        } catch { setPmMsg("❌ Network error — make sure you're on the deployed site, not local dev."); }
+            try { data = await res.json(); } catch {
+                if (lookupIsCurrent()) setPmMsg("❌ Save exists but response was not valid JSON.");
+                return;
+            }
+            if (!lookupIsCurrent()) return;
+            const loaded = tagLoadedAdminPlayerSave(ownerKey, data);
+            if (!loaded) return;
+            setPmLoadedSave(loaded);
+            setPmMsg(`✅ Loaded: ${ownerLabel}`);
+        } catch {
+            if (lookupIsCurrent()) setPmMsg("❌ Network error — make sure you're on the deployed site, not local dev.");
+        }
     }
 
     async function pmGive() {
-        if (!pmSnap) { setPmMsg("Look up a player first."); return; }
+        const loaded = pmLoadedSaveRef.current;
+        const initialCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current);
+        if (!initialCheck.ok) { setPmMsg(playerWriteIdentityMessage(initialCheck.reason)); return; }
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
+        if (pmWriteInFlightRef.current) { setPmMsg("A player save is already in progress."); return; }
         // Summarize the grant and confirm before writing to the player's save.
         const giftParts: string[] = [];
         if (pmGivePetId) {
@@ -1012,41 +1079,55 @@ export function AdminPanel({
             if (giftAmt > 0) giftParts.push(`${giftAmt.toLocaleString()} ${giftKey}`);
         }
         if (giftParts.length === 0) { setPmMsg("Nothing to give — pick a pet or set an amount above 0."); return; }
-        if (!(await gameConfirm(`Give ${pmTargetName.trim()}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`))) return;
-        const char: Record<string, unknown> = { ...(pmSnap.character as Record<string, unknown>) };
-        // Give pet
-        if (pmGivePetId) {
-            const pet = editablePets.find(p => p.id === pmGivePetId);
-            const existing = (char.pets as unknown[] | undefined) ?? [];
-            const petCapacity = maxPets(char as Pick<Character, "patreon">);
-            if (pet && existing.length < petCapacity) {
-                const cloned = { ...pet, id: `${pet.id}-${Date.now()}` };
-                char.pets = [...existing, cloned];
-            } else if (pet) {
-                alert(`${pmTargetName} already has ${petCapacity} carried pets. Move one to the Sanctuary before giving another.`);
-            }
-        }
-        // Give currencies
-        for (const [key, amt] of Object.entries(pmGiveAmounts)) {
-            if (amt > 0) char[key] = ((char[key] as number) ?? 0) + amt;
-        }
-        const updated = { ...pmSnap, character: char };
+        pmWriteInFlightRef.current = true;
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}?signal=1`, {
+            if (!(await gameConfirm(`Give ${pmTargetNameRef.current.trim()}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`))) return;
+            if (pmLoadedSaveRef.current !== loaded) {
+                setPmMsg("Player target changed. Look up the player again before saving.");
+                return;
+            }
+            const currentCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current);
+            if (!currentCheck.ok) { setPmMsg(playerWriteIdentityMessage(currentCheck.reason)); return; }
+            const char: Record<string, unknown> = { ...(currentCheck.write.snapshot.character as Record<string, unknown>) };
+            // Give pet
+            if (pmGivePetId) {
+                const pet = editablePets.find(p => p.id === pmGivePetId);
+                const existing = (char.pets as unknown[] | undefined) ?? [];
+                const petCapacity = maxPets(char as Pick<Character, "patreon">);
+                if (pet && existing.length < petCapacity) {
+                    const cloned = { ...pet, id: `${pet.id}-${Date.now()}` };
+                    char.pets = [...existing, cloned];
+                } else if (pet) {
+                    alert(`${currentCheck.write.ownerKey} already has ${petCapacity} carried pets. Move one to the Sanctuary before giving another.`);
+                }
+            }
+            // Give currencies
+            for (const [key, amt] of Object.entries(pmGiveAmounts)) {
+                if (amt > 0) char[key] = ((char[key] as number) ?? 0) + amt;
+            }
+            const updated = { ...currentCheck.write.snapshot, character: char };
+            const finalCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current, updated);
+            if (!finalCheck.ok) { setPmMsg(playerWriteIdentityMessage(finalCheck.reason)); return; }
+            const res = await fetch(adminPlayerSaveUrl(finalCheck.write.ownerKey, true), {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
-                body: stringifyServerSavePayload(updated),
+                body: stringifyServerSavePayload(finalCheck.write.snapshot),
             });
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
                 try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                setPmMsg(`❌ Save failed: ${detail}`);
+                if (canonicalAdminPlayerKey(pmTargetNameRef.current) === finalCheck.write.ownerKey) setPmMsg(`❌ Save failed: ${detail}`);
                 return;
             }
-            setPmMsg("✅ Saved! Player will see changes on next login.");
-            setPmSnap(updated);
+            const stillSelected = canonicalAdminPlayerKey(pmTargetNameRef.current) === finalCheck.write.ownerKey;
+            invalidatePmLookup();
+            if (stillSelected) setPmMsg("✅ Saved! Look up the player again before making another change.");
             setPmGivePetId("");
             setPmGiveAmounts({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
-        } catch (err) { setPmMsg(`? Failed to save: ${String(err)}`); }
+        } catch (err) {
+            if (loaded && canonicalAdminPlayerKey(pmTargetNameRef.current) === loaded.ownerKey) setPmMsg(`? Failed to save: ${String(err)}`);
+        } finally {
+            pmWriteInFlightRef.current = false;
+        }
     }
 
     // --- Comp/grant a Shinobi Supporter subscription (server-owned flag) ---
@@ -1078,24 +1159,69 @@ export function AdminPanel({
     }
 
     const [pmEditName, setPmEditName] = useState("");
-    const [pmEditSnap, setPmEditSnap] = useState<Record<string, unknown> | null>(null);
+    const [pmEditLoadedSave, setPmEditLoadedSaveState] = useState<LoadedAdminPlayerSave | null>(null);
     const [pmEditMsg, setPmEditMsg] = useState("");
     const [pmEditFields, setPmEditFields] = useState<Record<string, number>>({});
+    const pmEditNameRef = useRef(pmEditName);
+    const pmEditLoadedSaveRef = useRef<LoadedAdminPlayerSave | null>(null);
+    const pmEditLookupEpochRef = useRef(0);
+    const pmEditSnap = pmEditLoadedSave?.snapshot ?? null;
+
+    function setPmEditLoadedSave(loaded: LoadedAdminPlayerSave | null) {
+        pmEditLoadedSaveRef.current = loaded;
+        setPmEditLoadedSaveState(loaded);
+    }
+
+    function invalidatePmEditLookup() {
+        pmEditLookupEpochRef.current += 1;
+        setPmEditLoadedSave(null);
+        setPmEditFields({});
+    }
+
+    function changePmEditName(value: string) {
+        pmEditNameRef.current = value;
+        setPmEditName(value);
+        invalidatePmEditLookup();
+        setPmEditMsg("");
+    }
+
+    useEffect(() => {
+        invalidatePmEditLookup();
+        return () => {
+            pmEditLookupEpochRef.current += 1;
+            pmEditLoadedSaveRef.current = null;
+        };
+    }, [adminPw, adminRole]);
 
     async function pmEditLookup() {
-        if (!pmEditName.trim()) return;
+        const ownerLabel = pmEditNameRef.current.trim();
+        const ownerKey = canonicalAdminPlayerKey(ownerLabel);
+        if (!ownerKey) return;
+        const requestEpoch = pmEditLookupEpochRef.current + 1;
+        pmEditLookupEpochRef.current = requestEpoch;
         setPmEditMsg("Loading…");
-        setPmEditSnap(null);
+        setPmEditLoadedSave(null);
+        setPmEditFields({});
+        const lookupIsCurrent = () => isAdminPlayerLookupCurrent(
+            requestEpoch,
+            pmEditLookupEpochRef.current,
+            ownerKey,
+            pmEditNameRef.current,
+        );
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
+            const res = await fetch(adminPlayerSaveUrl(ownerKey), {
                 headers: adminPw ? { "x-admin-password": adminPw } : {},
             });
+            if (!lookupIsCurrent()) return;
             if (res.status === 401) { setPmEditMsg("❌ Admin auth failed — log out and back in as admin."); return; }
             if (!res.ok) { setPmEditMsg("❌ Player not found."); return; }
             const data = await res.json() as Record<string, unknown>;
+            if (!lookupIsCurrent()) return;
             const char = data.character as Record<string, unknown> ?? {};
             const stats = char.stats as Record<string, number> ?? {};
-            setPmEditSnap(data);
+            const loaded = tagLoadedAdminPlayerSave(ownerKey, data);
+            if (!loaded) return;
+            setPmEditLoadedSave(loaded);
             setPmEditFields({
                 level: (char.level as number) ?? 1,
                 xp: (char.xp as number) ?? 0,
@@ -1114,33 +1240,49 @@ export function AdminPanel({
                 genjutsuOffense: stats.genjutsuOffense ?? 0,
                 genjutsuDefense: stats.genjutsuDefense ?? 0,
             });
-            setPmEditMsg(`✅ Loaded ${pmEditName.trim()}`);
-        } catch { setPmEditMsg("❌ Network error."); }
+            setPmEditMsg(`✅ Loaded ${ownerLabel}`);
+        } catch {
+            if (lookupIsCurrent()) setPmEditMsg("❌ Network error.");
+        }
     }
 
-    async function pmEditPatch(updatedSnap: Record<string, unknown>) {
-        setPmEditMsg("Saving…");
+    async function pmEditPatch(loaded: LoadedAdminPlayerSave, updatedSnap: Record<string, unknown>) {
+        if (pmEditLoadedSaveRef.current !== loaded) {
+            setPmEditMsg("❌ Player target changed. Look up the player again before saving.");
+            return;
+        }
+        const checked = prepareAdminPlayerSaveWrite(loaded, pmEditNameRef.current, updatedSnap);
+        if (!checked.ok) { setPmEditMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
         if (!adminPw) { setPmEditMsg("❌ Admin password missing. Log out and back into admin."); return; }
+        if (pmWriteInFlightRef.current) { setPmEditMsg("❌ A player save is already in progress."); return; }
+        pmWriteInFlightRef.current = true;
+        setPmEditMsg("Saving…");
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}?signal=1`, {
+            const res = await fetch(adminPlayerSaveUrl(checked.write.ownerKey, true), {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
-                body: stringifyServerSavePayload(updatedSnap),
+                body: stringifyServerSavePayload(checked.write.snapshot),
             });
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
                 try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                setPmEditMsg(`❌ Save failed: ${detail}`);
+                if (canonicalAdminPlayerKey(pmEditNameRef.current) === checked.write.ownerKey) setPmEditMsg(`❌ Save failed: ${detail}`);
                 return;
             }
-            setPmEditSnap(updatedSnap);
-            setPmEditMsg("✅ Saved!");
+            const stillSelected = canonicalAdminPlayerKey(pmEditNameRef.current) === checked.write.ownerKey;
+            invalidatePmEditLookup();
+            if (stillSelected) setPmEditMsg("✅ Saved! Look up the player again before making another change.");
             fetchAllKnownPlayers();
-        } catch (err) { setPmEditMsg(`❌ Save failed: ${String(err)}`); }
+        } catch (err) {
+            if (canonicalAdminPlayerKey(pmEditNameRef.current) === checked.write.ownerKey) setPmEditMsg(`❌ Save failed: ${String(err)}`);
+        } finally {
+            pmWriteInFlightRef.current = false;
+        }
     }
 
     async function pmEditSave() {
-        if (!pmEditSnap) return;
-        const char = { ...(pmEditSnap.character as Record<string, unknown> ?? {}) };
+        const loaded = pmEditLoadedSaveRef.current;
+        if (!loaded) return;
+        const char = { ...(loaded.snapshot.character as Record<string, unknown> ?? {}) };
         const stats = { ...(char.stats as Record<string, number> ?? {}) };
         const statKeys = ["strength","speed","intelligence","willpower","ninjutsuOffense","ninjutsuDefense","taijutsuOffense","taijutsuDefense","bukijutsuOffense","bukijutsuDefense","genjutsuOffense","genjutsuDefense"];
         // Clamp every edited field to a legal range so a typo (level 999,
@@ -1152,8 +1294,8 @@ export function AdminPanel({
         char.ryo = Math.max(0, Math.floor(fin(pmEditFields.ryo, 0)));
         char.unspentStats = Math.max(0, Math.floor(fin(pmEditFields.unspentStats, 0)));
         char.stats = stats;
-        const updated = { ...pmEditSnap, character: char };
-        await pmEditPatch(updated);
+        const updated = { ...loaded.snapshot, character: char };
+        await pmEditPatch(loaded, updated);
     }
 
     async function pmSoftReset() {
@@ -1184,7 +1326,7 @@ export function AdminPanel({
                 setPmMsg(`❌ Save failed: ${detail}`);
                 return;
             }
-            setPmSnap(null);
+            invalidatePmLookup();
             setPmMsg(`? ${name} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
             fetchAllKnownPlayers();
         } catch (e) { setPmMsg(`? Error: ${String(e)}`); }
@@ -1205,8 +1347,7 @@ export function AdminPanel({
                 setPmMsg(`❌ Reset failed: ${errDetail}`);
                 return;
             }
-            setPmSnap(null);
-            setPmTargetName("");
+            changePmTargetName("");
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
             fetchAllKnownPlayers();
         } catch (e) { setPmMsg(`❌ Reset failed: ${String(e)}`); }
@@ -4888,7 +5029,7 @@ export function AdminPanel({
                                         </label>
                                         <select
                                             value={pmTargetName}
-                                            onChange={e => { setPmTargetName(e.target.value); setPmSnap(null); setPmMsg(""); }}
+                                            onChange={e => changePmTargetName(e.target.value)}
                                             style={{ width: "100%", marginBottom: 4 }}
                                         >
                                             <option value="">— Select a player —</option>
@@ -4910,7 +5051,7 @@ export function AdminPanel({
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
-                                    onChange={e => setPmTargetName(e.target.value)}
+                                    onChange={e => changePmTargetName(e.target.value)}
                                     placeholder="Or type player name manually"
                                 />
                                 <button onClick={pmLookup}>Look Up</button>
@@ -4957,7 +5098,7 @@ export function AdminPanel({
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
-                                    onChange={e => setPmTargetName(e.target.value)}
+                                    onChange={e => changePmTargetName(e.target.value)}
                                     placeholder="Player name"
                                 />
                                 <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.85rem" }}>
@@ -4986,7 +5127,7 @@ export function AdminPanel({
                         <section className="summary-box">
                             <h4>📊 Edit Player Stats</h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-                                <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => { setPmEditName(e.target.value); setPmEditSnap(null); }} placeholder="Player name" />
+                                <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => changePmEditName(e.target.value)} placeholder="Player name" />
                                 <button onClick={pmEditLookup} disabled={!pmEditName.trim()}>Look Up</button>
                             </div>
                             {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("✅") ? "#4ade80" : pmEditMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
@@ -5040,12 +5181,12 @@ export function AdminPanel({
                                     const newEquip = { ...equipment };
                                     delete newEquip[slot];
                                     const updated = { ...pmEditSnap!, character: { ...char, equipment: newEquip } };
-                                    void pmEditPatch(updated);
+                                    void pmEditPatch(pmEditLoadedSave!, updated);
                                 }
                                 function removePet(petId: string) {
                                     const newPets = pets.filter(p => p.id !== petId);
                                     const updated = { ...pmEditSnap!, character: { ...char, pets: newPets } };
-                                    void pmEditPatch(updated);
+                                    void pmEditPatch(pmEditLoadedSave!, updated);
                                 }
 
                                 return (
@@ -5080,12 +5221,12 @@ export function AdminPanel({
                                                             const count = indices.length;
                                                             const removeOne = () => {
                                                                 const newInv = inventory.filter((_, i) => i !== indices[indices.length - 1]);
-                                                                void pmEditPatch({ ...pmEditSnap!, character: { ...char, inventory: newInv } });
+                                                                void pmEditPatch(pmEditLoadedSave!, { ...pmEditSnap!, character: { ...char, inventory: newInv } });
                                                             };
                                                             const removeAll = () => {
                                                                 const set = new Set(indices);
                                                                 const newInv = inventory.filter((_, i) => !set.has(i));
-                                                                void pmEditPatch({ ...pmEditSnap!, character: { ...char, inventory: newInv } });
+                                                                void pmEditPatch(pmEditLoadedSave!, { ...pmEditSnap!, character: { ...char, inventory: newInv } });
                                                             };
                                                             return (
                                                                 <div key={itemId} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
@@ -5126,7 +5267,7 @@ export function AdminPanel({
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
-                                    onChange={e => setPmTargetName(e.target.value)}
+                                    onChange={e => changePmTargetName(e.target.value)}
                                     placeholder="Player name"
                                 />
                                 <button disabled={!pmTargetName.trim()} onClick={pmSoftReset} style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}>🔄 Soft Reset</button>
