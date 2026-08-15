@@ -47,6 +47,18 @@ function validAcknowledgementVersion(value: unknown): value is number {
     return Number.isSafeInteger(value) && Number(value) > 0;
 }
 
+/**
+ * A 409 carrying this code is NOT a two-writer version conflict: the server is
+ * refusing a client-originated currency increase (ryo is server-authoritative)
+ * and returns the authoritative balance for the refetch to apply. There is no
+ * device progress to protect, and capturing a draft for it produced a recovery
+ * banner the player could not resolve — the local balance is simply wrong, and
+ * every retry re-raised it and re-conflicted.
+ */
+function isCurrencyAuthorityConflict(body: unknown): boolean {
+    return !!body && typeof body === "object" && (body as { code?: unknown }).code === "RYO_SERVER_AUTHORITY";
+}
+
 export function createSavePersistence<TPayload extends Record<string, unknown>>(params: {
     flight: SaveFlightCoordinator;
     latestVersion: MutableRef<number>;
@@ -170,10 +182,11 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 if (!params.isCurrentSession(accountKey, epoch)) return;
                 if (response.status === 409) {
                     authorityGeneration += 1;
+                    const currencyAuthority = isCurrencyAuthorityConflict(await response.json().catch(() => null));
                     try {
-                        params.captureConflict(snapshot.name, body);
+                        if (!currencyAuthority) params.captureConflict(snapshot.name, body);
                         const current = params.currentSnapshot();
-                        if (current?.name === snapshot.name && current.revision > snapshot.revision) {
+                        if (!currencyAuthority && current?.name === snapshot.name && current.revision > snapshot.revision) {
                             params.captureConflict(current.name, { ...current.payload, _baseSaveVersion: params.latestVersion.current });
                         }
                         if (!await refetchAfterConflict(snapshot.name, snapshot.revision)) throw new Error("Conflict recovery could not load the authoritative save.");
@@ -242,11 +255,12 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         }
         if (response.status === 409) {
             authorityGeneration += 1;
+            const currencyAuthority = isCurrencyAuthorityConflict(await response.json().catch(() => null));
             try {
-                params.captureConflict(save.name, body);
+                if (!currencyAuthority) params.captureConflict(save.name, body);
                 if (!save.echoVersion) throw new Error("The target save changed before this update could be applied.");
                 const current = params.currentSnapshot();
-                if (current?.name === save.name && current.revision > save.revision) {
+                if (!currencyAuthority && current?.name === save.name && current.revision > save.revision) {
                     params.captureConflict(current.name, { ...current.payload, _baseSaveVersion: params.latestVersion.current });
                 }
                 if (!await refetchAfterConflict(save.name, save.revision)) {

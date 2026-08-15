@@ -142,6 +142,40 @@ describe("extracted save persistence", () => {
         assert.equal(h.applied[0]._saveVersion, 6);
     });
 
+    it("does not protect a draft for a server-authoritative currency rejection", async () => {
+        // A RYO_SERVER_AUTHORITY 409 is not a two-writer conflict: the local
+        // balance is simply wrong and the refetch repairs it. Capturing a draft
+        // for it produced a recovery banner the player could not resolve, on a
+        // loop, because every retry re-raised the same balance.
+        const h = harness({ latestVersion: 5, payloadRevision: 7 });
+        globalThis.fetch = (async (_input, init) => {
+            if (init?.method === "POST") {
+                h.events.push("post");
+                return jsonResponse(409, { error: "Ryo is server-authoritative.", code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 6 });
+            }
+            h.events.push("get");
+            return jsonResponse(200, { character: { name: "Kaya", level: 9 }, currentBiome: "coast", _saveVersion: 6 });
+        }) as typeof fetch;
+
+        const result = await h.persistence.persistAutosave(snapshot(7));
+        assert.deepEqual(result, { status: "completed", value: undefined });
+        assert.deepEqual(h.events, ["post", "get", "apply"], "no draft is captured, but authority is still repaired");
+        assert.equal(h.captured.length, 0);
+        assert.equal(h.latestVersion.current, 6);
+        assert.equal(h.applied[0]._saveVersion, 6);
+    });
+
+    it("still protects a draft for an ordinary version 409", async () => {
+        const h = harness({ latestVersion: 5, payloadRevision: 7 });
+        globalThis.fetch = (async (_input, init) => {
+            if (init?.method === "POST") return jsonResponse(409, { error: "Save conflict — another tab or device wrote first.", currentVersion: 6 });
+            return jsonResponse(200, { character: { name: "Kaya", level: 9 }, currentBiome: "coast", _saveVersion: 6 });
+        }) as typeof fetch;
+
+        await h.persistence.persistAutosave(snapshot(7));
+        assert.equal(h.captured.length, 1, "a real conflict must still protect the rejected payload");
+    });
+
     it("does not repaint or clear a newer local revision when an older autosave gets a 409", async () => {
         const h = harness({
             latestVersion: 5,

@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { biomeForSettledSector, settleSaveRecord } from './_elapsed-state.js';
 import { OLD_TO_NEW_SECTOR, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
 
@@ -67,6 +69,43 @@ test('settleSaveRecord does not regenerate during battle locks or Hollow Gate ru
     const hollow = settleSaveRecord(save({ character: { hollowGateRun: { completed: false } } }), { now: NOW });
     assert.equal(hollow.vitalsChanged, false);
     assert.equal((hollow.record.character as Record<string, unknown>).hp, 10);
+});
+
+test('a vitals-only settle reports no durable change to persist', () => {
+    // The regen projection is re-derived from `_saveAt` on every read, so writing
+    // it back adds nothing — but it DOES bump `_saveVersion` behind the owner's
+    // open client, whose next autosave then takes a 409 and raises a save-recovery
+    // banner for a divergence that never existed. With VITAL_REGEN_MS = 1s that
+    // fired on nearly every read below full vitals.
+    const result = settleSaveRecord(save(), { now: NOW });
+    assert.equal(result.vitalsChanged, true);
+    assert.equal(result.travelChanged, false);
+    assert.equal(result.hollowGateRunCleared, false);
+    assert.equal(result.geoChanged, false, 'nothing here is unrecomputable, so the read must not write');
+});
+
+test('settleSaveRecord reports geoChanged when the one-time migration runs', () => {
+    const legacy = save({ currentSector: 12 });
+    delete (legacy as Record<string, unknown>).worldGeoV;
+    const migrated = settleSaveRecord(legacy, { now: NOW });
+    assert.equal(migrated.geoChanged, true, 'a migrated geo stamp must still be persisted');
+    assert.equal(migrated.record.currentSector, OLD_TO_NEW_SECTOR[12]);
+    assert.equal(settleSaveRecord(save(), { now: NOW }).geoChanged, false);
+});
+
+test('settleSaveRecordForRead persists only what a later read cannot recompute', () => {
+    // Structural: the durable-change gate must stand between the settle and the
+    // version bump. Pairs with api/save/_foreign-read-no-write.test.ts, which
+    // covers the other half (a foreign read never writes at all).
+    // process.cwd(), not import.meta.url: api/ compiles to CommonJS for the
+    // server build, where import.meta is a hard error (TS1470).
+    const source = readFileSync(join(process.cwd(), 'api', '_elapsed-state.ts'), 'utf8');
+    const gate = source.indexOf('if (!next.travelChanged && !next.hollowGateRunCleared && !next.geoChanged && !petStateChanged) return next;');
+    const bump = source.indexOf('bumpSaveVersion(next.record)');
+
+    assert.ok(gate > 0, 'the settle-on-read must skip the write when only vitals regen changed');
+    assert.ok(bump > 0, 'the settle-on-read must still bump the version for a durable change');
+    assert.ok(gate < bump, 'the gate must run BEFORE the version bump, or the bump is unconditional again');
 });
 
 test('settleSaveRecord completes expired pending travel', () => {

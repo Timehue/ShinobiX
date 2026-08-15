@@ -19,6 +19,8 @@ export type SettleResult<T extends SaveRecord = SaveRecord> = {
     vitalsChanged: boolean;
     travelChanged: boolean;
     hollowGateRunCleared: boolean;
+    /** The world-geo migration stamp advanced — a later read cannot re-derive it for free. */
+    geoChanged: boolean;
 };
 
 function num(value: unknown, fallback = 0): number {
@@ -249,7 +251,7 @@ export function settleSaveRecord<T extends SaveRecord>(
         }
     }
 
-    return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared };
+    return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared, geoChanged: geo.changed };
 }
 
 export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<string, boolean>> {
@@ -285,7 +287,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
     opts: { persist?: boolean; now?: number } = {},
 ): Promise<SettleResult<T>> {
     const slug = safeName(playerName);
-    if (!slug) return { record, changed: false, vitalsChanged: false, travelChanged: false, hollowGateRunCleared: false };
+    if (!slug) return { record, changed: false, vitalsChanged: false, travelChanged: false, hollowGateRunCleared: false, geoChanged: false };
     const now = Math.max(0, Math.floor(opts.now ?? Date.now()));
     const [lockFlags, hollowGateRunExpired] = await Promise.all([
         battleLockFlagsForPlayers([slug]),
@@ -307,6 +309,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
 
     const saveKey = `save:${slug}`;
     const persisted = await withKvLock<SettleResult<T>>(saveKey, async () => {
+        let petStateChanged = false;
         const fresh = await kv.get<T>(saveKey);
         if (!fresh) return projected;
         // Re-probe under the lock against the FRESH record: the run token it names
@@ -323,9 +326,28 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             const breeding = settlePetBreedingSession(migrated.character, now);
             if (migrated.changed || breeding.changed) {
                 next = { ...next, record: { ...next.record, character: breeding.character }, changed: true };
+                petStateChanged = true;
             }
         }
         if (!next.changed) return next;
+
+        // Persist only what a later read could NOT recompute for itself.
+        //
+        // Vitals regen is re-derived from `_saveAt` on every read, so writing it
+        // back adds no information — but it DOES bump `_saveVersion`, and the
+        // owner's open client is not told. Its next autosave then echoes a stale
+        // `_baseSaveVersion`, takes a 409, and the conflict recovery captures a
+        // "device draft" for a divergence that never existed. With
+        // VITAL_REGEN_MS = 1s that fired on essentially every owner read below
+        // full vitals, so any player who read their own save (PvP accept, a
+        // reward refetch, a profile open) while damaged got a recovery banner on
+        // a loop. Skipping the write also stops the sub-tick remainder being
+        // discarded on every read, which was quietly slowing regen down.
+        //
+        // The projection is still RETURNED, so the reader sees correct vitals;
+        // only the durable write is skipped, and the next real save persists them.
+        if (!next.travelChanged && !next.hollowGateRunCleared && !next.geoChanged && !petStateChanged) return next;
+
         const versioned = bumpSaveVersion(next.record);
         await kv.set(saveKey, mergePreservingImages(versioned, fresh));
         return { ...next, record: versioned };

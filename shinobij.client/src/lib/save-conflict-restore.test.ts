@@ -138,7 +138,10 @@ describe("exclusive save-conflict restore", () => {
         }
     });
 
-    it("retains the selected draft when an external write lands between POST and verification GET", async () => {
+    it("completes the restore when an external write lands between POST and verification GET", async () => {
+        // A version PAST the acknowledgement is the normal case, not a failure:
+        // the settle-on-read and every server credit endpoint bump it. Our write
+        // is durable, so the restore is finished and the revision is released.
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
@@ -151,11 +154,32 @@ describe("exclusive save-conflict restore", () => {
         }) as typeof fetch;
         const h = createHarness({ request });
 
-        await assert.rejects(h.restore(), /server changed before the restored draft could be verified/i);
+        const result = await h.restore();
+        assert.deepEqual(result.declined, [], "the restored state is live, so nothing was declined");
         assert.equal(calls, 2);
-        assert.equal(h.latestVersion.current, 7, "the next retry must use the external write's current base version");
+        assert.equal(h.latestVersion.current, 7, "authority must advance to the newest served version");
         assert.deepEqual(h.applied.map((snapshot) => snapshot._saveVersion), [7]);
-        assert.equal(h.discarded.length, 0, "refreshing authority must retain the selected restore revision");
+        assert.deepEqual(h.discarded.map((revision) => revision.id), [h.selected.id]);
+    });
+
+    it("retains the draft when the read-back is BEHIND the acknowledged version", async () => {
+        // The only genuine verification failure: the save being served is older
+        // than the write we were just handed, so the restore is not live.
+        let calls = 0;
+        const request = (async (_input, init) => {
+            calls += 1;
+            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 9 });
+            return jsonResponse(200, {
+                character: { name: "Kaya", level: 10 },
+                currentBiome: "central",
+                _saveVersion: 8,
+            });
+        }) as typeof fetch;
+        const h = createHarness({ request });
+
+        await assert.rejects(h.restore(), /could not confirm the restored draft is live/i);
+        assert.equal(calls, 2);
+        assert.equal(h.discarded.length, 0, "an unconfirmed restore must keep its revision");
     });
 
     it("refreshes authority after a POST 409 so the next retry uses the current base", async () => {
@@ -211,7 +235,7 @@ describe("exclusive save-conflict restore", () => {
         assert.deepEqual(h.discarded.map((revision) => revision.id), [h.selected.id]);
     });
 
-    it("refreshes the verification mismatch while retaining the selected revision", async () => {
+    it("reports what the server declined instead of failing the restore", async () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
@@ -224,11 +248,15 @@ describe("exclusive save-conflict restore", () => {
         }) as typeof fetch;
         const h = createHarness({ request });
 
-        await assert.rejects(h.restore(), /server changed before the restored draft could be verified/i);
+        // `level` is server-owned, so it is not reported — the server was always
+        // going to keep its own. `currentBiome` is client-owned and did NOT come
+        // back as the draft had it, so the player is told about that one.
+        const result = await h.restore();
+        assert.deepEqual(result.declined, ["Travel & world position"]);
         assert.equal(calls, 2);
         assert.equal(h.latestVersion.current, 7);
         assert.deepEqual(h.applied.map((snapshot) => snapshot.character.level), [12]);
-        assert.equal(h.discarded.length, 0);
+        assert.deepEqual(h.discarded.map((revision) => revision.id), [h.selected.id], "a durable restore is one-shot, never re-offered");
     });
 
     it("does not adopt a POST-409 refresh after the account epoch changes during JSON", async () => {

@@ -157,6 +157,7 @@ export function Arena({
     character,
     updateCharacter,
     onVersionedCharacter,
+    onServerVersion,
     savedBloodlines,
     creatorJutsus,
     creatorAis,
@@ -200,6 +201,8 @@ export function Arena({
     character: Character;
     updateCharacter: (character: Character) => void;
     onVersionedCharacter: VersionedCharacterCommit;
+    /** Adopt a server version observed without a character payload (see below). */
+    onServerVersion?: (version?: number) => void;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorAis: CreatorAi[];
@@ -1520,6 +1523,9 @@ export function Arena({
                 fetchPlayerCombatSave(challenge.fromName),
                 fetchPlayerCombatSave(character.name),
             ]);
+            // p2 is US: our own read settles elapsed state and can bump the stored
+            // version, so adopt it or our next autosave 409s on a stale base.
+            onServerVersion?.(p2CombatSave?._saveVersion);
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
