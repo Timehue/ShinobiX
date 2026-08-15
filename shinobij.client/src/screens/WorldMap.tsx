@@ -1950,7 +1950,12 @@ export function WorldMap({
         coolWanderer(w.id); // beast duelled — gone for a few hours
         setPendingPetBattleOpponent({
             owner: w.name,
+            // Shown on the matchup card. The SERVER builds the beast it actually
+            // fights from the same rule (tier by the caller's own saved level,
+            // then scaled), so this is a preview of that opponent rather than
+            // the opponent itself — the arena never fights what the client sends.
             pet: scaleWandererPetOpponent(tmpl.pet, targetLevel),
+            wanderer: { id: w.id },
             battleSeed: seed,
             returnScreen: "worldMap",
         });

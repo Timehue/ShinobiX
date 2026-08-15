@@ -479,6 +479,33 @@ The remaining order, then, is: port the sector wanderer (server-side selector),
 port live lockstep PvP, then delete. Nothing above is a reason to keep the legacy
 engine forever; it is the list of what actually has to move first.
 
+### The wanderer is DONE (2026-08-15) — and `PetArena.tsx` is off the legacy engine
+
+`api/pet/_wanderer-duel.ts` builds the beast; `battle-start` resolves the bout on
+Showdown and hands back the script. The selector shrank to nothing worth
+trusting: the request says only "this is a wanderer duel", and the tier and
+scaling come from the CALLER'S OWN SAVED LEVEL. That closed a real hole rather
+than just swapping engines — the payout scales with the opponent fought
+(`petArenaRyoRewardForTeam`), and the tier used to be the client's pick, so a
+level-5 client asking for the apex template was asking for a bigger purse.
+
+**`PetArena.tsx` now imports no `pet-duel-*` module at all.** Every fight it
+starts is server-decided: ranked at its match token, a challenge at accept, a
+wanderer at mint. One renderer, no input logs, no "fight again" — the screen has
+nothing left to simulate. The settlement guard test now asserts that directly.
+
+Known balance consequence, stated rather than discovered: Showdown has no PvE
+mastery multipliers anywhere, so the Pet Tamer damage bonus, the mastery HP bonus
+and Alpha Bond's revive no longer apply to a wanderer duel. That is the wanderer
+becoming consistent with every other fight already on the engine, not a nerf
+aimed at it.
+
+Server-side, this also orphans the whole casual-PvE replay spine —
+`api/pet/_duel-replay.ts`, `_casual-pve-seal.ts`, and the `runPetDuel` /
+`runPetPartyDuel` imports in `battle-start` — since nothing produces a
+`casualPveSeal` any more. **Live lockstep PvP is now the only thing standing
+between here and deleting the sim.**
+
 ### OWNER RULING, 2026-08-15: two modes, and live PvP is PORTED not retired
 
 The long-run target is **the new Pet Arena and the Tactical Arena, and nothing
