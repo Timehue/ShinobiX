@@ -34,12 +34,38 @@ describe('legacy ?signal=1 publish path', () => {
         assert.match(adminBranch, /status\(429\)/, 'contention returns the same 429 the player path does');
     });
 
-    it('takes the admin-edit signal INSIDE the lock, before its own read', () => {
+    it('checks the persistent deletion generation INSIDE the lock before establishing its own admin signal', () => {
         const lockIdx = adminBranch.indexOf('withKvLock(');
+        const fenceKeyIdx = adminBranch.indexOf('playerSaveDeletionFenceKey(');
+        const readIdx = adminBranch.indexOf('const [existing, deletionFence]');
+        const storedVersionIdx = adminBranch.indexOf('storedSaveVersion(deletionFence)');
         const signalIdx = adminBranch.indexOf('kv.set(adminLockKey');
-        const readIdx = adminBranch.indexOf('await kv.get(key)');
-        assert.ok(lockIdx >= 0 && lockIdx < signalIdx && signalIdx < readIdx,
-            'the edit signal must be set inside the lock and before the read, or a player write can interleave');
+        assert.ok(lockIdx >= 0 && lockIdx < fenceKeyIdx && fenceKeyIdx < readIdx
+            && readIdx < storedVersionIdx && storedVersionIdx < signalIdx,
+        'the locked live/floor read and version rejection must happen before this POST establishes its own signal');
+    });
+
+    it('serializes DELETE through the same fail-closed save lock', () => {
+        const deleteBranch = src.slice(src.indexOf("if (req.method === 'DELETE')"));
+        assert.match(deleteBranch, /if \(isAdmin\(req\) && !fullAdminAuth\) \{\s*return res\.status\(403\)/s,
+            'content-admin credentials must not bypass the full-admin player-reset boundary');
+        assert.match(deleteBranch, /withKvLock\(`save:\$\{lowered\}`/);
+        assert.match(deleteBranch, /\{ failClosed: true \}/);
+        assert.match(deleteBranch, /LockContendedError/);
+        assert.match(deleteBranch, /status\(429\)/);
+        const floorSetIdx = deleteBranch.indexOf('await kv.set(deletionFenceKey, deletionVersion)');
+        const deleteIdx = deleteBranch.indexOf('kv.del(key)');
+        assert.ok(floorSetIdx >= 0 && floorSetIdx < deleteIdx,
+            'DELETE must persist the next generation before removing the save');
+    });
+
+    it('seeds ordinary same-name recreation above the persistent deletion generation', () => {
+        const ordinaryBranch = src.slice(
+            src.indexOf('if (!isAdminSave) {'),
+            src.indexOf('// ── Admin save path (?signal=1)'),
+        );
+        assert.match(ordinaryBranch, /kv\.get\(deletionFenceKey\)/);
+        assert.match(ordinaryBranch, /nextSaveVersion\(storedVersion, deletionFence\)/);
     });
 
     it('rejects a stale admin write instead of reverting newer content', () => {
@@ -48,12 +74,15 @@ describe('legacy ?signal=1 publish path', () => {
         assert.match(adminBranch, /Reload before saving/);
     });
 
-    it('still accepts a version-less body (scripts / older tooling)', () => {
+    it('allows versionless trusted creation only before any deletion generation exists', () => {
+        assert.match(adminBranch, /deletedGenerationWithoutLiveSave = existing === null && deletionFenceVersion > 0/);
         assert.match(
             adminBranch,
-            /incomingVersionRaw !== undefined\s*&& Number\.isFinite\(incomingVersion\)/s,
-            'the version check must only apply when the body carries a version',
+            /missingDeletedGenerationAuthority[\s\S]*incomingVersionRaw === undefined[\s\S]*!Number\.isFinite\(incomingVersion\)/,
+            'a deleted generation must reject missing and non-finite admin snapshot versions',
         );
+        assert.match(adminBranch, /staleVersionedSnapshot/,
+            'ordinary stale-version checks remain independent of the deleted-generation fail-closed rule');
     });
 
     it('keeps the canonical content store in step with a legacy publish', () => {

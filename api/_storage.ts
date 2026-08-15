@@ -49,6 +49,10 @@ const _noCachePrefixes = [
     // lock, and overwrite v6. Every save read (including mget/hgetall) must hit
     // the backing store; caches remain enabled for deliberately safe prefixes.
     'save:',
+    // Player deletion generations are durable cross-worker save authority.
+    // They are intentionally base-primary metadata (not disk-routed), but a
+    // cached floor would still let another worker resurrect an old save.
+    'save-delete-version:',
     'presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:',
     // Pet-battle authority is coordinated across processes. A cached null can
     // admit duplicate work; a cached proof/result can resurrect an already-
@@ -741,8 +745,9 @@ const supabaseKv = {
 //   shared:images*        — uploaded image blobs (incl. bloodline images)
 //   shared:imgfields*     — uploaded image hash fields
 //
-// save-snapshot: is intentionally base-primary (Supabase/Postgres) so backup
-// and live data do not share the disk/proxy failure domain.
+// save-snapshot: and save-delete-version: are intentionally base-primary
+// (Supabase/Postgres) so recovery/deletion authority and live data do not share
+// the disk/proxy failure domain.
 
 // Live saves stay on the disk/proxy overlay; snapshots deliberately do NOT.
 // Backups are written to the independent base database so losing the overlay

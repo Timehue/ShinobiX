@@ -23,7 +23,7 @@ import {
     preserveEntitledStringArray,
     preserveOwnedItems,
 } from './_entitlement-guard.js';
-import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion } from './_save-version.js';
+import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
 import {
     PUBLIC_CHAR_FIELDS,
     PUBLIC_TOPLEVEL_FIELDS,
@@ -210,6 +210,17 @@ export function adminPlayerSaveOwnerMismatch(
     if (typeof incomingName !== 'string') return true;
     const incomingOwnerKey = safeName(incomingName);
     return !incomingOwnerKey || incomingOwnerKey !== targetName;
+}
+
+/**
+ * Normal player deletion generations survive the short-lived reset/admin
+ * signals. Admin content slots and clan blobs deliberately keep their existing
+ * lifecycle and never receive a player deletion floor.
+ */
+export function playerSaveDeletionFenceKey(targetName: string, isClanSave: boolean): string | null {
+    const canonicalName = safeName(targetName);
+    if (!canonicalName || isClanSave || isAdminContentSlot(canonicalName)) return null;
+    return `save-delete-version:${canonicalName}`;
 }
 
 // Character-level fields stripped under ?combatOnly=1 — none of these affect
@@ -2609,10 +2620,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the await then exits the handler. The RMW body below is unchanged.
                 try {
                     await withKvLock(`save:${name.toLowerCase()}`, async () => {
-                    const [pendingSignal, adminLock, existing] = await Promise.all([
+                    const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
+                    const [pendingSignal, adminLock, existing, deletionFence] = await Promise.all([
                         kv.get(resetSignalKey),
                         kv.get(adminLockKey),
                         kv.get(key),
+                        deletionFenceKey ? kv.get(deletionFenceKey) : Promise.resolve(null),
                     ]);
                     // Reset signal / admin edit in flight — drop the write so it
                     // can't overwrite the admin's changes. Say so explicitly:
@@ -2827,7 +2840,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // ── Multi-tab autosave guard ─────────────────────────────
                     // Version authority was established before every mutable
                     // validation side effect above; only an accepted write reaches here.
-                    const nextVersion = nextSaveVersion(storedVersion);
+                    // A deleted player's version stream never restarts at 1.
+                    // The live-record comparison above intentionally remains
+                    // against 0 when absent so a fresh owner can recreate the
+                    // account with `_baseSaveVersion: 0`; the persisted version
+                    // advances beyond the previous deletion generation.
+                    const nextVersion = nextSaveVersion(storedVersion, deletionFence);
                     const mergedPayload = existing ? mergePreservingImages(safeIncoming, existing) : safeIncoming;
                     // Strip `_baseSaveVersion` from the persisted payload so
                     // it doesn't accumulate in the stored save record.
@@ -2905,29 +2923,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // under the SAME save lock every other writer uses, and honours the
             // `_saveVersion` the editor loaded: admin tooling reads the record
             // and posts it back, so a stale body is detectable. A body with NO
-            // version is still accepted (scripts / older tooling) — the lock
-            // alone already removes the interleave.
+            // version remains accepted for existing/never-created records
+            // (scripts / older tooling), but not across a deletion generation.
             try {
                 return await withKvLock(`save:${name.toLowerCase()}`, async () => {
-                    // Inside the lock so a player autosave in flight can no
-                    // longer slip between the signal and this read.
-                    await kv.set(adminLockKey, 1, { ex: 300 });
-                    const existing = await kv.get(key);
-                    const adminStoredVersion = Number((existing as Record<string, unknown> | null)?._saveVersion ?? 0);
+                    const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
+                    const [existing, deletionFence] = await Promise.all([
+                        kv.get(key),
+                        deletionFenceKey ? kv.get(deletionFenceKey) : Promise.resolve(null),
+                    ]);
+                    const liveStoredVersion = storedSaveVersion(
+                        (existing as Record<string, unknown> | null)?._saveVersion,
+                    );
+                    const deletionFenceVersion = storedSaveVersion(deletionFence);
+                    const adminStoredVersion = Math.max(liveStoredVersion, deletionFenceVersion);
                     const incomingVersionRaw = (incoming as Record<string, unknown>)?._saveVersion;
                     const incomingVersion = Number(incomingVersionRaw);
-                    if (
+                    const deletedGenerationWithoutLiveSave = existing === null && deletionFenceVersion > 0;
+                    const missingDeletedGenerationAuthority = deletedGenerationWithoutLiveSave && (
+                        incomingVersionRaw === undefined
+                        || !Number.isFinite(incomingVersion)
+                        || incomingVersion < deletionFenceVersion
+                    );
+                    const staleVersionedSnapshot = (
                         incomingVersionRaw !== undefined
                         && Number.isFinite(incomingVersion)
                         && adminStoredVersion > 0
                         && incomingVersion < adminStoredVersion
-                    ) {
+                    );
+                    if (missingDeletedGenerationAuthority || staleVersionedSnapshot) {
                         return res.status(409).json({
                             error: 'This record changed since you loaded it. Reload before saving so you do not revert newer content.',
                             storedVersion: adminStoredVersion,
-                            baseVersion: incomingVersion,
+                            baseVersion: Number.isFinite(incomingVersion) ? incomingVersion : null,
                         });
                     }
+                    // Establish this editor's signal only after the locked live
+                    // record + persistent deletion generation have rejected a
+                    // stale snapshot. Versionless trusted creation remains
+                    // supported only when there is no prior deletion floor.
+                    await kv.set(adminLockKey, 1, { ex: 300 });
                     const adminMerged = existing ? mergePreservingImages(incoming, existing) : incoming;
                     const payload = {
                         ...(adminMerged as Record<string, unknown>),
@@ -2974,8 +3009,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'DELETE') {
         try {
-            const adminAuth = isAdmin(req);
-            if (!adminAuth) {
+            const fullAdminAuth = isFullAdmin(req);
+            if (isAdmin(req) && !fullAdminAuth) {
+                return res.status(403).json({ error: 'Full admin authentication required to delete player saves.' });
+            }
+            if (!fullAdminAuth) {
                 const identity = await authedPlayerOrAdmin(req, name);
                 if (!identity) return res.status(401).json({ error: 'Authentication required.' });
                 if (!identity.admin && isClanSave) {
@@ -3008,15 +3046,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
-            await kv.set(adminLockKey, 1, { ex: 300 });
-            await Promise.all([
-                kv.del(key),
-                kv.hdel(REGISTRY_KEY, name),
-                // Signal the player's client to reload on next heartbeat (5-min TTL)
-                kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
-            ]);
-            return res.status(200).json({ ok: true });
+            return await withKvLock(`save:${lowered}`, async () => {
+                await kv.set(adminLockKey, 1, { ex: 300 });
+                const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
+                if (deletionFenceKey) {
+                    const [existing, priorDeletionFence] = await Promise.all([
+                        kv.get(key),
+                        kv.get(deletionFenceKey),
+                    ]);
+                    if (existing !== null) {
+                        const deletionVersion = nextSaveVersion(
+                            (existing as Record<string, unknown>)._saveVersion,
+                            priorDeletionFence,
+                        );
+                        // Persist the new generation before removing the save.
+                        // A partial failure may leave a harmless high-water mark,
+                        // but can never delete a version without fencing it.
+                        await kv.set(deletionFenceKey, deletionVersion);
+                    }
+                }
+                await Promise.all([
+                    kv.del(key),
+                    kv.hdel(REGISTRY_KEY, name),
+                    // Signal the player's client to reload on next heartbeat (5-min TTL)
+                    kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
+                ]);
+                return res.status(200).json({ ok: true });
+            }, { failClosed: true });
         } catch (err) {
+            if (err instanceof LockContendedError) {
+                return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+            }
             console.error('[save DELETE]', safeLogValue(err));
             return res.status(500).json({ error: 'Internal server error.' });
         }
