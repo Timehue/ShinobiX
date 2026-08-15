@@ -1,5 +1,12 @@
 import type { PublicCapabilities, PublicCapabilityReason } from '../../shared/public-capabilities.js';
-import { petBreedingStartsEnabled, weeklyBossGuardEnabled } from '../_release-flags.js';
+import {
+    anbuInfiltrationEnabled,
+    clanBossEnabled,
+    clanBossPartiesEnabled,
+    petBreedingStartsEnabled,
+    villageWarMapEnabled,
+    weeklyBossGuardEnabled,
+} from '../_release-flags.js';
 
 const available = { state: 'available', reason: 'available' } as const;
 
@@ -10,9 +17,6 @@ function unavailable(reason: PublicCapabilityReason = 'temporarily-disabled') {
 export function publicCapabilities(env: NodeJS.ProcessEnv = process.env): PublicCapabilities {
     const maintenance = env.MAINTENANCE_MODE === '1';
     const mutationsFrozen = env.FREEZE_ECONOMY_REWARDS === '1';
-    const villageWar = env.DISABLE_VILLAGE_WAR !== '1';
-    const clanBoss = env.DISABLE_CLAN_BOSS !== '1';
-
     return {
         gameplay: maintenance ? unavailable('maintenance') : available,
         gameplayMutations: maintenance
@@ -25,9 +29,10 @@ export function publicCapabilities(env: NodeJS.ProcessEnv = process.env): Public
             : env.DISABLE_NEW_REGISTRATIONS === '1'
                 ? unavailable()
                 : available,
-        villageWar: villageWar ? available : unavailable(),
-        clanBoss: clanBoss ? available : unavailable(),
-        clanBossParties: clanBoss && env.DISABLE_CLAN_BOSS_PARTIES !== '1' ? available : unavailable(),
+        villageWar: villageWarMapEnabled(env) ? available : unavailable(),
+        anbuInfiltration: anbuInfiltrationEnabled(env) ? available : unavailable(),
+        clanBoss: clanBossEnabled(env) ? available : unavailable(),
+        clanBossParties: clanBossPartiesEnabled(env) ? available : unavailable(),
         legacy: env.ENABLE_LEGACY === '1' ? available : unavailable('configuration-unavailable'),
         petBreedingStarts: petBreedingStartsEnabled(env) ? available : unavailable(),
         weeklyBossGuardCycle: weeklyBossGuardEnabled(env) ? available : unavailable(),

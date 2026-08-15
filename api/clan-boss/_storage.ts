@@ -12,14 +12,14 @@
  * Scaled for a small server (≤100 players): pools scale per-capita so a 4-person
  * clan can finish, and there is a single flat competition — no tiers.
  *
- * Feature-gated: endpoints 404 unless ENABLE_CLAN_BOSS==='1'; the client tab is
- * gated on clanBoss.v1. Ships inert.
+ * Feature-gated: endpoints 404 under the exact core Clan Boss kill switch, and
+ * public capability projection keeps the client in sync. Ships on by default.
  */
 import { kv } from '../_storage.js';
 import type { ClanBossContributionResult } from '../../shared/clan-boss-operation.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BALANCE — all tunable; NEEDS SIGN-OFF before ENABLE_CLAN_BOSS=1. Rewards are
+// BALANCE — all tunable; changes need sign-off. Rewards are
 // treasury-only (ryo / Fate Shards / Bone Charms / clan XP) — no player combat
 // power, honouring the balanced-PvP pillar.
 // ─────────────────────────────────────────────────────────────────────────────

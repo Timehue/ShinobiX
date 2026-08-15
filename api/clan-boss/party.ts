@@ -8,12 +8,12 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
 import { clanBossWeekId, loadClanBossWeek, resolveClanBossDef } from './_storage.js';
+import { clanBossPartiesEnabled } from '../_release-flags.js';
 import {
     activePartyForPlayer,
     addPartyInvitation,
     addPartyMember,
     canClaimPartyLeadership,
-    clanBossPartiesEnabled,
     CLAN_BOSS_PARTY_TTL,
     clearPartyMemberIndices,
     clearPartyPlayerIndex,
@@ -58,7 +58,7 @@ function genericMutation(party: ClanBossParty, patch: Partial<ClanBossParty>) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (process.env.ENABLE_CLAN_BOSS !== '1' || !clanBossPartiesEnabled()) return res.status(404).json({ error: 'Not found.' });
+    if (!clanBossPartiesEnabled()) return res.status(404).json({ error: 'Not found.' });
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
     try {
         const input = req.method === 'GET' ? req.query : parseBody(req);

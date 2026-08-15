@@ -24,6 +24,8 @@
         "sizecheck": "node scripts/check-build-size.mjs",
         "generate:story-content": "node --import tsx scripts/generate-story-content.mts",
         "check:story-content": "node --import tsx scripts/generate-story-content.mts --check",
+        "generate:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs",
+        "check:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs --check",
         "release:health": "node scripts/release-health-check.mjs",
         "beta:report": "node scripts/beta-daily-report.mjs",
         "beta:certify": "node scripts/beta-certification.mjs",

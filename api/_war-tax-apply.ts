@@ -26,6 +26,8 @@
  * Underscore-prefixed → a shared helper, not a route.
  */
 
+import { villageWarMapEnabled } from './_release-flags.js';
+
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { bumpSaveVersion } from './save/_save-version.js';
@@ -71,9 +73,9 @@ export async function isVillageKageSeated(village: string): Promise<boolean> {
  *  Safe to ship on: every village starts holding its full 8 home sectors, which
  *  is the 0% tier. The occupation tax begins only when it holds a ninth sector,
  *  putting bounded upkeep on conquest without punishing the losing village. It rides
- *  ENABLE_VILLAGE_WAR, so the whole system's kill switch disables it too. */
-export function villageTaxEnabled(): boolean {
-    return process.env.ENABLE_VILLAGE_WAR === '1' && process.env.DISABLE_VILLAGE_TAX !== '1';
+ *  the Sector Map campaign, so the whole system's kill switch disables it too. */
+export function villageTaxEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return villageWarMapEnabled(env) && env.DISABLE_VILLAGE_TAX !== '1';
 }
 
 export function utcDateString(now: number): string {

@@ -7,36 +7,17 @@ import { computeTax, TAX_EXEMPTION_RYO, TAX_BURN_SHARE, TAX_DAILY_CAP_RYO } from
 
 const TODAY = '2026-08-06';
 
-function withEnv(vars: Record<string, string | undefined>, fn: () => void) {
-    const prev: Record<string, string | undefined> = {};
-    for (const [k, v] of Object.entries(vars)) {
-        prev[k] = process.env[k];
-        if (v === undefined) delete process.env[k]; else process.env[k] = v;
-    }
-    try { fn(); } finally {
-        for (const [k, v] of Object.entries(prev)) {
-            if (v === undefined) delete process.env[k]; else process.env[k] = v;
-        }
-    }
-}
-
 describe('village tax: the gate', () => {
-    it('is ON by default once the war system is enabled', () => {
-        withEnv({ ENABLE_VILLAGE_WAR: '1', DISABLE_VILLAGE_TAX: undefined }, () => {
-            assert.equal(villageTaxEnabled(), true);
-        });
+    it('is on by default with the Sector Map campaign', () => {
+        assert.equal(villageTaxEnabled({}), true);
     });
 
     it('has a dedicated kill switch', () => {
-        withEnv({ ENABLE_VILLAGE_WAR: '1', DISABLE_VILLAGE_TAX: '1' }, () => {
-            assert.equal(villageTaxEnabled(), false);
-        });
+        assert.equal(villageTaxEnabled({ DISABLE_VILLAGE_TAX: '1' }), false);
     });
 
     it('rides the whole system’s kill switch too', () => {
-        withEnv({ ENABLE_VILLAGE_WAR: undefined, DISABLE_VILLAGE_TAX: undefined }, () => {
-            assert.equal(villageTaxEnabled(), false);
-        });
+        assert.equal(villageTaxEnabled({ DISABLE_VILLAGE_WAR: '1' }), false);
     });
 });
 

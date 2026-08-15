@@ -10,7 +10,8 @@ import { cachedFor } from './_proc-cache.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { resolveClaimedWarSupply } from './_territory-supply.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
-// Village War Map (flag-gated, default OFF via ENABLE_VILLAGE_WAR). When enabled,
+import { villageWarMapEnabled } from './_release-flags.js';
+// When the default-on Village War Map campaign is enabled,
 // war declaration is funded from the village WR pool instead of the Kage's Honor
 // Seals, and war settlement applies the comeback-morale/spoils rules. When OFF,
 // every path below is byte-for-byte the legacy behavior.
@@ -33,10 +34,6 @@ import {
     type WarMissionToken,
 } from './_war-battle-receipt.js';
 import { kageKey } from './village/_kage-settle.js';
-
-function villageWarEnabled(): boolean {
-    return process.env.ENABLE_VILLAGE_WAR === '1';
-}
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
@@ -444,7 +441,7 @@ export async function listActiveVillageWars(): Promise<Array<{ villages: [string
  * lock, clears any stale clan owner, marks the sector freshly secured (full territory
  * HP — it must be defended anew), and resets War Supply for the new owner via
  * resolveClaimedWarSupply (anti-mint, same as the claiming-write path). Only ever
- * reached from settlement (which every ENABLE_VILLAGE_WAR-gated path funnels through).
+ * reached from settlement (which every Sector Map-gated path funnels through).
  */
 export async function captureSectorForVillage(
     sector: number,
@@ -1120,7 +1117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 //     village war on top of live sieges. The attacking Kage
                                 //     can clear their own with the sector-war `abandon`
                                 //     action, and an idle siege lapses on its own.
-                                if (villageWarEnabled()) {
+                                if (villageWarMapEnabled()) {
                                     for (const v of war.villages) {
                                         const sieges = await activeSectorWarsForVillage(v);
                                         if (sieges.length) {
@@ -1138,7 +1135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 //    save lock so a concurrent save can't double-
                                 //    spend; a raced/failed deduct propagates so we
                                 //    never create a war for free.
-                                if (villageWarEnabled()) {
+                                if (villageWarMapEnabled()) {
                                     const warKey = villageWarKey(actorVillage);
                                     const sectorsHeld = await heldSectorsForVillage(actorVillage);
                                     const wr = await withKvLock(warKey, async () => {

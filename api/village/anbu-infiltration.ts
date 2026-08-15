@@ -12,6 +12,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { isWarVillage, isWarSector, homeVillageForSector } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
+import { anbuInfiltrationEnabled } from '../_release-flags.js';
 import {
     buildInfiltrationEncounter,
     infiltrationSessionMatches,
@@ -84,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.DISABLE_ANBU_INFILTRATION === '1') {
+    if (!anbuInfiltrationEnabled()) {
         return res.status(404).json({ error: 'Not found.' });
     }
 

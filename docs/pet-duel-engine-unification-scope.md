@@ -1,7 +1,24 @@
 # Pet Coliseum — retiring the legacy duel sim
 
-**Status:** scope only, nothing implemented. Written 2026-08-14, after the Pet
-Showdown rebuild (rounds 1–47) shipped to main at `7b7c91ba4`.
+> [!CAUTION]
+> **Historical migration scope and status log; superseded on 2026-08-14.**
+> Do not treat this document's “currently,” “done,” or “live on main” wording as
+> executable truth. Current mode, owner, route, caller, and mismatch status lives
+> in [`shared/runtime-mode-registry.ts`](../shared/runtime-mode-registry.ts) and
+> its [generated projection](generated/runtime-mode-registry.md).
+>
+> The current registry keeps these authorities separate: Showdown/Coliseum,
+> positional Warfront/Tactical, the Gauntlet grid, ordinary Arena cinematic
+> duels, legacy pet duels, and client-local pet duels. Ordinary Arena PvP still
+> settles through the legacy duel while presenting the cinematic fight; Pet
+> Ranked remains a staged legacy-to-Showdown mismatch; Hollow Gate pet remains
+> mounted on the legacy duel while a Showdown-capable branch also exists; and
+> Dungeon pet remains client-local. This historical proposal does not override
+> any of those facts.
+
+**Historical starting status:** scope only, nothing implemented. Written
+2026-08-14, after the Pet Showdown rebuild (rounds 1–47) shipped to main at
+`7b7c91ba4`.
 
 **The question this answers:** "did you retire the old Pet Coliseum and tie
 everything together with the new one?" No. The new turn-based battle shipped
@@ -205,7 +222,11 @@ is a different decision with blast radius across every mode.
 
 ---
 
-## STATUS — 2026-08-14 (live on main through `cd878fbb8`)
+## Historical status note — 2026-08-14 (superseded)
+
+The following was the document author's status claim at `cd878fbb8`. It is
+retained as migration history only; the mounted-route registry linked above is
+the current authority.
 
 Five of the six entries resolve on Showdown. What that bought, and what is
 honestly left.

@@ -16,6 +16,7 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 /*
  * /api/village/sector-pet — POST only. The sector-war "Pet" win-condition (Phase 7).
@@ -31,7 +32,7 @@ import { activeCarriedPets } from '../_entitlements.js';
  * the server, so it can never disagree on who won.
  *
  * Pet stats are clamped server-side (petStatCeil) so a tampered save can't seal an OP
- * pet. Server-gated: 404 unless ENABLE_VILLAGE_WAR=1.
+ * pet. Server-gated by the default-on Sector Map campaign switch.
  *
  * Body: { action, sectorWarId, petId? }
  *   join  { petId }  attacker opens with a pet / defender joins with a pet → resolve
@@ -152,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });

@@ -6,9 +6,9 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { recordAudit } from '../_audit.js';
 import { readSession } from '../towers/_tower-store.js';
+import { clanBossEnabled, clanBossPartiesEnabled } from '../_release-flags.js';
 import {
     clearPartyMemberIndices,
-    clanBossPartiesEnabled,
     listRegisteredPartyIds,
     loadParty,
     partyKey,
@@ -70,7 +70,7 @@ async function operationSnapshot(input: { cursor?: string | null; limit?: number
     for (const row of rows) byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
     return {
         generatedAt: now,
-        feature: { clanBossEnabled: process.env.ENABLE_CLAN_BOSS === '1', partiesEnabled: clanBossPartiesEnabled() },
+        feature: { clanBossEnabled: clanBossEnabled(), partiesEnabled: clanBossPartiesEnabled() },
         totals: {
             scope: registry.nextCursor || registry.cursor ? 'page' : 'all',
             registryTotal: registry.total,

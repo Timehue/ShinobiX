@@ -14,6 +14,7 @@ import {
 } from '../_war-state.js';
 import { applyStructureUpgrade, applyPerWarStructureUpgrade, isPerWarStructure } from '../_war-structures.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 /*
  * /api/village/war-structure — POST only
@@ -25,8 +26,7 @@ import { recordWarEcoEvent } from '../_war-telemetry.js';
  * locks (treasury outer, war-record inner, both failClosed) so seals can't be
  * spent without the level applying, and vice-versa.
  *
- * Server-gated: returns 404 unless ENABLE_VILLAGE_WAR=1 — the whole feature is OFF
- * by default, so this endpoint is inert until launch.
+ * Server-gated: returns 404 when the default-on Sector Map campaign is disabled.
  *
  * Body: { playerName, village, structure }.
  */
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1') return res.status(404).json({ error: 'Not found.' });
+    if (!villageWarMapEnabled()) return res.status(404).json({ error: 'Not found.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
