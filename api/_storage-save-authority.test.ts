@@ -218,6 +218,27 @@ test('Legacy world-history outboxes cannot lose another worker\'s RMW update', a
     }
 });
 
+test('Weekly Boss generation CAS always observes the other worker\'s authoritative spawn', async () => {
+    const key = 'game:weekly-boss-state';
+    const spawnA = { spawnId: 'spawn-a', rewardsDistributed: false };
+    const spawnB = { spawnId: 'spawn-b', rewardsDistributed: false };
+
+    await workerA._pgKvForTest.set(key, spawnA);
+    assert.deepEqual(await workerA._pgKvForTest.get(key), spawnA);
+    const readsBeforeRemoteReset = selectCount.get(key) ?? 0;
+    settleInOtherProcess(key, spawnB);
+
+    assert.deepEqual(
+        await workerA._pgKvForTest.get(key),
+        spawnB,
+        'a phase-3/reset CAS must never reuse the prior process-local spawn',
+    );
+    assert.ok(
+        (selectCount.get(key) ?? 0) > readsBeforeRemoteReset,
+        'Weekly Boss state reads must bypass the process-local pgKv cache',
+    );
+});
+
 test('solo-PvE versions, story bindings, and permanent choices stay authoritative across workers', async () => {
     const authorityKeys = [
         'solo-pve:story-cache-race',

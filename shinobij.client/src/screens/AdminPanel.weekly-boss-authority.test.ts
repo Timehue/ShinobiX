@@ -41,7 +41,7 @@ describe("AdminPanel Weekly Boss authority", () => {
         assert.match(begin, /const operationToken = weeklyBossOperationFence\.begin\(\);[\s\S]*if \(!operationToken\) return null;/);
         assert.match(source, /weeklyBossOperationFence\.syncContext\(\{ adminCredential: adminPw, adminRole \}\);/,
             "credential or role replacements must synchronously retire delayed continuations");
-        assert.match(source, /useLayoutEffect\(\(\) => \{\s*weeklyBossOperationFence\.activate\(\);[\s\S]*return \(\) => weeklyBossOperationFence\.dispose\(\);/,
+        assert.match(source, /useLayoutEffect\(\(\) => \{\s*weeklyBossOperationFence\.activate\(\);[\s\S]*return \(\) => \{[\s\S]*weeklyBossOperationFence\.dispose\(\);[\s\S]*bloodlineEditOperationEpochRef\.current \+= 1;[\s\S]*\};/,
             "layout-synchronous unmount cleanup must retire delayed operation continuations");
 
         const setOverride = sourceBetween("async function setWeeklyBossOverride", "async function clearWeeklyBossOverride");

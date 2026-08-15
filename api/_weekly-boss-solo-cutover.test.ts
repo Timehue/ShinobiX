@@ -5,7 +5,17 @@ import {
     applyWeeklyBossRunDamageReceipt,
     reserveWeeklyBossAttemptReceipt,
     rollbackWeeklyBossAttemptReceipt,
+    weeklyBossSpawnIdentity,
 } from './weekly-boss.js';
+
+test('Weekly Boss spawn identity is explicit for new generations and stable for legacy state', () => {
+    const fields = { weekKey: '2026-W31', aiId: 'oni', startedAt: 123 };
+    assert.equal(weeklyBossSpawnIdentity({ ...fields, spawnId: ' spawn-new ' }), 'spawn-new');
+    const legacy = weeklyBossSpawnIdentity(fields);
+    assert.match(legacy, /^legacy-[a-f0-9]{32}$/);
+    assert.equal(weeklyBossSpawnIdentity(fields), legacy);
+    assert.notEqual(weeklyBossSpawnIdentity({ ...fields, startedAt: 124 }), legacy);
+});
 
 test('Weekly Boss is a one-human/one-AI Solo PvE score attack', () => {
     const api = readFileSync('api/weekly-boss.ts', 'utf8');

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, mergePreservingImages } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
-import { withKvLock } from './_lock.js';
+import { LockContendedError, withKvLock } from './_lock.js';
 import { applyDerivedLevel, type XpCharacter } from './_xp-engine.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { bumpLegacyStats } from './_legacy-track.js';
@@ -79,8 +79,17 @@ export function applyWeeklyBossReward(
     entry: Pick<WeeklyBossRewardEntry, 'name' | 'ryo' | 'gotCore' | 'gotKey'>,
     now = Date.now(),
 ): { character: Record<string, unknown>; alreadyApplied: boolean } {
+    // The event can be administratively respawned, but its economy authority
+    // remains weekly: a replacement generation must never mint a second pool
+    // grant, Core, or Dungeon Key for the same contributor in the ISO week.
     const receiptId = `weeklyboss_${createHash('sha256').update(`${weekKey}:${entry.name}`).digest('hex').slice(0, 32)}`;
-    const fingerprint = `weekly-boss:${weekKey}:${aiId}`;
+    const priorKills = character.weeklyBossKills && typeof character.weeklyBossKills === 'object'
+        ? character.weeklyBossKills as Record<string, unknown>
+        : {};
+    if (Object.prototype.hasOwnProperty.call(priorKills, weekKey)) {
+        return { character, alreadyApplied: true };
+    }
+    const fingerprint = `weekly-boss:${weekKey}`;
     const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
     if (inspected.status === 'replay') return { character, alreadyApplied: true };
     if (inspected.status !== 'fresh') throw new Error(`weekly-boss-receipt-${inspected.status}`);
@@ -106,9 +115,7 @@ export function applyWeeklyBossReward(
         ryo: Math.max(0, Number(character.ryo ?? 0)) + entry.ryo,
         inventory,
         weeklyBossKills: {
-            ...(character.weeklyBossKills && typeof character.weeklyBossKills === 'object'
-                ? character.weeklyBossKills as Record<string, unknown>
-                : {}),
+            ...priorKills,
             [weekKey]: aiId,
         },
     };
@@ -124,6 +131,10 @@ export function applyWeeklyBossReward(
 }
 
 export type WeeklyBossState = {
+    /** Immutable identity for this exact admin spawn. Legacy states without the
+     * field receive a deterministic read-only identity via
+     * weeklyBossSpawnIdentity so reset/distribution CAS remains compatible. */
+    readonly spawnId?: string;
     weekKey: string;
     aiId: string;
     bossName?: string;
@@ -156,6 +167,15 @@ export type WeeklyBossState = {
      * This makes a prepared start resumable without spending a second attempt. */
     attemptRunReceipts?: Record<string, string>;
 };
+
+type WeeklyBossIdentityFields = Pick<WeeklyBossState, 'spawnId' | 'weekKey' | 'aiId' | 'startedAt'>;
+
+export function weeklyBossSpawnIdentity(boss: WeeklyBossIdentityFields): string {
+    const explicit = typeof boss.spawnId === 'string' ? boss.spawnId.trim() : '';
+    if (explicit) return explicit;
+    const legacyIdentity = `${boss.weekKey}\u0000${boss.aiId}\u0000${boss.startedAt}`;
+    return `legacy-${createHash('sha256').update(legacyIdentity).digest('hex').slice(0, 32)}`;
+}
 
 export function reserveWeeklyBossAttemptReceipt(
     boss: WeeklyBossState,
@@ -219,14 +239,14 @@ export function applyWeeklyBossRunDamageReceipt(
     };
 }
 
-function publicWeeklyBossState(boss: WeeklyBossState | null): Omit<WeeklyBossState, 'bankedRunDamage' | 'attemptRunReceipts'> | null {
+function publicWeeklyBossState(boss: WeeklyBossState | null): (Omit<WeeklyBossState, 'bankedRunDamage' | 'attemptRunReceipts'> & { spawnId: string }) | null {
     if (!boss) return null;
     const {
         bankedRunDamage: _privateSettlementReceipts,
         attemptRunReceipts: _privateStartReceipts,
         ...publicState
     } = boss;
-    return publicState;
+    return { ...publicState, spawnId: weeklyBossSpawnIdentity(boss) };
 }
 
 const weeklyBossActiveRunKey = (playerName: string, bossStartedAt: number) =>
@@ -350,7 +370,7 @@ async function pickDefaultBossAi(weekKey: string): Promise<{ aiId: string; bossN
     return { aiId: pick.id, bossName: pick.name };
 }
 
-async function buildFreshBossState(weekKey: string): Promise<WeeklyBossState | null> {
+async function buildFreshBossState(weekKey: string, spawnId: string): Promise<WeeklyBossState | null> {
     // Honor admin override first.
     const overrideId = await kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY);
     let aiId = overrideId ?? '';
@@ -364,6 +384,7 @@ async function buildFreshBossState(weekKey: string): Promise<WeeklyBossState | n
     const hpMax = defaultBossHp(weekKey);
     const startedAt = Date.now();
     return {
+        spawnId,
         weekKey,
         aiId,
         bossName,
@@ -412,12 +433,18 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
     if (boss.rewardsDistributed) return boss;
     if (Date.now() < boss.expiresAt) return boss;
 
+    const distributionSpawnId = weeklyBossSpawnIdentity(boss);
     let summary: WeeklyBossRewardEntry[] | null = null;
     let finalBoss: WeeklyBossState = boss;
 
     // Phase 1 — compute + freeze the summary under the boss-lock (idempotent).
     await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-        const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss;
+        const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+        if (!fresh) return;
+        if (weeklyBossSpawnIdentity(fresh) !== distributionSpawnId) {
+            finalBoss = fresh;
+            return;
+        }
         if (fresh.rewardsDistributed) {
             finalBoss = fresh;
             return;
@@ -482,7 +509,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
     const alreadyCredited = new Set<string>(finalBoss.creditedPlayers ?? []);
     const newlyCredited: string[] = [];
     const weekKey = finalBoss.weekKey;
-    // Era contribution: one felled boss per spawn, exactly once (NX per week).
+    // Era contribution is weekly even if staff replace the active generation.
     try {
         const counted = await kv.set(`era:boss-counted:${weekKey}`, true, { nx: true, ex: 35 * 24 * 60 * 60 });
         if (counted) await bumpEraContribution('bossKills');
@@ -503,7 +530,13 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 // Character XP is retired: contributors receive a flat weekly
                 // stat-pool grant. The helper commits that grant, items, ryo,
                 // and its idempotency receipt in this one player-save write.
-                const applied = applyWeeklyBossReward(freshChar, weekKey, finalBoss.aiId, entry);
+                const applied = applyWeeklyBossReward(
+                    freshChar,
+                    weekKey,
+                    finalBoss.aiId,
+                    entry,
+                    Date.now(),
+                );
                 if (applied.alreadyApplied) return { complete: true, newlyApplied: false };
                 const updated = {
                     ...fresh,
@@ -539,7 +572,12 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
     // concurrent crediting pass.
     if (newlyCredited.length > 0 || !finalBoss.rewardsDistributed) {
         await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-            const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? finalBoss;
+            const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+            if (!fresh) return;
+            if (weeklyBossSpawnIdentity(fresh) !== distributionSpawnId) {
+                finalBoss = fresh;
+                return;
+            }
             const credited = new Set<string>([...(fresh.creditedPlayers ?? []), ...newlyCredited]);
             const summaryNames = (fresh.distributionSummary ?? summary ?? []).map(e => e.name);
             const allDone = summaryNames.every(n => credited.has(n));
@@ -562,6 +600,26 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
 // `save:<name>`; we mirror that target string here.)
 function saveKeyCreditScope(name: string): string {
     return `save:${name}`;
+}
+
+type WeeklyBossResetOutcome =
+    | { kind: 'spawned'; boss: WeeklyBossState }
+    | { kind: 'stale'; boss: WeeklyBossState | null }
+    | { kind: 'distribution-pending'; boss: WeeklyBossState }
+    | { kind: 'unavailable' };
+
+const WEEKLY_BOSS_RESET_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function announceWeeklyBossSpawn(boss: WeeklyBossState): Promise<void> {
+    const spawnId = weeklyBossSpawnIdentity(boss);
+    const delivered = await announce({
+        type: 'weekly_boss',
+        importance: 'high',
+        title: `⚔️ Weekly Boss: ${boss.bossName ?? 'A great enemy'} has appeared!`,
+        message: `${boss.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo, and stat points. Enter the hunt via Central Hub → Weekly Boss.`,
+        meta: { spawnId, aiId: boss.aiId, weekKey: boss.weekKey, expiresAt: boss.expiresAt },
+    }, { receiptId: `weekly-boss-spawn:${spawnId}` });
+    if (!delivered) throw new Error(`Weekly Boss ${spawnId} was committed but its herald is still pending.`);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -644,24 +702,115 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // returns null → the guard 409s → the reset branch is never reached.
             if (kind === 'reset') {
                 if (!isFullAdmin(req)) return res.status(403).json({ error: 'Full admin only.' });
-                const fresh = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
-                    const next = await buildFreshBossState(isoWeekKey());
-                    if (next) await kv.set(WEEKLY_BOSS_STATE_KEY, next);
-                    return next;
-                }, { failClosed: true });
-                if (!fresh) return res.status(409).json({ error: 'No AI available for reset.' });
-                // Herald the spawn server-wide: the world news feed AND a World
-                // Herald line in every village chat (importance 'high' always
-                // lands + broadcasts). Best-effort — announce() never throws into
-                // the spawn. Every weekly-boss spawn heralds the hunt.
-                await announce({
-                    type: 'weekly_boss',
-                    importance: 'high',
-                    title: `⚔️ Weekly Boss: ${fresh.bossName ?? 'A great enemy'} has appeared!`,
-                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo, and stat points. Enter the hunt via Central Hub → Weekly Boss.`,
-                    meta: { aiId: fresh.aiId, weekKey: fresh.weekKey, expiresAt: fresh.expiresAt },
-                });
-                return res.status(200).json({ boss: fresh });
+                const hasExpectedSpawnId = Object.prototype.hasOwnProperty.call(body, 'expectedSpawnId');
+                const expectedRaw = (body as { expectedSpawnId?: unknown }).expectedSpawnId;
+                const requestedRaw = (body as { requestedSpawnId?: unknown }).requestedSpawnId;
+                if (!hasExpectedSpawnId) {
+                    return res.status(400).json({
+                        error: 'Expected Weekly Boss spawn identity is required.',
+                        code: 'weekly-boss-reset-expected-required',
+                    });
+                }
+                const expectedSpawnId = expectedRaw === null
+                    ? null
+                    : (typeof expectedRaw === 'string' && expectedRaw.trim() && expectedRaw.trim().length <= 128
+                        ? expectedRaw.trim()
+                        : undefined);
+                if (expectedSpawnId === undefined) {
+                    return res.status(400).json({
+                        error: 'Invalid expected Weekly Boss spawn identity.',
+                        code: 'weekly-boss-reset-expected-invalid',
+                    });
+                }
+                const requestedSpawnId = typeof requestedRaw === 'string' && WEEKLY_BOSS_RESET_ID_PATTERN.test(requestedRaw.trim())
+                    ? requestedRaw.trim().toLowerCase()
+                    : null;
+                if (!requestedSpawnId) {
+                    return res.status(400).json({
+                        error: 'A valid Weekly Boss reset request identity is required.',
+                        code: 'weekly-boss-reset-request-invalid',
+                    });
+                }
+
+                // Settle an expired generation before attempting replacement.
+                // A stale request never gets to settle or mutate the generation
+                // that replaced the one it observed.
+                const observed = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+                const observedSpawnId = observed ? weeklyBossSpawnIdentity(observed) : null;
+                if (observedSpawnId !== expectedSpawnId && observedSpawnId !== requestedSpawnId) {
+                    return res.status(409).json({
+                        error: 'Weekly Boss changed before reset. Refresh and try again.',
+                        code: 'weekly-boss-reset-stale-generation',
+                        boss: publicWeeklyBossState(observed),
+                    });
+                }
+                if (observed && Date.now() >= observed.expiresAt && !observed.rewardsDistributed) {
+                    try {
+                        await distributeRewardsIfExpired(observed);
+                    } catch (error) {
+                        if (error instanceof LockContendedError) {
+                            return res.status(409).json({
+                                error: 'Weekly Boss distribution is already in progress. Retry shortly.',
+                                code: 'weekly-boss-reset-distribution-in-progress',
+                            });
+                        }
+                        throw error;
+                    }
+                }
+
+                let outcome: WeeklyBossResetOutcome;
+                try {
+                    outcome = await withKvLock<WeeklyBossResetOutcome>(WEEKLY_BOSS_STATE_KEY, async () => {
+                        const current = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
+                        const currentSpawnId = current ? weeklyBossSpawnIdentity(current) : null;
+                        // The requested spawn identity is the durable reset
+                        // receipt. A committed response-loss retry replays the
+                        // exact boss and repairs its idempotent herald before
+                        // considering the now-stale predecessor expectation.
+                        if (current && currentSpawnId === requestedSpawnId) {
+                            await announceWeeklyBossSpawn(current);
+                            return { kind: 'spawned', boss: current };
+                        }
+                        if (currentSpawnId !== expectedSpawnId) return { kind: 'stale', boss: current };
+                        if (current && Date.now() >= current.expiresAt && !current.rewardsDistributed) {
+                            return { kind: 'distribution-pending', boss: current };
+                        }
+                        const next = await buildFreshBossState(isoWeekKey(), requestedSpawnId);
+                        if (!next) return { kind: 'unavailable' };
+                        await kv.set(WEEKLY_BOSS_STATE_KEY, next);
+
+                        // Keep herald ordering inside the same generation lock. A
+                        // competing reset cannot replace this spawn and then let an
+                        // older continuation announce it afterward. The spawn ID is
+                        // also the announcement receipt, making retries idempotent.
+                        await announceWeeklyBossSpawn(next);
+                        return { kind: 'spawned', boss: next };
+                    }, { failClosed: true, ttlSec: 30, maxAttempts: 8 });
+                } catch (error) {
+                    if (error instanceof LockContendedError) {
+                        return res.status(409).json({
+                            error: 'Another Weekly Boss reset is already in progress. Refresh and try again.',
+                            code: 'weekly-boss-reset-in-progress',
+                        });
+                    }
+                    throw error;
+                }
+                if (outcome.kind === 'stale') {
+                    return res.status(409).json({
+                        error: 'Weekly Boss changed before reset. Refresh and try again.',
+                        code: 'weekly-boss-reset-stale-generation',
+                        boss: publicWeeklyBossState(outcome.boss),
+                    });
+                }
+                if (outcome.kind === 'distribution-pending') {
+                    return res.status(409).json({
+                        error: 'Expired Weekly Boss rewards are still pending. Retry after distribution completes.',
+                        code: 'weekly-boss-reset-distribution-pending',
+                        boss: publicWeeklyBossState(outcome.boss),
+                    });
+                }
+                if (outcome.kind === 'unavailable') return res.status(409).json({ error: 'No AI available for reset.' });
+                return res.status(200).json({ boss: publicWeeklyBossState(outcome.boss) });
             }
 
             let boss = await loadOrInitBoss();
