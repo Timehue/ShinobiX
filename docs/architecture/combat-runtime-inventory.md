@@ -50,8 +50,8 @@ boundary distinctions are mandatory:
 
 - Tower covers Battle Towers (solo or party), Tower party admission, Endless
   Spire, Clan Boss, and Tower PvP. Village-war mercenary combat is an explicitly
-  declared headless Tower use. Sector War's Tower-backed garrison fallback is a
-  wrong-owner defect because the rewarding shinobi contest requires PvP.
+  declared headless Tower use. Sector War's former Tower-backed garrison fallback
+  is retired fail-closed and remains an explicit PvP surface gap.
 - `pet-showdown` owns Showdown practice, Coliseum, its ladder mode, and the
   Showdown-backed Sector/Clan War pet modes.
 - `pet-warfront` owns positional Warfront and its ladder/co-op reuse. Standalone

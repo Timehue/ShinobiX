@@ -539,12 +539,11 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'durable-pvp-history-plus-contest-receipt', status: 'match', migrationStatus: 'keep',
     }),
     defineMode({
-        id: 'sector-war-shinobi-garrison', label: 'Sector War shinobi garrison fallback', category: 'shinobi-pvp', authorityEngine: E.TOWER,
+        id: 'sector-war-shinobi-garrison', label: 'Sector War shinobi garrison fallback', category: 'shinobi-pvp', authorityEngine: null,
         intendedAuthorityEngine: E.PVP, orchestrationOwner: O.SECTOR_WAR, capabilityKey: 'villageWar',
-        clientEntries: ['lib/village-war-map.ts'],
-        routes: [mountedRoute('/village/sector-war', 'village/sector-war', ['start', 'settlement'])],
-        participantModel: 'headless', rewardPolicy: 'server-settled', replayKind: 'contest-receipt-only', status: 'defect',
-        statusDetail: 'The Combat victory condition settles territory contribution from a Tower-backed garrison instead of the required PvP owner.',
+        clientEntries: [], routes: [],
+        participantModel: 'headless', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
+        statusDetail: 'The wrong-owner Tower fallback is retired fail-closed. No garrison combat lifecycle is mounted until the PvP domain supplies an authoritative headless design.',
     }),
     defineMode({
         id: 'village-war-mercenary', label: 'Village-War mercenary battle', category: 'tower', authorityEngine: E.TOWER,
