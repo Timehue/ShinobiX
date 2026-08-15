@@ -13,6 +13,7 @@ test("Legacy mutations adopt the authoritative character and save version", () =
     const emissary = source("../components/EmissaryTrialPanel.tsx");
     const panel = source("../screens/LegacyPanel.tsx");
     const world = source("../screens/WorldMap.tsx");
+    const wandererDialog = source("../components/WorldWandererDialog.tsx");
     const profile = source("../screens/Profile.tsx");
     const app = source("../App.tsx");
 
@@ -40,6 +41,11 @@ test("Legacy mutations adopt the authoritative character and save version", () =
 
     assert.match(world, /<SageOfferModal[\s\S]*?onVersionedCharacter=\{onVersionedCharacter\}/);
     assert.match(world, /<EmissaryTrialPanel[\s\S]*?onVersionedCharacter=\{onVersionedCharacter\}/);
+    assert.match(world, /const wandererLegacyTrial = legacyAvailable && character\.legacy && wandererDialogEmissary/);
+    assert.match(world, /legacyTrial=\{wandererLegacyTrial\}/);
+    assert.match(wandererDialog, /\{legacyTrial\}/);
+    assert.doesNotMatch(wandererDialog, /\b(?:EmissaryTrialPanel|onVersionedCharacter|trialComplete)\b/,
+        "the wanderer card must render the projected trial without owning Legacy authority");
     assert.doesNotMatch(world, /onStageUp=/, "WorldMap must not reconstruct a partial Legacy snapshot");
     assert.match(profile, /<LegacyPanel[\s\S]*?key=\{character\.name\.trim\(\)\.toLowerCase\(\)\}[\s\S]*?onVersionedCharacter=\{onVersionedCharacter\}/);
     assert.doesNotMatch(profile, /onLegacyChanged=/, "Profile must not reconstruct a partial Legacy snapshot");
