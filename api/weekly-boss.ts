@@ -433,7 +433,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 xp: 0,
                 gotCore: i < TOP_CORE_COUNT,
                 gotKey: i < TOP_KEY_COUNT,
-                gotRelic: i < TOP_CORE_COUNT && weeklyBossRelicRoll(fresh.weekKey, aiId, name),
+                gotRelic: i < TOP_CORE_COUNT && weeklyBossRelicRoll(fresh.weekKey, fresh.aiId, name),
                 isMvp,
             };
         });

@@ -600,12 +600,17 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     // already exempts it from the legacy 40-AP zero-damage rule, and the only place
     // in the repo that sets it. Two jutsu-only conventions are wrong for a swing:
     //
-    //  1. Heal/Shield/Barrier zero the direct damage. Right for a support jutsu (it
-    //     heals OR hits, never both); catastrophic for a weapon, whose tag is meant
-    //     to ride on TOP of its weaponEp damage. Without the carve-out, a named
-    //     weapon that rolled Heal or Shield (2 of the 12 tags in craft/_named.ts
-    //     WEAPON_TAGS) and the built-in Frostfang Oathblade / Glacier King Cleaver
-    //     (weaponEffect "Shield") swung for literally ZERO, everywhere.
+    //  1. Heal/Shield no longer zero the direct damage at all. A cast that deals
+    //     damage KEEPS it, and the heal/shield rides on top (owner ruling
+    //     2026-08-16). This does not open the 40-AP utility door: a utility cast
+    //     already has scaledEp 0 via isZeroDamageFortyApJutsu
+    //     (combat-core/formulas.ts), so its damage is 0 before this loop runs. What
+    //     it fixes is the 60-AP DAMAGE jutsu and the weapon swing, both of which
+    //     were silently zeroed by their own support tag — the named weapons that
+    //     rolled Heal/Shield (2 of the 12 tags in craft/_named.ts WEAPON_TAGS) and
+    //     the built-in Frostfang Oathblade / Glacier King Cleaver swung for ZERO.
+    //     Barrier is deliberately excluded: it is pure board control, not a payload,
+    //     so it still zeroes the cast.
     //  2. Tag percents ramp with JUTSU MASTERY, and a weapon has none — it is always
     //     mastery 0, a flat −10 points. That silently made every 10%-effect weapon
     //     (the whole common tier) completely inert and halved the rest, while the
@@ -625,9 +630,14 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // (engine tests, NPC payloads) resolve aliases the same way.
         const tagName = normalizeTagName(tag.name);
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
-        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; if (!weaponSwing) damage = 0; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
-        if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; if (!weaponSwing) damage = 0; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
-        if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); if (!weaponSwing) damage = 0; continue; }
+        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
+        if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
+        // Barrier stays a JUTSU-only tag: it drops a wall tile on the board, which
+        // is a cast-time control mechanic, not something a blade does. Owner ruling
+        // 2026-08-16 — no built-in weapon carries it and the forge cannot roll it, so
+        // this exempts nothing today; it is the fail-safe if one ever reaches a swing.
+        // sanitizePvpItems strips it from weapon tags at the seal (the real gate).
+        if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
         if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = pct > 0 ? pct : 6; o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
