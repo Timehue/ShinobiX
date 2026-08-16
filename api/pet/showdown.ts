@@ -91,6 +91,11 @@ const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 // since combat-settle.ts reads whichever path minted it.
 const HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
+// The pools a SPARRING bout rolls between. All three, deliberately: the point
+// of the drill is meeting opposition you did not pick, and a scrapper draw is
+// as instructive as a champion one when both stand at your own pets' levels.
+const SPARRING_TIERS: readonly ShowdownTier[] = ['scrapper', 'warrior', 'champion'];
+
 const sessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
 const paidReceiptKey = (playerName: string, receipt: string) => `pet:battle-paid:${playerName}:${receipt}`;
 
@@ -301,7 +306,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'start') {
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-start', 20, 60_000, identity.name))) return;
             const format: ShowdownFormat = body.format === '2v2' ? '2v2' : body.format === '3v3' ? '3v3' : '1v1';
-            const tier: ShowdownTier = body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
+            /*
+             * SPARRING — the practice door's default, and the answer to "give me
+             * a fight right now that is worth practising against".
+             *
+             * The player is not choosing an opponent, they are asking the arena
+             * for one, so the two things a chosen tier decides are decided HERE
+             * instead: the tier is ROLLED (the opposition varies bout to bout,
+             * across all three rarity pools) and the AI is levelled slot-for-slot
+             * against the team brought rather than to its average.
+             *
+             * Reading this flag off the body is safe in a way `body.tier` on the
+             * arena entry is not: this entry seals rewardEligible FALSE
+             * unconditionally below, so nothing a caller can say here reaches a
+             * payout. All it can steer is its own practice.
+             */
+            const sparring = body.sparring === true;
+            const tier: ShowdownTier = sparring
+                ? SPARRING_TIERS[randomInt(0, SPARRING_TIERS.length)]
+                : body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
             const size = SHOWDOWN_FORMAT_SIZE[format];
             // Team = field + bench, and the bench is the same size in every
             // format (SHOWDOWN_BENCH_SIZE). The first `size` ids start on the
@@ -332,8 +355,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (busyIssue) return res.status(409).json({ error: busyIssue });
 
             const seed = randomInt(1, 0x7fffffff);
-            // The AI fields a team the same SIZE as the player's (bench parity).
-            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed);
+            // The AI fields a team the same SIZE as the player's (bench parity),
+            // and in a sparring bout at the same LEVELS, pet for pet.
+            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed, { mirrorLevels: sparring });
             if (enemyPets.length !== chosen.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
             const sessionId = randomUUID().replace(/-/g, '');
             const session = createShowdownSession({

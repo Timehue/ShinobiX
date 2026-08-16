@@ -70,6 +70,29 @@
 .showdown-choice-label { font-weight: 700; }
 .showdown-choice-blurb { font-size: 0.78rem; color: #b9a583; }
 
+/* Sparring is the recommended draw, so it reads as one before it is picked —
+   a cool cast against the warm tier cards rather than a fourth of the same. */
+.showdown-choice.featured {
+    flex-basis: 100%;
+    border-color: rgba(96, 165, 250, 0.42);
+    background: linear-gradient(120deg, rgba(23, 40, 68, 0.92), rgba(30, 22, 14, 0.86));
+}
+.showdown-choice.featured:hover { border-color: rgba(125, 211, 252, 0.7); }
+.showdown-choice.featured.active {
+    border-color: #7dd3fc;
+    background: linear-gradient(120deg, rgba(30, 58, 96, 0.95), rgba(40, 30, 18, 0.9));
+    box-shadow: 0 0 16px rgba(125, 211, 252, 0.28);
+}
+
+.showdown-choice-note {
+    margin: 8px 0 0;
+    padding-left: 10px;
+    border-left: 2px solid rgba(125, 211, 252, 0.45);
+    color: #9fb4cc;
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
 .showdown-roster {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));

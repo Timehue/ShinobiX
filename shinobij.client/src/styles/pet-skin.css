@@ -728,11 +728,18 @@
     box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), 0 6px 18px rgba(0,0,0,0.5);
     margin-bottom: 12px;
 }
+/* Two washes, not one: the vertical ramp lifts the copy off the painting, the
+   horizontal one keeps the left column readable whatever the element art puts
+   behind it. The hairline at the top is the gold frame every other plate on
+   this screen carries. */
 .pet-arena-screen .pet-arena-hero::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(6,10,22,0.12) 0%, rgba(6,10,22,0.5) 52%, rgba(6,10,22,0.93) 100%);
+    background:
+        linear-gradient(90deg, rgba(6,10,22,0.72) 0%, rgba(6,10,22,0.28) 42%, transparent 72%),
+        linear-gradient(180deg, rgba(6,10,22,0.12) 0%, rgba(6,10,22,0.5) 52%, rgba(6,10,22,0.93) 100%);
+    box-shadow: inset 0 1px 0 rgba(196,162,90,0.35);
     pointer-events: none;
 }
 .pet-arena-screen .pet-arena-hero > * {
@@ -963,13 +970,50 @@
 .pet-arena-screen .pet-online-dot.on  { background: var(--success); box-shadow: 0 0 6px rgba(34,197,94,0.7); }
 .pet-arena-screen .pet-online-dot.off { background: var(--slate-600); }
 .pet-arena-screen .pet-arena-tips {
-    display: grid; gap: 5px;
-    margin-top: 10px; padding: 10px;
-    border-radius: 8px;
-    background: rgba(0,0,0,0.22);
-    border: 1px dashed var(--bsv2-gold-faint);
-    font: 400 11px Inter, sans-serif !important;
-    color: #b9c2d0; line-height: 1.45;
+    display: grid; gap: 7px;
+    margin-top: 10px; padding: 12px 13px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.3), rgba(0,0,0,0.16));
+    border: 1px solid var(--bsv2-gold-faint);
+    border-left: 2px solid var(--bsv2-gold-soft);
+    font: 400 11.5px Inter, sans-serif !important;
+    color: #b9c2d0; line-height: 1.5;
+}
+.pet-arena-screen .pet-arena-tips > div {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+/* Panel headings get a gold rule so the two columns read as engraved plates
+   rather than two <h3>s floating on a box. */
+.pet-arena-screen .pet-arena-selector > h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 10px;
+    color: var(--bsv2-gold-bright) !important;
+    font: 600 12px var(--font-display), Inter, sans-serif !important;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+}
+.pet-arena-screen .pet-arena-selector > h3::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--bsv2-gold-soft), transparent);
+}
+
+/* The post-duel verdict line. It used to borrow the entry-door class; now that
+   those are a grid of cards it needs its own centring. */
+.pet-arena-screen .pet-arena-verdict {
+    justify-content: center;
+    margin: 12px 0;
+}
+.pet-arena-screen .pet-arena-verdict strong {
+    font: 700 20px var(--font-display), Inter, sans-serif;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
 }
 .pet-arena-screen .pet-pick-meta {
     font: 500 10px Inter, sans-serif !important;
@@ -992,145 +1036,287 @@
     box-shadow: 0 2px 7px rgba(0,0,0,0.55);
 }
 
-/* Pet Coliseum fight card: entering the flagship duel should feel like accepting
-   a billed match, not submitting a generic form. */
+/* ===== The Coliseum doors ==============================================
+ *
+ * Two ways into the same engine, so they are two matched CARDS rather than two
+ * buttons: an entrance you walk through, with the terms of the fight printed on
+ * it. They used to inherit the styling of a `.pet-coliseum-fight-card` grid that
+ * no longer renders — square-cornered orange slabs, ragged widths, a subtitle at
+ * 0.58rem/900/uppercase that nobody could read — which is what this replaces.
+ *
+ * Colour carries the meaning and nothing else has to: GOLD is the paid arena,
+ * STEEL BLUE is free sparring, the same two colours this screen already uses for
+ * the purse and for the player.
+ */
 .pet-arena-screen .pet-coliseum-entry {
-    display: block;
-    margin-top: 0.75rem;
-}
-
-.pet-arena-screen .pet-coliseum-fight-card {
-    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(180px, 0.72fr);
-    align-items: stretch;
-    gap: 0;
-    overflow: hidden;
-    width: 100%;
-    border: 1px solid rgba(251, 191, 36, 0.46);
-    border-radius: 16px;
-    background:
-        radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.12), transparent 40%),
-        linear-gradient(135deg, rgba(8, 16, 34, 0.98), rgba(20, 14, 18, 0.98));
-    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36), inset 0 1px rgba(255, 255, 255, 0.05);
-}
-
-.pet-arena-screen .pet-coliseum-contender {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    justify-content: center;
-    padding: 0.9rem 1rem;
-}
-
-.pet-arena-screen .pet-coliseum-contender.player {
-    border-left: 3px solid #60a5fa;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), transparent);
-}
-
-.pet-arena-screen .pet-coliseum-contender.enemy {
-    align-items: flex-end;
-    border-right: 3px solid #f87171;
-    background: linear-gradient(270deg, rgba(248, 113, 113, 0.12), transparent);
-    text-align: right;
-}
-
-.pet-arena-screen .pet-coliseum-contender strong {
-    overflow: hidden;
-    color: #f8fafc;
-    font: 900 clamp(1rem, 2vw, 1.35rem)/1.1 var(--font-display), Inter, sans-serif;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pet-arena-screen .pet-coliseum-contender > span:last-child {
-    margin-top: 0.3rem;
-    color: #94a3b8;
-    font: 700 0.72rem/1 Inter, sans-serif;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.pet-arena-screen .pet-coliseum-kicker {
-    margin-bottom: 0.36rem;
-    color: #fbbf24;
-    font: 900 0.58rem/1 Inter, sans-serif;
-    letter-spacing: 0.17em;
-    text-transform: uppercase;
-}
-
-.pet-arena-screen .pet-coliseum-versus {
-    display: grid;
-    min-width: 72px;
-    place-content: center;
-    text-align: center;
-}
-
-.pet-arena-screen .pet-coliseum-versus span,
-.pet-arena-screen .pet-coliseum-versus small {
-    color: #94a3b8;
-    font: 800 0.55rem/1 Inter, sans-serif;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
-
-.pet-arena-screen .pet-coliseum-versus strong {
-    margin: 0.28rem 0;
-    color: #fff;
-    font: 900 1.6rem/1 var(--font-display), Inter, sans-serif;
-    text-shadow: 0 0 16px rgba(251, 191, 36, 0.68);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+    margin: 0.75rem 0 12px;
 }
 
 .pet-arena-screen button.pet-coliseum-enter {
-    display: flex;
-    min-height: 78px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-left: 1px solid rgba(251, 191, 36, 0.35);
-    border-radius: 0;
-    background: linear-gradient(135deg, #b45309, #e17b12);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.22);
-    color: #fff7ed;
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+        "glyph eyebrow"
+        "glyph title"
+        "sub   sub"
+        "meta  meta";
+    align-content: start;
+    gap: 2px 14px;
+    overflow: hidden;
+    isolation: isolate;
+    padding: 16px 18px 14px;
+    border: 1px solid var(--door-edge, rgba(251, 191, 36, 0.42));
+    border-radius: 14px;
+    background:
+        radial-gradient(120% 90% at 12% 0%, var(--door-wash, rgba(251, 191, 36, 0.16)), transparent 62%),
+        linear-gradient(168deg, rgba(18, 26, 44, 0.96), rgba(8, 12, 24, 0.98));
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.06);
+    color: #e8edf5;
     cursor: pointer;
-    font: 900 0.9rem/1 var(--font-display), Inter, sans-serif;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    transition: filter 120ms ease, transform 120ms ease;
+    text-align: left;
+    transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+/* The accent rail — the one piece that reads instantly at a glance. */
+.pet-arena-screen button.pet-coliseum-enter::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--door-rail, #fbbf24);
+    box-shadow: 0 0 14px var(--door-wash, rgba(251, 191, 36, 0.4));
+}
+
+/* A slow sheen that only crosses on hover. Pure decoration, so it is skipped
+   entirely for anyone who asked for less motion (below). */
+.pet-arena-screen button.pet-coliseum-enter::after {
+    content: "";
+    position: absolute;
+    inset: -40% -60%;
+    z-index: -1;
+    background: linear-gradient(104deg, transparent 42%, rgba(255, 255, 255, 0.09) 50%, transparent 58%);
+    opacity: 0;
+    transform: translateX(-34%);
+    transition: opacity 220ms ease, transform 620ms ease;
+    pointer-events: none;
+}
+
+.pet-arena-screen button.pet-coliseum-enter[data-door="arena"] {
+    --door-rail: #fbbf24;
+    --door-edge: rgba(251, 191, 36, 0.42);
+    --door-wash: rgba(251, 191, 36, 0.16);
+    --door-ink: #f5d68a;
+}
+
+.pet-arena-screen button.pet-coliseum-enter[data-door="training"] {
+    --door-rail: #60a5fa;
+    --door-edge: rgba(96, 165, 250, 0.4);
+    --door-wash: rgba(96, 165, 250, 0.15);
+    --door-ink: #9ec9ff;
 }
 
 .pet-arena-screen button.pet-coliseum-enter:hover {
-    filter: brightness(1.14) saturate(1.1);
+    transform: translateY(-3px);
+    border-color: var(--door-rail);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--door-wash), inset 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.pet-arena-screen button.pet-coliseum-enter:hover::after {
+    opacity: 1;
+    transform: translateX(34%);
+}
+
+.pet-arena-screen button.pet-coliseum-enter:focus-visible {
+    outline: 2px solid var(--door-rail);
+    outline-offset: 3px;
 }
 
 .pet-arena-screen button.pet-coliseum-enter:active {
-    transform: translateY(2px) scale(0.985);
-    filter: brightness(0.94);
+    transform: translateY(0) scale(0.995);
 }
 
-.pet-arena-screen button.pet-coliseum-enter small {
-    margin-top: 0.35rem;
-    opacity: 0.76;
-    font: 800 0.58rem/1 Inter, sans-serif;
-    letter-spacing: 0.1em;
+.pet-arena-screen .pet-coliseum-enter .door-glyph {
+    grid-area: glyph;
+    align-self: center;
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border: 1px solid var(--door-edge);
+    border-radius: 12px;
+    background: radial-gradient(circle at 50% 30%, var(--door-wash), rgba(0, 0, 0, 0.45));
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.pet-arena-screen .pet-coliseum-enter .door-eyebrow {
+    grid-area: eyebrow;
+    align-self: end;
+    color: var(--door-ink);
+    font: 700 9px Inter, sans-serif;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.pet-arena-screen .pet-coliseum-enter .door-title {
+    grid-area: title;
+    align-self: start;
+    color: #f6f9ff;
+    font: 700 17px var(--font-display), Inter, sans-serif;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Sentence case, Inter, 12px: this is the line that tells you what the fight
+   costs and what it pays, so it is set to be READ, not to look loud. */
+.pet-arena-screen .pet-coliseum-enter .door-sub {
+    grid-area: sub;
+    margin-top: 10px;
+    color: #b9c2d0;
+    font: 400 12px/1.5 Inter, sans-serif;
+    letter-spacing: 0.01em;
+    text-transform: none;
+}
+
+.pet-arena-screen .pet-coliseum-enter .door-meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 11px;
+}
+
+.pet-arena-screen .pet-coliseum-enter .door-meta em {
+    padding: 3px 9px;
+    border: 1px solid var(--door-edge);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--door-ink);
+    font: 600 9.5px Inter, sans-serif;
+    font-style: normal;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
 }
 
 @media (max-width: 760px) {
-    .pet-arena-screen .pet-coliseum-fight-card {
-        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    }
-
     .pet-arena-screen button.pet-coliseum-enter {
-        grid-column: 1 / -1;
-        min-height: 62px;
-        border-top: 1px solid rgba(251, 191, 36, 0.35);
-        border-left: 0;
+        padding: 14px 14px 12px;
     }
 
-    .pet-arena-screen .pet-coliseum-contender {
-        padding: 0.78rem 0.65rem;
+    .pet-arena-screen .pet-coliseum-enter .door-glyph {
+        width: 38px;
+        height: 38px;
+        font-size: 1.1rem;
     }
+
+    .pet-arena-screen .pet-coliseum-enter .door-title {
+        font-size: 15px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-arena-screen button.pet-coliseum-enter,
+    .pet-arena-screen button.pet-coliseum-enter::after {
+        transition: none;
+    }
+
+    .pet-arena-screen button.pet-coliseum-enter:hover {
+        transform: none;
+    }
+
+    .pet-arena-screen button.pet-coliseum-enter:hover::after {
+        opacity: 0;
+    }
+}
+
+/* ----- 2v2 party toggle ----- */
+.pet-arena-screen .pet-arena-party {
+    margin-top: 0.4rem;
+    transition: border-color 140ms ease;
+}
+
+.pet-arena-screen .pet-arena-party[data-on="true"] {
+    border-left-color: var(--bsv2-gold-bright) !important;
+}
+
+.pet-arena-screen .pet-arena-party-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+/* The native box is kept for keyboard and screen readers and drawn over — the
+   default dark-on-dark checkbox was invisible against this panel. */
+.pet-arena-screen .pet-arena-party-toggle input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.pet-arena-screen .pet-arena-party-box {
+    display: grid;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border: 2px solid var(--bsv2-gold-faint);
+    border-radius: 7px;
+    background: linear-gradient(180deg, rgba(20, 28, 46, 0.9), rgba(9, 14, 27, 0.94));
+    transition: border-color 140ms ease, background 140ms ease;
+}
+
+.pet-arena-screen .pet-arena-party-box::after {
+    content: "✓";
+    color: #04161c;
+    font: 800 15px/1 Inter, sans-serif;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.pet-arena-screen .pet-arena-party-toggle input:checked ~ .pet-arena-party-box {
+    border-color: var(--bsv2-gold-bright);
+    background: linear-gradient(180deg, #f3d692, #c4a25a);
+}
+
+.pet-arena-screen .pet-arena-party-toggle input:checked ~ .pet-arena-party-box::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.pet-arena-screen .pet-arena-party-toggle input:focus-visible ~ .pet-arena-party-box {
+    outline: 2px solid var(--bsv2-player);
+    outline-offset: 2px;
+}
+
+.pet-arena-screen .pet-arena-party-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pet-arena-screen .pet-arena-party-copy strong {
+    color: var(--bsv2-gold-bright);
+    font: 600 12px var(--font-display), Inter, sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* The screen-wide `.hint` rule is `!important` gold-on-dark, which reads as a
+   warning next to the gold heading directly above it. This line is supporting
+   copy, so it takes the neutral body colour — matched in weight, hence the
+   matching !important. */
+.pet-arena-screen .pet-arena-party-copy .hint {
+    margin: 0;
+    color: #93a0b4 !important;
+    font: 400 11.5px/1.45 Inter, sans-serif !important;
 }
 
 /* ----- Modal overlay (e.g. pet yard popups) ----- */

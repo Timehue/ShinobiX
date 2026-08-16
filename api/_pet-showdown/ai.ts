@@ -86,22 +86,39 @@ export const SHOWDOWN_TEAM_NAMES: Record<ShowdownTier, string[]> = {
     champion: ['The Apex Court', 'Mythwoven Chosen', 'Sovereign Talons'],
 };
 
-/** Build an AI team from the live catalog, scaled to the player's pets. */
+/** Build an AI team from the live catalog, scaled to the player's pets.
+ *
+ *  `opts.mirrorLevels` is the SPARRING levelling rule. By default the whole AI
+ *  team stands at the player team's AVERAGE level, which is the right shape for
+ *  a tier the player chose and for the arena's paid bout — one opposition, one
+ *  difficulty. Sparring is a drill against your own roster, so there the AI is
+ *  levelled slot-for-slot instead: your Lv 9 leads against a Lv 9, your Lv 1
+ *  reserve against a Lv 1. Averaging would hand a lopsided roster a fight its
+ *  low pets cannot practise in and its high pets cannot learn from. */
 export function buildShowdownAiTeam(
     playerPets: Pet[],
     size: number,
     tier: ShowdownTier,
     seed: number,
+    opts?: { mirrorLevels?: boolean },
 ): { pets: Pet[]; teamName: string } {
     const rand = makeRand(seed);
-    const avgLevel = Math.max(1, Math.min(100, Math.round(
+    const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.round(n)));
+    const avgLevel = clampLevel(
         playerPets.reduce((sum, p) => sum + (Number(p.level) || 1), 0) / Math.max(1, playerPets.length),
-    )));
+    );
+    // Slot alignment is exact: every caller builds `size === playerPets.length`
+    // (field + bench parity), so slot N faces slot N. A slot with no player pet
+    // behind it — or a level the save cannot answer for — falls back to the
+    // average, which is what the non-mirrored path uses throughout.
+    const levelAt = (slot: number): number => (opts?.mirrorLevels
+        ? clampLevel(Number(playerPets[slot]?.level) || avgLevel)
+        : avgLevel);
     const rarities = new Set(TIER_RARITIES[tier]);
     const pool = Object.values(PET_CATALOG).filter((tpl) =>
         rarities.has(String(tpl.rarity)) && tpl.wildSpawnable !== false && Array.isArray(tpl.jutsus));
 
-    const growth = 1 + (avgLevel - 1) * 0.04 * TIER_GROWTH_SHARE[tier];
+    const growthAt = (level: number): number => 1 + (level - 1) * 0.04 * TIER_GROWTH_SHARE[tier];
     const picked: Pet[] = [];
     const usedElements = new Set<string>();
     /*
@@ -116,22 +133,26 @@ export function buildShowdownAiTeam(
      * lever. A template that ships its own trait is overwritten either way, so
      * a scrapper cannot leak one.
      */
-    const outfit = (tpl: Record<string, unknown>, slot: number): Pet => ({
-        ...(tpl as unknown as Pet),
-        id: `showdown-ai-${slot}-${String(tpl.id)}`,
-        templateId: String(tpl.id),
-        level: avgLevel,
-        hp: Math.round(Number(tpl.hp) * growth),
-        attack: Math.round(Number(tpl.attack) * growth),
-        defense: Math.round(Number(tpl.defense) * growth),
-        speed: Math.round(Number(tpl.speed) * growth),
-        trait: TIER_GIVES_TRAIT[tier] && AI_TRAIT_POOL.length
-            ? AI_TRAIT_POOL[Math.floor(rand() * AI_TRAIT_POOL.length)]
-            : undefined,
-        ...(TIER_GIVES_GEAR[tier] && AI_GEAR_POOL.length
-            ? { loadout: { pvp: AI_GEAR_POOL[Math.floor(rand() * AI_GEAR_POOL.length)].id } }
-            : {}),
-    });
+    const outfit = (tpl: Record<string, unknown>, slot: number): Pet => {
+        const level = levelAt(slot);
+        const growth = growthAt(level);
+        return {
+            ...(tpl as unknown as Pet),
+            id: `showdown-ai-${slot}-${String(tpl.id)}`,
+            templateId: String(tpl.id),
+            level,
+            hp: Math.round(Number(tpl.hp) * growth),
+            attack: Math.round(Number(tpl.attack) * growth),
+            defense: Math.round(Number(tpl.defense) * growth),
+            speed: Math.round(Number(tpl.speed) * growth),
+            trait: TIER_GIVES_TRAIT[tier] && AI_TRAIT_POOL.length
+                ? AI_TRAIT_POOL[Math.floor(rand() * AI_TRAIT_POOL.length)]
+                : undefined,
+            ...(TIER_GIVES_GEAR[tier] && AI_GEAR_POOL.length
+                ? { loadout: { pvp: AI_GEAR_POOL[Math.floor(rand() * AI_GEAR_POOL.length)].id } }
+                : {}),
+        };
+    };
     // Fisher–Yates with the seeded sampler — a rand() sort comparator is not a
     // deterministic shuffle across engines.
     const shuffled = [...pool];

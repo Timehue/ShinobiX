@@ -1715,12 +1715,15 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             </div>
 
             {combatEligiblePets.length >= 2 && (
-                <div className="summary-box" style={{ marginTop: "0.4rem" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                <div className="summary-box pet-arena-party" data-on={partyMode ? "true" : "false"}>
+                    <label className="pet-arena-party-toggle">
                         <input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} />
-                        <strong>🐾🐾 2v2 Party Battle</strong>
-                        <span className="hint" style={{ marginLeft: "auto", fontSize: "0.85rem" }}>
-                            Challenges the target to a 2v2. They need 2 pets too — otherwise it falls back to 1v1.
+                        <span className="pet-arena-party-box" aria-hidden="true" />
+                        <span className="pet-arena-party-copy">
+                            <strong>🐾🐾 2v2 Party Battle</strong>
+                            <span className="hint">
+                                Challenges the target to a 2v2. They need 2 pets too — otherwise it falls back to 1v1.
+                            </span>
                         </span>
                     </label>
                     {partyMode && (
@@ -1749,18 +1752,34 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             {/* THE COLISEUM. One mode, two doors:
                   • the Coliseum bout — the arena matches you, the daily win cap
                     applies, and a win pays. This is the reward loop.
-                  • Training Grounds — pick your own tier and fight without
-                    limit. Sparring: it pays nothing and moves no counters.
+                  • Training Grounds — sparring, and unlimited. By default the
+                    arena draws a RANDOM team levelled pet-for-pet against the
+                    one you bring, so a practice fight is always available and
+                    always winnable-but-not-free; naming a tier instead is still
+                    there for drilling one matchup. It pays nothing and moves no
+                    counters either way.
                 Both run the same turn-based engine; the difference is who
                 chooses the fight and whether it pays. */}
-            <div className="menu pet-coliseum-entry" style={{ marginBottom: 12 }}>
-                <button className="pet-coliseum-enter" onClick={() => setScreen("petColiseum")}>
-                    <span>🏟️ Enter the Coliseum</span>
-                    <small>The arena picks your challenger and the purse is real — cinematic turn-based 1v1 · 2v2 · 3v3, up to {SHOWDOWN_DAILY_WIN_CAP} paid wins a day.</small>
+            <div className="pet-coliseum-entry">
+                <button type="button" className="pet-coliseum-enter" data-door="arena" onClick={() => setScreen("petColiseum")}>
+                    <span className="door-glyph" aria-hidden="true">🏟️</span>
+                    <span className="door-eyebrow">The purse is real</span>
+                    <span className="door-title">Enter the Coliseum</span>
+                    <span className="door-sub">The arena picks your challenger and scales it to the squad you bring. Cinematic turn-based combat, and a win pays.</span>
+                    <span className="door-meta">
+                        <em>1v1 · 2v2 · 3v3</em>
+                        <em>{SHOWDOWN_DAILY_WIN_CAP} paid wins a day</em>
+                    </span>
                 </button>
-                <button className="pet-coliseum-enter" onClick={() => setScreen("petShowdown")}>
-                    <span>🥋 Training Grounds</span>
-                    <small>Choose your own opposition and drill as long as you like. No purse, no limit.</small>
+                <button type="button" className="pet-coliseum-enter" data-door="training" onClick={() => setScreen("petShowdown")}>
+                    <span className="door-glyph" aria-hidden="true">🥋</span>
+                    <span className="door-eyebrow">Free sparring</span>
+                    <span className="door-title">Training Grounds</span>
+                    <span className="door-sub">Spar a random AI team drawn fresh each bout and stood at your own pets' levels, pet for pet — or name a tier and drill it.</span>
+                    <span className="door-meta">
+                        <em>Level-matched</em>
+                        <em>No purse, no limit</em>
+                    </span>
                 </button>
             </div>
 
@@ -1769,7 +1788,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 shared engine instead, so there is nothing left to pick: a duel
                 arrives when a player accepts your challenge. */}
             {battleReady && result && (
-                <div className="menu pet-coliseum-entry">
+                <div className="menu pet-arena-verdict">
                     <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>
                 </div>
             )}
