@@ -18,7 +18,11 @@ export type WandererQuestMetric =
     | "totalAiKills"
     | "totalPetWins"
     | "cardClashWins"
-    | "totalTilesExplored";
+    | "totalTilesExplored"
+    // Distinct biomes walked since the quest was accepted (api/world/_explore.ts
+    // withRelicSurveyProgress). A SET expressed as its length, so the ordinary
+    // baseline+target completion check reads it with no survey-specific branch.
+    | "relicSurveyCount";
 
 export interface WandererQuestDef {
     metric: WandererQuestMetric;
@@ -37,6 +41,11 @@ export const WANDERER_QUESTS: Record<string, WandererQuestDef> = {
     "wq-highroller": { metric: "cardClashWins",      target: 4,  weight: 4 },
     "wq-scout":      { metric: "totalTilesExplored", target: 10, weight: 3 },
     "wq-trailblaze": { metric: "totalTilesExplored", target: 25, weight: 6 },
+    // The relic survey — the game's only in-world explanation of where relics come
+    // from. Target 5 = one tile in each of the five countries; accepting RESETS the
+    // set (see RESET_ON_ACCEPT_METRICS) so a well-travelled player starts the
+    // survey fresh rather than completing it instantly.
+    "wq-relic-survey": { metric: "relicSurveyCount", target: 5, weight: 5 },
     // Legacy Emissary mini-quests (client mirror: lib/legacy-emissaries.ts).
     // Same metrics, same reward band — flavored errands, not a new economy.
     "eq-storm-conduits":      { metric: "totalAiKills",       target: 8,  weight: 8 },
@@ -55,6 +64,19 @@ export const WANDERER_QUESTS: Record<string, WandererQuestDef> = {
     "eq-lantern-watch":       { metric: "totalAiKills",       target: 6,  weight: 6 },
     "eq-mapless-edges":       { metric: "totalTilesExplored", target: 25, weight: 6 },
     "eq-mapless-companions":  { metric: "totalPetWins",       target: 3,  weight: 6 },
+};
+
+/**
+ * Metrics whose counter is a survey rather than a lifetime total: accepting the
+ * quest zeroes them, so progress always measures work done AFTER the errand was
+ * taken. Without this a player who had already walked all five countries would
+ * complete the survey the instant they accepted it.
+ */
+export const RESET_ON_ACCEPT_METRICS: ReadonlySet<WandererQuestMetric> = new Set(['relicSurveyCount']);
+
+/** The character fields a reset-on-accept metric clears, alongside the counter. */
+export const SURVEY_RESET_FIELDS: Readonly<Record<string, readonly string[]>> = {
+    relicSurveyCount: ['relicSurvey'],
 };
 
 export function isWandererQuestId(id: string): boolean {

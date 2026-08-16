@@ -274,17 +274,30 @@ export function ampTagCapForRank(rank?: string | null): number {
     return 30;
 }
 
+/**
+ * Amp-tag ceiling for a WEAPON SWING. A weapon has no bloodline rank, so
+ * ampTagCapForRank would floor it at the no-bloodline 30 — but mythic weapons are
+ * authored with 35% effects BY DESIGN (Ashen Dragon Katana / Eclipse Fang Dagger /
+ * Void-Leech Nodachi / Worldsplitter Katana all carry 35), and that 30 silently
+ * shaved them to 30. Owner ruling 2026-08-16: a weapon answers to 35, the same
+ * ceiling an A/B-rank bloodline gets. Forged named weapons roll 35–40 on a
+ * single-tag result and are clamped here to 35 — a crafted weapon can MATCH the
+ * best built-in mythic, never beat it (see the balanced-PvP pillar).
+ */
+export const WEAPON_AMP_TAG_CAP = 35;
+
 export function scaledTagPercent(
     rawPct: number,
     masteryLevel: number,
     tagName?: string,
     bloodlineRank?: string | null,
     cappedTagNames?: ReadonlySet<string>,
+    capOverride?: number,
 ): number {
     const raw = rawPct > 0 ? rawPct : 30;
     const levelScaled = Math.max(0, raw - (50 - masteryLevel) * 0.2);
     if (tagName && cappedTagNames?.has(tagName)) {
-        return Math.min(levelScaled, ampTagCapForRank(bloodlineRank));
+        return Math.min(levelScaled, capOverride ?? ampTagCapForRank(bloodlineRank));
     }
     return levelScaled;
 }

@@ -29,7 +29,7 @@ import {
     normalizeEquipmentSlot,
 } from "../lib/equipment";
 import { getCharacterElements, hasCharacterElement } from "../lib/elements";
-import { ELEMENTAL_CORE_ID } from "../constants/game";
+import { AURA_SPHERE_ITEM_ID, ELEMENTAL_CORE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { getChronicleCard } from "../lib/chronicle-duel";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
@@ -220,6 +220,10 @@ export function Inventory({
         { label: "Waist", equipmentSlot: "waist", accepts: "waist", className: "slot-waist" },
         { label: "Gloves", equipmentSlot: "gloves", accepts: "gloves", className: "slot-right-hand" },
         { label: "Item 3", equipmentSlot: "item3", accepts: "item3", className: "slot-right-item-2" },
+        // Relic sits in the free left-column position on the Legs row. Story
+        // keepsakes and trinkets live here so they stop evicting the Aura Sphere,
+        // which now has the Aura slot to itself.
+        { label: "Relic", equipmentSlot: "relic", accepts: "relic", className: "slot-relic" },
         { label: "Legs", equipmentSlot: "legs", accepts: "legs", className: "slot-legs" },
         { label: "Potion", equipmentSlot: "potion", accepts: "potion", className: "slot-left-item-3" },
         { label: "Feet", equipmentSlot: "feet", accepts: "feet", className: "slot-feet" },
@@ -263,6 +267,15 @@ export function Inventory({
         // Gloves route to the dedicated "gloves" slot so they no longer evict
         // (or get evicted by) the weapon on the shared "hand" slot.
         const slot = equipSlotForItem(item);
+        // The Aura slot is the Aura Sphere's alone — it is the one
+        // forever-improving keystone and its perks key off being equipped.
+        // Keepsakes and trinkets go in the Relic slot. The save endpoint enforces
+        // this server-side too (api/save/[name].ts); this is the friendly stop so
+        // the UI never offers an equip the server would silently drop.
+        if (slot === "aura" && item.id !== AURA_SPHERE_ITEM_ID) {
+            alert(`The Aura slot is reserved for the Aura Sphere. ${item.name} equips to the Relic slot.`);
+            return;
+        }
         const previousEquipped = equippedIdForSlot(slot);
         // Combat consumables: selecting one neither drains the stack nor evicts
         // a previous pick back to it (nothing was consumed at equip). Other

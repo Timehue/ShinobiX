@@ -32,7 +32,7 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, relicSurveyWalkthrough, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -4634,7 +4634,16 @@ export function WorldMap({
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Progress: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[metric]}</p>
+                                                        <p style={{ fontSize: ".8rem", margin: "0 0 6px" }}>Progress: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[metric]}</p>
+                                                        {metric === "relicSurveyCount" && (
+                                                            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 10px", fontSize: ".72rem", textAlign: "left", display: "inline-block" }}>
+                                                                {relicSurveyWalkthrough(character.relicSurvey).map((step) => (
+                                                                    <li key={step.biome} style={{ color: step.done ? "#86efac" : "var(--slate-300)", margin: "2px 0" }}>
+                                                                        {step.done ? "✓" : "•"} {step.label} — <span style={{ opacity: .8 }}>{step.relic}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
                                                         <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2", marginRight: 8 }}>Abandon</button>
                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
                                                     </>
@@ -4644,7 +4653,8 @@ export function WorldMap({
                                             const offer = epicForWanderer(wandererDialog.w.id, character.level, { atWar: activeVillageWarsFor(character.village).length > 0, hasRivalry: !!character.wandererNemesis });
                                             return (
                                                 <>
-                                                    <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
+                                                    <p style={{ fontSize: ".8rem", margin: "0 0 6px" }}>Task: {def.label}</p>
+                                                    {def.brief && <p style={{ fontSize: ".74rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>“{def.brief}”</p>}
                                                     {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 Epic available: “{offer.title}” — a long, hard tale in stages.</p>}
                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                         <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>

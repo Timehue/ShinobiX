@@ -197,6 +197,68 @@ export function deriveEquipmentStatBonuses(
     return out;
 }
 
+/**
+ * PvE-ONLY gear bonuses — the one power channel that still bites at max level.
+ *
+ * Gear STAT bonuses are added before the per-rank stat cap, so a fully-capped
+ * fighter gains literally nothing from them (verified: +40 stats on a maxed L100
+ * build moves damage by 0). That makes stat-bonus relics a levelling-curve item
+ * and worthless to the endgame players a rare chase drop is aimed at.
+ *
+ * These two fields sit OUTSIDE the stat cap, so they keep working at max — and
+ * that is exactly why they are PvE-ONLY. The balanced-PvP pillar forbids combat
+ * power that can be bought, grinded or RNG'd; PvE-only rewards are explicitly
+ * allowed. Enforcement is structural, not a flag: `api/pvp/move.ts` never reads
+ * these fields, so PvP cannot apply them even by mistake. Only the server PvE
+ * engines multiply by them (api/solo-pve/_engine.ts, api/towers/_engine.ts), and
+ * the towers one additionally requires the counterparty to be a real AI, because
+ * tower PvP seats the opposing HUMAN team on side 'enemy'.
+ */
+export const PVE_BONUS_FIELDS = ['pveDamagePercent', 'pveDamageTakenPercent'] as const;
+
+export type DerivedPveBonuses = {
+    /** % more damage this fighter DEALS, in PvE only. */
+    pveDamagePct: number;
+    /** % less damage this fighter TAKES, in PvE only. */
+    pveDamageTakenPct: number;
+};
+
+export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
+/**
+ * The Aura Sphere's own PvE damage perk, unlocked at sphere level 300 and only
+ * while the sphere is equipped. MIRRORS getActiveAuraSphereBonuses in
+ * shinobij.client/src/lib/aura-sphere.ts — keep the threshold and value in sync.
+ *
+ * This perk was previously applied ONLY in the client engines (Arena.tsx,
+ * StoryBoss.tsx). Once PvE moved server-side the reward silently stopped
+ * applying in the fights that count; routing it through the same PvE channel as
+ * relics fixes that. The legacy `accessory` key is honoured like the client does.
+ */
+export function auraSpherePveDamagePct(saveCharacter: Record<string, unknown>): number {
+    const equipment = saveCharacter.equipment;
+    if (!equipment || typeof equipment !== 'object') return 0;
+    const eq = equipment as Record<string, unknown>;
+    const equipped = eq.aura === AURA_SPHERE_ITEM_ID || eq.accessory === AURA_SPHERE_ITEM_ID;
+    if (!equipped) return 0;
+    const level = Math.max(1, Math.floor(Number(saveCharacter.auraSphereLevel) || 1));
+    return level >= 300 ? 5 : 0;
+}
+
+export function derivePveBonuses(
+    saveCharacter: Record<string, unknown>,
+    save: Record<string, unknown> | null,
+    adminItems?: AdminItemLookup | null,
+): DerivedPveBonuses {
+    const getItem = buildItemLookup(save?.creatorItems, adminItems);
+    return {
+        // Gear (the relic) + the Aura Sphere's own progression perk. They stack:
+        // the sphere and a relic occupy different slots by design.
+        pveDamagePct: sumEquippedBonus(saveCharacter.equipment, getItem, 'pveDamagePercent')
+            + auraSpherePveDamagePct(saveCharacter),
+        pveDamageTakenPct: sumEquippedBonus(saveCharacter.equipment, getItem, 'pveDamageTakenPercent'),
+    };
+}
+
 export type DerivedMultipliers = {
     bloodlineMult: number;
     armorFactor: number;

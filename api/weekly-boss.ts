@@ -59,6 +59,29 @@ const TOP_CORE_COUNT = 10;  // ranks 1..10 each receive 1 Weekly Boss Core
 const TOP_KEY_COUNT = 25;   // ranks 1..25 each receive 1 Dungeon Key
 const WEEKLY_BOSS_CORE_ID = 'weekly-boss-core';
 const DUNGEON_KEY_ID = 'dungeon-key';
+/*
+ * The Hollow-Gate Cinder is the one relic the world does NOT give up from the
+ * ground — it fell out of a rift, so it comes off the Weekly Boss instead of an
+ * Ancient Chest (every other relic is biome-locked to chests, see
+ * api/world/_chest.ts RELICS_BY_BIOME). Restricted to the same top-10 cohort as
+ * the Core and rolled at WEEKLY_BOSS_RELIC_CHANCE, i.e. under one a week across
+ * the whole server.
+ *
+ * The roll is a stable HASH of (week, boss, player), never live RNG: this
+ * settlement is receipt-guarded and may be recomputed on a retry, and a fresh
+ * random each time would let a player re-roll a loss. Same input, same answer,
+ * forever.
+ */
+const WEEKLY_BOSS_RELIC_ID = 'relic-hollow-gate-cinder';
+const WEEKLY_BOSS_RELIC_CHANCE = 0.08;
+/** Matches DUPLICATE_RELIC_FATE_SHARDS in api/world/_chest.ts. */
+const DUPLICATE_RELIC_FATE_SHARDS = 15;
+
+function weeklyBossRelicRoll(weekKey: string, aiId: string, name: string): boolean {
+    const digest = createHash('sha256').update(`relic:${weekKey}:${aiId}:${name}`).digest();
+    // First 4 bytes → a uniform [0,1). Deterministic across processes and retries.
+    return digest.readUInt32BE(0) / 0x1_0000_0000 < WEEKLY_BOSS_RELIC_CHANCE;
+}
 
 type WeeklyBossRewardEntry = {
     name: string;
@@ -68,6 +91,7 @@ type WeeklyBossRewardEntry = {
     xp: number;
     gotCore: boolean;
     gotKey: boolean;
+    gotRelic: boolean;
     isMvp: boolean;
 };
 
@@ -75,7 +99,7 @@ export function applyWeeklyBossReward(
     character: Record<string, unknown>,
     weekKey: string,
     aiId: string,
-    entry: Pick<WeeklyBossRewardEntry, 'name' | 'ryo' | 'gotCore' | 'gotKey'>,
+    entry: Pick<WeeklyBossRewardEntry, 'name' | 'ryo' | 'gotCore' | 'gotKey' | 'gotRelic'>,
     now = Date.now(),
 ): { character: Record<string, unknown>; alreadyApplied: boolean } {
     const receiptId = `weeklyboss_${createHash('sha256').update(`${weekKey}:${entry.name}`).digest('hex').slice(0, 32)}`;
@@ -87,6 +111,10 @@ export function applyWeeklyBossReward(
     const inventory = Array.isArray(character.inventory) ? [...(character.inventory as string[])] : [];
     if (entry.gotCore) inventory.push(WEEKLY_BOSS_CORE_ID);
     if (entry.gotKey) inventory.push(DUNGEON_KEY_ID);
+    // A relic is unique gear: a second copy is worthless, so a duplicate pays
+    // Fate Shards instead of vanishing (same rule as the chest faucet).
+    const duplicateRelic = entry.gotRelic && inventory.includes(WEEKLY_BOSS_RELIC_ID);
+    if (entry.gotRelic && !duplicateRelic) inventory.push(WEEKLY_BOSS_RELIC_ID);
     const leveled = applyDerivedLevel({
         ...character,
         unspentStats: Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + WEEKLY_BOSS_STAT_POINTS,
@@ -103,6 +131,9 @@ export function applyWeeklyBossReward(
         stamina: leveled.stamina,
         rankTitle: leveled.rankTitle,
         ryo: Math.max(0, Number(character.ryo ?? 0)) + entry.ryo,
+        ...(duplicateRelic
+            ? { fateShards: Math.max(0, Number(character.fateShards) || 0) + DUPLICATE_RELIC_FATE_SHARDS }
+            : {}),
         inventory,
         weeklyBossKills: {
             ...(character.weeklyBossKills && typeof character.weeklyBossKills === 'object'
@@ -115,7 +146,7 @@ export function applyWeeklyBossReward(
         character: appendSettlementReceipt(credited, inspected.receipts, {
             requestId: receiptId,
             fingerprint,
-            value: { weekKey, ryo: entry.ryo, gotCore: entry.gotCore, gotKey: entry.gotKey },
+            value: { weekKey, ryo: entry.ryo, gotCore: entry.gotCore, gotKey: entry.gotKey, gotRelic: entry.gotRelic },
             settledAt: now,
         }),
         alreadyApplied: false,
@@ -402,6 +433,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 xp: 0,
                 gotCore: i < TOP_CORE_COUNT,
                 gotKey: i < TOP_KEY_COUNT,
+                gotRelic: i < TOP_CORE_COUNT && weeklyBossRelicRoll(fresh.weekKey, aiId, name),
                 isMvp,
             };
         });

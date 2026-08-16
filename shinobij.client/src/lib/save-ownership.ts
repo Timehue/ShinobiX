@@ -52,6 +52,10 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     // Server-mirrored redemption ledgers & counters
     'serverExploreDate', 'serverExploresToday', 'redeemedSectorExplorations',
+    // Relic-survey quest progress: world/explore appends the biome walked and
+    // quest accept resets it, so a local draft must never be restored over the
+    // server's copy — that would silently rewind (or forge) the objective.
+    'relicSurvey', 'relicSurveyCount',
     'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'serverFreeDungeonProbeReceipts',
     'serverChestDate', 'serverChestsToday', 'redeemedAncientChests', 'unlockedAchievements',
     'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles', 'endlessTowerRun',
