@@ -2449,10 +2449,6 @@
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
             "line": 1544
-          },
-          {
-            "source": "shinobij.client/src/styles/save-conflict-banner.css",
-            "line": 138
           }
         ]
       },
