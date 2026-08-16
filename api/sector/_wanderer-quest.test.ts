@@ -10,7 +10,10 @@ import {
     parseWandererQuestSeal,
 } from "./_wanderer-quest.js";
 
-const VALID_METRICS = new Set(["totalAiKills", "totalPetWins", "cardClashWins", "totalTilesExplored"]);
+// `relicSurveyCount` is the odd one out: a SET size (distinct biomes walked
+// since accept) rather than a lifetime total, which is what lets the relic
+// survey ask for "one tile in each country" without lying about its counter.
+const VALID_METRICS = new Set(["totalAiKills", "totalPetWins", "cardClashWins", "totalTilesExplored", "relicSurveyCount"]);
 
 describe("WANDERER_QUESTS catalog", () => {
     it("every entry has a known metric + positive target/weight", () => {

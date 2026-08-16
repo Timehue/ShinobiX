@@ -25,6 +25,7 @@ import type { EquipmentSlot, EquipmentSlots, ArmorQuality, GameItem } from "../t
 // slot ("hand" + a glove/gauntlet name) so older saved gloves still register.
 export const itemSectionOptions: ReadonlyArray<{ value: EquipmentSlot; label: string }> = [
     { value: "aura", label: "Aura" },
+    { value: "relic", label: "Relic" },
     { value: "hand", label: "Hand" },
     { value: "gloves", label: "Gloves" },
     { value: "body", label: "Body" },
@@ -225,6 +226,10 @@ export function consolidateItemBonuses(
         lifeStealPercent: "Life Steal",
         damagePercent:   "Increase Damage",
         shield:          "Shield",
+        // Relic / Aura Sphere power. Without these the camelCase fallback renders
+        // "Pve Damage Percent", and the *Taken* one reads as if more were worse.
+        pveDamagePercent:      "PvE Damage",
+        pveDamageTakenPercent: "PvE Damage Reduction",
     };
 
     for (const [stat, value] of entries) {

@@ -82,7 +82,11 @@ export type Jutsu = {
 };
 
 export type EquipmentSlot =
-    | "aura" | "hand" | "gloves" | "body" | "waist" | "legs" | "feet" | "head"
+    // "aura" is RESERVED for the Aura Sphere — the one forever-improving keystone,
+    // whose power lives in its accumulated progression (getActiveAuraSphereBonuses),
+    // not in `bonuses`. "relic" is the slot for story keepsakes and trinkets, which
+    // used to sit on "aura" and silently evicted the sphere when equipped.
+    | "aura" | "relic" | "hand" | "gloves" | "body" | "waist" | "legs" | "feet" | "head"
     // "item" is the canonical slot a combat item (Attack/Defense Pill, Smoke Bomb)
     // is AUTHORED on; item1/item2/item3 are the three dedicated equipment KEYS it
     // equips into so all three can be carried at once (legacy bare "item" is kept
@@ -127,6 +131,16 @@ export type GameItem = {
         lifeStealPercent?: number;
         shield?: number;
         reflectPercent?: number;
+        /*
+         * PvE-ONLY power (relics). Unlike the stat bonuses above, these are NOT
+         * clamped by the per-rank stat cap, so they keep working for a fully
+         * maxed fighter — which is exactly why they are restricted to PvE. They
+         * are read only by the server PvE engines (api/solo-pve/_engine.ts,
+         * api/towers/_engine.ts); api/pvp/move.ts never touches them, so PvP is
+         * unaffected by construction. See api/pvp/_multipliers.ts derivePveBonuses.
+         */
+        pveDamagePercent?: number;
+        pveDamageTakenPercent?: number;
     };
 };
 

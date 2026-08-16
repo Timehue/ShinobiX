@@ -35,6 +35,67 @@ const baseChar = (over: Record<string, unknown> = {}) => ({
 const sanitize = (incoming: Record<string, unknown>, existing: Record<string, unknown>) =>
     withoutStrictLedger(() => sanitizeCharacterSave(wrap(incoming), wrap(existing)).character as Record<string, unknown>);
 
+/*
+ * The `relic` slot (added 2026-08-16) holds story keepsakes and trinkets. It
+ * exists so they stop competing with the Aura Sphere for `aura` — the sphere's
+ * power is its accumulated progression, so equipping any keepsake used to
+ * silently drop it. EQUIPMENT_SLOTS in [name].ts is an allowlist: a slot missing
+ * from it is stripped from equipment on EVERY save write, so this pins the
+ * server half of the wiring (the client half is the EquipmentSlot union).
+ */
+describe('the relic slot survives a save write', () => {
+    it('keeps a relic equipped alongside the Aura Sphere', () => {
+        const stored = baseChar({ inventory: ['aura-sphere', 'event-kesa-storm-seal'] });
+        const out = sanitize(baseChar({
+            inventory: ['aura-sphere', 'event-kesa-storm-seal'],
+            equipment: { aura: 'aura-sphere', relic: 'event-kesa-storm-seal' },
+        }), stored);
+        assert.deepEqual(out.equipment, { aura: 'aura-sphere', relic: 'event-kesa-storm-seal' },
+            'the relic slot must not be stripped, and must not evict the sphere');
+    });
+
+    it('rejects a relic-slot item forced into the aura slot', () => {
+        const stored = baseChar({ inventory: ['event-kesa-storm-seal'] });
+        const out = sanitize(baseChar({
+            inventory: ['event-kesa-storm-seal'],
+            equipment: { aura: 'event-kesa-storm-seal' },
+        }), stored);
+        assert.deepEqual(out.equipment, {}, 'slotAcceptsItemKind must reject a relic in the aura slot');
+    });
+
+    /*
+     * The aura slot belongs to the Aura Sphere alone — it is the one
+     * forever-improving keystone and its perks key off being equipped. This guard
+     * is deliberately NOT grandfathered, so a save still holding one of the seven
+     * keepsakes that used to live here (before the relic slot existed) has it
+     * unequipped on the next write and the slot self-heals. The item is only
+     * unequipped, never destroyed — it stays in the backpack.
+     */
+    it('keeps the aura slot exclusive to the Aura Sphere', () => {
+        const stored = baseChar({ inventory: ['aura-sphere'] });
+        const out = sanitize(baseChar({
+            inventory: ['aura-sphere'],
+            equipment: { aura: 'aura-sphere' },
+        }), stored);
+        assert.deepEqual(out.equipment, { aura: 'aura-sphere' }, 'the sphere itself is always welcome');
+    });
+
+    it('evicts a legacy keepsake squatting in the aura slot, even if grandfathered', () => {
+        // The stored save has it equipped there — normally the grandfather clause
+        // would preserve that. Aura exclusivity deliberately outranks it.
+        const stored = baseChar({
+            inventory: ['chakra-ring'],
+            equipment: { aura: 'chakra-ring' },
+        });
+        const out = sanitize(baseChar({
+            inventory: ['chakra-ring'],
+            equipment: { aura: 'chakra-ring' },
+        }), stored);
+        assert.deepEqual(out.equipment, {}, 'the aura squatter is unequipped so the sphere can go back in');
+        assert.deepEqual(out.inventory, ['chakra-ring'], 'and the item itself is NOT destroyed');
+    });
+});
+
 describe('equipment ownership boundary (non-strict mode)', () => {
     it('strips an equipped built-in id the player owns nowhere', () => {
         const stored = baseChar();

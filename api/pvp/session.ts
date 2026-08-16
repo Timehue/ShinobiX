@@ -27,7 +27,7 @@ import { releaseClanWarPvpReservation, reserveClanWarPvpSession } from './_clan-
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
-import { deriveCombatMultipliers, deriveEquipmentStatBonuses, buildItemLookup } from './_multipliers.js';
+import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
 import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
@@ -1021,6 +1021,14 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
             // Keys come from the fixed EQUIPMENT_STAT_BONUS_FIELDS whitelist.
             stats[field] = clampNumber((Number(stats[field]) || 0) + bonus, 0, SESSION_MAX_STAT, 0);
         }
+        // PvE-ONLY gear power (relics). Sealed onto the fighter here so every
+        // engine sees the same authoritative number, but READ ONLY by the PvE
+        // engines — api/pvp/move.ts never touches these fields, so PvP is
+        // unaffected by construction rather than by a flag. Capped well under the
+        // damage-multiplier bounds so a stack of authored content can't run away.
+        const pve = derivePveBonuses(saveCharacter, save, admin?.items ?? null);
+        merged.pveDamagePct      = clampNumber(pve.pveDamagePct,      0, 100, 0);
+        merged.pveDamageTakenPct = clampNumber(pve.pveDamageTakenPct, 0, 75, 0);
     }
     // Vitals defense-in-depth. A tampered save could ship a huge maxHp
     // (effectively unkillable) or maxChakra (Poison ticks scale off the victim's

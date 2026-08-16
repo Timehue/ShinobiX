@@ -50,6 +50,16 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     }
     const slotLabel = roll.slot === 'hand' ? 'Gloves' : roll.slot[0].toUpperCase() + roll.slot.slice(1);
     let name = nameRaw || `Named ${slotLabel}`; if (roll.slot === 'hand' && !/glove|gauntlet/i.test(name)) name += ' Gauntlets';
+    // Hand gear (gauntlets/gloves) grants stats + its special roll — NEVER damage
+    // reduction. Owner ruling 2026-08-16, and it matches the built-in gloves, which
+    // carry no armorQuality at all. The `gloves` equip slot is deliberately absent
+    // from BOTH armour-DR sums (getCharacterArmorRawDR client-side, ARMOR_SLOTS in
+    // api/pvp/_multipliers.ts), so stamping armorQuality on a gauntlet only ever
+    // produced a description promising a reduction that nothing applied.
+    const isGauntlet = roll.slot === 'hand';
     const reduction = roll.armorQuality === 'Elite' ? 6 : roll.armorQuality === 'Legendary' ? 7 : 8;
-    return { id, name, slot: roll.slot, rarity: 'legendary', armorQuality: roll.armorQuality, cost: 0, levelReq: 30, description: flavorRaw || `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% damage reduction. ${roll.special.kind} ${roll.special.value}.`, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal, ninjutsuDefense: roll.defenseVal, taijutsuDefense: roll.defenseVal, bukijutsuDefense: roll.defenseVal, genjutsuDefense: roll.defenseVal, [roll.special.bonusKey]: roll.special.value } };
+    const description = flavorRaw || (isGauntlet
+        ? `A master-forged pair of gauntlets. ${roll.special.kind} ${roll.special.value}.`
+        : `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% damage reduction. ${roll.special.kind} ${roll.special.value}.`);
+    return { id, name, slot: roll.slot, rarity: 'legendary', ...(isGauntlet ? {} : { armorQuality: roll.armorQuality }), cost: 0, levelReq: 30, description, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal, ninjutsuDefense: roll.defenseVal, taijutsuDefense: roll.defenseVal, bukijutsuDefense: roll.defenseVal, genjutsuDefense: roll.defenseVal, [roll.special.bonusKey]: roll.special.value } };
 }
