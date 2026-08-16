@@ -184,6 +184,24 @@ export type TowerSession = {
     };
     /** Monotonic server action revision used by optional reconnect-safe commands. */
     actionVersion?: number;
+    /**
+     * Cosmetic combat VFX plates for the last resolved action or DoT tick
+     * (api/towers/_engine.ts). Replaced wholesale each time, with `vfxSeq`
+     * bumping so the screen can tell new plates from a re-poll of the same ones.
+     * Display-only — never read back as combat authority.
+     */
+    vfx?: TowerVfxEvent[];
+    vfxSeq?: number;
+};
+
+/** One VFX plate. `target` is an ACTOR ID on the board (the tower is n-actor,
+ *  unlike PvP's fixed p1/p2); tile-anchored plates carry `tiles` instead. */
+export type TowerVfxEvent = {
+    key: string;
+    target?: string;
+    anchor: "caster" | "target" | "tile" | "area";
+    tiles?: number[];
+    persistent?: boolean;
 };
 
 /** Mirrors the server TURN_AFK_MS — how long a player has before their turn auto-passes. */
