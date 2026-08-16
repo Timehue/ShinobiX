@@ -37,6 +37,26 @@ export type ServerArenaActor = {
     cooldowns?: Record<string, number>;
 };
 
+/**
+ * One server-authored combat VFX plate. The engine emits these alongside each
+ * combat event; the client renders them and never reads them back as authority
+ * (damage, statuses, and settlement all come from the session snapshot).
+ *
+ * `seq` is the emitting event's sequence number, so a screen can replay only the
+ * plates it has not shown yet — one action can produce several events at once
+ * (the player's action, then the enemy's whole turn), and the session carries a
+ * rolling window of them rather than just the newest.
+ */
+export type ServerArenaVfxEvent = {
+    seq: number;
+    key: string;
+    /** An actor id ("player" / "enemy" / "companion") or a board-anchored plate. */
+    target: string;
+    anchor: "caster" | "target" | "tile" | "area";
+    tiles?: number[];
+    persistent?: boolean;
+};
+
 export type ServerArenaSession = {
     sessionId: string;
     /** Opaque runtime revision used only by the selected transport. */
@@ -63,6 +83,10 @@ export type ServerArenaSession = {
     pendingCompanion?: { petId: string; name: string; hp: number; damage: number };
     /** True after this fight's one sealed companion summon has been consumed. */
     companionUsed?: boolean;
+    /** Rolling window of server-authored VFX plates (see ServerArenaVfxEvent). */
+    vfx?: ServerArenaVfxEvent[];
+    /** Highest event seq the session has produced; bumps when new VFX arrive. */
+    vfxSeq?: number;
 };
 
 export type ServerArenaAction =

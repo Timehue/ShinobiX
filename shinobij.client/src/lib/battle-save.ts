@@ -8,9 +8,10 @@ export function storyBossSaveKey(name: string): string { return `storyBoss.battl
 // ── Battle lock (server-side refresh-flee guard) ─────────────────────────
 // A PvE fight registers a server-side lock (api/battle/lock.ts) on start and
 // clears it on end. On boot the app reads the lock and forces re-entry, so a
-// refresh — or a wiped localStorage — can't escape an unresolved fight. The
-// battle STATE still lives client-side (ArenaBattlePersister); the lock only
-// makes the fight un-skippable. Resume-only: nothing is paid or punished here,
+// refresh — or a wiped localStorage — can't escape an unresolved fight. Battle
+// STATE itself is server-owned now (the Arena reducer that persisted it
+// client-side is gone); the lock only makes the fight un-skippable. Resume-only:
+// nothing is paid or punished here,
 // except the deliberate cleared-localStorage case, which the boot path resolves
 // as a loss (see applySnapshot).
 export const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
@@ -23,10 +24,10 @@ export const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
 export const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
 
 // Legacy Arena "story" context persistence. Covers the still-readable
-// pre-cutover story records that fought on screen "arena" with the combat
-// snapshot saved by ArenaBattlePersister; what's lost on refresh is the
-// pendingArenaStoryBattle context + the scaled enemy. Persist just those (images
-// stripped) so the boot path rebuilds the fight. 1h TTL.
+// pre-cutover story records that fought on screen "arena" back when that screen
+// hosted its own reducer and persisted a combat snapshot alongside this context.
+// Nothing writes or replays those fights any more — the readers below exist only
+// so the boot path can recognise and clear a stale record. 1h TTL.
 const ARENA_STORY_CTX_TTL_MS = 60 * 60 * 1000;
 type ArenaStoryContext = { battle: unknown; aiId: string; ai: CreatorAi | null; savedAt: number };
 export function arenaStoryCtxKey(name: string): string { return `arenaStory.context.v1.${name}`; }

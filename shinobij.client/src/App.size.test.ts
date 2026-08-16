@@ -195,7 +195,14 @@ import { readFileSync } from "node:fs";
 // → 7,690 LOWERED. Removing the save-recovery banner took its two action
 // handlers (download + restore) and the render block out of App.tsx: 7,744 →
 // 7,683, a real 61-line drain. Ratcheted to the new count plus a small buffer.
-const MAX_LINES = 7_690;
+// → 7,639 LOWERED. Retiring the browser-side Arena reducer took its App-side
+// bookkeeping with it: 13 now-unread props off the <Arena> call site, plus
+// completePendingArenaStoryBattle / continuePendingArenaStoryBattle / failDungeon,
+// all of which existed only to settle a fight this client no longer hosts
+// (a Warden defeat now settles server-side via applyDungeonWardenSettlement).
+// 7,683 → 7,632 on top of the banner drain above; ratcheted to that plus the
+// same small buffer.
+const MAX_LINES = 7_639;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

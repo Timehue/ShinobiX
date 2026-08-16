@@ -11,7 +11,6 @@ const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.
 const combatDetailPortalSource = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shinobiCombatShellSource = readFileSync(new URL("../components/ShinobiCombatShell.tsx", import.meta.url), "utf8");
 const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx", import.meta.url), "utf8");
-const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const pvpSource = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
 const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
 
@@ -22,7 +21,7 @@ const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.u
 // band and takes row 1, pushing them all down one track: the terrain strip
 // inherits the board's minmax(300px, 1fr) row and the hex board collapses into
 // the command bar's `auto` row. Measured on this screen: 362px -> 30px, i.e. the
-// board vanished the moment a jutsu was armed. `has-rookie-tip` is the class
+// board vanished the moment a jutsu was armed. `has-action-notice` is the class
 // that reserves the extra track on every tier.
 test("mission fight reserves a row for its action notice instead of displacing the board", () => {
     assert.match(
@@ -32,7 +31,7 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         combatHudSource,
-        /combat-layout\$\{hasActionNotice \? " has-rookie-tip" : ""\}/,
+        /combat-layout\$\{hasActionNotice \? " has-action-notice" : ""\}/,
         "the shared layout must map the notice flag to the reserved-grid class",
     );
 
@@ -55,7 +54,7 @@ test("mission fight reserves a row for its action notice instead of displacing t
     // to an explicit outer-grid row, so the wrapper needs its own pin there.
     assert.match(
         missionCss,
-        /\.combat-layout\.has-rookie-tip \.combat-action-notice\s*\{[^}]*grid-row:\s*2\s*!important;/,
+        /\.combat-layout\.has-action-notice \.combat-action-notice\s*\{[^}]*grid-row:\s*2\s*!important;/,
         "mobile must pin the notice to the reserved row below the fighter HUDs",
     );
 
@@ -64,14 +63,18 @@ test("mission fight reserves a row for its action notice instead of displacing t
     // responsive dead band; a stale bound here would silently leave the notice
     // unpinned in exactly that range, which is how this drifted the first time.
     const siblingPinBound = (() => {
-        const anchor = battleSkinCss.indexOf(".combat-layout.has-rookie-tip .rookie-combat-tip");
-        assert.ok(anchor > 0, "battle-skin must still pin Arena's rookie tip on the flattened grid");
+        // Anchored on the BOARD's pin, which is the load-bearing one: reserving
+        // the notice row only helps if the battlefield actually moves down into
+        // the row after it. (This used to anchor on `.rookie-combat-tip`, an
+        // element only the retired browser PvE reducer ever rendered.)
+        const anchor = battleSkinCss.indexOf(".combat-layout.has-action-notice .hex-battlefield");
+        assert.ok(anchor > 0, "battle-skin must still pin the battlefield below the reserved notice row");
         const bounds = [...battleSkinCss.slice(0, anchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g)];
         return bounds.length ? bounds[bounds.length - 1][1] : null;
     })();
     assert.ok(siblingPinBound, "could not read the sibling pins' breakpoint out of battle-skin.css");
     const noticeBound = (() => {
-        const anchor = missionCss.indexOf(".combat-layout.has-rookie-tip .combat-action-notice");
+        const anchor = missionCss.indexOf(".combat-layout.has-action-notice .combat-action-notice");
         const bounds = [...missionCss.slice(0, anchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g)];
         return bounds.length ? bounds[bounds.length - 1][1] : null;
     })();
@@ -114,7 +117,7 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         missionCss,
-        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.mission-arena-fight \.combat-layout\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-layout\.has-rookie-tip\s*\{[^}]*grid-template-rows:\s*auto auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.mission-arena-fight \.combat-layout\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-layout\.has-action-notice\s*\{[^}]*grid-template-rows:\s*auto auto auto minmax\(184px, 34dvh\) auto auto minmax\(88px, 1fr\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
         "the smallest mission tier must keep the first jutsu card centre tappable without collapsing the board",
     );
     assert.match(
@@ -125,8 +128,17 @@ test("mission fight reserves a row for its action notice instead of displacing t
 
     // The fix is load-bearing on that class still reserving a track.
     assert.ok(
-        (battleSkinCss.match(/\.combat-layout\.has-rookie-tip(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
+        (battleSkinCss.match(/\.combat-layout\.has-action-notice(?: \.combat-main-area)?\s*\{[^}]*grid-template-rows:[^}]*\}/g) ?? []).length >= 3,
         "battle-skin must still reserve the extra tip row on desktop, mobile, and short-mobile",
+    );
+    // Reserving the track is only half of it: the board itself has to MOVE into
+    // the post-notice row, or it re-collapses under the notice on the flattened
+    // mobile grid. (Inherited from the retired Arena.layout test — this screen is
+    // now the one rendering .hex-battlefield under .has-action-notice.)
+    assert.match(
+        battleSkinCss,
+        /\.combat-layout\.has-action-notice \.hex-battlefield\s*\{\s*grid-row:\s*4\s*!important;/,
+        "mobile must move the battlefield to the reserved post-notice row",
     );
 });
 
@@ -254,11 +266,9 @@ test("every shinobi fight uses the shared viewport-level combat instance", () =>
     );
 
     assert.match(towerSource, /<CombatInstance(?:\s|>)/, "tower PvE/PvP must render through CombatInstance");
-    assert.match(
-        arenaSource,
-        /<(?:CombatInstance|ShinobiCombatShell)(?:\s|>)/,
-        "legacy Arena PvE must retain a viewport-level combat boundary",
-    );
+    // (screens/Arena.tsx used to appear here as "legacy Arena PvE". It is a pure
+    // lobby now — its browser-side reducer was deleted — so it has no combat
+    // boundary to retain. combat-shell-contract.test.ts asserts it stays that way.)
     assert.match(missionSource, /<CombatInstance(?:\s|>)/, "mission PvE must render through CombatInstance");
     assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 
@@ -306,7 +316,8 @@ test("all three combat stylesheets share one mobile/desktop boundary", () => {
     })();
 
     const battleSkinMobileBound = (() => {
-        const anchor = battleSkinCss.indexOf(".combat-layout.has-rookie-tip .rookie-combat-tip");
+        const anchor = battleSkinCss.indexOf(".combat-layout.has-action-notice .hex-battlefield");
+        assert.ok(anchor > 0, "battle-skin must still pin the battlefield on the flattened mobile grid");
         const bounds = [...battleSkinCss.slice(0, anchor).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g)];
         return Number(bounds[bounds.length - 1][1]);
     })();

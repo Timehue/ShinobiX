@@ -110,15 +110,33 @@ describe("hunter-art beast portraits", () => {
         assert.ok(existsSync(join(here, rel)), `Apex banner missing on disk: ${rel}`);
     });
 
-    it("is wired into Arena's opponent image chain, above the emoji fallback", () => {
-        const arena = readFileSync(join(here, "..", "screens", "Arena.tsx"), "utf8");
-        assert.match(arena, /import\s*\{[^}]*beastPortrait[^}]*\}\s*from\s*"\.\.\/data\/hunter-art"/);
+    it("rides the sealed hunt launch into the fight's enemy portrait slot", () => {
+        // Hunts are fought on the server-driven host, so the portrait has to be
+        // stamped at LAUNCH and carried through the request — there is no longer
+        // a browser-side opponent-image chain to fall back on. Without this a
+        // pack member (derived id, no authored art) fights as an emoji.
+        const worldMap = readFileSync(join(here, "..", "screens", "WorldMap.tsx"), "utf8");
+        assert.match(worldMap, /import\s*\{[^}]*beastPortrait[^}]*\}\s*from\s*"\.\.\/data\/hunter-art"/);
+        assert.match(
+            worldMap,
+            /pack\.image = beast\.image \|\| beastPortrait\(beast\.id\)/,
+            "hunt pack members must fall back to the bundled beast portrait",
+        );
+        assert.match(
+            worldMap,
+            /launchWorldMapFight\([\s\S]*?enemyAvatar: ai\.image/,
+            "the world-map launch must forward the beast art as the sealed fight's enemyAvatar",
+        );
 
-        const chain = arena.split("const opponentAvatar")[1]?.split(";")[0] ?? "";
-        const portraitAt = chain.indexOf("beastPortrait");
-        const iconAt = chain.indexOf("pendingAiProfile?.icon");
-        assert.ok(portraitAt >= 0, "opponentAvatar no longer consults beastPortrait — hunts would fight an emoji.");
-        assert.ok(iconAt >= 0, "opponentAvatar no longer has the icon fallback; this test needs updating.");
-        assert.ok(portraitAt < iconAt, "beastPortrait must come BEFORE the emoji icon fallback.");
+        // …and the host must prefer that override over anything the session seals.
+        const host = readFileSync(join(here, "..", "components", "AiFightHost.tsx"), "utf8");
+        assert.match(host, /enemyAvatarOverride=\{request\.enemyAvatar\}/);
+        const fight = readFileSync(join(here, "..", "screens", "MissionArenaFight.tsx"), "utf8");
+        const chain = fight.split("const enemyAvatar =")[1]?.split(";")[0] ?? "";
+        const overrideAt = chain.indexOf("enemyAvatarOverride");
+        const initialsAt = chain.indexOf("slice(0, 2)");
+        assert.ok(overrideAt >= 0, "the fight screen no longer honours enemyAvatarOverride — hunts would fight initials.");
+        assert.ok(initialsAt >= 0, "the enemy avatar chain lost its initials fallback; this test needs updating.");
+        assert.ok(overrideAt < initialsAt, "enemyAvatarOverride must come BEFORE the initials fallback.");
     });
 });
