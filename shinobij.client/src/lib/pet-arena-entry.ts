@@ -32,7 +32,7 @@ export function petArenaReturnScreen(override?: Screen): Screen {
 export function petArenaBackLabel(screen: Screen): string {
     const destination: Partial<Record<Screen, string>> = {
         pets: "Pet Yard",
-        home: "Companion Home",
+        home: "Pet Home",
         hollowGateShrine: "Shrine",
         worldMap: "World Map",
         centralHub: "Central",
