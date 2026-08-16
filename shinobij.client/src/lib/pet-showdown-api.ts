@@ -48,13 +48,28 @@ async function post(body: Record<string, unknown>): Promise<Response | null> {
     }
 }
 
+/**
+ * What the practice door can be pointed at.
+ *
+ * The three tiers are the player choosing their own opposition. `"sparring"` is
+ * the opposite request — "match me" — and the server answers it by rolling the
+ * tier itself and levelling the AI team pet-for-pet against the team brought.
+ * It is not a fourth tier, so it never enters the shared contract: it is a mode
+ * of asking, and only this endpoint's practice entry understands it.
+ */
+export type ShowdownOpposition = ShowdownTier | "sparring";
+
 export async function startShowdown(
     playerName: string,
     format: ShowdownFormat,
-    tier: ShowdownTier,
+    opposition: ShowdownOpposition,
     petIds: string[],
 ): Promise<{ state: ShowdownStateView } | { error: string }> {
-    const r = await post({ action: "start", playerName, format, tier, petIds });
+    const sparring = opposition === "sparring";
+    // The server ignores `tier` outright when sparring (it rolls its own), so
+    // the value sent alongside is only ever the schema's default.
+    const tier: ShowdownTier = sparring ? "scrapper" : opposition;
+    const r = await post({ action: "start", playerName, format, tier, petIds, sparring });
     if (!r) return { error: "Network error — could not reach the Showdown." };
     const data = await r.json().catch(() => null) as { state?: ShowdownStateView; error?: string } | null;
     if (!r.ok || !data?.state) return { error: data?.error ?? "The Showdown gate is closed right now." };

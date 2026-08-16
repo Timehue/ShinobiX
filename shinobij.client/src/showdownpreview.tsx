@@ -501,7 +501,15 @@ function Harness() {
     );
 }
 
-createRoot(document.getElementById("root")!).render(<Harness />);
+/* Warm both sides before the first frame, exactly as every shipping entry
+ * does. The harness fields REAL pets with real templateIds, so it resolves real
+ * GLBs — and an unwarmed model suspends against a null fallback. Skipping this
+ * would leave the tool used to review the battle's visuals showing an empty
+ * arena for its opening seconds. */
+void import("./lib/pet-model-preload")
+    .then((m) => m.warmShowdownModels(stateView(), playerPets))
+    .catch(() => undefined)
+    .finally(() => createRoot(document.getElementById("root")!).render(<Harness />));
 
 // The battle portals into document.body; an HMR re-eval would orphan the old
 // portal and stack a second HUD. Full reload keeps the harness truthful.

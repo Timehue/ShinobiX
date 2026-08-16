@@ -127,6 +127,21 @@ describe('showdown.ts wires practice as unpaid', () => {
         assert.ok(arenaBlock.includes('DAILY_ARENA_WIN_CAP'), 'it checks the daily cap BEFORE the fight, not only at settlement');
     });
 
+    it('confines the sparring flag to the unpaid practice entry', () => {
+        // Sparring lets the CALLER ask for a rolled tier and a level-mirrored AI
+        // team. That is safe only where it lives: the practice entry, which seals
+        // itself unpaid whatever the body says. On the arena entry the same flag
+        // would be a difficulty dial on a faucet — the exact thing `body.tier` is
+        // already barred from doing there.
+        const practiceAt = indexOfOrFail("action === 'start'");
+        const arenaAt = indexOfOrFail("action === 'arena'");
+        const sparringReads = [...src.matchAll(/body\.sparring/g)].map((m) => m.index ?? -1);
+        assert.ok(sparringReads.length > 0, 'the practice entry reads the sparring flag');
+        for (const at of sparringReads) {
+            assert.ok(at > practiceAt && at < arenaAt, 'body.sparring may only be read inside the practice entry');
+        }
+    });
+
     it('never takes eligibility from the request body', () => {
         // The whole point of sealing at start is that the client cannot argue
         // for its own payout. Any read off `body` here would defeat it.

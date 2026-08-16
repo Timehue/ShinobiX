@@ -176,11 +176,24 @@ export function DungeonPetBattle({ character, onWin, onLeave, sharedImages = {},
         setStarting(true);
         setError(null);
         const result = await startAuthoredEncounter(character.name, selectedPet.id, encounter);
-        setStarting(false);
         if ("error" in result) {
+            setStarting(false);
             setError(result.error);
             return;
         }
+        // The sealed beast is only named by the response, so its model can only
+        // be warmed here — and the renderer suspends an unwarmed one into
+        // nothing rather than a placeholder. Imported dynamically to match the
+        // lazy PetShowdownBattle above: this screen keeps three/drei out of its
+        // eager chunk, and a static import here would undo that.
+        await import("../lib/pet-model-preload")
+            // `[selectedPet]` is exactly what the renderer receives below, so
+            // both resolve the same art. (Never the raw roster: pets past the
+            // entitlement cap are preserved-but-benched and never take the
+            // field — the rule entitlement-runtime-wiring.test.ts pins.)
+            .then((m) => m.warmShowdownModels(result.state, [selectedPet]))
+            .catch(() => undefined);
+        setStarting(false);
         outcome.current = null;
         setBattle({ state: result.state, key: battleKey.current++ });
     }
