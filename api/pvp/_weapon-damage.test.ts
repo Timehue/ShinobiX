@@ -87,8 +87,8 @@ describe('PvP weapon damage', () => {
  * every server-run PvE mode. The carve-out keys off `isUtility: false` — the
  * flag every weapon synth already sets.
  */
-describe('weapon damage survives Heal/Shield/Barrier tags', () => {
-    for (const tagName of ['Heal', 'Shield', 'Barrier'] as const) {
+describe('weapon damage survives Heal/Shield tags', () => {
+    for (const tagName of ['Heal', 'Shield'] as const) {
         it(`a weapon carrying a ${tagName} tag still deals its weaponEp damage`, () => {
             const self = fighter('A', 500);
             const opp = fighter('B');
@@ -118,13 +118,41 @@ describe('weapon damage survives Heal/Shield/Barrier tags', () => {
         assert.ok(r.opponent.hp < 1000, 'and the swing still lands');
     });
 
-    it('a genuine support JUTSU with a Heal tag still deals ZERO damage (rule intact)', () => {
+    /*
+     * The 40-AP utility / 60-AP damage split is the rule that actually decides
+     * whether a cast deals damage, and it is enforced upstream: a utility cast
+     * gets scaledEp 0 from isZeroDamageFortyApJutsu before tags are walked. So
+     * Heal/Shield no longer need to zero anything — and MUST not, or they punish
+     * the 60-AP damage jutsu that merely also heals (owner ruling 2026-08-16).
+     */
+    it('a 40-AP utility jutsu with Heal still deals ZERO damage (the split holds)', () => {
         const r = applyJutsu(fighter('A', 500), fighter('B'), asJutsu({
             id: 'medical-palm', name: 'Mystic Palm', ap: 40, effectPower: 30,
             tags: [{ name: 'Heal', percent: 37 }],
         }), 1, 'central', 1);
-        assert.equal(r.opponent.hp, 1000, 'a support jutsu heals OR hits, never both');
+        assert.equal(r.opponent.hp, 1000, 'a 40-AP utility heals only');
         assert.ok(r.self.hp > 500, 'and it still heals');
+    });
+
+    it('a 60-AP DAMAGE jutsu with Heal keeps its full damage AND heals', () => {
+        const tagged = applyJutsu(fighter('A', 500), fighter('B'), asJutsu({
+            id: 'blast', name: 'Blast', ap: 60, effectPower: 30,
+            tags: [{ name: 'Heal', percent: 37 }],
+        }), 1, 'central', 1);
+        const plain = applyJutsu(fighter('A', 500), fighter('B'), asJutsu({
+            id: 'blast', name: 'Blast', ap: 60, effectPower: 30,
+        }), 1, 'central', 1);
+        assert.equal(tagged.opponent.hp, plain.opponent.hp, 'the Heal tag must not cost the cast its damage');
+        assert.ok(tagged.opponent.hp < 1000, 'and it really is damaging');
+        assert.ok(tagged.self.hp > 500, 'and the caster is healed on top');
+    });
+
+    it('Barrier still zeroes the cast — it is board control, not a payload', () => {
+        const r = applyJutsu(fighter('A'), fighter('B'), asJutsu({
+            id: 'blast', name: 'Wall', ap: 60, effectPower: 30,
+            tags: [{ name: 'Barrier' }],
+        }), 1, 'central', 1);
+        assert.equal(r.opponent.hp, 1000, 'a Barrier cast places a wall instead of hitting');
     });
 
     it('EVERY built-in hand/thrown weapon deals non-zero damage', () => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { applyWeeklyBossReward } from './weekly-boss.js';
 
 test('weekly boss payout receipt is committed with and gates the reward', () => {
-    const reward = { name: 'contributor', ryo: 500, gotCore: true, gotKey: true };
+    const reward = { name: 'contributor', ryo: 500, gotCore: true, gotKey: true, gotRelic: false };
     const first = applyWeeklyBossReward({
         level: 1,
         unspentStats: 0,

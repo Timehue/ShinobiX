@@ -1143,7 +1143,12 @@ const TOWER_CAST_SCOPED_TAGS = new Set([
     'Clear Prevent', 'Stun Prevent', 'Copy', 'Overclock', 'Increase Heal',
     'Increase Generals', 'Increase Discipline',
 ]);
-const TOWER_ZERO_DAMAGE_CAST_TAGS = new Set(['Heal', 'Shield', 'Barrier']);
+// Only BARRIER zeroes a cast. Heal/Shield are payloads that ride on top of a
+// damaging cast (owner ruling 2026-08-16) — this set is the towers-side twin of
+// resolveTagStatuses in api/pvp/move.ts and MUST track it, or an AOE damage jutsu
+// that also heals would land for full in PvP and for nothing in a tower.
+// The 40-AP utility split is unaffected: a utility cast already carries scaledEp 0.
+const TOWER_ZERO_DAMAGE_CAST_TAGS = new Set(['Barrier']);
 
 function splitAoeJutsu(jutsu: JutsuLike): {
     setup: JutsuLike;
@@ -1154,11 +1159,11 @@ function splitAoeJutsu(jutsu: JutsuLike): {
     const tags = Array.isArray(jutsu.tags) ? jutsu.tags : [];
     const setupTags = tags.filter(tag => TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
     const hitTags = tags.filter(tag => !TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
-    // Same carve-out as resolveTagStatuses in api/pvp/move.ts: a cast that marks
-    // itself `isUtility: false` (every weapon synth) deals its damage even when it
-    // also heals/shields — the Heal/Shield/Barrier zeroing is a support-JUTSU rule.
-    const suppressDamage = jutsu.isUtility !== false
-        && tags.some(tag => TOWER_ZERO_DAMAGE_CAST_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
+    // Barrier zeroes unconditionally, exactly as in move.ts — it is board control,
+    // and weapons cannot carry it at all (stripped by sanitizePvpItems at the seal).
+    const suppressDamage = tags.some(
+        tag => TOWER_ZERO_DAMAGE_CAST_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))),
+    );
     return {
         setup: { ...jutsu, tags: setupTags },
         perHit: { ...jutsu, tags: hitTags },
