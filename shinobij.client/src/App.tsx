@@ -3600,7 +3600,7 @@ export default function App() {
                 if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
                     const preview = readSavePreview(localAccountName);
                     if (preview && preview.character) {
-                        applyServerSnapshot(preview as ReturnType<typeof buildPlayerSavePayload>);
+                        applyServerSnapshot(preview as ReturnType<typeof buildPlayerSavePayload>, { authoritative: false });
                         // applyServerSnapshot routes a "start" screen to village;
                         // override to the exact hub the player was on so the
                         // hash/lastScreen writers stay no-ops and the reconcile
@@ -4948,8 +4948,8 @@ export default function App() {
         void pullSharedAdminContent();
     }
 
-    // Apply a full server snapshot to all game state
-    function applyServerSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
+    // Apply a full server snapshot. `authoritative: false` = cache paint, skips conflict classification (see rehydrate).
+    function applyServerSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>, opts: { authoritative?: boolean } = {}): boolean {
         const snapshotAccountKey = saveConflictAccountKey(snap.character.name);
         const incomingSaveVersion = (snap as Record<string, unknown>)._saveVersion;
         if (saveAuthorityAccountKeyRef.current === snapshotAccountKey) {
@@ -4971,7 +4971,7 @@ export default function App() {
         currentAccountNameRef.current = snap.character.name;
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
-        void rehydrateSaveConflictDraft(snap.character.name, snap);
+        if (opts.authoritative !== false) void rehydrateSaveConflictDraft(snap.character.name, snap);
         setCurrentBiome(snap.currentBiome ?? "central");
         setActiveTraining(snap.activeTraining ?? null);
         setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
