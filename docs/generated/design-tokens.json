@@ -2337,7 +2337,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1646
+            "line": 1669
           }
         ]
       },
@@ -2372,7 +2372,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 1229
+            "line": 1415
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2459,11 +2459,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1095
+            "line": 1118
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1430
+            "line": 1453
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -2740,7 +2740,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1511
+            "line": 1534
           }
         ]
       },
@@ -2863,7 +2863,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 1119
+            "line": 1206
           }
         ]
       },
@@ -2928,7 +2928,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
-            "line": 1625
+            "line": 1627
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
@@ -3088,7 +3088,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
-            "line": 1570
+            "line": 1572
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -3100,7 +3100,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 878
+            "line": 885
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -3210,7 +3210,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1398
+            "line": 1421
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -3513,7 +3513,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
-            "line": 1610
+            "line": 1612
           },
           {
             "source": "shinobij.client/src/styles/index/07-combat-skin-battle-log.css",
