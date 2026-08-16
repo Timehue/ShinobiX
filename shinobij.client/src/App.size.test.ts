@@ -192,7 +192,10 @@ import { readFileSync } from "node:fs";
 // unused `playerRoster` prop dropped from the PetArena call site, minus two
 // comment lines on the sealed-duel wiring). Nothing was moved INTO App.tsx to
 // buy this number.
-const MAX_LINES = 7_743;
+// → 7,690 LOWERED. Removing the save-recovery banner took its two action
+// handlers (download + restore) and the render block out of App.tsx: 7,744 →
+// 7,683, a real 61-line drain. Ratcheted to the new count plus a small buffer.
+const MAX_LINES = 7_690;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
