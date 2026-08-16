@@ -30,7 +30,7 @@ describe('named forge authority', () => {
     });
 
     it('a forged GAUNTLET carries no armorQuality and never claims damage reduction', () => {
-        const item = buildNamedItem(armorRoll('hand'), '', '');
+        const item = buildNamedItem(armorRoll('hand'), '', '') as { armorQuality?: string; description?: string; bonuses: Record<string, number> };
         assert.equal(item.armorQuality, undefined, 'hand gear is not armour — no quality tier');
         assert.ok(!/damage reduction/i.test(String(item.description)), `the description must not promise DR: ${item.description}`);
         assert.equal(item.bonuses.taijutsuOffense, 30, 'it still grants its offense roll');
@@ -39,7 +39,7 @@ describe('named forge authority', () => {
     });
 
     it('forged BODY armour is unchanged — it keeps its quality and its DR claim', () => {
-        const item = buildNamedItem(armorRoll('body'), '', '');
+        const item = buildNamedItem(armorRoll('body'), '', '') as { armorQuality?: string; description?: string };
         assert.equal(item.armorQuality, 'Legendary');
         assert.match(String(item.description), /7% damage reduction/);
     });

@@ -582,6 +582,18 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             if (out.restoreChakra != null)     out.restoreChakra  = clampNumber(out.restoreChakra,  0, 5000, 0);
             if (out.restoreStamina != null)    out.restoreStamina = clampNumber(out.restoreStamina, 0, 5000, 0);
             if (out.weaponEffectValue != null) out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
+            // Barrier is JUTSU-ONLY (owner ruling 2026-08-16): it drops a wall tile on
+            // the board, a cast-time control mechanic rather than something a blade
+            // does. No built-in weapon carries it and craft/_named.ts cannot roll it,
+            // so this strips it only from an admin-authored or tampered definition —
+            // at the SEAL, so every engine inherits the rule at once.
+            const isWeaponItem = out.slot === 'hand' || out.slot === 'thrown' || out.slot === 'weapon';
+            if (isWeaponItem && String(out.weaponEffect) === 'Barrier') delete out.weaponEffect;
+            if (isWeaponItem && Array.isArray(out.weaponTags)) {
+                out.weaponTags = (out.weaponTags as unknown[]).filter(
+                    (t) => !(t && typeof t === 'object' && String((t as Record<string, unknown>).name) === 'Barrier'),
+                );
+            }
             // Tag list — same whitelist + cap (10) as sanitizeJutsuList.
             if (out.weaponTags != null) {
                 const rawTags = Array.isArray(out.weaponTags) ? out.weaponTags : [];
