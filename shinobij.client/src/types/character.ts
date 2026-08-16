@@ -547,6 +547,12 @@ export type Character = {
     // api/village/_village-merit.ts.
     villageMerit?: number;
     totalTilesExplored?: number;
+    // Relic-survey quest (wq-relic-survey). SERVER-OWNED: api/world/_explore.ts
+    // appends the biome of each tile walked, and accepting the quest resets both.
+    // The client only READS these — a client write is discarded by the save
+    // sanitizer (server-mirror-char in api/save/_state-ownership.ts).
+    relicSurvey?: string[];
+    relicSurveyCount?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;
     totalPetWins?: number;

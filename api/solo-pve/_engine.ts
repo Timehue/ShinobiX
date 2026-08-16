@@ -125,6 +125,19 @@ function hollowGateDirective(session: SoloPveSession): HollowGateCombatDirective
     });
 }
 
+/**
+ * PvE-only relic power. Solo-PvE is player-vs-AI by definition (the enemy is
+ * always encounter-authored, never a second human), so it applies unconditionally
+ * here — the mode IS the gate. The equivalent in the towers engine has to check
+ * the counterparty, because tower PvP seats a human team on side 'enemy'.
+ *
+ * Sealed by hydrateCharacterFromSave (clamped 0-100 / 0-75) and read only by the
+ * PvE engines; api/pvp/move.ts never sees these fields.
+ */
+function pvePct(value: PvpFighter, field: 'pveDamagePct' | 'pveDamageTakenPct'): number {
+    return Math.max(0, Number(value.character?.[field]) || 0);
+}
+
 function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide): number {
     const directive = hollowGateDirective(session);
     const hollowGate = directive
@@ -136,7 +149,13 @@ function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide): nu
     const weeklyBoss = side === 'player' && weeklyBossGuardActive
         ? weeklyBossDamageMultiplier(session.round)
         : 1;
-    return hollowGate * weeklyBoss;
+    // The player's relic: boosts what they deal, and blunts what the AI deals to
+    // them (the enemy's cast is always aimed at the player in a 1v1 solo fight).
+    const player = session.player;
+    const relic = side === 'player'
+        ? 1 + pvePct(player, 'pveDamagePct') / 100
+        : Math.max(0.25, 1 - pvePct(player, 'pveDamageTakenPct') / 100);
+    return hollowGate * weeklyBoss * relic;
 }
 
 function fighterEventState(value: PvpFighter) {

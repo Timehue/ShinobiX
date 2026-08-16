@@ -1,5 +1,5 @@
 import { gainXp } from '../_xp-engine.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
 
@@ -41,6 +41,38 @@ export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: n
 }
 
 /**
+ * Relic-survey progress (the `wq-relic-survey` wanderer quest).
+ *
+ * The sage's errand is to walk one tile in EACH of the five countries, which a
+ * flat tile counter cannot express — so we keep the distinct set of biomes
+ * walked since the quest was accepted, plus a length mirror the counter-based
+ * quest machinery can read unchanged.
+ *
+ * Maintained on every explore, quest or no quest: keeping it unconditional means
+ * this module never has to know whether a quest is active, and accepting the
+ * quest simply resets the set (api/sector/wanderer-quest.ts). Both fields are
+ * server-mirrored, so a client cannot write its own progress.
+ */
+export function withRelicSurveyProgress(
+    character: Record<string, unknown>,
+    sectorRaw: unknown,
+): Record<string, unknown> {
+    // sectorBiomeOf falls back to 'central' for ANY unrecognised id (0, NaN, an
+    // out-of-range sector), so gate on the world registry first — otherwise a bad
+    // sector would silently credit a country the player never walked.
+    const sector = Math.floor(Number(sectorRaw));
+    if (!isWildSector(sector)) return character;
+    const biome = sectorBiomeOf(sector);
+    if (!biome) return character;
+    const seen = Array.isArray(character.relicSurvey)
+        ? (character.relicSurvey as unknown[]).filter((b): b is string => typeof b === 'string')
+        : [];
+    if (seen.includes(biome)) return character;
+    const next = [...seen, biome];
+    return { ...character, relicSurvey: next, relicSurveyCount: next.length };
+}
+
+/**
  * Settle one explored tile.
  *
  * `credit` mirrors what the world map actually pays out. Only a tile that
@@ -61,7 +93,7 @@ export function applySectorExploreReward(
     const count = storedDate === today ? Math.max(0, Math.floor(Number(character.serverExploresToday) || 0)) : 0;
     if (count >= DAILY_SECTOR_EXPLORE_LIMIT) return { ok: false as const, reason: 'daily-limit' as const };
     const paid = credit === 'tile' ? { ...reward, ryo: 0 } : reward;
-    const leveled = gainXp(character, paid.xp) as Record<string, unknown>;
+    const leveled = withRelicSurveyProgress(gainXp(character, paid.xp) as Record<string, unknown>, sectorRaw);
     return {
         ok: true as const,
         reward: paid,

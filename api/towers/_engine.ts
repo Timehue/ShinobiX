@@ -18,6 +18,7 @@
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
+import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
 import { reduceNTargetCast, type NTargetCastHooks } from '../combat-core/cast-reducer.js';
 import {
@@ -1153,7 +1154,11 @@ function splitAoeJutsu(jutsu: JutsuLike): {
     const tags = Array.isArray(jutsu.tags) ? jutsu.tags : [];
     const setupTags = tags.filter(tag => TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
     const hitTags = tags.filter(tag => !TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
-    const suppressDamage = tags.some(tag => TOWER_ZERO_DAMAGE_CAST_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
+    // Same carve-out as resolveTagStatuses in api/pvp/move.ts: a cast that marks
+    // itself `isUtility: false` (every weapon synth) deals its damage even when it
+    // also heals/shields — the Heal/Shield/Barrier zeroing is a support-JUTSU rule.
+    const suppressDamage = jutsu.isUtility !== false
+        && tags.some(tag => TOWER_ZERO_DAMAGE_CAST_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
     return {
         setup: { ...jutsu, tags: setupTags },
         perHit: { ...jutsu, tags: hitTags },
@@ -1448,6 +1453,24 @@ function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
     return weatherMultiplier(String(jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
 }
 
+/**
+ * A genuine AI combatant — engine-driven AND unowned. The `ai` flag alone is not
+ * enough: an AFK human is flagged `ai` but keeps its ownerSlug, and tower PvP
+ * seats a live human team on side 'enemy'. Requiring ownerSlug === null means a
+ * PvE-only bonus can never apply in a fight where a human is on the other end.
+ */
+function isAiCombatant(actor: TowerActor): boolean {
+    return actor.ai === true && actor.ownerSlug == null;
+}
+
+/** PvE-only relic multipliers, sealed by hydrateCharacterFromSave (already clamped). */
+function pveRelicDealtMult(actor: TowerActor): number {
+    return 1 + Math.max(0, Number(actor.character?.pveDamagePct) || 0) / 100;
+}
+function pveRelicTakenMult(target: TowerActor): number {
+    return Math.max(0.25, 1 - Math.max(0, Number(target.character?.pveDamageTakenPct) || 0) / 100);
+}
+
 function resolveHit(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor,
     jutsu: JutsuLike, cost: number, deferWinnerCheck = false,
@@ -1466,12 +1489,27 @@ function resolveHit(
     // this scales what a SQUAD DEFENDER receives, and is capped inside debuffTakenMult so the
     // combined enrage × dmgMult × debuff product stays under the one-shot ceiling. ×1 for story.
     const incomingDebuffMult = (!selfCast && target.side === 'squad') ? debuffTakenMult(session, target) : 1;
+    // PvE-only relic power. Gated on the COUNTERPARTY being a genuine AI, never on
+    // `side` — tower PvP seats the opposing HUMAN team on side 'enemy'
+    // (api/towers/_pvp-session.ts), so a side-based gate would hand one human team
+    // a damage bonus against another. isAiCombatant fails closed: an AFK-driven
+    // human still carries an ownerSlug, so no human-vs-human fight ever qualifies.
+    // Two independent gates, because one alone is not enough:
+    //   • session-level — a human-vs-human tower match never grants PvE power at
+    //     all. The per-target check below reads the PRIMARY target, so an AOE
+    //     aimed at an NPC could otherwise splash a human with the bonus attached.
+    //   • per-target — inside a PvE session, the counterparty must still be a real
+    //     AI, so an async/AFK human ally or opponent never feeds it.
+    const pveSession = session.towerId !== TOWER_PVP_TOWER_ID;
+    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor) : 1;
+    const relicTakenMult = (pveSession && !selfCast && isAiCombatant(actor)) ? pveRelicTakenMult(target) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
         * attackerEnrageMult(session, actor) * bulwarkMult(session, target)
         * shrineAttackMult(session, actor)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
         * ascensionDmgMult * incomingDebuffMult
+        * relicDealtMult * relicTakenMult
         * weatherMult(session, jutsu)
     );
     const verb = jutsu.id === 'basic-attack' ? 'attacks'

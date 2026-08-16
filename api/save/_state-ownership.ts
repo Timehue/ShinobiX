@@ -200,6 +200,14 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // ── Server-mirrored redemption ledgers & counters (copy-if-defined) ─────
     f('serverExploreDate', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'world/explore only'),
     f('serverExploresToday', 'character', 'server-owned', 'exploration', ['server-mirror-char']),
+    // Relic-survey wanderer quest (wq-relic-survey). `relicSurvey` is the SET of
+    // biomes walked since the quest was accepted; `relicSurveyCount` is its length,
+    // kept only so the counter-based quest machinery
+    // (wandererQuestComplete → char[def.metric]) reads it with no new code path.
+    // Both are server-mirrored: world/explore appends, quest accept resets, and a
+    // client write is discarded — otherwise the objective could be forged outright.
+    f('relicSurvey', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'biomes surveyed since accept; world/explore appends, wanderer-quest accept resets'),
+    f('relicSurveyCount', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'length mirror of relicSurvey so the numeric quest completion check needs no survey-specific branch'),
     f('redeemedSectorExplorations', 'character', 'server-payout-stamp', 'exploration', ['server-mirror-char']),
     f('serverFreeDungeonProbeDate', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'dungeon/probe-free only'),
     f('serverFreeDungeonProbesToday', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'dungeon/probe-free only'),

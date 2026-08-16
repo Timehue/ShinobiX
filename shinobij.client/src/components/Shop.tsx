@@ -54,7 +54,7 @@ function ShopBase({
     const openItem = (item: GameItem) => { setSelectedItem(item); setBuyQty(1); };
 
     const allItems = getAllItems(creatorItems);
-    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "potion", "accessory"];
+    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory"];
     const armorShopSlots: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
     const shopItems = allItems.filter((item) => {
         const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
@@ -88,6 +88,7 @@ function ShopBase({
         { label: "Feet", slots: ["feet"] },
         { label: "Weapon / Hand", slots: ["hand", "weapon", "thrown"] },
         { label: "Aura / Accessory", slots: ["aura", "accessory", "item"] },
+        { label: "Relic", slots: ["relic"] },
         { label: "Consumables", slots: ["potion", "item"], consumables: true },
     ];
 
@@ -292,7 +293,7 @@ function ShopBase({
                                     <p><strong>Target:</strong> self</p>
                                     <p><strong>Method:</strong> single</p>
                                     <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedItem.slot) === "hand" ? "yes" : "none"}</p>
-                                    <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
+                                    <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
                                     <p><strong>Required Level:</strong> {selectedItem.levelReq ?? 1}</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
                                 </div>
