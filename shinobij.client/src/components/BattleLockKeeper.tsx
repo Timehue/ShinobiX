@@ -3,8 +3,8 @@ import type { Screen } from "../types/core";
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, mintBattleId, postBattleLock } from "../lib/battle-save";
 
 // Headless child (mounts inside a battle screen) that registers/clears the
-// server battle lock as the fight starts and ends. Isolated like
-// ArenaBattlePersister so the parent's hook count is untouched. `active` is true
+// server battle lock as the fight starts and ends. Kept as its own component so
+// the parent screen's hook count is untouched. `active` is true
 // only while an unresolved, non-PvP fight is in progress (PvP has its own
 // server session). It adopts an existing battleId on resume (localStorage
 // intact) so the eventual resolve clears the right lock.
@@ -38,14 +38,3 @@ export function BattleLockKeeper({ active, kind, screen, playerName }: { active:
     }, [active, kind, screen, playerName]);
     return null;
 }
-
-// ── ArenaBattlePersister ─────────────────────────────────────────────────
-// Headless child component (renders nothing) that serializes a PvE Arena
-// battle to localStorage on each turn boundary and rehydrates it on mount.
-//
-// Lives as a SEPARATE component to keep its hooks isolated from Arena —
-// previous attempts to put the hooks directly inside Arena tripped React
-// error #310 (hook count mismatch) because Arena has 50+ existing hooks
-// and the interaction was unstable. With this child, Arena's hook count
-// is untouched: the persister has its own consistent hook footprint
-// (2 useEffects), independent of the parent.

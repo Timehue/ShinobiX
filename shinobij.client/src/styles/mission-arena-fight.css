@@ -35,7 +35,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
    fixed-track grids whose bands are placed by `order`; an unordered extra child
    claims row 1 and pushes every band down a track, which collapsed the hex board
    into the command bar's `auto` row the moment a jutsu was armed. The component
-   pairs this wrapper with `has-rookie-tip`, the class that reserves exactly one
+   pairs this wrapper with `has-action-notice`, the class that reserves exactly one
    extra track on each tier (battle-skin.css). */
 .mission-arena-fight .combat-action-notice {
     box-sizing: border-box;
@@ -51,16 +51,17 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
 
 @media (max-width: 1023px) {
     /* Mobile flattens `.combat-main-area` with `display: contents` and pins every
-       band to an explicit row of the OUTER grid, so the notice needs the same pin
-       battle-skin.css gives the Arena's bare `.rookie-combat-tip`. Without it the
-       wrapper auto-places into the fighter-HUD row.
+       band to an explicit row of the OUTER grid, so the notice needs the same kind
+       of pin battle-skin.css gives its sibling bands (`.twp-strip`,
+       `.hex-battlefield`, …). Without it the wrapper auto-places into the
+       fighter-HUD row.
 
        The bound is 1023px, NOT 800px, and must stay in step with the block that
        owns those sibling pins in battle-skin.css — it was widened to 1023 to close
        the 801-1023 responsive dead band, and a stale 800 here would leave the
        notice unpinned in exactly that band. MissionArenaFight.layout.test.ts reads
        the bound back out of battle-skin.css so the two cannot drift apart again. */
-    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-rookie-tip .combat-action-notice {
+    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-action-notice .combat-action-notice {
         grid-column: 1 / -1 !important;
         grid-row: 2 !important;
         margin: 0 !important;
@@ -142,7 +143,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
         grid-template-rows: auto auto minmax(184px, 34dvh) auto auto minmax(88px, 1fr) !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-rookie-tip {
+    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-action-notice {
         grid-template-rows: auto auto auto minmax(184px, 34dvh) auto auto minmax(88px, 1fr) !important;
     }
 
@@ -160,7 +161,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
         grid-template-rows: 60px auto minmax(90px, 25dvh) auto auto minmax(88px, 1fr) !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-rookie-tip {
+    .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-action-notice {
         grid-template-rows: 60px auto auto minmax(90px, 25dvh) auto auto minmax(88px, 1fr) !important;
     }
 

@@ -16,9 +16,11 @@ const petLadder = source("../screens/PetLadder.tsx");
 
 test("local and public Arena pet selection consumes entitlement-projected pets", () => {
     assert.match(arena, /const combatEligiblePets = activeCarriedPets<Pet>\(character\)/);
-    assert.match(arena, /const activeBattlePet = combatEligiblePets\.find/);
 
     const challenge = arena.slice(arena.indexOf("async function challengePlayer"), arena.indexOf("function declineChallenge"));
+    // The in-fight summon pick moved to the server-driven hosts with the rest of
+    // the reducer; what Arena still picks a pet FOR is the outgoing challenge.
+    assert.match(challenge, /combatEligiblePets\.find\(pet => pet\.id === character\.activePetId/);
     assert.match(challenge, /availablePetBattleCount\(combatEligiblePets\)/);
     assert.match(challenge, /publicEligiblePets\(knownPetTarget\)/);
     assert.doesNotMatch(challenge, /knownPetTarget\.character\.pets/);

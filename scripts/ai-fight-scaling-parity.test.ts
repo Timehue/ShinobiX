@@ -7,17 +7,18 @@
  * server seals a different opponent than the client shows — the exact class of
  * bug the migration exists to remove, and one no other test would catch.
  *
- * It also pins the CLAIM this module is built on: that combat missions are the
- * ONLY entry point which re-levels its AI. `relevelBuiltinAi` has a single call
- * site in the client, gated on combat missions; if a second one ever appears,
- * the server is silently wrong for that mode and this fails.
+ * It also pins the CLAIM this module is built on: that the SERVER re-levels a
+ * combat-mission AI and nothing on the client does. This used to permit exactly
+ * one client call site (the browser PvE reducer's, gated on combat missions);
+ * that reducer is gone and every encounter is now sealed server-side, so the
+ * guard below asserts zero client call sites.
  *
  * Lives in scripts/ — excluded from both build roots — like the other
  * cross-build-root parity tests.
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { readFileSync, globSync } from 'node:fs';
 
 // Client (source of truth)
 import {
@@ -99,20 +100,26 @@ describe('AI-fight scaling parity (server ⇄ client)', () => {
         );
     });
 
-    it('combat missions are still the ONLY entry point that re-levels its AI', () => {
-        // The load-bearing premise of _ai-fight-scaling.ts. If a second call site
-        // appears, that entry point now scales on the client while the server
-        // builds it at the authored level — silently divergent.
-        const arena = readFileSync('shinobij.client/src/screens/Arena.tsx', 'utf8');
-        const calls = arena.match(/relevelBuiltinAi\(/g) ?? [];
-        assert.equal(
-            calls.length, 1,
-            `expected exactly ONE relevelBuiltinAi call site in Arena.tsx, found ${calls.length} — `
-            + 'a new entry point re-levels its AI and api/missions/_ai-fight-scaling.ts must learn it',
-        );
-        assert.ok(
-            /missionAiLevelAndBonus\(combatMissionForAi, character\.level\)/.test(arena),
-            'the surviving call site is no longer the combat-mission one — re-verify the server port',
+    it('no client screen re-levels its AI — the server owns every encounter build', () => {
+        // The load-bearing premise of _ai-fight-scaling.ts. This used to allow
+        // exactly ONE client call site (the combat-mission one in the browser PvE
+        // reducer). That reducer is deleted and every fight is now built server
+        // side, so the invariant tightened: a client screen that re-levels an AI
+        // would scale it locally while the server builds it at the authored
+        // level — silently divergent, and unenforceable besides.
+        const screens = globSync('shinobij.client/src/**/*.{ts,tsx}')
+            .map((file) => file.replaceAll('\\', '/'))
+            .filter((file) => !/\.test\.tsx?$/.test(file));
+        const offenders = screens.filter((file) => {
+            const src = readFileSync(file, 'utf8');
+            // The definition itself and doc comments referring to it are fine;
+            // an actual invocation is not.
+            return /\brelevelBuiltinAi\(/.test(src) && !/export function relevelBuiltinAi\(/.test(src);
+        });
+        assert.deepEqual(
+            offenders, [],
+            'a client screen re-levels its AI again; server-side encounter building is the only supported path '
+            + '(see api/missions/_ai-fight-scaling.ts)',
         );
     });
 });

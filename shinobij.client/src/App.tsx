@@ -5632,39 +5632,11 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
-    // Loss path for the dungeon Warden fight. Without this the player
-    // gets sent to Hospital with activeDungeonEvent still set, then
-    // returning to the dungeon screen drops them back at the intro VN
-    // with no usable progression (the key was already consumed). Clears
-    // all dungeon state and routes them to their village.
-    async function failDungeon() {
-        if (!character || dungeonActionRef.current) return;
-        const token = activeDungeonRunToken ?? character.activeDungeonRun?.token;
-        if (token) {
-            dungeonActionRef.current = true;
-            try {
-                const result = await mutateDungeonRunServer(character.name, "abandon", token);
-                commitVersionedCharacter(result.character, result._saveVersion);
-            } catch (error) {
-                alert(error instanceof Error ? error.message : "The failed dungeon run could not be closed.");
-                return;
-            } finally {
-                dungeonActionRef.current = false;
-            }
-        }
-        setActiveDungeonRunToken(null);
-        setActiveDungeonEvent(null);
-        setDungeonStage("intro");
-        setDungeonPage(0);
-        setDungeonLine(0);
-        setTemporaryStoryAi(null);
-        setPendingArenaStoryBattle(null);
-        setPendingAiProfileId("");
-        alert(character.activeDungeonRun?.entry === "free"
-            ? "The dungeon seal rejected you. You return to your village empty-handed."
-            : "The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
-        setScreen("village");
-    }
+    // (failDungeon lived here — the loss path for the dungeon Warden fight when
+    // the browser-side Arena reducer hosted it. Warden fights are sealed
+    // Solo-PvE now and a defeat settles server-side in
+    // api/missions/report-ai-fight.ts via applyDungeonWardenSettlement, which
+    // owns the run token. leaveDungeon() above still covers a manual exit.)
 
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
@@ -5757,23 +5729,10 @@ export default function App() {
         setCurrentWeather(weatherForBiome(event.biome));
     }
 
-    function completePendingArenaStoryBattle(_survivingHp: number, _aiFightToken?: string): string {
-        throw new Error("Legacy local Arena story settlement is retired. Re-enter the sealed story or dungeon encounter.");
-    }
-
-    async function continuePendingArenaStoryBattle(
-        battleResult?: "win" | "loss" | "fled",
-        _survivingHp = 0,
-    ) {
-        const pending = pendingArenaStoryBattle;
-        const returnScreen = pending?.returnScreen ?? "storyHall";
-        setPendingArenaStoryBattle(null);
-        setTemporaryStoryAi(null);
-        setPendingAiProfileId("");
-        // A finale win queued an ending epilogue: show it now that the arena is done. Completing it lands on returnScreen (activeTriggerReturnScreen); it pays nothing and never re-fires.
-        if (storyEpilogueRef.current.queued) { setActiveTriggeredEvent(storyEpilogueRef.current.queued); setActiveTriggerReturnScreen(returnScreen); setTriggerPage(0); setTriggerLine(0); storyEpilogueRef.current = { lane: null, queued: null }; }
-        setScreen(returnScreen);
-    }
+    // (completePendingArenaStoryBattle / continuePendingArenaStoryBattle lived
+    // here. They existed only to settle a story fight hosted by the browser-side
+    // Arena reducer, which is deleted — story fights run on StoryBossFightHost
+    // and settle through /api/story/settle. The former was already a bare throw.)
 
     // ── Hollow Gate Shrine — actions ──────────────────────────────────────────
     function pushHollowGateLog(line: string) {
@@ -7390,11 +7349,10 @@ export default function App() {
                     <Arena
                         lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
                         character={character}
-                        updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter}
+                        updateCharacter={setCharacter}
                         onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
-                        creatorAis={playableAis}
                         pendingAiProfileId={pendingAiProfileId}
                         setPendingAiProfileId={setPendingAiProfileId}
                         currentBiome={currentBiome}
@@ -7409,21 +7367,12 @@ export default function App() {
                         setRaidBattleKind={setRaidBattleKind}
                         creatorItems={creatorItems}
                         setScreen={navigate}
-                        sharedImages={sharedImages}
-                        pendingStoryBattle={pendingArenaStoryBattle}
-                        onPendingStoryBattleWin={completePendingArenaStoryBattle}
-                        onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
-                        onDungeonFail={failDungeon}
-                        onMissionRaidComplete={(sector, battleId) => recordMissionRaid(sector, battleId, undefined, character.name)}
-                        missionBattleActive={missionBattleActive}
-                        onMissionBattleResolved={() => { setMissionBattleActive(false); }}
-                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack}
+                        onBattleActiveChange={setArenaBattleActive}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
                         setPvpSeedSession={setPvpSeedSession}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent} onAcceptPetChallenge={(c) => void acceptPetChallengeGlobal(c)}
-                        onRecordBattle={recordBattle}
                     />
                 )}
 

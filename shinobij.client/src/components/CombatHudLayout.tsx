@@ -16,7 +16,7 @@ export function CombatHudLayout({
 }: DivProps & { hasActionNotice?: boolean }) {
     return (
         <div
-            className={classNames(`combat-layout${hasActionNotice ? " has-rookie-tip" : ""}`, className)}
+            className={classNames(`combat-layout${hasActionNotice ? " has-action-notice" : ""}`, className)}
             {...props}
         >
             {children}

@@ -35,7 +35,7 @@ test("shared combat HUD primitives preserve the shell class contract", () => {
     );
 
     for (const className of [
-        "combat-layout has-rookie-tip mode-layout",
+        "combat-layout has-action-notice mode-layout",
         "combat-main-area bt-log mode-main",
         "arena-top-panel",
         "arena-title-panel",
