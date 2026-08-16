@@ -366,7 +366,17 @@ export function createSaveConflictDraftStore(params: {
         ]);
         if (!merged) throw new Error("The local conflict draft could not be prepared.");
         memory.set(revision.accountKey, merged);
-        if (params.activeAccountKey() === revision.accountKey) params.onVisibleDraft(merged);
+        // ⛔ Capture PROTECTS, it does not ANNOUNCE. Never surface the draft here.
+        //
+        // A capture happens the moment a save is rejected, before recovery has run
+        // and before the payload has ever been compared to the server — its areas
+        // are still the "Unsaved device progress" placeholder. Most conflicts heal
+        // themselves a round-trip later, so surfacing here showed the player a
+        // recovery banner for a divergence that did not survive the next refetch:
+        // it appeared mid-play, then dismissed itself seconds later. Every capture
+        // path is followed by a rehydrate (409 → refetch → applyServerSnapshot;
+        // unload → next boot; restore → applyAuthoritative), and rehydrate
+        // classifies against real authority. Let IT decide what the player sees.
         try { writeSaveConflictRevision(params.storage, revision); } catch (error) { params.reportStorageFailure(error); }
         return merged;
     };
