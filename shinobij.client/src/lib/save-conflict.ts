@@ -381,6 +381,17 @@ export function createSaveConflictDraftStore(params: {
         else memory.delete(revision.accountKey);
         params.onVisibleDraft(remaining);
     };
+    /**
+     * Re-classify stored drafts against authority and surface what survives.
+     *
+     * ⛔ `serverSnapshot` must be the SERVER's answer, never the localStorage
+     * preview cache. Classifying a protected draft against that cache compares
+     * the client to its own stale copy — they differ by whatever changed since
+     * the last autosave, so it always "finds" a divergence. The optimistic boot
+     * paint applies the preview through applyServerSnapshot, which is why that
+     * call passes `authoritative: false`: without it the recovery banner flashed
+     * on every refresh and dismissed itself once the real save landed.
+     */
     const rehydrate = async (accountName: string, serverSnapshot?: unknown): Promise<SaveConflictDraft | null> => {
         const accountKey = saveConflictAccountKey(accountName);
         let draft = load(accountName);

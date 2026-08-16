@@ -373,6 +373,26 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(appSource, /createSaveConflictDraftStore\(\{/);
     });
 
+    it("never classifies a protected draft against the localStorage preview cache", () => {
+        // The optimistic boot paint applies the preview cache through
+        // applyServerSnapshot. Classifying a draft against it compares the client
+        // to its own stale copy, which reliably "finds" a divergence — that is
+        // what flashed the recovery banner on every refresh and then dismissed it
+        // once the real save landed.
+        assert.match(
+            appSource,
+            /applyServerSnapshot\(preview as ReturnType<typeof buildPlayerSavePayload>, \{ authoritative: false \}\)/,
+            "the optimistic preview paint must declare itself non-authoritative",
+        );
+        assert.match(
+            appSource,
+            /if \(opts\.authoritative !== false\) void rehydrateSaveConflictDraft\(snap\.character\.name, snap\)/,
+            "conflict rehydration must be gated on the snapshot being authoritative",
+        );
+        // Every other caller stays authoritative by default.
+        assert.match(appSource, /function applyServerSnapshot\([^)]*opts: \{ authoritative\?: boolean \} = \{\}\)/);
+    });
+
     it("adopts the save version from every read of the player's OWN combat save", () => {
         // fetchPlayerCombatSave(character.name) reads YOUR save, and the server
         // settles elapsed state on an owner read — a completed journey, an expired
