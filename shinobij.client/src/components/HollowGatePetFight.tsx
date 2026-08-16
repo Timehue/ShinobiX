@@ -16,6 +16,7 @@ import {
     type HollowGateCombatKind,
     type HollowGateCombatSettleResult,
 } from "../lib/hollow-gate-combat-api";
+import { warmShowdownModels } from "../lib/pet-model-preload";
 
 /*
  * A Hollow Gate pet encounter, fought on the Showdown engine.
@@ -113,6 +114,11 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
                 const existing = await fetchShowdownState(character.name, resumed);
                 if (cancelled) return;
                 if (existing) {
+                    // Warm both bodies before the fight shows. An unwarmed GLB
+                    // suspends against a null fallback, so a cold Hound is not a
+                    // placeholder — it is an empty arena.
+                    if (!existing.finished) await warmShowdownModels(existing, [activePet]);
+                    if (cancelled) return;
                     setState(existing);
                     setPhase(existing.finished ? "settling" : "fighting");
                     if (existing.finished) void settleSession(resumed);
@@ -131,6 +137,11 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
                 return;
             }
             writeCrumb(fight.runId, started.state.sessionId);
+            // `[activePet]` is exactly what this fight fields (see the
+            // playerPets prop below) — the raw roster would warm bodies the
+            // renderer never asks for and miss the entitlement projection.
+            await warmShowdownModels(started.state, [activePet]);
+            if (cancelled) return;
             setState(started.state);
             setPhase("fighting");
         })();
