@@ -199,7 +199,7 @@ describe("save-conflict drafts", () => {
         assert.deepEqual(detectSaveConflictAreas(local, server), ["Save timing only"]);
     });
 
-    it("keeps a recoverable in-memory draft when browser storage fails", () => {
+    it("keeps a recoverable in-memory draft when browser storage fails", async () => {
         const storage = new MemoryStorage();
         storage.setItem = () => { throw new Error("quota unavailable"); };
         const visible: Array<string[] | null> = [];
@@ -211,12 +211,56 @@ describe("save-conflict drafts", () => {
             reportStorageFailure: (error) => failures.push(error),
         });
 
-        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 } });
+        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
         assert.equal(captured.revisions.length, 1);
         assert.equal(failures.length, 1, "the storage failure remains observable");
         assert.equal(storage.length, 0);
         assert.deepEqual(store.load("Kaya")?.revisions.map((revision) => revision.id), [captured.revisions[0].id]);
+        // Capture is silent by contract, so prove recoverability through the path
+        // the player actually reaches it by: classification against authority.
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 9 });
         assert.deepEqual(visible.at(-1), [captured.revisions[0].id], "the active account can still restore from memory");
+    });
+
+    it("captures silently — a protected draft is never shown before it is classified", async () => {
+        // The banner used to appear the instant a save was rejected, before
+        // recovery ran and before the payload had been compared to the server.
+        // Most conflicts heal a round-trip later, so the player saw a recovery
+        // banner mid-play that dismissed itself seconds afterwards.
+        const storage = new MemoryStorage();
+        const visible: Array<number | null> = [];
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => saveConflictAccountKey("Kaya"),
+            onVisibleDraft: (draft) => visible.push(draft?.revisions.length ?? null),
+            reportStorageFailure: assert.fail,
+        });
+
+        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        assert.equal(captured.revisions.length, 1, "the draft is still protected");
+        assert.equal(storage.length, 1, "and still written to storage");
+        assert.deepEqual(visible, [], "but nothing is shown to the player yet");
+
+        // A divergence that survives classification DOES surface.
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 9 });
+        assert.deepEqual(visible, [1], "a real, still-unresolved divergence is announced");
+    });
+
+    it("never announces a conflict that recovery resolved", async () => {
+        const storage = new MemoryStorage();
+        const visible: Array<number | null> = [];
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => saveConflictAccountKey("Kaya"),
+            onVisibleDraft: (draft) => visible.push(draft?.revisions.length ?? null),
+            reportStorageFailure: assert.fail,
+        });
+
+        store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        // The refetch lands and the server already has everything the draft held.
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        assert.deepEqual(visible, [null], "the player is never shown a self-healing conflict");
+        assert.equal(storage.length, 0, "and the resolved guard is cleaned up");
     });
 
     it("rehydrates against authority and removes timing-only guards", async () => {
