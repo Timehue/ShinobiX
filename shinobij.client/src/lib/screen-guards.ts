@@ -26,8 +26,8 @@ export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 ]);
 
 // Screens we restore on refresh: the deep-linkable hubs plus the arena
-// lobby/district family, which render fine with no fight in flight (an
-// in-progress PvE arena fight additionally resumes via ArenaBattlePersister).
+// lobby/district family, which are pure lobbies — they never host a fight, so
+// there is nothing in flight for a refresh to lose.
 export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     ...DEEP_LINKABLE_SCREENS,
     "arena", "battleArena", "arenaDistrict", "userHub",

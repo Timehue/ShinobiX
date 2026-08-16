@@ -50,6 +50,7 @@ import {
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
+import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
@@ -57,6 +58,7 @@ import {
     type TowerSession,
     type TowerActor,
     type TowerSide,
+    type TowerVfxEvent,
     getActor,
     livingOnSide,
     isSideAlive,
@@ -1494,6 +1496,7 @@ function resolveHit(
 // Round-end: tick Wound/Poison/Drain DoTs and expire statuses for every living actor,
 // reusing the EXACT PvP helpers so timing/mitigation match the live game.
 function applyRoundStatusTicks(session: TowerSession): void {
+    const roundPlates: TowerVfxEvent[] = [];
     for (const a of session.actors) {
         if (a.hp <= 0) {
             // N-actor policy: a defeated caster's wall survives for the remaining
@@ -1528,8 +1531,21 @@ function applyRoundStatusTicks(session: TowerSession): void {
         }
         a.chakra = Math.max(0, Math.floor(dot.fighter.chakra));
         if (dot.lines.length) session.log.push(...dot.lines);
+        // The shared PvP helper already authored this tick's plates; they were
+        // being dropped on the floor here. A DoT only ever ticks the fighter it
+        // belongs to, so `self` resolves to this actor and `opp` cannot occur.
+        for (const plate of dot.vfx) {
+            if (plate.who !== 'self') continue;
+            roundPlates.push({
+                key: String(plate.key),
+                target: a.id,
+                anchor: plate.anchor,
+                ...(plate.persistent ? { persistent: true } : {}),
+            });
+        }
         a.statuses = tickStatuses(actorToFighter(a), session.round).statuses;
     }
+    publishTowerVfx(session, roundPlates);
 }
 
 // ─── Turn scheduler (side-based rounds; interleaved boss-interrupt is Phase 3) ─
@@ -1973,7 +1989,99 @@ function tickBossPhases(session: TowerSession): void {
 }
 
 // ─── Action application ──────────────────────────────────────────────────────
+/** Replace the session's VFX plates and bump the sequence the client watches. */
+function publishTowerVfx(session: TowerSession, plates: TowerVfxEvent[]): void {
+    if (!plates.length) return;
+    session.vfx = plates.slice(0, MAX_COMBAT_VFX_TILES);
+    session.vfxSeq = (session.vfxSeq ?? 0) + 1;
+}
+
+/**
+ * Author the cosmetic plates for one resolved action.
+ *
+ * Deliberately derived from the action + the actor's own jutsu entry, never from
+ * damage numbers: this runs AFTER the action resolved and must not be able to
+ * influence it. `ko` upgrades the plate to the finisher art, matching solo-PvE.
+ */
+function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerAction, ko: boolean): TowerVfxEvent[] {
+    const foe = 'targetId' in action && action.targetId ? action.targetId : undefined;
+    switch (action.type) {
+        case 'move': case 'dash':
+            return [{ key: 'move', anchor: 'tile', tiles: [action.tile] }];
+        case 'attack':
+            return foe ? [{ key: ko ? 'ko' : 'impact', target: foe, anchor: 'target' }] : [];
+        case 'weapon':
+            return foe ? [{ key: ko ? 'ko' : 'weapon', target: foe, anchor: 'target' }] : [];
+        case 'heal':
+            return [{ key: 'heal', target: actor.id, anchor: 'caster' }];
+        case 'cleanse':
+            return [{ key: 'cleanse', target: actor.id, anchor: 'caster' }];
+        case 'clear':
+            return foe ? [{ key: 'cleanse', target: foe, anchor: 'target' }] : [];
+        case 'item':
+            return [{ key: 'item', target: actor.id, anchor: 'caster' }];
+        case 'summon':
+            return [{ key: 'summon', target: actor.id, anchor: 'caster' }];
+        case 'jutsu': {
+            const jutsu = findJutsu(actor, action.jutsuId);
+            if (!jutsu) return [];
+            const names = canonicalJutsuTagNames(
+                (jutsu.tags as Array<{ name?: string }> | undefined)
+                    ?.filter((tag): tag is { name: string } => typeof tag?.name === 'string'),
+            );
+            // A pure repositioning jutsu already emits the movement plate below.
+            if (names.length && names.every(name => name === 'Move')) {
+                return action.tile === undefined ? [] : [{ key: 'move', anchor: 'tile', tiles: [action.tile] }];
+            }
+            const radius = jutsuAreaRadius(jutsu);
+            const method = String(jutsu.method ?? 'SINGLE');
+            const ground = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL' || String(jutsu.target ?? '') === 'EMPTY_GROUND';
+            const semantic = semanticJutsuVfx(jutsu as Parameters<typeof semanticJutsuVfx>[0], {
+                ...(ground ? { ground: true } : {}),
+                ...(radius > 0 ? { area: true } : {}),
+                ...(ko ? { ko: true } : {}),
+            });
+            // Anchor on the struck tile when the cast named one, otherwise on the
+            // victim (or the caster for a self-cast).
+            const centre = action.tile ?? session.actors.find(a => a.id === foe)?.pos;
+            const tiles = centre === undefined
+                ? undefined
+                : radius > 0
+                    ? filledDiskTiles(centre, radius, session.map.width, session.map.height)
+                    : [centre];
+            const target = semantic.anchor === 'caster' ? actor.id : foe;
+            return [{
+                key: semantic.key,
+                ...(target ? { target } : {}),
+                anchor: semantic.anchor,
+                ...(tiles ? { tiles: tiles.slice(0, MAX_COMBAT_VFX_TILES) } : {}),
+                ...(ground ? { persistent: true } : {}),
+            }];
+        }
+        default:
+            return [];
+    }
+}
+
+/**
+ * Thin cosmetic wrapper around the resolver. It snapshots the actors' HP, runs
+ * the UNCHANGED resolution below, then authors the plates for what happened.
+ * Kept as a wrapper (rather than emission scattered through the resolver's many
+ * early returns) so the combat path itself is byte-for-byte what it was.
+ */
 export function applyAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
+    const hpBefore = new Map(session.actors.map(a => [a.id, a.hp]));
+    const result = applyResolvedAction(session, floor, action, rng);
+    if (!result.applied) return result;
+    const actor = session.actors.find(a => a.id === action.actorId);
+    if (actor) {
+        const ko = session.actors.some(a => a.hp <= 0 && (hpBefore.get(a.id) ?? 0) > 0);
+        publishTowerVfx(session, towerActionVfx(session, actor, action, ko));
+    }
+    return result;
+}
+
+function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
     void rng; // reserved: AI tie-breaking / future variance — damage stays deterministic
     if (session.status !== 'active') return { applied: false, reason: 'session-done' };
     const actor = activeActor(session);

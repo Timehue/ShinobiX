@@ -5,10 +5,28 @@
 // (healing font + squad-held & enemy-held shrines), a primed VOLLEY telegraph
 // (violet tiles + banner), GEYSER VENTS (idle + primed pulse), and the boss-kit
 // encounter chips (hunt/strike/aegis/geyser).
+//
+// TWO MODES
+//   /towerfx.html         static board — one sealed snapshot, nothing advances.
+//   /towerfx.html?live    SESSION HARNESS — a scripted in-page "server" answers
+//                         real commands, so the board actually advances when you
+//                         click Attack / a jutsu / Wait.
+//
+// The live mode drives the screen exclusively through BattleTowerFight's own
+// injectable seams (`actionFn` + `stateFn`, which already default to the real
+// HTTP calls). Nothing in the combat screen, engine, or adapter is modified or
+// special-cased for the harness — it is the same code path a real run takes,
+// with the network swapped out. That is what makes it usable as a verification
+// fixture: anything you can see here, the real client would render too.
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
-import type { TowerSession, TowerActor } from "./lib/towers-api";
+import type {
+    TowerSession,
+    TowerActor,
+    TowerActionInput,
+    TowerActionResponse,
+} from "./lib/towers-api";
 
 const W = 20, H = 14;
 function neighbors(pos: number): number[] {
@@ -127,6 +145,137 @@ const session: TowerSession = {
     ],
 };
 
+// ── Session harness ("?live") ────────────────────────────────────────────────
+// A deterministic stand-in for api/towers: it owns the session, applies a
+// coarse effect per command, and bumps `actionVersion` so the screen's own
+// adoption guard (`next.actionVersion >= current.actionVersion`) accepts it.
+// Deliberately NOT a combat simulator — it exists to make the real screen
+// advance through real state transitions, not to reproduce server damage.
+const live = new URLSearchParams(window.location.search).has("live");
+
+// The static board is an ART showcase: it parks the squad at tile 123 and the
+// enemy ranks at 116-118, which reads well but leaves every offensive command
+// out of range. Live mode starts the player adjacent to the front grunt (138 is
+// a neighbour of 118) so Attack / weapons / short-range jutsu are actually
+// exercisable. Only the live session is moved; the showcase is untouched.
+const LIVE_PLAYER_TILE = 138;
+const liveSession: TowerSession = {
+    ...session,
+    actionVersion: 0,
+    actors: session.actors.map((actor) => (actor.id === "sq-0" ? { ...actor, pos: LIVE_PLAYER_TILE } : actor)),
+};
+
+let current: TowerSession = live ? liveSession : session;
+let version = 0;
+
+/** Rotate to the next actor so turn-dependent UI (active ring, command
+ *  enablement, the round counter) actually moves between commands.
+ *
+ * Every AI in between is resolved in the same step, which is what the real
+ * endpoint does: a command returns a session where it is your turn again. Without
+ * this the harness hands control to an AI actor and the command bar correctly
+ * disables itself, leaving the board un-driveable after exactly one click. */
+function advanceTurn(from: TowerSession): TowerSession {
+    const queue = from.turnQueue;
+    const isLocal = (id: string) => from.actors.some((a) => a.id === id && !a.ai);
+    let index = from.activeIndex;
+    let round = from.round;
+    const skipped: string[] = [];
+    for (let step = 0; step < queue.length; step++) {
+        index = (index + 1) % queue.length;
+        if (index === 0) round += 1;
+        if (isLocal(queue[index])) break;
+        skipped.push(queue[index]);
+    }
+    const barks = skipped.map((id) => {
+        const actor = from.actors.find((a) => a.id === id);
+        return `${actor?.name ?? id} takes its turn.`;
+    });
+    return {
+        ...from,
+        activeIndex: index,
+        round,
+        activeAp: 100,
+        actionsThisTurn: 0,
+        log: [...from.log, ...barks].slice(-40),
+    };
+}
+
+function describe(action: TowerActionInput): string {
+    switch (action.type) {
+        case "jutsu": return `Rill casts ${action.jutsuId}.`;
+        case "attack": return `Rill strikes ${action.targetId}.`;
+        case "weapon": return `Rill swings ${action.itemId ?? "a weapon"}.`;
+        case "item": return `Rill uses ${action.itemId ?? "an item"}.`;
+        case "move": case "dash": return `Rill moves to tile ${action.tile}.`;
+        default: return `Rill performs ${action.type}.`;
+    }
+}
+
+/** Apply a visible consequence so it is obvious the board advanced. Offensive
+ *  commands chip the nearest enemy; movement relocates the player. */
+function applyAction(from: TowerSession, action: TowerActionInput): TowerSession {
+    const actors = from.actors.map((actor) => ({ ...actor }));
+    if (action.type === "move" || action.type === "dash") {
+        const me = actors.find((a) => a.id === "sq-0");
+        if (me) me.pos = action.tile;
+    }
+    const targetId = "targetId" in action ? action.targetId : undefined;
+    const victim = actors.find((a) => a.id === targetId) ?? actors.find((a) => a.side === "enemy");
+    if (victim && (action.type === "attack" || action.type === "jutsu" || action.type === "weapon")) {
+        victim.hp = Math.max(0, victim.hp - 140);
+    }
+    return advanceTurn({ ...from, actors, log: [...from.log, describe(action)].slice(-40) });
+}
+
+/** Mirror the engine's plate authoring (api/towers/_engine.ts towerActionVfx)
+ *  closely enough to exercise the client renderer: an actor-anchored burst for
+ *  offensive commands, a tile-anchored one for movement. */
+function harnessVfx(action: TowerActionInput, victimId?: string): TowerSession["vfx"] {
+    if (action.type === "move" || action.type === "dash") {
+        return [{ key: "move", anchor: "tile", tiles: [action.tile] }];
+    }
+    if (action.type === "attack" || action.type === "weapon") {
+        return victimId ? [{ key: "impact", target: victimId, anchor: "target" }] : [];
+    }
+    if (action.type === "jutsu") {
+        // Stand in for an elemental AOE so the tile-spread path renders too.
+        return victimId ? [{ key: "fire60", target: victimId, anchor: "area", tiles: [118, 119, 138] }] : [];
+    }
+    return [];
+}
+
+const harnessActionFn = async (
+    _runId: string,
+    _playerName: string,
+    action: TowerActionInput,
+): Promise<TowerActionResponse> => {
+    version += 1;
+    const victimId = "targetId" in action && action.targetId
+        ? action.targetId
+        : current.actors.find((a) => a.side === "enemy")?.id;
+    current = {
+        ...applyAction(current, action),
+        actionVersion: version,
+        vfx: harnessVfx(action, victimId),
+        vfxSeq: version,
+    };
+    return { applied: true, session: current, currentVersion: version, actionVersion: version };
+};
+
+/** Polls and the on-mount reconcile both read back the same authored session,
+ *  so a refresh never rolls the board backwards mid-inspection. */
+const harnessStateFn = async (): Promise<TowerSession> => current;
+
 createRoot(document.getElementById("root")!).render(
-    <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
+    live
+        ? <BattleTowerFight
+            character={{ name: "Rill" } as never}
+            runId="preview"
+            initialSession={liveSession}
+            onExit={() => {}}
+            actionFn={harnessActionFn}
+            stateFn={harnessStateFn}
+        />
+        : <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
 );

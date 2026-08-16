@@ -346,12 +346,29 @@ test("status plates are compact and visually distinct from their attack families
     }
 });
 
+// PvE used to satisfy this via screens/Arena.tsx's browser-side reducer. That
+// reducer is gone, so solo PvE renders the wrapper on MissionArenaFight instead,
+// driven by the server's own VFX stream rather than a local sim.
+// (BattleTowerFight is still absent: api/towers emits no VFX events, so there is
+// nothing for it to render yet.)
 test("PvP and PvE render the same authored motion wrapper", () => {
-    for (const screen of ["../screens/PvpBattleScreen.tsx", "../screens/Arena.tsx"]) {
+    for (const screen of ["../screens/PvpBattleScreen.tsx", "../screens/MissionArenaFight.tsx"]) {
         const source = readFileSync(new URL(screen, import.meta.url), "utf8");
         assert.match(source, /className="pvp-vfx-art"/, screen);
         assert.match(source, /pvp-vfx-asset-\$\{asset\.plane\}/, screen);
     }
+});
+
+test("solo PvE plays only the VFX plates it has not already drawn", () => {
+    const source = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
+    // Replaying the session's whole retained event window on every poll would
+    // re-fire old plates; the screen must filter by the last seq it drew.
+    assert.match(source, /const floor = last \?\? 0;/);
+    assert.match(source, /\.filter\(\(plate\) => plate\.seq > floor\)/);
+    // Mounting mid-fight (refresh / resumed session) must not dump the backlog.
+    assert.match(source, /if \(last === undefined && !watchedFromStart\) return;/);
+    // Overlapping plates on one tile collapse, exactly as in PvP.
+    assert.match(source, /dedupeCombatVfx\(mapped,/);
 });
 
 test("combat CSS assigns material-specific motion instead of one generic bloom", () => {

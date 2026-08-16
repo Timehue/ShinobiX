@@ -29,9 +29,26 @@ const SERVER_FORMULAS = readFileSync(join(ROOT, 'api', 'combat-core', 'formulas.
 // api/pvp/_tags.ts; move.ts imports them. Read the set literals from there.
 const SERVER_TAGS = readFileSync(join(ROOT, 'api', 'pvp', '_tags.ts'), 'utf8');
 const CLIENT = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
-// The PvE combat engine lives in screens/Arena.tsx (extracted verbatim from
-// the App.tsx monolith, 2026-06-10). These guards follow the engine.
-const CLIENT_APP = readFileSync(join(ROOT, 'shinobij.client', 'src', 'screens', 'Arena.tsx'), 'utf8');
+// PvE used to run a SECOND, hand-mirrored engine in the browser
+// (screens/Arena.tsx). That reducer is deleted: solo PvE is now server-side and
+// IMPORTS its resolvers straight from the PvP engine, so the constants below are
+// not mirrored into PvE — they are the same code executing. The old
+// "does the PvE engine still consume this?" guards therefore became
+// "is PvE still wired to the PvP engine's implementation?", which is what these
+// two sources are read for. api/combat-core/pvp-solo-jutsu-parity.test.ts backs
+// this behaviourally by running BOTH real engines over the whole jutsu catalog.
+const SOLO_ENGINE = readFileSync(join(ROOT, 'api', 'solo-pve', '_engine.ts'), 'utf8');
+const SOLO_ENCOUNTER = readFileSync(join(ROOT, 'api', 'solo-pve', '_ai-encounter.ts'), 'utf8');
+/** The resolvers solo PvE pulls out of api/pvp/move.ts (its whole combat core). */
+const SOLO_SHARED_RESOLVERS = (() => {
+    const block = SOLO_ENGINE.match(/import \{([^}]*)\} from '\.\.\/pvp\/move\.js';/);
+    assert.ok(block, 'solo-pve/_engine.ts no longer imports from the PvP engine at all — PvE has forked its own combat core');
+    return block![1].split(',').map((name) => name.trim()).filter(Boolean);
+})();
+const sharesWithPvp = (fn: string) => assert.ok(
+    SOLO_SHARED_RESOLVERS.includes(fn),
+    `solo-pve/_engine.ts no longer imports ${fn} from api/pvp/move.ts — PvE would need its own copy, reopening PvE↔PvP drift`,
+);
 // STUN_AP_PENALTY lives in the client constants module, not combat-math —
 // pinned here so the server endTurn AP penalty can't drift from the client's.
 const CLIENT_GAME_CONSTS = readFileSync(join(ROOT, 'shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
@@ -119,7 +136,10 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.match(SERVER, /function capWoundStacks/, 'move.ts lost capWoundStacks');
         assert.match(CLIENT, /export function capWoundStacks/, 'combat-math.ts lost capWoundStacks');
         assert.match(SERVER, /capWoundStacks\(addJutsuStatus/, 'move.ts no longer caps Wound stacks at apply');
-        assert.match(CLIENT_APP, /capWoundStacks\(/, 'Arena.tsx no longer caps Wound stacks at apply');
+        // PvE applies statuses through the same applyJutsu/tickStatuses, so the
+        // cap is the same code — not a mirrored constant.
+        sharesWithPvp('applyJutsu');
+        sharesWithPvp('tickStatuses');
     });
     // Stun AP penalty: server move.ts uses `100 - STUN_AP_PENALTY` for the
     // stunned fighter's starting AP; client App.tsx uses `STUN_AP_PENALTY`
@@ -139,10 +159,16 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // it can't silently go dead again (which would re-open the PvE↔PvP divergence).
     it('PvE actually consumes the wound rank cap (not a dead constant)', () => {
         assert.match(CLIENT, /export function woundCapForRankPVE/, 'woundCapForRankPVE helper missing from combat-math.ts');
-        assert.ok(
-            CLIENT_APP.includes('woundCapForRankPVE('),
-            'Arena.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again',
+        // The client copy above is now preview/display only. Live PvE takes the
+        // server's own rank cap, because it resolves jutsu through applyJutsu.
+        assert.match(SERVER_FORMULAS, /function woundCapForJutsu/, 'combat-core/formulas.ts lost the Wound rank cap');
+        assert.match(
+            SERVER_FORMULAS,
+            /woundCapForJutsu\(jutsu\)/,
+            'woundAmountForFinalDamage no longer applies the rank cap — Wound would ignore bloodline rank',
         );
+        assert.match(SERVER, /woundAmountForFinalDamage\(/, 'move.ts no longer routes Wound through the rank-capped helper');
+        sharesWithPvp('applyJutsu');
     });
     // #2 amp duration: PvP forces IDG/IDT/DDG/DDT to 4 rounds (STATUS_DURATIONS_OVERRIDE);
     // PvE centralizes the same value in AMP_STATUS_ROUNDS_PVE. Assert all four server
@@ -156,10 +182,10 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             assert.ok(m, `server STATUS_DURATIONS_OVERRIDE missing "${name}"`);
             assert.equal(Number(m![1]), clientAmp, `${name} duration (${m![1]}) != AMP_STATUS_ROUNDS_PVE (${clientAmp})`);
         }
-        assert.ok(
-            CLIENT_APP.includes('AMP_STATUS_ROUNDS_PVE'),
-            'Arena.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals',
-        );
+        // PvE gets STATUS_DURATIONS_OVERRIDE for free: it applies statuses via the
+        // server's applyJutsu, so there are no PvE-side per-site literals left to
+        // drift.
+        sharesWithPvp('applyJutsu');
     });
     // #3 Drain: PvE consumes drainTickPVE (mastery-scaled, HP+chakra only). The
     // DRAIN_* value parity is covered by the PAIRS loop above; this guards that the
@@ -167,8 +193,11 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // drains stamina.
     it('PvE consumes the mastery-scaled drain helper and drops stamina drain', () => {
         assert.match(CLIENT, /export function drainTickPVE/, 'drainTickPVE helper missing from combat-math.ts');
-        assert.ok(CLIENT_APP.includes('drainTickPVE('), 'Arena.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
-        assert.ok(!CLIENT_APP.includes('drainStamina'), 'Arena.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
+        // drainTick lives inside move.ts tickStatuses; PvE ticks statuses with
+        // that exact function, so PvE drain is mastery-scaled and stamina-free
+        // by construction.
+        assert.match(SERVER, /drainTick\(/, 'move.ts no longer mastery-scales Drain');
+        sharesWithPvp('tickStatuses');
     });
     // DoT DR mitigation: the DR_DOT_SCALE value parity is covered in PAIRS
     // above; this guards that PvE actually CONSUMES the dotMitigationPVE
@@ -178,10 +207,11 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // duration regression guards catch.
     it('PvE consumes the DoT DR-mitigation helper (not raw ticks)', () => {
         assert.match(CLIENT, /export function dotMitigationPVE/, 'dotMitigationPVE helper missing from combat-math.ts');
-        assert.ok(
-            CLIENT_APP.includes('dotMitigationPVE('),
-            'Arena.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity',
-        );
+        // dotMitigation lives inside move.ts applyDoTs, and PvE ticks its DoTs by
+        // calling that same applyDoTs — so a heavy-armour build cannot tank DoTs
+        // differently in PvE than in PvP.
+        assert.match(SERVER, /dotMitigationFromRawDr\(/, 'move.ts no longer DR-mitigates DoT ticks');
+        sharesWithPvp('applyDoTs');
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
     // re-apply) must match the client's STACKABLE_STATUS_PVE, and App.tsx must
@@ -193,10 +223,9 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             stackableSet(CLIENT, 'STACKABLE_STATUS_PVE'),
             'stackable-status set diverged between server and client',
         );
-        assert.ok(
-            CLIENT_APP.includes('mergeCombatStatus('),
-            'Arena.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again',
-        );
+        // PvE applies every status through the server's applyJutsu, which owns the
+        // STACKABLE_STATUS replace-vs-stack decision.
+        sharesWithPvp('applyJutsu');
     });
     // EP mastery-scaling parity (2026-06-15). The PvP server applies a jutsu's
     // mastery to EP exactly ONCE: scaledEp = effectPower + level×0.2 (move.ts
@@ -205,9 +234,13 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // which applied mastery a SECOND time — so PvE only matched PvP at max
     // mastery and under-hit below it. The cast must pass RAW effectPower.
     it('PvE jutsu cast does not double-scale mastery EP (feeds raw EP)', () => {
-        assert.ok(
-            !CLIENT_APP.includes('effectPower: scaled.scaledEffectPower'),
-            'Arena.tsx feeds pre-scaled EP into calculateDamage again — PvE damage diverges from PvP below max mastery',
+        // PvE no longer has a cast path of its own to double-scale in: it hands
+        // the raw jutsu to the server's applyJutsu, which applies mastery once.
+        sharesWithPvp('applyJutsu');
+        assert.doesNotMatch(
+            SOLO_ENGINE,
+            /scaledEffectPower/,
+            'solo-pve/_engine.ts pre-scales EP before handing the jutsu to applyJutsu — mastery would apply twice',
         );
     });
     // "Show current-level EP": the inspect display (scaleJutsuByLevel) must use
@@ -244,9 +277,9 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.match(SERVER, /healAmountForMastery\(masteryLevel, healBoost\)/, 'move.ts Heal no longer consumes the combat-core mastery helper');
         assert.match(SERVER_FORMULAS, /function shieldAmountForMastery/, 'combat-core/formulas.ts lost Shield mastery helper');
         assert.match(SERVER, /shieldAmountForMastery\(masteryLevel\)/, 'move.ts Shield no longer consumes the combat-core mastery helper');
-        // Client PvE engine (Arena.tsx): same cap via the shared masteryDamageFrac.
-        assert.match(CLIENT_APP, /Math\.min\(HEAL_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Heal no longer ramps + hard-caps by mastery');
-        assert.match(CLIENT_APP, /Math\.min\(SHIELD_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Shield no longer ramps + hard-caps by mastery');
+        // PvE resolves Heal/Shield through that same move.ts path, so it inherits
+        // both the mastery ramp and the flat hard-cap.
+        sharesWithPvp('applyJutsu');
     });
     it('JUTSU_MAX_LEVEL (server) === JUTSU_MAX_LEVEL (client constants/game.ts)', () => {
         assert.equal(
@@ -290,7 +323,13 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             SERVER.includes('formulaSelf: cappedSelf') && SERVER.includes('formulaOpponent: cappedOpp'),
             'move.ts no longer feeds rank-capped fighters into the combat-core resolveJutsu base-damage phase — the PvP stat cap is dead',
         );
-        assert.ok(CLIENT_APP.includes('perRankStatCap('), 'Arena.tsx no longer calls perRankStatCap — the PvE stat cap is dead');
+        // PvE caps on both ends: the sealed AI is built through perRankStatCap,
+        // and the fight itself runs the same rank-capped resolveJutsu phase above.
+        assert.ok(
+            SOLO_ENCOUNTER.includes('perRankStatCap('),
+            'solo-pve/_ai-encounter.ts no longer rank-caps the sealed AI stats — the PvE stat cap is dead',
+        );
+        sharesWithPvp('applyJutsu');
     });
 
     // ── statFactor tuning triple-pin ──────────────────────────────────────────
@@ -337,7 +376,12 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     it('gear stat-bonus fold is consumed on both sides (not dead)', () => {
         const SERVER_SESSION = readFileSync(join(ROOT, 'api', 'pvp', 'session.ts'), 'utf8');
         assert.ok(SERVER_SESSION.includes('deriveEquipmentStatBonuses('), 'session.ts no longer folds gear stat bonuses — server combat lost gear specialty stats');
-        assert.ok(CLIENT_APP.includes('getEquippedItemBonus(character, allItems, "ninjutsuOffense")'), 'Arena.tsx no longer folds gear stat bonuses — client PvE lost gear specialty stats');
+        // PvE seals its player through the SAME hydrator PvP uses, so the fold is
+        // one implementation rather than two that can drift.
+        assert.ok(
+            SOLO_ENCOUNTER.includes('hydrateCharacterFromSave('),
+            'solo-pve/_ai-encounter.ts no longer seals its player via hydrateCharacterFromSave — PvE would lose the gear stat fold',
+        );
     });
 
     it('bloodline multiplier table agrees (server _multipliers.ts ⇄ client combat-math.ts)', () => {
