@@ -8,7 +8,6 @@ import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, ga
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
-import { SaveConflictBanner } from "./components/SaveConflictBanner";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
@@ -45,15 +44,11 @@ import {
     nextSavePayloadRevision,
 } from "./lib/save-flight";
 import { createSavePersistence } from "./lib/save-persistence";
-import { restoreSaveConflictRevision } from "./lib/save-conflict-restore";
 import { protectSaveOnUnload } from "./lib/save-unload";
 import { beginSessionLoad, sessionLoadFetch } from "./lib/session-load-authority";
 import {
     createSaveConflictDraftStore,
-    latestSaveConflictRevision,
     saveConflictAccountKey,
-    saveConflictDownloadFilename,
-    serializeSaveConflictDownload,
     type SaveConflictDraft,
 } from "./lib/save-conflict";
 import { authRateLimitMessage, requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
@@ -4602,11 +4597,12 @@ export default function App() {
             reportStorageFailure: reportConflictStorageFailure,
         });
     }
-    const loadConflictDraftForAccount = saveConflictStoreRef.current.load;
+    // The recovery BANNER was removed (see the note on setSaveConflictDraft): the
+    // capture/rehydrate machinery still protects and settles drafts silently, so
+    // these stay wired; only the player-facing surface is gone.
     const captureSaveConflictDraft = saveConflictStoreRef.current.capture;
     const discardSaveConflictRevision = saveConflictStoreRef.current.discard;
     const rehydrateSaveConflictDraft = saveConflictStoreRef.current.rehydrate;
-    const clearConflictDraftForAccount = saveConflictStoreRef.current.clear;
     if (!savePersistenceRef.current) {
         savePersistenceRef.current = createSavePersistence({
             flight: saveFlightRef.current,
@@ -4624,54 +4620,6 @@ export default function App() {
             setBlocked: setSaveBlocked,
         });
     }
-    async function downloadLocalConflictDraft(): Promise<void> {
-        const draft = saveConflictDraft;
-        if (!draft) throw new Error("No protected local draft is available to download.");
-        const blob = new Blob([serializeSaveConflictDownload(draft)], { type: "application/json" });
-        const objectUrl = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        try {
-            anchor.href = objectUrl;
-            anchor.download = saveConflictDownloadFilename(draft);
-            anchor.hidden = true;
-            document.body.append(anchor);
-            anchor.click();
-        } finally {
-            anchor.remove();
-            URL.revokeObjectURL(objectUrl);
-        }
-    }
-
-    async function restoreLocalConflictDraft(beginBlockingRestore: () => void): Promise<void> {
-        const visibleDraft = saveConflictDraft;
-        if (!visibleDraft || visibleDraft.accountKey !== activeSaveAccountKey()) {
-            throw new Error("Sign in to the matching account before restoring this draft.");
-        }
-        const restoreSessionEpoch = saveSessionEpochRef.current;
-        const confirmed = await gameConfirm(
-            "Restore the newest protected device revision over the active server save? The server will validate it, then the game will reload the authoritative result.",
-            { title: "Restore device draft", confirmLabel: "Restore draft", danger: true },
-        );
-        if (!confirmed) return;
-        if (!isCurrentSaveSession(visibleDraft.accountKey, restoreSessionEpoch)) {
-            throw new Error("The active account changed. Sign back in to the matching account before restoring this draft.");
-        }
-        beginBlockingRestore();
-
-        const { declined } = await restoreSaveConflictRevision({
-            visibleDraft, sessionEpoch: restoreSessionEpoch, runExclusive: savePersistenceRef.current!.runExclusive,
-            isCurrentSession: isCurrentSaveSession, loadDraft: loadConflictDraftForAccount,
-            latestVersion: latestSaveVersionRef, currentSnapshot: () => latestSaveRef.current,
-            captureConflict: captureSaveConflictDraft, applySnapshot: applyServerSnapshot,
-            discardRevision: discardSaveConflictRevision,
-        });
-        // The write is durable either way. Say plainly which parts the server kept
-        // authority over rather than reporting the whole restore as a failure.
-        if (declined.length) {
-            alert(`Your device draft was restored. The server keeps authority over ${declined.join(", ").toLowerCase()}, so those stayed at the server's values.`);
-        }
-    }
-
     useEffect(() => {
         if (!saveConflictDraft) return;
         const nextExpiry = Math.min(...saveConflictDraft.revisions.map((revision) => revision.expiresAt));
@@ -6440,15 +6388,7 @@ export default function App() {
         >
             <GameAlertHost /><GameConfirmHost /><GamePasswordPromptHost /><GameToastHost />
             <SaveErrorBanner visible={saveBlocked} />
-            <SaveConflictBanner
-                key={saveConflictDraft ? latestSaveConflictRevision(saveConflictDraft).id : "no-save-conflict"}
-                draft={saveConflictDraft}
-                onKeepServer={() => {
-                    if (saveConflictDraft) clearConflictDraftForAccount(saveConflictDraft.accountName);
-                }}
-                onDownload={downloadLocalConflictDraft}
-                onRestore={restoreLocalConflictDraft}
-            />
+
             {sessionExpired && (
                 <div
                     style={{
