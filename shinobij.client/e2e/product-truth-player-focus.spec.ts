@@ -35,10 +35,16 @@ type RuntimeSaveCommit = {
     postedState: string;
 };
 
+// Must list EVERY id in PUBLIC_CAPABILITY_IDS. The client parser fails closed on
+// a partial response, so one missing id makes capabilities read "unknown" — and
+// because autosave is capability-guarded, the save under test then never commits
+// and the failure surfaces as a persistence bug rather than a fixture gap.
 const allAvailable: PublicCapabilities = {
     gameplay: { state: "available", reason: "available" },
     gameplayMutations: { state: "available", reason: "available" },
     registrations: { state: "available", reason: "available" },
+    googleSignIn: { state: "available", reason: "available" },
+    guestPlay: { state: "available", reason: "available" },
     villageWar: { state: "available", reason: "available" },
     anbuInfiltration: { state: "available", reason: "available" },
     clanBoss: { state: "available", reason: "available" },
