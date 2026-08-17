@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { before, beforeEach, describe, test } from 'node:test';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
@@ -9,6 +10,10 @@ import { applySoloPveAction } from '../solo-pve/_engine.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
 process.env.SUPABASE_SERVICE_KEY ??= 'x';
+// A newer path in the move handler validates the role key by its canonical name
+// before the stubbed kv below is reached, so the handler 500s on every action
+// without this. The value is never used — every read and write is intercepted.
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'x';
 process.env.SESSION_SECRET = 'pvp-solo-parity-test-secret-32-bytes';
 process.env.DISABLE_COMBAT_RECEIPTS = '1';
 
@@ -32,6 +37,18 @@ before(async () => {
     kv.delIfEqual = async (key: string, expected: string) => {
         if (store.get(key) !== expected) return false;
         store.delete(key);
+        return true;
+    };
+    // Session persistence moved from kv.set to a compare-and-set. This stub was
+    // never extended, so every parity action fell through to the real Supabase
+    // client and the handler 500d on a failed fetch. Deep equality is required:
+    // kv.get hands back a clone, so the caller's `expected` is never the same
+    // reference as the stored row.
+    kv.compareSet = async (key: string, expected: unknown, next: unknown, options?: { ex?: number }) => {
+        void options;
+        const current = store.has(key) ? store.get(key) : null;
+        if (!isDeepStrictEqual(current ?? null, expected ?? null)) return false;
+        store.set(key, clone(next));
         return true;
     };
     kv.incr = async (key: string) => {
@@ -121,6 +138,12 @@ function pvpSession(id: string, jutsu: CombatJutsu): PvpSession {
         cooldowns: { p1: {}, p2: {} },
         groundEffects: [],
         log: ['Battle begins.'],
+        // The move handler refuses to advance combat until both fighters have
+        // joined. Without this every parity case was rejected before the jutsu
+        // ran, so all six cases compared "PvP did nothing" against a Solo engine
+        // that has no join handshake — which reads as 217 diverging jutsu but is
+        // really one missing membership flag.
+        joined: { p1: true, p2: true },
         status: 'active',
         winner: null,
         createdAt: 1_700_000_000_000,
@@ -343,6 +366,11 @@ async function runParityCase(jutsu: CombatJutsu, index: number, setup: ParitySet
     return {
         pvp: normalizePvp(pvpBefore, pvpAfter, pvpApplied),
         solo: normalizeSolo(soloBefore, soloResult.session, soloResult.applied),
+        // Diagnostics only — deliberately outside the compared shapes. A bare
+        // "diverged" across 217 cases says nothing about WHY one side refused,
+        // and the refusal reason is usually the whole answer.
+        pvpRejection: (out.body as PvpSession).rejected?.reason ?? null,
+        soloRejection: soloResult.applied ? null : (soloResult.reason ?? 'unspecified'),
     };
 }
 
@@ -386,7 +414,10 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
         let index = 0;
         for (const jutsu of catalog.values()) {
             const result = await runParityCase(jutsu, index++);
-            assert.deepEqual(result.solo, result.pvp, `${jutsu.id} (${jutsu.name}) diverged`);
+            assert.deepEqual(result.solo, result.pvp,
+                `${jutsu.id} (${jutsu.name}) diverged`
+                + ` [pvp refused: ${result.pvpRejection ?? 'no'};`
+                + ` solo refused: ${result.soloRejection ?? 'no'}]`);
         }
     });
 
