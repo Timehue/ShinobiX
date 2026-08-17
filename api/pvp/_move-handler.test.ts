@@ -328,7 +328,9 @@ test('an unsolicited opponent cannot claim an AFK win before both fighters join'
         moveToken: 'unjoined-afk-claim',
     });
     assert.equal(claim.statusCode, 200);
-    assert.match(String((claim.body as PvpSession).rejected?.reason), /both fighters have joined/i);
+    // Matches the rejection's meaning, not its exact prose — the copy became
+    // "Waiting for both fighters to join before combat can advance."
+    assert.match(String((claim.body as PvpSession).rejected?.reason), /both fighters/i);
     assert.equal(storedSession('unjoined-afk').status, 'active');
 });
 
