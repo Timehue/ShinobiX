@@ -456,7 +456,16 @@ test('a transient Vanguard saga failure keeps completion pending and retry credi
     });
     await kv.set(`pvp:${battleId}`, {
         battleId,
-        p1: { name: winner, character: { name: winner, village: 'Leaf', level: 30 } },
+        // The Vanguard grant reads profession from the SEALED fighter snapshot,
+        // not the live save, so a player cannot switch profession after the
+        // fight and claim seals. `profession` is a public-char field and is not
+        // combat-stripped, so a real session carries it. Omitting it here made
+        // the grant return not-vanguard before the retry under test could ever
+        // credit anything.
+        p1: {
+            name: winner,
+            character: { name: winner, village: 'Leaf', level: 30, profession: 'vanguard' },
+        },
         p2: { name: loser, character: { name: loser, village: 'Leaf', level: 30 } },
         status: 'done',
         winner: 'p1',
@@ -470,6 +479,11 @@ test('a transient Vanguard saga failure keeps completion pending and retry credi
         itemsUsed: { p1: {}, p2: {} },
         log: [],
         createdAt: now - 20_000,
+        // The anti-farm duration check measures lastMoveAt (not endedAt) against
+        // createdAt, and move.ts stamps lastMoveAt on every move, so a real
+        // terminal session always carries one. Without it the fight measured as
+        // zero seconds and the grant returned too-quick.
+        lastMoveAt: now,
         endedAt: now,
     }, { ex: 48 * 60 * 60 });
 
