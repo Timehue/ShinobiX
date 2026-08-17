@@ -32,9 +32,9 @@ test('pickMercTarget breaks ties by name (deterministic)', () => {
 });
 
 test('mercNpcId / parseMercNpcId round-trip the band (village slug + tier)', () => {
-    const id = mercNpcId('Stormveil Village', 'oni', 2);
-    assert.equal(id, 'merc-stormveilvillage-oni-2');
-    assert.deepEqual(parseMercNpcId(id), { villageSlug: 'stormveilvillage', tierId: 'oni' });
+    const id = mercNpcId('Stormveil Village', 'merc-oni', 2);
+    assert.equal(id, 'merc-stormveilvillage-merc-oni-2');
+    assert.deepEqual(parseMercNpcId(id), { villageSlug: 'stormveilvillage', tierId: 'merc-oni' });
 });
 
 test('parseMercNpcId rejects ids that are not roaming mercs', () => {

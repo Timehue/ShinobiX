@@ -43,44 +43,55 @@ export interface MercDeployResult {
  *  inside the 15-min per-target cooldown (so neither the cron nor a hand-deploy can
  *  spam one player). The per-target cooldown is stamped the moment a merc commits.
  *  The CALLER applies the outcome to the right war (sector Control-HP or village-war
- *  HP). A missing target save resolves to a harmless stall (no damage either way). */
+ *  HP). A missing target save or target-village mismatch rejects before a band
+ *  member is spent. */
 async function claimAndResolveMerc(args: {
     village: string;
     tierId: string;
     hirer: string;
     sector: number;
     targetPlayer: string;
+    /** Current server-authoritative village the target must still belong to. */
+    targetVillage: string;
     mercLevel: number;
     now: number;
 }): Promise<{ battle: MercBattleResult; mercsRemaining: number } | null> {
-    // Anti-spam: a player a merc just fought is off-limits to the WHOLE band for
-    // 15 min — don't even spend a merc on them.
-    if (await isMercTargetOnCooldown(args.targetPlayer, args.now)) return null;
+    const targetSaveKey = `save:${args.targetPlayer}`;
+    // A route-level target lookup is only advisory: village transfer/autosave can
+    // race it. Hold the same save lock those writes use, re-read the exact target
+    // village, and only then spend a band member. Keeping the cooldown check and
+    // stamp inside that lock also prevents two concurrent deploys from both
+    // passing the old pre-claim cooldown read.
+    const authority = await withKvLock(targetSaveKey, async () => {
+        if (await isMercTargetOnCooldown(args.targetPlayer, args.now)) return null;
+        const targetSave = await kv.get<Record<string, unknown>>(targetSaveKey);
+        const targetChar = (targetSave?.character ?? null) as Record<string, unknown> | null;
+        if (!targetChar || String(targetChar.village ?? '').trim() !== args.targetVillage) return null;
 
-    // Claim one merc from the hirer's band (rejects if it's spent).
-    const claim = await withKvLock(villageWarKey(args.village), async () => {
-        const rec = normalizeVillageWarRecord(args.village, (await kv.get<Record<string, unknown>>(villageWarKey(args.village))) ?? undefined);
-        const out = claimMercFromBand(rec.mercLeases, args.tierId, args.hirer, args.now);
-        if (!out.claimed) return { claimed: false as const, remaining: 0 };
-        await kv.set(villageWarKey(args.village), { ...rec, mercLeases: out.leases });
-        return { claimed: true as const, remaining: out.remaining };
+        const claim = await withKvLock(villageWarKey(args.village), async () => {
+            const rec = normalizeVillageWarRecord(args.village, (await kv.get<Record<string, unknown>>(villageWarKey(args.village))) ?? undefined);
+            const out = claimMercFromBand(rec.mercLeases, args.tierId, args.hirer, args.now);
+            if (!out.claimed) return { claimed: false as const, remaining: 0 };
+            await kv.set(villageWarKey(args.village), { ...rec, mercLeases: out.leases });
+            return { claimed: true as const, remaining: out.remaining };
+        }, { failClosed: true });
+        if (!claim.claimed) return null;
+
+        // The merc commits to this valid target → 15-min cooldown for the whole
+        // band (win, lose, or stall), so it cannot re-hit the same player.
+        await setMercTargetCooldown(args.targetPlayer, args.now);
+        return { targetSave, remaining: claim.remaining };
     }, { failClosed: true });
-    if (!claim.claimed) return null;
+    if (!authority) return null;
 
-    // The merc commits to this target → 15-min cooldown for the whole band (win,
-    // lose, or stall), so it can't re-hit the same player.
-    await setMercTargetCooldown(args.targetPlayer, args.now);
-
-    // Hydrate the target's real combat loadout + resolve the battle (server-auth).
-    const targetSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${args.targetPlayer}`));
+    // Hydrate the exact save snapshot authorized above + resolve server-side.
+    const targetSave = await augmentSaveWithForgedDefs(authority.targetSave);
     const targetChar = (targetSave?.character ?? null) as Record<string, unknown> | null;
-    if (!targetChar) {
-        return { battle: { winner: 'stall', mercWon: false, playerWon: false, rounds: 0, log: [] }, mercsRemaining: claim.remaining };
-    }
+    if (!targetChar) return null;
     const sealed = sealTowerFighter(targetChar, targetSave ?? null, {}, await loadAdminCombatContent());
     const seed = (args.now ^ (args.sector * 2654435761)) >>> 0;
     const battle = resolveMercBattle({ playerName: args.targetPlayer, playerSlug: args.targetPlayer, playerSealedChar: sealed, mercLevel: args.mercLevel, seed, now: args.now });
-    return { battle, mercsRemaining: claim.remaining };
+    return { battle, mercsRemaining: authority.remaining };
 }
 
 /** Resolve ONE merc deployment against a target in a SECTOR war + apply it to the
@@ -93,6 +104,7 @@ export async function deployOneMerc(args: {
     hirer: string;
     sector: number;
     targetPlayer: string;
+    targetVillage: string;
     contestId: string;
     mercLevel: number;
     now: number;
@@ -109,7 +121,7 @@ export async function deployOneMerc(args: {
     let attackerPoints = 0;
     let defenderPoints = 0;
     if (battle.mercWon || battle.playerWon) {
-        const playerRole = await sectorWarRoleOf(args.targetPlayer);
+        const playerRole = await sectorWarRoleOf(args.targetPlayer, args.targetVillage);
         const result = await withKvLock(sectorWarKey(args.contestId), async () => {
             const live = await loadSectorWar(args.contestId);
             if (!live) return null;
@@ -180,7 +192,7 @@ export async function deployMercVillageWar(args: {
     mercLevel: number;
     now: number;
 }): Promise<MercVillageWarResult | null> {
-    const resolved = await claimAndResolveMerc(args);
+    const resolved = await claimAndResolveMerc({ ...args, targetVillage: args.enemyVillage });
     if (!resolved) return null;
     const { battle, mercsRemaining } = resolved;
 
@@ -257,7 +269,7 @@ export async function runMercAutoDeploy(deps: AutoDeps = {}): Promise<MercAutoRe
         if (!band) continue;
         const target = pickMercTarget(await liveMercTargets(onlineNames(contest.sector), contest.defenderVillage, now), contest.defenderVillage);
         if (!target) continue;
-        const r = await deploy({ village: contest.attackerVillage, tierId: band.tierId, hirer: band.player, sector: contest.sector, targetPlayer: target.name, contestId: contest.id, mercLevel: band.level, now });
+        const r = await deploy({ village: contest.attackerVillage, tierId: band.tierId, hirer: band.player, sector: contest.sector, targetPlayer: target.name, targetVillage: contest.defenderVillage, contestId: contest.id, mercLevel: band.level, now });
         if (r) deployed++;
     }
 

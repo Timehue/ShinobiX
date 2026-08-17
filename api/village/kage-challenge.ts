@@ -1,5 +1,6 @@
 import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -14,7 +15,12 @@ import {
     canDeclareChallenge, isChallengeExpired, newChallenge, applyPress, applySeatTransfer,
     applyExpiry, resolveAcceptDecision, KAGE_DECLARE_SEAL_COST, type KageStateLike,
 } from './_kage-challenge.js';
-import { settleKageDuel, reconcilePendingKageSettle, kageKey, kageDuelKey } from './_kage-settle.js';
+import {
+    ensureKageDuelPointer,
+    settleKageDuel,
+    reconcilePendingKageSettle,
+    kageKey,
+} from './_kage-settle.js';
 
 /*
  * /api/village/kage-challenge — POST only
@@ -41,7 +47,6 @@ import { settleKageDuel, reconcilePendingKageSettle, kageKey, kageDuelKey } from
  * inside (kage-outer / save-inner — no other path takes them the other way).
  */
 
-const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const AUDIT_PREFIX = 'audit:kage-challenge:';
 
 function num(v: unknown): number {
@@ -50,6 +55,23 @@ function num(v: unknown): number {
 }
 async function audit(village: string, entry: Record<string, unknown>): Promise<void> {
     await kv.set(`${AUDIT_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}:${Date.now()}`, { ts: Date.now(), ...entry }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+}
+
+async function commitExactKageState(
+    key: string,
+    expected: KageStateLike | null,
+    candidate: KageStateLike,
+): Promise<void> {
+    try {
+        if (await kv.compareSet(key, expected, candidate)) return;
+    } catch (error) {
+        const recovered = await kv.get<KageStateLike>(key).catch(() => null);
+        if (isDeepStrictEqual(recovered, candidate)) return;
+        throw error;
+    }
+    const recovered = await kv.get<KageStateLike>(key);
+    if (isDeepStrictEqual(recovered, candidate)) return;
+    throw new Error('kage-state-publication-conflict');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -205,8 +227,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const session = await kv.get<PvpSession>(`pvp:${battleId}`);
             const sessionFighters = session ? [safeName(session.p1.name), safeName(session.p2.name)] : null;
             const out = await withKvLock<{ status: number; body: unknown; sealBattleId?: string; challengeId?: string }>(key, async () => {
-                let state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
-                if (state.challenge && isChallengeExpired(state.challenge, now)) { state = applyExpiry(state, now); await kv.set(key, state); }
+                let raw = await kv.get<KageStateLike>(key);
+                let state = raw ?? { kageSystemUnlocked: false };
+                if (state.challenge && isChallengeExpired(state.challenge, now)) {
+                    const expired = applyExpiry(state, now);
+                    await commitExactKageState(key, raw, expired);
+                    raw = expired;
+                    state = expired;
+                }
                 const challenge = state.challenge;
                 const decision = resolveAcceptDecision({
                     challenge,
@@ -222,14 +250,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: true, challenge }, sealBattleId: battleId, challengeId: challenge!.challengeId };
                 }
                 const next = { ...state, challenge: { ...challenge!, status: 'accepted' as const, battleId } };
-                await kv.set(key, next);
+                await commitExactKageState(key, raw, next);
                 return { status: 200, body: { ok: true, challenge: next.challenge }, sealBattleId: battleId, challengeId: challenge!.challengeId };
             }, { failClosed: true });
             // Point the official duel back at this village/challenge so PvP
             // completion (api/pvp/move.ts) can auto-settle the seat. Written
             // SERVER-side (not client-trusted); TTL matches the replay window.
             if (out.status === 200 && out.sealBattleId) {
-                await kv.set(kageDuelKey(out.sealBattleId), { village, challengeId: out.challengeId }, { ex: Math.floor(SESSION_REPLAY_WINDOW_MS / 1000) }).catch(() => undefined);
+                try {
+                    await ensureKageDuelPointer(village, out.sealBattleId, String(out.challengeId ?? ''));
+                } catch (error) {
+                    console.error('[village/kage-challenge] official duel pointer pending', safeLogValue(error));
+                    return res.status(503).json({
+                        error: 'The official duel is sealed, but its durable settlement pointer is still publishing. Retry accept.',
+                    });
+                }
                 await audit(village, { action: 'accept', battleId: out.sealBattleId });
             }
             return res.status(out.status).json(out.body);

@@ -122,17 +122,19 @@ export function removeRaidReport(
     writeEntries(player, readRaidReportOutbox(player, storage).filter((entry) => entry.battleId !== battleId), storage);
 }
 
-type Reporter = (playerName: string, entry: RaidReportOutboxEntry) => Promise<RaidReportAcknowledgement | null>;
+type Reporter = (playerName: string, entry: RaidReportOutboxEntry, signal?: AbortSignal) => Promise<RaidReportAcknowledgement | null>;
 
 export async function postPvpRaidReport(
     playerName: string,
     entry: RaidReportOutboxEntry,
+    signal?: AbortSignal,
 ): Promise<RaidReportAcknowledgement | null> {
     try {
         const response = await fetch("/api/missions/report-raid", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, battleId: entry.battleId }),
+            signal,
         });
         const data = await response.json().catch(() => null) as {
             ok?: boolean;
@@ -179,7 +181,8 @@ export async function postPvpRaidReport(
             territoryDamage,
             sector,
         };
-    } catch {
+    } catch (error) {
+        if (signal?.aborted) throw error;
         return null;
     }
 }
@@ -188,27 +191,44 @@ export async function flushRaidReportOutbox(
     playerName: string,
     storage: RaidReportOutboxStorage | null = defaultStorage(),
     reporter: Reporter = postPvpRaidReport,
+    signal?: AbortSignal,
 ): Promise<RaidReportDrainResult | undefined> {
     const key = playerSlug(playerName);
     if (!key) return undefined;
-    const existing = flushInFlight.get(key);
+    if (signal?.aborted) throw new DOMException("PvP completion scope changed.", "AbortError");
+    // A scoped completion must own an abortable request. Joining a background
+    // no-signal flight could leave the 12s completion timeout stuck behind an
+    // unresolved promise and poison subsequent retries through the dedupe map.
+    const dedupe = !signal;
+    const existing = dedupe ? flushInFlight.get(key) : undefined;
     if (existing) return existing;
     const entries = readRaidReportOutbox(playerName, storage);
     if (entries.length === 0) return undefined;
     const flight = (async () => {
         const acknowledgements: RaidReportAcknowledgement[] = [];
         for (const entry of entries) {
-            const acknowledged = await reporter(playerName, entry);
+            if (signal?.aborted) throw new DOMException("PvP completion scope changed.", "AbortError");
+            const acknowledged = await reporter(playerName, entry, signal);
             if (!acknowledged) continue;
             removeRaidReport(playerName, entry.battleId, storage);
             acknowledgements.push(acknowledged);
         }
         return { playerName, acknowledgements };
     })();
-    flushInFlight.set(key, flight);
+    if (dedupe) flushInFlight.set(key, flight);
     try {
         return await flight;
     } finally {
-        if (flushInFlight.get(key) === flight) flushInFlight.delete(key);
+        if (dedupe && flushInFlight.get(key) === flight) flushInFlight.delete(key);
     }
+}
+
+/** Fail closed unless this exact battle received an authoritative server ACK. */
+export function requireRaidReportAcknowledgement(
+    result: RaidReportDrainResult | undefined,
+    battleId: string,
+): RaidReportAcknowledgement {
+    const acknowledgement = result?.acknowledgements.find(entry => entry.entry.battleId === battleId);
+    if (!acknowledgement) throw new Error("PvP raid settlement was not acknowledged; retry completion.");
+    return acknowledgement;
 }

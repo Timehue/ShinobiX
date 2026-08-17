@@ -52,6 +52,8 @@ export type PvpGroundEffectState = {
 
 export type PvpSessionState = {
     battleId: string;
+    /** Server-owned monotonic revision; 0 is a client-only pre-deploy compatibility projection. */
+    stateRevision: number;
     p1: PvpFighterState;
     p2: PvpFighterState;
     round: number;
@@ -64,16 +66,28 @@ export type PvpSessionState = {
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
     rewardAuthority?: "challenge" | "clan-war" | "ranked" | "world" | "admin";
+    progressionAuthorityVersion?: 1;
+    worldAttacker?: { side: "p1" | "p2"; name: string };
     challengeId?: string;
+    kageDuelAuthority?: { version: 1; village: string; challengeId: string };
     clanWarId?: string;
     clanWarChallengeId?: string;
     joined?: { p1: boolean; p2: boolean };
     baseRewards?: boolean;
+    rewardSector?: number;
     ranked?: boolean;
+    rankedKind?: "player" | "pet";
     /** Server-minted Player Ranked V2 authority marker. Ordinary/casual fights omit it. */
     playerRankedAuthorityVersion?: 2;
+    /** Server authority cutover: real fighters cannot spend mutable inventory in PvP. */
+    pvpConsumableAuthorityVersion?: 1;
+    /** Server authority cutover: Vanguard rewards use the durable settlement saga. */
+    vanguardRewardAuthorityVersion?: 2;
+    /** Immutable real-player sides sealed when the session is created. */
+    realFighters?: { p1: boolean; p2: boolean };
     fleedBy?: "p1" | "p2";
     createdAt?: number;
+    endedAt?: number;
     lastMoveAt?: number;
     consecAutoWait?: { p1?: number; p2?: number };
     // Environment sealed at session-create time (api/pvp/session.ts). The server

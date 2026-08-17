@@ -80,7 +80,10 @@ export function mercNpcId(village: string, tierId: string, index: number): strin
  *  isn't a merc id. Only a CANDIDATE extraction — the caller re-validates the band
  *  against live leases, so a forged id can't conjure a merc that isn't really there. */
 export function parseMercNpcId(id: string): { villageSlug: string; tierId: string } | null {
-    const m = /^merc-([a-z0-9]+)-([a-z0-9]+)-\d+$/.exec(String(id));
+    // Live WR tiers are themselves hyphenated (`merc-ronin`, etc.). Capture the
+    // whole middle tier segment up to the final numeric render index so an id
+    // synthesized from a real lease round-trips through the engage route.
+    const m = /^merc-([a-z0-9]+)-([a-z0-9]+(?:-[a-z0-9]+)*)-\d+$/.exec(String(id));
     return m ? { villageSlug: m[1], tierId: m[2] } : null;
 }
 

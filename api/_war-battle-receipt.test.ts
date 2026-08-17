@@ -9,6 +9,11 @@ import {
     warMissionTokenAuthorizes,
     warMissionTokenKey,
     WAR_BATTLE_DAMAGE_BUDGET,
+    WAR_BATTLE_RECEIPT_LIMIT,
+    WarBattleReceiptLedgerFullError,
+    WarBattleReceiptLedgerMalformedError,
+    embeddedWarBattleReplay,
+    stampEmbeddedWarBattleReplay,
     type WarBattleShape,
 } from './_war-battle-receipt.js';
 
@@ -21,6 +26,9 @@ function battle(over: Partial<WarBattleShape> = {}): WarBattleShape {
         status: 'done',
         winner: 'p1',
         createdAt: WAR_START + 5_000,
+        endedAt: WAR_START + 6_000,
+        rewardAuthority: 'world',
+        joined: { p1: true, p2: true },
         p1: { name: 'aria' },
         p2: { name: 'kell' },
         ...over,
@@ -77,6 +85,32 @@ describe('validateWarBattle — the exploit this closes', () => {
         assert.equal(!r.ok && r.reason, 'battle-unfinished');
     });
 
+    it('refuses a finished battle without a sanctioned reward authority', () => {
+        const missing = validateWarBattle(args({
+            battle: battle({ rewardAuthority: undefined }),
+        }));
+        assert.equal(!missing.ok && missing.reason, 'battle-unsanctioned');
+
+        const forged = validateWarBattle(args({
+            battle: battle({ rewardAuthority: 'forged' }),
+        }));
+        assert.equal(!forged.ok && forged.reason, 'battle-unsanctioned');
+    });
+
+    it('accepts exactly the sanctioned reward-authority set', () => {
+        for (const rewardAuthority of ['challenge', 'clan-war', 'ranked', 'world', 'admin'] as const) {
+            const r = validateWarBattle(args({ battle: battle({ rewardAuthority }) }));
+            assert.equal(r.ok, true, rewardAuthority);
+        }
+    });
+
+    it('refuses a battle unless both fighters joined it', () => {
+        for (const joined of [undefined, { p1: false, p2: true }, { p1: true, p2: false }]) {
+            const r = validateWarBattle(args({ battle: battle({ joined }) }));
+            assert.equal(!r.ok && r.reason, 'battle-unjoined');
+        }
+    });
+
     it('refuses a draw', () => {
         const r = validateWarBattle(args({ battle: battle({ winner: 'draw' }) }));
         assert.equal(!r.ok && r.reason, 'battle-drawn');
@@ -106,6 +140,43 @@ describe('validateWarBattle — the exploit this closes', () => {
     it('refuses a battle fought before the war opened', () => {
         const r = validateWarBattle(args({ battle: battle({ createdAt: WAR_START - 1 }) }));
         assert.equal(!r.ok && r.reason, 'battle-predates-war');
+    });
+
+    it('refuses missing, zero, non-finite, fractional, or unsafe battle timestamps', () => {
+        const timestamps = [
+            undefined,
+            0,
+            Number.NaN,
+            Number.POSITIVE_INFINITY,
+            WAR_START + 0.5,
+            Number.MAX_SAFE_INTEGER + 1,
+        ];
+        for (const createdAt of timestamps) {
+            const r = validateWarBattle(args({ battle: battle({ createdAt }) }));
+            assert.equal(!r.ok && r.reason, 'battle-invalid-timestamp', String(createdAt));
+        }
+    });
+
+    it('refuses an invalid war start instead of authorizing against it', () => {
+        for (const warStartedAt of [0, Number.NaN, Number.POSITIVE_INFINITY, WAR_START + 0.5]) {
+            const r = validateWarBattle(args({ warStartedAt }));
+            assert.equal(!r.ok && r.reason, 'battle-invalid-timestamp', String(warStartedAt));
+        }
+    });
+
+    it('refuses missing, malformed, pre-creation, or future terminal timestamps', () => {
+        const invalid = [
+            undefined,
+            0,
+            Number.NaN,
+            Number.POSITIVE_INFINITY,
+            WAR_START + 4_999,
+            Date.now() + 61_000,
+        ];
+        for (const endedAt of invalid) {
+            const r = validateWarBattle(args({ battle: battle({ endedAt }), validationNow: Date.now() }));
+            assert.equal(!r.ok && r.reason, 'battle-invalid-terminal-timestamp', String(endedAt));
+        }
     });
 
     it('refuses a battle whose damage budget is already spent (replay)', () => {
@@ -140,6 +211,7 @@ describe('validateWarBattle — the exploit this closes', () => {
     it('every decline reason has a player-facing message', () => {
         const reasons = [
             'missing-battle-id', 'battle-not-found', 'battle-unfinished', 'battle-drawn',
+            'battle-unsanctioned', 'battle-unjoined', 'battle-invalid-timestamp', 'battle-invalid-terminal-timestamp',
             'not-a-two-fighter-battle', 'not-a-participant', 'not-a-cross-village-battle',
             'loser-cannot-deal-damage', 'battle-predates-war', 'battle-budget-spent',
         ] as const;
@@ -157,6 +229,73 @@ describe('receipt keys', () => {
     });
     it('namespaces mission tokens', () => {
         assert.equal(warMissionTokenKey('t1'), 'war:mission-token:t1');
+    });
+
+    it('recognizes a row-embedded replay independently of a recomputed payload', () => {
+        const receipts = stampEmbeddedWarBattleReplay(undefined, 'battle-1', ' Aria ');
+        assert.equal(Object.prototype.hasOwnProperty.call(receipts, 'battle-1'), false, 'new stamps do not expose raw battle ids');
+        assert.equal(Object.values(receipts).includes('aria'), false, 'new stamps do not expose actor names');
+        assert.equal(embeddedWarBattleReplay(receipts, 'battle-1', 'ARIA'), true);
+        assert.equal(embeddedWarBattleReplay(receipts, 'battle-1', 'kell'), false);
+        assert.equal(embeddedWarBattleReplay(receipts, 'battle-2', 'aria'), false);
+    });
+
+    it('stamps another battle without losing prior atomic replay authority', () => {
+        const first = stampEmbeddedWarBattleReplay(undefined, 'battle-1', 'aria');
+        const second = stampEmbeddedWarBattleReplay(first, 'battle-2', 'kell');
+        assert.equal(Object.keys(second).length, 2);
+        assert.equal(embeddedWarBattleReplay(second, 'battle-1', 'aria'), true);
+        assert.equal(embeddedWarBattleReplay(second, 'battle-2', 'kell'), true);
+    });
+
+    it('recognizes legacy raw receipts read-only while all new stamps use v2 tokens', () => {
+        const legacy = { 'battle-old': 'aria' };
+        assert.equal(embeddedWarBattleReplay(legacy, 'battle-old', 'ARIA'), true);
+        const replay = stampEmbeddedWarBattleReplay(legacy, 'battle-old', 'aria');
+        assert.deepEqual(replay, legacy, 'an exact legacy replay does not grow the row');
+
+        const migrated = stampEmbeddedWarBattleReplay(legacy, 'battle-new', 'kell');
+        assert.equal(migrated['battle-old'], 'aria', 'legacy authority remains readable');
+        assert.equal(Object.prototype.hasOwnProperty.call(migrated, 'battle-new'), false);
+        assert.equal(embeddedWarBattleReplay(migrated, 'battle-new', 'kell'), true);
+    });
+
+    it('never evicts receipts and fails closed when the bounded ledger is full', () => {
+        let receipts = stampEmbeddedWarBattleReplay(undefined, 'battle-0', 'aria');
+        for (let i = 1; i < WAR_BATTLE_RECEIPT_LIMIT; i += 1) {
+            receipts = stampEmbeddedWarBattleReplay(receipts, `battle-${i}`, i % 2 ? 'aria' : 'kell');
+        }
+        assert.equal(Object.keys(receipts).length, WAR_BATTLE_RECEIPT_LIMIT);
+        assert.equal(embeddedWarBattleReplay(receipts, 'battle-0', 'aria'), true);
+        assert.throws(
+            () => stampEmbeddedWarBattleReplay(receipts, 'battle-over-limit', 'aria'),
+            WarBattleReceiptLedgerFullError,
+        );
+        assert.equal(embeddedWarBattleReplay(receipts, 'battle-0', 'aria'), true, 'the oldest receipt was not evicted');
+        assert.doesNotThrow(
+            () => stampEmbeddedWarBattleReplay(receipts, 'battle-0', 'aria'),
+            'known replay remains idempotent at cap',
+        );
+    });
+
+    it('fails closed on garbage maps and an exact v2 token with an invalid authority value', () => {
+        for (const malformed of [[], 'garbage', { '': 'aria' }, { battle: '' }]) {
+            assert.throws(
+                () => embeddedWarBattleReplay(malformed as never, 'battle', 'aria'),
+                WarBattleReceiptLedgerMalformedError,
+            );
+        }
+        const valid = stampEmbeddedWarBattleReplay(undefined, 'battle-exact-token', 'aria');
+        const token = Object.keys(valid)[0]!;
+        const corrupt = { ...valid, [token]: 'forged-outcome' };
+        assert.throws(
+            () => embeddedWarBattleReplay(corrupt, 'battle-exact-token', 'aria'),
+            WarBattleReceiptLedgerMalformedError,
+        );
+        assert.throws(
+            () => stampEmbeddedWarBattleReplay(corrupt, 'battle-exact-token', 'aria'),
+            WarBattleReceiptLedgerMalformedError,
+        );
     });
 });
 

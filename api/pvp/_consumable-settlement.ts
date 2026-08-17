@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
-import { inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { embedPvpSettlementReceipt, pvpSettlementId } from './_reward-settlement.js';
+import { embedPvpSettlementReceipt, inspectPvpCredit, pvpSettlementId } from './_reward-settlement.js';
 import {
     confirmPlayerRankedItemSettlement,
     getPlayerRankedJournal,
@@ -49,6 +48,27 @@ export function deductUsedItems(
     };
 }
 
+function hasExactUsedItems(
+    character: Record<string, unknown>,
+    used: Record<string, number>,
+): boolean {
+    const totals = new Map<string, number>();
+    for (const stack of Array.isArray(character.itemStacks)
+        ? character.itemStacks as Array<Record<string, unknown>>
+        : []) {
+        const id = typeof stack?.itemId === 'string' ? stack.itemId : '';
+        if (!id) continue;
+        totals.set(id, (totals.get(id) ?? 0) + Math.max(0, Math.floor(Number(stack.count) || 0)));
+    }
+    for (const raw of Array.isArray(character.inventory) ? character.inventory : []) {
+        if (typeof raw !== 'string') continue;
+        totals.set(raw, (totals.get(raw) ?? 0) + 1);
+    }
+    return Object.entries(used).every(([id, rawCount]) => (
+        (totals.get(id) ?? 0) >= Math.max(0, Math.floor(Number(rawCount) || 0))
+    ));
+}
+
 function itemSides(
     session: PvpSession,
     legacyPlayerName?: string,
@@ -78,11 +98,18 @@ async function settleLegacySide(
         const record = await store.get<Record<string, unknown>>(key);
         const character = (record?.character ?? null) as Record<string, unknown> | null;
         if (!record || !character) throw new Error(`pvp-items-save-unreadable:${side.slug}`);
-        const inspection = inspectSettlementReceipt(character, settlementId, 'items');
-        if (inspection.status === 'replay') return;
-        if (inspection.status !== 'fresh') throw new Error('pvp-items-settlement-receipt-invalid');
+        const inspection = inspectPvpCredit(character, settlementId, 'items');
+        if (!inspection.fresh && !inspection.needsBackfill) return;
 
-        const deducted = deductUsedItems(character, side.used);
+        // A pre-cutover shared-ring replay proves the deduction already landed.
+        // Backfill only the durable PvP journal; never apply the item effect again.
+        if (inspection.fresh && !hasExactUsedItems(character, side.used)) {
+            // The sealed battle effect cannot become a free mint merely because
+            // the client moved/sold the item before claiming. Leave the claim
+            // pending; replenishing the exact item allows deterministic repair.
+            throw new Error(`pvp-items-debit-missing:${side.slug}`);
+        }
+        const deducted = inspection.fresh ? deductUsedItems(character, side.used) : character;
         const withReceipt = embedPvpSettlementReceipt(
             deducted,
             inspection.receipts,
@@ -99,8 +126,10 @@ async function settleLegacySide(
         } catch (error) {
             const recovered = await store.get<Record<string, unknown>>(key).catch(() => null);
             const recoveredCharacter = (recovered?.character ?? null) as Record<string, unknown> | null;
-            if (recoveredCharacter
-                && inspectSettlementReceipt(recoveredCharacter, settlementId, 'items').status === 'replay') return;
+            if (recoveredCharacter) {
+                const recoveredInspection = inspectPvpCredit(recoveredCharacter, settlementId, 'items');
+                if (!recoveredInspection.fresh && !recoveredInspection.needsBackfill) return;
+            }
             throw error;
         }
         const current = await store.get<Record<string, unknown>>(key);
@@ -159,6 +188,15 @@ export async function settlePvpConsumablesDurably(
     } = {},
 ): Promise<void> {
     const settledAt = Math.max(1, Math.floor(options.now ?? Date.now()));
+    if (session.pvpConsumableAuthorityVersion === 1) {
+        for (const role of ['p1', 'p2'] as const) {
+            if (session.realFighters?.[role] !== true) continue;
+            if (Object.keys(session.itemsUsed?.[role] ?? {}).length > 0) {
+                throw new Error('pvp-consumable-authority-v1-corrupt');
+            }
+        }
+        if (!isPlayerRankedV2Session(session)) return;
+    }
     if (isPlayerRankedV2Session(session)) {
         await confirmDisabledV2Consumables(store, session, options.playerRankedJournal, settledAt);
         return;

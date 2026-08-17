@@ -13,6 +13,7 @@ import { AdminPasswordReset, AdminClearAuthLock } from "./AdminLogin";
 import { ModerationPanel } from "./ModerationPanel";
 import { AdminLegacyPanel } from "./AdminLegacyPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
+import { AdminVillageLeadersPanel } from "./AdminVillageLeadersPanel";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
@@ -70,7 +71,7 @@ import {
     type CreatorEvent,
 } from "../App";
 import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib/village-leadership-images";
-import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "../data/village-leadership";
+import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
@@ -128,6 +129,7 @@ type EditableVnPage = {
 // the bundled hero art as the grid's avatar fallback for exactly these ids.
 const EVO_TEMPLATE_IDS: ReadonlySet<string> = new Set(STARTER_EVOLUTIONS.map((p) => p.id));
 const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? `/pet-evos/${id}.webp` : "");
+const VILLAGE_ELDER_ROLE_LABELS = ["War Elder", "Trade Elder", "Training Elder"];
 
 export function AdminPanel({
     character,
@@ -1836,6 +1838,63 @@ export function AdminPanel({
         setLeadershipImages(next);
         saveVillageLeadershipImages(next);
     }
+    function readLeadershipImageFile(file: File, village: string, slot: "kage" | number) {
+        readImageFile(file, (image) => updateLeadershipImage(village, slot, image), 100);
+    }
+    async function generateLeaderImage(prompt: string, label: string): Promise<string | null> {
+        const response = await fetch("/api/generate-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt, label }),
+        });
+        if (!response.ok) return null;
+        const data = await response.json() as { image?: string };
+        return data.image ?? null;
+    }
+    async function generateAllMissingLeaderImages(village: string, leadership: { kage: string; elders: string[] }) {
+        const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
+        const slots: { prompt: string; label: string; apply: (img: string) => void }[] = [];
+        if (!images.kage)
+            slots.push({ prompt: `${leadership.kage}, shinobi village Kage leader portrait`, label: "Kage Image", apply: (img) => updateLeadershipImage(village, "kage", img) });
+        leadership.elders.forEach((elder, index) => {
+            if (!images.elders?.[index])
+                slots.push({ prompt: `${elder}, ${VILLAGE_ELDER_ROLE_LABELS[index] ?? "elder"}, shinobi NPC portrait`, label: "Elder Image", apply: (img) => updateLeadershipImage(village, index, img) });
+        });
+        if (slots.length === 0) { alert("All portraits already have images."); return; }
+        if (!(await gameConfirm(`Generate ${slots.length} missing portrait${slots.length > 1 ? "s" : ""} for ${village}? This costs image credits.`))) return;
+        for (let index = 0; index < slots.length; index++) {
+            const slot = slots[index];
+            const image = await generateLeaderImage(slot.prompt, slot.label);
+            if (image) slot.apply(image);
+            // Respect the 2/min rate limit — wait 35s between calls
+            if (index < slots.length - 1) await new Promise(resolve => setTimeout(resolve, 35_000));
+        }
+        alert(`Done generating portraits for ${village}.`);
+    }
+    async function saveAllLeaderImages() {
+        setLeaderSaveStatus("Saving...");
+        try {
+            const normalized = normalizeVillageLeadershipImages(leadershipImages);
+            // Save all individual images to shared images hash
+            const imagePromises: Promise<boolean>[] = [];
+            for (const [village, images] of Object.entries(normalized)) {
+                if (images.kage) imagePromises.push(publishSharedImage(`leader:${village}:kage`, images.kage));
+                (images.elders ?? []).forEach((elder, index) => {
+                    if (elder) imagePromises.push(publishSharedImage(`leader:${village}:elder:${index}`, elder));
+                });
+            }
+            await Promise.all(imagePromises);
+            // Save the leadership images blob to game state
+            saveVillageLeadershipImages(normalized);
+            // Also trigger a full admin save
+            // ref read inside onClick handler, not during render — intentional
+            await onSaveRef.current();
+            setLeaderSaveStatus("Saved!");
+        } catch {
+            setLeaderSaveStatus("Save failed — try again.");
+        }
+        setTimeout(() => setLeaderSaveStatus(""), 3000);
+    }
     const sortedBloodlines = [...adminPanelBloodlines]
         .filter((bloodline) => bloodlineRankFilter === "All" || bloodline.rank === bloodlineRankFilter)
         .sort((a, b) => {
@@ -2784,117 +2843,17 @@ export function AdminPanel({
                 </section>
             </div>
 
-            {activeAdminPanel === "villageLeaders" && (() => {
-                const elderRoleLabels = ["War Elder", "Trade Elder", "Training Elder"];
-
-                async function generateLeaderImage(prompt: string, label: string): Promise<string | null> {
-                    const response = await fetch("/api/generate-image", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ prompt, label }),
-                    });
-                    if (!response.ok) return null;
-                    const data = await response.json() as { image?: string };
-                    return data.image ?? null;
-                }
-
-                async function generateAllMissing(village: string, leadership: { kage: string; elders: string[] }) {
-                    const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
-                    const slots: { prompt: string; label: string; apply: (img: string) => void }[] = [];
-                    if (!images.kage)
-                        slots.push({ prompt: `${leadership.kage}, shinobi village Kage leader portrait`, label: "Kage Image", apply: (img) => updateLeadershipImage(village, "kage", img) });
-                    leadership.elders.forEach((elder, i) => {
-                        if (!images.elders?.[i])
-                            slots.push({ prompt: `${elder}, ${elderRoleLabels[i] ?? "elder"}, shinobi NPC portrait`, label: "Elder Image", apply: (img) => updateLeadershipImage(village, i, img) });
-                    });
-                    if (slots.length === 0) { alert("All portraits already have images."); return; }
-                    if (!(await gameConfirm(`Generate ${slots.length} missing portrait${slots.length > 1 ? "s" : ""} for ${village}? This costs image credits.`))) return;
-                    for (let i = 0; i < slots.length; i++) {
-                        const slot = slots[i];
-                        const img = await generateLeaderImage(slot.prompt, slot.label);
-                        if (img) slot.apply(img);
-                        // Respect the 2/min rate limit — wait 35s between calls
-                        if (i < slots.length - 1) await new Promise(r => setTimeout(r, 35_000));
-                    }
-                    alert(`Done generating portraits for ${village}.`);
-                }
-
-                return (
-                    <div className="admin-subpanel">
-                        <div className="admin-panel-heading">
-                            <h3>Village Leaders</h3>
-                            <p>Add portraits for the Kage, War Elder, Trade Elder, and Training Elder. These appear in each village's Town Hall.</p>
-                        </div>
-                        <div className="menu" style={{ marginBottom: "0.5rem" }}>
-                            <button onClick={async () => {
-                                setLeaderSaveStatus("Saving...");
-                                try {
-                                    const normalized = normalizeVillageLeadershipImages(leadershipImages);
-                                    // Save all individual images to shared images hash
-                                    const imagePromises: Promise<boolean>[] = [];
-                                    for (const [village, images] of Object.entries(normalized)) {
-                                        if (images.kage) imagePromises.push(publishSharedImage(`leader:${village}:kage`, images.kage));
-                                        (images.elders ?? []).forEach((elder, i) => {
-                                            if (elder) imagePromises.push(publishSharedImage(`leader:${village}:elder:${i}`, elder));
-                                        });
-                                    }
-                                    await Promise.all(imagePromises);
-                                    // Save the leadership images blob to game state
-                                    saveVillageLeadershipImages(normalized);
-                                    // Also trigger a full admin save
-                                    // ref read inside onClick handler, not during render — intentional
-                                    await onSaveRef.current();
-                                    setLeaderSaveStatus("Saved!");
-                                } catch {
-                                    setLeaderSaveStatus("Save failed — try again.");
-                                }
-                                setTimeout(() => setLeaderSaveStatus(""), 3000);
-                            }}>Save All Leader Images</button>
-                            {leaderSaveStatus && <span className="hint" style={{ color: leaderSaveStatus.includes("fail") ? "#ff7777" : "#a5d6a7" }}>{leaderSaveStatus}</span>}
-                        </div>
-                        {Object.entries(villageLeadership).map(([village, leadership]) => {
-                            const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
-                            const missingCount = (!images.kage ? 1 : 0) + leadership.elders.filter((_, i) => !images.elders?.[i]).length;
-                            return (
-                                <section className="summary-box village-leader-section" key={village}>
-                                    <div className="village-leader-section-header">
-                                        <h3>{village}</h3>
-                                        {missingCount > 0 && (
-                                            <button onClick={() => void generateAllMissing(village, leadership)}>
-                                                ✨ Generate {missingCount} Missing Portrait{missingCount > 1 ? "s" : ""}
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="leader-admin-grid">
-                                        <div className="leader-admin-card">
-                                            <h4>Kage</h4>
-                                            <strong>{leadership.kage}</strong>
-                                            {images.kage ? <img src={images.kage} alt={leadership.kage} /> : <div className="leader-image-placeholder">No Image</div>}
-                                            <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, "kage", image), 100); }} />
-                                            <div className="menu">
-                                                <AiImagePrompt label="Kage Image" suggestedPrompt={`${leadership.kage}, shinobi village Kage leader portrait`} onImage={(image) => updateLeadershipImage(village, "kage", image)} />
-                                                {images.kage && <button className="danger-button" onClick={() => updateLeadershipImage(village, "kage", "")}>Remove Image</button>}
-                                            </div>
-                                        </div>
-                                        {leadership.elders.map((elder, index) => (
-                                            <div className="leader-admin-card" key={elder}>
-                                                <h4>{elderRoleLabels[index] ?? `Elder ${index + 1}`}</h4>
-                                                <strong>{elder}</strong>
-                                                {images.elders?.[index] ? <img src={images.elders[index]} alt={elder} /> : <div className="leader-image-placeholder">No Image</div>}
-                                                <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, index, image), 100); }} />
-                                                <div className="menu">
-                                                    <AiImagePrompt label="Elder Image" suggestedPrompt={`${elder}, ${elderRoleLabels[index] ?? "elder"}, shinobi NPC portrait`} onImage={(image) => updateLeadershipImage(village, index, image)} />
-                                                    {images.elders?.[index] && <button className="danger-button" onClick={() => updateLeadershipImage(village, index, "")}>Remove Image</button>}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            );
-                        })}
-                    </div>
-                );
-            })()}
+            {activeAdminPanel === "villageLeaders" && (
+                <AdminVillageLeadersPanel
+                    leadershipImages={leadershipImages}
+                    leaderSaveStatus={leaderSaveStatus}
+                    elderRoleLabels={VILLAGE_ELDER_ROLE_LABELS}
+                    onSaveAll={saveAllLeaderImages}
+                    onGenerateAllMissing={generateAllMissingLeaderImages}
+                    onImageFile={readLeadershipImageFile}
+                    onUpdateImage={updateLeadershipImage}
+                />
+            )}
 
             {activeAdminPanel === "jutsuBloodlines" && (
                 <div className="admin-subpanel">

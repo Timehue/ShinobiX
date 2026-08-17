@@ -120,6 +120,8 @@ import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId,
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
+import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
+import type { PendingPvpRecovery } from "../lib/pvp-pending-session";
 import type { OwnSaveReadCommit } from "../lib/own-save-read";
 const loadOwnSaveRead = () => import("../lib/own-save-read");
 import { requireServerSettlement } from "../lib/server-settlement-gate";
@@ -164,7 +166,7 @@ import {
 import { villagePageImage } from "../lib/village-page-image";
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
-import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
+import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
@@ -384,6 +386,7 @@ export function WorldMap({
     onServerVersion,
     onVersionedCharacter,
     onOwnSaveRead,
+    capturePvpCreateScope,
     onLaunchWeeklyBoss,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -437,6 +440,7 @@ export function WorldMap({
     onServerVersion?: (version?: number) => boolean;
     onVersionedCharacter: VersionedCharacterCommit;
     onOwnSaveRead: OwnSaveReadCommit;
+    capturePvpCreateScope: (ownerName: string) => { signal: AbortSignal; isCurrent: () => boolean };
     // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
     // through App's launchWeeklyBossFight so damage → the shared leaderboard and
     // the 3-attempt cap — same path as the "Fight Boss" button.
@@ -660,7 +664,23 @@ export function WorldMap({
         return rosterMatch?.character ? normalizeCharacter(rosterMatch.character) : null;
     }
 
-    async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
+    function installPendingPvp(pending: PendingPvpRecovery): void {
+        setPvpSeedSession(pending.session);
+        setPvpBattleId(pending.battleId);
+        setPvpRole(pending.role);
+        setPvpBattleContext(pending.context);
+        setScreen("pvpBattle");
+    }
+
+    async function startPvpRaid(
+        opponent: Character,
+        sector: number,
+        biome: Biome,
+        weather: WeatherType,
+        inheritedScope?: { signal: AbortSignal; isCurrent: () => boolean },
+    ) {
+        const createScope = inheritedScope ?? capturePvpCreateScope(character.name);
+        if (!createScope.isCurrent()) return;
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         if (!requireServerSettlement("pvpSession")) return;
         setCurrentSector(sector);
@@ -701,17 +721,7 @@ export function WorldMap({
         // them — i.e. broken in production for the attacker. The challenge
         // now ships the *real* server-issued battleId so the defender
         // routes to the right session too.
-        setPvpBattleId('');
-        setPvpRole("p1");
-        setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector });
-        setScreen("pvpBattle");
-
-        let battleId = '';
-        try {
-            const sr = await fetch('/api/pvp/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({
+        const createBody = stringifyPvpSessionPayload({
                     // Sector raid — fighters bring current vitals.
                     useCurrentVitals: true,
                     requireWorldCoLocation: true,
@@ -723,37 +733,39 @@ export function WorldMap({
                     ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement),
                     p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfCharacter, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfCharacter, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfCharacter, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfCharacter, selfAllItems, "shield") },
                     p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(opponentCharacter, opponentAllItems, "shield") },
-                }),
-            });
-            if (sr.ok) {
-                const data = await sr.json() as { battleId: string; session?: PvpSessionState };
-                battleId = data.battleId;
-                // Stash the session payload so PvpBattleScreen can render
-                // the grid on first paint instead of flashing the
-                // "Connecting..." card.
-                if (data.session) setPvpSeedSession(data.session);
-            }
-        } catch { /* fallback below */ }
-
-        if (!battleId) {
-            // Session creation failed — refuse to fall through to the local-sim
-            // arena. That fallback used to award PvP-win counters / Vanguard
-            // seals / ryo / XP from a CLIENT-decided outcome with no server
-            // session to cross-check. Route back to the world map with an
-            // error so the player can retry, rather than have rewards quietly
-            // inflated (or denied) by a transient outage.
+                });
+        setPvpBattleId(pvpStableBattleIdFromRequestBody(createBody));
+        setPvpRole("p1");
+        setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector });
+        const createResult = await createPvpSessionWithRecovery(fetch, selfCharacter.name, createBody, createScope);
+        if (!createScope.isCurrent()) return;
+        if (createResult.kind === "recovered") return void installPendingPvp(createResult.pending);
+        if (createResult.kind === "rejected") {
             setPvpBattleId('');
             setPvpSeedSession(null);
             setRaidBattleKind("none");
             setScreen("worldMap");
-            alert("Couldn't reach the battle server. Please try the raid again in a moment.");
+            alert(createResult.error);
             return;
         }
-
-        // Surface the real battleId — PvpBattleScreen re-renders with both
-        // the matching seed session and the right id, so the battle grid
-        // appears without the loading card showing.
+        const battleId = createResult.battleId;
+        if (createResult.kind === "ambiguous") {
+            setPvpBattleId(battleId);
+            setScreen("pvpBattle");
+            alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+            return;
+        }
+        try {
+            await confirmSectorBattleRegistration(selfCharacter.name, sector, battleId, createScope);
+        } catch (error) {
+            if (!createScope.isCurrent()) return;
+            alert(error instanceof Error ? error.message : "The sector battle is still registering. Retry the same raid.");
+            return;
+        }
+        if (!createScope.isCurrent()) return;
+        setPvpSeedSession(createResult.session);
         setPvpBattleId(battleId);
+        setScreen("pvpBattle");
 
         // Notify defender via DuelChallenge with the real battleId. Fire-
         // and-forget: the session is already live on the server; if the
@@ -777,10 +789,8 @@ export function WorldMap({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ targetName: opponentCharacter.name, challenge }),
         }).then((res) => {
-            if (!res.ok) {
-                alert(`${opponentCharacter.name} is traveling and cannot be attacked right now.`);
-                setPvpBattleId('');
-                setScreen("worldMap");
+            if (!res.ok && createScope.isCurrent()) {
+                alert(`The battle is live, but ${opponentCharacter.name} could not be notified yet.`);
             }
         }).catch(() => { /* defender notification is best-effort; session is live regardless */ });
     }
@@ -3515,13 +3525,16 @@ export function WorldMap({
     async function handleSelectedSectorVillageWarRaid() {
         const environment = selectedSectorCombatEnvironment();
         if (!environment || !capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
+        const createScope = capturePvpCreateScope(character.name);
+        if (!createScope.isCurrent()) return;
         const { sector, biome, weather } = environment;
         const guard = sectorEnemyGuards[0];
         if (guard) {
             const guardCharacter = await fetchSavedPlayerCharacter(guard.name);
+            if (!createScope.isCurrent()) return;
             if (!capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
             if (guardCharacter) {
-                await startPvpRaid(guardCharacter, sector, biome, weather);
+                await startPvpRaid(guardCharacter, sector, biome, weather, createScope);
                 return;
             }
             await launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, sector, () => {
@@ -4729,6 +4742,7 @@ export function WorldMap({
                                         onClick={async () => {
                                             if (!requireServerSettlement("pvpSession")) return;
                                             const guard = territoryGuards[0];
+                                            const createScope = capturePvpCreateScope(character.name);
                                             setCurrentSector(virtualSector);
                                             setCurrentBiome(biome);
                                             setCurrentWeather(weather);
@@ -4741,21 +4755,26 @@ export function WorldMap({
                                                     headers: { 'Content-Type': 'application/json' },
                                                     body: JSON.stringify({ attackerCharacter: character, village: loc.name, guardName: guard.name }),
                                                 });
+                                                if (!createScope.isCurrent()) return;
                                                 const data = await cr.json() as { pvp?: boolean; guardCharacter?: unknown; guardLevel?: number; defenseBonusPercent?: number; };
                                                 if (data.pvp && data.guardCharacter) guardChar = data.guardCharacter as Character;
                                             } catch { /* ignore */ }
 
                                             if (!guardChar) guardChar = await fetchSavedPlayerCharacter(guard.name);
+                                            if (!createScope.isCurrent()) return;
 
                                             if (guardChar) {
                                                 // Embed jutsu so server can resolve moves
                                                 const { captureOwnSaveRead } = await loadOwnSaveRead();
+                                                if (!createScope.isCurrent()) return;
                                                 const selfReadAnchor = captureOwnSaveRead(character);
                                                 const [selfSave, guardSave] = await Promise.all([
                                                     fetchPlayerCombatSave(character.name),
                                                     fetchPlayerCombatSave(guardChar.name),
                                                 ]);
+                                                if (!createScope.isCurrent()) return;
                                                 if (selfSave && await onOwnSaveRead(selfReadAnchor, selfSave.character, selfSave._saveVersion) === "foreign") return;
+                                                if (!createScope.isCurrent()) return;
                                                 const selfChar = selfSave?.character ?? character;
                                                 const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
                                                 const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;
@@ -4764,45 +4783,44 @@ export function WorldMap({
                                                 const guardBloodlines = guardSave?.savedBloodlines?.length ? guardSave.savedBloodlines : savedBloodlines;
                                                 const guardCreatorJutsus = guardSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...guardSave.creatorJutsus] : wmCreatorJutsus;
                                                 const p2j = getPvpJutsuLoadout(guardBloodlines, guardCreatorJutsus, guardSessionChar);
-                                                // Create shared PvP session and notify the guard via challenge
-                                                let battleId = '';
-                                                try {
-                                                    const sr = await fetch('/api/pvp/session', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: stringifyPvpSessionPayload({ useCurrentVitals: true, requireWorldCoLocation: true, baseRewards: true, rewardSector: virtualSector, ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement), p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } }),
-                                                    });
-                                                    if (sr.ok) {
-                                                        // Seed PvpBattleScreen with the session returned
-                                                        // by POST so the village-guard raid lands on the
-                                                        // grid instantly, matching sector-attack snappiness.
-                                                        const data = await sr.json() as { battleId: string; session?: PvpSessionState };
-                                                        battleId = data.battleId;
-                                                        if (data.session) setPvpSeedSession(data.session);
-                                                    }
-                                                } catch { /* fallback */ }
-
-                                                if (battleId) {
-                                                    // Send battleId to the guard so they auto-route to pvpBattle
-                                                    fetch('/api/village-guard/challenge', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
-                                                    }).catch(() => {});
-                                                    setPvpBattleId(battleId);
-                                                    setPvpRole("p1");
-                                                    setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: virtualSector });
-                                                    setScreen("pvpBattle");
+                                                const createBody = stringifyPvpSessionPayload({ useCurrentVitals: true, requireWorldCoLocation: true, baseRewards: true, rewardSector: virtualSector, ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement), p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } });
+                                                setPvpBattleId(pvpStableBattleIdFromRequestBody(createBody));
+                                                setPvpRole("p1");
+                                                setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: virtualSector });
+                                                const createResult = await createPvpSessionWithRecovery(fetch, character.name, createBody, createScope);
+                                                if (!createScope.isCurrent()) return;
+                                                if (createResult.kind === "recovered") return void installPendingPvp(createResult.pending);
+                                                if (createResult.kind === "rejected") {
+                                                    setPvpBattleId("");
+                                                    setRaidBattleKind("none");
+                                                    alert(createResult.error);
                                                     return;
                                                 }
-                                                // Session creation failed — refuse to fall through to the
-                                                // local-sim arena for a HUMAN guard. (The AI-guard fallback
-                                                // below is fine — no human win-counter inflation possible.)
-                                                // The local fallback would award PvP-win counters / honor
-                                                // seals / ryo / XP from a client-decided outcome with no
-                                                // server session to cross-check.
-                                                setRaidBattleKind("none");
-                                                alert("Couldn't reach the battle server. Please try challenging the guard again in a moment.");
+                                                const battleId = createResult.battleId;
+                                                setPvpBattleId(battleId);
+                                                if (createResult.kind === "ambiguous") {
+                                                    setScreen("pvpBattle");
+                                                    alert("The guard battle response was interrupted. Reconnecting to the authoritative session…");
+                                                    return;
+                                                }
+                                                try {
+                                                    await confirmSectorBattleRegistration(character.name, virtualSector, battleId, createScope);
+                                                } catch (error) {
+                                                    if (!createScope.isCurrent()) return;
+                                                    alert(error instanceof Error ? error.message : "The guard battle is still registering. Retry the same challenge.");
+                                                    return;
+                                                }
+                                                if (!createScope.isCurrent()) return;
+                                                setPvpSeedSession(createResult.session);
+                                                setScreen("pvpBattle");
+                                                fetch('/api/village-guard/challenge', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
+                                                    signal: createScope.signal,
+                                                }).then((response) => {
+                                                    if (!response.ok && createScope.isCurrent()) alert(`The battle is live, but ${guardSessionChar.name} could not be notified yet.`);
+                                                }).catch(() => {});
                                                 return;
                                             }
 

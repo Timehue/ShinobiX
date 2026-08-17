@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
@@ -7,7 +8,6 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
 import { cachedFor } from './_proc-cache.js';
-import { bumpSaveVersion } from './save/_save-version.js';
 import { resolveClaimedWarSupply } from './_territory-supply.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
 import { villageWarMapEnabled } from './_release-flags.js';
@@ -16,17 +16,48 @@ import { villageWarMapEnabled } from './_release-flags.js';
 // Seals, and war settlement applies the comeback-morale/spoils rules. When OFF,
 // every path below is byte-for-byte the legacy behavior.
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
-import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
+import { villageWarKey } from './_war-state.js';
+import {
+    abortWarDeclarationFunding,
+    newWarDeclarationFundingOwnerId,
+    reserveWarDeclarationFunding,
+    settleReservedWarDeclarationFunding,
+    warDeclarationFundingFingerprint,
+    warDeclarationFundingMarkerFromRow,
+    type WarDeclarationFundingMarker,
+    type WarDeclarationFundingSource,
+} from './_war-declaration-funding.js';
+import {
+    warHasMercenaryFundingField,
+    type WarMercenaryFundingMarker,
+} from './_war-mercenary-hire.js';
+import {
+    allocateVillageWarDeclarationGeneration,
+    claimVillageWarReservations,
+    releaseVillageWarReservations,
+    reserveClaimedVillageWarReservations,
+    villageWarReservationBlocks,
+    villageWarReservationFromRow,
+    type VillageWarReservationPlan,
+} from './_war-village-reservation.js';
 import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
 import { territoryVillageOwnershipError } from './_territory-ownership.js';
 import { settlementMoralePatch } from './_war-morale.js';
 import { heldSectorsForVillage } from './_war-held-sectors.js';
-import { activeSectorWarsForVillage } from './_sector-war-store.js';
+import {
+    activeContestOnSector,
+    activeSectorWarsForVillage,
+    listFundingSectorWars,
+} from './_sector-war-store.js';
 import {
     validateWarBattle,
+    embeddedWarBattleReplay,
+    embeddedWarBattleOutcome,
+    parseEmbeddedWarBattleReceipts,
+    stampEmbeddedWarBattleReplay,
     warBattleDeclineMessage,
     warBattleReceiptKey,
-    WAR_BATTLE_RECEIPT_TTL_SEC,
+    WAR_BATTLE_DAMAGE_BUDGET,
     warMissionTokenKey,
     normalizeWarMissionToken,
     warMissionTokenAuthorizes,
@@ -34,6 +65,19 @@ import {
     type WarMissionToken,
 } from './_war-battle-receipt.js';
 import { kageKey } from './village/_kage-settle.js';
+import {
+    commitWarBattleSettlement,
+    projectPvpVillageWarSettlement,
+} from './_war-battle-settlement.js';
+import { sealedSectorWarRoleOf, sectorControlSwing } from './_war-role.js';
+import {
+    pvpSessionMayGrantProgress,
+    sealedWorldRaidAttacker,
+    type PvpSession,
+} from './pvp/session.js';
+import { pvpWarGroundRewardEligible } from './pvp/_war-ground-reward.js';
+import { raidProgressionReceiptId } from './missions/_raid-progression.js';
+import type { RaidTerritoryDamageResult } from './missions/_raid-territory.js';
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
@@ -90,6 +134,19 @@ const VILLAGE_WAR_DECAY_GRACE_DAYS = 3;
 const VILLAGE_WAR_DECAY_PER_DAY = 500;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const VILLAGE_WAR_DECAY_GRACE_MS = VILLAGE_WAR_DECAY_GRACE_DAYS * ONE_DAY_MS;
+const PVP_WAR_CONTINUATION_TTL_SEC = 21 * 24 * 60 * 60;
+const WAR_DECLARATION_FUNDING_LEASE_MS = 30_000;
+
+type PvpWarContinuationOutcome = 'applied' | 'superseded' | 'not-applicable';
+type PvpWarContinuationReceipt = {
+    version: 1;
+    battleId: string;
+    actorName: string;
+    outcome: PvpWarContinuationOutcome;
+    warId?: string;
+    settledAt: number;
+    warGroundRewardEligible: boolean;
+};
 
 function utcDateKey(ms = Date.now()): string {
     return new Date(ms).toISOString().slice(0, 10);
@@ -176,7 +233,7 @@ async function hasActiveWarBetween(actorVillage: string, defenderVillage: string
     try {
         const id = villageWarId(actorVillage, defenderVillage);
         const war = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${id}`);
-        if (!war || war.endedAt) return false;
+        if (!warIsGameplayActive(war) || war.endedAt) return false;
         return war.villages.includes(actorVillage) && war.villages.includes(defenderVillage);
     } catch {
         return false;
@@ -263,6 +320,19 @@ type VillageWar = {
     // cannot cancel a pending war — declaration commits the cost,
     // no refunds, war must run its course.
     pendingUntil?: number;
+    // Server-only, atomic with the war projection. A client retry with the same
+    // battle id returns this row instead of spending the fight again.
+    pvpBattleReceipts?: Record<string, string>;
+    lastPvpBattleEndedAt?: number;
+    warMissionTokenReceipts?: Record<string, number>;
+    declaredBy?: string;
+    /** Permanent monotonic identity for this pair-row generation (rematches increment). */
+    declarationGeneration?: number;
+    declarationFunding?: WarDeclarationFundingMarker;
+    /** Hidden exact-once mercenary debit saga; gameplay resumes on activation/abort. */
+    mercenaryFunding?: WarMercenaryFundingMarker;
+    /** Permanent per-generation mercenary strikes, keyed by stable hire id. */
+    mercenaryHireReceipts?: Record<string, unknown>;
 };
 
 function clampNumber(value: number, min: number, max: number) {
@@ -342,6 +412,21 @@ function preserveServerRaidSettlementAuthority(
     return next;
 }
 
+async function commitSectorTerritoryExact(
+    key: string,
+    expected: SectorTerritory | null,
+    candidate: SectorTerritory,
+): Promise<SectorTerritory> {
+    try {
+        if (await kv.compareSet(key, expected, candidate)) return candidate;
+    } catch (error) {
+        const recovered = await kv.get<unknown>(key).catch(() => null);
+        if (isDeepStrictEqual(recovered, candidate)) return candidate;
+        throw error;
+    }
+    throw new Error('sector-territory-publication-conflict');
+}
+
 function villageWarId(villageA: string, villageB: string) {
     return [villageA, villageB]
         .sort((a, b) => a.localeCompare(b))
@@ -374,6 +459,75 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
         mvpByVillage: data.mvpByVillage,
         loserCrateId: data.loserCrateId,
         pendingUntil: data.pendingUntil,
+        lastPvpBattleEndedAt: data.lastPvpBattleEndedAt,
+        warMissionTokenReceipts: data.warMissionTokenReceipts,
+    };
+}
+
+function declarationFundingMarker(war: VillageWar | null | undefined): WarDeclarationFundingMarker | null {
+    return warDeclarationFundingMarkerFromRow(war);
+}
+
+function warHasFundingField(war: VillageWar | null | undefined): boolean {
+    return !!war && Object.prototype.hasOwnProperty.call(war, 'declarationFunding');
+}
+
+/** Legacy rows are active; versioned rows are playable only after their debit is durable. */
+function warIsGameplayActive(war: VillageWar | null | undefined): war is VillageWar {
+    if (!war) return false;
+    if (!warHasFundingField(war)) return true;
+    return declarationFundingMarker(war)?.status === 'active';
+}
+
+/** Declared hostility stays authoritative while a mercenary strike settles. */
+function warIsMutableGameplayActive(war: VillageWar | null | undefined): war is VillageWar {
+    return warIsGameplayActive(war) && !warHasMercenaryFundingField(war);
+}
+
+/** Funding reserves both villages so another declaration cannot race past its debit saga. */
+function warReservesVillage(war: VillageWar | null | undefined): war is VillageWar {
+    if (!war || war.endedAt) return false;
+    if (!warHasFundingField(war)) return true;
+    const status = declarationFundingMarker(war)?.status;
+    return status === 'funding' || status === 'active' || status === undefined;
+}
+
+function declarationGenerationOf(
+    war: VillageWar,
+    marker: WarDeclarationFundingMarker | null = declarationFundingMarker(war),
+): number {
+    const stored = Math.floor(Number(war.declarationGeneration));
+    if (Number.isSafeInteger(stored) && stored > 0) return stored;
+    const parsed = /:g([1-9][0-9]*)$/.exec(String(marker?.declarationId ?? ''));
+    const fromId = parsed ? Number(parsed[1]) : 1;
+    return Number.isSafeInteger(fromId) && fromId > 0 ? fromId : 1;
+}
+
+/** Stable per-generation suffix for rewards/settlement markers; legacy rows keep their old ids. */
+function villageWarGenerationToken(war: VillageWar): string {
+    const marker = declarationFundingMarker(war);
+    if (!marker && !war.declarationGeneration) return war.id;
+    return `${war.id}-g${declarationGenerationOf(war, marker)}`;
+}
+
+function declarationReservationPlan(
+    warKey: string,
+    war: VillageWar,
+    marker: Pick<WarDeclarationFundingMarker, 'declarationId' | 'fingerprint' | 'source'>,
+    ownerId: string,
+    now: number,
+): VillageWarReservationPlan {
+    return {
+        pairId: villageWarId(war.villages[0], war.villages[1]),
+        warKey,
+        villages: [...war.villages] as [string, string],
+        generation: declarationGenerationOf(war, marker as WarDeclarationFundingMarker),
+        declarationId: marker.declarationId,
+        fingerprint: marker.fingerprint,
+        source: marker.source,
+        ownerId,
+        now,
+        leaseMs: WAR_DECLARATION_FUNDING_LEASE_MS,
     };
 }
 
@@ -399,26 +553,147 @@ function warCooldownKey(villageA: string, villageB: string): string {
     return `war:cooldown:${villageWarId(villageA, villageB)}`;
 }
 
+async function ensureWarRematchCooldown(war: VillageWar): Promise<void> {
+    if (!war.endedAt) return;
+    const deadline = Math.floor(Number(war.endedAt)) + VILLAGE_WAR_REMATCH_COOLDOWN_SEC * 1000;
+    const remainingSeconds = Math.ceil((deadline - Date.now()) / 1000);
+    if (!Number.isSafeInteger(deadline) || remainingSeconds <= 0) return;
+    await kv.set(
+        warCooldownKey(war.villages[0], war.villages[1]),
+        deadline,
+        { ex: remainingSeconds },
+    );
+}
+
 // Returns true if either village is currently in an active (non-ended)
 // war. Used to enforce the one-war-at-a-time rule on war creation.
 // Exported for the sector-war endpoint (api/village/sector-war.ts): a village in
 // an active village war cannot run sector wars, and vice-versa (§17.1 mutual
 // exclusion). Same predicate the declare path uses for the one-war-at-a-time rule.
-export async function villageHasActiveWar(village: string): Promise<boolean> {
+export async function villageHasActiveWar(
+    village: string,
+    ignoreReservation?: { declarationId: string; fingerprint: string },
+): Promise<boolean> {
+    if (await villageWarReservationBlocks(kv, village, Date.now(), ignoreReservation)) return true;
     const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
-    return wars.some(w => !w.endedAt && w.villages.includes(village));
+    return wars.some(w => warReservesVillage(w) && w.villages.includes(village));
 }
 
-/** The villages `village` is currently in an active (non-ended) VILLAGE war with.
- *  Used by the roaming-merc roster: an enemy's hired mercs follow this village's
- *  players, so they roam whatever sector the player is in (not a fixed sector like
- *  a sector-war band). Usually 0 or 1 (one-war-at-a-time). */
+async function villageHasCompetingWar(village: string, declarationId: string): Promise<boolean> {
+    const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
+    return wars.some((candidate) => {
+        if (!warReservesVillage(candidate) || !candidate.villages.includes(village)) return false;
+        return declarationFundingMarker(candidate)?.declarationId !== declarationId;
+    });
+}
+
+type DeclarationHelpResult =
+    | { status: 'active'; row: VillageWar; replayed: boolean }
+    | { status: 'insufficient'; have: number; cost: number }
+    | { status: 'busy' | 'blocked' | 'conflict' | 'stale-lease' };
+
+/**
+ * Any authenticated request may help an already-authorized immutable funding
+ * saga. Current Kage seating is deliberately irrelevant after row publication:
+ * dethronement or a lost ACK must not strand both village reservations forever.
+ */
+async function helpForwardVillageWarDeclaration(
+    warKey: string,
+    fundingRow: VillageWar,
+    now: number,
+): Promise<DeclarationHelpResult> {
+    const initialMarker = declarationFundingMarker(fundingRow);
+    if (!initialMarker) return { status: 'conflict' };
+    if (initialMarker.status === 'active') return { status: 'active', row: fundingRow, replayed: true };
+
+    const ownerId = newWarDeclarationFundingOwnerId();
+    const baseWar = { ...fundingRow } as VillageWar;
+    delete baseWar.declarationFunding;
+    const reservationPlan = declarationReservationPlan(warKey, fundingRow, initialMarker, ownerId, now);
+    const claims = await claimVillageWarReservations(kv, reservationPlan);
+    if (claims.status === 'busy') return { status: 'busy' };
+    if (claims.status === 'blocked') {
+        // A funding row that never acquired both village authorities has no
+        // right to debit. Fence its source before letting the winning pair use
+        // the village. A pre-existing receipt fails closed as conflict.
+        const aborted = await abortWarDeclarationFunding(
+            kv,
+            warKey,
+            fundingRow as VillageWar & { declarationFunding: WarDeclarationFundingMarker },
+            'source-fenced',
+            now,
+        );
+        if (aborted.status === 'aborted') {
+            await releaseVillageWarReservations(kv, reservationPlan, 'funding-conflict', now);
+            return { status: 'blocked' };
+        }
+        return { status: aborted.status === 'stale-lease' ? 'stale-lease' : 'conflict' };
+    }
+
+    const fundingPlan = {
+        warKey,
+        declarationId: initialMarker.declarationId,
+        fingerprint: initialMarker.fingerprint,
+        war: baseWar,
+        source: initialMarker.source,
+        ownerId,
+        now,
+        leaseMs: WAR_DECLARATION_FUNDING_LEASE_MS,
+    };
+    const reservation = await reserveWarDeclarationFunding(kv, fundingPlan);
+    if (reservation.status === 'busy' || reservation.status === 'conflict') {
+        return { status: reservation.status };
+    }
+    const promotion = await reserveClaimedVillageWarReservations(kv, reservationPlan);
+    if (promotion.status === 'conflict') {
+        if (reservation.status === 'acquired') {
+            const aborted = await abortWarDeclarationFunding(kv, warKey, reservation.row, 'source-fenced', now);
+            if (aborted.status === 'aborted') {
+                await releaseVillageWarReservations(kv, reservationPlan, 'funding-conflict', now);
+            }
+        }
+        return { status: 'conflict' };
+    }
+
+    try {
+        const result = await settleReservedWarDeclarationFunding(kv, fundingPlan, reservation);
+        if (result.status === 'active') {
+            return { status: 'active', row: result.row as VillageWar, replayed: true };
+        }
+        if (result.status === 'insufficient') {
+            await releaseVillageWarReservations(kv, reservationPlan, 'funding-aborted', now);
+            return result;
+        }
+        return { status: result.status };
+    } catch (error) {
+        // Terminal account failures publish an exact aborted pair tombstone.
+        // Release is proof-gated and therefore a no-op if another worker funded.
+        await releaseVillageWarReservations(kv, reservationPlan, 'funding-aborted', now).catch(() => undefined);
+        throw error;
+    }
+}
+
+/** The villages `village` is currently in declared hostility with. A target-first
+ *  mercenary marker freezes mutation but does not erase daily/mission authority. */
 export async function activeVillageWarEnemiesOf(village: string): Promise<string[]> {
     const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
     const out: string[] = [];
     for (const w of wars) {
-        if (w.endedAt || !w.villages.includes(village)) continue;
+        if (!warIsGameplayActive(w) || w.endedAt || !w.villages.includes(village)) continue;
         const enemy = w.villages.find(v => v !== village);
+        if (enemy) out.push(enemy);
+    }
+    return out;
+}
+
+/** Damage-producing mercenary surfaces must not consume a band while the exact
+ * village-war row is frozen by a target-first hire marker. */
+export async function mutableVillageWarEnemiesOf(village: string): Promise<string[]> {
+    const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
+    const out: string[] = [];
+    for (const w of wars) {
+        if (!warIsMutableGameplayActive(w) || w.endedAt || !w.villages.includes(village)) continue;
+        const enemy = w.villages.find(candidate => candidate !== village);
         if (enemy) out.push(enemy);
     }
     return out;
@@ -430,7 +705,7 @@ export async function activeVillageWarEnemiesOf(village: string): Promise<string
 export async function listActiveVillageWars(): Promise<Array<{ villages: [string, string] }>> {
     const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
     return wars
-        .filter(w => !w.endedAt && !warIsPending(w))
+        .filter(w => warIsMutableGameplayActive(w) && !w.endedAt && !warIsPending(w))
         .map(w => ({ villages: w.villages }));
 }
 
@@ -452,6 +727,15 @@ export async function captureSectorForVillage(
     const key = `${TERRITORY_KEY_PREFIX}${s}`;
     return await withKvLock(key, async () => {
         const prev = await kv.get<SectorTerritory>(key);
+        const pendingDeclaration = (await listFundingSectorWars())
+            .some(candidate => candidate.sector === s);
+        if (pendingDeclaration) {
+            // A hidden row-first declaration has sealed this exact defender but
+            // has not reached receipt-backed activation yet. Let its recovery
+            // activate or exact-abort before any older settlement changes the
+            // owner underneath it.
+            throw new Error('sector-war-declaration-funding-reserves-territory');
+        }
         const ownershipError = territoryVillageOwnershipError({
             sector: s,
             actorVillage: ownerVillage,
@@ -469,8 +753,7 @@ export async function captureSectorForVillage(
         const owned = resolveClaimedWarSupply(prev ?? null, next, now);
         next.warSupply = owned.warSupply;
         next.lastSupplyAt = owned.lastSupplyAt;
-        await kv.set(key, next);
-        return next;
+        return commitSectorTerritoryExact(key, prev, next);
     }, { failClosed: true });
 }
 
@@ -494,7 +777,7 @@ export async function seedHomeSectorOwnership(now: number = Date.now()): Promise
                     ownerVillage: village,
                     updatedAt: now,
                 }), prev);
-                await kv.set(key, next);
+                await commitSectorTerritoryExact(key, prev, next);
                 return true;
             }, { failClosed: true });
             if (changed) seeded.push(sector);
@@ -524,6 +807,7 @@ const VILLAGE_WAR_LOSER_MIN_CONTRIB = 50;
  * know whether to write it back to KV.
  */
 function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: VillageWar; changed: boolean } {
+    if (!warIsMutableGameplayActive(war)) return { war, changed: false };
     if (war.endedAt) return { war, changed: false };
     // Pending wars don't decay — the grace clock starts at activation.
     if (warIsPending(war)) return { war, changed: false };
@@ -613,25 +897,34 @@ export async function applyMercVillageWarDamage(
     const warKey = `${VILLAGE_WAR_KEY_PREFIX}${villageWarId(attackerVillage, enemyVillage)}`;
     return withKvLock(warKey, async () => {
         let war = await kv.get<VillageWar>(warKey);
-        if (!war || war.endedAt) return null;
+        if (!warIsMutableGameplayActive(war) || war.endedAt) return null;
         // Settle stale daily decay first so we chip the live HP (mirrors the raid path).
         const decayed = applyWarDecay(war, now);
-        if (decayed.changed) { war = decayed.war; await kv.set(warKey, war); }
+        if (decayed.changed) {
+            const publication = await commitWarBattleSettlement(kv, warKey, war, decayed.war);
+            if (publication.status === 'conflict') return null;
+            war = publication.row;
+        }
         if (war.endedAt || warIsPending(war)) return null; // ended by decay, or pre-war window (HP frozen)
         if (!war.villages.includes(enemyVillage)) return null;
         const before = Number(war.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX);
         const after = Math.max(VILLAGE_WAR_MERC_HP_FLOOR, before - Math.max(0, Math.floor(damage)));
         if (after !== before) {
-            await kv.set(warKey, { ...war, hp: { ...war.hp, [enemyVillage]: after }, updatedAt: now });
+            const publication = await commitWarBattleSettlement(kv, warKey, war, {
+                ...war,
+                hp: { ...war.hp, [enemyVillage]: after },
+                updatedAt: now,
+            });
+            if (publication.status === 'conflict') return null;
         }
         return { enemyHp: after, enemyHpMax: VILLAGE_WAR_HP_MAX };
-    });
+    }, { failClosed: true });
 }
 
 // ── Village-war losing penalty ──────────────────────────────────────────────
 // When a war ends WITH a winner, the winner village siphons a slice of the
 // loser's village treasury (api/_war-spoils.ts) and both villages' W/L standing
-// is bumped. Runs once per war via an NX `war:settled:<id>` marker placed inside
+// is bumped. Runs once per generation via an NX settlement marker placed inside
 // the village-state locks, so the lazy GET trigger (and wars that ended while
 // everyone was offline) settle exactly once — never double-applying, and never
 // retry-looping after a KV hiccup. Draws / 14-day timeouts have no winner → skip.
@@ -658,7 +951,7 @@ async function bumpVillageStanding(village: string, result: 'win' | 'loss', now:
 }
 
 async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
-    if (!war.endedAt || !war.winnerVillage) return;
+    if (!warIsMutableGameplayActive(war) || !war.endedAt || !war.winnerVillage) return;
     const winner = war.winnerVillage;
     const loser = war.villages.find(v => v !== winner);
     if (!loser) return;
@@ -667,9 +960,10 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
     // Lock both village-state rows in a stable (sorted) order so a concurrent
     // donate/agenda credit can't be clobbered and two settles can't deadlock.
     const [k1, k2] = [winnerKey, loserKey].sort();
+    const generationToken = villageWarGenerationToken(war);
     try {
         const didSettle = await withKvLock<boolean>(k1, async () => withKvLock<boolean>(k2, async () => {
-            const placed = await kv.set(`war:settled:${war.id}`, { ts: now, winner, loser }, { nx: true, ex: 90 * 24 * 60 * 60 } as never);
+            const placed = await kv.set(`war:settled:${generationToken}`, { ts: now, winner, loser }, { nx: true, ex: 90 * 24 * 60 * 60 } as never);
             if (!placed) return false; // already settled by a concurrent/earlier call
             const loserState = (await kv.get<Record<string, unknown>>(loserKey)) ?? {};
             const winnerState = (await kv.get<Record<string, unknown>>(winnerKey)) ?? {};
@@ -680,7 +974,7 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
             // Winners already receive spoils, crates, standing, and map control;
             // do not add a progression-speed buff on top of those advantages.
             await kv.set(winnerKey, { ...winnerState, ...settlementMoralePatch('winner', now), treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
-            await kv.set(`audit:village-war-settle:${war.id}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+            await kv.set(`audit:village-war-settle:${generationToken}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
             return true;
         }), { failClosed: true });
         if (didSettle) {
@@ -694,8 +988,13 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
         // harmless no-op attempt next poll). Also flags pre-existing settled wars.
         await withKvLock(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
             const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
-            if (!fresh || fresh.settled) return;
-            await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, { ...fresh, settled: true });
+            if (!warIsMutableGameplayActive(fresh) || fresh.settled) return;
+            await commitWarBattleSettlement(
+                kv,
+                `${VILLAGE_WAR_KEY_PREFIX}${war.id}`,
+                fresh,
+                { ...fresh, settled: true },
+            );
         }).catch(() => undefined);
     } catch { /* best-effort; the NX marker prevents a double-apply on any retry */ }
 }
@@ -711,6 +1010,423 @@ async function getByPrefix<T>(prefix: string) {
     // Use mget to fetch all values in one round-trip instead of N individual gets.
     const values = await kv.mget<T[]>(...keys);
     return values.filter(Boolean) as T[];
+}
+
+function pvpWarContinuationKey(actorName: string, battleId: string): string {
+    return `pvp:war-continuation:${safeName(actorName)}:${battleId}`;
+}
+
+function parsePvpWarContinuationReceipt(value: unknown): PvpWarContinuationReceipt | null {
+    if (value === null) return null;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('pvp-war-continuation-receipt-invalid');
+    }
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+        throw new Error('pvp-war-continuation-receipt-invalid');
+    }
+    const row = value as Partial<PvpWarContinuationReceipt>;
+    const allowedKeys = new Set([
+        'version',
+        'battleId',
+        'actorName',
+        'outcome',
+        'warId',
+        'settledAt',
+        'warGroundRewardEligible',
+    ]);
+    if (Object.keys(row).some((key) => !allowedKeys.has(key))) {
+        throw new Error('pvp-war-continuation-receipt-invalid');
+    }
+    const actorName = safeName(String(row.actorName ?? ''));
+    const warIdValid = row.warId === undefined
+        || (typeof row.warId === 'string' && /^[a-z0-9]+-vs-[a-z0-9]+$/.test(row.warId));
+    if (row.version !== 1
+        || typeof row.battleId !== 'string'
+        || !row.battleId.trim()
+        || !actorName
+        || row.actorName !== actorName
+        || (row.outcome !== 'applied' && row.outcome !== 'superseded' && row.outcome !== 'not-applicable')
+        || !warIdValid
+        || (row.outcome !== 'not-applicable' && row.warId === undefined)
+        || !Number.isSafeInteger(row.settledAt)
+        || Number(row.settledAt) <= 0
+        || typeof row.warGroundRewardEligible !== 'boolean'
+        || (row.outcome === 'not-applicable' && row.warGroundRewardEligible)) {
+        throw new Error('pvp-war-continuation-receipt-invalid');
+    }
+    return row as PvpWarContinuationReceipt;
+}
+
+function exactPvpWarContinuationReceipt(value: unknown, expected: PvpWarContinuationReceipt): boolean {
+    const row = parsePvpWarContinuationReceipt(value);
+    return !!row
+        && row.battleId === expected.battleId
+        && row.actorName === expected.actorName
+        && row.outcome === expected.outcome
+        && row.warId === expected.warId
+        && row.settledAt === expected.settledAt
+        && row.warGroundRewardEligible === expected.warGroundRewardEligible;
+}
+
+function pvpWarContinuationReceiptMatchesSession(
+    receipt: PvpWarContinuationReceipt,
+    args: { battleId: string; actor: string; settledAt: number; warId?: string },
+): boolean {
+    if (receipt.battleId !== args.battleId
+        || receipt.actorName !== args.actor
+        || receipt.settledAt !== args.settledAt) return false;
+    if (receipt.outcome === 'not-applicable') {
+        return receipt.warId === args.warId && !receipt.warGroundRewardEligible;
+    }
+    return !!args.warId && receipt.warId === args.warId;
+}
+
+async function commitPvpWarContinuationReceipt(receipt: PvpWarContinuationReceipt): Promise<void> {
+    const key = pvpWarContinuationKey(receipt.actorName, receipt.battleId);
+    try {
+        if (await kv.compareSet(key, null, receipt, { ex: PVP_WAR_CONTINUATION_TTL_SEC })) return;
+    } catch (error) {
+        const recovered = await kv.get<unknown>(key).catch(() => null);
+        if (exactPvpWarContinuationReceipt(recovered, receipt)) return;
+        throw error;
+    }
+    const current = await kv.get<unknown>(key);
+    if (exactPvpWarContinuationReceipt(current, receipt)) return;
+    throw new Error('pvp-war-continuation-receipt-conflict');
+}
+
+export async function settlePvpVillageWarContinuation(
+    battleId: string,
+    actorName: string,
+    validatedSession?: PvpSession,
+    raidTerritoryProof?: RaidTerritoryDamageResult,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+    const actor = safeName(actorName);
+    const receiptKey = pvpWarContinuationKey(actor, battleId);
+    const session = validatedSession ?? await kv.get<PvpSession>(`pvp:${battleId}`);
+    if (!session) return { status: 404, body: { error: 'Battle session not found or expired.' } };
+    if (session.battleId !== battleId) {
+        return { status: 409, body: { error: 'Battle recovery proof does not match this session.' } };
+    }
+    if (session.status !== 'done' || (session.winner !== 'p1' && session.winner !== 'p2')) {
+        return { status: 409, body: { error: 'Battle not yet decided.' } };
+    }
+    const winnerFighter = session.winner === 'p1' ? session.p1 : session.p2;
+    const loserFighter = session.winner === 'p1' ? session.p2 : session.p1;
+    const winnerName = safeName(winnerFighter?.name);
+    const loserName = safeName(loserFighter?.name);
+    if (!actor || winnerName !== actor) {
+        return { status: 403, body: { error: 'Only the recorded winner may settle village-war progress.' } };
+    }
+    if (!pvpSessionMayGrantProgress(session)
+        || session.rewardAuthority === 'admin'
+        || (session.ranked === true && session.rankedKind === 'pet')) {
+        return { status: 403, body: { error: 'This battle has no server progression authority.' } };
+    }
+
+    // Participant villages are sealed in the fighter snapshots at session
+    // creation. Current saves may change villages after the fight and must never
+    // redirect an old battle into a different live war.
+    const actorVillage = String(winnerFighter?.character?.village ?? '').trim();
+    const loserVillage = String(loserFighter?.character?.village ?? '').trim();
+    const p1Village = String(session.p1?.character?.village ?? '').trim();
+    const p2Village = String(session.p2?.character?.village ?? '').trim();
+    const validationNow = Date.now();
+    const createdAt = Number(session.createdAt);
+    const settledAt = Number(session.endedAt);
+    if (!loserName || loserName === actor
+        || !Number.isSafeInteger(createdAt) || createdAt <= 0
+        || !Number.isSafeInteger(settledAt) || settledAt < createdAt
+        || settledAt > validationNow + 60_000) {
+        return { status: 403, body: { error: 'Battle authority is malformed.' } };
+    }
+    const sealedWarId = actorVillage && loserVillage && actorVillage !== loserVillage
+        ? villageWarId(actorVillage, loserVillage)
+        : undefined;
+    let priorReceipt: PvpWarContinuationReceipt | null;
+    try {
+        priorReceipt = parsePvpWarContinuationReceipt(await kv.get<unknown>(receiptKey));
+    } catch {
+        return { status: 503, body: { error: 'Village-war continuation receipt is malformed.' } };
+    }
+    if (priorReceipt) {
+        if (!pvpWarContinuationReceiptMatchesSession(priorReceipt, {
+            battleId,
+            actor,
+            settledAt,
+            warId: sealedWarId,
+        })) {
+            return { status: 503, body: { error: 'Village-war continuation receipt conflicts with this battle.' } };
+        }
+        const war = priorReceipt.outcome !== 'not-applicable' && priorReceipt.warId
+            ? await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${priorReceipt.warId}`).catch(() => null)
+            : null;
+        if (priorReceipt.outcome !== 'not-applicable'
+            && priorReceipt.warId
+            && (!war || war.id !== priorReceipt.warId)) {
+            return { status: 503, body: { error: 'Village-war continuation row is unavailable.' } };
+        }
+        if (war?.endedAt) await ensureWarRematchCooldown(war);
+        return {
+            status: 200,
+            body: {
+                ok: true,
+                settlement: priorReceipt.outcome,
+                replayed: true,
+                warGroundRewardEligible: priorReceipt.warGroundRewardEligible,
+                ...(war ? { war } : {}),
+            },
+        };
+    }
+    const writeNoop = async (): Promise<{ status: number; body: Record<string, unknown> }> => {
+        const receipt: PvpWarContinuationReceipt = {
+            version: 1,
+            battleId,
+            actorName: actor,
+            outcome: 'not-applicable',
+            ...(sealedWarId ? { warId: sealedWarId } : {}),
+            settledAt,
+            warGroundRewardEligible: false,
+        };
+        await commitPvpWarContinuationReceipt(receipt);
+        return {
+            status: 200,
+            body: {
+                ok: true,
+                settlement: 'not-applicable',
+                replayed: false,
+                warGroundRewardEligible: false,
+            },
+        };
+    };
+    if (!actorVillage || !loserVillage || actorVillage === loserVillage) return writeNoop();
+
+    const warId = sealedWarId!;
+    const warKey = `${VILLAGE_WAR_KEY_PREFIX}${warId}`;
+    const winnerSide = session.winner;
+    const loserSide = winnerSide === 'p1' ? 'p2' : 'p1';
+    const actorRole = sealedSectorWarRoleOf(
+        session.warRoleEvidence,
+        winnerSide,
+        actorVillage,
+        createdAt,
+    );
+    const loserRole = sealedSectorWarRoleOf(
+        session.warRoleEvidence,
+        loserSide,
+        loserVillage,
+        createdAt,
+    );
+    const rewardSector = Math.floor(Number(session.rewardSector));
+    const worldAttacker = sealedWorldRaidAttacker(session);
+    const sealedWorldRaid = session.rewardAuthority === 'world'
+        && worldAttacker?.side === session.winner
+        && worldAttacker.name === actor;
+    const territoryEvidence = session.worldTerritoryEvidence;
+    if (sealedWorldRaid) {
+        const expectedProofId = raidProgressionReceiptId(`pvp-raid:${battleId}`);
+        const proofAmount = Number(raidTerritoryProof?.amount);
+        if (!territoryEvidence
+            || territoryEvidence.version !== 1
+            || territoryEvidence.sector !== rewardSector
+            || raidTerritoryProof?.proofId !== expectedProofId
+            || raidTerritoryProof.playerName !== actor
+            || raidTerritoryProof.sector !== rewardSector
+            || (proofAmount !== 0 && proofAmount !== territoryEvidence.raidDamage)
+            || raidTerritoryProof.at !== settledAt) {
+            return { status: 503, body: { error: 'The sealed raid-territory proof is still finalizing.' } };
+        }
+    }
+    // A target-owner change after session creation produces an exact durable
+    // zero receipt. That is a canonical superseded raid, not a retryable gap:
+    // ordinary cross-village PvP may still settle, but ground/capture effects
+    // must be gated by the amount that actually landed.
+    const appliedSealedWorldRaid = sealedWorldRaid
+        && Number(raidTerritoryProof?.amount) > 0
+        && raidTerritoryProof?.amount === territoryEvidence?.raidDamage;
+    let pvpDamage = sectorControlSwing(actorRole, loserRole);
+    // The home-defense multiplier is sector-history authority, not current map
+    // state. Only a verified World session carries a territory owner snapshot
+    // sealed at creation; ranked/Clan War/legacy challenge rows have no such
+    // proof and therefore fail closed to the neutral role swing. Re-reading the
+    // current territory here let a delayed claim gain or lose 15% after an
+    // unrelated capture, and let a client-chosen non-World rewardSector steer
+    // village-war damage.
+    const homeVillage = sealedWorldRaid
+        ? String(territoryEvidence?.ownerVillage ?? '').trim()
+        : '';
+    if (homeVillage === actorVillage) {
+        pvpDamage = Math.max(1, Math.floor(pvpDamage * 1.15));
+    }
+    return withKvLock(warKey, async () => {
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+            const raw = await kv.get<VillageWar>(warKey);
+            if (!raw) return writeNoop();
+            // A target-first mercenary marker freezes this exact row. Never
+            // consume a finished PvP continuation as a durable no-op while the
+            // strike can still be helped forward; the claim must retry against
+            // the post-activation row.
+            if (warHasMercenaryFundingField(raw)) {
+                return { status: 503, body: { error: 'A mercenary strike is settling; retry village-war rewards.' } };
+            }
+            if (!warIsGameplayActive(raw)) return writeNoop();
+            try {
+                parseEmbeddedWarBattleReceipts(raw.pvpBattleReceipts);
+            } catch {
+                return { status: 503, body: { error: 'Village-war embedded battle receipts are malformed.' } };
+            }
+
+            if (embeddedWarBattleReplay(raw.pvpBattleReceipts, battleId, actor)) {
+                const warGroundRewardEligible = appliedSealedWorldRaid
+                    && pvpWarGroundRewardEligible({
+                        actorVillage,
+                        loserVillage,
+                        rewardSector,
+                        battleCreatedAt: createdAt,
+                        battleEndedAt: settledAt,
+                        war: raw,
+                    });
+                const embeddedOutcome = embeddedWarBattleOutcome(raw.pvpBattleReceipts, battleId, actor);
+                const receipt: PvpWarContinuationReceipt = {
+                    version: 1,
+                    battleId,
+                    actorName: actor,
+                    outcome: embeddedOutcome ?? (raw.endedAt ? 'superseded' : 'applied'),
+                    warId,
+                    settledAt,
+                    warGroundRewardEligible,
+                };
+                await commitPvpWarContinuationReceipt(receipt);
+                if (raw.endedAt) await ensureWarRematchCooldown(raw);
+                return {
+                    status: 200,
+                    body: {
+                        ok: true,
+                        settlement: receipt.outcome,
+                        replayed: true,
+                        warGroundRewardEligible,
+                        war: raw,
+                    },
+                };
+            }
+
+            const effectiveStart = warEffectiveStartMs(raw);
+            const exactCheck = validateWarBattle({
+                battle: session,
+                actorName: actor,
+                actorVillage,
+                warVillages: raw.villages,
+                p1Village,
+                p2Village,
+                warStartedAt: effectiveStart,
+                budgetSpent: 0,
+                validationNow,
+            });
+            if (!exactCheck.ok) {
+                // A valid sanctioned battle that simply did not overlap this
+                // war gets a durable canonical no-op rather than depending on a
+                // missing process-local client cache.
+                if (exactCheck.reason === 'battle-predates-war' || exactCheck.reason === 'not-a-cross-village-battle') {
+                    return writeNoop();
+                }
+                return { status: 403, body: { error: warBattleDeclineMessage(exactCheck.reason) } };
+            }
+
+            const boundedEnd = effectiveStart + VILLAGE_WAR_MAX_DURATION_MS;
+            if (!Number.isSafeInteger(boundedEnd)) {
+                return { status: 503, body: { error: 'Village-war lifetime is malformed.' } };
+            }
+            const recordedEnd = raw.endedAt === undefined ? boundedEnd : Number(raw.endedAt);
+            if (!Number.isSafeInteger(recordedEnd) || recordedEnd < effectiveStart) {
+                return { status: 503, body: { error: 'Village-war terminal time is malformed.' } };
+            }
+            if (settledAt > Math.min(boundedEnd, recordedEnd)) return writeNoop();
+
+            const legacySpent = Math.max(0, Math.floor(Number(
+                await kv.get<number>(warBattleReceiptKey(raw.id, battleId)),
+            ) || 0));
+            if (legacySpent > 0) {
+                // Pre-cutover wrote this external marker BEFORE the absolute war
+                // row. It cannot prove whether damage/winner landed, so claiming
+                // success would permanently hide a marker-before-body crash.
+                return {
+                    status: 503,
+                    body: { error: 'Legacy village-war settlement is ambiguous and requires reconciliation.' },
+                };
+            }
+
+            // A battle that started before an ending blow may still help-forward
+            // its receipt after the war ends, but it may never mutate HP/winner.
+            if (raw.endedAt && settledAt > Number(raw.endedAt)) return writeNoop();
+            const attemptNow = Date.now();
+            const decay = raw.endedAt ? { war: raw, changed: false } : applyWarDecay(raw, attemptNow);
+            const current = decay.war;
+            const commitAt = Math.max(
+                attemptNow,
+                Math.floor(Number(current.updatedAt) || 0),
+                effectiveStart,
+            );
+            if (!Number.isSafeInteger(commitAt) || commitAt <= 0) {
+                return { status: 503, body: { error: 'Village-war settlement clock is malformed.' } };
+            }
+            const isWarGroundRaid = appliedSealedWorldRaid && rewardSector === current.warGroundSector;
+            const warGroundRewardEligible = isWarGroundRaid
+                && pvpWarGroundRewardEligible({
+                    actorVillage,
+                    loserVillage,
+                    rewardSector,
+                    battleCreatedAt: createdAt,
+                    battleEndedAt: settledAt,
+                    war: raw,
+                });
+            const captureAuthorized = isWarGroundRaid && raidTerritoryProof?.destroyed === true;
+            const projected = projectPvpVillageWarSettlement(current, {
+                actorName: actor,
+                actorDisplayName: String(session.winner === 'p1' ? session.p1?.name : session.p2?.name),
+                actorVillage,
+                loserVillage,
+                pvpDamage,
+                raidDamage: isWarGroundRaid ? actorRole.win : 0,
+                captureAuthorized,
+                terminalAt: settledAt,
+                settlementAt: commitAt,
+            });
+            const outcome: PvpWarContinuationOutcome = current.endedAt ? 'superseded' : 'applied';
+            const candidate = projected.row as VillageWar;
+            candidate.pvpBattleReceipts = stampEmbeddedWarBattleReplay(
+                current.pvpBattleReceipts,
+                battleId,
+                actor,
+                outcome,
+            );
+            const publication = await commitWarBattleSettlement(kv, warKey, raw, candidate);
+            if (publication.status === 'conflict') continue;
+
+            await commitPvpWarContinuationReceipt({
+                version: 1,
+                battleId,
+                actorName: actor,
+                outcome,
+                warId,
+                settledAt,
+                warGroundRewardEligible,
+            });
+            if (publication.row.endedAt) await ensureWarRematchCooldown(publication.row);
+            return {
+                status: 200,
+                body: {
+                    ok: true,
+                    settlement: outcome,
+                    replayed: false,
+                    warGroundRewardEligible,
+                    war: publication.row,
+                    damage: { village: projected.enemyDamage, ground: projected.groundDamage },
+                },
+            };
+        }
+        return { status: 503, body: { error: 'Village-war state changed; retry settlement.' } };
+    }, { failClosed: true });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -751,6 +1467,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const wars: VillageWar[] = [];
         const writes: Promise<unknown>[] = [];
         for (const w of warsRaw) {
+            if (!warIsGameplayActive(w)) continue;
             const { war, changed } = applyWarDecay(w, now);
             wars.push(war);
             if (changed) {
@@ -761,7 +1478,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
                         if (!fresh) return;
                         const { war: redecayed, changed: stillChanged } = applyWarDecay(fresh, now);
-                        if (stillChanged) await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, redecayed);
+                        if (stillChanged) await commitWarBattleSettlement(
+                            kv,
+                            `${VILLAGE_WAR_KEY_PREFIX}${war.id}`,
+                            fresh,
+                            redecayed,
+                        );
                     }).catch(() => undefined),
                 );
             }
@@ -812,6 +1534,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'world-state-write', 60, 60_000, identity.name))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            const hasPvpWarBattleId = body?.kind === 'war'
+                && Object.prototype.hasOwnProperty.call(body as Record<string, unknown>, 'battleId');
+            const pvpWarBattleId = hasPvpWarBattleId
+                ? String((body as Record<string, unknown>).battleId ?? '').trim()
+                : '';
+            if (hasPvpWarBattleId) {
+                if (!pvpWarBattleId) {
+                    return res.status(400).json({ error: 'battleId must be a non-empty PvP session id.' });
+                }
+                if (identity.admin) {
+                    return res.status(403).json({ error: 'Admin sessions do not publish player village-war progress.' });
+                }
+                const settlement = await settlePvpVillageWarContinuation(pvpWarBattleId, identity.name);
+                return res.status(settlement.status).json(settlement.body);
+            }
             if (body?.kind === 'territory') {
                 const rawTerritory = body?.territory && typeof body.territory === 'object'
                     ? body.territory as Record<string, unknown>
@@ -1007,19 +1744,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // through unlocked could erase a crash-pinned proof between
                 // its HP commit and terminal-key help-forward.
                 let committedTerritory = incomingTerritory;
+                let territoryConflict = false;
                 await withKvLock(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, async () => {
-                    const fresh = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`);
+                    const key = `${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`;
+                    const fresh = await kv.get<SectorTerritory>(key);
+                    if (!identity.admin && !isDeepStrictEqual(fresh, prev)) {
+                        territoryConflict = true;
+                        return;
+                    }
+                    const ownerVillageChanging = String(committedTerritory.ownerVillage ?? '').trim()
+                        !== String(fresh?.ownerVillage ?? '').trim();
+                    if (ownerVillageChanging) {
+                        // Active contests and their hidden funding predecessors
+                        // both bind the defender village. This check shares the
+                        // exact territory writer lock with sector declaration,
+                        // closing the post-activation HP=0 capture race too.
+                        const authorityNow = Date.now();
+                        const [activeContest, pendingDeclarations] = await Promise.all([
+                            activeContestOnSector(incomingTerritory.sector, authorityNow),
+                            listFundingSectorWars(),
+                        ]);
+                        if (activeContest
+                            || pendingDeclarations.some(candidate => candidate.sector === incomingTerritory.sector)) {
+                            territoryConflict = true;
+                            return;
+                        }
+                    }
                     committedTerritory = preserveServerRaidSettlementAuthority({
                         ...incomingTerritory,
                     }, fresh);
-                    await kv.set(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, committedTerritory);
+                    try {
+                        if (!(await kv.compareSet(key, fresh, committedTerritory))) {
+                            territoryConflict = true;
+                        }
+                    } catch (error) {
+                        const recovered = await kv.get<unknown>(key).catch(() => null);
+                        if (!isDeepStrictEqual(recovered, committedTerritory)) throw error;
+                    }
                 }, { failClosed: true });
+                if (territoryConflict) {
+                    return res.status(409).json({ error: 'Territory changed while this update was being verified. Retry.' });
+                }
                 return res.status(200).json({ territory: committedTerritory });
             }
 
             if (body?.kind === 'war') {
-                const war = normalizeVillageWar({ ...body.war, updatedAt: Date.now() });
+                const mutationNow = Date.now();
+                const war = normalizeVillageWar({ ...body.war, updatedAt: mutationNow });
                 if (!war) return res.status(400).json({ error: 'Invalid war.' });
+                // The pair is the storage authority. A client-supplied id must
+                // never create an alternate row that evades exclusion/cooldown.
+                war.id = villageWarId(war.villages[0], war.villages[1]);
 
                 // All war reads + validation + write are serialized through a
                 // per-war lock so concurrent raids / claim attempts can't
@@ -1028,12 +1803,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const warKey = `${VILLAGE_WAR_KEY_PREFIX}${war.id}`;
                 const result = await withKvLock(warKey, async () => {
                     let existing = await kv.get<VillageWar>(warKey);
+                    let expectedWarRow = existing;
+                    if (existing && warHasMercenaryFundingField(existing)) {
+                        return { status: 503 as const, body: { error: 'A mercenary strike is settling; retry.' } };
+                    }
+                    if (existing && Object.prototype.hasOwnProperty.call(existing, 'mercenaryHireReceipts')
+                        && (!existing.mercenaryHireReceipts
+                            || typeof existing.mercenaryHireReceipts !== 'object'
+                            || Array.isArray(existing.mercenaryHireReceipts))) {
+                        return { status: 503 as const, body: { error: 'Village-war mercenary receipts are malformed.' } };
+                    }
+                    if (existing && warHasFundingField(existing)) {
+                        const marker = declarationFundingMarker(existing);
+                        if (!marker) {
+                            return { status: 503 as const, body: { error: 'Village-war funding state is malformed.' } };
+                        }
+                        if (marker.status === 'funding') {
+                            if (identity.admin) {
+                                return { status: 409 as const, body: { error: 'Village-war declaration is still funding.' } };
+                            }
+                            const funding = await withKvLock(
+                                marker.source.recordKey,
+                                () => helpForwardVillageWarDeclaration(warKey, existing!, mutationNow),
+                                { failClosed: true },
+                            );
+                            if (funding.status === 'active') {
+                                const declaredVillage = existing.villages.find(village => normalizeVillageKey(village) === normalizeVillageKey(marker.source.accountId))
+                                    ?? existing.villages[0];
+                                await kv.set(`audit:village-war-declare:${normalizeVillageKey(declaredVillage)}:${marker.declarationId}`, {
+                                    ts: funding.row.startedAt, action: 'declare-war', actor: identity.name,
+                                    village: declaredVillage, villages: funding.row.villages,
+                                }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+                                return { status: 200 as const, body: { war: funding.row, replayed: true } };
+                            }
+                            if (funding.status === 'insufficient') {
+                                return { status: 400 as const, body: { error: `Declaration funding is insufficient (${funding.have}/${funding.cost}).` } };
+                            }
+                            return funding.status === 'conflict'
+                                ? { status: 409 as const, body: { error: 'Village-war declaration funding conflicted.' } }
+                                : { status: 503 as const, body: { error: 'Village-war declaration funding is still settling; retry.' } };
+                        }
+                    }
+                    // An ended pair row is the exact predecessor of a rematch,
+                    // not an immutable dead-end. Non-admin callers enter the
+                    // full declaration authority path below.
+                    const isCreating = !existing
+                        || (!identity.admin && (!!existing.endedAt || declarationFundingMarker(existing)?.status === 'aborted'));
+                    if (existing && !isCreating) {
+                        // The no-battle command lane may submit bounded HP/capture
+                        // deltas, but never rewrites the identity/chronology rows
+                        // trusted by server-derived PvP settlement.
+                        war.id = existing.id;
+                        war.villages = [...existing.villages] as [string, string];
+                        war.startedAt = existing.startedAt;
+                        war.pendingUntil = existing.pendingUntil;
+                        war.warGroundSector = existing.warGroundSector;
+                        war.warCrateId = existing.warCrateId;
+                        war.lastDecayDate = existing.lastDecayDate;
+                        war.settled = existing.settled;
+                        war.pvpBattleReceipts = { ...(existing.pvpBattleReceipts ?? {}) };
+                        war.lastPvpBattleEndedAt = existing.lastPvpBattleEndedAt;
+                        war.warMissionTokenReceipts = { ...(existing.warMissionTokenReceipts ?? {}) };
+                        war.declaredBy = existing.declaredBy;
+                        war.declarationGeneration = existing.declarationGeneration;
+                        war.declarationFunding = existing.declarationFunding;
+                        war.mercenaryHireReceipts = { ...(existing.mercenaryHireReceipts ?? {}) };
+                    }
 
                     // Lazy-finalize stale wars (>14d active, no end). Counts
                     // from `pendingUntil` if set, so the pre-war window
                     // doesn't eat into the 14-day clock. Auto-end with no
                     // winner, no crate.
-                    if (existing && !existing.endedAt) {
+                    if (existing && !isCreating && !existing.endedAt) {
                         const liveStart = warEffectiveStartMs(existing);
                         if ((Date.now() - liveStart) > VILLAGE_WAR_MAX_DURATION_MS) {
                             const expired: VillageWar = {
@@ -1042,8 +1883,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 updatedAt: Date.now(),
                                 // No winnerVillage — abandoned wars award nothing.
                             };
-                            await kv.set(warKey, expired);
-                            return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: expired } };
+                            const publication = await commitWarBattleSettlement(kv, warKey, existing, expired);
+                            if (publication.status === 'conflict') {
+                                return { status: 503 as const, body: { error: 'Village-war state changed; retry.' } };
+                            }
+                            await ensureWarRematchCooldown(publication.row);
+                            return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: publication.row } };
                         }
                     }
 
@@ -1052,18 +1897,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // against the post-decay state. If decay just ended
                     // the war, the freeze check below catches the in-
                     // flight write and rejects it as "war has ended".
-                    if (existing) {
+                    if (existing && !isCreating) {
                         const decayResult = applyWarDecay(existing);
                         if (decayResult.changed) {
-                            existing = decayResult.war;
-                            await kv.set(warKey, existing);
+                            const publication = await commitWarBattleSettlement(kv, warKey, existing, decayResult.war);
+                            if (publication.status === 'conflict') {
+                                return { status: 503 as const, body: { error: 'Village-war state changed; retry.' } };
+                            }
+                            existing = publication.row;
+                            expectedWarRow = publication.row;
                         }
                     }
 
                     // Frozen-once-ended: any further mutation after endedAt
                     // is set is rejected (except admin) so post-end actors
                     // can't change winnerVillage / resurrect HP.
-                    if (existing?.endedAt && !identity.admin) {
+                    if (existing?.endedAt && !identity.admin && !isCreating) {
                         return { status: 409 as const, body: { error: 'War has already ended; no further updates accepted.', war: existing } };
                     }
 
@@ -1073,6 +1922,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // attribute contributions.
                     let actorChar: Record<string, unknown> | null = null;
                     let actorVillage = '';
+                    let verifiedMissionTokenId = '';
                     if (!identity.admin) {
                         try {
                             const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
@@ -1086,10 +1936,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                     }
 
-                    const isCreating = !existing;
-                    const isEnding = !existing?.endedAt && !!war.endedAt;
-                    const isClaimingWin = !existing?.winnerVillage && !!war.winnerVillage;
-                    const isClaimingCapture = !existing?.capturedBy && !!war.capturedBy;
+                    const isEnding = !isCreating && !existing?.endedAt && !!war.endedAt;
+                    const isClaimingWin = !isCreating && !existing?.winnerVillage && !!war.winnerVillage;
+                    const isClaimingCapture = !isCreating && !!war.capturedBy && war.capturedBy !== existing?.capturedBy;
+                    if (existing && !isCreating) {
+                        if (!isClaimingCapture) {
+                            war.capturedBy = existing.capturedBy;
+                            war.capturedAt = existing.capturedAt;
+                        }
+                        if (!isClaimingWin) war.winnerVillage = existing.winnerVillage;
+                        if (!isEnding) war.endedAt = existing.endedAt;
+                        if (!isEnding) {
+                            war.mvpByVillage = existing.mvpByVillage;
+                            war.loserCrateId = existing.loserCrateId;
+                        }
+                    }
 
                     if (!identity.admin) {
                         try {
@@ -1099,93 +1960,226 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 if (!kage) {
                                     return { status: 403 as const, body: { error: 'Only the seated Kage of a warring village can declare a war.' } };
                                 }
-                                // 2. Cooldown: same village-pair can't re-war within 7 days.
+                                // 2. Cooldown: derive it from the authoritative
+                                // predecessor too. The TTL key is an accelerator,
+                                // not the only guard (end-row commit and TTL-key
+                                // publication cannot be one cross-key transaction).
+                                if (existing?.endedAt) {
+                                    const rematchAt = Math.floor(Number(existing.endedAt))
+                                        + VILLAGE_WAR_REMATCH_COOLDOWN_SEC * 1000;
+                                    if (!Number.isSafeInteger(rematchAt) || mutationNow < rematchAt) {
+                                        return { status: 409 as const, body: { error: 'These two villages were at war within the last 7 days. Rematch cooldown active.' } };
+                                    }
+                                }
                                 const cd = await kv.get(warCooldownKey(war.villages[0], war.villages[1]));
                                 if (cd) {
                                     return { status: 409 as const, body: { error: 'These two villages were at war within the last 7 days. Rematch cooldown active.' } };
                                 }
-                                // 3. Single-war rule: neither village may already be in an active war.
+
+                                const source: WarDeclarationFundingSource = villageWarMapEnabled()
+                                    ? {
+                                        kind: 'war-resources',
+                                        recordKey: villageWarKey(actorVillage),
+                                        accountId: actorVillage,
+                                        amount: discountedWrCost(
+                                            DECLARE_WAR_WR,
+                                            await heldSectorsForVillage(actorVillage),
+                                        ),
+                                    }
+                                    : {
+                                        kind: 'honor-seals',
+                                        recordKey: `save:${identity.name}`,
+                                        accountId: identity.name,
+                                        amount: VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS,
+                                    };
+                                const previousGeneration = existing ? declarationGenerationOf(existing) : 0;
+                                const generation = await allocateVillageWarDeclarationGeneration(
+                                    kv,
+                                    war.id,
+                                    previousGeneration + 1,
+                                    mutationNow,
+                                );
+                                const declarationId = generation.declarationId;
+                                war.startedAt = mutationNow;
+                                war.updatedAt = mutationNow;
+                                war.hp = {
+                                    [war.villages[0]]: VILLAGE_WAR_HP_MAX,
+                                    [war.villages[1]]: VILLAGE_WAR_HP_MAX,
+                                };
+                                war.warGroundHp = VILLAGE_WAR_GROUND_HP_MAX;
+                                war.pendingUntil = mutationNow + VILLAGE_WAR_PENDING_WINDOW_MS;
+                                war.declaredBy = safeName(identity.name);
+                                war.declarationGeneration = generation.generation;
+                                delete war.endedAt;
+                                delete war.winnerVillage;
+                                delete war.capturedBy;
+                                delete war.capturedAt;
+                                delete war.settled;
+                                delete war.lastDecayDate;
+                                delete war.mvpByVillage;
+                                delete war.loserCrateId;
+                                delete war.lastPvpBattleEndedAt;
+                                delete war.declarationFunding;
+                                // Stamp canonical crate ID + initialize empty contributions map.
+                                war.warCrateId = `war-crate-${war.id}-g${generation.generation}`;
+                                war.contributions = {};
+                                war.pvpBattleReceipts = {};
+                                war.warMissionTokenReceipts = {};
+                                const fingerprint = warDeclarationFundingFingerprint({
+                                    policyVersion: 2,
+                                    declarationId,
+                                    generation: generation.generation,
+                                    warId: war.id,
+                                    villages: [...war.villages].sort((a, b) => a.localeCompare(b)),
+                                    declaredBy: war.declaredBy,
+                                    warGroundSector: war.warGroundSector,
+                                    source,
+                                    predecessor: existing
+                                        ? {
+                                            generation: declarationGenerationOf(existing),
+                                            declarationId: declarationFundingMarker(existing)?.declarationId ?? null,
+                                            endedAt: existing.endedAt,
+                                            updatedAt: existing.updatedAt,
+                                        }
+                                        : null,
+                                });
+                                const ownerId = newWarDeclarationFundingOwnerId();
+                                const reservationPlan: VillageWarReservationPlan = {
+                                    pairId: war.id,
+                                    warKey,
+                                    villages: [...war.villages] as [string, string],
+                                    generation: generation.generation,
+                                    declarationId,
+                                    fingerprint,
+                                    source,
+                                    ownerId,
+                                    now: mutationNow,
+                                    leaseMs: WAR_DECLARATION_FUNDING_LEASE_MS,
+                                };
+
+                                // Claim BOTH village authorities before checking
+                                // exclusions. A concurrent A-B / A-C declaration
+                                // collides on A's exact row; sector-war declaration
+                                // also sees this claiming row and fails closed.
+                                let claims = await claimVillageWarReservations(kv, reservationPlan);
+                                if (claims.status === 'blocked') {
+                                    // A crashed funding saga on another pair is
+                                    // help-forwarded by any later declaration that
+                                    // needs one of its villages. The immutable row
+                                    // already passed Kage authorization; the helper
+                                    // cannot alter its identity/source.
+                                    const blockingReservation = villageWarReservationFromRow(claims.row);
+                                    const blockingWar = blockingReservation
+                                        ? await kv.get<VillageWar>(blockingReservation.warKey)
+                                        : null;
+                                    const blockingMarker = declarationFundingMarker(blockingWar);
+                                    if (blockingReservation && blockingWar && blockingMarker
+                                        && blockingMarker.declarationId === blockingReservation.declarationId
+                                        && blockingMarker.fingerprint === blockingReservation.fingerprint
+                                        && blockingMarker.status !== 'active') {
+                                        const helped = await withKvLock(
+                                            blockingMarker.source.recordKey,
+                                            () => helpForwardVillageWarDeclaration(blockingReservation.warKey, blockingWar, mutationNow),
+                                            { failClosed: true },
+                                        );
+                                        if (helped.status === 'active') {
+                                            return { status: 409 as const, body: { error: `${claims.village} is already reserved by an active village war.` } };
+                                        }
+                                        if (helped.status === 'insufficient' || helped.status === 'blocked') {
+                                            claims = await claimVillageWarReservations(kv, reservationPlan);
+                                        } else {
+                                            return { status: 503 as const, body: { error: 'An earlier village-war declaration is still settling; retry.' } };
+                                        }
+                                    }
+                                }
+                                if (claims.status === 'busy') {
+                                    return { status: 503 as const, body: { error: 'Village-war reservation is settling; retry.' } };
+                                }
+                                if (claims.status === 'blocked') {
+                                    return { status: 409 as const, body: { error: `${claims.village} is already reserved by another active village war.` } };
+                                }
+
+                                // Recheck legacy pair rows after both durable
+                                // claims. This preserves exclusion with wars that
+                                // predate the reservation index.
                                 for (const v of war.villages) {
-                                    if (await villageHasActiveWar(v)) {
+                                    if (await villageHasCompetingWar(v, declarationId)) {
+                                        await releaseVillageWarReservations(kv, reservationPlan, 'claim-conflict', mutationNow);
                                         return { status: 409 as const, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
                                     }
                                 }
-                                // 3b. Village war and sector wars are MUTUALLY EXCLUSIVE
-                                //     (§17.6). canDeclareSectorWar already blocks a sector
-                                //     war while a village war runs; this is the other
-                                //     direction, which was missing — a Kage could open a
-                                //     village war on top of live sieges. The attacking Kage
-                                //     can clear their own with the sector-war `abandon`
-                                //     action, and an idle siege lapses on its own.
+
+                                // Village wars and sector wars are mutually
+                                // exclusive. The claims above close the opposite
+                                // direction while these authoritative scans run.
                                 if (villageWarMapEnabled()) {
                                     for (const v of war.villages) {
                                         const sieges = await activeSectorWarsForVillage(v);
                                         if (sieges.length) {
+                                            await releaseVillageWarReservations(kv, reservationPlan, 'claim-conflict', mutationNow);
                                             return { status: 409 as const, body: { error: `${v} has ${sieges.length} active sector war${sieges.length === 1 ? '' : 's'}. Sector wars and a village war cannot run at the same time — finish or call them off first.` } };
                                         }
                                     }
                                 }
-                                // 4. Cost. Village War Map (enabled): fund the
-                                //    declaration from the declaring village's WR
-                                //    pool — DECLARE_WAR_WR after the rock-bottom
-                                //    comeback discount — debited under the war-
-                                //    record lock. Legacy (disabled): charge the
-                                //    declaring Kage VILLAGE_WAR_DECLARATION_COST_
-                                //    HONOR_SEALS honor seals, re-read inside the
-                                //    save lock so a concurrent save can't double-
-                                //    spend; a raced/failed deduct propagates so we
-                                //    never create a war for free.
-                                if (villageWarMapEnabled()) {
-                                    const warKey = villageWarKey(actorVillage);
-                                    const sectorsHeld = await heldSectorsForVillage(actorVillage);
-                                    const wr = await withKvLock(warKey, async () => {
-                                        const rec = normalizeVillageWarRecord(actorVillage, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
-                                        const cost = discountedWrCost(DECLARE_WAR_WR, sectorsHeld);
-                                        if (rec.warResources < cost) return { ok: false as const, cost, have: rec.warResources };
-                                        await kv.set(warKey, { ...rec, warResources: rec.warResources - cost });
-                                        return { ok: true as const, cost };
+
+                                const fundingPlan = {
+                                    warKey,
+                                    declarationId,
+                                    fingerprint,
+                                    war,
+                                    expectedWar: existing ?? null,
+                                    source,
+                                    ownerId,
+                                    now: mutationNow,
+                                    leaseMs: WAR_DECLARATION_FUNDING_LEASE_MS,
+                                };
+                                let funding;
+                                try {
+                                    funding = await withKvLock(source.recordKey, async () => {
+                                        // Publish the non-playable pair successor,
+                                        // then permanently bind both village rows.
+                                        // Only after both bindings are durable may
+                                        // the source intent/debit be written.
+                                        const pairReservation = await reserveWarDeclarationFunding(kv, fundingPlan);
+                                        if (pairReservation.status === 'busy' || pairReservation.status === 'conflict') {
+                                            return pairReservation;
+                                        }
+                                        const promotion = await reserveClaimedVillageWarReservations(kv, reservationPlan);
+                                        if (promotion.status === 'conflict') {
+                                            if (pairReservation.status === 'acquired') {
+                                                await abortWarDeclarationFunding(
+                                                    kv,
+                                                    warKey,
+                                                    pairReservation.row,
+                                                    'source-fenced',
+                                                    mutationNow,
+                                                );
+                                            }
+                                            return { status: 'conflict' as const, row: await kv.get<Record<string, unknown>>(warKey) };
+                                        }
+                                        return settleReservedWarDeclarationFunding(kv, fundingPlan, pairReservation);
                                     }, { failClosed: true });
-                                    if (!wr.ok) {
-                                        return { status: 400 as const, body: { error: `Declaring war costs ${wr.cost} War Resources. ${actorVillage} holds ${wr.have}.` } };
-                                    }
-                                } else {
-                                    const honorSeals = Number(actorChar?.honorSeals ?? 0);
-                                    if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
-                                        return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
-                                    }
-                                    const deductOk = await withKvLock(`save:${identity.name}`, async () => {
-                                        const fresh = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                                        const freshChar = (fresh?.character ?? null) as Record<string, unknown> | null;
-                                        if (!fresh || !freshChar) return false;
-                                        const freshSeals = Number(freshChar.honorSeals ?? 0);
-                                        if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return false; // raced
-                                        await kv.set(`save:${identity.name}`, bumpSaveVersion({
-                                            ...fresh,
-                                            character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
-                                        }));
-                                        return true;
-                                    });
-                                    if (!deductOk) {
-                                        return { status: 400 as const, body: { error: `Honor Seal balance changed under you; declaration was not charged and the war was not created. Retry.` } };
-                                    }
+                                } catch (error) {
+                                    await releaseVillageWarReservations(kv, reservationPlan, 'funding-aborted', mutationNow).catch(() => undefined);
+                                    throw error;
                                 }
-                                // 6. Stamp canonical crate ID + initialize empty contributions map.
-                                war.warCrateId = `war-crate-${war.id}`;
-                                war.contributions = {};
-                                // 7. Set the pre-war pending window. HP cannot
-                                //    drop and the war cannot be ended until
-                                //    `pendingUntil` has passed. Gives the
-                                //    defending village time to rally. No
-                                //    cancellation — the Kage has already paid
-                                //    the 500 Honor Seals and the war commits
-                                //    at this moment.
-                                war.pendingUntil = Date.now() + VILLAGE_WAR_PENDING_WINDOW_MS;
-                                // Durable audit of the Kage-authorized war declaration
-                                // (best-effort, 30d TTL). The cost is already paid and
-                                // the war commits at this point — no cancellation.
-                                await kv.set(`audit:village-war-declare:${normalizeVillageKey(actorVillage)}:${Date.now()}`, {
-                                    ts: Date.now(), action: 'declare-war', actor: identity.name, village: actorVillage, villages: war.villages,
-                                }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+                                if (funding.status === 'active') {
+                                    await kv.set(`audit:village-war-declare:${normalizeVillageKey(actorVillage)}:${declarationId}`, {
+                                        ts: mutationNow, action: 'declare-war', actor: identity.name,
+                                        village: actorVillage, villages: war.villages,
+                                    }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+                                    return { status: 200 as const, body: { war: funding.row, replayed: funding.replayed } };
+                                }
+                                if (funding.status === 'insufficient') {
+                                    await releaseVillageWarReservations(kv, reservationPlan, 'funding-aborted', mutationNow);
+                                    const unit = source.kind === 'war-resources' ? 'War Resources' : 'Honor Seals';
+                                    return { status: 400 as const, body: { error: `Declaring war costs ${funding.cost} ${unit}. You hold ${funding.have}.` } };
+                                }
+                                if (funding.status === 'conflict') {
+                                    await releaseVillageWarReservations(kv, reservationPlan, 'funding-conflict', mutationNow);
+                                    return { status: 409 as const, body: { error: 'A different village-war declaration already owns this pair.' } };
+                                }
+                                return { status: 503 as const, body: { error: 'Village-war declaration funding is settling; retry.' } };
                             } else if (isClaimingWin) {
                                 // Naming a winner REQUIRES the enemy village's
                                 // HP to actually be 0 in the persisted record.
@@ -1197,7 +2191,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 const winnerVillage = war.winnerVillage;
                                 const enemyVillage = war.villages.find(v => v !== winnerVillage);
                                 const persistedEnemyHp = enemyVillage ? Number(existing?.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX) : VILLAGE_WAR_HP_MAX;
-                                const hpWin = persistedEnemyHp <= 0 && winnerVillage === actorVillage;
+                                const hpWin = persistedEnemyHp <= 0
+                                    && winnerVillage === actorVillage;
                                 if (!hpWin) {
                                     return { status: 403 as const, body: { error: 'Cannot declare a winner — the enemy village HP is not depleted.' } };
                                 }
@@ -1209,6 +2204,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 // capturedBy). No HP-depletion gate.
                                 if (existing?.capturedBy === actorVillage) {
                                     return { status: 409 as const, body: { error: 'Your village already holds the war ground.' } };
+                                }
+                                if (war.capturedBy !== actorVillage
+                                    || !existing
+                                    || !(await warGroundCaptureEarned(existing, actorVillage))) {
+                                    return { status: 403 as const, body: { error: 'The war ground has not been broken for your village.' } };
                                 }
                             } else if (isEnding) {
                                 // Ending WITHOUT a winner = "call peace".
@@ -1249,17 +2249,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 for (const village of existing.villages) {
                                     const prev = Number(existing.hp?.[village] ?? VILLAGE_WAR_HP_MAX);
                                     const next = Number(war.hp?.[village] ?? prev);
-                                    if (prev - next > VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST) {
-                                        return { status: 400 as const, body: { error: `Village HP can drop by at most ${VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST} per request.` } };
+                                    const hpDropLimit = VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST;
+                                    if (prev - next > hpDropLimit) {
+                                        return { status: 400 as const, body: { error: `Village HP can drop by at most ${hpDropLimit} per request.` } };
                                     }
-                                    if (next - prev > VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST) {
-                                        return { status: 400 as const, body: { error: `Village HP can rise by at most ${VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST} per request.` } };
+                                    if (next > prev) {
+                                        return { status: 400 as const, body: { error: 'Village HP cannot be healed by a client war update.' } };
                                     }
                                 }
                                 const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
                                 const nextGround = Number(war.warGroundHp ?? prevGround);
                                 if (prevGround - nextGround > VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST) {
                                     return { status: 400 as const, body: { error: `War ground HP can drop by at most ${VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST} per request.` } };
+                                }
+                                if (nextGround > prevGround && !isClaimingCapture) {
+                                    return { status: 400 as const, body: { error: 'War-ground HP can rise only in an authorized capture transition.' } };
                                 }
 
                                 // ── BATTLE RECEIPT (anti-cheat) ──────────────
@@ -1296,6 +2300,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     let missionAuthorized = false;
                                     const missionTokenId = String((body as Record<string, unknown>)?.warMissionToken ?? '').trim();
                                     if (!groundAuthorized && missionTokenId) {
+                                        if (existing.warMissionTokenReceipts?.[missionTokenId]) {
+                                            return { status: 200 as const, body: { war: existing, replayed: true } };
+                                        }
                                         const tokenKey = warMissionTokenKey(missionTokenId);
                                         const token = normalizeWarMissionToken(await kv.get<Partial<WarMissionToken>>(tokenKey));
                                         if (warMissionTokenAuthorizes(token, {
@@ -1304,50 +2311,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                             claimedDamage,
                                             now: Date.now(),
                                         })) {
-                                            // Delete FIRST so a concurrent replay of the same
-                                            // token can't also pass.
-                                            await kv.del(tokenKey);
                                             missionAuthorized = true;
+                                            verifiedMissionTokenId = missionTokenId;
                                         }
                                     }
 
                                     if (!groundAuthorized && !missionAuthorized) {
-                                        const battleId = String((body as Record<string, unknown>)?.battleId ?? '').trim();
-                                        if (!battleId) {
-                                            return { status: 403 as const, body: { error: warBattleDeclineMessage('missing-battle-id') } };
-                                        }
-                                        const receiptKey = warBattleReceiptKey(existing.id, battleId);
-                                        const battle = await kv.get<WarBattleShape>(`pvp:${battleId}`);
-                                        const [p1Village, p2Village, spentRaw] = await Promise.all([
-                                            villageOfPlayer(battle?.p1?.name),
-                                            villageOfPlayer(battle?.p2?.name),
-                                            kv.get<number>(receiptKey),
-                                        ]);
-                                        const check = validateWarBattle({
-                                            battle,
-                                            actorName: identity.name,
-                                            actorVillage,
-                                            warVillages: existing.villages,
-                                            p1Village,
-                                            p2Village,
-                                            warStartedAt: warEffectiveStartMs(existing),
-                                            budgetSpent: Number(spentRaw) || 0,
-                                        });
-                                        if (!check.ok) {
-                                            return { status: 403 as const, body: { error: warBattleDeclineMessage(check.reason) } };
-                                        }
-                                        if (claimedDamage > check.budgetRemaining) {
-                                            return { status: 403 as const, body: { error: warBattleDeclineMessage('battle-budget-spent') } };
-                                        }
-                                        // Spend the budget BEFORE the write lands, inside the
-                                        // war lock, so a replay of the same battle can't
-                                        // double-bank. Best-effort TTL refresh is fine —
-                                        // the war itself is capped at 14 days.
-                                        await kv.set(
-                                            receiptKey,
-                                            (Number(spentRaw) || 0) + claimedDamage,
-                                            { ex: WAR_BATTLE_RECEIPT_TTL_SEC } as never,
-                                        );
+                                        return { status: 403 as const, body: { error: warBattleDeclineMessage('missing-battle-id') } };
                                     }
                                 }
                             }
@@ -1390,6 +2360,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         war.contributions = existing.contributions ?? {};
                     }
 
+                    // Terminal/capture chronology is server-owned. The request
+                    // only asks for a transition; its timestamp (including a
+                    // future, fractional, negative, or string value) is never
+                    // published. Pending transitions were rejected above, and
+                    // the accepted peace/end time is bounded to this war's
+                    // immutable 14-day lifetime.
+                    if (isClaimingCapture) war.capturedAt = mutationNow;
+                    if (isEnding && existing) {
+                        const effectiveStart = warEffectiveStartMs(existing);
+                        const boundedEnd = effectiveStart + VILLAGE_WAR_MAX_DURATION_MS;
+                        if (!Number.isSafeInteger(effectiveStart)
+                            || effectiveStart <= 0
+                            || !Number.isSafeInteger(boundedEnd)) {
+                            return { status: 503 as const, body: { error: 'Village-war chronology is malformed.' } };
+                        }
+                        war.endedAt = Math.min(Math.max(mutationNow, effectiveStart), boundedEnd);
+                        war.updatedAt = Math.max(Number(existing.updatedAt) || 0, war.endedAt);
+                    }
+
+                    // Never accept this authority from the client. Preserve the
+                    // locked row and stamp this battle only in the same object that
+                    // commits its damage, eliminating marker-before/body gaps.
+                    war.pvpBattleReceipts = { ...(existing?.pvpBattleReceipts ?? {}) };
+                    war.lastPvpBattleEndedAt = existing?.lastPvpBattleEndedAt;
+                    const missionReceipts = { ...(existing?.warMissionTokenReceipts ?? {}) };
+                    if (verifiedMissionTokenId) {
+                        if (!missionReceipts[verifiedMissionTokenId]
+                            && Object.keys(missionReceipts).length >= 2_048) {
+                            return { status: 503 as const, body: { error: 'Village-war mission receipt ledger is full.' } };
+                        }
+                        missionReceipts[verifiedMissionTokenId] = Date.now();
+                    }
+                    war.warMissionTokenReceipts = missionReceipts;
+
                     // ── On-end stamping ──────────────────────────────────
                     // When this write flips the war from active → ended,
                     // compute MVP-per-side from contributions, stamp the
@@ -1409,18 +2413,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                         war.mvpByVillage = mvpByVillage;
                         if (war.winnerVillage) {
-                            war.loserCrateId = `loser-crate-${war.id}`;
+                            war.loserCrateId = `loser-crate-${villageWarGenerationToken(war)}`;
                         }
-                        await kv.set(
-                            warCooldownKey(war.villages[0], war.villages[1]),
-                            Date.now(),
-                            { ex: VILLAGE_WAR_REMATCH_COOLDOWN_SEC },
-                        );
                     }
 
-                    await kv.set(warKey, war);
-                    return { status: 200 as const, body: { war } };
-                });
+                    const publication = await commitWarBattleSettlement(kv, warKey, expectedWarRow, war);
+                    if (publication.status === 'conflict') {
+                        return { status: 503 as const, body: { error: 'Village-war state changed; retry settlement.' } };
+                    }
+                    if (isEnding) await ensureWarRematchCooldown(publication.row);
+                    if (verifiedMissionTokenId) {
+                        await kv.del(warMissionTokenKey(verifiedMissionTokenId)).catch(() => undefined);
+                    }
+                    return { status: 200 as const, body: { war: publication.row } };
+                }, { failClosed: true });
                 return res.status(result.status).json(result.body);
             }
 

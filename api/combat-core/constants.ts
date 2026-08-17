@@ -13,3 +13,6 @@ export const SPIRAL_RADIUS = 2;
 
 // Must match api/pvp/session.ts. Each successful move refreshes the session TTL.
 export const SESSION_TTL = 15 * 60;
+/** Terminal PvP rows outlive the active-turn TTL so lost reward responses and
+ * completion ACKs can be repaired for the full durable claim window. */
+export const PVP_TERMINAL_REPLAY_TTL = 48 * 60 * 60;

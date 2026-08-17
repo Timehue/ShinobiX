@@ -37,10 +37,11 @@ const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
 const CLAN_WAR_KEY_PREFIX = 'clan-war:';
 
-// Canonical crate ids: `war-crate-<warId>` (village) or `clan-war-crate-<warId>`
-// (clan), where warId is `<slugA>-vs-<slugB>` (sorted lowercase-alphanumeric slugs).
-// Strict shape so the warId we splice into a KV key can't read an unrelated key.
-const CRATE_ID_RE = /^(clan-war-crate|war-crate)-([a-z0-9]+-vs-[a-z0-9]+)$/;
+// Village rematches append `-gN` to the reward id while the authoritative pair
+// row remains `world:war:<slugA>-vs-<slugB>`. Parse the suffix but never splice
+// it into the storage key. Clan-war ids retain their legacy exact shape.
+const VILLAGE_CRATE_ID_RE = /^war-crate-([a-z0-9]+-vs-[a-z0-9]+)(?:-g[1-9][0-9]*)?$/;
+const CLAN_CRATE_ID_RE = /^clan-war-crate-([a-z0-9]+-vs-[a-z0-9]+)$/;
 
 /** Normalized winner-bearing shape of either war record (winner = winnerVillage or
  *  winnerClan). Only the fields the crate decision needs. */
@@ -48,9 +49,11 @@ export type WarWinnerLite = { endedAt?: number; warCrateId?: string; winner?: st
 
 /** Parse a crate id into its war kind + warId, or null if malformed. Pure. */
 export function parseWarCrate(crateId: string): { kind: 'village' | 'clan'; warId: string } | null {
-    const m = CRATE_ID_RE.exec(String(crateId ?? ''));
-    if (!m) return null;
-    return { kind: m[1] === 'clan-war-crate' ? 'clan' : 'village', warId: m[2] };
+    const value = String(crateId ?? '');
+    const village = VILLAGE_CRATE_ID_RE.exec(value);
+    if (village) return { kind: 'village', warId: village[1] };
+    const clan = CLAN_CRATE_ID_RE.exec(value);
+    return clan ? { kind: 'clan', warId: clan[1] } : null;
 }
 
 /** Pure eligibility decision. `granted` only when the war is a real, ended, unexpired

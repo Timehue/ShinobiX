@@ -40,7 +40,13 @@ async function settleOnce(
     const char = record?.character as Record<string, unknown> | undefined;
     if (!record || !char) return 'skipped';
     const decision = inspectPvpCredit(char, sid, fingerprint);
-    if (!decision.fresh) return 'skipped';
+    if (!decision.fresh) {
+        if (decision.needsBackfill) {
+            const backfilled = embedPvpSettlementReceipt(char, decision.receipts, sid, fingerprint, Date.now());
+            await kv.set(saveKey, { ...record, character: backfilled });
+        }
+        return 'skipped';
+    }
     const credited = applyCredit(char);
     const withReceipt = embedPvpSettlementReceipt(credited, decision.receipts, sid, fingerprint, Date.now());
     if (opts.crashBeforeWrite) return 'crashed'; // never persisted → nothing changed
@@ -51,6 +57,48 @@ async function settleOnce(
 const addRyo = (n: number) => (char: Record<string, unknown>) => ({ ...char, ryo: (Number(char.ryo) || 0) + n });
 
 describe('atomic in-save PvP settlement', () => {
+    it('fails closed when the durable ledger is malformed', () => {
+        const sid = pvpSettlementId('base', BATTLE);
+        assert.throws(
+            () => inspectPvpCredit({ pvpRewardSettlementReceipts: 'not-an-object' }, sid, 'base'),
+            /pvp-reward-receipt-ledger-invalid/,
+        );
+        assert.throws(
+            () => inspectPvpCredit({ pvpRewardSettlementReceipts: { [sid]: { fingerprint: 'base' } } }, sid, 'base'),
+            /pvp-reward-receipt-ledger-invalid/,
+        );
+    });
+
+    it('fails closed when a durable settlement id has a different fingerprint', () => {
+        const sid = pvpSettlementId('rating', BATTLE);
+        assert.throws(
+            () => inspectPvpCredit({
+                pvpRewardSettlementReceipts: {
+                    [sid]: { fingerprint: 'rating-winner', settledAt: 1 },
+                },
+            }, sid, 'rating-loser'),
+            /pvp-reward-receipt-fingerprint-conflict/,
+        );
+    });
+
+    it('fails closed on an over-cap durable ledger even when the requested receipt exists', () => {
+        const sid = pvpSettlementId('base', BATTLE);
+        const ledger: Record<string, { fingerprint: string; settledAt: number }> = {
+            [sid]: { fingerprint: 'base', settledAt: 1 },
+        };
+        for (let i = 0; i < 2_048; i += 1) {
+            ledger[`pvp-overcap-${String(i).padStart(5, '0')}`] = {
+                fingerprint: `other-${i}`,
+                settledAt: i + 1,
+            };
+        }
+        assert.equal(Object.keys(ledger).length, 2_049);
+        assert.throws(
+            () => inspectPvpCredit({ pvpRewardSettlementReceipts: ledger }, sid, 'base'),
+            /pvp-reward-receipt-ledger-invalid/,
+        );
+    });
+
     it('credits exactly once, no matter how many times the claim is retried', async () => {
         const kv = _makeMemoryKv();
         await kv.set('save:winner', { character: { ryo: 100 } });
@@ -88,6 +136,57 @@ describe('atomic in-save PvP settlement', () => {
         // Normal write = credit + receipt in one kv.set (atomic). A "crash after"
         // is indistinguishable from a normal completed write for the retry.
         assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'credited');
+        assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'skipped');
+        assert.equal((await kv.get<{ character: { ryo: number } }>('save:winner'))!.character.ryo, 175);
+    });
+
+    it('keeps post-save/pre-claim-marker recovery exact after 50+ unrelated receipt entries churn', async () => {
+        const kv = _makeMemoryKv();
+        await kv.set('save:winner', { character: { ryo: 100 } });
+        const sid = pvpSettlementId('base', BATTLE);
+        assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'credited');
+
+        // Model process death before the outer claim receipt marks server credits
+        // complete, followed by unrelated shared-ring churn. The dedicated,
+        // time-retained PvP journal remains co-written with the 175 total.
+        const record = (await kv.get<Record<string, unknown>>('save:winner'))!;
+        const character = record.character as Record<string, unknown>;
+        await kv.set('save:winner', {
+            ...record,
+            character: {
+                ...character,
+                serverSettlementReceipts: Array.from({ length: 80 }, (_, i) => ({ requestId: `other-${i}` })),
+            },
+        });
+        assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'skipped');
+        const after = (await kv.get<{ character: Record<string, unknown> }>('save:winner'))!.character;
+        assert.equal(after.ryo, 175);
+        assert.ok(after.pvpRewardSettlementReceipts);
+    });
+
+    it('backfills a pre-cutover shared-ring replay before that ring can churn', async () => {
+        const kv = _makeMemoryKv();
+        const sid = pvpSettlementId('base', BATTLE);
+        await kv.set('save:winner', {
+            character: {
+                ryo: 175,
+                serverSettlementReceipts: [{
+                    requestId: sid,
+                    fingerprint: 'base',
+                    value: { settled: 1 },
+                    settledAt: Date.now(),
+                }],
+            },
+        });
+        assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'skipped');
+        const migrated = (await kv.get<{ character: Record<string, unknown> }>('save:winner'))!.character;
+        assert.ok(migrated.pvpRewardSettlementReceipts, 'shared replay is migrated into the durable PvP journal');
+        await kv.set('save:winner', {
+            character: {
+                ...migrated,
+                serverSettlementReceipts: Array.from({ length: 80 }, (_, i) => ({ requestId: `other-${i}` })),
+            },
+        });
         assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'skipped');
         assert.equal((await kv.get<{ character: { ryo: number } }>('save:winner'))!.character.ryo, 175);
     });

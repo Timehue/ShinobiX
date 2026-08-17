@@ -1,4 +1,5 @@
 import { kv } from './_storage.js';
+import { safeName } from './_utils.js';
 
 /*
  * Sector-war role weights (§17.6 — role-scaled Control HP). A fighter's VILLAGE
@@ -6,12 +7,13 @@ import { kv } from './_storage.js';
  * Control HP — mirrored 1:1 on the village-war model (client
  * lib/world-state villageWarRoleValue / villageWarLossPenalty): higher ranks DEAL
  * more when they win, and COST their own side more when they fall. Roles are
- * resolved SERVER-SIDE from the player's save (rank/story title) + the village
- * state (seated Kage, ANBU appointees), so a client can't inflate its own weight.
+ * resolved SERVER-SIDE from seated/appointee rows;
+ * client-authored rank/story titles never affect the weight.
  *
- * Elder here = the appointed VILLAGE-Elder seats (title-based, no clan-size gate);
- * a clan leader without a village seat fights as a villager. This is the fully
- * server-verifiable subset of the village-war Elder tier.
+ * Clan rows are not role authority here: their current mutation contract lets a
+ * member edit its own role label and lets founders replace the roster. Until a
+ * separate server-owned clan leadership ledger exists, clan-derived Elder
+ * weight fails closed to villager.
  */
 
 export interface RoleWeights {
@@ -28,6 +30,45 @@ export const ROLE_VILLAGER: RoleWeights = { win: 5, loss: 0 };
 // An AI mercenary fights as rank-and-file: a villager's chip, nothing lost when it falls.
 export const ROLE_MERC: RoleWeights = ROLE_VILLAGER;
 
+export interface SealedWarRoleEvidence {
+    version: 1;
+    sealedAt: number;
+    p1: { village: string; role: RoleWeights };
+    p2: { village: string; role: RoleWeights };
+}
+
+function exactServerRole(value: unknown): RoleWeights | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const role = value as Partial<RoleWeights>;
+    const known = [ROLE_KAGE, ROLE_ANBU, ROLE_VILLAGER] as const;
+    const match = known.find(candidate => candidate.win === role.win && candidate.loss === role.loss);
+    return match ? { ...match } : null;
+}
+
+/** Read immutable role evidence sealed when the PvP session was created.
+ * Missing/malformed legacy evidence fails closed to villager; settlement never
+ * imports a Kage seat or ANBU appointment granted after the battle began. */
+export function sealedSectorWarRoleOf(
+    evidence: unknown,
+    side: 'p1' | 'p2',
+    expectedVillage: string,
+    expectedSealedAt: number,
+): RoleWeights {
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return ROLE_VILLAGER;
+    const sealed = evidence as Partial<SealedWarRoleEvidence>;
+    const entry = sealed[side];
+    const role = exactServerRole(entry?.role);
+    if (sealed.version !== 1
+        || !Number.isSafeInteger(sealed.sealedAt)
+        || sealed.sealedAt !== expectedSealedAt
+        || !entry
+        || String(entry.village ?? '').trim().toLowerCase() !== String(expectedVillage ?? '').trim().toLowerCase()
+        || !role) {
+        return ROLE_VILLAGER;
+    }
+    return role;
+}
+
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 function villageStateKey(village: string): string {
     return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
@@ -39,22 +80,26 @@ function kageSeatKey(village: string): string {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
 
-interface SaveShape { character?: { rankTitle?: string; storyTitle?: string; village?: string } }
+interface SaveShape { character?: { village?: string } }
 interface VillageStateShape { seatedKage?: string; anbuAppointees?: string[] }
 
 /** Resolve a player's sector-war role weights from authoritative server state.
- *  Kage = the village's seated Kage (or a "kage" rank title); Elder = an appointed
- *  village-Elder seat; ANBU = an appointed ANBU (or an "anbu" title); everyone else
- *  fights as a villager. Never throws — falls back to villager on any miss. */
-export async function sectorWarRoleOf(playerName: string): Promise<RoleWeights> {
+ *  Kage = the village's seated Kage; ANBU = an appointed ANBU; everyone else
+ *  fights as a villager. When `expectedVillage` is supplied from a sealed battle,
+ *  a later village switch cannot import the current village's seat or title weight
+ *  into that older battle. Never throws — falls back to villager on any miss. */
+export async function sectorWarRoleOf(playerName: string, expectedVillage?: string): Promise<RoleWeights> {
     try {
-        const name = String(playerName ?? '').trim().toLowerCase();
+        const name = safeName(String(playerName ?? ''));
         if (!name) return ROLE_VILLAGER;
         const save = await kv.get<SaveShape>(`save:${name}`);
         const ch = save?.character;
         if (!ch) return ROLE_VILLAGER;
-        const title = `${ch.rankTitle ?? ''} ${ch.storyTitle ?? ''}`.toLowerCase();
-        const village = String(ch.village ?? '');
+        const village = String(ch.village ?? '').trim();
+        const sealedVillage = expectedVillage === undefined ? undefined : String(expectedVillage).trim();
+        if (sealedVillage !== undefined && village.toLowerCase() !== sealedVillage.toLowerCase()) {
+            return ROLE_VILLAGER;
+        }
         // The seat comes from the AUTHORITATIVE `village:kage:` row; ANBU appointees
         // only exist on the village-state, so that is still read for them.
         //
@@ -70,11 +115,11 @@ export async function sectorWarRoleOf(playerName: string): Promise<RoleWeights> 
                 kv.get<VillageStateShape>(villageStateKey(village)),
             ])
             : [null, null];
-        const seatedKage = String(seat?.seatedKage ?? '').trim().toLowerCase();
-        if (seatedKage === name || title.includes('kage')) return ROLE_KAGE;
-        if (title.includes('first elder') || title.includes('second elder') || title.includes('third elder') || title.includes('village elder')) return ROLE_ELDER;
-        const anbu = Array.isArray(vs?.anbuAppointees) && vs!.anbuAppointees!.some((a) => String(a).trim().toLowerCase() === name);
-        if (anbu || title.includes('anbu')) return ROLE_ANBU;
+        const seatedKage = safeName(String(seat?.seatedKage ?? ''));
+        if (seatedKage === name) return ROLE_KAGE;
+        const anbu = Array.isArray(vs?.anbuAppointees)
+            && vs.anbuAppointees.some((appointee) => safeName(String(appointee)) === name);
+        if (anbu) return ROLE_ANBU;
         return ROLE_VILLAGER;
     } catch {
         return ROLE_VILLAGER;

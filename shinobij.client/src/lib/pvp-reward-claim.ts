@@ -1,5 +1,6 @@
 import type { PvpWinBaseSummary } from "./progression";
 import type { Character } from "../types/character";
+import { playerSlug } from "./utils";
 
 export type PvpRewardRating = { field: string; value: number; delta: number };
 export type PvpRaidProgression = {
@@ -16,8 +17,12 @@ export type PvpRaidProgression = {
 export type PvpRewardClaimConfirmed = {
     status: "confirmed";
     alreadyClaimed: boolean;
+    /** Durable server receipt says App completion still needs acknowledgement. */
+    completionPending: boolean;
     /** Server proof that this was a sanctioned, mutually joined match. */
     rewardAuthorized: boolean;
+    /** Stronger server proof that this match may feed generic progression. */
+    progressionAuthorized: boolean;
     rating?: PvpRewardRating;
     base?: PvpWinBaseSummary;
     character?: Character;
@@ -32,6 +37,43 @@ export type PvpRewardClaimRetry = {
 
 export type PvpRewardClaimResult = PvpRewardClaimConfirmed | PvpRewardClaimRetry;
 
+export type PvpRewardContinuationContext = {
+    signal: AbortSignal;
+    /** Re-check account epoch, battle, role, and mount before any local write. */
+    isCurrentScope(): boolean;
+};
+
+function requireContinuationCurrent(continuation: PvpRewardContinuationContext): void {
+    if (continuation.signal.aborted || !continuation.isCurrentScope()) {
+        throw new DOMException("PvP completion scope changed.", "AbortError");
+    }
+}
+
+export async function readPvpOwnerSaveForContinuation(
+    playerName: string,
+    continuation: PvpRewardContinuationContext,
+    fetchFn: typeof fetch = fetch,
+): Promise<{ character: Character; version: unknown }> {
+    requireContinuationCurrent(continuation);
+    const response = await fetchFn(`/api/save/${encodeURIComponent(playerName)}`, {
+        cache: "no-cache",
+        signal: continuation.signal,
+    });
+    const body = await response.json().catch(() => ({})) as {
+        error?: string;
+        character?: Character;
+        _saveVersion?: unknown;
+    };
+    if (!response.ok || !body.character) {
+        throw new Error(body.error || `Player save read failed (HTTP ${response.status}).`);
+    }
+    requireContinuationCurrent(continuation);
+    if (playerSlug(body.character.name) !== playerSlug(playerName)) {
+        throw new Error("PvP settlement returned a foreign save.");
+    }
+    return { character: body.character, version: body._saveVersion };
+}
+
 type ClaimResponse = {
     ok: boolean;
     status: number;
@@ -39,6 +81,118 @@ type ClaimResponse = {
 };
 
 type ClaimFetch = (input: string, init: RequestInit) => Promise<ClaimResponse>;
+export type PvpRewardOutcome = "win" | "loss" | "draw";
+
+export type PvpRewardCompletionStorage = {
+    getItem(key: string): string | null;
+    setItem(key: string, value: string): void;
+    removeItem(key: string): void;
+};
+
+type PvpRewardCompletionMarker = {
+    version: 1;
+    state: "pending" | "completed";
+    playerName: string;
+    battleId: string;
+    outcome: PvpRewardOutcome;
+    startedAt: number;
+    completedAt: number | null;
+};
+
+const PVP_REWARD_COMPLETION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function completionPlayer(playerName: string): string {
+    return playerName.trim().toLowerCase();
+}
+
+function completionKey(playerName: string, battleId: string, outcome: PvpRewardOutcome): string {
+    return `pvp:reward-completion:v1:${encodeURIComponent(completionPlayer(playerName))}:${encodeURIComponent(battleId)}:${outcome}`;
+}
+
+function completionMarker(
+    storage: PvpRewardCompletionStorage | null,
+    request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
+    now = Date.now(),
+): PvpRewardCompletionMarker | null {
+    if (!storage) return null;
+    const key = completionKey(request.playerName, request.battleId, request.outcome);
+    try {
+        const raw = storage.getItem(key);
+        if (!raw) return null;
+        const marker = JSON.parse(raw) as Partial<PvpRewardCompletionMarker>;
+        const matches = marker.version === 1
+            && (marker.state === "pending" || marker.state === "completed")
+            && marker.playerName === completionPlayer(request.playerName)
+            && marker.battleId === request.battleId
+            && marker.outcome === request.outcome
+            && Number.isFinite(marker.startedAt)
+            && (marker.completedAt === null || Number.isFinite(marker.completedAt))
+            && now - Number(marker.startedAt) >= 0
+            && now - Number(marker.startedAt) <= PVP_REWARD_COMPLETION_MAX_AGE_MS;
+        if (matches) return marker as PvpRewardCompletionMarker;
+        storage.removeItem(key);
+    } catch { /* advisory browser durability only */ }
+    return null;
+}
+
+/** Write-before-request intent used to repair a claim response lost to abort. */
+export function beginPvpRewardCompletion(
+    storage: PvpRewardCompletionStorage | null,
+    request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
+    now = Date.now(),
+): void {
+    if (!storage) return;
+    // A remount after callbacks completed must retain the completed fence. If
+    // this were overwritten with pending, every ordinary alreadyClaimed read
+    // would replay App settlement callbacks forever.
+    if (completionMarker(storage, request, now)) return;
+    const marker: PvpRewardCompletionMarker = {
+        version: 1,
+        state: "pending",
+        playerName: completionPlayer(request.playerName),
+        battleId: request.battleId,
+        outcome: request.outcome,
+        startedAt: now,
+        completedAt: null,
+    };
+    try {
+        storage.setItem(completionKey(request.playerName, request.battleId, request.outcome), JSON.stringify(marker));
+    } catch { /* storage denial must not block the server claim */ }
+}
+
+/**
+ * Server completion state is authoritative. Browser storage is only an
+ * optimization that avoids re-enqueueing callbacks after they ran but before
+ * their completion ACK reached the server; lack of storage must never suppress
+ * repair of a server-pending continuation.
+ */
+export function shouldRunPvpRewardCompletion(
+    storage: PvpRewardCompletionStorage | null,
+    request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
+    completionPending: boolean,
+    now = Date.now(),
+): boolean {
+    if (!completionPending) return false;
+    return completionMarker(storage, request, now)?.state !== "completed";
+}
+
+/** Fence the exact account+battle+outcome marker after callbacks run. */
+export function completePvpRewardCompletion(
+    storage: PvpRewardCompletionStorage | null,
+    request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
+    now = Date.now(),
+): void {
+    const marker = completionMarker(storage, request, now);
+    if (!storage || !marker) return;
+    const completed: PvpRewardCompletionMarker = {
+        ...marker,
+        state: "completed",
+        completedAt: now,
+    };
+    try {
+        storage.setItem(completionKey(request.playerName, request.battleId, request.outcome), JSON.stringify(completed));
+    } catch { /* pending marker intentionally survives for retry */ }
+}
 
 function cleanRating(raw: unknown): PvpRewardRating | undefined {
     if (!raw || typeof raw !== "object") return undefined;
@@ -83,13 +237,15 @@ function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
  */
 export async function postPvpRewardClaim(
     fetchClaim: ClaimFetch,
-    request: { playerName: string; battleId: string; outcome: "win" | "loss" },
+    request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
+    options: { signal?: AbortSignal } = {},
 ): Promise<PvpRewardClaimResult> {
     try {
         const response = await fetchClaim("/api/pvp/claim-rewards", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
+            body: JSON.stringify({ ...request, completionVersion: 1 }),
+            ...(options.signal ? { signal: options.signal } : {}),
         });
         const body = await response.json().catch(() => null);
         const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
@@ -107,12 +263,20 @@ export async function postPvpRewardClaim(
             : undefined;
         const saveVersion = Number(payload._saveVersion);
         const raidProgression = cleanRaidProgression(payload.raidProgression);
+        if (typeof payload.completionPending !== "boolean") {
+            return {
+                status: "retry",
+                message: "Reward verification returned an incomplete completion receipt. Please retry.",
+            };
+        }
         return {
             status: "confirmed",
             alreadyClaimed: payload.alreadyClaimed === true,
+            completionPending: payload.completionPending,
             // Older servers did not return the explicit bit; a signed base/rating
             // settlement is itself authoritative during a rolling deployment.
             rewardAuthorized: payload.rewardAuthorized === true || !!rating || !!base,
+            progressionAuthorized: payload.progressionAuthorized === true || !!rating || !!base,
             ...(rating ? { rating } : {}),
             ...(base ? { base } : {}),
             ...(character ? { character } : {}),
@@ -123,6 +287,37 @@ export async function postPvpRewardClaim(
         return {
             status: "retry",
             message: "Could not reach the reward service. Your battle result is safe; retry to apply rewards.",
+        };
+    }
+}
+
+/** ACK the durable server obligation only after every awaited App callback finishes. */
+export async function postPvpRewardCompletionAck(
+    fetchClaim: ClaimFetch,
+    request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
+    options: { signal?: AbortSignal } = {},
+): Promise<{ status: "confirmed" } | PvpRewardClaimRetry> {
+    try {
+        const response = await fetchClaim("/api/pvp/claim-rewards", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...request, completionVersion: 1, completionAck: true }),
+            ...(options.signal ? { signal: options.signal } : {}),
+        });
+        const body = await response.json().catch(() => null);
+        const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
+        if (!response.ok || payload?.ok !== true || payload.completionPending !== false) {
+            const serverError = typeof payload?.error === "string" ? payload.error.trim() : "";
+            return {
+                status: "retry",
+                message: serverError || `Reward completion acknowledgement failed (HTTP ${response.status}). Please retry.`,
+            };
+        }
+        return { status: "confirmed" };
+    } catch {
+        return {
+            status: "retry",
+            message: "Could not acknowledge battle completion. Your result is safe; please retry.",
         };
     }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 // Command-deck glyphs (game-icons.net, CC BY 3.0) — one per basic action.
 import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
@@ -54,7 +54,26 @@ import {
 } from "../App";
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
-import { postPvpRewardClaim, type PvpRewardClaimConfirmed } from "../lib/pvp-reward-claim";
+import {
+    beginPvpRewardCompletion,
+    completePvpRewardCompletion,
+    postPvpRewardCompletionAck,
+    postPvpRewardClaim,
+    shouldRunPvpRewardCompletion,
+    type PvpRewardClaimConfirmed,
+    type PvpRewardCompletionStorage,
+    type PvpRewardContinuationContext,
+} from "../lib/pvp-reward-claim";
+import {
+    abortableDelay,
+    createPvpContinuationFence,
+    decidePvpSessionRevision,
+    fetchInitialPvpProjection,
+    parsePvpSessionProjection,
+    pvpRuntimeScopeKey,
+    splitPvpMoveResponse,
+} from "../lib/pvp-session-runtime";
+import { fetchPendingPvpRecovery } from "../lib/pvp-pending-session";
 import { earnedStatPoints } from "../lib/stats";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
@@ -65,6 +84,7 @@ import { earnedStatPoints } from "../lib/stats";
 const PATH_STEP_MS = 130;
 const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
 const PVP_MAX_ACTIONS = 5;
+const PVP_REWARD_CLAIM_TIMEOUT_MS = 12_000;
 
 // XP retired: the HUD "power" dossier stat is total earned stat points
 // (allocated above base + any unspent pool the combat snapshot carries).
@@ -157,6 +177,8 @@ function sameListJson(a: unknown[], b: unknown[]): boolean {
 
 export function PvpBattleScreen({
     character,
+    accountSessionEpoch,
+    isAccountSessionCurrent = () => true,
     battleId,
     role,
     setScreen,
@@ -171,13 +193,17 @@ export function PvpBattleScreen({
     battleMode = "standard",
     onWin,
     onLoss,
-    onResolved,
+    onCompletionConfirmed,
     onExit,
     onViewBattleRecord,
     onRecordBattle,
     onRewardClaim,
 }: {
     character: Character;
+    /** App-owned login/save epoch; changes even when the same account reauthenticates. */
+    accountSessionEpoch: number;
+    /** Render-synchronous parent fence checked again before local completion + ACK. */
+    isAccountSessionCurrent?: () => boolean;
     battleId: string;
     role: "p1" | "p2";
     setScreen: (s: Screen) => void;
@@ -195,15 +221,16 @@ export function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
-    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed) => void;
-    onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }, claim?: PvpRewardClaimConfirmed) => void;
+    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
+    onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
     /** Adopt the claim's versioned snapshot/progression on both first response and replay. */
-    onRewardClaim?: (claim: PvpRewardClaimConfirmed) => void;
-    onResolved?: () => void;
+    onRewardClaim?: (claim: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
+    /** Fires only after durable App continuations and the server ACK confirm. */
+    onCompletionConfirmed?: () => void;
     onExit?: (target: Screen) => void;
     /** Opens the durable read-only record for a finished battle. */
     onViewBattleRecord?: (battleId: string) => void;
-    onRecordBattle?: (entry: BattleHistoryEntry) => void;
+    onRecordBattle?: (entry: BattleHistoryEntry, continuation: PvpRewardContinuationContext) => Promise<void>;
 }) {
     // Grid constants (gridWidth/gridHeight/HEX_*/X_STEP/Y_STEP/ORB/GRID_LAYER_*)
     // are defined once at module scope above — in scope here.
@@ -213,24 +240,35 @@ export function PvpBattleScreen({
     // the POST before navigating). The optimistic-navigation flow mounts
     // before the POST resolves, so the seedSyncRef effect below also
     // handles the seed arriving via a later re-render.
-    const [session, setSession] = useState<PvpSessionState | null>(() => (
-        seedSession && seedSession.battleId === battleId ? seedSession : null
-    ));
+    const [session, setSession] = useState<PvpSessionState | null>(() => {
+        if (!seedSession) return null;
+        const parsed = parsePvpSessionProjection(seedSession, battleId);
+        return parsed.kind === "session" ? parsed.session : null;
+    });
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
-    const playerRankedV2ItemsDisabled = session?.playerRankedAuthorityVersion === 2;
+    const realPvpItemsDisabled = (session?.pvpConsumableAuthorityVersion === 1
+        && session.realFighters?.[role] === true)
+        || session?.playerRankedAuthorityVersion === 2;
     const effectiveIsSpar = isSpar && !serverPlayerRanked;
     const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
     // Tracks the battleId we've already seeded so a later Realtime/move
     // update on the same fight doesn't get clobbered by a re-apply of the
     // (now-stale) initial seed.
-    const seededBattleIdRef = useRef<string | null>(
-        seedSession && seedSession.battleId === battleId ? battleId : null,
-    );
+    const seededBattleIdRef = useRef<string | null>(session ? battleId : null);
     useEffect(() => {
-        if (!seedSession || seedSession.battleId !== battleId) return;
+        if (!seedSession) return;
+        const parsed = parsePvpSessionProjection(seedSession, battleId);
+        if (parsed.kind !== "session") return;
         if (seededBattleIdRef.current === battleId) return;
         seededBattleIdRef.current = battleId;
-        setSession(seedSession);
+        setSession(current => acceptRevision(current, parsed.session));
+        // A stable create can finish after the initial bounded GET exhausted.
+        // The late authoritative seed must restart transports, not merely paint
+        // a board whose earlier fetch effect already stopped.
+        setSessionLoadFailure("");
+        setSessionExitCheck("unchecked");
+        setConnectionState("reconnecting");
+        setSessionRetryKey(key => key + 1);
     }, [seedSession, battleId]);
     const [submitting, setSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
@@ -240,8 +278,12 @@ export function PvpBattleScreen({
     const [pendingBasicAttack, setPendingBasicAttack] = useState(false);
     const [pendingWeaponId, setPendingWeaponId] = useState("");
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
+    const [moveFeedback, setMoveFeedback] = useState("");
     // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
-    const battleTabs = useBattleTabs(session?.log?.length ?? 0);
+    const battleLogLines = session && moveFeedback
+        ? [...session.log, `⚠️ ${moveFeedback}`]
+        : (session?.log ?? []);
+    const battleTabs = useBattleTabs(battleLogLines.length);
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
     // Auto-fit board scale + manual zoom — shared hook (see lib/use-board-scale).
@@ -272,11 +314,15 @@ export function PvpBattleScreen({
     const combatHotkeyRef = useRef<{ active: boolean; actions: Record<string, () => void> } | null>(null);
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
+    const rewardClaimAbortRef = useRef<AbortController | null>(null);
+    const exitCheckAbortRef = useRef<AbortController | null>(null);
     const [pvpRewardClaimState, setPvpRewardClaimState] = useState<"idle" | "claiming" | "failed" | "confirmed">("idle");
     const [pvpRewardClaimError, setPvpRewardClaimError] = useState("");
     const [pvpRewardNotice, setPvpRewardNotice] = useState("");
     const [sessionLoadFailure, setSessionLoadFailure] = useState("");
     const [sessionRetryKey, setSessionRetryKey] = useState(0);
+    const [sessionExitCheck, setSessionExitCheck] = useState<"unchecked" | "checking" | "safe">("unchecked");
+    const revisionConflictRetryRef = useRef(false);
     const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
     // Live HP-delta floating numbers (RTX-1): make an opponent's offense legible
     // in real time instead of only as a silently-dropping HP bar.
@@ -289,6 +335,93 @@ export function PvpBattleScreen({
     const lastFxSeqRef = useRef<number | undefined>(undefined);
     const lastVfxSeqRef = useRef<number | undefined>(undefined);
     const hasObservedVfxSessionRef = useRef(false);
+
+    const runtimeScopeKey = pvpRuntimeScopeKey(character.name, accountSessionEpoch, battleId, role);
+    const continuationFenceRef = useRef(createPvpContinuationFence());
+    useLayoutEffect(() => {
+        continuationFenceRef.current.activate(runtimeScopeKey);
+        return () => {
+            rewardClaimAbortRef.current?.abort();
+            rewardClaimAbortRef.current = null;
+            exitCheckAbortRef.current?.abort();
+            exitCheckAbortRef.current = null;
+            pvpRewardRef.current = false;
+            continuationFenceRef.current.invalidate();
+        };
+    }, [runtimeScopeKey]);
+
+    function markSessionUnavailable(message: string, isCurrent: () => boolean): void {
+        if (!isCurrent()) return;
+        setSession(null);
+        setSessionLoadFailure(message);
+        setConnectionState("reconnecting");
+    }
+
+    function acceptRevision(current: PvpSessionState | null, incoming: PvpSessionState) {
+        const decision = decidePvpSessionRevision(current, incoming);
+        if (decision === "accept") {
+            revisionConflictRetryRef.current = false;
+            return incoming;
+        }
+        if (decision === "conflict" && !revisionConflictRetryRef.current) {
+            revisionConflictRetryRef.current = true;
+            queueMicrotask(() => setSessionRetryKey(key => key + 1));
+        }
+        return current;
+    }
+
+    function applySessionProjection(raw: unknown, isCurrent: () => boolean) {
+        const parsed = parsePvpSessionProjection(raw, battleId);
+        if (!isCurrent()) return parsed;
+        if (parsed.kind === "terminal") {
+            markSessionUnavailable(parsed.message, isCurrent);
+            return parsed;
+        }
+        if (parsed.kind === "session") {
+            setSession(current => acceptRevision(current, parsed.session));
+        }
+        return parsed;
+    }
+
+    async function verifyPendingSessionBeforeExit(): Promise<void> {
+        const internalScopeIsCurrent = continuationFenceRef.current.capture();
+        const isCurrentScope = () => internalScopeIsCurrent() && isAccountSessionCurrent();
+        exitCheckAbortRef.current?.abort();
+        const exitAbort = new AbortController();
+        exitCheckAbortRef.current = exitAbort;
+        setSessionExitCheck("checking");
+        try {
+            const pending = await fetchPendingPvpRecovery(fetch, character.name, {
+                signal: AbortSignal.any([exitAbort.signal, AbortSignal.timeout(8_000)]),
+            });
+            if (!isCurrentScope()) return;
+            if (!pending) {
+                // The authenticated server index proved this account has no
+                // live or incomplete PvP obligation. Only now is destructive
+                // navigation allowed from the unavailable-session screen.
+                setSessionExitCheck("safe");
+                return;
+            }
+            if (pending.battleId !== battleId || pending.role !== role) {
+                setSessionExitCheck("unchecked");
+                setSessionLoadFailure("Another PvP settlement is still pending for this account. Reopen it before leaving.");
+                return;
+            }
+            setSession(current => acceptRevision(current, pending.session));
+            setSessionLoadFailure("");
+            setConnectionState("connected");
+            setSessionExitCheck("unchecked");
+            // Restart live transports after the earlier terminal/failure path
+            // stopped them; the recovered authoritative row remains visible.
+            setSessionRetryKey(value => value + 1);
+        } catch {
+            if (!isCurrentScope()) return;
+            setSessionExitCheck("unchecked");
+            setSessionLoadFailure("Could not verify the pending battle yet. Retry when the connection returns.");
+        } finally {
+            if (exitCheckAbortRef.current === exitAbort) exitCheckAbortRef.current = null;
+        }
+    }
 
     const exitBattle = (target: Screen) => {
         if (onExit) onExit(target);
@@ -303,7 +436,11 @@ export function PvpBattleScreen({
 
     useEffect(() => {
         let active = true;
-        let hasLoadedSession = !!seedSession && seedSession.battleId === battleId;
+        const internalScopeIsCurrent = continuationFenceRef.current.capture();
+        const isCurrentScope = () => internalScopeIsCurrent() && isAccountSessionCurrent();
+        const transportAbort = new AbortController();
+        const parsedSeed = seedSession ? parsePvpSessionProjection(seedSession, battleId) : null;
+        let hasLoadedSession = parsedSeed?.kind === "session";
         let streamFailures = 0;
         let es: EventSource | null = null;
         let pollTimer: number | null = null;
@@ -320,15 +457,35 @@ export function PvpBattleScreen({
         const REALTIME_PAYLOAD_WATCHDOG_MS = 10_000;
         const MAX_MISSING_SESSION_ATTEMPTS = 5;
         setSessionLoadFailure("");
+        setSessionExitCheck("unchecked");
 
-        function acceptSession(data: PvpSessionState): PvpSessionState {
+        function stopLiveTransports(): void {
+            active = false;
+            transportAbort.abort();
+            if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
+            if (es) { try { es.close(); } catch { /* noop */ } es = null; }
+            if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
+            if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
+        }
+
+        function endSession(message: string): void {
+            markSessionUnavailable(message, isCurrentScope);
+            stopLiveTransports();
+        }
+
+        function acceptSession(raw: unknown): PvpSessionState | null {
+            const parsed = applySessionProjection(raw, isCurrentScope);
+            if (parsed.kind === "terminal") {
+                stopLiveTransports();
+                return null;
+            }
+            if (parsed.kind !== "session") return null;
             hasLoadedSession = true;
             streamFailures = 0;
-            if (active) {
+            if (active && isCurrentScope()) {
                 setSessionLoadFailure("");
-                setSession(data);
             }
-            return data;
+            return parsed.session;
         }
 
         // Tier 0 fetch — even with Realtime/SSE pushing changes, we
@@ -336,20 +493,26 @@ export function PvpBattleScreen({
         // NEW writes. Without this the screen would render blank
         // until the first move.
         async function fetchInitial(): Promise<PvpSessionState | null> {
-            let lastStatus = 0;
-            for (let attempt = 0; active && attempt < MAX_MISSING_SESSION_ATTEMPTS; attempt += 1) {
-                if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 350 * attempt));
-                if (!active || hasLoadedSession) return null;
-                try {
-                    const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
-                    lastStatus = res.status;
-                    if (res.ok) return acceptSession(await res.json() as PvpSessionState);
-                } catch { /* bounded retry below */ }
+            const initial = await fetchInitialPvpProjection({
+                battleId,
+                fetchSession: (input, init) => fetch(input, init),
+                signal: transportAbort.signal,
+                isActive: () => active && isCurrentScope(),
+                attempts: MAX_MISSING_SESSION_ATTEMPTS,
+            });
+            if (initial.kind === "aborted") return null;
+            if (initial.kind === "session") return acceptSession(initial.session);
+            if (initial.kind === "terminal" || initial.kind === "missing") {
+                endSession(initial.message);
+                return null;
             }
-            if (active && !hasLoadedSession) {
-                setSessionLoadFailure(lastStatus === 403
-                    ? "You are not allowed to open this battle session."
-                    : "The battle session is unavailable or expired.");
+            if (!initial.seedMayRemainVisible || !hasLoadedSession) {
+                endSession(initial.message);
+            } else if (active && isCurrentScope()) {
+                // A transient authority outage may keep the already-validated
+                // seed visible, but it is explicitly degraded until live GET or
+                // push traffic resumes.
+                setConnectionState("reconnecting");
             }
             return null;
         }
@@ -360,23 +523,35 @@ export function PvpBattleScreen({
             let misses = 0;
             while (active) {
                 if (document.visibilityState === "hidden") {
-                    await new Promise<void>(r => setTimeout(r, 2000));
+                    try { await abortableDelay(2_000, transportAbort.signal); } catch { break; }
                     continue;
                 }
                 try {
-                    const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
+                    const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
+                        signal: transportAbort.signal,
+                    });
                     if (res.ok) {
-                        const data = await res.json() as PvpSessionState;
-                        acceptSession(data);
-                        misses = 0;
-                        if (data.status === "done") break;
+                        const data = acceptSession(await res.json());
+                        if (!data) {
+                            misses += 1;
+                        } else {
+                            misses = 0;
+                            if (data.status === "done") break;
+                        }
+                    } else if (res.status === 404 || res.status === 409) {
+                        endSession(
+                            res.status === 409
+                                ? "This ranked battle ended as a no-contest."
+                                : "The battle session is unavailable or expired.",
+                        );
+                        break;
                     } else misses += 1;
                 } catch { misses += 1; }
-                if (!hasLoadedSession && misses >= MAX_MISSING_SESSION_ATTEMPTS) {
-                    setSessionLoadFailure("The battle session is unavailable or expired.");
+                if (misses >= MAX_MISSING_SESSION_ATTEMPTS) {
+                    endSession("The battle session is unavailable or expired.");
                     break;
                 }
-                await new Promise<void>(r => setTimeout(r, 1000));
+                try { await abortableDelay(1_000, transportAbort.signal); } catch { break; }
             }
         }
 
@@ -392,20 +567,27 @@ export function PvpBattleScreen({
             try {
                 es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}`);
                 es.addEventListener("session", (e) => {
-                    if (!active) return;
+                    if (!active || !isCurrentScope()) return;
                     // Any message arriving means the channel is healthy.
                     setConnectionState("connected");
                     try {
-                        const data = JSON.parse((e as MessageEvent).data) as PvpSessionState;
-                        acceptSession(data);
-                    } catch { /* ignore malformed chunk */ }
+                        const parsed = acceptSession(JSON.parse((e as MessageEvent).data));
+                        if (!parsed) setConnectionState("reconnecting");
+                    } catch { setConnectionState("reconnecting"); }
                 });
                 es.addEventListener("open", () => {
                     if (active) setConnectionState("connected");
                 });
-                es.addEventListener("end", () => {
+                es.addEventListener("end", (event) => {
                     es?.close();
                     es = null;
+                    let message = "The battle session is unavailable or expired.";
+                    try {
+                        const reason = JSON.parse((event as MessageEvent).data) as { reason?: string };
+                        if (reason.reason === "session-done") return;
+                        if (reason.reason === "ranked-no-contest") message = "This ranked battle ended as a no-contest.";
+                    } catch { /* default terminal copy */ }
+                    endSession(message);
                 });
                 es.onerror = () => {
                     es?.close();
@@ -449,7 +631,7 @@ export function PvpBattleScreen({
         // write. Latency: ~30-80ms vs. ~100ms for SSE vs. up to 1s
         // for old polling.
         if (realtimeAvailable()) {
-            unsubscribeRealtime = subscribeKvKey<PvpSessionState>(
+            unsubscribeRealtime = subscribeKvKey<unknown>(
                 `pvp:${battleId}`,
                 (next) => {
                     if (!active || fallbackStarted) return;
@@ -457,7 +639,8 @@ export function PvpBattleScreen({
                     // no-payload watchdog and clear any "reconnecting" state.
                     if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
                     setConnectionState("connected");
-                    acceptSession(next);
+                    const parsed = acceptSession(next);
+                    if (!parsed && active) escalateToStreamFallback();
                 },
                 (status) => {
                     if (!active || fallbackStarted) return;
@@ -479,16 +662,10 @@ export function PvpBattleScreen({
                 escalateToStreamFallback();
             }, REALTIME_PAYLOAD_WATCHDOG_MS);
         }
-        // Skip the initial GET when the parent has a matching seed —
-        // checked off the seedSession prop directly (not local state)
-        // because the seedSync effect that copies the seed into state
-        // races with this effect on the same battleId change, and the
-        // prop is the authoritative signal of "we already have it."
-        // Realtime / SSE still attaches above so any move that lands
-        // between session creation and mount arrives via push.
-        if (!seedSession || seedSession.battleId !== battleId) {
-            void fetchInitial();
-        }
+        // A seed is first-paint data, not current authority. Always perform one
+        // GET (with bounded 404 retries): Realtime emits writes but does not
+        // replay a deletion/tombstone that happened before subscription.
+        void fetchInitial();
         // If Realtime didn't initialize (env vars missing or client
         // construct failed), fall back to SSE. We don't run both —
         // they'd both setSession with the same data, wasting cycles.
@@ -497,13 +674,9 @@ export function PvpBattleScreen({
         }
 
         return () => {
-            active = false;
-            if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
-            if (es) { try { es.close(); } catch { /* noop */ } es = null; }
-            if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
-            if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
+            stopLiveTransports();
         };
-    }, [battleId, sessionRetryKey]);
+    }, [battleId, runtimeScopeKey, sessionRetryKey]);
 
     // A fighter is reward-eligible only after this authenticated handshake.
     // It is idempotent server-side and retries a few times for navigation races.
@@ -512,9 +685,14 @@ export function PvpBattleScreen({
         const fighter = role === "p1" ? session.p1 : session.p2;
         if (fighter.name.trim().toLowerCase() !== character.name.trim().toLowerCase()) return;
         let cancelled = false;
+        const isCurrentScope = continuationFenceRef.current.capture();
+        const joinAbort = new AbortController();
         void (async () => {
-            for (let attempt = 0; !cancelled && attempt < 4; attempt += 1) {
-                if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 400 * attempt));
+            for (let attempt = 0; !cancelled && isCurrentScope() && attempt < 4; attempt += 1) {
+                if (attempt > 0) {
+                    try { await abortableDelay(400 * attempt, joinAbort.signal); } catch { return; }
+                }
+                if (cancelled || !isCurrentScope()) return;
                 try {
                     const res = await fetch("/api/pvp/move", {
                         method: "POST",
@@ -525,17 +703,17 @@ export function PvpBattleScreen({
                             action: "join",
                             moveToken: `join-${battleId}-${role}`,
                         }),
+                        signal: AbortSignal.any([joinAbort.signal, AbortSignal.timeout(8_000)]),
                     });
                     if (res.ok) {
-                        const joinedSession = await res.json() as PvpSessionState;
-                        if (!cancelled) setSession(joinedSession);
-                        return;
+                        const parsed = applySessionProjection(await res.json(), isCurrentScope);
+                        if (parsed.kind === "session") return;
                     }
                 } catch { /* retry */ }
             }
         })();
-        return () => { cancelled = true; };
-    }, [battleId, role, session?.status, session?.joined?.p1, session?.joined?.p2, session?.p1.name, session?.p2.name]);
+        return () => { cancelled = true; joinAbort.abort(); };
+    }, [battleId, role, runtimeScopeKey, session?.status, session?.joined?.p1, session?.joined?.p2, session?.p1.name, session?.p2.name]);
 
     // Desktop combat hotkeys — A=Attack M=Move H=Heal C=Clear X=Cleanse
     // F=Flee W/Space=End turn Esc=Deselect. Reads the latest handlers via a ref
@@ -701,10 +879,13 @@ export function PvpBattleScreen({
     async function claimResolvedPvpReward(): Promise<void> {
         const resolvedSession = session;
         if (resolvedSession?.status !== "done" || pvpRewardRef.current) return;
-        const iWonNow = (resolvedSession.winner === "p1" && role === "p1")
-            || (resolvedSession.winner === "p2" && role === "p2");
-        const iLostNow = resolvedSession.winner && resolvedSession.winner !== "draw" && !iWonNow;
-        if (!iWonNow && !iLostNow) return;
+        const roleFighter = role === "p1" ? resolvedSession.p1 : resolvedSession.p2;
+        const isParticipant = roleFighter.name.trim().toLowerCase() === character.name.trim().toLowerCase();
+        const iWonNow = isParticipant && ((resolvedSession.winner === "p1" && role === "p1")
+            || (resolvedSession.winner === "p2" && role === "p2"));
+        const iLostNow = isParticipant && !!resolvedSession.winner && resolvedSession.winner !== "draw" && !iWonNow;
+        const isDrawNow = resolvedSession.winner === "draw" && isParticipant;
+        if (!iWonNow && !iLostNow && !isDrawNow) return;
 
         // This ref is an in-flight/confirmed guard only. A failed request clears
         // it so the visible Retry button can submit the exact same claim again.
@@ -712,12 +893,27 @@ export function PvpBattleScreen({
         setPvpRewardClaimState("claiming");
         setPvpRewardClaimError("");
 
-        const outcome: "win" | "loss" = iWonNow ? "win" : "loss";
-        const result = await postPvpRewardClaim(fetch, {
-            playerName: character.name,
-            battleId,
-            outcome,
-        });
+        const outcome: "win" | "loss" | "draw" = isDrawNow ? "draw" : iWonNow ? "win" : "loss";
+        const claimRequest = { playerName: character.name, battleId, outcome };
+        let completionStorage: PvpRewardCompletionStorage | null = null;
+        try { completionStorage = window.localStorage; } catch { /* private/storage-disabled browser */ }
+        // Persist intent before the request. If the server commits but the
+        // response is lost (abort, refresh, account-scope replacement), the
+        // next authoritative alreadyClaimed response replays these callbacks.
+        beginPvpRewardCompletion(completionStorage, claimRequest);
+        const internalScopeIsCurrent = continuationFenceRef.current.capture();
+        const isCurrentScope = () => internalScopeIsCurrent() && isAccountSessionCurrent();
+        const claimAbort = new AbortController();
+        rewardClaimAbortRef.current?.abort();
+        rewardClaimAbortRef.current = claimAbort;
+        // Keep the request bounded. This abort can race a committed server
+        // receipt, which is why the durable pending marker above must precede
+        // it: an alreadyClaimed retry then repairs the skipped callbacks.
+        const claimTimeout = window.setTimeout(() => claimAbort.abort(), PVP_REWARD_CLAIM_TIMEOUT_MS);
+        const result = await postPvpRewardClaim(fetch, claimRequest, { signal: claimAbort.signal });
+        window.clearTimeout(claimTimeout);
+        if (rewardClaimAbortRef.current === claimAbort) rewardClaimAbortRef.current = null;
+        if (!isCurrentScope()) return;
         if (result.status === "retry") {
             pvpRewardRef.current = false;
             setPvpRewardClaimState("failed");
@@ -725,28 +921,91 @@ export function PvpBattleScreen({
             return;
         }
 
-        // The local replay latch is advisory only and is written after the
-        // authoritative endpoint confirms the claim. Refreshes still call the
-        // server so an old/stale browser latch can never replace that proof.
-        try { window.localStorage.setItem(`pvp:rewarded:${battleId}`, "1"); } catch { /* storage quota — non-fatal */ }
-        setPvpRewardNotice((!result.rewardAuthorized || effectiveIsSpar)
+        setPvpRewardNotice(isDrawNow
+            ? "Draw confirmed — terminal battle effects are settled."
+            : (!result.rewardAuthorized || effectiveIsSpar)
             ? "Spar complete — no progression rewards."
             : result.rating
                 ? `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`
                 : result.base
                     ? "Combat rewards settled by the server."
                     : "Official result verified; no generic payout for this mode.");
-        setPvpRewardClaimState("confirmed");
-        onRewardClaim?.(result);
-        if (result.alreadyClaimed) return;
+        const runCompletion = shouldRunPvpRewardCompletion(
+            completionStorage,
+            claimRequest,
+            result.completionPending,
+        );
+        const completionAbort = new AbortController();
+        rewardClaimAbortRef.current?.abort();
+        rewardClaimAbortRef.current = completionAbort;
+        const completionTimeout = window.setTimeout(
+            () => completionAbort.abort(),
+            PVP_REWARD_CLAIM_TIMEOUT_MS,
+        );
+        const continuationContext: PvpRewardContinuationContext = {
+            signal: completionAbort.signal,
+            isCurrentScope,
+        };
+        try {
+            // Always adopt an authoritative replay snapshot. Outcome callbacks
+            // are awaited before completion ACK, including lost-ACK repair.
+            await onRewardClaim?.(result, continuationContext);
+            if (!isCurrentScope()) return;
+            if (runCompletion) {
+                const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
+                const opponent = normalizeCharacter(oppFighter.character as Character);
+                // Unsanctioned sessions confirm with no reward authority. Do not
+                // let their callbacks mutate missions, bounties, wars, or ranking.
+                if (result.rewardAuthorized || effectiveIsSpar) {
+                    if (iWonNow) await onWin?.(oppFighter.name, opponent, result.rating, result.base, result, continuationContext);
+                    else if (iLostNow) await onLoss?.(opponent, result.rating, result, continuationContext);
+                }
+                if (!isCurrentScope()) return;
+                if (!effectiveIsSpar && onRecordBattle) {
+                    const meFighter = role === "p1" ? resolvedSession.p1 : resolvedSession.p2;
+                    const { actions, rounds } = buildActionsFromPvpLog(resolvedSession.log ?? [], meFighter.name, oppFighter.name);
+                    await onRecordBattle(makeBattleEntry({
+                        id: `pvp-${battleId}`,
+                        ts: Number(resolvedSession.endedAt ?? Date.now()),
+                        mode: effectiveBattleMode === "ranked" ? "Ranked" : "PvP",
+                        opponent: oppFighter.name,
+                        outcome: isDrawNow ? "draw" : iWonNow ? "win" : "loss",
+                        rounds,
+                        self: meFighter.name,
+                        actions,
+                    }), continuationContext);
+                }
+                if (!isCurrentScope()) return;
+                completePvpRewardCompletion(completionStorage, claimRequest);
+            }
 
-        const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
-        const opponent = normalizeCharacter(oppFighter.character as Character);
-        // Unsanctioned sessions confirm with no reward authority. Do not let
-        // their callbacks mutate missions, bounties, wars, or ranking.
-        if (result.rewardAuthorized || effectiveIsSpar) {
-            if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base, result);
-            else onLoss?.(opponent, result.rating, result);
+            // The server keeps this exact account+battle+outcome continuation
+            // pending until every Promise-returning App settlement callback has
+            // completed. The shared AbortSignal fences account replacement and
+            // unmount through those remote continuations as well as this ACK.
+            if (result.completionPending) {
+                const ack = await postPvpRewardCompletionAck(fetch, claimRequest, { signal: completionAbort.signal });
+                if (!isCurrentScope()) return;
+                if (ack.status === "retry") {
+                    pvpRewardRef.current = false;
+                    setPvpRewardClaimState("failed");
+                    setPvpRewardClaimError(ack.message);
+                    return;
+                }
+            }
+            if (!isCurrentScope()) return;
+            setPvpRewardClaimState("confirmed");
+            onCompletionConfirmed?.();
+        } catch {
+            if (!isCurrentScope()) return;
+            // Keep the marker for a later retry/remount if a parent completion
+            // callback throws before its idempotent settlements finish.
+            pvpRewardRef.current = false;
+            setPvpRewardClaimState("failed");
+            setPvpRewardClaimError("Battle settlement callbacks did not finish. Please retry.");
+        } finally {
+            window.clearTimeout(completionTimeout);
+            if (rewardClaimAbortRef.current === completionAbort) rewardClaimAbortRef.current = null;
         }
     }
 
@@ -755,41 +1014,17 @@ export function PvpBattleScreen({
     // the callback and local replay latch untouched and surface a retry control.
     useEffect(() => {
         if (session?.status !== "done") return;
-        onResolved?.();
-        const iWonNow = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
-        const iLostNow = session.winner && session.winner !== "draw" && !iWonNow;
-        if ((!iWonNow && !iLostNow) || pvpRewardRef.current) return;
+        const roleFighter = role === "p1" ? session.p1 : session.p2;
+        const isParticipant = roleFighter.name.trim().toLowerCase() === character.name.trim().toLowerCase();
+        const iWonNow = isParticipant && ((session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2"));
+        const iLostNow = isParticipant && !!session.winner && session.winner !== "draw" && !iWonNow;
+        const isDrawNow = session.winner === "draw" && isParticipant;
+        if (!iWonNow && !iLostNow && !isDrawNow) {
+            onCompletionConfirmed?.();
+            return;
+        }
+        if (pvpRewardRef.current) return;
         void claimResolvedPvpReward();
-    }, [session?.status, session?.winner]);
-
-    // Reflection log (display-only): record this fight once it's done so the
-    // player can re-read it on Profile → Battles. Separate from the reward
-    // effect above so it also captures draws. De-duped by battleId (via the
-    // entry id) so a refresh on the result screen re-records harmlessly.
-    const battleRecordedRef = useRef(false);
-    useEffect(() => {
-        // Spars must not touch battle history — they count for nothing.
-        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle || effectiveIsSpar) return;
-        battleRecordedRef.current = true;
-        const meFighter = role === "p1" ? session.p1 : session.p2;
-        const oppFighter = role === "p1" ? session.p2 : session.p1;
-        const outcome: BattleHistoryEntry["outcome"] =
-            !session.winner || session.winner === "draw"
-                ? "draw"
-                : (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2")
-                    ? "win"
-                    : "loss";
-        const { actions, rounds } = buildActionsFromPvpLog(session.log ?? [], meFighter.name, oppFighter.name);
-        onRecordBattle(makeBattleEntry({
-            id: `pvp-${battleId}`,
-            ts: Date.now(),
-            mode: effectiveBattleMode === "ranked" ? "Ranked" : effectiveIsSpar ? "Spar" : "PvP",
-            opponent: oppFighter.name,
-            outcome,
-            rounds,
-            self: meFighter.name,
-            actions,
-        }));
     }, [session?.status, session?.winner]);
 
     // Auto-pass is derived only from the current authoritative snapshot. This
@@ -817,7 +1052,7 @@ export function PvpBattleScreen({
         jutsu: pvpSnapshotJutsu,
         items: pvpSnapshotItems,
         itemCharges: pvpSnapshotCharges,
-        rankedItemsDisabled: playerRankedV2ItemsDisabled,
+        rankedItemsDisabled: realPvpItemsDisabled,
     }));
     useEffect(() => {
         if (!session || session.status === "done" || session.activePlayer !== role || submitting || pvpPrefightCountdown !== null) return;
@@ -1075,7 +1310,13 @@ export function PvpBattleScreen({
                                 setSessionLoadFailure("");
                                 setSessionRetryKey(value => value + 1);
                             }}>Retry Connection</button>
-                            <button type="button" onClick={() => exitBattle(currentSector > 0 ? "worldMap" : "village")}>Return Safely</button>
+                            {sessionExitCheck === "safe" ? (
+                                <button type="button" onClick={() => exitBattle(currentSector > 0 ? "worldMap" : "village")}>Return Safely</button>
+                            ) : (
+                                <button type="button" disabled={sessionExitCheck === "checking"} onClick={() => void verifyPendingSessionBeforeExit()}>
+                                    {sessionExitCheck === "checking" ? "Checking Battle Status..." : "Verify Exit Safety"}
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1255,6 +1496,7 @@ export function PvpBattleScreen({
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
         if (submitInFlightRef.current || done) return;
         if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
+        const isCurrentScope = continuationFenceRef.current.capture();
         submitInFlightRef.current = true;
         setSubmitting(true);
         // Hard timeout on the move request. Without this a hung/stalled fetch
@@ -1304,20 +1546,38 @@ export function PvpBattleScreen({
                 signal: moveAbort.signal,
             });
             if (res.ok) {
-                const data = await res.json() as PvpSessionState;
+                const moveEnvelope = splitPvpMoveResponse(await res.json());
+                const parsed = parsePvpSessionProjection(moveEnvelope.projection, battleId);
+                if (!isCurrentScope()) return;
+                if (parsed.kind === "terminal") {
+                    markSessionUnavailable(parsed.message, isCurrentScope);
+                    return;
+                }
+                if (parsed.kind !== "session") {
+                    setMoveFeedback(parsed.message);
+                    return;
+                }
+                const data = parsed.session;
                 // Structured soft-reject: the action did NOT apply (still my turn,
                 // session unchanged on the server). Surface the reason once — the
                 // server may have also logged it (message paths), so de-dup on the
                 // last line — and KEEP the pending selection so the player can
                 // adjust without re-arming. Don't reset the round timer.
-                if (data.rejected) {
-                    const reason = data.rejected.reason;
-                    const last = data.log[data.log.length - 1] ?? "";
-                    const log = last.includes(reason) ? data.log : [...data.log, `⚠️ ${reason}`].slice(-60);
-                    setSession({ ...data, log });
+                if (moveEnvelope.rejected) {
+                    const reason = moveEnvelope.rejected.reason;
+                    setMoveFeedback(reason);
+                    setSession(current => {
+                        const decision = decidePvpSessionRevision(current, data);
+                        if (decision === "stale" || decision === "foreign" || decision === "conflict") {
+                            if (decision === "conflict") acceptRevision(current, data);
+                            return current;
+                        }
+                        return decision === "accept" ? data : current;
+                    });
                     return;
                 }
-                setSession(data);
+                setMoveFeedback("");
+                setSession(current => acceptRevision(current, data));
                 // Clear only the technique this response actually applied. A
                 // late response must never erase a different technique armed
                 // after it was submitted.
@@ -1335,21 +1595,35 @@ export function PvpBattleScreen({
                 // can retry or choose a different legal target.
                 const errData = await res.json().catch(() => ({} as Record<string, unknown>));
                 const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
-                console.warn("[pvp/move]", res.status, errMsg);
-                setSession(prev => prev ? { ...prev, log: [...prev.log, `⚠️ ${errMsg}`].slice(-60) } : prev);
-                setSelectedActionId(undefined);
-                setPendingBasicAttack(false);
-                setPendingWeaponId("");
+                if (isCurrentScope()) {
+                    if (res.status === 409) {
+                        markSessionUnavailable("This ranked battle ended as a no-contest.", isCurrentScope);
+                        return;
+                    }
+                    if (res.status === 404) {
+                        markSessionUnavailable("The battle session is unavailable or expired.", isCurrentScope);
+                        return;
+                    }
+                    console.warn("[pvp/move]", res.status, errMsg);
+                    setMoveFeedback(errMsg);
+                    setSelectedActionId(undefined);
+                    setPendingBasicAttack(false);
+                    setPendingWeaponId("");
+                }
             }
         } catch (err) {
             // Network error or 12s timeout. Leave selections so the player can
             // retry; surface a timeout so a stalled turn doesn't look silently
             // frozen. The round-timer auto-wait re-fires once `submitting` clears.
-            if ((err as { name?: string } | null)?.name === "AbortError") {
-                setSession(prev => prev ? { ...prev, log: [...prev.log, "⚠️ Move timed out — try again or your turn will auto-pass."].slice(-60) } : prev);
+            if (isCurrentScope() && (err as { name?: string } | null)?.name === "AbortError") {
+                setMoveFeedback("Move timed out — try again or your turn will auto-pass.");
             }
         }
-        finally { clearTimeout(moveTimeout); submitInFlightRef.current = false; setSubmitting(false); }
+        finally {
+            clearTimeout(moveTimeout);
+            submitInFlightRef.current = false;
+            if (isCurrentScope()) setSubmitting(false);
+        }
     }
 
     function handleTileClick(tileIdx: number) {
@@ -1801,18 +2075,18 @@ export function PvpBattleScreen({
                                             : session.fleedBy === role ? `${me.name} fled the battle.`
                                             : `${opp.name} wins the duel.`}
                                     </p>
-                                    {!amSpectator && !isDraw && pvpRewardClaimState === "claiming" && (
+                                    {!amSpectator && pvpRewardClaimState === "claiming" && (
                                         <p role="status" style={{ color: "#fcd34d", fontSize: "0.82rem", margin: "0 0 0.8rem" }}>
-                                            Verifying battle rewards with the server…
+                                            Verifying battle settlement with the server…
                                         </p>
                                     )}
-                                    {!amSpectator && !isDraw && pvpRewardClaimState === "failed" && (
+                                    {!amSpectator && pvpRewardClaimState === "failed" && (
                                         <div role="alert" style={{ margin: "0 0 0.8rem", padding: "0.65rem", border: "1px solid #f97316", borderRadius: 8, background: "rgba(124,45,18,0.25)" }}>
                                             <p style={{ color: "#fed7aa", fontSize: "0.82rem", margin: "0 0 0.55rem" }}>
-                                                Rewards were not applied. {pvpRewardClaimError}
+                                                Battle settlement is still pending. {pvpRewardClaimError}
                                             </p>
                                             <button type="button" onClick={() => { void claimResolvedPvpReward(); }}>
-                                                Retry Reward Claim
+                                                Retry Battle Settlement
                                             </button>
                                         </div>
                                     )}
@@ -1826,10 +2100,13 @@ export function PvpBattleScreen({
                                             low-latency source during the fight; this reads the server
                                             receipts once, on demand — we never poll them per move. */}
                                         {onViewBattleRecord && !amSpectator && (
-                                            <button onClick={() => onViewBattleRecord(session.battleId)}>View Full Battle Record</button>
+                                            <button
+                                                onClick={() => onViewBattleRecord(session.battleId)}
+                                                disabled={pvpRewardClaimState !== "confirmed"}
+                                            >View Full Battle Record</button>
                                         )}
-                                        <button onClick={() => exitBattle("village")} disabled={pvpRewardClaimState === "claiming"}>Return to Village</button>
-                                        <button onClick={() => exitBattle("worldMap")} disabled={pvpRewardClaimState === "claiming"}>World Map</button>
+                                        <button onClick={() => exitBattle("village")} disabled={!amSpectator && pvpRewardClaimState !== "confirmed"}>Return to Village</button>
+                                        <button onClick={() => exitBattle("worldMap")} disabled={!amSpectator && pvpRewardClaimState !== "confirmed"}>World Map</button>
                                     </div>
                                 </div>
                             </div>
@@ -1950,9 +2227,9 @@ export function PvpBattleScreen({
                                         })}
 
                                         {/* ── Thrown weapon cards (green) ── */}
-                                        {playerRankedV2ItemsDisabled
+                                        {realPvpItemsDisabled
                                             && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
-                                            && <p className="combat-action-hint">Consumables and thrown weapons are disabled in Player Ranked during the V2 rollout.</p>}
+                                            && <p className="combat-action-hint">Consumables and thrown weapons are disabled for real fighters in server-authoritative PvP.</p>}
                                         {pvpEquippedThrown.map(item => {
                                             const wRange = item.weaponRange ?? 4;
                                             const isArmed = pendingWeaponId === item.id;
@@ -1971,9 +2248,9 @@ export function PvpBattleScreen({
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={playerRankedV2ItemsDisabled ? "Disabled in Player Ranked V2" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
-                                                        onClick={() => { if (onCooldown || playerRankedV2ItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={!isMyTurn || playerRankedV2ItemsDisabled || submitting || depleted || !availability.affordable}>
+                                                        title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                        onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                        disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🎯</strong>}
                                                         </span>
@@ -2013,9 +2290,9 @@ export function PvpBattleScreen({
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                        title={playerRankedV2ItemsDisabled ? "Disabled in Player Ranked V2" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
-                                                        onClick={() => { if (onCooldown || playerRankedV2ItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                        disabled={!isMyTurn || playerRankedV2ItemsDisabled || submitting || depleted || !availability.affordable}>
+                                                        title={realPvpItemsDisabled ? "Disabled for real fighters in PvP" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                        onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
+                                                        disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
                                                         </span>
@@ -2094,7 +2371,7 @@ export function PvpBattleScreen({
                     </div>
 
                     <PlainCombatBattleLog
-                        lines={session.log}
+                        lines={battleLogLines}
                         turnLabel={isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}
                     />
 

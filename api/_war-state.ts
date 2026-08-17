@@ -61,6 +61,8 @@ export interface VillageWarRecord {
     dormant: boolean;                           // structures suspended (upkeep unpaid)
     lastWarPassDate: string;                    // 'YYYY-MM-DD' UTC daily-pass stamp
     terrainSetBy: Record<string, string>;       // sectorKey → player who set its terrain (§17.3 quota)
+    /** Non-evicting exact-once declaration debits, co-written with WR subtraction. */
+    warDeclarationFundingReceipts?: Record<string, unknown>;
 }
 
 // Terrain-pick quota (§17.3): the Kage may set 3 sectors' terrain, each elder 1.
@@ -149,6 +151,12 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             const p = (raw.terrainSetBy as Record<string, unknown>)[key];
             if (typeof p === 'string' && p) base.terrainSetBy[key] = p;
         }
+    }
+
+    if (raw.warDeclarationFundingReceipts
+        && typeof raw.warDeclarationFundingReceipts === 'object'
+        && !Array.isArray(raw.warDeclarationFundingReceipts)) {
+        base.warDeclarationFundingReceipts = { ...raw.warDeclarationFundingReceipts };
     }
 
     return base;

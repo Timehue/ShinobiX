@@ -10,6 +10,7 @@ import {
     settleRaidProgressionWithDailyCap,
     type RaidProgressionSettlement,
 } from './_raid-progression.js';
+import type { SealedRaidTerritoryEvidence } from './_raid-territory.js';
 
 const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_RAID_REPORTS_PER_DAY = 60;
@@ -79,6 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let proofId = '';
         let proofAt = 0;
         let sector = 0;
+        let territoryEvidence: SealedRaidTerritoryEvidence | undefined;
         let legacyTokenKey = '';
         if (raidToken) {
             legacyTokenKey = `raid-token:${playerName}:${raidToken}`;
@@ -136,8 +138,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: 'Only the sealed raid attacker can report raid progression.' });
             }
             proofId = `pvp-raid:${battleId}`;
-            proofAt = Math.floor(Number(session.createdAt));
+            proofAt = Math.floor(Number(session.endedAt));
             sector = Math.floor(Number(session.rewardSector));
+            territoryEvidence = session.worldTerritoryEvidence;
         }
 
         if (!Number.isSafeInteger(proofAt) || proofAt <= 0
@@ -154,6 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             proofAt,
             sector,
             dailyLimit: MAX_RAID_REPORTS_PER_DAY,
+            ...(territoryEvidence ? { territoryEvidence } : {}),
         });
         if (legacyTokenKey) await consumeSingleUseToken(kv, legacyTokenKey);
         if (progression.capped) {

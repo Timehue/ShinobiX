@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { _makeMemoryKv } from './_storage.js';
 import {
+    consumeRankedMatchTokenForBattleWithStore,
     isPlayerRankedMatchToken,
     mintPlayerRankedMatchTokenWithStore,
     playerRankedMatchTokenKey,
+    proveRankedMatchTokenForBattleWithStore,
     provePlayerRankedMatchTokenWithStore,
     rankedMatchTokenKey,
 } from './_ranked-match-token.js';
@@ -63,6 +65,36 @@ test('rankedMatchTokenKey has the expected shape', () => {
         rankedMatchTokenKey('Bob', 'Alice', 'player'),
         'pvp:ranked-match-token:player:alice:bob',
     );
+});
+
+test('pet proof is battle-bound by exact CAS and an ambiguous ACK replays only for that capability', async () => {
+    const base = _makeMemoryKv();
+    const key = rankedMatchTokenKey('Alice', 'Bob', 'pet');
+    const battleId = 'pvp-12345678-1234-4123-8123-1234567890ab';
+    await base.set(key, { mintedAt: NOW });
+    assert.equal(await proveRankedMatchTokenForBattleWithStore(base, 'alice', 'bob', 'pet', battleId), true);
+    let lost = false;
+    const store = {
+        ...base,
+        async compareSet(k: string, expected: unknown, value: unknown, options?: { ex?: number }) {
+            const committed = await base.compareSet(k, expected, value, options);
+            if (committed && k === key && !lost) {
+                lost = true;
+                throw new Error('lost-pet-token-ack');
+            }
+            return committed;
+        },
+    };
+    assert.equal(await consumeRankedMatchTokenForBattleWithStore(
+        store, 'alice', 'bob', 'pet', battleId,
+    ), true);
+    assert.equal(lost, true);
+    assert.equal(await consumeRankedMatchTokenForBattleWithStore(
+        store, 'bob', 'alice', 'pet', battleId,
+    ), true, 'stable create retry reuses the exact admission');
+    assert.equal(await consumeRankedMatchTokenForBattleWithStore(
+        store, 'alice', 'bob', 'pet', 'pvp-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ), false, 'another session cannot steal the bound proof');
 });
 
 const NOW = 1_800_000_000_000;

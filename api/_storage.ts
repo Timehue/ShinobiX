@@ -108,7 +108,7 @@ const _noCachePrefixes = [
     // settlement saga. A lock holder must never serve a worker-local snapshot
     // that predates another worker's pending or terminal receipt.
     'world:territory:', 'raid-territory-proof:',
-    'world:war:', 'clan-war:', 'clan-war-xp:',
+    'world:war:', 'world:village-war-', 'clan-war:', 'clan-war-xp:',
     // Interlude and road-event choices are permanent, server-owned character
     // history. Each choice appends under a distributed lock and must read the
     // latest lane tally written by any worker.
@@ -352,7 +352,7 @@ const pgKv = {
         return rowCount ?? 0;
     },
 
-    async delIfEqual(key: string, expected: string): Promise<boolean> {
+    async delIfEqual(key: string, expected: unknown): Promise<boolean> {
         _cacheInvalidate(key);
         // Single atomic statement — the value comparison and the delete happen in
         // one row-locked operation, so no other writer can slip a new lock in
@@ -635,7 +635,7 @@ const supabaseKv = {
         return total;
     },
 
-    async delIfEqual(key: string, expected: string): Promise<boolean> {
+    async delIfEqual(key: string, expected: unknown): Promise<boolean> {
         const db = getSupabase();
         // Retired Vercel/Supabase-REST backend — locks route to pgKv on
         // Railway/cPanel, so this is never on the real lock path. Filtering the
@@ -643,7 +643,7 @@ const supabaseKv = {
         // this fails SAFE: on ANY error it deletes nothing and returns false, so
         // the lock simply lingers to its short TTL rather than risking deleting a
         // different holder's lock. Never throws (a lock release must not error).
-        const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).eq('key', key).eq('value', expected);
+        const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).eq('key', key).eq('value', expected as never);
         if (error) return false;
         return (count ?? 0) > 0;
     },
@@ -968,12 +968,11 @@ export interface KvLike {
      * the read and the delete — the old holder would then delete the new holder's
      * lock. A single conditional delete closes that window.
      *
-     * Fails SAFE by construction: a backend that cannot match the value deletes
-     * nothing (the lock simply lingers until its short TTL and auto-evicts) — it
-     * can never delete a different holder's lock. `expected` is always a string
-     * (the lock's owner token).
+     * Fails SAFE by construction: a backend that cannot match the complete JSON
+     * value deletes nothing. Lock callers pass their owner string; publication
+     * rollback callers may pass an immutable object row.
      */
-    delIfEqual(key: string, expected: string): Promise<boolean>;
+    delIfEqual(key: string, expected: unknown): Promise<boolean>;
     // Atomic increment — returns the post-increment counter value. Backed by the
     // kv_incr RPC on Postgres/Supabase so the rate limiter can't be raced (a
     // read-then-set RMW let concurrent requests all read the same value and all
@@ -1046,7 +1045,7 @@ export function _makeMemoryKv(): KvLike {
         },
         async delIfEqual(key, expected) {
             const entry = liveEntry(key);
-            if (!entry || entry.value !== expected) return false;
+            if (!entry || !_jsonValueEqual(entry.value, expected)) return false;
             entries.delete(key);
             return true;
         },
@@ -1158,7 +1157,7 @@ export function _makeDiskKv(root: string): KvLike {
             // ops use, so it is atomic against a concurrent nx-claim on this file.
             return _withDiskKeyLock(root, key, async () => {
                 const rec = await _diskRead(root, key);
-                if (!rec || isExpired(rec.expires_at) || rec.value !== expected) return false;
+                if (!rec || isExpired(rec.expires_at) || !_jsonValueEqual(rec.value, expected)) return false;
                 return _diskUnlink(root, key);
             });
         },
@@ -1342,7 +1341,7 @@ export function _makeRemoteKv(
             // best-effort read-then-conditional-delete; the proxy exposes no
             // atomic CAS op, so do not route a lock here.
             const cur = await this.get<unknown>(key);
-            if (cur !== expected) return false;
+            if (!_jsonValueEqual(cur, expected)) return false;
             return (await this.del(key)) > 0;
         },
         // Non-atomic RMW over the proxy. Never used for disk-routed keys (the

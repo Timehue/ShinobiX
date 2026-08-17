@@ -20,6 +20,7 @@ import {
     normalizeSectorWarBattleToken,
     canDeclareSectorWar,
     SECTOR_WAR_DURATION_MS,
+    SECTOR_WAR_BATTLE_RECEIPT_CAP,
     GARRISON_POINTS_CAP,
     GARRISON_POINTS_FRACTION,
     MERC_REPEL_POINTS_FRACTION,
@@ -99,6 +100,24 @@ describe('sector-war: normalize + Control-HP migration', () => {
             startedAt: NOW, endsAt: NOW + 1, expiredAt: NOW + 1, expiredReason: 'idle',
         } as never);
         assert.equal(s!.expiredReason, 'defended');
+    });
+
+    it('rejects malformed or over-cap server battle authority instead of filtering it', () => {
+        const base = fresh();
+        assert.throws(() => normalizeSectorWarSession({
+            ...base,
+            appliedBattles: [{ battleId: 'bad', attackerWon: true, points: 5, by: 'aria', at: NOW, forged: true }],
+        } as never), /receipt-ledger-invalid/);
+        assert.throws(() => normalizeSectorWarSession({
+            ...base,
+            appliedBattles: Array.from({ length: SECTOR_WAR_BATTLE_RECEIPT_CAP + 1 }, (_, index) => ({
+                battleId: `b-${index}`,
+                attackerWon: true,
+                points: 5,
+                by: 'aria',
+                at: NOW + index,
+            })),
+        }), /receipt-ledger-invalid/);
     });
 });
 
@@ -328,6 +347,36 @@ describe('sector-war: durable battle receipts', () => {
         assert.equal(replay.session.appliedBattles?.length, 1);
     });
 
+    it('never evicts an embedded authority receipt at the cap', () => {
+        const receipts = Array.from({ length: SECTOR_WAR_BATTLE_RECEIPT_CAP }, (_, index) => ({
+            battleId: `old-${index}`,
+            attackerWon: true,
+            points: 1,
+            by: 'aria',
+            at: NOW + index,
+        }));
+        const full = { ...fresh(), appliedBattles: receipts };
+        const projected = applySectorWarBattle(full, true, {
+            now: NOW + SECTOR_WAR_BATTLE_RECEIPT_CAP + 1,
+            roleSwing: 5,
+            by: 'aria',
+        });
+        assert.throws(() => recordSectorWarBattleOutcome(projected, {
+            battleId: 'new-battle',
+            attackerWon: true,
+            by: 'aria',
+            at: NOW + SECTOR_WAR_BATTLE_RECEIPT_CAP + 1,
+        }), /receipt-ledger-full/);
+        const replay = recordSectorWarBattleOutcome(projected, {
+            battleId: 'old-199',
+            attackerWon: true,
+            by: 'aria',
+            at: NOW + SECTOR_WAR_BATTLE_RECEIPT_CAP + 1,
+        });
+        assert.equal(replay.receipt.battleId, 'old-199');
+        assert.equal(replay.session.appliedBattles?.length, SECTOR_WAR_BATTLE_RECEIPT_CAP);
+    });
+
     it('round-trips receipts and the live-battle stamp through storage', () => {
         const out = applySectorWarBattle(fresh(), false, { now: NOW + 5, roleSwing: 20, by: 'kell' });
         const recorded = recordSectorWarBattleOutcome(out, { battleId: 'card-1', attackerWon: false, by: 'kell', at: NOW + 5 });
@@ -389,12 +438,16 @@ describe('sector-war: lock scopes + battle token', () => {
             attackerVillage: 'A Village', defenderVillage: 'B Village',
             registeredBy: 'aria', winCondition: 'combat',
             p1Name: 'aria', p2Name: 'kell', p1Village: 'A Village', p2Village: 'B Village',
+            biome: 'forest',
             now: NOW,
         });
         assert.equal(sectorWarTokenKey('b1'), 'shared:sector-war-token:b1');
         const n = normalizeSectorWarBattleToken(JSON.parse(JSON.stringify(t)));
         assert.equal(n?.p2Name, 'kell');
+        assert.equal(n?.biome, 'forest');
         assert.equal(normalizeSectorWarBattleToken({} as never), null);
+        assert.equal(normalizeSectorWarBattleToken({ ...t, sector: 999 }), null, 'does not clamp corrupt authority');
+        assert.equal(normalizeSectorWarBattleToken({ ...t, forged: true } as never), null, 'rejects extra fields');
     });
 });
 

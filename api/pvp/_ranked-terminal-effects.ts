@@ -1,5 +1,5 @@
 import type { KvLike } from '../_storage.js';
-import { SESSION_TTL } from '../combat-core/constants.js';
+import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import {
     completePlayerRankedAdmission,
     getPlayerRankedAdmission,
@@ -79,7 +79,7 @@ export async function confirmPlayerRankedTerminalEffects(
     // Preserve a discoverable terminal admission until exact session
     // compaction is proven. Crash after Elo but before this CAS leaves both the
     // durable session and admission for claim/season/move to help forward.
-    await boundExactPvpSession(store, `pvp:${session.battleId}`, session, SESSION_TTL);
+    await boundExactPvpSession(store, `pvp:${session.battleId}`, session, PVP_TERMINAL_REPLAY_TTL);
     const admission = await getPlayerRankedAdmission(store, settled.journal.terminal.matchId);
     if (admission) {
         if (admission.phase !== 'terminal'

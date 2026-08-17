@@ -36,7 +36,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // Stats & progression ledger
     'xp', 'experience', 'stats', 'unspentStats', 'totalStatsTrained', 'rankTitle',
     'auraSphereLevel', 'hollowGateAttunement', 'rankedRating', 'petRankedRating',
-    'rankedSeasonSettlementReceipts', 'serverSettlementReceipts', 'petRankedSettlementStamp',
+    'rankedSeasonSettlementReceipts', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'petRankedSettlementStamp',
     'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'patreon',
     'weaponElements', 'petBreeding', 'petBreedingMigrationVersion', 'petBreedingReceipts',
     'petBreedingHatchReceipts', 'petBreedingProgressReceipts', 'miraaWagerDate',
@@ -44,7 +44,8 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // Claim stamps & payout latches
     'lastLoginRewardDate', 'loginStreak', 'academyChecklistClaimed', 'academyTrialClaimed',
     'cardClashDailyWinDate', 'claimedWarCrateIds', 'claimedVillageAgendaDate',
-    'claimedMapControlDate', 'lastExpeditionClaimDate', 'expeditionsClaimedToday',
+    'claimedMapControlDate', 'warGroundBountyDate', 'villageWarMissionDate',
+    'villageWarRaidProgress', 'lastExpeditionClaimDate', 'expeditionsClaimedToday',
     'expeditionStartAllowance', 'expeditionStartReceipts', 'petEscortBonusReady',
     'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
     'dailyDonatedSeals', 'dailyDonationDate', 'pendingCombatMissionClaims',

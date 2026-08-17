@@ -98,6 +98,10 @@ export function validateClanSaveWrite(
     const suppressed: string[] = [];
     const prev: ClanBlob = existing ?? {};
     const next: ClanBlob = { ...prev, ...incoming };
+    // Server-owned PvP Clan War XP journal. Client clan-save payloads can
+    // neither forge nor clear the marker that is co-written with XP.
+    if (prev.pvpWarXpReceipts !== undefined) next.pvpWarXpReceipts = prev.pvpWarXpReceipts;
+    else delete next.pvpWarXpReceipts;
 
     const role = callerRole(prev, ctx.callerName);
 
