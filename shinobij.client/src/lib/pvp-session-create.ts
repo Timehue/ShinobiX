@@ -1,5 +1,6 @@
 import type { PvpSessionState } from "../types/pvp-ui";
-import { decidePvpCreateRecovery, fetchPendingPvpRecovery, type PendingPvpRecovery } from "./pvp-pending-session";
+import { decidePvpCreateRecovery, type PendingPvpRecovery } from "./pvp-pending-session";
+import { fetchPendingPvpRecovery } from "./pvp-pending-fetch";
 import { abortableDelay, parsePvpSessionProjection } from "./pvp-session-runtime";
 
 export type PvpSessionCreateRecoveryResult =
