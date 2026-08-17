@@ -62,6 +62,22 @@ export type KageChallenge = {
     battleId?: string;             // the official duel, set on accept
 };
 
+/**
+ * Exact proof that one accepted PvP duel changed (or defended) the Kage seat.
+ * This is embedded in the same Kage-row CAS as the seat mutation so a process
+ * crash or lost acknowledgement can never leave a marker/body gap.
+ */
+export type KagePvpDuelSettlementReceipt = {
+    version: 1;
+    battleId: string;
+    challengeId: string;
+    outcome: 'transferred' | 'defended';
+    winnerName: string;
+    loserName: string;
+    seatedKage: string;
+    settledAt: number;
+};
+
 export type KageStateLike = {
     kageSystemUnlocked?: boolean;
     seatedKage?: string;
@@ -73,6 +89,7 @@ export type KageStateLike = {
     challenge?: KageChallenge | null;
     postDefenseGraceUntil?: number;
     challengerCooldowns?: Record<string, number>; // lower-name -> cooldown-until ts
+    pvpDuelSettlementReceipts?: Record<string, KagePvpDuelSettlementReceipt>;
 };
 
 function lower(s: string): string {
@@ -350,7 +367,13 @@ export function applyExpiry(state: KageStateLike, now: number): KageStateLike {
  */
 export function applyAdminReset(state: KageStateLike, village: string, now: number): KageStateLike {
     const closed = state.seatedKage ? closeCurrentReign(state, village, now, 'admin-reset') : state;
-    return { kageSystemUnlocked: false, history: closed.history ?? [] };
+    return {
+        kageSystemUnlocked: false,
+        history: closed.history ?? [],
+        ...(closed.pvpDuelSettlementReceipts
+            ? { pvpDuelSettlementReceipts: closed.pvpDuelSettlementReceipts }
+            : {}),
+    };
 }
 
 // Keep the cooldown map from growing unbounded — drop entries already elapsed.

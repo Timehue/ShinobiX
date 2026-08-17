@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -118,7 +119,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { collected, nextLastSupplyAt } = collectTerritorySupply(fresh, now);
                 if (collected <= 0) return;
                 total += collected;
-                await kv.set(key, { ...fresh, warSupply: 0, lastSupplyAt: nextLastSupplyAt, updatedAt: now });
+                const candidate = { ...fresh, warSupply: 0, lastSupplyAt: nextLastSupplyAt, updatedAt: now };
+                try {
+                    if (!(await kv.compareSet(key, fresh, candidate))) {
+                        throw new Error('territory-supply-publication-conflict');
+                    }
+                } catch (error) {
+                    const recovered = await kv.get<unknown>(key).catch(() => null);
+                    if (!isDeepStrictEqual(recovered, candidate)) throw error;
+                }
             }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
         }
 

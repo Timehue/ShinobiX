@@ -98,11 +98,12 @@ export function isVillageWarMapEnabled(): boolean {
 
 // ── Fetch wrappers ──────────────────────────────────────────────────────────
 
-async function postJson(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function postJson(url: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>> {
     const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal,
     });
     const data = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (!r.ok) throw new Error(String(data.error ?? `HTTP ${r.status}`));
@@ -127,8 +128,38 @@ export function abandonSectorWar(playerName: string, sector: number) {
 export function sectorWarStatus(playerName: string, sector?: number) {
     return postJson("/api/village/sector-war", { action: "status", playerName, sector });
 }
-export function registerSectorBattle(playerName: string, sector: number, battleId: string) {
-    return postJson("/api/village/sector-war", { action: "attack", playerName, sector, battleId });
+export function registerSectorBattle(playerName: string, sector: number, battleId: string, signal?: AbortSignal) {
+    return postJson("/api/village/sector-war", { action: "attack", playerName, sector, battleId }, signal);
+}
+export async function confirmSectorBattleRegistration(
+    playerName: string,
+    sector: number,
+    battleId: string,
+    scope: { signal: AbortSignal; isCurrent: () => boolean },
+): Promise<Record<string, unknown>> {
+    let lastError: unknown = new Error("Sector registration was not attempted.");
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+        if (scope.signal.aborted || !scope.isCurrent()) throw new DOMException("PvP create scope changed.", "AbortError");
+        if (attempt > 0) {
+            await new Promise<void>((resolve, reject) => {
+                const onAbort = () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); };
+                const timer = setTimeout(() => {
+                    scope.signal.removeEventListener("abort", onAbort);
+                    resolve();
+                }, 250 * attempt);
+                scope.signal.addEventListener("abort", onAbort, { once: true });
+            });
+        }
+        try {
+            const result = await registerSectorBattle(playerName, sector, battleId, scope.signal);
+            if (!scope.isCurrent()) throw new DOMException("PvP create scope changed.", "AbortError");
+            return result;
+        } catch (error) {
+            if (scope.signal.aborted || !scope.isCurrent()) throw error;
+            lastError = error;
+        }
+    }
+    throw lastError;
 }
 export function resolveSectorBattle(playerName: string, battleId: string) {
     return postJson("/api/village/sector-war", { action: "resolve", playerName, battleId });

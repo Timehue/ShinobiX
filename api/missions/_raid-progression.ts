@@ -4,7 +4,11 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { creditFieldRaidProgress } from './_field-raid-progress.js';
-import { settleRaidTerritoryDamage } from './_raid-territory.js';
+import {
+    settleRaidTerritoryDamage,
+    type RaidTerritoryDamageResult,
+    type SealedRaidTerritoryEvidence,
+} from './_raid-territory.js';
 import {
     professionXpAfterAward,
     reportMissionEvent,
@@ -29,9 +33,11 @@ export type RaidProgressionSettlement = {
     settledAt: number;
 };
 
-function receiptId(proofId: string): string {
+export function raidProgressionReceiptId(proofId: string): string {
     return `raid_${createHash('sha256').update(proofId).digest('hex')}`;
 }
+
+const receiptId = raidProgressionReceiptId;
 
 function settlements(character: Record<string, unknown>): RaidProgressionSettlement[] {
     return Array.isArray(character.raidProgressionSettlements)
@@ -60,11 +66,13 @@ function raidCapProofKey(playerName: string, proofId: string): string {
 async function reserveRaidDailyAllowance(
     playerName: string,
     proofId: string,
+    eventAt: number,
     limit: number,
 ): Promise<{ capped: boolean; replayed: boolean }> {
+    if (!Number.isSafeInteger(eventAt) || eventAt <= 0) throw new Error('invalid-raid-cap-event-time');
     const cappedKey = raidCapProofKey(playerName, proofId);
     if (await kv.get(cappedKey)) return { capped: true, replayed: true };
-    const key = `raid-report-count-v2:${playerName}:${new Date().toISOString().slice(0, 10)}`;
+    const key = `raid-report-count-v2:${playerName}:${new Date(eventAt).toISOString().slice(0, 10)}`;
     return withKvLock(key, async () => {
         if (await kv.get(cappedKey)) return { capped: true, replayed: true };
         const raw = await kv.get<Partial<RaidDailyAllowance>>(key);
@@ -93,6 +101,7 @@ export type CappedRaidProgressionResult = {
     settlement: RaidProgressionSettlement | null;
     fetchMissionsCredited: string[];
     territoryDamage: number;
+    territory: RaidTerritoryDamageResult;
     character: Record<string, unknown>;
     _saveVersion: number;
 };
@@ -104,6 +113,7 @@ export async function settleRaidProgressionWithDailyCap(params: {
     proofAt: number;
     sector: number;
     dailyLimit: number;
+    territoryEvidence?: SealedRaidTerritoryEvidence;
 }): Promise<CappedRaidProgressionResult> {
     const save = await kv.get<Record<string, unknown>>(`save:${params.playerName}`);
     const character = save?.character as Record<string, unknown> | undefined;
@@ -111,7 +121,7 @@ export async function settleRaidProgressionWithDailyCap(params: {
     const prior = raidProgressionSettlement(character, params.proofId);
     const allowance = prior
         ? { capped: false, replayed: true }
-        : await reserveRaidDailyAllowance(params.playerName, params.proofId, params.dailyLimit);
+        : await reserveRaidDailyAllowance(params.playerName, params.proofId, params.proofAt, params.dailyLimit);
     if (!allowance.capped) {
         const progressed = await settleRaidProgression(params);
         return {
@@ -120,6 +130,7 @@ export async function settleRaidProgressionWithDailyCap(params: {
             settlement: progressed.settlement,
             fetchMissionsCredited: progressed.settlement.fetchMissionsCredited,
             territoryDamage: progressed.settlement.territoryDamage,
+            territory: progressed.territory,
             character: progressed.character,
             _saveVersion: progressed._saveVersion,
         };
@@ -136,6 +147,8 @@ export async function settleRaidProgressionWithDailyCap(params: {
             playerName: params.playerName,
             proofId: receiptId(params.proofId),
             sector: params.sector,
+            eventAt: params.proofAt,
+            evidence: params.territoryEvidence,
         }),
     ]);
     return {
@@ -144,6 +157,7 @@ export async function settleRaidProgressionWithDailyCap(params: {
         settlement: null,
         fetchMissionsCredited,
         territoryDamage: territory.amount,
+        territory,
         character,
         _saveVersion: Number(save._saveVersion ?? 0),
     };
@@ -162,14 +176,16 @@ export async function settleRaidProgression(params: {
     proofId: string;
     proofAt: number;
     sector?: number;
+    territoryEvidence?: SealedRaidTerritoryEvidence;
 }): Promise<{
     settlement: RaidProgressionSettlement;
     character: Record<string, unknown>;
     _saveVersion: number;
     replayed: boolean;
+    territory: RaidTerritoryDamageResult;
 }> {
     const proofId = typeof params.proofId === 'string' ? params.proofId.trim().slice(0, 220) : '';
-    const proofAt = Math.floor(Number(params.proofAt));
+    const proofAt = Number(params.proofAt);
     if (!proofId || !Number.isSafeInteger(proofAt) || proofAt <= 0) throw new Error('invalid-raid-progression-proof');
     const eventReceiptId = receiptId(proofId);
 
@@ -257,6 +273,8 @@ export async function settleRaidProgression(params: {
         playerName: params.playerName,
         proofId: eventReceiptId,
         sector: params.sector,
+        eventAt: proofAt,
+        evidence: params.territoryEvidence,
     });
     let finalSettlement = result.value;
     let finalSaveVersion = result._saveVersion;
@@ -286,5 +304,6 @@ export async function settleRaidProgression(params: {
         character: authoritativeCharacter,
         _saveVersion: Number(authoritative._saveVersion ?? finalSaveVersion),
         replayed: Boolean(prior),
+        territory,
     };
 }

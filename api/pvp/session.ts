@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomUUID, randomBytes } from 'crypto';
+import type { ActionReceipt } from '../_receipts.js';
+import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -8,7 +9,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import {
-    consumeRankedMatchToken,
+    consumeRankedMatchTokenForBattle,
+    proveRankedMatchTokenForBattle,
     provePlayerRankedMatchToken,
 } from '../_ranked-match-token.js';
 import {
@@ -23,7 +25,11 @@ import {
     type PlayerRankedAdmission,
 } from '../pet/_ranked-preparation.js';
 import { releaseChallengePvpReservation, reserveChallengeForPvpSession } from './_challenge-authorization.js';
-import { releaseClanWarPvpReservation, reserveClanWarPvpSession } from './_clan-war-authorization.js';
+import {
+    releaseClanWarPvpReservation,
+    requireClanWarPvpReservation,
+    reserveClanWarPvpSession,
+} from './_clan-war-authorization.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
@@ -44,6 +50,26 @@ import {
     PLAYER_RANKED_V2_DISABLED_MESSAGE,
     playerRankedV2AdmissionsEnabled,
 } from './_player-ranked-rollout.js';
+import {
+    activatePvpPendingSessionPointer,
+    clearPvpPendingSessionPointer,
+    loadPvpPendingSessionPointer,
+    pendingPointerMatchesSession,
+    pendingPointerForSessionRole,
+    pvpPendingReservationIsFresh,
+    publishPvpPendingSessionPointer,
+    requirePvpPendingSessionOwnership,
+} from './_pending-session.js';
+import {
+    ensurePvpTerminalRecoveryPublication,
+    loadPvpRewardRecoverySnapshot,
+    sealPvpRewardRecoverySnapshot,
+} from './_reward-recovery.js';
+import { pvpRewardCompletionStatus } from './_reward-completion.js';
+import {
+    sectorWarRoleOf,
+    type SealedWarRoleEvidence,
+} from '../_war-role.js';
 
 // combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
 // from the fighter's level + specialty, so move.ts's existing per-bar deduction
@@ -110,6 +136,19 @@ export type PvpGroundEffect = {
 
 export type PvpSession = {
     battleId: string;
+    /** Exact stable-create request generation; lets a lost POST ACK resume the original row. */
+    createRequestFingerprint?: string;
+    /**
+     * Server-owned monotonic projection revision. Creation starts at 1 and
+     * every persisted live mutation advances it exactly once. Clients use this
+     * only to reject late Realtime/SSE/HTTP snapshots; it is never accepted
+     * from a session-create or move request.
+     *
+     * Optional only for the bounded lifetime of pre-deploy sessions and older
+     * test fixtures. New sessions always carry it and the first successful move
+     * upgrades a legacy row to a revisioned projection.
+     */
+    stateRevision?: number;
     p1: PvpFighter;
     p2: PvpFighter;
     round: number;
@@ -125,15 +164,34 @@ export type PvpSession = {
     // A client may still create an unsanctioned/casual session, but every reward
     // consumer fails closed unless this stamp exists AND both fighters joined.
     rewardAuthority?: 'challenge' | 'clan-war' | 'ranked' | 'world' | 'admin';
+    /** Server-purpose authority independent of the caller's optional payout flag. */
+    progressionAuthorityVersion?: 1;
     // World raids bind the authenticated session creator as the attacker.
     // Fighter ordering is presentation input and cannot establish raid credit.
-    worldAttacker?: { side: 'p1' | 'p2'; name: string };
+    worldAttacker?: { side: 'p1' | 'p2'; name: string; village?: string; clan?: string };
+    /** Server-sealed territory target and damage evidence at battle creation. */
+    worldTerritoryEvidence?: {
+        version: 1;
+        sector: number;
+        ownerClan: string;
+        ownerVillage: string;
+        raidDamage: number;
+        observedAt: number;
+    };
+    /** Immutable server role evidence used by village-war continuation. Seats
+     * or ANBU appointments granted after battle creation cannot amplify it. */
+    warRoleEvidence?: SealedWarRoleEvidence;
     challengeId?: string;
+    /** Server-derived official Kage duel prerequisite. Moves help it forward
+     * before combat can advance; the browser cannot opt out or forge it. */
+    kageDuelAuthority?: { version: 1; village: string; challengeId: string };
     clanWarId?: string;
     clanWarChallengeId?: string;
     joined?: { p1: boolean; p2: boolean };
     fleedBy?: 'p1' | 'p2';
     createdAt: number;
+    /** Immutable server time sealed by the CAS that first terminalizes combat. */
+    endedAt?: number;
     // Stamped every time a successful move commits. Used as a crashed-tab
     // fallback by the 'claim-afk-win' action — if the active player hasn't
     // moved in 90s the inactive player can claim the win even if the
@@ -154,6 +212,16 @@ export type PvpSession = {
     // (move.ts then treats every consumable as unlimited, the old behaviour).
     itemCharges?: { p1: Record<string, number>; p2: Record<string, number> };
     itemsUsed?: { p1: Record<string, number>; p2: Record<string, number> };
+    /**
+     * V1 disables mutable-inventory consumables for every real fighter. NPCs
+     * retain their sealed combat behavior; missing-version in-flight sessions
+     * keep the legacy post-battle debit during rolling deployment.
+     */
+    pvpConsumableAuthorityVersion?: 1;
+    /** New sessions require the durable browser continuation/ACK protocol. */
+    pvpCompletionAuthorityVersion?: 1;
+    /** New sessions settle Vanguard rewards through the crash-recoverable save-marker saga. */
+    vanguardRewardAuthorityVersion?: 2;
     // Which sides resolved to an authoritative SAVE at create time (real
     // players). claim-rewards settles a side's consumables from EITHER player's
     // claim, but ONLY for sides stamped real here — an NPC opponent that
@@ -174,6 +242,16 @@ export type PvpSession = {
     // the list short-circuits with the current session state instead
     // of re-applying the move.
     recentMoveTokens?: string[];
+    /**
+     * One replay capsule for the latest committed combat action. The capsule is
+     * replaced only after the preceding action receipt has been made durable,
+     * allowing a retry/next move to repair a crash immediately after combat CAS.
+     */
+    lastActionReceipt?: {
+        version: 1;
+        stateRevision: number;
+        receipt: ActionReceipt;
+    };
     // Server-authoritative ranked-rating snapshot (audit #7 / Stage 3).
     // Set ONLY when this session is a ranked match: `ranked` flags it,
     // `rankedKind` selects the ladder, and p1Rating/p2Rating are each
@@ -232,6 +310,17 @@ export type PvpSession = {
 
 export const PLAYER_RANKED_SESSION_AUTHORITY_VERSION = 2 as const;
 
+export const INITIAL_PVP_STATE_REVISION = 1 as const;
+
+/** Advance a persisted session projection without trusting client input. */
+export function nextPvpStateRevision(session: Pick<PvpSession, 'stateRevision'>): number {
+    const current = session.stateRevision ?? 0;
+    if (!Number.isSafeInteger(current) || current < 0 || current >= Number.MAX_SAFE_INTEGER) {
+        throw new Error('pvp-session-revision-invalid');
+    }
+    return current + 1;
+}
+
 export function isPlayerRankedV2Session(session: Pick<
     PvpSession,
     'ranked' | 'rankedKind' | 'playerRankedAuthorityVersion' | 'rankedMatchId'
@@ -247,6 +336,25 @@ export function isPlayerRankedV2Session(session: Pick<
         && Number(session.rankedSeasonEpoch) > 0
         && session.rewardAuthority === 'ranked'
         && session.baseRewards !== true;
+}
+
+/** A close-fenced active row is terminal no-contest control data for readers. */
+export function pvpSessionHasRankedCloseFence(value: unknown): value is PvpSession {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const session = value as Partial<PvpSession>;
+    const fence = session.rankedCloseFence;
+    if (!fence || typeof fence !== 'object') return false;
+    return session.status === 'active'
+        && typeof session.battleId === 'string'
+        && isPlayerRankedV2Session(session as PvpSession)
+        && fence.version === 'player-ranked-session-close-fence-v1'
+        && fence.matchId === session.rankedMatchId
+        && fence.seasonId === session.rankedSeasonId
+        && fence.seasonEpoch === session.rankedSeasonEpoch
+        && typeof fence.transitionId === 'string'
+        && fence.transitionId.length > 0
+        && Number.isSafeInteger(fence.fencedAt)
+        && fence.fencedAt > 0;
 }
 
 /** New authority plus legacy in-flight v1 rows that upgraded workers must drain. */
@@ -273,6 +381,25 @@ export function playerRankedSessionMatchesAdmission(
         && pair[1] === admission.b
         && session.p1Rating === p1Rating
         && session.p2Rating === p2Rating;
+}
+
+function pvpSessionMatchesCreateRetry(existing: unknown, desired: PvpSession): existing is PvpSession {
+    if (!existing || typeof existing !== 'object' || Array.isArray(existing)) return false;
+    const row = existing as Partial<PvpSession>;
+    return row.battleId === desired.battleId
+        && row.createdAt === desired.createdAt
+        && row.createRequestFingerprint === desired.createRequestFingerprint
+        && safeName(String(row.p1?.name ?? '')) === safeName(desired.p1.name)
+        && safeName(String(row.p2?.name ?? '')) === safeName(desired.p2.name)
+        && row.challengeId === desired.challengeId
+        && row.clanWarId === desired.clanWarId
+        && row.clanWarChallengeId === desired.clanWarChallengeId
+        && row.rankedMatchId === desired.rankedMatchId
+        && row.rankedKind === desired.rankedKind
+        && row.rewardAuthority === desired.rewardAuthority
+        && row.rewardSector === desired.rewardSector
+        && isDeepStrictEqual(row.worldAttacker, desired.worldAttacker)
+        && (row.status === 'active' || row.status === 'done');
 }
 
 async function quarantineUnconfirmedPlayerRankedSession(
@@ -306,19 +433,46 @@ async function quarantineUnconfirmedPlayerRankedSession(
     throw new Error('player-ranked-quarantine-busy');
 }
 
+async function rollbackExactUnownedPvpSession(expected: PvpSession): Promise<void> {
+    const key = `pvp:${expected.battleId}`;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+        const current = await kv.get<unknown>(key);
+        if (current === null) return;
+        if (!isDeepStrictEqual(current, expected)) {
+            throw new Error('pvp-session-publication-rollback-conflict');
+        }
+        try {
+            if (await kv.delIfEqual(key, current)) return;
+        } catch (error) {
+            const recovered = await kv.get<unknown>(key);
+            if (recovered === null) return;
+            throw error;
+        }
+    }
+    throw new Error('pvp-session-publication-rollback-busy');
+}
+
 export function pvpSessionMayReward(session: Pick<PvpSession, 'rewardAuthority' | 'joined'>): boolean {
     return !!session.rewardAuthority && session.joined?.p1 === true && session.joined?.p2 === true;
 }
 
 export function sealedWorldRaidAttacker(
     session: Pick<PvpSession, 'rewardAuthority' | 'worldAttacker' | 'p1' | 'p2'>,
-): { side: 'p1' | 'p2'; name: string } | null {
+): { side: 'p1' | 'p2'; name: string; village: string; clan: string } | null {
     if (session.rewardAuthority !== 'world') return null;
     const side = session.worldAttacker?.side;
     const name = safeName(String(session.worldAttacker?.name ?? ''));
     if ((side !== 'p1' && side !== 'p2') || !name) return null;
     const fighterName = safeName(String(side === 'p1' ? session.p1.name : session.p2.name));
-    return fighterName === name ? { side, name } : null;
+    if (fighterName !== name) return null;
+    const fighter = side === 'p1' ? session.p1 : session.p2;
+    const sealedVillage = String(fighter.character?.village ?? '').trim();
+    const sealedClan = String(fighter.character?.clan ?? '').trim();
+    if (session.worldAttacker?.village !== undefined
+        && String(session.worldAttacker.village).trim() !== sealedVillage) return null;
+    if (session.worldAttacker?.clan !== undefined
+        && String(session.worldAttacker.clan).trim() !== sealedClan) return null;
+    return { side, name, village: sealedVillage, clan: sealedClan };
 }
 
 /**
@@ -330,11 +484,15 @@ export function pvpSessionMayGrantProgress(
     session: Pick<
         PvpSession,
         'rewardAuthority' | 'joined' | 'baseRewards' | 'ranked' | 'rankedKind'
+        | 'progressionAuthorityVersion'
         | 'playerRankedAuthorityVersion' | 'rankedMatchId' | 'rankedSeasonId' | 'rankedSeasonEpoch'
     >,
 ): boolean {
     return pvpSessionMayReward(session)
-        && (session.baseRewards === true || session.ranked === true || isPlayerRankedV2Session(session));
+        && (session.progressionAuthorityVersion === 1
+            || session.baseRewards === true
+            || session.ranked === true
+            || isPlayerRankedV2Session(session));
 }
 // A single floating-number event, already mapped to a concrete fighter slot.
 export type HitFxTarget = { target: 'p1' | 'p2'; amount: number; kind: 'damage' | 'heal' };
@@ -1365,17 +1523,99 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // is open. Generous budget per IP so two players + spectators can
         // share an IP, but block obvious abuse (≥10 polls/sec sustained).
         if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000))) return;
+        if (String(req.query.pending ?? '') === '1') {
+            const identity = await authedPlayerOrAdmin(req);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+            const requestedPlayer = safeName(String(
+                req.query.playerName ?? (identity.admin ? '' : identity.name),
+            ));
+            if (!requestedPlayer) return res.status(400).json({ error: 'Missing playerName.' });
+            if (!identity.admin && identity.name !== requestedPlayer) {
+                return res.status(403).json({ error: 'Can only restore your own PvP session.' });
+            }
+            res.setHeader('Cache-Control', 'no-store');
+            try {
+                const pointer = await loadPvpPendingSessionPointer(kv, requestedPlayer);
+                if (!pointer) return res.status(404).json({ error: 'No pending PvP session.' });
+                const liveRaw = await kv.get<unknown>(`pvp:${pointer.battleId}`);
+                if (parsePlayerRankedSessionCloseTombstone(liveRaw)?.battleId === pointer.battleId
+                    || parsePlayerRankedSessionOrphanTombstone(liveRaw)?.battleId === pointer.battleId
+                    || pvpSessionHasRankedCloseFence(liveRaw)) {
+                    await clearPvpPendingSessionPointer(kv, requestedPlayer, pointer.battleId, pointer.createdAt, pointer.role);
+                    return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
+                }
+                let session = liveRaw as PvpSession | null;
+                if (!session) session = await loadPvpRewardRecoverySnapshot(kv, pointer.battleId);
+                if (!session && pvpPendingReservationIsFresh(pointer)) {
+                    return res.status(503).json({ error: 'PvP session publication is still finalizing.' });
+                }
+                if (!session || !pendingPointerMatchesSession(pointer, session)) {
+                    await clearPvpPendingSessionPointer(kv, requestedPlayer, pointer.battleId, pointer.createdAt, pointer.role);
+                    return res.status(404).json({ error: 'Pending PvP session expired.' });
+                }
+                if (session.status === 'done') {
+                    if (liveRaw) session = await ensurePvpTerminalRecoveryPublication(
+                        kv,
+                        pointer.battleId,
+                        session,
+                    );
+                    if (!session.winner) {
+                        await clearPvpPendingSessionPointer(kv, requestedPlayer, pointer.battleId, pointer.createdAt, pointer.role);
+                        return res.status(404).json({ error: 'PvP session has no pending completion.' });
+                    }
+                    const outcome = session.winner === 'draw'
+                        ? 'draw'
+                        : session.winner === pointer.role ? 'win' : 'loss';
+                    const receipt = await kv.get<unknown>(`pvp:rewarded:${requestedPlayer}:${pointer.battleId}`);
+                    const completion = pvpRewardCompletionStatus(receipt);
+                    if (completion === 'invalid') {
+                        return res.status(503).json({ error: 'PvP completion receipt is unavailable.' });
+                    }
+                    if (completion === 'completed') {
+                        await clearPvpPendingSessionPointer(kv, requestedPlayer, pointer.battleId, pointer.createdAt, pointer.role);
+                        return res.status(404).json({ error: 'PvP completion already confirmed.' });
+                    }
+                    return res.status(200).json({
+                        battleId: pointer.battleId,
+                        role: pointer.role,
+                        outcome,
+                        session,
+                    });
+                }
+                return res.status(200).json({
+                    battleId: pointer.battleId,
+                    role: pointer.role,
+                    session,
+                });
+            } catch (error) {
+                console.error('[pvp/session] pending recovery failed', error);
+                return res.status(503).json({ error: 'Pending PvP recovery is temporarily unavailable.' });
+            }
+        }
         const battleId = String(req.query.id ?? '');
         if (!battleId) return res.status(400).json({ error: 'Missing id' });
+        // Absence and close-fence responses participate in mount-time
+        // reconciliation too. Never let a CDN/browser cache the first 404 and
+        // hide a session that finishes publishing during the bounded retry.
+        res.setHeader('Cache-Control', 'no-store');
         const sessionRaw = await kv.get<unknown>(`pvp:${battleId}`);
         if (!sessionRaw) return res.status(404).json({ error: 'Session not found' });
         if (parsePlayerRankedSessionCloseTombstone(sessionRaw)?.battleId === battleId
-            || parsePlayerRankedSessionOrphanTombstone(sessionRaw)?.battleId === battleId) {
+            || parsePlayerRankedSessionOrphanTombstone(sessionRaw)?.battleId === battleId
+            || pvpSessionHasRankedCloseFence(sessionRaw)) {
             return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
         }
-        const session = sessionRaw as PvpSession;
-        // Never cache battle state — both fighters poll every ~1s and need fresh data
-        res.setHeader('Cache-Control', 'no-store');
+        let session = sessionRaw as PvpSession;
+        if (session.status === 'done') {
+            try {
+                session = await ensurePvpTerminalRecoveryPublication(kv, battleId, session);
+            } catch (error) {
+                console.error('[pvp/session] terminal recovery publication pending', error);
+                return res.status(503).json({
+                    error: 'Battle recovery publication is still finalizing. Retry this session.',
+                });
+            }
+        }
         return res.status(200).json(session);
     }
 
@@ -1435,6 +1675,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const p1Norm = safeName(String(p1Name));
             const p2Norm = safeName(String(p2Name));
+            const creatorRole: 'p1' | 'p2' | null = identity.admin
+                ? null
+                : identity.name === p1Norm ? 'p1' : 'p2';
+
+            const requestedBattleId = String(clientBattleId ?? '').trim().toLowerCase();
+            const stableBattleIdRequested = /^pvp-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(requestedBattleId);
+            let battleId = stableBattleIdRequested ? requestedBattleId : `pvp-${randomUUID()}`;
+            const createRequestFingerprintFor = (candidateBattleId: string) => createHash('sha256').update(JSON.stringify({
+                version: 1,
+                battleId: candidateBattleId,
+                creator: identity.admin ? 'admin' : identity.name,
+                p1: p1Norm,
+                p2: p2Norm,
+                challengeId: typeof challengeId === 'string' ? challengeId : null,
+                clanWarId: typeof clanWarId === 'string' ? clanWarId : null,
+                clanWarChallengeId: typeof clanWarChallengeId === 'string' ? clanWarChallengeId : null,
+                useCurrentVitals: useCurrentVitals === true,
+                requireWorldCoLocation: requireWorldCoLocation === true,
+                ranked: ranked === true,
+                rankedKind: rankedKind ?? null,
+                rankedMatchId: rankedMatchId ?? null,
+                rankedSeasonId: rankedSeasonId ?? null,
+                rankedSeasonEpoch: rankedSeasonEpoch ?? null,
+                baseRewards: baseRewards === true,
+                rewardSector: Number.isFinite(Number(rewardSector)) ? Math.floor(Number(rewardSector)) : null,
+                biome: typeof biome === 'string' ? biome : null,
+                weatherPositiveElement: typeof weatherPositiveElement === 'string' ? weatherPositiveElement : null,
+                weatherNegativeElement: typeof weatherNegativeElement === 'string' ? weatherNegativeElement : null,
+            })).digest('hex');
 
             if (!identity.admin) {
                 const me = identity.name;
@@ -1448,6 +1717,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // winner and loser). Admins keep the override (test fights).
                 if (p1Norm && p2Norm && p1Norm === p2Norm) {
                     return res.status(400).json({ error: 'You cannot duel yourself.' });
+                }
+                if (stableBattleIdRequested) {
+                    const existing = await kv.get<PvpSession>(`pvp:${battleId}`);
+                    if (existing) {
+                        const exactRetry = existing.battleId === battleId
+                            && safeName(existing.p1?.name ?? '') === p1Norm
+                            && safeName(existing.p2?.name ?? '') === p2Norm
+                            && existing.createRequestFingerprint === createRequestFingerprintFor(battleId)
+                            && (existing.status === 'active' || existing.status === 'done');
+                        if (!exactRetry) {
+                            return res.status(409).json({ error: 'That stable battle capability is already bound to another session.' });
+                        }
+                        if (existing.status === 'done') {
+                            const completion = pvpRewardCompletionStatus(await kv.get<unknown>(
+                                `pvp:rewarded:${identity.name}:${battleId}`,
+                            ));
+                            if (completion === 'invalid') {
+                                return res.status(503).json({ error: 'The completed battle receipt is malformed.' });
+                            }
+                            if (completion === 'completed') {
+                                return res.status(200).json({
+                                    battleId,
+                                    session: existing,
+                                    rewardAuthorized: !!existing.rewardAuthority,
+                                    resumed: true,
+                                    completionConfirmed: true,
+                                });
+                            }
+                        }
+                        const pointer = pendingPointerForSessionRole(existing, creatorRole!, 'active');
+                        if (pointer) {
+                            await publishPvpPendingSessionPointer(kv, pointer);
+                            await activatePvpPendingSessionPointer(
+                                kv,
+                                pointer.playerName,
+                                pointer.battleId,
+                                pointer.createdAt,
+                                pointer.createRequestFingerprint,
+                            );
+                        }
+                        return res.status(200).json({
+                            battleId,
+                            session: existing,
+                            rewardAuthorized: !!existing.rewardAuthority,
+                            resumed: true,
+                        });
+                    }
                 }
                 if (await findTowerBattleStartConflict([p1Norm, p2Norm])) {
                     return res.status(409).json(towerBattleActiveErrorBody());
@@ -1581,22 +1897,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
-            // Server-generated battleId. We used to accept a client-supplied
-            // id (for optimistic navigation) — but that let an attacker
-            // pre-claim guessable ids to later scrape via /api/pvp/stream
-            // (which is unauth by design for EventSource compat). Server-only
-            // ids close that scrape vector. The client just waits the ~50ms
-            // round trip for the id before navigating; UX impact is invisible.
-            void clientBattleId; // intentionally ignored
-            // Crypto-random id: knowing a battleId grants read access to the
-            // session + SSE stream + chat (GET is unauth by design for
-            // EventSource), so it doubles as a capability token. The old
-            // `Date.now()-Math.random().slice(2,9)` suffix was only ~36^7 and
-            // time-seeded — brute-forceable within a timestamp window. A UUIDv4
-            // (122 bits of entropy) closes the scrape vector. Same `pvp-`
-            // prefix so all existing key/route patterns are unchanged.
-            let battleId = `pvp-${randomUUID()}`;
-
             const clanWarRequested = typeof clanWarId === 'string' || typeof clanWarChallengeId === 'string';
             const clanWarReservation = !identity.admin && typeof clanWarId === 'string' && typeof clanWarChallengeId === 'string'
                 ? await reserveClanWarPvpSession({
@@ -1613,7 +1913,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (clanWarReservation && !clanWarReservation.owned) {
                 const existing = await kv.get<PvpSession>(`pvp:${clanWarReservation.battleId}`);
-                if (existing) return res.status(200).json({ battleId: existing.battleId, session: existing, rewardAuthorized: !!existing.rewardAuthority });
+                if (existing) {
+                    const canonical = existing.battleId === clanWarReservation.battleId
+                        && existing.rewardAuthority === 'clan-war'
+                        && existing.clanWarId === clanWarReservation.warId
+                        && existing.clanWarChallengeId === clanWarReservation.challengeId
+                        && safeName(existing.p1?.name ?? '') === clanWarReservation.p1
+                        && safeName(existing.p2?.name ?? '') === clanWarReservation.p2;
+                    if (!canonical) {
+                        return res.status(409).json({ error: 'The canonical Clan War battle authority is inconsistent.' });
+                    }
+                    return res.status(200).json({
+                        battleId: existing.battleId,
+                        session: existing,
+                        rewardAuthorized: !!existing.rewardAuthority,
+                        canonicalResume: true,
+                    });
+                }
                 return res.status(409).json({ error: 'The clan-war battle is still being created. Retry in a moment.' });
             }
 
@@ -1646,6 +1962,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 'ranked' | 'rankedKind' | 'p1Rating' | 'p2Rating'
                 | 'rankedMatchId' | 'rankedSeasonId' | 'rankedSeasonEpoch'> = {};
             let playerRankedAdmissionAuthority: PlayerRankedAdmission | null = null;
+            let petRankedProofPending = false;
             if (ranked === true && (rankedKind === 'player' || rankedKind === 'pet')) {
                 if (rankedKind === 'player') {
                     if (typeof rankedMatchId !== 'string'
@@ -1725,10 +2042,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         };
                     }
                 } else {
-                    const proven = await consumeRankedMatchToken(p1Norm, p2Norm, 'pet');
+                    const proven = await proveRankedMatchTokenForBattle(
+                        p1Norm,
+                        p2Norm,
+                        'pet',
+                        battleId,
+                    );
                     if (!proven) {
                         return res.status(409).json({ error: 'A current server-ranked match proof is required.' });
                     }
+                    petRankedProofPending = true;
                     const ratingOf = (save: Record<string, unknown> | null): number => {
                         const c = (save?.character ?? null) as Record<string, unknown> | null;
                         const r = Number(c?.petRankedRating);
@@ -1765,7 +2088,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const p1Presence = onlineStore.get(p1Norm);
             const p2Presence = onlineStore.get(p2Norm);
             const claimedRewardSector = Math.floor(Number(rewardSector));
-            const worldAttackVerified =
+            let sessionCreatedAt = Date.now();
+            if (stableBattleIdRequested && creatorRole) {
+                const priorPointer = await loadPvpPendingSessionPointer(kv, identity.admin ? '' : identity.name);
+                const expectedFingerprint = createRequestFingerprintFor(battleId);
+                if (priorPointer?.battleId === battleId
+                    && priorPointer.role === creatorRole
+                    && priorPointer.phase === 'reserving'
+                    && pvpPendingReservationIsFresh(priorPointer)
+                    && priorPointer.createRequestFingerprint === expectedFingerprint) {
+                    const existingRow = await kv.get<unknown>(`pvp:${battleId}`);
+                    if (existingRow === null) sessionCreatedAt = priorPointer.createdAt;
+                }
+            }
+            let worldAttackVerified =
                 useCurrentVitals === true
                 && requireWorldCoLocation === true
                 && !!p1Save?.character
@@ -1774,6 +2110,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && claimedRewardSector > 0
                 && p1Presence?.sector === claimedRewardSector
                 && p2Presence?.sector === claimedRewardSector;
+            let worldTerritoryEvidence: PvpSession['worldTerritoryEvidence'];
+            if (worldAttackVerified) {
+                try {
+                    const worldActorName = identity.admin ? '' : identity.name;
+                    const attackerSave = worldActorName === p1Norm ? p1Save : p2Save;
+                    const attackerChar = attackerSave?.character as Record<string, unknown>;
+                    const attackerClan = String(attackerChar?.clan ?? '').trim();
+                    const attackerVillage = String(attackerChar?.village ?? '').trim();
+                    const territory = await kv.get<Record<string, unknown>>(`world:territory:${claimedRewardSector}`);
+                    const ownerClan = String(territory?.ownerClan ?? '').trim();
+                    const ownerVillage = String(territory?.ownerVillage ?? '').trim();
+                    const controls = (!!ownerClan && ownerClan === attackerClan)
+                        || (!!ownerVillage && ownerVillage === attackerVillage);
+                    const guards = Array.isArray(territory?.guards)
+                        ? territory!.guards!.map((guard) => safeName(String(guard))).filter(Boolean).slice(0, 20)
+                        : [];
+                    let raidDamage = 0;
+                    if (ownerClan && !controls) {
+                        const villageKey = ownerVillage.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const villageState = await kv.get<{ anbuAppointees?: unknown }>(
+                            `game:village-state:${villageKey}`,
+                        );
+                        const anbu = new Set(Array.isArray(villageState?.anbuAppointees)
+                            ? villageState.anbuAppointees.map((name) => safeName(String(name))).filter(Boolean)
+                            : []);
+                        const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
+                        raidDamage = anbuCount > 0
+                            ? Math.max(50, 250 - anbuCount * 50)
+                            : guards.length > 0 ? 150 : 250;
+                    }
+                    worldTerritoryEvidence = {
+                        version: 1,
+                        sector: claimedRewardSector,
+                        ownerClan,
+                        ownerVillage,
+                        raidDamage,
+                        observedAt: sessionCreatedAt,
+                    };
+                } catch (error) {
+                    console.error('[pvp/session] world territory evidence unavailable', error);
+                    worldAttackVerified = false;
+                }
+            }
 
             const rewardAuthority: PvpSession['rewardAuthority'] = identity.admin
                 ? 'admin'
@@ -1788,9 +2167,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             : undefined;
             const worldAttacker = rewardAuthority === 'world' && !identity.admin
                 ? identity.name === p1Norm
-                    ? { side: 'p1' as const, name: p1Norm }
+                    ? {
+                        side: 'p1' as const,
+                        name: p1Norm,
+                        village: String((p1Save?.character as Record<string, unknown>)?.village ?? '').trim(),
+                        clan: String((p1Save?.character as Record<string, unknown>)?.clan ?? '').trim(),
+                    }
                     : identity.name === p2Norm
-                        ? { side: 'p2' as const, name: p2Norm }
+                        ? {
+                            side: 'p2' as const,
+                            name: p2Norm,
+                            village: String((p2Save?.character as Record<string, unknown>)?.village ?? '').trim(),
+                            clan: String((p2Save?.character as Record<string, unknown>)?.clan ?? '').trim(),
+                        }
                         : null
                 : null;
 
@@ -1892,8 +2281,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const playerRankedV2 = rankedStamp.rankedKind === 'player'
                 && typeof rankedStamp.rankedMatchId === 'string';
+            const realFighters = { p1: !!p1Save?.character, p2: !!p2Save?.character };
+            let warRoleEvidence: SealedWarRoleEvidence | undefined;
+            if (rewardAuthority && realFighters.p1 && realFighters.p2) {
+                const p1Village = String((p1Save?.character as Record<string, unknown>)?.village ?? '').trim();
+                const p2Village = String((p2Save?.character as Record<string, unknown>)?.village ?? '').trim();
+                if (p1Village && p2Village) {
+                    const [p1Role, p2Role] = await Promise.all([
+                        sectorWarRoleOf(p1Norm, p1Village),
+                        sectorWarRoleOf(p2Norm, p2Village),
+                    ]);
+                    warRoleEvidence = {
+                        version: 1,
+                        sealedAt: sessionCreatedAt,
+                        p1: { village: p1Village, role: { ...p1Role } },
+                        p2: { village: p2Village, role: { ...p2Role } },
+                    };
+                }
+            }
+            const p1SealedCharges = sealItemCharges(
+                finalP1Character,
+                (p1Save?.character as Record<string, unknown>) ?? null,
+            );
+            const p2SealedCharges = sealItemCharges(
+                finalP2Character,
+                (p2Save?.character as Record<string, unknown>) ?? null,
+            );
             const session: PvpSession = {
                 battleId,
+                createRequestFingerprint: createRequestFingerprintFor(battleId),
+                stateRevision: INITIAL_PVP_STATE_REVISION,
                 p1: makeFighter(p1HomeTerrain ? { ...finalP1Character, homeTerrainType: p1HomeTerrain } : finalP1Character, P1_START, useCurrentVitals === true),
                 p2: makeFighter(p2HomeTerrain ? { ...finalP2Character, homeTerrainType: p2HomeTerrain } : finalP2Character, P2_START, useCurrentVitals === true),
                 round: 1,
@@ -1905,8 +2322,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 status: 'active',
                 winner: null,
                 ...(rewardAuthority ? { rewardAuthority } : {}),
+                ...(progressionAuthority ? { progressionAuthorityVersion: 1 as const } : {}),
                 ...(worldAttacker ? { worldAttacker } : {}),
+                ...(rewardAuthority === 'world' && worldTerritoryEvidence ? { worldTerritoryEvidence } : {}),
+                ...(warRoleEvidence ? { warRoleEvidence } : {}),
                 ...(challengeReservation ? { challengeId: challengeReservation.id } : {}),
+                ...(challengeReservation?.kageDuelAuthority
+                    ? { kageDuelAuthority: challengeReservation.kageDuelAuthority }
+                    : {}),
                 ...(clanWarReservation ? {
                     clanWarId: clanWarReservation.warId,
                     clanWarChallengeId: clanWarReservation.challengeId,
@@ -1915,25 +2338,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     p1: identity.admin || identity.name === p1Norm,
                     p2: identity.admin || identity.name === p2Norm,
                 },
-                createdAt: Date.now(),
-                lastMoveAt: Date.now(),
+                createdAt: sessionCreatedAt,
+                lastMoveAt: sessionCreatedAt,
                 // Snapshot environment so /api/pvp/move can't be tricked into
                 // applying a different biome / weather mid-fight.
                 biome: sealedBiome,
                 weatherPositiveElement: sealedWeatherPos,
                 weatherNegativeElement: sealedWeatherNeg,
-                // Seal each fighter's per-fight consumable budget from their save
-                // (potion capped). move.ts decrements on use; claim-rewards
-                // deducts itemsUsed from the save at settlement.
+                // Real-player inventory is mutable outside the battle and cannot
+                // be atomically escrowed with this two-save session creation.
+                // V1 therefore pins every real-side consumable/throwable to zero;
+                // NPC behavior stays sealed as before.
                 itemCharges: {
-                    p1: sealItemCharges(finalP1Character, (p1Save?.character as Record<string, unknown>) ?? null),
-                    p2: sealItemCharges(finalP2Character, (p2Save?.character as Record<string, unknown>) ?? null),
+                    p1: realFighters.p1
+                        ? zeroPlayerRankedItemCharges(finalP1Character, p1SealedCharges)
+                        : p1SealedCharges,
+                    p2: realFighters.p2
+                        ? zeroPlayerRankedItemCharges(finalP2Character, p2SealedCharges)
+                        : p2SealedCharges,
                 },
                 itemsUsed: { p1: {}, p2: {} },
+                pvpConsumableAuthorityVersion: 1,
+                pvpCompletionAuthorityVersion: 1,
+                vanguardRewardAuthorityVersion: 2,
                 // Which sides are real players (see the type). Sealed here so
                 // claim-rewards can settle BOTH fighters' consumables from either
                 // claim without ever touching a same-named NPC's "save".
-                realFighters: { p1: !!p1Save?.character, p2: !!p2Save?.character },
+                realFighters,
                 ...rankedStamp,
                 ...baseRewardStamp,
                 ...(playerRankedV2 ? {
@@ -1967,9 +2398,111 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } : {}),
             };
 
+            // Reserve only the authenticated creator's recovery slot before the
+            // session row becomes visible. The unjoined opponent is never
+            // indexed by an unsolicited create; their own authenticated join
+            // reserves their slot before publishing joined=true in move.ts.
+            const creatorPointer = creatorRole
+                ? pendingPointerForSessionRole(session, creatorRole, 'reserving')
+                : null;
+            let creatorPointerCreated = false;
+            let creatorReservation = creatorPointer;
+            if (creatorPointer) {
+                try {
+                    const reservation = await publishPvpPendingSessionPointer(kv, creatorPointer);
+                    creatorPointerCreated = reservation.created;
+                    creatorReservation = reservation.pointer;
+                } catch (error) {
+                    if (!(error instanceof Error) || !error.message.startsWith('pvp-pending-session-conflict:')) {
+                        throw error;
+                    }
+                    const current = await loadPvpPendingSessionPointer(kv, creatorPointer.playerName);
+                    const currentRaw = current
+                        ? await kv.get<unknown>(`pvp:${current.battleId}`)
+                        : null;
+                    const currentSession = current && currentRaw && !pvpSessionHasRankedCloseFence(currentRaw)
+                        ? currentRaw as PvpSession
+                        : current
+                            ? await loadPvpRewardRecoverySnapshot(kv, current.battleId)
+                            : null;
+                    let stale = !current;
+                    if (current && !currentSession) stale = !pvpPendingReservationIsFresh(current);
+                    if (current && currentSession) stale = !pendingPointerMatchesSession(current, currentSession);
+                    if (!stale && currentSession?.status === 'done') {
+                        if (!currentSession.winner) {
+                            stale = true;
+                        } else {
+                            const receipt = await kv.get<unknown>(
+                                `pvp:rewarded:${current!.playerName}:${current!.battleId}`,
+                            );
+                            stale = pvpRewardCompletionStatus(receipt) === 'completed';
+                        }
+                    }
+                    if (stale && current) {
+                        await clearPvpPendingSessionPointer(
+                            kv,
+                            current.playerName,
+                            current.battleId,
+                            current.createdAt,
+                            current.role,
+                        );
+                        const reservation = await publishPvpPendingSessionPointer(kv, creatorPointer);
+                        creatorPointerCreated = reservation.created;
+                        creatorReservation = reservation.pointer;
+                    } else {
+                        if (challengeReservation) {
+                            await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
+                        }
+                        if (clanWarReservation) {
+                            await releaseClanWarPvpReservation(clanWarReservation);
+                        }
+                        return res.status(409).json({
+                            error: 'Finish the pending PvP battle settlement before starting another battle.',
+                            ...(current ? { battleId: current.battleId, role: current.role } : {}),
+                        });
+                    }
+                }
+            }
+
+            // Reserve the recovery slot before consuming the one-shot pet
+            // admission. Consumption is bound to this stable battle id, so an
+            // ambiguous response retries instead of burning a fresh proof.
+            if (petRankedProofPending) {
+                const consumed = await consumeRankedMatchTokenForBattle(
+                    p1Norm,
+                    p2Norm,
+                    'pet',
+                    battleId,
+                );
+                if (!consumed) {
+                    if (creatorPointer) {
+                        await clearPvpPendingSessionPointer(
+                            kv,
+                            creatorPointer.playerName,
+                            creatorPointer.battleId,
+                            creatorPointer.createdAt,
+                            creatorPointer.role,
+                        );
+                    }
+                    if (challengeReservation) {
+                        await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
+                    }
+                    if (clanWarReservation) {
+                        await releaseClanWarPvpReservation(clanWarReservation);
+                    }
+                    return res.status(409).json({ error: 'That pet-ranked proof was already bound to another battle.' });
+                }
+            }
+
             let publishedSession = session;
             try {
                 const sessionKey = `pvp:${battleId}`;
+                if (creatorReservation) {
+                    await requirePvpPendingSessionOwnership(kv, creatorReservation);
+                }
+                if (clanWarReservation?.owned) {
+                    await requireClanWarPvpReservation(clanWarReservation);
+                }
                 if (rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId) {
                     const placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
                     if (!placed) {
@@ -1985,26 +2518,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         publishedSession = existing;
                     }
                 } else {
-                    // Keep the legacy overwrite behavior for every non-player-
-                    // ranked session. The NX/lost-ack protocol is scoped to the
-                    // battle id already sealed into a player-ranked admission.
-                    await kv.set(sessionKey, session, { ex: SESSION_TTL });
+                    const placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
+                    if (!placed) {
+                        let existing = await kv.get<unknown>(sessionKey);
+                        if (!pvpSessionMatchesCreateRetry(existing, session)) {
+                            throw new Error('pvp-session-capability-conflict');
+                        }
+                        publishedSession = existing;
+                    }
                 }
             } catch (writeError) {
                 const recovered = await kv.get<PvpSession>(`pvp:${battleId}`).catch(() => null);
                 const admission = rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId
                     ? await getPlayerRankedAdmission(kv, rankedStamp.rankedMatchId).catch(() => null)
                     : null;
-                if (recovered && admission && playerRankedSessionMatchesAdmission(recovered, admission)) {
+                if (recovered && (
+                    (admission && playerRankedSessionMatchesAdmission(recovered, admission))
+                    || (!admission && isDeepStrictEqual(recovered, session))
+                )) {
                     publishedSession = recovered;
                 } else {
                     if (challengeReservation) {
                         await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
                     }
                     if (clanWarReservation) {
-                        await releaseClanWarPvpReservation(clanWarReservation).catch(() => undefined);
+                        await releaseClanWarPvpReservation(clanWarReservation);
+                    }
+                    if (creatorPointerCreated && creatorPointer) {
+                        await clearPvpPendingSessionPointer(
+                            kv,
+                            creatorPointer.playerName,
+                            creatorPointer.battleId,
+                            creatorPointer.createdAt,
+                            creatorPointer.role,
+                        );
                     }
                     throw writeError;
+                }
+            }
+            if (clanWarReservation?.owned) {
+                try {
+                    await requireClanWarPvpReservation(clanWarReservation);
+                } catch (error) {
+                    if (isDeepStrictEqual(publishedSession, session)) await rollbackExactUnownedPvpSession(session);
+                    if (creatorPointer) {
+                        await clearPvpPendingSessionPointer(
+                            kv,
+                            creatorPointer.playerName,
+                            creatorPointer.battleId,
+                            creatorPointer.createdAt,
+                            creatorPointer.role,
+                        );
+                    }
+                    console.error('[pvp/session] Clan War reservation lost during publication', error);
+                    return res.status(503).json({
+                        error: 'The Clan War battle reservation changed before publication. Retry the challenge.',
+                    });
                 }
             }
             if (rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId) {
@@ -2022,7 +2591,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (playerRankedAdmissionAuthority) {
                         await quarantineUnconfirmedPlayerRankedSession(playerRankedAdmissionAuthority);
                     }
+                    if (creatorPointerCreated && creatorPointer) {
+                        await clearPvpPendingSessionPointer(
+                            kv,
+                            creatorPointer.playerName,
+                            creatorPointer.battleId,
+                            creatorPointer.createdAt,
+                            creatorPointer.role,
+                        );
+                    }
                     return res.status(409).json({ error: 'The season closed before this ranked session became authoritative.' });
+                }
+            }
+            if (creatorPointer) {
+                try {
+                    if (creatorReservation) {
+                        await requirePvpPendingSessionOwnership(kv, creatorReservation);
+                    }
+                    await activatePvpPendingSessionPointer(
+                        kv,
+                        creatorPointer.playerName,
+                        creatorPointer.battleId,
+                        creatorPointer.createdAt,
+                        creatorPointer.createRequestFingerprint,
+                    );
+                } catch (error) {
+                    const recoveredPointer = await loadPvpPendingSessionPointer(
+                        kv,
+                        creatorPointer.playerName,
+                    );
+                    const exactPointer = recoveredPointer
+                        && recoveredPointer.battleId === creatorPointer.battleId
+                        && recoveredPointer.role === creatorPointer.role
+                        && recoveredPointer.createdAt === creatorPointer.createdAt
+                        && recoveredPointer.createRequestFingerprint === creatorPointer.createRequestFingerprint
+                        ? recoveredPointer
+                        : null;
+                    // A lost activation acknowledgement is successful only when
+                    // the exact body transition is readable. Otherwise remove
+                    // the exact unpublished generation and its still-reserving
+                    // pointer so the same stable request can retry immediately.
+                    if (exactPointer?.phase === 'active') {
+                        // Exact readback proves activation; continue to success.
+                    } else {
+                        if (isDeepStrictEqual(publishedSession, session)) {
+                            await rollbackExactUnownedPvpSession(session);
+                        }
+                        if (exactPointer?.phase === 'reserving') {
+                            await clearPvpPendingSessionPointer(
+                                kv,
+                                exactPointer.playerName,
+                                exactPointer.battleId,
+                                exactPointer.createdAt,
+                                exactPointer.role,
+                            );
+                        }
+                        console.error('[pvp/session] pending-session activation failed', error);
+                        return res.status(503).json({
+                            error: 'The battle is published but its recovery pointer is still finalizing. Retry the same request.',
+                            battleId,
+                        });
+                    }
                 }
             }
             // Return the full session alongside the id so the client can seed

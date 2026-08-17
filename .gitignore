@@ -447,6 +447,10 @@ shinobij.client/.playwright-dist-*/
 qa-*.jpeg
 qa-*.png
 
+# Scratch server build a focused test compiles into; 15MB of duplicated api/
+# output that `git add -A` will otherwise stage.
+.tmp-merc-test-build/
+
 # Disposable authenticated load-test credentials and local evidence
 load-accounts*.json
 presence-load-evidence*.json

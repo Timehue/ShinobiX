@@ -64,6 +64,11 @@ export type ChallengeSessionReservation = {
     to: string;
     mode: PlayerChallengeMode;
     battleId: string;
+    kageDuelAuthority?: {
+        version: 1;
+        village: string;
+        challengeId: string;
+    };
 };
 
 /**
@@ -93,6 +98,15 @@ export async function reserveChallengeForPvpSession(args: {
         // Pet-only protocols do not create the hex-grid PvP session.
         if (record.mode === 'clanWarPet' || record.mode === 'rankedPet') return null;
 
+        const kageVillage = typeof record.challenge.kageVillage === 'string'
+            ? record.challenge.kageVillage.trim()
+            : '';
+        const kageChallengeId = typeof record.challenge.kageChallengeId === 'string'
+            ? record.challenge.kageChallengeId.trim()
+            : '';
+        if (!!kageVillage !== !!kageChallengeId) {
+            throw new Error('kage-duel-challenge-authority-incomplete');
+        }
         const next: AuthoritativeChallengeRecord = {
             ...record,
             status: 'session-started',
@@ -106,6 +120,13 @@ export async function reserveChallengeForPvpSession(args: {
             to: record.to,
             mode: record.mode,
             battleId: args.battleId,
+            ...(kageVillage && kageChallengeId ? {
+                kageDuelAuthority: {
+                    version: 1 as const,
+                    village: kageVillage,
+                    challengeId: kageChallengeId,
+                },
+            } : {}),
         };
     }, { failClosed: true });
 }

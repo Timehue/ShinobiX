@@ -21,6 +21,8 @@ import { useClaimOutboxDrain } from "./lib/claim-outbox";
 import {
     enqueueRaidReport,
     flushRaidReportOutbox,
+    postPvpRaidReport,
+    requireRaidReportAcknowledgement,
     type RaidReportDrainResult,
 } from "./lib/raid-report-outbox";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
@@ -136,7 +138,7 @@ export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
     baseStats,
     normalizeStats,
-    maxedStats, applyStatGrowth,
+    maxedStats,
     maxHpForLevel,
     maxChakraForLevel,
     maxStaminaForLevel,
@@ -202,6 +204,9 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
+import { fetchPendingPvpRecovery, fetchPendingPvpRecoveryWithRetry, readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
+import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "./lib/pvp-session-create";
+import { usePvpSessionController } from "./lib/use-pvp-session-controller";
 import type { OwnSaveReadAnchor, OwnSaveReadResult } from "./lib/own-save-read"; const loadOwnSaveRead = () => import("./lib/own-save-read");
 import { playerRankedAuthorityFromChallenge } from "./lib/player-ranked-authority";
 const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
@@ -233,12 +238,11 @@ import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles } from "./lib/combat-ai";
-import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
-import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
+import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, saveVillageState, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
-import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
+import { confirmSectorBattleRegistration } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
@@ -383,10 +387,12 @@ import {
     playerSlug,
 } from "./lib/utils";
 
+import type { PvpWinBaseSummary } from "./lib/progression";
 import {
-    applyServerBaseReward, type PvpWinBaseSummary,
-} from "./lib/progression";
-import type { PvpRewardClaimConfirmed } from "./lib/pvp-reward-claim";
+    readPvpOwnerSaveForContinuation,
+    type PvpRewardClaimConfirmed,
+    type PvpRewardContinuationContext,
+} from "./lib/pvp-reward-claim";
 
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
@@ -479,18 +485,7 @@ export type DuelChallenge = {
     declined?: boolean;
 };
 
-export type SharedPvpBattleContext = {
-    mode?: DuelChallenge["mode"];
-    clanWarPoints?: number;
-    sectorAttack?: boolean;
-    raidKind?: "raidPlayer" | "defense";
-    sector?: number;
-    kageChallengeId?: string;
-    kageVillage?: string;
-    // Set when the PvP session was launched via a new-system clan-war
-    // challenge so the battle screen can wire the post-battle report.
-    clanWarChallengeId?: string;
-};
+export type SharedPvpBattleContext = PvpRecoveryContext;
 
 // Creator AI definition types (AiCondition, AiAction, AiLoadoutId, AiRule,
 // CreatorAi) moved to ./types/creator-ai and imported back near the top of
@@ -1714,17 +1709,31 @@ export default function App() {
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
     const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [worldStateVersion, setWorldStateVersion] = useState(0);
-    const refreshWorldStateSnapshot = useCallback(async () => {
+    const refreshWorldStateSnapshot = useCallback(async (continuation?: PvpRewardContinuationContext) => {
+        const requireContinuation = () => {
+            if (continuation && (continuation.signal.aborted || !continuation.isCurrentScope())) {
+                throw new DOMException("PvP completion scope changed.", "AbortError");
+            }
+        };
+        requireContinuation();
         if (!capabilityAdmissionAllowed(viewAvailability())) return;
         try {
             const response = await fetch(WORLD_STATE_API, {
                 cache: "no-cache",
-                signal: AbortSignal.timeout(12000),
+                signal: continuation
+                    ? AbortSignal.any([continuation.signal, AbortSignal.timeout(12000)])
+                    : AbortSignal.timeout(12000),
             });
+            requireContinuation();
             if (!response.ok) return;
             const data = await response.json();
+            requireContinuation();
             if (hydrateSharedWorldState(data)) setWorldStateVersion((version) => version + 1);
-        } catch {
+        } catch (error) {
+            if (continuation) {
+                requireContinuation();
+                if (error instanceof DOMException && error.name === "AbortError") throw error;
+            }
             // The normal 15-second poll retries offline/transient failures.
         }
     }, [viewAvailability]);
@@ -1896,68 +1905,22 @@ export default function App() {
     }, []);
     const [acceptedMissionIds, setAcceptedMissionIds] = useState<string[]>([]);
     const [missionProgress, setMissionProgress] = useState<Record<string, number>>({});
+    const saveSessionEpochRef = useRef(0);
+    const pvpCreateScopeAbortRef = useRef(new AbortController());
     const [activeJutsuTraining, setActiveJutsuTraining] = useState<ActiveJutsuTraining | null>(null);
     const [, setPendingAiProfileId] = useState("");
-    const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
-    const [pvpBattleResolved, setPvpBattleResolved] = useState(false);
-    // Tracks when the current PvP battle began, used for the <15s "quick
-    // surrender" anti-abuse check on Vanguard Seal rewards.
-    const pvpBattleStartedAtRef = useRef<number>(0);
+    const { pvpBattleId, setPvpBattleId, pvpRole, setPvpRole,
+        pvpBattleContext, setPvpBattleContext, pvpSeedSession, setPvpSeedSession,
+        pvpCompletionConfirmed, setPvpCompletionConfirmed, installPvpRecovery, installPvpBreadcrumb, clearPvpBattleState,
+    } = usePvpSessionController({ characterName: character?.name, accountSessionEpoch: saveSessionEpochRef.current, restoringSession, storageKey: PVP_SESSION_KEY });
+    const pvpContinuationResultRef = useRef(new Map<string, {
+        bounty: Awaited<ReturnType<typeof claimBountyOnWin>> | undefined;
+        missionCompletions: Array<{ id: string; name: string; xpReward: number }> | undefined;
+    }>());
+    const pvpCompletionUiRef = useRef(new Set<string>());
     useEffect(() => {
-        if (pvpBattleId) pvpBattleStartedAtRef.current = Date.now();
-        else pvpBattleStartedAtRef.current = 0;
-    }, [pvpBattleId]);
-    const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
-    const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
-    // Seeds PvpBattleScreen with the freshly created session payload so it
-    // can render the grid on first paint instead of showing the "Connecting
-    // to battle session..." card while a redundant GET round trip resolves.
-    // The /api/pvp/session POST now returns the full session alongside the
-    // battleId; the call sites that initiate a fight stash the response
-    // here. PvpBattleScreen only consumes the seed when its battleId
-    // matches, so a stale seed left over from a previous fight is ignored.
-    const [pvpSeedSession, setPvpSeedSession] = useState<PvpSessionState | null>(null);
-    useEffect(() => { setPvpBattleResolved(false); }, [pvpBattleId]);
-    function clearPvpBattleState() {
-        setPvpBattleId(null);
-        setPvpRole(null);
-        setPvpBattleContext(null);
-        setPvpSeedSession(null);
-        setPvpBattleResolved(false);
-    }
-    function exitResolvedPvpBattle(target: Screen) {
-        clearPvpBattleState();
-        setScreen(target);
-    }
-    useEffect(() => {
-        if (screen !== "pvpBattle" && pvpBattleResolved && pvpBattleId) clearPvpBattleState();
-    }, [screen, pvpBattleResolved, pvpBattleId]);
-    // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
-    // breadcrumb whenever the local client enters/exits a PvP battle, so a
-    // browser refresh can re-fetch the server-side session and resume.
-    // Also stores pvpBattleContext (mode/sector/clanWar/kage metadata) so
-    // win-handlers compute correct rewards on resume.
-    useEffect(() => {
-        try {
-            // Do not erase the crash-recovery breadcrumb during the initial
-            // async save restore. pvpBattleId necessarily starts null; the
-            // snapshot loader reads this key and installs the real id/role a
-            // moment later. Clearing it on the mount effect made refresh-flee
-            // possible and prevented the live layout/reconnect path entirely.
-            if (restoringSession && !pvpBattleId) return;
-            if (pvpBattleId && character?.name) {
-                localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({
-                    owner: accountKey(character.name),
-                    pvpBattleId,
-                    pvpRole,
-                    pvpBattleContext,
-                    savedAt: Date.now(),
-                }));
-            } else {
-                localStorage.removeItem(PVP_SESSION_KEY);
-            }
-        } catch { /* quota / SSR */ }
-    }, [pvpBattleId, pvpRole, pvpBattleContext, restoringSession, character?.name]);
+        if (screen !== "pvpBattle" && pvpCompletionConfirmed && pvpBattleId) clearPvpBattleState();
+    }, [screen, pvpCompletionConfirmed, pvpBattleId]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [storyFightOpen, setStoryFightOpen] = useState(false); // sealed story-lane fights are body portals, so `screen` never changes — screen-keyed chrome checks this instead
     // Set when a sector gambler deals the player into Chronicle Showdown.
@@ -2159,7 +2122,14 @@ export default function App() {
     // outcome and only applies HP damage once. Players never need
     // to click an "I won" button; the report flows through the
     // game's own win/loss handlers.
-    const autoReportClanWarBattleResult = useCallback(async (youWon: boolean | "draw", opponentName?: string) => {
+    const autoReportClanWarBattleResult = useCallback(async (
+        youWon: boolean | "draw",
+        opponentName?: string,
+        continuation?: PvpRewardContinuationContext,
+    ) => {
+        if (continuation && (continuation.signal.aborted || !continuation.isCurrentScope())) {
+            throw new DOMException("PvP completion scope changed.", "AbortError");
+        }
         if (!character) return;
         let stashed: unknown;
         try {
@@ -2214,8 +2184,13 @@ export default function App() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ warId: s.warId, challengeId: s.challengeId, result }),
+                ...(continuation ? { signal: continuation.signal } : {}),
             });
             const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(String(data?.error ?? `Clan-war report failed (HTTP ${r.status}).`));
+            if (continuation && (continuation.signal.aborted || !continuation.isCurrentScope())) {
+                throw new DOMException("PvP completion scope changed.", "AbortError");
+            }
             // Only clear the stash on a finalized report (both sides
             // matched, or the tentative auto-confirmed). Leave it in
             // place during the tentative phase so the OTHER side's
@@ -2224,7 +2199,10 @@ export default function App() {
             if (r.ok && data?.tentative === false) {
                 try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
             }
-        } catch { /* network blip; the other side's report will still finalize */ }
+        } catch (error) {
+            if (continuation) throw error;
+            // Non-PvP callers retain the old best-effort behavior.
+        }
     }, [character]);
 
     // Launch helper for clan-war challenges. ClanBattlesTab calls this
@@ -2277,42 +2255,45 @@ export default function App() {
                     alert("This accepted Clan War duel is missing its server match details. Refresh and try again.");
                     return;
                 }
+                const ownerName = character.name;
                 void (async () => {
-                    let lastError = "Could not create the authoritative Clan War battle.";
-                    for (let attempt = 0; attempt < 4; attempt += 1) {
-                        if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, 300 * attempt));
+                    const createScope = capturePvpCreateScope(ownerName);
+                    const requestBody = stringifyPvpSessionPayload({
+                        clanWarId: inferredWarId,
+                        clanWarChallengeId: ch.id,
+                        baseRewards: true,
+                        ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
+                        p1Character: { name: p1Name },
+                        p2Character: { name: p2Name },
+                    });
+                    try {
+                        const result = await createPvpSessionWithRecovery(fetch, ownerName, requestBody, {
+                            signal: createScope.signal, isCurrent: createScope.isCurrent,
+                        });
+                        if (!createScope.isCurrent()) return;
+                        if (result.kind === "recovered") {
+                            installPvpRecovery(result.pending);
+                            setScreen("pvpBattle");
+                            return;
+                        }
+                        if (result.kind === "rejected") return void alert(result.error);
+                        const battleId = result.kind === "created" ? result.battleId : result.battleId;
                         try {
-                            const response = await fetch("/api/pvp/session", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: stringifyPvpSessionPayload({
-                                    clanWarId: inferredWarId,
-                                    clanWarChallengeId: ch.id,
-                                    baseRewards: true,
-                                    ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
-                                    p1Character: { name: p1Name },
-                                    p2Character: { name: p2Name },
-                                }),
-                            });
-                            const data = await response.json().catch(() => null) as { battleId?: string; session?: PvpSessionState; error?: string } | null;
-                            if (response.ok && data?.battleId && data.session) {
-                                try {
-                                    const raw = sessionStorage.getItem("clanWarChallenge.v1");
-                                    const stashed = raw ? JSON.parse(raw) as Record<string, unknown> : {};
-                                    sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({ ...stashed, battleId: data.battleId }));
-                                } catch { /* optional resume breadcrumb */ }
-                                setPvpSeedSession(data.session);
-                                setPvpBattleId(data.battleId);
-                                setPvpRole(onFromSide ? "p1" : "p2");
-                                setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id });
-                                setScreen("pvpBattle");
-                                return;
-                            }
-                            lastError = data?.error || lastError;
-                            if (response.status !== 409) break;
-                        } catch { /* bounded retry */ }
+                            const raw = sessionStorage.getItem("clanWarChallenge.v1");
+                            const stashed = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+                            sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({ ...stashed, battleId }));
+                        } catch { /* optional resume breadcrumb */ }
+                        if (result.kind === "created") setPvpSeedSession(result.session);
+                        setPvpBattleId(battleId);
+                        setPvpRole(onFromSide ? "p1" : "p2");
+                        setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id });
+                        setScreen("pvpBattle");
+                        if (result.kind === "ambiguous") alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+                    } catch (error) {
+                        if (createScope.isCurrent() && !(error instanceof DOMException && error.name === "AbortError")) {
+                            alert("Could not create the authoritative Clan War battle.");
+                        }
                     }
-                    alert(lastError);
                 })();
                 break;
             }
@@ -2360,13 +2341,14 @@ export default function App() {
             if (war.endedAt) continue;
             for (const ch of war.pendingChallenges) {
                 if (ch.status !== "accepted") continue;
-                if (autoLaunchedClanWarChallenges.current.has(ch.id)) continue;
+                const launchKey = `${accountKey(character.name)}:${saveSessionEpochRef.current}:${ch.id}`;
+                if (autoLaunchedClanWarChallenges.current.has(launchKey)) continue;
                 const iAmParticipant = (ch.fromPlayer ?? "").toLowerCase() === me
                     || (ch.fromPlayer2 ?? "").toLowerCase() === me
                     || (ch.acceptedPlayer ?? "").toLowerCase() === me
                     || (ch.acceptedPlayer2 ?? "").toLowerCase() === me;
                 if (!iAmParticipant) continue;
-                autoLaunchedClanWarChallenges.current.add(ch.id);
+                autoLaunchedClanWarChallenges.current.add(launchKey);
                 launchClanWarBattle(ch, war.id);
                 return; // launch one at a time
             }
@@ -2418,9 +2400,9 @@ export default function App() {
 
     // Multiplayer heartbeat — keeps server presence alive and detects incoming attacks
     const characterRef = useRef<Character | null>(null);
-    useEffect(() => { characterRef.current = character; }, [character]);
+    useLayoutEffect(() => { characterRef.current = character; }, [character]);
     const currentAccountNameRef = useRef(currentAccountName);
-    useEffect(() => { currentAccountNameRef.current = currentAccountName; }, [currentAccountName]);
+    useLayoutEffect(() => { currentAccountNameRef.current = currentAccountName; }, [currentAccountName]);
     const screenRef = useRef<Screen>(screen);
     useEffect(() => { screenRef.current = screen; }, [screen]);
     // Step 3 realtime: true while the Socket.IO presence channel is connected.
@@ -2511,7 +2493,7 @@ export default function App() {
             screen: screenSnapshot,
             raidBattleKind,
             pvpBattleId,
-            pvpBattleResolved,
+            pvpBattleResolved: pvpCompletionConfirmed,
             endlessBattleActive,
             pendingArenaStoryBattle: !!pendingArenaStoryBattle,
             pendingEventEncounter: !!pendingEventEncounter,
@@ -2727,7 +2709,7 @@ export default function App() {
         return () => { retireHeartbeat(); clearInterval(id); };
     }, [
         gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
-        raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle,
+        raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
         pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
         petBattleActive,
     ]);
@@ -3136,10 +3118,7 @@ export default function App() {
                     ? challenge.challengerJutsus.map(normalizeJutsu)
                     : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
             const p2Jutsus = getPvpJutsuLoadout(p2SavedBloodlines, p2CreatorJutsus, p2Character);
-            const res = await fetch('/api/pvp/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({
+            const createBody = stringifyPvpSessionPayload({
                     challengeId: challenge.id,
                     // Sector attacks bring current vitals; spar/ranked reset to full.
                     useCurrentVitals: !!challenge.sectorAttack,
@@ -3195,38 +3174,44 @@ export default function App() {
                         itemLifeStealPct: getEquippedItemBonus(p2Character, p2AllItems, "lifeStealPercent"),
                         itemShield:       getEquippedItemBonus(p2Character, p2AllItems, "shield"),
                     },
-                }),
+                });
+            const createScope = capturePvpCreateScope(acceptingCharacter.name);
+            const createResult = await createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody, {
+                signal: createScope.signal,
+                isCurrent: () => acceptanceIsCurrent() && createScope.isCurrent(),
             });
             if (!acceptanceIsCurrent()) return;
-            if (!res.ok) throw new Error('Session create failed');
-            // Capture both battleId and the full session payload — POST returns
-            // the freshly-created session so PvpBattleScreen can render the
-            // grid on first paint instead of flashing the "Connecting…" card.
-            // Same pattern wired into sectorAttackPlayer / startPvpRaid; this
-            // brings ranked / clan-war / spar / standard accepts to the same
-            // bar.
-            const acceptData = await res.json() as { battleId: string; session?: PvpSessionState };
-            if (!acceptanceIsCurrent()) return;
-            const battleId = acceptData.battleId;
-            // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
-            const acceptedNotice: DuelChallenge = { ...challenge, battleId, accepted: true, fromName: acceptingCharacter.name, toName: challenge.fromName };
-            const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });
-            if (!acceptanceIsCurrent()) return;
-
-            if (acceptData.session) setPvpSeedSession(acceptData.session);
+            if (createResult.kind === "recovered") {
+                installPvpRecovery(createResult.pending);
+                setScreen("pvpBattle");
+                return;
+            }
+            if (createResult.kind === "rejected") throw new Error(createResult.error);
+            if (createResult.kind === "ambiguous") {
+                setPvpBattleId(createResult.battleId);
+                setPvpRole("p2");
+                setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
+                setScreen("pvpBattle");
+                alert("The acceptance response was interrupted. Reconnecting to the authoritative session…");
+                return;
+            }
+            const battleId = createResult.battleId;
+            setPvpSeedSession(createResult.session);
             setPvpBattleId(battleId);
             setPvpRole("p2");
             setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
-            if (challenge.kageVillage) {
-                // Kage engaged — halt the challenger's accept-obligation clock.
-                fetch("/api/village/kage-challenge", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "accept", village: challenge.kageVillage, playerName: acceptingCharacter.name, battleId }),
-                }).catch(() => {});
-            }
             setScreen("pvpBattle");
-            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
+            // Publication is authoritative; route the accepter before advisory
+            // notification so a hung notice cannot strand a live session.
+            const acceptedNotice: DuelChallenge = { ...challenge, battleId, accepted: true, fromName: acceptingCharacter.name, toName: challenge.fromName };
+            void postPlayerChallengeNotice(challenge.fromName, acceptedNotice, {
+                shouldContinue: () => acceptanceIsCurrent() && createScope.isCurrent(),
+                signal: createScope.signal,
+            }).then((notified) => {
+                if (!notified && acceptanceIsCurrent() && createScope.isCurrent()) {
+                    alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
+                }
+            });
         } catch {
             if (!acceptanceIsCurrent()) return;
             setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
@@ -3257,6 +3242,10 @@ export default function App() {
             prevCharRef.current = normalized;
             charDirtyRef.current = false;
             scopeSaveAuthorityToAccount(snap.character.name);
+            const restoredPvpScope = {
+                ownerName: snap.character.name,
+                accountSessionEpoch: saveSessionEpochRef.current,
+            };
             // Capture the server-issued save version on the refresh/boot load too
             // (applyServerSnapshot already does this on the login/409 paths). Without
             // it, latestSaveVersionRef stays 0 after a refresh, so the first autosave
@@ -3295,63 +3284,32 @@ export default function App() {
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
             if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
             if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
-            // Restore the screen the player left off on instead of always
-            // dumping them back into the village. Mid-encounter screens are
-            // remapped because their React-only ephemeral state (battle
-            // frames, pending opponents, pending modals) can't actually
-            // resume from disk.
-            // Restore PvP session breadcrumb if any — lets the pvpBattle
-            // screen re-query the server's authoritative session state.
-            // Stale-check at 1hr in case the player walked away from a
-            // crashed match. The PvpBattle component's mount fetches the
-            // session and resyncs from server state.
-            //
-            // Forced re-entry rule: if the breadcrumb restores AND the
-            // server confirms the session is still alive, the player is
-            // FORCED back into the pvpBattle screen regardless of which
-            // screen they were on. PvP fairness — you can't refresh-flee
-            // a duel.
+            // Route browser breadcrumbs immediately; the authenticated pointer
+            // repairs private-mode and terminal-completion reloads.
             let restoredPvpBattleId: string | null = null;
             let pvpSessionAliveOnServer = false;
-            try {
-                const raw = localStorage.getItem(PVP_SESSION_KEY);
-                if (raw) {
-                    const parsed = JSON.parse(raw) as {
-                        owner?: string;
-                        pvpBattleId?: string;
-                        pvpRole?: "p1" | "p2";
-                        pvpBattleContext?: SharedPvpBattleContext;
-                        savedAt?: number;
-                    };
-                    const age = Date.now() - (parsed.savedAt ?? 0);
-                    const expectedOwner = accountKey(String(snap.character.name ?? ""));
-                    if (parsed.owner === expectedOwner && parsed.pvpBattleId && age < 60 * 60 * 1000) {
-                        restoredPvpBattleId = parsed.pvpBattleId;
-                        setPvpBattleId(parsed.pvpBattleId);
-                        if (parsed.pvpRole) setPvpRole(parsed.pvpRole);
-                        if (parsed.pvpBattleContext) setPvpBattleContext(parsed.pvpBattleContext);
-                        // Best-effort server check (non-blocking) — if the
-                        // session no longer exists or is "done", clear the
-                        // breadcrumb so a stale crash doesn't trap them.
-                        void fetch(`/api/pvp/session?id=${encodeURIComponent(parsed.pvpBattleId)}`)
-                            .then((r) => r.ok ? r.json() : null)
-                            .then((data: { status?: string } | null) => {
-                                if (!data || data.status === "done") {
-                                    try { localStorage.removeItem(PVP_SESSION_KEY); } catch { /* ignore */ }
-                                    clearPvpBattleState();
-                                }
-                            })
-                            .catch(() => { /* network blip; leave breadcrumb in place */ });
-                        // For routing purposes we trust the breadcrumb at
-                        // boot — server check is async and may resolve
-                        // after we've rendered. If it's stale, the
-                        // PvpBattleScreen itself will fall back.
-                        pvpSessionAliveOnServer = true;
-                    } else {
-                        localStorage.removeItem(PVP_SESSION_KEY);
-                    }
-                }
-            } catch { /* corrupt or missing — ignore */ }
+            let pvpStorage: Storage | null = null;
+            try { pvpStorage = localStorage; } catch { /* private mode */ }
+            const browserPvp = readPvpBrowserBreadcrumb(
+                pvpStorage,
+                PVP_SESSION_KEY,
+                accountKey(String(snap.character.name ?? "")),
+            );
+            if (browserPvp) {
+                restoredPvpBattleId = browserPvp.pvpBattleId;
+                installPvpBreadcrumb({
+                    battleId: browserPvp.pvpBattleId,
+                    role: browserPvp.pvpRole,
+                    context: browserPvp.pvpBattleContext,
+                }, restoredPvpScope);
+                pvpSessionAliveOnServer = true;
+            }
+            const recoveryScope = capturePvpCreateScope(snap.character.name);
+            void fetchPendingPvpRecoveryWithRetry(fetch, snap.character.name, recoveryScope).then((pending) => {
+                if (!pending || !recoveryScope.isCurrent()) return;
+                installPvpRecovery(pending, restoredPvpScope);
+                setScreen("pvpBattle");
+            }).catch(() => { /* offline: retain the browser recovery route */ });
 
             // Pet PvP refresh-resilience: a pet PvP battle is fully
             // client-deterministic (same seed → same outcome on both
@@ -4130,7 +4088,7 @@ export default function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
+    }, [screen, raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
 
     // Image category loader — fetches from shared KV store and hydrates
     // embedded image fields so all existing display code works without changes.
@@ -4569,11 +4527,12 @@ export default function App() {
     // save exists the server requires this base to equal its version exactly.
     const latestSaveVersionRef = useRef<number>(0);
     const saveAuthorityAccountKeyRef = useRef("");
-    const saveSessionEpochRef = useRef(0);
 
     function scopeSaveAuthorityToAccount(accountName: string): number {
         const accountKey = saveConflictAccountKey(accountName);
         if (saveAuthorityAccountKeyRef.current !== accountKey) {
+            pvpCreateScopeAbortRef.current.abort();
+            pvpCreateScopeAbortRef.current = new AbortController();
             saveAuthorityAccountKeyRef.current = accountKey;
             latestSaveVersionRef.current = 0;
             savePayloadRevisionRef.current = 0;
@@ -4584,6 +4543,8 @@ export default function App() {
         return saveSessionEpochRef.current;
     }
     function resetSaveAuthorityScope(): void {
+        pvpCreateScopeAbortRef.current.abort();
+        pvpCreateScopeAbortRef.current = new AbortController();
         saveAuthorityAccountKeyRef.current = "";
         latestSaveVersionRef.current = 0;
         savePayloadRevisionRef.current = 0;
@@ -4602,6 +4563,17 @@ export default function App() {
         const previousVersion = latestSaveVersionRef.current, decision = acceptVersionedSnapshot(previousVersion, incomingVersion);
         if (!decision.accepted) return "stale"; if (decision.latestVersion > previousVersion) savePersistenceRef.current?.invalidateAuthority();
         latestSaveVersionRef.current = decision.latestVersion; return "accepted";
+    }
+    function capturePvpCreateScope(accountName: string): { signal: AbortSignal; isCurrent: () => boolean } {
+        const accountKey = saveConflictAccountKey(accountName);
+        const sessionEpoch = saveSessionEpochRef.current;
+        const controller = pvpCreateScopeAbortRef.current;
+        return {
+            signal: controller.signal,
+            isCurrent: () => controller === pvpCreateScopeAbortRef.current
+                && !controller.signal.aborted
+                && isCurrentSaveSession(accountKey, sessionEpoch),
+        };
     }
     async function adoptOwnSaveRead(anchor: OwnSaveReadAnchor, settledCharacter: Character | null | undefined, settledVersion: unknown): Promise<OwnSaveReadResult> {
         if (settledCharacter && saveConflictAccountKey(settledCharacter.name) !== anchor.accountKey) return "foreign";
@@ -4872,12 +4844,28 @@ export default function App() {
         latestSnapshotRef: latestSaveRef, mutationAvailability, isPresenceBattleActive, persistSave,
     });
 
-    // Reflection log: append a finished battle to the rolling last-N history
-    // (Profile → Battles). Functional update so it merges onto the latest
-    // post-reward character state; the standard autosave persists it (a
-    // character change marks the save dirty). Display-only — no reward gating.
-    const recordBattle = useCallback((entry: BattleHistoryEntry) => {
-        setCharacter(prev => prev ? { ...prev, battleHistory: appendBattleHistory(prev.battleHistory, entry) } : prev);
+    // Reflection log: merge onto the synchronous authoritative save ref after
+    // claim projection, then require a durable exact-version save before ACK.
+    const recordBattle = useCallback(async (entry: BattleHistoryEntry, continuation?: PvpRewardContinuationContext) => {
+        if (!continuation) {
+            setCharacter(prev => prev ? { ...prev, battleHistory: appendBattleHistory(prev.battleHistory, entry) } : prev);
+            return;
+        }
+        if (continuation.signal.aborted || !continuation.isCurrentScope()) throw new DOMException("PvP completion scope changed.", "AbortError");
+        const snapshot = latestSaveRef.current;
+        if (!snapshot || saveConflictAccountKey(snapshot.name) !== activeSaveAccountKey()) {
+            throw new Error("PvP battle history lost its account scope.");
+        }
+        const next = { ...snapshot.character, battleHistory: appendBattleHistory(snapshot.character.battleHistory, entry) };
+        installAuthoritativeSaveRef({
+            name: snapshot.name,
+            revision: snapshot.revision,
+            payload: { ...snapshot.payload, character: next },
+        });
+        const installed = latestSaveRef.current!.character;
+        setCharacter(installed);
+        await pushSaveToServer(installed, snapshot.name);
+        if (continuation.signal.aborted || !continuation.isCurrentScope()) throw new DOMException("PvP completion scope changed.", "AbortError");
     }, []);
 
     // Save on page unload (F5 / tab close / navigation away) so that progress
@@ -5403,68 +5391,100 @@ export default function App() {
 
     const appliedRaidReportUiRef = useRef(new Set<string>());
 
-    async function mirrorExactRaidMissionCredits(missionIds: readonly string[], expectedOwnerKey: string) {
-        if (!expectedOwnerKey || playerSlug(characterRef.current?.name ?? "") !== expectedOwnerKey) return;
-        const missionCatalog = await loadMissionCatalog().catch(() => null);
-        if (!missionCatalog || playerSlug(characterRef.current?.name ?? "") !== expectedOwnerKey) return;
-        const { allProgressMissions, missionRaidProgressKey, missionRaidRequirement } = missionCatalog;
-        const raidMissions = allProgressMissions(creatorMissions).filter((mission) =>
-            mission.type === "fetchExplore" && missionRaidRequirement(mission) > 0
-        );
-        const exactIds = new Set(missionIds);
-        const credited = raidMissions.filter((mission) => exactIds.has(mission.id));
-        if (credited.length === 0) return;
-        setMissionProgress((current) => {
-            const next = { ...current };
-            credited.forEach((mission) => {
-                const key = missionRaidProgressKey(mission.id);
-                next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
-            });
-            return next;
-        });
-    }
-
-    async function applyRaidReportDrain(result: RaidReportDrainResult): Promise<void> {
-        const ownerKey = playerSlug(result.playerName);
-        if (!ownerKey || playerSlug(characterRef.current?.name ?? "") !== ownerKey) return;
-        for (const acknowledged of result.acknowledgements) {
-            if (appliedRaidReportUiRef.current.has(acknowledged.entry.battleId)) continue;
-            appliedRaidReportUiRef.current.add(acknowledged.entry.battleId);
-            if (acknowledged.character) {
-                commitVersionedCharacter(acknowledged.character, acknowledged.saveVersion);
+    async function mirrorExactRaidMissionCredits(
+        missionIds: readonly string[],
+        expectedOwnerKey: string,
+        continuation?: PvpRewardContinuationContext,
+    ) {
+        const requireCurrentOwner = () => {
+            const current = !!expectedOwnerKey && playerSlug(characterRef.current?.name ?? "") === expectedOwnerKey;
+            if (continuation && (continuation.signal.aborted || !continuation.isCurrentScope() || !current)) {
+                throw new DOMException("PvP completion scope changed.", "AbortError");
             }
-            if (acknowledged.territoryDamage > 0) void refreshWorldStateSnapshot();
-            await mirrorExactRaidMissionCredits(acknowledged.fetchMissionsCredited, ownerKey);
-            for (const mission of acknowledged.missionsCompleted) {
-                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                    detail: { name: mission.name, xp: mission.xpReward, profession: 'vanguard' },
-                }));
-            }
-            // Re-project the server receipt rather than trusting the +1 mirror.
-            // This makes a lost report ACK followed by reload immediately claimable.
-            const missionId = acknowledged.fetchMissionsCredited[0];
+            return current;
+        };
+        if (!requireCurrentOwner()) return;
+        for (const missionId of [...new Set(missionIds)]) {
             if (!missionId) continue;
-            const state = await postFieldTrail({ playerName: result.playerName, missionId, action: "state" });
-            if (playerSlug(characterRef.current?.name ?? "") !== ownerKey || !state.ok) continue;
-            if (state.character && !commitVersionedCharacter(state.character, state._saveVersion)) continue;
+            const state = await postFieldTrail({
+                playerName: characterRef.current?.name ?? "",
+                missionId,
+                action: "state",
+            }, continuation?.signal);
+            if (!requireCurrentOwner()) return;
+            if (!state.ok) {
+                if (continuation) throw new Error(state.error || "Raid mission projection could not be confirmed.");
+                continue;
+            }
+            if (state.character && !commitVersionedCharacter(state.character, state._saveVersion)) {
+                if (continuation) throw new Error("Raid mission save projection became stale.");
+                continue;
+            }
+            if (!requireCurrentOwner()) return;
             if (state.acceptedMissionIds) setAcceptedMissionIds(state.acceptedMissionIds);
+            if (!requireCurrentOwner()) return;
             if (state.missionProgress) setMissionProgress(state.missionProgress);
         }
     }
 
-    function recordMissionRaid(
+    async function applyRaidReportDrain(
+        result: RaidReportDrainResult,
+        continuation?: PvpRewardContinuationContext,
+    ): Promise<void> {
+        const ownerKey = playerSlug(result.playerName);
+        const requireCurrentOwner = () => {
+            const current = playerSlug(characterRef.current?.name ?? "") === ownerKey;
+            if (continuation && (continuation.signal.aborted || !continuation.isCurrentScope() || !current)) {
+                throw new DOMException("PvP completion scope changed.", "AbortError");
+            }
+            return current;
+        };
+        if (!ownerKey || playerSlug(characterRef.current?.name ?? "") !== ownerKey) return;
+        for (const acknowledged of result.acknowledgements) {
+            if (!requireCurrentOwner()) return;
+            if (appliedRaidReportUiRef.current.has(acknowledged.entry.battleId)) continue;
+            if (acknowledged.character) {
+                commitVersionedCharacter(acknowledged.character, acknowledged.saveVersion);
+            }
+            if (acknowledged.territoryDamage > 0) {
+                await refreshWorldStateSnapshot(continuation);
+                if (!requireCurrentOwner()) return;
+            }
+            await mirrorExactRaidMissionCredits(acknowledged.fetchMissionsCredited, ownerKey, continuation);
+            if (!requireCurrentOwner()) return;
+            for (const mission of acknowledged.missionsCompleted) {
+                if (!requireCurrentOwner()) return;
+                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                    detail: { name: mission.name, xp: mission.xpReward, profession: 'vanguard' },
+                }));
+            }
+            if (!requireCurrentOwner()) return;
+            appliedRaidReportUiRef.current.add(acknowledged.entry.battleId);
+        }
+    }
+
+    async function recordMissionRaid(
         _sector: number,
         battleId?: string,
         serverCreditedMissionIds?: readonly string[],
         expectedPlayerName = "",
-    ) {
+        continuation?: PvpRewardContinuationContext,
+    ): Promise<void> {
         const expectedOwnerKey = playerSlug(expectedPlayerName);
-        if (!expectedOwnerKey || playerSlug(characterRef.current?.name ?? "") !== expectedOwnerKey) return;
+        const requireCurrentOwner = () => {
+            const current = playerSlug(characterRef.current?.name ?? "") === expectedOwnerKey;
+            if (continuation && (continuation.signal.aborted || !continuation.isCurrentScope() || !current)) {
+                throw new DOMException("PvP completion scope changed.", "AbortError");
+            }
+            return current;
+        };
+        if (!expectedOwnerKey || !requireCurrentOwner()) return;
 
         // report-ai-fight already stamped these exact server-owned runs. Never
         // infer eligibility from the local accepted list (Apex returns none).
         if (serverCreditedMissionIds) {
-            void mirrorExactRaidMissionCredits(serverCreditedMissionIds, expectedOwnerKey);
+            await mirrorExactRaidMissionCredits(serverCreditedMissionIds, expectedOwnerKey, continuation);
+            requireCurrentOwner();
             return;
         }
 
@@ -5472,9 +5492,12 @@ export default function App() {
         if (!battleId) return;
         const owner = expectedPlayerName;
         enqueueRaidReport(owner, battleId, _sector);
-        void flushRaidReportOutbox(owner).then((result) => {
-            if (result) void applyRaidReportDrain(result);
-        });
+        requireCurrentOwner();
+        const result = await flushRaidReportOutbox(owner, undefined, postPvpRaidReport, continuation?.signal);
+        requireCurrentOwner();
+        const acknowledgement = requireRaidReportAcknowledgement(result, battleId);
+        await applyRaidReportDrain({ playerName: owner, acknowledgements: [acknowledgement] }, continuation);
+        requireCurrentOwner();
     }
 
     // Replays a lost PvP-raid ACK on login and whenever connectivity returns.
@@ -5505,7 +5528,7 @@ export default function App() {
 
     const { canGoBack, goBack, inBattleRef } = useBattleNavigationGuard({
         screen, screenRef, setScreen, hospitalized: !!character?.hospitalized,
-        raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive,
+        raidBattleKind, pvpBattleId, pvpBattleResolved: pvpCompletionConfirmed, endlessBattleActive,
         pendingArenaStoryBattle: !!pendingArenaStoryBattle,
         pendingEventEncounter: !!pendingEventEncounter,
         activeDungeonEvent: !!activeDungeonEvent,
@@ -7053,8 +7076,12 @@ export default function App() {
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
+                        capturePvpCreateScope={capturePvpCreateScope}
                         onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster }); }}
                         sectorAttackPlayer={async (opponent) => { if (!requireServerSettlement("pvpSession")) return;
+                            const createOwnerName = character.name;
+                            const createScope = capturePvpCreateScope(createOwnerName);
+                            const createIsCurrent = createScope.isCurrent;
                             if (isTraveling) {
                                 alert("You cannot attack while traveling.");
                                 return;
@@ -7080,11 +7107,6 @@ export default function App() {
                             // battleId, so the empty id just renders the
                             // loading card; once we set the real id below the
                             // effect re-runs and loads the grid.
-                            setPvpBattleId('');
-                            setPvpRole("p1");
-                            setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
-                            setScreen("pvpBattle");
-
                             // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
                             // (the full character is intentionally stripped for bandwidth). Fetch the
                             // opponent's combat save and resolve their FULL loadout — stats, armor,
@@ -7093,78 +7115,62 @@ export default function App() {
                             // (never throws) on failure, so the optimistic navigation above stays safe;
                             // the server also re-hydrates authoritatively from the save by p2Character.name.
                             const oppSave = await fetchPlayerCombatSave(opponent.name);
+                            if (!createIsCurrent()) return;
                             const oppChar = oppSave?.character ?? normalizeCharacter(opponent.character as Character);
                             const oppBloodlines = oppSave?.savedBloodlines?.length ? oppSave.savedBloodlines : savedBloodlines;
                             const oppCreatorJutsus = oppSave?.creatorJutsus?.length ? [...creatorJutsus, ...oppSave.creatorJutsus] : creatorJutsus;
                             const opponentAllItems = getAllItems(oppSave?.creatorItems?.length ? [...creatorItems, ...oppSave.creatorItems] : creatorItems);
                             const p2Jutsus = getPvpJutsuLoadout(oppBloodlines, oppCreatorJutsus, oppChar);
 
-                            let battleId = '';
-                            try {
-                                const sr = await fetch('/api/pvp/session', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: stringifyPvpSessionPayload({
-                                        // Sector attack — fighters bring current vitals.
-                                        useCurrentVitals: true,
-                                        requireWorldCoLocation: true,
-                                        // Phase 3: server credits base ryo + XP on the win.
-                                        baseRewards: true,
-                                        rewardSector: currentSector,
-                                        // Sector attacks ride the live biome/weather (not ranked).
-                                        ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
-                                        p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-                                        p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
-                                    }),
-                                });
-                                if (sr.ok) {
-                                    const data = await sr.json() as { battleId: string; session?: PvpSessionState };
-                                    battleId = data.battleId;
-                                    // Stash the session payload so PvpBattleScreen
-                                    // can render the grid on first paint instead
-                                    // of flashing the "Connecting..." card.
-                                    if (data.session) setPvpSeedSession(data.session);
-                                }
-                            } catch { /* fallback below */ }
-
-                            if (!battleId) {
-                                // Session creation failed — refuse to fall through
-                                // to the local-sim arena. That fallback used to
-                                // award PvP-win counters / Vanguard seals / ryo /
-                                // XP from a CLIENT-decided outcome, with no server
-                                // session to cross-check. Better UX: route back to
-                                // the world map with an error so the player can
-                                // retry rather than have rewards quietly inflated
-                                // (or denied) by a transient outage.
+                            const createBody = stringifyPvpSessionPayload({
+                                useCurrentVitals: true,
+                                requireWorldCoLocation: true,
+                                baseRewards: true,
+                                rewardSector: currentSector,
+                                ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
+                                p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
+                                p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+                            });
+                            setPvpBattleId(pvpStableBattleIdFromRequestBody(createBody));
+                            setPvpRole("p1");
+                            setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
+                            const createResult = await createPvpSessionWithRecovery(fetch, createOwnerName, createBody, {
+                                signal: createScope.signal, isCurrent: createIsCurrent,
+                            });
+                            if (!createIsCurrent()) return;
+                            if (createResult.kind === "recovered") {
+                                installPvpRecovery(createResult.pending);
+                                setScreen("pvpBattle");
+                                return;
+                            }
+                            if (createResult.kind === "rejected") {
                                 setPvpBattleId('');
                                 setPvpSeedSession(null);
                                 setRaidBattleKind("none");
                                 setScreen("worldMap");
-                                alert("Couldn't reach the battle server. Please try the attack again in a moment.");
+                                alert(createResult.error);
                                 return;
                             }
-
-                            // Surface the real battleId — PvpBattleScreen
-                            // re-renders with both the matching seed session
-                            // and the right id, so the battle grid appears
-                            // without the loading card showing.
+                            const battleId = createResult.battleId;
+                            if (createResult.kind === "ambiguous") {
+                                setPvpBattleId(battleId);
+                                setScreen("pvpBattle");
+                                alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+                                return;
+                            }
+                            try {
+                                await confirmSectorBattleRegistration(createOwnerName, currentSector, battleId, createScope);
+                            } catch (error) {
+                                if (!createIsCurrent()) return;
+                                alert(error instanceof Error ? error.message : "The sector battle is still registering. Retry the same attack.");
+                                return;
+                            }
+                            if (!createIsCurrent()) return;
+                            setPvpSeedSession(createResult.session);
                             setPvpBattleId(battleId);
-                            // Sector War: bind this PvP to an active Combat contest on this sector
-                            // (server-gated; 404/409 = no-op). Fire-and-forget BY NECESSITY: it is
-                            // sent before the defender is even notified, so it lands well before
-                            // either fighter can move (the server requires a pristine session).
-                            // A player-facing warning on the rare genuine failure was written and
-                            // then dropped — it cost ~100B of the ENTRY chunk, which is a hard
-                            // startup gate, and that is not a trade worth making for an edge case.
-                            void registerSectorBattle(character.name, currentSector, battleId).catch(() => {});
+                            setScreen("pvpBattle");
 
-                            // Notify defender via DuelChallenge with battleId.
-                            // Fire-and-forget: the session is already live on
-                            // the server; if the defender's challenge POST
-                            // fails (e.g. they just started traveling) we
-                            // alert and bounce the attacker back to the world
-                            // map so they aren't stuck waiting on an empty
-                            // session that'll time out server-side.
+                            // Notification is advisory after session+pointer publication.
                             const challenge: DuelChallenge = {
                                 id: makeId(),
                                 fromName: character.name,
@@ -7183,9 +7189,7 @@ export default function App() {
                                 body: JSON.stringify({ targetName: opponent.name, challenge }),
                             }).then((res) => {
                                 if (!res.ok) {
-                                    alert(`${opponent.name} is traveling and cannot be attacked right now.`);
-                                    setPvpBattleId('');
-                                    setScreen("worldMap");
+                                    alert(`The battle is live, but ${opponent.name} could not be notified yet.`);
                                 }
                             }).catch(() => { /* defender notification is best-effort; session is live regardless */ });
                         }}
@@ -7420,6 +7424,8 @@ export default function App() {
 
                 {screen === "pvpBattle" && character && pvpBattleId && pvpRole && (() => {
                     const pvpOriginatingPlayerName = character.name;
+                    const pvpOriginatingSessionEpoch = saveSessionEpochRef.current;
+                    const pvpSettlementScopeKey = `${playerSlug(pvpOriginatingPlayerName)}:${pvpOriginatingSessionEpoch}:${pvpRole}:${pvpBattleId}`;
                     const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
                     const pvpItems = (["hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion"] as EquipmentSlot[])
@@ -7427,168 +7433,171 @@ export default function App() {
                         .filter((id): id is string => Boolean(id))
                         .map(id => getItemById(pvpAllItems, id))
                         .filter((item): item is GameItem => Boolean(item));
-                    function handlePvpRewardClaim(claim: PvpRewardClaimConfirmed) {
-                        if (claim.character) commitVersionedCharacter(claim.character, claim._saveVersion);
+                    function requirePvpContinuation(continuation?: PvpRewardContinuationContext): PvpRewardContinuationContext {
+                        const ownerStillCurrent = playerSlug(characterRef.current?.name ?? "") === playerSlug(pvpOriginatingPlayerName);
+                        const saveSessionStillCurrent = saveSessionEpochRef.current === pvpOriginatingSessionEpoch;
+                        if (!continuation || continuation.signal.aborted || !continuation.isCurrentScope() || !ownerStillCurrent || !saveSessionStillCurrent) {
+                            throw new DOMException("PvP completion scope changed.", "AbortError");
+                        }
+                        return continuation;
+                    }
+                    async function handlePvpRewardClaim(
+                        claim: PvpRewardClaimConfirmed,
+                        continuation?: PvpRewardContinuationContext,
+                    ): Promise<void> {
+                        requirePvpContinuation(continuation);
+                        // A lost completion ACK replays the claim snapshot. Once
+                        // this battle's local projection has landed, do not replace
+                        // it with the earlier claim row and then add its deltas again.
+                        if (claim.character && !pvpCompletionUiRef.current.has(pvpSettlementScopeKey)) {
+                            requirePvpContinuation(continuation);
+                            commitVersionedCharacter(claim.character, claim._saveVersion);
+                        }
                         const progression = claim.raidProgression;
                         if (!progression) return;
                         if (!pvpBattleId) return;
-                        if (!appliedRaidReportUiRef.current.has(pvpBattleId)) {
-                            appliedRaidReportUiRef.current.add(pvpBattleId);
-                            void mirrorExactRaidMissionCredits(progression.fetchMissionsCredited, playerSlug(pvpOriginatingPlayerName));
+                        if (!appliedRaidReportUiRef.current.has(pvpSettlementScopeKey)) {
+                            await mirrorExactRaidMissionCredits(
+                                progression.fetchMissionsCredited,
+                                playerSlug(pvpOriginatingPlayerName),
+                                continuation,
+                            );
+                            requirePvpContinuation(continuation);
                             for (const mission of progression.missionsCompleted) {
+                                requirePvpContinuation(continuation);
                                 window.dispatchEvent(new CustomEvent('profession-mission-complete', {
                                     detail: { name: mission.name, xp: mission.xpReward, profession: 'vanguard' },
                                 }));
                             }
+                            if (progression.territoryDamage > 0) {
+                                await refreshWorldStateSnapshot(continuation);
+                                requirePvpContinuation(continuation);
+                            }
+                            appliedRaidReportUiRef.current.add(pvpSettlementScopeKey);
                         }
-                        if (progression.territoryDamage > 0) void refreshWorldStateSnapshot();
+                        requirePvpContinuation(continuation);
                     }
 
-                    function handlePvpWin(_opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, serverClaim?: PvpRewardClaimConfirmed) {
+                    async function handlePvpWin(
+                        _opponentName: string,
+                        opponent?: Character,
+                        _serverRating?: { field: string; value: number; delta: number },
+                        _serverBase?: PvpWinBaseSummary,
+                        serverClaim?: PvpRewardClaimConfirmed,
+                        continuation?: PvpRewardContinuationContext,
+                    ): Promise<void> {
+                        const activeContinuation = requirePvpContinuation(continuation);
                         if (!character) return;
-                        const authoritativeCharacter = serverClaim?.character ?? character;
+                        if (!pvpBattleId) throw new Error("PvP settlement is missing its battle id.");
+                        const settledBattleId = pvpBattleId;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
                         // Hoisted here so every reward/world-state write below can skip a casual spar.
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        // Old point-based clan war system removed — see autoReportClanWarBattleResult below.
-                        if (context?.kageVillage) {
-                            // Server-authoritative Kage succession: the winner reports;
-                            // resolve reads the PvpSession and transfers/defends the seat.
-                            fetch("/api/village/kage-challenge", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "resolve", village: context.kageVillage, playerName: character.name, battleId: pvpBattleId }),
-                            }).catch(() => {});
+                        // Kage transfer is replayed from the committed terminal
+                        // session on the server. No client resolve belongs in this
+                        // completion continuation.
+
+                        let projection = pvpContinuationResultRef.current.get(pvpSettlementScopeKey);
+                        if (!projection) {
+                            projection = { bounty: undefined, missionCompletions: undefined };
+                            if (pvpContinuationResultRef.current.size >= 128) {
+                                const oldest = pvpContinuationResultRef.current.keys().next().value as string | undefined;
+                                if (oldest) pvpContinuationResultRef.current.delete(oldest);
+                            }
+                            pvpContinuationResultRef.current.set(pvpSettlementScopeKey, projection);
                         }
-                        if (!isFriendlyDuel && pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: b.balances.ryo } : c); gameToast(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
-                        // pvpBattleId is the war-damage receipt: the server refuses village-war
-                        // HP that isn't backed by a finished PvP session this player won.
-                        const villageWarRaid = context?.raidKind === "raidPlayer"
-                            ? recordVillageWarRaid(authoritativeCharacter, rewardSector, playerRoster, pvpBattleId)
-                            : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(authoritativeCharacter, opponent, rewardSector, playerRoster, pvpBattleId) : "";
-                        // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
-                        if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                        // Spars grant NOTHING (no stats/ryo/currency/scrolls/kills); ranked = no stats.
-                        let leveled = serverClaim?.character ?? (!isFriendlyDuel && serverBase ? applyServerBaseReward(character, serverBase) : character);
-                        if (!serverClaim?.character && !isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
-                        const rewarded = leveled;
-                        // Vanguard rewards (Honor Seals + profession XP + all the
-                        // daily-tracking fields) are granted server-side in
-                        // api/pvp/move.ts via grantVanguardRewardsForSession. The
-                        // server enforces level-gap, daily caps, per-target caps,
-                        // same-IP, account-age, quick-surrender, and pet-escort
-                        // bonus rules. Client doesn't touch those fields here —
-                        // the explicit refetch below pulls the server's values.
-                        setCharacter(prev => { const base = serverClaim?.character ? (prev ?? rewarded) : rewarded; return ({
-                            ...base,
-                            ...villageWarRaid.characterPatch,
-                            // ryo / fateShards include the war-ground bounty
-                            // when it fires; bountyRyo+bountyFateShards are 0
-                            // for non-raid wins or when already claimed today.
-                            ryo: base.ryo + villageWarRaid.bountyRyo,
-                            fateShards: (base.fateShards ?? 0) + villageWarRaid.bountyFateShards,
-                            auraDust: base.auraDust ?? 0,
-                            inventory: villageWarRaid.warCrate && !warCrateServerAuthEnabled()
-                                ? [...base.inventory, LEGENDARY_WAR_CRATE_ID]
-                                : base.inventory,
-                            // Stamp the canonical crate ID so claimPendingWarCrates'
-                            // next sweep skips this war (already credited inline).
-                            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId && !warCrateServerAuthEnabled()
-                                ? [...(base.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
-                                : (base.claimedWarCrateIds ?? []),
-                            totalPvpKills: base.totalPvpKills ?? 0,
-                            monthlyPvpKills: base.monthlyPvpKills ?? 0,
-                            pvpKillMonth: base.pvpKillMonth,
-                            // Read-back (audit #7 / Stage 3): when the session is
-                            // ranked the server credits the rating via claim-rewards
-                            // and returns it; without that receipt nothing changes.
-                            rankedRating: serverClaim?.character
-                                ? (base.rankedRating ?? 1000)
-                                : serverRating?.field === "rankedRating" ? serverRating.value : (base.rankedRating ?? 1000),
-                            rankedWins: serverClaim?.character
-                                ? (base.rankedWins ?? 0)
-                                : (base.rankedWins ?? 0) + (serverRating?.field === "rankedRating" && serverRating.delta > 0 ? 1 : 0),
-                        }); });
-                        // Refetch the player's own save to pick up server-side
-                        // Vanguard reward updates (honorSeals, professionXp,
-                        // professionRank, daily-cap counters, petEscortBonusReady
-                        // for clan-mates is on their saves not ours).
-                        if (!serverClaim?.character && rewarded.profession === "vanguard") {
-                            void loadOwnSaveRead().then(({ captureOwnSaveRead }) => {
-                                    const vanguardReadAnchor = captureOwnSaveRead(rewarded); return fetch(`/api/save/${encodeURIComponent(character.name)}`)
-                                        .then(r => r.ok ? r.json() : null)
-                                        .then(async data => {
-                                            const serverChar = data?.character as Character | undefined;
-                                            if (!serverChar) return;
-                                            if (await adoptOwnSaveRead(vanguardReadAnchor, serverChar, (data as Record<string, unknown> | null)?._saveVersion) !== "accepted") return;
-                                            setCharacter(prev => prev?.name.trim().toLowerCase() === vanguardReadAnchor.accountKey ? ({
-                                                ...prev,
-                                                honorSeals: serverChar.honorSeals ?? prev.honorSeals,
-                                                professionXp: serverChar.professionXp ?? prev.professionXp,
-                                                professionRank: serverChar.professionRank ?? prev.professionRank,
-                                                dailyHonorSealsEarned: serverChar.dailyHonorSealsEarned ?? prev.dailyHonorSealsEarned,
-                                                dailyHonorSealsByTarget: serverChar.dailyHonorSealsByTarget ?? prev.dailyHonorSealsByTarget,
-                                                vanguardDailyResetDate: serverChar.vanguardDailyResetDate ?? prev.vanguardDailyResetDate,
-                                            }) : prev);
-                                        });
-                                })
-                                .catch(() => { /* server is still source of truth; brief UI lag is OK */ });
+
+                        if (projection.bounty === undefined) {
+                            const bounty = isFriendlyDuel
+                                ? null
+                                : await claimBountyOnWin(pvpOriginatingPlayerName, settledBattleId, activeContinuation.signal);
+                            requirePvpContinuation(activeContinuation);
+                            projection.bounty = bounty;
                         }
+
                         // PvP raid completion — pass pvpBattleId so the server
                         // can cross-validate the win against the real PvpSession.
                         if (!isFriendlyDuel
                             && rewardSector > 0
-                            && (context?.sectorAttack || context?.raidKind === "raidPlayer")
+                            && context?.raidKind === "raidPlayer"
                             && !serverClaim?.raidProgression) {
-                            recordMissionRaid(rewardSector, pvpBattleId ?? undefined, undefined, character.name);
+                            await recordMissionRaid(rewardSector, settledBattleId, undefined, pvpOriginatingPlayerName, activeContinuation);
+                            requirePvpContinuation(activeContinuation);
                         }
-                        if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
-                        // Clan-war auto-report on win: if this PvP session
-                        // was launched from a clan-war challenge (set by
-                        // launchClanWarBattle), tell the server we won.
-                        // The loser's client fires the matching call from
-                        // its onLoss handler; the two-phase report on the
-                        // server merges them into a single damage event.
-                        // Clear clanWarChallengeId after reporting so the
-                        // next PvP fight on the same screen doesn't fire
-                        // a stale clan-war report.
-                        if (context?.clanWarChallengeId) {
-                            void autoReportClanWarBattleResult(true, opponent?.name);
-                            setPvpBattleContext(prev => prev ? { ...prev, clanWarChallengeId: undefined } : prev);
-                        }
+
+                        // Clan-war PvP is help-forwarded by claim-rewards from
+                        // the immutable terminal session. Browser storage is no
+                        // longer part of that settlement authority.
                         // Win report — server validates against the real
                         // PvpSession + its own anti-abuse rules. Feeds Vanguard
                         // mission progress AND server-side Legacy tracking, so
                         // it fires for every real (non-spar) win, any profession.
                         if (!isFriendlyDuel && opponent && !serverClaim?.raidProgression) {
-                            fetch('/api/missions/report-pvp-win', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    playerName: character.name,
-                                    battleId: pvpBattleId,
-                                    opponentName: opponent.name,
-                                }),
-                            }).then(r => r.json()).then(data => {
-                                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
-                                for (const m of completed) {
-                                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                                        detail: { name: m.name, xp: m.xpReward, profession: 'vanguard' },
-                                    }));
-                                }
-                            }).catch(() => { /* mission progress is best-effort */ });
+                            if (projection.missionCompletions === undefined) {
+                                const response = await fetch('/api/missions/report-pvp-win', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        playerName: pvpOriginatingPlayerName,
+                                        battleId: settledBattleId,
+                                        opponentName: opponent.name,
+                                    }),
+                                    signal: activeContinuation.signal,
+                                });
+                                const data = await response.json().catch(() => ({}));
+                                if (!response.ok) throw new Error(String(data?.error ?? `Mission settlement failed (HTTP ${response.status}).`));
+                                requirePvpContinuation(activeContinuation);
+                                projection.missionCompletions = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                            }
+                        } else if (projection.missionCompletions === undefined) {
+                            projection.missionCompletions = [];
                         }
+
+                        // Read the owner save only after every remote mutation. It
+                        // includes bounty/mission/version changes and gives replay a
+                        // stable base instead of incrementing the render closure.
+                        const ownerSave = await readPvpOwnerSaveForContinuation(pvpOriginatingPlayerName, activeContinuation);
+                        requirePvpContinuation(activeContinuation);
+
+                        if (!pvpCompletionUiRef.current.has(pvpSettlementScopeKey)) {
+                            const versionDecision = acceptVersionedSnapshot(latestSaveVersionRef.current, ownerSave.version);
+                            requirePvpContinuation(activeContinuation);
+                            pvpCompletionUiRef.current.add(pvpSettlementScopeKey);
+                            if (versionDecision.accepted) {
+                                if (!commitVersionedCharacter(ownerSave.character, ownerSave.version)) {
+                                    pvpCompletionUiRef.current.delete(pvpSettlementScopeKey);
+                                    throw new Error("PvP owner save became stale before projection.");
+                                }
+                            }
+
+                            if (projection.bounty) {
+                                requirePvpContinuation(activeContinuation);
+                                gameToast(`💰 Bounty: +${projection.bounty.amount.toLocaleString()} ryo for defeating ${projection.bounty.target}!`);
+                            }
+                            for (const mission of projection.missionCompletions ?? []) {
+                                requirePvpContinuation(activeContinuation);
+                                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                                    detail: { name: mission.name, xp: mission.xpReward, profession: 'vanguard' },
+                                }));
+                            }
+                        }
+                        requirePvpContinuation(activeContinuation);
                     }
                     return (
                         <PvpBattleScreen
+                            key={`${playerSlug(pvpOriginatingPlayerName)}:${pvpOriginatingSessionEpoch}:${pvpRole}:${pvpBattleId}`}
                             character={character}
+                            accountSessionEpoch={saveSessionEpochRef.current}
+                            isAccountSessionCurrent={() => (
+                                saveSessionEpochRef.current === pvpOriginatingSessionEpoch
+                                && playerSlug(characterRef.current?.name ?? "") === playerSlug(pvpOriginatingPlayerName)
+                            )}
                             battleId={pvpBattleId}
                             role={pvpRole}
                             setScreen={navigate}
-                            onViewBattleRecord={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
+                            onViewBattleRecord={(battleId) => { setViewedBattleId(battleId); navigate("battleLog"); }}
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
@@ -7604,30 +7613,27 @@ export default function App() {
                             battleMode={pvpBattleContext?.mode ?? "standard"}
                             onWin={handlePvpWin}
                             onRewardClaim={handlePvpRewardClaim}
-                            onResolved={() => setPvpBattleResolved(true)}
-                            onExit={exitResolvedPvpBattle}
+                            onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
+                            onExit={(target) => { clearPvpBattleState(); setScreen(target); }}
                             onRecordBattle={recordBattle}
-                            onLoss={(opponent, serverRating, serverClaim) => {
-                                // Clan-war auto-report on loss — mirror of
-                                // handlePvpWin's call so both clients
-                                // confirm the same outcome on the server.
-                                // Clear clanWarChallengeId after reporting so
-                                // the next PvP fight doesn't fire a stale
-                                // clan-war report.
-                                if (pvpBattleContext?.clanWarChallengeId) {
-                                    void autoReportClanWarBattleResult(false, opponent?.name);
-                                    setPvpBattleContext(prev => prev ? { ...prev, clanWarChallengeId: undefined } : prev);
+                            onLoss={async (_opponent, _serverRating, serverClaim, continuation) => {
+                                const activeContinuation = requirePvpContinuation(continuation);
+                                if (!pvpCompletionUiRef.current.has(pvpSettlementScopeKey)) {
+                                    // onRewardClaim normally adopted this exact server
+                                    // save. If an older response omitted it, read the
+                                    // authoritative row; never replay `losses + 1` from
+                                    // a render closure.
+                                    if (pvpBattleContext?.mode === "ranked" && !serverClaim?.character) {
+                                        const ownerSave = await readPvpOwnerSaveForContinuation(pvpOriginatingPlayerName, activeContinuation);
+                                        requirePvpContinuation(activeContinuation);
+                                        if (!commitVersionedCharacter(ownerSave.character, ownerSave.version)) {
+                                            throw new Error("Ranked loss save became stale before projection.");
+                                        }
+                                    }
+                                    requirePvpContinuation(activeContinuation);
+                                    pvpCompletionUiRef.current.add(pvpSettlementScopeKey);
                                 }
-                                // Sector War: report the loss so the defender's win counts toward the siege (server maps winner by village).
-                                if (pvpBattleContext?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                                if (pvpBattleContext?.mode !== "ranked" || serverRating?.field !== "rankedRating" || serverClaim?.character) return;
-                                const authoritativeCharacter = character;
-                                setCharacter({
-                                    ...authoritativeCharacter,
-                                    // Only a server-credited ranked receipt may move Elo.
-                                    rankedRating: serverRating.value,
-                                    rankedLosses: (authoritativeCharacter.rankedLosses ?? 0) + 1,
-                                });
+                                requirePvpContinuation(activeContinuation);
                             }}
                         />
                     );

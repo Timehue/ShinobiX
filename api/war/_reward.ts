@@ -5,6 +5,7 @@ export const LEGENDARY_WAR_CRATE_ID = 'legendary-war-crate';
 
 export type VillageWarRewardRecord = {
     id: string;
+    declarationGeneration?: number;
     villages: [string, string];
     endedAt?: number;
     winnerVillage?: string;
@@ -13,6 +14,13 @@ export type VillageWarRewardRecord = {
     loserCrateId?: string;
     contributions?: Record<string, { damage: number; side: string; name: string }>;
 };
+
+function villageWarRewardToken(war: VillageWarRewardRecord): string {
+    const generation = Math.floor(Number(war.declarationGeneration));
+    return Number.isSafeInteger(generation) && generation > 0
+        ? `${war.id}-g${generation}`
+        : war.id;
+}
 
 export type WarRewardCharacter = Record<string, unknown> & {
     name?: string;
@@ -101,7 +109,8 @@ export function settleVillageWarRewards(
         warsWon += 1;
     }
 
-    const mvpId = `mvp-crate-${war.id}`;
+    const rewardToken = villageWarRewardToken(war);
+    const mvpId = `mvp-crate-${rewardToken}`;
     if (sameName(war.mvpByVillage?.[village], playerName) && !claimed.has(mvpId)) {
         markers.push(mvpId);
         crates += 1;
@@ -122,7 +131,7 @@ export function settleVillageWarRewards(
         consolation = true;
     }
 
-    const statsId = `stats-${war.id}`;
+    const statsId = `stats-${rewardToken}`;
     if (contribution?.side === village && contribution.damage > 0 && !claimed.has(statsId)) {
         markers.push(statsId);
         lifetimeDamage = contribution.damage;

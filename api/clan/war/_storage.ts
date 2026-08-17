@@ -42,6 +42,14 @@ export type ClanChallenge = {
     completedAt?: number;
     result?: ChallengeResult;
     battleId?: string;          // PvP modes get a pvp:<id> session
+    /** Exact in-row pre-publication lease for a stable PvP capability. */
+    pvpReservedAt?: number;
+    /**
+     * Server-owned cutover marker. A completed PvP challenge without this
+     * marker was finalized by the legacy report route and its side effects
+     * must be treated as already handled/backfill-only.
+     */
+    pvpSettlementVersion?: 1;
     petBattleSeed?: number;     // pet modes use a deterministic seed
     // Two-phase reporting (anti-cheat). First reporter stores a
     // tentative; the OTHER side must confirm or dispute. If the other

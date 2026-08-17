@@ -137,11 +137,12 @@ describe('player-ranked queue to session wiring', () => {
             'logout must clear A\'s battle before B can become the active character');
     });
 
-    it('disables V2 consumables and thrown weapons with an explicit player reason', () => {
+    it('disables consumables and thrown weapons for every versioned real PvP fighter', () => {
         const battle = source('../screens/PvpBattleScreen.tsx');
-        assert.match(battle, /playerRankedV2ItemsDisabled = session\?\.playerRankedAuthorityVersion === 2/);
-        assert.match(battle, /Consumables and thrown weapons are disabled in Player Ranked during the V2 rollout/);
-        assert.match(battle, /disabled=\{!isMyTurn \|\| playerRankedV2ItemsDisabled \|\| submitting/);
-        assert.match(battle, /if \(onCooldown \|\| playerRankedV2ItemsDisabled\) return/);
+        assert.match(battle, /session\?\.pvpConsumableAuthorityVersion === 1/);
+        assert.match(battle, /session\.realFighters\?\.\[role\] === true/);
+        assert.match(battle, /Consumables and thrown weapons are disabled for real fighters in server-authoritative PvP/);
+        assert.match(battle, /disabled=\{!isMyTurn \|\| realPvpItemsDisabled \|\| submitting/);
+        assert.match(battle, /if \(onCooldown \|\| realPvpItemsDisabled\) return/);
     });
 });

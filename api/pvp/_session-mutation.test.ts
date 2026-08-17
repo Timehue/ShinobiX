@@ -49,8 +49,8 @@ function session(patch: Partial<PvpSession> = {}): PvpSession {
 describe('exact PvP session mutation authority', () => {
     for (const acknowledgement of [false, null] as const) {
         it(`recovers a fulfilled-${String(acknowledgement)} commit and keeps a ranked terminal durable`, async () => {
-            const expected = session(v2Ranked());
-            const desired = session(v2Ranked({ status: 'done', winner: 'p1' }));
+            const expected = session(v2Ranked({ stateRevision: 6 }));
+            const desired = session(v2Ranked({ status: 'done', winner: 'p1', stateRevision: 400 }));
             let row: PvpSession | null = expected;
             const options: Array<{ ex?: number } | undefined> = [];
             const store = {
@@ -70,6 +70,8 @@ describe('exact PvP session mutation authority', () => {
 
             assert.equal(result.status, 'committed');
             assert.deepEqual(row?.recentMoveTokens, ['move-1']);
+            assert.equal(row?.stateRevision, 7,
+                'the exact expected row, never a caller-prepared desired revision, owns the successor');
             assert.deepEqual(options, [undefined], 'terminal CAS must not carry the ordinary 15m TTL');
         });
     }
@@ -99,10 +101,37 @@ describe('exact PvP session mutation authority', () => {
         assert.deepEqual(options, [{ ex: 77 }, { ex: 77 }]);
     });
 
+    it('recovers a JSON-canonical false acknowledgement when undefined fields disappear', async () => {
+        const expected = JSON.parse(JSON.stringify(session({ stateRevision: 3 }))) as PvpSession;
+        const desired = { ...expected, round: 2, recentMoveTokens: undefined };
+        let row: PvpSession | null = expected;
+        let calls = 0;
+        const store = {
+            async get<T>() {
+                return row === null ? null : JSON.parse(JSON.stringify(row)) as T;
+            },
+            async compareSet(_key: string, before: unknown, next: unknown) {
+                calls += 1;
+                if (!isDeepStrictEqual(row, before)) return false;
+                // Remote JSON storage drops object properties whose value is
+                // undefined, then loses the successful boolean acknowledgement.
+                row = JSON.parse(JSON.stringify(next)) as PvpSession;
+                return calls === 1 ? false : true;
+            },
+        } satisfies Pick<KvLike, 'get' | 'compareSet'>;
+
+        const result = await commitPvpSessionMutation(store, 'pvp:json', expected, desired);
+
+        assert.equal(result.status, 'committed');
+        assert.equal(result.session.stateRevision, 4);
+        assert.equal(Object.prototype.hasOwnProperty.call(result.session, 'recentMoveTokens'), false);
+        assert.deepEqual(result.session, row);
+    });
+
     it('rejects an expired-lease stale writer after its successor commits', async () => {
-        const beforeLeaseExpiry = session();
-        const staleA = session({ round: 2, activePlayer: 'p2', log: ['A'] });
-        const successorB = session({ round: 3, activePlayer: 'p1', log: ['B'] });
+        const beforeLeaseExpiry = session({ stateRevision: 10 });
+        const staleA = session({ stateRevision: 900, round: 2, activePlayer: 'p2', log: ['A'] });
+        const successorB = session({ stateRevision: 11, round: 3, activePlayer: 'p1', log: ['B'] });
         let row: PvpSession | null = beforeLeaseExpiry;
         let raced = false;
         const store = {
@@ -124,6 +153,7 @@ describe('exact PvP session mutation authority', () => {
         assert.equal(result.status, 'conflict');
         assert.deepEqual(result.session, successorB);
         assert.deepEqual(row, successorB, 'the stale A writer must not overwrite successor B');
+        assert.equal(row?.stateRevision, 11, 'the losing candidate cannot publish its caller-supplied revision');
     });
 
     it('requires an acknowledged exact CAS before compacting a durable terminal', async () => {

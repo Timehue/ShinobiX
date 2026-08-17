@@ -154,7 +154,7 @@ async function doMercAttack(req: VercelRequest, res: VercelResponse, identity: I
 
     // Deploy via the shared core (server-auth resolve + contest application), the
     // same path the autonomous tick uses. Null = the caller's band is spent.
-    const r = await deployOneMerc({ village, tierId, hirer: playerName, sector, targetPlayer, contestId: contest.id, mercLevel: tier.level, now });
+    const r = await deployOneMerc({ village, tierId, hirer: playerName, sector, targetPlayer, targetVillage: contest.defenderVillage, contestId: contest.id, mercLevel: tier.level, now });
     if (!r) return res.status(409).json({ error: 'You have no active mercenary band of that tier to deploy.' });
     return res.status(200).json({ ok: true, winner: r.winner, attackerPoints: r.attackerPoints, defenderPoints: r.defenderPoints, mercsRemaining: r.mercsRemaining });
 }

@@ -270,7 +270,13 @@ describe('sealed raid authority', () => {
         assert.equal(beforeReplay?.hp, 19_750);
 
         const replay = await settleRaidTerritoryDamage({ playerName: original, proofId, sector: 18 });
-        assert.deepEqual(replay, { amount: 250, sector: 18, hpAfter: 19_750, destroyed: false, replayed: true });
+        assert.equal(replay.proofId, proofId);
+        assert.equal(replay.playerName, original);
+        assert.equal(replay.amount, 250);
+        assert.equal(replay.sector, 18);
+        assert.equal(replay.hpAfter, 19_750);
+        assert.equal(replay.destroyed, false);
+        assert.equal(replay.replayed, true);
         assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.hp, 19_750, 'durable proof prevents a second hit');
     });
 
@@ -337,7 +343,11 @@ describe('sealed raid authority', () => {
         assert.equal(afterCrowd?.hp, 19_750);
 
         const replay = await settleRaidTerritoryDamage({ playerName: original, proofId, sector: 18 });
-        assert.deepEqual(replay, { amount: 250, sector: 18, hpAfter: 19_750, destroyed: false, replayed: true });
+        assert.equal(replay.proofId, proofId);
+        assert.equal(replay.playerName, original);
+        assert.equal(replay.amount, 250);
+        assert.equal(replay.hpAfter, 19_750);
+        assert.equal(replay.replayed, true);
         assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.hp, 19_750);
     });
 
@@ -375,7 +385,11 @@ describe('sealed raid authority', () => {
         }
 
         assert.equal(lostAck, true);
-        assert.deepEqual(first!, { amount: 250, sector: 18, hpAfter: 19_750, destroyed: false, replayed: false });
+        assert.equal(first!.proofId, proofId);
+        assert.equal(first!.playerName, player);
+        assert.equal(first!.amount, 250);
+        assert.equal(first!.hpAfter, 19_750);
+        assert.equal(first!.replayed, false);
         const territory = await kv.get<Record<string, unknown>>('world:territory:18');
         assert.equal(territory?.hp, 19_750);
         assert.equal(Object.prototype.hasOwnProperty.call(territory ?? {}, 'serverRaidDamagePending'), false);
@@ -442,7 +456,11 @@ describe('sealed raid authority', () => {
         });
         assert.equal(helped.amount, 0);
         const replay = await settleRaidTerritoryDamage({ playerName: original, proofId, sector: 18 });
-        assert.deepEqual(replay, { amount: 250, sector: 18, hpAfter: 19_750, destroyed: false, replayed: true });
+        assert.equal(replay.proofId, proofId);
+        assert.equal(replay.playerName, original);
+        assert.equal(replay.amount, 250);
+        assert.equal(replay.hpAfter, 19_750);
+        assert.equal(replay.replayed, true);
         assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.hp, 19_750);
     });
 
@@ -482,5 +500,99 @@ describe('sealed raid authority', () => {
         assert.equal(replay.amount, 0);
         assert.equal(replay.replayed, true);
         assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.hp, 20_000, 'old self-owned proof cannot damage the new owner');
+    });
+
+    it('uses sealed target identity after the fighter switches clan and records target replacement as exact zero', async () => {
+        const player = 'raidauthsealedswitch';
+        await seed(player, { village: 'Leaf', clan: 'LeafClan' });
+        const observedAt = Date.now() - 2_000;
+        const evidence = {
+            version: 1 as const,
+            sector: 18,
+            ownerVillage: 'Mist',
+            ownerClan: 'MistClan',
+            raidDamage: 250,
+            observedAt,
+        };
+        await kv.set('world:territory:18', {
+            sector: 18,
+            ownerVillage: 'Mist',
+            ownerClan: 'MistClan',
+            hp: 20_000,
+            guards: [],
+            updatedAt: observedAt,
+        });
+        await seed(player, { village: 'Mist', clan: 'MistClan' });
+        const applied = await settleRaidTerritoryDamage({
+            playerName: player,
+            proofId: 'sealed-switch-applied-proof',
+            sector: 18,
+            eventAt: observedAt + 1_000,
+            evidence,
+        });
+        assert.equal(applied.amount, 250, 'current save identity cannot suppress sealed attacker damage');
+
+        const changed = await kv.get<Record<string, unknown>>('world:territory:18');
+        await kv.set('world:territory:18', {
+            ...changed,
+            ownerVillage: 'Cloud',
+            ownerClan: 'CloudClan',
+            hp: 20_000,
+        });
+        const superseded = await settleRaidTerritoryDamage({
+            playerName: player,
+            proofId: 'sealed-switch-superseded-proof',
+            sector: 18,
+            eventAt: observedAt + 1_500,
+            evidence,
+        });
+        assert.equal(superseded.amount, 0);
+        assert.equal(superseded.destroyed, false);
+        assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.hp, 20_000);
+    });
+
+    it('rejects a stale territory holder without erasing a concurrent row update, then retries exactly', async () => {
+        const player = 'raidauthstaleholder';
+        await seed(player, { village: 'Leaf', clan: 'LeafClan' });
+        await kv.set('world:territory:18', {
+            sector: 18,
+            ownerVillage: 'Mist',
+            ownerClan: 'MistClan',
+            hp: 20_000,
+            guards: [],
+            warSupply: 1,
+            updatedAt: Date.now(),
+        });
+        const originalCompareSet = kv.compareSet.bind(kv);
+        let raced = false;
+        kv.compareSet = (async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+            if (!raced && key === 'world:territory:18') {
+                raced = true;
+                const current = await kv.get<Record<string, unknown>>(key);
+                assert.ok(current);
+                assert.equal(await originalCompareSet(key, current, { ...current, warSupply: 77 }), true);
+            }
+            return originalCompareSet(key, expected, value, options);
+        }) as typeof kv.compareSet;
+        try {
+            await assert.rejects(
+                settleRaidTerritoryDamage({ playerName: player, proofId: 'stale-holder-proof', sector: 18 }),
+                /row-conflict/,
+            );
+        } finally {
+            kv.compareSet = originalCompareSet as typeof kv.compareSet;
+        }
+        const conflicted = await kv.get<Record<string, unknown>>('world:territory:18');
+        assert.equal(conflicted?.hp, 20_000);
+        assert.equal(conflicted?.warSupply, 77);
+        const retried = await settleRaidTerritoryDamage({
+            playerName: player,
+            proofId: 'stale-holder-proof',
+            sector: 18,
+        });
+        assert.equal(retried.amount, 250);
+        const settled = await kv.get<Record<string, unknown>>('world:territory:18');
+        assert.equal(settled?.hp, 19_750);
+        assert.equal(settled?.warSupply, 77);
     });
 });

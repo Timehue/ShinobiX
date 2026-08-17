@@ -100,6 +100,7 @@ function storedSave(): Record<string, unknown> {
             avatarImage: 'preset:leaf-1',
             lastDailyReset: '2020-01-02', dailyMissionsCompleted: 2,
             warGroundBountyDate: '2020-01-01',
+            villageWarMissionDate: '2020-01-02', villageWarRaidProgress: 4,
             claimedVillageAgendaDate: '2020-01-01', claimedMapControlDate: '',
             battleTowerBestFloor: 6, battleTowerRating: 1_010,
         },
@@ -149,7 +150,9 @@ function incomingAutosave(): Record<string, unknown> {
         storyProgress: 9,
         redeemedCrafts: [],                   // attempt to clear a receipt ledger
         serverSettlementReceipts: {},
-        warGroundBountyDate: '2019-06-06',    // backdate attempt
+        warGroundBountyDate: '',              // clear today's payout stamp attempt
+        villageWarMissionDate: '2099-01-01',  // forge a completed daily raid ledger
+        villageWarRaidProgress: 6,
         lastDailyReset: '2019-01-01',         // backdate attempt
         // Tamper: roster/loadout.
         pets: [
@@ -281,7 +284,9 @@ describe('server-ledger fields survive a tampered autosave (scenarios 13/16)', (
         const c = charOf(autosaveOut());
         assert.deepEqual(c.redeemedCrafts, ['craft-1'], 'receipt ledgers cannot be cleared');
         assert.deepEqual(c.serverSettlementReceipts, { pvp: ['r-1'] });
-        assert.equal(c.warGroundBountyDate, '2020-01-01', 'daily stamps cannot be backdated');
+        assert.equal(c.warGroundBountyDate, '2020-01-01', 'daily bounty stamp cannot be cleared');
+        assert.equal(c.villageWarMissionDate, '2020-01-02', 'war mission day is server-owned');
+        assert.equal(c.villageWarRaidProgress, 4, 'war mission progress cannot be forged');
         assert.equal(c.lastDailyReset, '2020-01-02', 'daily reset stamps are monotonic-forward');
         assert.equal(c.totalPvpKills, 4, 'lifetime counters have zero client delta');
         assert.equal(c.battleTowerBestFloor, 6);

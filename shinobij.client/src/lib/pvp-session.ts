@@ -10,6 +10,7 @@ import { normalizeJutsu } from "./jutsu";
 import { sanitizeArmorAndGloveItem } from "./items";
 import type { Character } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
+import { bindPvpSessionCreateIntent } from "./pvp-session-intent";
 
 // PvP session environment selector. The server reads biome + weather elements
 // from the SEALED session at create time and intentionally ignores them on
@@ -36,7 +37,7 @@ export function pvpSessionEnvironment(
 }
 
 export function stringifyPvpSessionPayload(payload: unknown) {
-    return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
+    return JSON.stringify(bindPvpSessionCreateIntent(payload), (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
 }
 
 export type PlayerCombatSave = {

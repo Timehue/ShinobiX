@@ -509,7 +509,9 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     }
     async function sendKageDuel() {
         const targetName = serverKage?.seatedKage;
+        const kageChallengeId = serverKage?.challenge?.challengeId;
         if (!targetName || targetName.toLowerCase() === character.name.toLowerCase()) return;
+        if (!kageChallengeId) return alert("The official Kage challenge proof is missing. Refresh and try again.");
         const duel: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -519,6 +521,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
             createdAt: Date.now(),
             mode: "standard",
+            kageChallengeId,
             kageVillage: character.village,
         };
         const sent = await postPlayerChallengeNotice(targetName, duel);

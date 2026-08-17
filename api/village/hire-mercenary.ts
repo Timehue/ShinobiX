@@ -3,55 +3,105 @@
  * war. Server-authoritative honor-seal SINK (see api/village/_mercenaries.ts):
  *
  *   1. Caller must be a logged-in player whose village is in an active, non-pending war.
- *   2. Each tier can be hired at most ONCE per war (NX marker `war:merc:<warId>:<player>:<tier>`),
- *      so the contract resets when a new war begins.
- *   3. The tier's Honor Seal cost is deducted from the player's save under a failClosed
- *      lock (never trusts a client amount — recomputed from the sealed tier table).
- *   4. The tier's war damage is applied to the enemy village's HP under the war-record
- *      lock (same `world:war:<id>` key the world-state handler uses, so they're mutually
- *      exclusive), floored at 1 so a merc can't end the war, and attributed to the
- *      hiring player's contributions.
+ *   2. A target-first marker freezes/hides the exact war generation before any debit.
+ *   3. The save CAS co-writes an immutable Honor Seal debit receipt.
+ *   4. Activation atomically replaces the marker with damage + a war-row receipt.
  *
- * On a rare post-deduct failure the seals are refunded and the marker released, so a
- * player is never charged for a merc that didn't strike.
+ * Any authenticated participant can help a hidden marker after a crash. There is no
+ * expiring NX side key or best-effort refund window: a durable committed debit can
+ * only be helped forward into its already-reserved strike.
  */
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, setSafeRecordValue } from '../_utils.js';
+import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { MERCENARY_TIERS, mercenaryById, applyMercenaryDamage } from './_mercenaries.js';
+import { warDeclarationFundingMarkerFromRow } from '../_war-declaration-funding.js';
+import {
+    helpWarMercenaryHire,
+    newWarMercenaryFundingOwnerId,
+    settleWarMercenaryHire,
+    warHasMercenaryFundingField,
+    warMercenaryFundingMarkerFromRow,
+    warMercenaryHireFingerprint,
+    type WarMercenaryHireIdentity,
+} from '../_war-mercenary-hire.js';
+import { MERCENARY_TIERS, mercenaryById } from './_mercenaries.js';
 
 // These mirror api/world-state.ts (keep in sync). The war record is the source of
 // truth; we only touch hp[enemy], contributions[player], and updatedAt.
 const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
-const VILLAGE_WAR_HP_MAX = 5000;
-const MERC_MARKER_TTL_SEC = 14 * 24 * 60 * 60; // a war's max lifetime
+const VILLAGE_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1_000;
 
 type VillageWar = {
     id: string;
     villages: [string, string];
     hp: Record<string, number>;
+    startedAt: number;
     endedAt?: number;
     pendingUntil?: number;
+    declarationGeneration?: number;
+    declarationFunding?: { version?: number; status?: string };
+    mercenaryFunding?: unknown;
+    mercenaryHireReceipts?: Record<string, unknown>;
     contributions?: Record<string, { damage: number; raids: number; pvpKills: number; side: string; name: string }>;
     updatedAt: number;
 };
 
-async function activeWarForVillage(village: string): Promise<VillageWar | null> {
+function villageWarGenerationToken(war: VillageWar): string {
+    const generation = Math.floor(Number(war.declarationGeneration));
+    return Number.isSafeInteger(generation) && generation > 0
+        ? `${war.id}-g${generation}`
+        : war.id;
+}
+
+function villageWarEndsAt(war: VillageWar): number | null {
+    const startedAt = Number(war.startedAt);
+    const pendingUntil = war.pendingUntil === undefined ? undefined : Number(war.pendingUntil);
+    const effectiveStart = pendingUntil ?? startedAt;
+    const endsAt = effectiveStart + VILLAGE_WAR_MAX_DURATION_MS;
+    return Number.isSafeInteger(startedAt) && startedAt > 0
+        && (pendingUntil === undefined || (Number.isSafeInteger(pendingUntil) && pendingUntil > 0))
+        && Number.isSafeInteger(endsAt)
+        ? endsAt
+        : null;
+}
+
+type VillageWarLookup = { key: string; war: VillageWar; funding: boolean };
+
+async function warForVillage(village: string): Promise<VillageWarLookup | null> {
     const keys = await kv.keys(`${VILLAGE_WAR_KEY_PREFIX}*`);
     if (!keys.length) return null;
     const wars = await kv.mget<VillageWar[]>(...keys);
     const now = Date.now();
-    for (const w of wars) {
+    let active: VillageWarLookup | null = null;
+    for (let index = 0; index < wars.length; index += 1) {
+        const w = wars[index];
         if (!w || w.endedAt) continue;
         if (!Array.isArray(w.villages) || !w.villages.includes(village)) continue;
+        if (warHasMercenaryFundingField(w)) {
+            // A malformed marker is still authority: fail closed instead of
+            // treating the underlying war as mutable gameplay state.
+            return { key: keys[index], war: w, funding: true };
+        }
+        if (Object.prototype.hasOwnProperty.call(w, 'declarationFunding')
+            && warDeclarationFundingMarkerFromRow(w)?.status !== 'active') continue;
         if (w.pendingUntil && w.pendingUntil > now) continue; // war not hot yet
-        return w;
+        const endsAt = villageWarEndsAt(w);
+        if (endsAt === null || now >= endsAt) continue;
+        active ??= { key: keys[index], war: w, funding: false };
     }
-    return null;
+    return active;
+}
+
+function responseWarMercs(sourceRow: Record<string, unknown>, warToken: string, tierId: string): { warId: string; tiers: string[] } {
+    const character = sourceRow.character as Record<string, unknown> | undefined;
+    const stored = character?.warMercs as { warId?: unknown; tiers?: unknown } | undefined;
+    if (stored && String(stored.warId ?? '') === warToken && Array.isArray(stored.tiers)) {
+        return { warId: warToken, tiers: [...new Set(stored.tiers.map(String))] };
+    }
+    return { warId: warToken, tiers: [tierId] };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -82,103 +132,141 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const village = String(char?.village ?? '').trim();
     if (!char || !village) return res.status(400).json({ error: 'You are not in a village.' });
 
-    const war = await activeWarForVillage(village);
-    if (!war) return res.status(409).json({ error: 'Your village is not in an active war.' });
+    let lookup = await warForVillage(village);
+    if (!lookup) return res.status(409).json({ error: 'Your village is not in an active war.' });
+
+    // Hidden rows are deliberately discoverable here even though every gameplay
+    // scan excludes them. A crash after target reservation or source debit is
+    // therefore help-forwardable and never suppressed by an expiring side key.
+    if (lookup.funding) {
+        const marker = warMercenaryFundingMarkerFromRow(lookup.war);
+        if (!marker) return res.status(503).json({ error: 'Mercenary funding state is malformed.' });
+        const helped = await withKvLock(
+            lookup.key,
+            async () => {
+                const exact = await kv.get<Record<string, unknown>>(lookup!.key);
+                const exactMarker = warMercenaryFundingMarkerFromRow(exact);
+                if (!exact || !exactMarker) return null;
+                return withKvLock(
+                    exactMarker.sourceKey,
+                    () => helpWarMercenaryHire(kv, lookup!.key, exact, Date.now()),
+                    { failClosed: true },
+                );
+            },
+            { failClosed: true },
+        );
+        if (!helped) return res.status(503).json({ error: 'Mercenary funding recovery is busy; retry.' });
+        if (helped.status === 'active'
+            && marker.player === identity.name
+            && marker.tierId === tier.id) {
+            return res.status(200).json({
+                ok: true,
+                replayed: true,
+                tier: tier.id,
+                name: tier.name,
+                balance: helped.receipt.balanceAfter,
+                warMercs: responseWarMercs(helped.sourceRow, marker.warToken, marker.tierId),
+                enemy: marker.enemy,
+                enemyHp: helped.receipt.enemyHp,
+                dealt: helped.receipt.dealt,
+                _saveVersion: Number(helped.sourceRow._saveVersion ?? 0),
+            });
+        }
+        if (helped.status === 'insufficient' && marker.player === identity.name) {
+            return res.status(400).json({ error: `Not enough Honor Seals — the ${tier.name} costs ${tier.costSeals}.` });
+        }
+        if (helped.status === 'expired') {
+            return res.status(409).json({ error: 'That village war reached its maximum lifetime before the strike was funded.' });
+        }
+        if (helped.status !== 'active' && helped.status !== 'insufficient') {
+            return res.status(503).json({ error: 'Mercenary funding is settling; retry.' });
+        }
+        lookup = await warForVillage(village);
+        if (!lookup || lookup.funding) return res.status(503).json({ error: 'Mercenary funding activation is settling; retry.' });
+    }
+
+    const war = lookup.war;
     const enemy = war.villages.find(v => v !== village);
     if (!enemy) return res.status(409).json({ error: 'No enemy village to strike.' });
-
-    // Once-per-war-per-tier contract. NX marker claims the slot up front.
-    const marker = `war:merc:${war.id}:${identity.name}:${tier.id}`;
-    const placed = await kv.set(marker, { at: Date.now() }, { nx: true, ex: MERC_MARKER_TTL_SEC } as never);
-    if (!placed) return res.status(409).json({ error: `You already hired the ${tier.name} for this war.` });
-
-    // Deduct seals (recomputed from the sealed table — never the client) and record
-    // the hire on the save (display-only; the NX marker is the real guard).
-    const deduct = await withKvLock<{ ok: true; balance: number; warMercs: { warId: string; tiers: string[] }; _saveVersion: number } | { error: string }>(
-        saveKey,
-        async () => {
-            const fresh = await kv.get<{ character?: Record<string, unknown> }>(saveKey);
-            const fc = fresh?.character;
-            if (!fresh || !fc) return { error: 'Save not found.' };
-            const balance = Math.max(0, Math.floor(Number(fc.honorSeals ?? 0)));
-            if (balance < tier.costSeals) return { error: `Not enough Honor Seals — the ${tier.name} costs ${tier.costSeals}.` };
-            fc.honorSeals = balance - tier.costSeals;
-            const prevWm = fc.warMercs as { warId?: string; tiers?: string[] } | undefined;
-            const warMercs = prevWm && prevWm.warId === war.id
-                ? { warId: war.id, tiers: Array.isArray(prevWm.tiers) ? [...prevWm.tiers] : [] }
-                : { warId: war.id, tiers: [] as string[] };
-            if (!warMercs.tiers.includes(tier.id)) warMercs.tiers.push(tier.id);
-            fc.warMercs = warMercs;
-            const nextRecord = bumpSaveVersion(fresh as Record<string, unknown>);
-            await kv.set(saveKey, nextRecord);
-            return { ok: true as const, balance: fc.honorSeals as number, warMercs, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
-        },
-        { failClosed: true },
-    );
-
-    if (!deduct || 'error' in deduct) {
-        await kv.del(marker).catch(() => 0);
-        return res.status(deduct && 'error' in deduct ? 400 : 503).json({ error: (deduct && 'error' in deduct ? deduct.error : 'Treasury busy — try again.') });
+    const warToken = villageWarGenerationToken(war);
+    const generation = Math.max(1, Math.floor(Number(war.declarationGeneration) || 1));
+    const warEndsAt = villageWarEndsAt(war);
+    if (warEndsAt === null || Date.now() >= warEndsAt) {
+        return res.status(409).json({ error: 'That village war has reached its maximum lifetime.' });
     }
-
-    // Apply the war damage to the enemy village (floored, attributed). Same lock key
-    // the world-state handler uses, so writes never interleave.
-    const warKey = `${VILLAGE_WAR_KEY_PREFIX}${war.id}`;
-    const struck = await withKvLock<{ enemyHp: number; dealt: number } | null>(
-        warKey,
+    const hireId = `merc:${warToken}:${identity.name}:${tier.id}`;
+    const hireIdentity: WarMercenaryHireIdentity = {
+        hireId,
+        warId: war.id,
+        warToken,
+        generation,
+        warEndsAt,
+        player: identity.name,
+        displayName: String(char.name ?? identity.name),
+        village,
+        enemy,
+        tierId: tier.id,
+        costSeals: tier.costSeals,
+        warDamage: tier.warDamage,
+        sourceKey: saveKey,
+    };
+    const fingerprint = warMercenaryHireFingerprint(hireIdentity);
+    const settled = await withKvLock(
+        lookup.key,
         async () => {
-            const w = await kv.get<VillageWar>(warKey);
-            if (!w || w.endedAt) return null;
-            const en = w.villages.find(v => v !== village);
-            if (!en) return null;
-            const prevHp = Number(w.hp?.[en] ?? VILLAGE_WAR_HP_MAX);
-            const { nextHp, dealt } = applyMercenaryDamage(prevHp, tier.warDamage);
-            const nextWarHp = { ...w.hp };
-            setSafeRecordValue(nextWarHp, en, nextHp);
-            w.hp = nextWarHp;
-            const contribs = { ...(w.contributions ?? {}) };
-            const prev = contribs[identity.name] ?? { damage: 0, raids: 0, pvpKills: 0, side: village, name: String(char?.name ?? identity.name) };
-            setSafeRecordValue(contribs, identity.name, { ...prev, damage: prev.damage + dealt, side: village, name: prev.name });
-            w.contributions = contribs;
-            w.updatedAt = Date.now();
-            await kv.set(warKey, w);
-            return { enemyHp: nextHp, dealt };
+            const exact = await kv.get<Record<string, unknown>>(lookup!.key);
+            if (!exact || exact.endedAt !== undefined) return null;
+            if (Object.prototype.hasOwnProperty.call(exact, 'declarationFunding')
+                && warDeclarationFundingMarkerFromRow(exact)?.status !== 'active') return null;
+            if (villageWarGenerationToken(exact as VillageWar) !== warToken) return null;
+            const settlementNow = Date.now();
+            const exactEndsAt = villageWarEndsAt(exact as VillageWar);
+            if (Number(exact.pendingUntil ?? 0) > settlementNow
+                || exactEndsAt === null
+                || exactEndsAt !== warEndsAt
+                || settlementNow >= exactEndsAt) return null;
+            return withKvLock(
+                saveKey,
+                () => settleWarMercenaryHire(kv, {
+                    ...hireIdentity,
+                    warKey: lookup!.key,
+                    fingerprint,
+                    ownerId: newWarMercenaryFundingOwnerId(),
+                    now: settlementNow,
+                    expectedWar: exact,
+                }),
+                { failClosed: true },
+            );
         },
         { failClosed: true },
     );
 
-    if (!struck) {
-        // Refund the seals + release the contract — the merc never struck.
-        const refundSaveVersion = await withKvLock<number | undefined>(saveKey, async () => {
-            const fresh = await kv.get<{ character?: Record<string, unknown> }>(saveKey);
-            const fc = fresh?.character;
-            if (!fresh || !fc) return undefined;
-            fc.honorSeals = Math.max(0, Math.floor(Number(fc.honorSeals ?? 0))) + tier.costSeals;
-            const wm = fc.warMercs as { warId?: string; tiers?: string[] } | undefined;
-            if (wm && wm.warId === war.id && Array.isArray(wm.tiers)) {
-                wm.tiers = wm.tiers.filter(t => t !== tier.id);
-            }
-            const nextRecord = bumpSaveVersion(fresh as Record<string, unknown>);
-            await kv.set(saveKey, nextRecord);
-            return Number(nextRecord._saveVersion ?? 0);
-        }, { failClosed: true }).catch(() => undefined);
-        await kv.del(marker).catch(() => 0);
-        return res.status(503).json({
-            error: 'The war front is busy — your seals were not spent. Try again.',
-            ...(refundSaveVersion !== undefined ? { _saveVersion: refundSaveVersion } : {}),
+    if (!settled) return res.status(503).json({ error: 'The war front changed; retry.' });
+    if (settled.status === 'insufficient') {
+        return res.status(400).json({ error: `Not enough Honor Seals — the ${tier.name} costs ${tier.costSeals}.` });
+    }
+    if (settled.status === 'expired') {
+        return res.status(409).json({ error: 'That village war reached its maximum lifetime before the strike was funded.' });
+    }
+    if (settled.status !== 'active') {
+        const status = settled.status === 'busy' ? 409 : 503;
+        return res.status(status).json({
+            error: settled.status === 'busy'
+                ? 'Another mercenary strike is settling; retry.'
+                : 'Mercenary funding is settling; retry.',
         });
     }
-
     return res.status(200).json({
         ok: true,
+        replayed: settled.replayed,
         tier: tier.id,
         name: tier.name,
-        balance: deduct.balance,
-        warMercs: deduct.warMercs,
+        balance: settled.receipt.balanceAfter,
+        warMercs: responseWarMercs(settled.sourceRow, warToken, tier.id),
         enemy,
-        enemyHp: struck.enemyHp,
-        dealt: struck.dealt,
-        _saveVersion: deduct._saveVersion,
+        enemyHp: settled.receipt.enemyHp,
+        dealt: settled.receipt.dealt,
+        _saveVersion: Number(settled.sourceRow._saveVersion ?? 0),
     });
 }
 

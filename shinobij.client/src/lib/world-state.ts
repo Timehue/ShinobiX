@@ -304,6 +304,9 @@ type VillageWarContribution = {
 };
 export type VillageWar = {
     id: string;
+    /** Server-owned rematch generation. Pair ids remain stable, so durable
+     * reward/dedupe identities must include this when present. */
+    declarationGeneration?: number;
     villages: [string, string];
     hp: Record<string, number>;
     warGroundSector: number;
@@ -334,10 +337,20 @@ function villageWarId(villageA: string, villageB: string) {
     return [villageA, villageB].sort((a, b) => a.localeCompare(b)).map(village => village.toLowerCase().replace(/[^a-z0-9]/g, "")).join("-vs-");
 }
 
+function villageWarGenerationToken(war: Pick<VillageWar, "id" | "declarationGeneration">) {
+    const generation = Math.floor(Number(war.declarationGeneration) || 0);
+    return Number.isSafeInteger(generation) && generation > 0
+        ? `${war.id}-g${generation}`
+        : war.id;
+}
+
 function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, string] }): VillageWar {
     const [first, second] = data.villages;
     return {
         id: data.id ?? villageWarId(first, second),
+        ...(Number.isSafeInteger(Number(data.declarationGeneration)) && Number(data.declarationGeneration) > 0
+            ? { declarationGeneration: Math.floor(Number(data.declarationGeneration)) }
+            : {}),
         villages: [first, second],
         hp: {
             [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
@@ -540,7 +553,7 @@ function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: 
         hp: { ...war.hp, [damagedVillage]: nextHp },
         winnerVillage,
         endedAt: ended ? Date.now() : war.endedAt,
-        warCrateId: war.warCrateId ?? `war-crate-${war.id}`,
+        warCrateId: war.warCrateId ?? `war-crate-${villageWarGenerationToken(war)}`,
     });
     saveVillageWar(next, battleId, warMissionToken);
     // On war end, append to both villages' warRecords and post end-of-war
@@ -950,7 +963,8 @@ export function claimPendingWarCrates(
         //    extra Legendary Crate + bonus currency. Recognizes the
         //    best raider per side even on the losing side.
         const mvpName = war.mvpByVillage?.[myVillage];
-        const mvpId = `mvp-crate-${war.id}`;
+        const generationToken = villageWarGenerationToken(war);
+        const mvpId = `mvp-crate-${generationToken}`;
         if (mvpName && mvpName === myName && !claimed.has(mvpId)) {
             cratesToAdd.push(mvpId);
             idsToAdd.push(mvpId);
@@ -983,7 +997,7 @@ export function claimPendingWarCrates(
         //    Fires regardless of which side won, so even losing-side
         //    raiders see their lifetime damage climb on the HoL
         //    leaderboard.
-        const statsId = `stats-${war.id}`;
+        const statsId = `stats-${generationToken}`;
         if (!claimed.has(statsId) && war.villages.includes(myVillage)) {
             const myContrib = war.contributions?.[myName.toLowerCase()];
             if (myContrib && myContrib.damage > 0) {
