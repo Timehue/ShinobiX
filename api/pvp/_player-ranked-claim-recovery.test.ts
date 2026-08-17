@@ -82,6 +82,11 @@ test('claim helps an over-age unjoined-opponent V2 terminal through the full sag
         itemsUsed: { p1: {}, p2: {} },
         log: [],
         createdAt: now - 3 * 60 * 60 * 1_000,
+        // Terminal rows are published through persistedSession, which stamps
+        // endedAt whenever status becomes 'done'. This fixture writes the row
+        // straight to kv and so has to supply it; without one the claim rejects
+        // the battle's terminal time before the recovery saga under test runs.
+        endedAt: now - 3 * 60 * 60 * 1_000 + 30_000,
     });
 
     const out: { code: number; body?: Record<string, any> } = { code: 200 };
@@ -101,7 +106,7 @@ test('claim helps an over-age unjoined-opponent V2 terminal through the full sag
         },
         socket: { remoteAddress: '127.0.0.1' },
     } as never, res as never);
-    assert.equal(out.code, 200);
+    assert.equal(out.code, 200, JSON.stringify(out.body));
     assert.equal(await getPlayerRankedAdmission(kv, matchId), null);
     assert.equal((await kv.get<Record<string, any>>('save:claimfleealice'))?.character.rankedRating, 1000);
     assert.equal((await kv.get<Record<string, any>>('save:claimfleebob'))?.character.rankedRating, 1000);
