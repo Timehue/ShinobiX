@@ -1,6 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
+// The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic, so
+// this screen chunk owns those two stylesheets the same way Shop does (the card
+// view and the overlay are component modules and must stay CSS-free).
+import "../styles/chronicle-duel.css";
+import "../styles/card-pack-opening.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
     GiCardPickup,
@@ -55,7 +60,13 @@ import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningI
 import type { StoryReckoning } from "../data/story-reckonings";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
-import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntroEvent, claimTravelersCodex } from "../lib/chronicle-scribe";
+import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
+import { CardPackOpening } from "../components/CardPackOpening";
+import { displayCardsById } from "../lib/chronicle-duel";
+// The RAW count, not lib/chronicle-duel's ownedChronicleCounts: that one applies
+// the permanent starter floor, so it would report the whole teaching set as
+// already owned and every card in Ihara's hand-off would lose its NEW badge.
+import { countChronicleCards } from "../../../shared/chronicle-duel";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
@@ -1104,6 +1115,45 @@ export function WorldMap({
         if (!isWanderersEnabled()) return [];
         return scribeWandererFor(character, selectedSector);
     }, [character.level, character.starterCardsClaimed, character.name, selectedSector]);
+    // The codex hand-off ends on the pack-opening cinematic, so the scene closes
+    // on the player actually seeing the cards instead of on an alert.
+    //
+    // Two things have to land before it can play: the server grant has to come
+    // back (it is what says WHICH cards were added) and Ihara's send-off has to
+    // finish. Neither order is guaranteed — a fast click-through beats the fetch,
+    // a slow reader loses that race — so whichever lands second fires the
+    // cinematic. Mounting it any earlier would paint over her last line.
+    const [codexReveal, setCodexReveal] = useState<{ nonce: string; cards: string[]; ownedBefore: Map<string, number>; grantedCount: number } | null>(null);
+    const pendingCodexRevealRef = useRef<typeof codexReveal>(null);
+    const codexSceneClosedRef = useRef(false);
+    // Builtin catalog only, like the other card lookups on this screen: the codex
+    // and the progression backfill grant builtin ids, never creator cards.
+    const codexCardsById = useMemo(() => displayCardsById(getAllTileCards([])), []);
+    /** Called when Ihara's scene closes, by either exit path. */
+    function closeCodexScene() {
+        codexSceneClosedRef.current = true;
+        const pending = pendingCodexRevealRef.current;
+        if (!pending) return;
+        pendingCodexRevealRef.current = null;
+        setCodexReveal(pending);
+    }
+    // Portaled to <body>, so it only has to be reachable in the branch the player
+    // is standing in — Ihara is tapped inside a sector, and the sector view is
+    // what re-renders once her scene closes. Rendered in the world view too so a
+    // reveal can never be stranded by a mid-cinematic exit.
+    const codexRevealOverlay = codexReveal ? (
+        <CardPackOpening
+            key={codexReveal.nonce}
+            packType="standard"
+            cards={codexReveal.cards}
+            cardsById={codexCardsById}
+            ownedBefore={codexReveal.ownedBefore}
+            title="The Traveler's Codex"
+            countLabel={`${codexReveal.grantedCount} card${codexReveal.grantedCount === 1 ? "" : "s"} from Ihara`}
+            flipLimit={CODEX_FLIP_LIMIT}
+            onClose={() => setCodexReveal(null)}
+        />
+    ) : null;
     // The rate-gated roaming givers, thinned to what actually stands here. Each
     // memo above only knows its OWN odds, so before this they stacked — a sector
     // could hold a story NPC AND a rift giver, and neither cared that you'd already
@@ -3534,6 +3584,10 @@ export function WorldMap({
         // Rift VNs (giver report / at-the-rift): accept + descend are handled in
         // onChoice; completing the scene just closes it.
         if (event.id.startsWith(RIFT_GIVER_PREFIX) || isRiftDescentEventId(event.id)) { setSelectedCreatorEvent(null); return; }
+        // The codex pays no ryo/stamina (all three rewards are 0), so the generic
+        // tail below would end this scene on an alert saying nothing was gained.
+        // The cards ARE the payoff — close the scene and let them open.
+        if (event.id === SCRIBE_WANDERER_ID) { setSelectedCreatorEvent(null); closeCodexScene(); return; }
         const leveled = gainXp(character, 0); // XP retired — legacy xpReward ignored
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
@@ -3734,7 +3788,7 @@ export function WorldMap({
                 lineIndex={creatorEventLine}
                 setPageIndex={setCreatorEventPage}
                 setLineIndex={setCreatorEventLine}
-                onCancel={() => { noteGiverVnClosed(selectedCreatorEvent.id); setSelectedCreatorEvent(null); }}
+                onCancel={() => { noteGiverVnClosed(selectedCreatorEvent.id); if (selectedCreatorEvent.id === SCRIBE_WANDERER_ID) closeCodexScene(); setSelectedCreatorEvent(null); }}
                 onComplete={() => completeCreatorEvent(selectedCreatorEvent)}
                 onBattle={launchCreatorEventFight}
                 onChoice={(c) => {
@@ -3763,6 +3817,12 @@ export function WorldMap({
                         // noteGiverVnClosed ignores her either way. Kept so the stamp is
                         // already right if she is ever brought back under that rule.
                         giverAcceptedRef.current = ev.id;
+                        // Arm the pack cinematic for when this scene closes, and
+                        // read the collection BEFORE the grant lands so the NEW
+                        // badges are honest.
+                        codexSceneClosedRef.current = false;
+                        pendingCodexRevealRef.current = null;
+                        const ownedBeforeCodex = countChronicleCards(character.tileCards ?? []);
                         // Leave the scene up so Ihara's send-off conclusion plays
                         // (closing here would eat the beat — see the rift-abandon
                         // note below). The server grant is idempotent: it tops the
@@ -3780,6 +3840,13 @@ export function WorldMap({
                                     ...(resp.tileCards ? { tileCards: resp.tileCards } : {}),
                                     starterCardsClaimed: true,
                                 }) : prev);
+                                const granted = resp.granted ?? [];
+                                const faces = codexRevealCards(granted);
+                                if (faces.length > 0) {
+                                    const reveal = { nonce: makeId(), cards: faces, ownedBefore: ownedBeforeCodex, grantedCount: granted.length };
+                                    if (codexSceneClosedRef.current) setCodexReveal(reveal);
+                                    else pendingCodexRevealRef.current = reveal;
+                                }
                                 const recordedDeeds = resp.progressionGranted?.length ?? 0;
                                 if (recordedDeeds > 0) {
                                     setTravelToast({
@@ -5037,6 +5104,7 @@ export function WorldMap({
                         </div>
                     </aside>
                 </div>
+                {codexRevealOverlay}
             </div>
         );
     }
@@ -5691,6 +5759,7 @@ export function WorldMap({
                     onClose={() => setWhisper(null)}
                 />
             )}
+            {codexRevealOverlay}
         </div>
     );
 }
