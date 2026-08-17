@@ -131,7 +131,7 @@ describe('server-owned PvP village-war continuation', () => {
             // this the attacker resolves to null, the session stops counting as a
             // sealed World raid, and the home-defense multiplier silently never
             // applies — which is the guard working, not the bonus being missing.
-            p1: { name: 'Winner', character: { village: 'Leaf', clan: 'LeafClan' } },
+            p1: { name: 'Winner', character: { village: 'Leaf', clan: 'LeafClan' } } as unknown as PvpSession['p1'],
             worldAttacker: { side: 'p1', name: 'winner', village: 'Leaf', clan: 'LeafClan' },
             worldTerritoryEvidence: {
                 version: 1,

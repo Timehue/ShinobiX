@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
     inspectSettlementReceipt,
     appendSettlementReceipt,
@@ -44,6 +45,27 @@ const PVP_REWARD_RECEIPT_RETENTION_MS = 2 * 24 * 60 * 60 * 1_000;
 type DurablePvpRewardReceipt = { fingerprint: string; settledAt: number };
 type DurablePvpRewardReceipts = Record<string, DurablePvpRewardReceipt>;
 
+const PVP_FINGERPRINT_MAX = 256;
+
+/**
+ * Bound a settlement fingerprint to what the durable ledger accepts.
+ *
+ * A fingerprint is an opaque equality tag — it is only ever compared, never
+ * parsed — so replacing an over-long one with a stable digest preserves its
+ * meaning exactly. Producers build these from variable-length data (the Clan War
+ * one serializes every point event with its metadata), so they can exceed the
+ * ledger's 256-character limit. When that happened the writer stored a receipt
+ * its own reader rejected: the credit landed, and every later pass threw
+ * fail-closed, so the settlement could never finalize.
+ *
+ * Fingerprints already within the limit pass through byte-identical, so receipts
+ * written before this stays readable and keep matching on replay.
+ */
+export function boundedPvpFingerprint(fingerprint: string): string {
+    if (fingerprint.length <= PVP_FINGERPRINT_MAX) return fingerprint;
+    return `sha256:${createHash('sha256').update(fingerprint).digest('hex')}`;
+}
+
 function durableReceiptsOf(character: Record<string, unknown>): DurablePvpRewardReceipts {
     const raw = character[PVP_REWARD_RECEIPTS_FIELD];
     if (raw === undefined) return {};
@@ -66,20 +88,26 @@ function durableReceiptsOf(character: Record<string, unknown>): DurablePvpReward
         const valueProto = Object.getPrototypeOf(value);
         const keys = Object.keys(value as Record<string, unknown>).sort();
         const row = value as Partial<DurablePvpRewardReceipt>;
-        if (!/^[A-Za-z0-9_-]{16,80}$/.test(id)
-            || valueProto !== Object.prototype
-            || keys.length !== 2
-            || keys[0] !== 'fingerprint'
-            || keys[1] !== 'settledAt'
-            || typeof row.fingerprint !== 'string'
-            || !row.fingerprint.trim()
-            || row.fingerprint !== row.fingerprint.trim()
-            || row.fingerprint.length > 256
-            || !Number.isSafeInteger(row.settledAt)
-            || Number(row.settledAt) <= 0) {
-            throw new Error('pvp-reward-receipt-ledger-invalid');
-        }
-        out[id] = { fingerprint: row.fingerprint, settledAt: Number(row.settledAt) };
+        // This is a fail-closed currency guard, so it stays strict — but it used
+        // to throw one opaque string for eleven different conditions, which left
+        // an operator (or a failing test) with no way to tell a malformed id from
+        // a bad timestamp. The reason names the failed check and the observed
+        // shape only; receipt fingerprints and ids are never interpolated.
+        const reason = !/^[A-Za-z0-9_-]{16,80}$/.test(id) ? 'id-format'
+            : valueProto !== Object.prototype ? 'value-prototype'
+            : keys.length !== 2 || keys[0] !== 'fingerprint' || keys[1] !== 'settledAt'
+                ? `value-keys(${keys.length}:${keys.join(',')})`
+            : typeof row.fingerprint !== 'string' ? `fingerprint-type(${typeof row.fingerprint})`
+            : !row.fingerprint.trim() ? 'fingerprint-empty'
+            : row.fingerprint !== row.fingerprint.trim() ? 'fingerprint-untrimmed'
+            : row.fingerprint.length > 256 ? 'fingerprint-too-long'
+            : !Number.isSafeInteger(row.settledAt) ? `settledAt-type(${typeof row.settledAt})`
+            : Number(row.settledAt) <= 0 ? 'settledAt-nonpositive'
+            : '';
+        if (reason) throw new Error(`pvp-reward-receipt-ledger-invalid:${reason}`);
+        // The reason chain above already proved both fields; it just does not
+        // narrow the way an inline throw did.
+        out[id] = { fingerprint: String(row.fingerprint), settledAt: Number(row.settledAt) };
     }
     return out;
 }
@@ -103,8 +131,10 @@ export type PvpCreditDecision = {
 export function inspectPvpCredit(
     character: Record<string, unknown>,
     settlementId: string,
-    fingerprint: string,
+    rawFingerprint: string,
 ): PvpCreditDecision {
+    // Compare and write must agree on the stored form, so both bound it here.
+    const fingerprint = boundedPvpFingerprint(rawFingerprint);
     const durableReceipts = durableReceiptsOf(character);
     const durable = durableReceipts[settlementId];
     if (durable) {
@@ -135,9 +165,12 @@ export function embedPvpSettlementReceipt(
     creditedCharacter: Record<string, unknown>,
     receipts: ServerSettlementReceipt[],
     settlementId: string,
-    fingerprint: string,
+    rawFingerprint: string,
     now: number,
 ): Record<string, unknown> {
+    // Same bounding as inspectPvpCredit — the stored tag must be the one a later
+    // pass compares against, or the settlement can never replay.
+    const fingerprint = boundedPvpFingerprint(rawFingerprint);
     const retained = Object.fromEntries(Object.entries(durableReceiptsOf(creditedCharacter)).filter(([, receipt]) => (
         receipt.settledAt >= now - PVP_REWARD_RECEIPT_RETENTION_MS
     ))) as DurablePvpRewardReceipts;
