@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
+import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
 import { mintPlayerRankedMatchTokenWithStore } from '../_ranked-match-token.js';
 import {
@@ -287,7 +288,13 @@ describe('unified player-ranked terminal saga', () => {
             assert.equal((await getPlayerRankedAdmission(base, MATCH))?.phase, 'terminal');
             assert.equal((await getPlayerRankedJournal(base, MATCH))?.state, 'completed');
 
-            clock += 901_000;
+            // The interrupted run bound the terminal row for the replay horizon,
+            // not the old 15-minute session TTL — a crash after Elo must leave
+            // the row discoverable so claim, season close, or a move can help it
+            // forward. Advance past that bound to reach the expiry this case is
+            // actually about: queue traffic repairing a bound-then-crashed
+            // terminal once its row is gone.
+            clock += (PVP_TERMINAL_REPLAY_TTL + 1) * 1_000;
             assert.equal(await base.get(`pvp:${BATTLE}`), null);
             await recoverCompletedPlayerRankedFinalizations(base, lock);
             assert.equal(await getPlayerRankedAdmission(base, MATCH), null);
