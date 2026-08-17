@@ -979,6 +979,27 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
         await settleLayout(page);
         current = await measure(page, rootSelector);
     }
+    /*
+     * Wait for the deck to be ACTIONABLE before trusting its geometry.
+     *
+     * `firstJutsu` measures `.combat-jutsu-button:not(:disabled)`, and every
+     * jutsu in the deck is disabled while the OPPONENT is acting. Measuring
+     * inside that window reports rect=null and fails a LAYOUT assertion with a
+     * fact about TURN ORDER — which is what happened on webkit at 2560x1440
+     * (CI run 31984555676): the deck was fully rendered, every button present,
+     * all of them disabled, the dossier reading "Waiting" on round 2.
+     *
+     * This waits for the player's turn the same way the loop above waits for
+     * the board to settle, and it is BOUNDED: if no jutsu ever becomes
+     * enabled, `current.firstJutsu` stays null and the assertion still fails.
+     * A deck that is genuinely unreachable is still a release failure — which
+     * matters, because this suite is the gate on the core combat loop.
+     */
+    for (let attempt = 0; attempt < 40 && !current.firstJutsu; attempt += 1) {
+        await page.waitForTimeout(150);
+        await settleLayout(page);
+        current = await measure(page, rootSelector);
+    }
     return current;
 }
 
