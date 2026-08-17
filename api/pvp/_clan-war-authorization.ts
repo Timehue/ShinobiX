@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { CLAN_WAR_KEY_PREFIX, type ClanChallenge, type ClanWar } from '../clan/war/_storage.js';
+import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
 
 const SAFE_ID = /^[A-Za-z0-9_-]{3,100}$/;
 const RESERVATION_LEASE_MS = 30_000;
@@ -91,7 +92,11 @@ export async function reserveClanWarPvpSession(args: {
                     }
                     return existing;
                 }
-                const live = await kv.get<unknown>(`pvp:${challenge.battleId}`);
+                const liveRow = await kv.get<unknown>(`pvp:${challenge.battleId}`);
+                // A publication tombstone means the previous holder's battle
+                // was rolled back, not that a session is live on that id — so
+                // the expired reservation stays takeable.
+                const live = pvpSessionPublicationTombstoneFor(liveRow, challenge.battleId) ? null : liveRow;
                 if (live || !Number.isSafeInteger(existing.reservedAt)
                     || Date.now() - existing.reservedAt <= RESERVATION_LEASE_MS) {
                     return existing;
