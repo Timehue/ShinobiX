@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
 import { describe, it } from 'node:test';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
+import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import { makePlayerRankedAdmission, type PlayerRankedAdmission } from '../pet/_ranked-preparation.js';
 import {
     boundExactPvpSession,
@@ -195,7 +196,14 @@ describe('exact PvP session mutation authority', () => {
         } satisfies Pick<KvLike, 'get' | 'compareSet'>;
 
         assert.equal((await commitPvpSessionMutation(store, 'pvp:legacy', expected, desired, { ttlSeconds: 41 })).status, 'committed');
-        assert.deepEqual(options, [{ ex: 41 }]);
+        // Still bounded rather than durable — that is what separates a legacy
+        // d76a terminal from a V2 one, which commits with no `ex` at all. The
+        // bound is now floored at the terminal replay horizon instead of taking
+        // the caller's value: this row is what claim and recovery read back, so
+        // honouring a 41-second TTL would drop a disconnected player's reward
+        // long before they could claim it.
+        assert.deepEqual(options, [{ ex: PVP_TERMINAL_REPLAY_TTL }]);
+        assert.ok(PVP_TERMINAL_REPLAY_TTL >= 41, 'the floor must never shorten a caller TTL');
     });
 
     function activeAdmission(): PlayerRankedAdmission {
