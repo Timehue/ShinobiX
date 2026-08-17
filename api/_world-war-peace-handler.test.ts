@@ -111,7 +111,7 @@ describe('legacy Kage peace chronology', () => {
             endedAt: endedAt + 1,
         } as unknown as PvpSession;
         const result = await settle(session.battleId, 'winner', session);
-        assert.equal(result.status, 200);
+        assert.equal(result.status, 200, JSON.stringify(result.body));
         assert.equal(result.body.settlement, 'not-applicable');
         assert.equal(result.body.warGroundRewardEligible, false);
     });
