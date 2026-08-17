@@ -92,9 +92,12 @@ test("combat details use a modal backdrop with bounded keyboard focus", () => {
 });
 
 test("PvP refresh guard preserves the live battle breadcrumb until restore installs its id", () => {
-    const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-    const guard = app.indexOf("if (restoringSession && !pvpBattleId) return;");
-    const removal = app.indexOf("localStorage.removeItem(PVP_SESSION_KEY)", guard);
+    // The breadcrumb write/erase moved into lib/use-pvp-session-controller.ts,
+    // which holds the same guard against the initial null state erasing a live
+    // battle id before restore has consumed it.
+    const controller = readFileSync(new URL("./use-pvp-session-controller.ts", import.meta.url), "utf8");
+    const guard = controller.indexOf("if (options.restoringSession && !scopedBattleId) return;");
+    const removal = controller.indexOf("localStorage.removeItem(options.storageKey)", guard);
     assert.ok(guard >= 0, "restore guard must exist");
     assert.ok(removal > guard, "breadcrumb removal must remain behind the restore guard");
 });

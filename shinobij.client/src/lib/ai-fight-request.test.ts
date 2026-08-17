@@ -297,21 +297,50 @@ test("raid mission UI mirrors the server's exact credited mission ids", () => {
     assert.match(settle, /reported\.fetchMissionsCredited/);
     assert.match(settle, /onMissionRaidComplete\?\.\(sector, fetchMissionsCredited\)/);
     assert.match(app, /onMissionRaidComplete: \(sector, missionIds\) => recordMissionRaid\(sector, undefined, missionIds, character\?\.name \?\? ""\)/);
-    assert.match(app, /const exactIds = new Set\(missionIds\)/);
+    // The named exactIds binding was inlined into the loop header; the dedup of
+    // the exact server-credited ids it pinned is unchanged.
+    assert.match(app, /for \(const missionId of \[\.\.\.new Set\(missionIds\)\]\)/);
     assert.ok(
         recordProgress.indexOf('playerSlug(characterRef.current?.name ?? "") !== expectedOwnerKey', recordProgress.indexOf("await loadMissionCatalog()"))
             > recordProgress.indexOf("await loadMissionCatalog()"),
         "field progress must re-fence the account after the lazy catalog resolves",
     );
-    assert.match(mirror, /await loadMissionCatalog\(\)[\s\S]{0,180}playerSlug\(characterRef\.current\?\.name \?\? ""\) !== expectedOwnerKey/,
-        "raid projection must re-fence the expected account after the lazy catalog resolves");
+    // The raid projection no longer loads the mission catalog; it re-fences the
+    // account through a requireCurrentOwner closure checked before the loop and
+    // after every await, which is stronger than the single post-catalog check
+    // this previously pinned.
+    assert.match(mirror, /const requireCurrentOwner = \(\) => \{[\s\S]{0,240}playerSlug\(characterRef\.current\?\.name \?\? ""\) === expectedOwnerKey/,
+        "raid projection must derive its fence from the expected owner key");
+    assert.match(mirror, /if \(!requireCurrentOwner\(\)\) return;\s*for \(const missionId of/,
+        "the projection must fence before iterating credited ids");
+    assert.match(mirror, /await postFieldTrail\([\s\S]{0,200}\);\s*if \(!requireCurrentOwner\(\)\) return;/,
+        "the projection must re-fence after each awaited field-trail read");
+    assert.match(mirror, /commitVersionedCharacter\(state\.character, state\._saveVersion\)[\s\S]{0,220}if \(!requireCurrentOwner\(\)\) return;/,
+        "the projection must re-fence after adopting a committed save");
+    // The raid projection dropped its catalog load, so two remain. Both are
+    // asserted here — recordBuiltInMissionProgress above, recordMissionExplore
+    // next — which is what lets this count stay a real completeness ratchet.
+    const recordExplore = app.slice(
+        app.indexOf("async function recordMissionExplore"),
+        app.indexOf("async function mirrorExactRaidMissionCredits"),
+    );
+    assert.match(recordExplore, /const missionCatalog = await loadMissionCatalog\(\)\.catch\(\(\) => null\);\s*if \(!missionCatalog \|\| playerSlug\(characterRef\.current\?\.name \?\? ""\) !== expectedOwnerKey\) return false;/,
+        "explore progress must re-fence the account after the lazy catalog resolves");
     const catalogLoads = [...app.matchAll(/await loadMissionCatalog\(\)/g)];
-    assert.equal(catalogLoads.length, 3, "every App mission-catalog await must remain covered by this fence audit");
+    assert.equal(catalogLoads.length, 2, "every App mission-catalog await must remain covered by this fence audit");
     for (const load of catalogLoads) {
         assert.match(app.slice(load.index, load.index + 360), /playerSlug\(characterRef\.current\?\.name \?\? ""\) !== expectedOwnerKey/,
             "every mission-catalog continuation must re-fence its originating account");
     }
-    assert.match(app, /function recordMissionRaid\([\s\S]{0,220}expectedOwnerKey = playerSlug\(expectedPlayerName\)[\s\S]{0,140}characterRef\.current\?\.name/,
+    // recordMissionRaid gained a continuation parameter, so its signature no
+    // longer fits a fixed character budget. Assert the ordering directly rather
+    // than widening a proximity window: bind the originating player, derive the
+    // current-owner check from it, and refuse to project before both hold.
+    const raidCaller = app.slice(app.indexOf("async function recordMissionRaid"));
+    const ownerBind = raidCaller.indexOf("const expectedOwnerKey = playerSlug(expectedPlayerName)");
+    const currentCheck = raidCaller.indexOf('playerSlug(characterRef.current?.name ?? "") === expectedOwnerKey', ownerBind);
+    const guard = raidCaller.indexOf("if (!expectedOwnerKey || !requireCurrentOwner()) return;", currentCheck);
+    assert.ok(ownerBind >= 0 && currentCheck > ownerBind && guard > currentCheck,
         "every raid caller must bind progress projection to its originating player");
     assert.doesNotMatch(app, /recordMissionRaid\(sector, undefined, true\)/);
 });
