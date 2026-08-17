@@ -83,6 +83,29 @@ import type {
 // team reads as individuals taking the field, not a queue.
 const PLAYER_Z = 4.1;
 const ENEMY_Z = -4.1;
+
+/** How far a resting pet on the PLAYER's line turns off the lane axis, toward
+ *  the camera side, while it idles.
+ *
+ *  Facing square down the lane is geometrically correct — your pet faces the
+ *  enemy — but the lens sits behind your line, so it put your pet's back to the
+ *  camera for an ENTIRE fight: the enemy showed you a face, yours showed you a
+ *  tail. The wide shot already slides off-centre to stop the board reading as
+ *  flat backs (see WIDE_POS); this finishes that job by giving the near line a
+ *  three-quarter stance, the standard way fighting games keep both fighters
+ *  legible. Only the player's line turns — the enemy already reads face-on.
+ *
+ *  This shapes the RESTING facing only. Any pet taking an action re-aims at its
+ *  real target below, so attacks, dashes and travel are untouched. */
+const RESTING_TURN = (32 * Math.PI) / 180;
+
+/** The resting facing for a side: down the lane at the opposing line, turned by
+ *  RESTING_TURN toward the camera on the player's side only. */
+function restingFacing(side: "player" | "enemy"): [number, number] {
+    return side === "player"
+        ? [Math.sin(RESTING_TURN), -Math.cos(RESTING_TURN)]
+        : [0, 1];
+}
 const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
 /** KO withdrawal: how long a fallen body may lie in its slot before it leaves
@@ -1059,8 +1082,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const actionStyle = useRef<{ index: number; style: PetHeroMoveStyle }>({ index: -1, style: "generic" });
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
-        faceX: 0,
-        faceZ: info.side === "player" ? -1 : 1,
+        faceX: restingFacing(info.side)[0],
+        faceZ: restingFacing(info.side)[1],
         statuses: [],
     });
     const fallbackTexture = useMemo(() => {
@@ -1098,7 +1121,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         }
         let px = stand[0], pz = stand[2];
         const py = home[1];
-        let faceX = 0, faceZ = info.side === "player" ? -1 : 1;
+        let [faceX, faceZ] = restingFacing(info.side);
         f.moving = false;
         f.speed = 0;
         f.casting = false;
