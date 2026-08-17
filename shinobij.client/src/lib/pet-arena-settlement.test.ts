@@ -124,8 +124,17 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
     // DIFFERENT module that shares the prefix: it is the fail-closed 2v2 roster
     // guard this screen is required to keep, and a substring match would read
     // that guard as the legacy engine and fail.
+    // Plain substring checks rather than a built RegExp. The escaping this used
+    // to do (`replace(/-/g, "\\-")`) was both pointless — `-` carries no meaning
+    // outside a character class — and the exact hand-rolled-sanitizer shape
+    // CodeQL flags, since it never escaped a backslash. There is nothing here a
+    // regex buys: the needle is a literal module name followed by the quote that
+    // closes its import specifier.
     for (const legacy of ["pet-duel-sim", "pet-duel-cinematic", "pet-duel-live"]) {
-        assert.doesNotMatch(arenaSource, new RegExp(`${legacy.replace(/-/g, "\\-")}["']`));
+        for (const quote of ['"', "'"]) {
+            assert.equal(arenaSource.includes(`${legacy}${quote}`), false,
+                `${legacy} is the retired engine and must not be imported here`);
+        }
     }
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /if \(petSettlementBlocksExit\)/);
