@@ -52,6 +52,37 @@ function isPublicStatusPath(path: string, method: string): boolean {
     return path === '/player/capabilities' && (method === 'GET' || method === 'OPTIONS');
 }
 
+/**
+ * Every way a brand-new account can come into existence.
+ *
+ * There is more than one door now: the original password register, Google
+ * signup, and guest play. DISABLE_NEW_REGISTRATIONS is an incident switch, so
+ * missing a door means the switch silently does not hold. Any future signup path
+ * belongs on this list the day it is added.
+ */
+const ACCOUNT_CREATING_ACTIONS = new Set(['register', 'register-google', 'guest']);
+
+function isAccountCreatingRequest(path: string, method: string, body: unknown): boolean {
+    if (method !== 'POST') return false;
+    if (path === '/player-auth') return ACCOUNT_CREATING_ACTIONS.has(actionFrom(body) ?? '');
+    // Starting a Google sign-in in login mode can end in a new account, and the
+    // flow is long enough that blocking at the last step wastes the player's
+    // time. Link mode targets an account that already exists, so it stays open.
+    if (path === '/auth/google/start') return actionModeFrom(body) !== 'link';
+    return false;
+}
+
+/** The `mode` field of an OAuth start request, when present. */
+function actionModeFrom(body: unknown): string | null {
+    let parsed = body;
+    if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch { return null; }
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const mode = (parsed as Record<string, unknown>).mode;
+    return typeof mode === 'string' ? mode : null;
+}
+
 /** Emergency controls evaluated at the single Express route boundary. */
 export function evaluateLaunchControl(
     req: LaunchControlRequest,
@@ -75,12 +106,7 @@ export function evaluateLaunchControl(
         };
     }
 
-    if (
-        path === '/player-auth'
-        && method === 'POST'
-        && actionFrom(req.body) === 'register'
-        && enabled(env, 'DISABLE_NEW_REGISTRATIONS')
-    ) {
+    if (enabled(env, 'DISABLE_NEW_REGISTRATIONS') && isAccountCreatingRequest(path, method, req.body)) {
         return {
             allowed: false,
             status: 503,
@@ -93,10 +119,14 @@ export function evaluateLaunchControl(
     // This deliberately freezes every gameplay mutation, not just known reward
     // routes. During an economy incident, a broad stop is safer than maintaining
     // a fragile allow/deny list that can miss a newly added settlement endpoint.
+    // Signing in is not an economy mutation. Freezing it would lock every player
+    // out of the game during exactly the incident an operator is trying to
+    // inspect — so the auth paths are exempt, the same as /player-auth.
+    const isAuthPath = path === '/player-auth' || path.startsWith('/auth/google/');
     if (
         enabled(env, 'FREEZE_ECONOMY_REWARDS')
         && UNSAFE_METHODS.has(method)
-        && path !== '/player-auth'
+        && !isAuthPath
         && path !== '/perf-beacon'
     ) {
         return {
