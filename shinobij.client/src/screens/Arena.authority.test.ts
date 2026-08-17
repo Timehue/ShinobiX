@@ -55,11 +55,13 @@ test("PvP acceptance delegates to App and routes with the server battle id", () 
     assert.match(app, /onAcceptChallenge=\{\(challenge\) => \{ void acceptChallengeGlobal\(challenge\); \}\}/);
 
     const canonicalAccept = sliceBetween(app, "async function acceptChallengeGlobal", "useEffect(() => {");
+    // The raw POST and its json() parse moved into lib/pvp-session-create.ts,
+    // which owns the ambiguous-commit retry. App still gates, then takes the
+    // battle id from that helper's result and routes with it.
     assertOrdered(canonicalAccept, [
         "requireServerSettlement(\"pvpSession\")",
-        "fetch('/api/pvp/session'",
-        "const acceptData = await res.json()",
-        "const battleId = acceptData.battleId",
+        "createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody",
+        "const battleId = createResult.battleId",
         "setPvpBattleId(battleId)",
         "setPvpRole(\"p2\")",
         "setScreen(\"pvpBattle\")",
