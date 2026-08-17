@@ -213,3 +213,19 @@ test("only explicitly reviewed roster models leave quarantine", () => {
     assert.equal(baked.url, "/pet-models/proofs/standard-0-retopo-baked.glb");
     assert.equal(baked.visualId, "standard-0-retopo-baked-proof");
 });
+
+test("reversed roster meshes carry a half-turn correction, and correct ones carry none", () => {
+    // The renderer steers a model by its LOCAL +Z, so a mesh generated facing
+    // the other way stands with its back to its opponent. These three measured
+    // backwards on both the head and the foot probe, under both the centroid
+    // and the protrusion method.
+    for (const [id, name] of [["standard-36", "Dust Swift"], ["legendary-4", "Ironfang Tiger"], ["mythic-9", "Worldroot Colossus"]] as const) {
+        assert.equal(qaRosterCombatModel({ id, name }).yawOffset, Math.PI, `${name} should be half-turned`);
+        assert.equal(approvedRosterCombatModel({ id, name })?.yawOffset, Math.PI, `${name} correction must survive the allowlist`);
+    }
+    // Species that trip a single probe — a blunt bill, rear-swept plumage — are
+    // NOT corrected. A half-turn on a correct model is as visible as the bug.
+    for (const [id, name] of [["mythic-7", "Turtle Duck"], ["legendary-6", "Ember Phoenix"], ["standard-10", "Pine Owl"], ["rare-24", "Young Direwolf"]] as const) {
+        assert.equal(qaRosterCombatModel({ id, name }).yawOffset, 0, `${name} faces forward and must not be turned`);
+    }
+});

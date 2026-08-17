@@ -57,6 +57,7 @@ import { ShowdownIcon, type ShowdownIconName } from "./icons/ShowdownIcon";
 import { SceneAmbience } from "./SceneAmbience";
 import type { Biome, WeatherType } from "../types/core";
 import { ELEMENT_ICON } from "../lib/element-icons";
+import { fitDistance, framedExtent, showdownFov, shotWeight, type ShotWeight } from "../lib/showdown-camera";
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
@@ -746,6 +747,23 @@ function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx
 
 // ─── Camera director ─────────────────────────────────────────────────────────
 
+/** The resting broadcast shot, shared by the Canvas' initial camera and the
+ *  director so the first frame is already the framing the fight settles into.
+ *
+ *  It sits OFF the centre line on purpose. A camera parked dead behind your own
+ *  line shows four backs down the middle of frame — your pets are turned away
+ *  (they face the enemy, which is correct) and the enemy is hidden behind them.
+ *  Sliding it to the player's right turns the whole board three-quarter: your
+ *  pets read in profile, the enemy line reads as faces, and the lanes between
+ *  the slots open up instead of stacking front-to-back. */
+const WIDE_POS: readonly [number, number, number] = [5.2, 7.8, 14.0];
+const WIDE_LOOK: readonly [number, number, number] = [0, 1.0, -0.6];
+/** What the resting shot has to keep on screen: the widest pair of slots plus a
+ *  tall pet's half-height. Depth needs no allowance — it runs along the lens.
+ *  This is what replaces the old flat "+3.4 on portrait" nudge: a narrow phone
+ *  now pulls back by however much its horizontal FOV actually demands. */
+const BOARD_RADIUS = SLOT_SPACING + 1.4;
+
 function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
@@ -753,7 +771,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
     lineup: Lineup;
     reduced: boolean;
 }) {
-    const pos = useRef(new THREE.Vector3(0, 6.2, 12.2));
+    const pos = useRef(new THREE.Vector3(WIDE_POS[0], WIDE_POS[1], WIDE_POS[2]));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
     /** Shot identity — when it changes, the camera CUTS (snaps) instead of
      *  lerping: the Pokémon Colosseum grammar. */
@@ -766,17 +784,18 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         const beat = beatRef.current;
         const fx = fxRef.current;
         const now = performance.now();
-        // Default: wide broadcast shot from behind the player's line.
-        // Pulled back from (5.2, 10.2): at the old distance the creatures sat
-        // large enough that the status plates read as ON them — the command
-        // view felt covered up. Wider and slightly higher gives the board
-        // Champions' framing: creatures mid-frame, chrome at the edges.
-        let targetPos = new THREE.Vector3(0, 6.2, 12.8);
-        let targetLook = new THREE.Vector3(0, 0.9, -0.6);
+        // Default: the wide three-quarter broadcast shot (see WIDE_POS). Pulled
+        // back again from (0, 6.2, 12.8) — that framing still put a big species
+        // across half the frame height, so the board read as two creatures in a
+        // close-up rather than a match in an arena.
+        let targetPos = new THREE.Vector3(...WIDE_POS);
+        let targetLook = new THREE.Vector3(...WIDE_LOOK);
         let nextShot = "wide";
         let cutOnChange = false;
-        // Every body that is IN the shot, for the framing floor below.
+        // Every body that is IN the shot, and how much room this beat's element
+        // work needs around them — both feed the fit-to-frame dolly below.
         const bodies: THREE.Vector3[] = [];
+        let weight: ShotWeight = "quiet";
         if (beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const actorPos = posRef.current.get(beat.event.actorId);
             const victimPos = beat.event.targets[0] ? posRef.current.get(beat.event.targets[0].id) : undefined;
@@ -796,6 +815,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                 const enemyActing = beat.event.actorSide === "enemy";
                 if (beat.event.super) {
                     nextShot = `super:${beat.index}`;
+                    weight = "super";
                     const swoop = reduced ? 1 : frac;
                     if (enemyActing) {
                         // Enemy signature: a high side dolly along the lane —
@@ -804,14 +824,14 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                         const dirS = b.clone().sub(a).setY(0).normalize();
                         const perpS = new THREE.Vector3(-dirS.z, 0, dirS.x);
                         targetPos = mid.clone()
-                            .add(perpS.multiplyScalar(7.6 - swoop * 1.2))
-                            .setY(4.0 + swoop * 0.6);
+                            .add(perpS.multiplyScalar(8.8 - swoop * 1.0))
+                            .setY(4.6 + swoop * 0.6);
                         targetLook = (reduced || frac >= 0.45 ? b : a).clone().setY(1.1);
                     } else {
                         // Player signature: the shoulder swoop into the impact
                         // (kept as a continuous move — the letterbox moment).
-                        const behind = a.clone().sub(b).normalize().multiplyScalar(6.8);
-                        targetPos = a.clone().add(behind).add(new THREE.Vector3(2.2 - swoop * 1.1, 3.0 + swoop * 0.8, 0));
+                        const behind = a.clone().sub(b).normalize().multiplyScalar(8.2);
+                        targetPos = a.clone().add(behind).add(new THREE.Vector3(2.8 - swoop * 1.1, 3.6 + swoop * 0.8, 0));
                         targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
                     }
                 } else {
@@ -829,6 +849,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                     if (frac < STRIKE_FRAC * 0.92) {
                         const variant = v % 3;
                         nextShot = `windup:${beat.index}:${variant}`;
+                        weight = "windup";
                         if (ranged || enemyActing) {
                             // Slot line: sit off the axis so the action travels
                             // across frame rather than into the lens. ALSO the
@@ -838,32 +859,35 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                             // the lane keeps YOUR pets' backs toward the lens.
                             const mid = a.clone().lerp(b, 0.5);
                             targetPos = mid.clone()
-                                .add(perp.clone().multiplyScalar(variant === 1 ? -7.4 : 7.4))
-                                .setY(enemyActing ? (variant === 2 ? 4.6 : 3.8) : variant === 2 ? 3.8 : 3.0);
+                                .add(perp.clone().multiplyScalar(variant === 1 ? -8.6 : 8.6))
+                                .setY(enemyActing ? (variant === 2 ? 5.2 : 4.4) : variant === 2 ? 4.4 : 3.6);
                             targetLook = mid.clone().setY(1.2);
                         } else {
-                            const lateral = perp.clone().multiplyScalar(variant === 1 ? -1.9 : 1.9);
+                            const lateral = perp.clone().multiplyScalar(variant === 1 ? -2.6 : 2.6);
                             targetPos = a.clone()
-                                .sub(dir.clone().multiplyScalar(variant === 2 ? 6.4 : 5.6))
+                                .sub(dir.clone().multiplyScalar(variant === 2 ? 7.6 : 6.8))
                                 .add(lateral)
-                                .setY(variant === 2 ? 3.1 : 2.4);
+                                .setY(variant === 2 ? 3.7 : 3.0);
                             targetLook = b.clone().setY(1.2);
                         }
                     } else {
                         const variant = (v >> 3) % 3;
                         nextShot = `strike:${beat.index}:${variant}`;
+                        weight = shotWeight({ superMove: false, heavy, ranged, windup: false });
                         // A heavy or lethal blow pushes the lens IN — but only
                         // relatively. The old close numbers (3.2 side / 1.7 high)
                         // were authored against a mid-sized pet; on a big species
                         // they buried the lens in the body and the hit read as a
                         // wall of texture. Heavy is now "closer than a normal
-                        // strike", not "inside the creature".
-                        const sideDist = heavy ? 5.6 : 6.8;
-                        const height = heavy ? 2.2 : 2.6;
+                        // strike", not "inside the creature" — and the whole pair
+                        // has since been loosened again so even the tight beat
+                        // keeps the victim's full silhouette inside the frame.
+                        const sideDist = heavy ? 7.0 : 8.4;
+                        const height = heavy ? 2.8 : 3.2;
                         targetPos = b.clone()
                             .add(perp.clone().multiplyScalar(variant === 1 ? -sideDist : sideDist))
-                            .add(dir.clone().multiplyScalar(variant === 2 ? -3.2 : -2.2))
-                            .setY(variant === 2 ? height + 0.6 : height);
+                            .add(dir.clone().multiplyScalar(variant === 2 ? -4.0 : -2.8))
+                            .setY(variant === 2 ? height + 0.7 : height);
                         targetLook = b.clone().setY(1.05);
                     }
                 }
@@ -876,7 +900,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                 bodies.push(p);
                 nextShot = `switch:${beat.index}`;
                 cutOnChange = true;
-                targetPos = p.clone().add(new THREE.Vector3(5.0, 3.0, 5.0));
+                targetPos = p.clone().add(new THREE.Vector3(6.0, 3.7, 6.0));
                 targetLook = p.clone().setY(1.1);
             }
         } else if (beat.event && beat.event.t === "end") {
@@ -890,7 +914,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                 bodies.push(p);
                 nextShot = "end";
                 const th = (now - beat.startedAt) * 0.00045;
-                targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 6.0, 3.0, Math.cos(th) * 6.0));
+                targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 7.4, 3.6, Math.cos(th) * 7.4));
                 targetLook = p.clone().setY(1.15);
             }
         }
@@ -910,43 +934,57 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
             targetPos.x += Math.sin(now * 0.00013) * 1.1;
             targetPos.y += Math.sin(now * 0.00009 + 1.7) * 0.35;
         }
-        // FRAMING FLOOR. Every shot above is authored as an offset in world
-        // units, but the roster's models are not one size — a hawk and a turtle
-        // duck sit in the same slot at wildly different volumes, and the tight
-        // variants put the lens inside the bigger ones (the subject filled the
-        // frame as an unreadable wall of texture). Two floors fix it for the
-        // whole roster without per-shot tuning: the framed subject is never
-        // nearer than SUBJECT_MIN, and NO body in the shot — including the
-        // caster the lens swoops past — is nearer than BODY_MIN.
-        const SUBJECT_MIN = 7.6;
-        const BODY_MIN = 6.0;
+        // FIT TO FRAME. Every shot above is authored as an ANGLE; how far back
+        // that angle has to sit is not something the shot can know. The roster's
+        // models are not one size, the element work around a blow throws several
+        // units past the body that took it, and the viewport can be any shape.
+        //
+        // This used to be a pair of minimum distances, which is not framing at
+        // all — it says where the lens may not go, not what ends up on screen.
+        // A signature whose shock ring opens past five units still overflowed,
+        // and it overflowed sooner on a narrow phone because a fixed distance
+        // ignores horizontal FOV completely. Now the radius that HAS to be
+        // visible (every body in the shot, plus that beat's effect budget) is
+        // measured, and the lens dollies straight out along its own view vector
+        // until that radius fits the tighter frame axis — so the authored angle
+        // survives untouched and only the distance changes.
+        const aspect = size.width / Math.max(1, size.height);
         const view = targetPos.clone().sub(targetLook);
         if (view.lengthSq() < 0.01) view.set(0, 2, 6);
         const viewDir = view.clone().normalize();
-        if (view.length() < SUBJECT_MIN) {
-            targetPos.copy(targetLook).add(viewDir.clone().multiplyScalar(SUBJECT_MIN));
+        const extent = framedExtent(
+            [targetLook.x, targetLook.y, targetLook.z],
+            bodies.map((b) => [b.x, b.y, b.z] as const),
+            weight,
+        );
+        const horiz = Math.max(extent.horiz, nextShot === "wide" ? BOARD_RADIUS : 0);
+        // The lens itself is responsive: a narrow viewport opens it rather than
+        // trying to buy horizontal coverage with distance alone, which on a
+        // phone would push the camera through the backdrop wall.
+        const fov = showdownFov(aspect);
+        if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - fov) > 0.01) {
+            camera.fov = fov;
+            camera.updateProjectionMatrix();
         }
-        // Dolly straight back along the same view vector until every body is
-        // clear — this preserves the authored angle, it only loosens the lens.
-        for (let i = 0; i < 8; i++) {
-            let closest = Infinity;
-            for (const body of bodies) closest = Math.min(closest, targetPos.distanceTo(body));
-            if (closest >= BODY_MIN) break;
-            targetPos.add(viewDir.clone().multiplyScalar(BODY_MIN - closest + 0.15));
-        }
-        // Portrait phones: pull back ALONG THE LOOK VECTOR. Scaling the raw
-        // position would also scale the height, sending low variants into the
-        // ceiling and high ones through the backdrop.
-        const aspect = size.width / Math.max(1, size.height);
-        if (aspect < 0.9) {
-            targetPos.add(targetPos.clone().sub(targetLook).normalize().multiplyScalar(3.4));
+        const needed = fitDistance(horiz, extent.vert, fov, aspect);
+        if (view.length() < needed) {
+            targetPos.copy(targetLook).add(viewDir.clone().multiplyScalar(needed));
         }
         // Containment: never below the floor, never outside the arena shell
-        // (floor radius 14, backdrop wall at 19). Raised from 13 with the
-        // framing floor above — a pushed-back shot has to be allowed to
-        // actually reach its new distance or the clamp undoes the fix.
+        // (floor radius 14, backdrop wall at 19, night cap at y 16.4). Raised
+        // from 13, then 16.5, alongside the framing floors above — a pushed-back
+        // shot has to be allowed to actually reach its new distance or the clamp
+        // undoes the fix. 18 keeps the lens inside the backdrop cylinder even at
+        // the wide shot's height.
+        //
+        // KNOWN LIMIT: with the responsive lens every shot fits inside 18 except
+        // a SIGNATURE on a phone held upright, which wants ~22. There is nowhere
+        // to put that camera — the backdrop wall is at 19 — so the ring is
+        // cropped there. Widening the lens further is the only other lever and
+        // it fisheyes the caster. Shrinking the ring for narrow viewports in
+        // PetShowdownVfx3d is the real fix if it ever matters enough.
         targetPos.y = Math.max(FLOOR_Y + 1.0, targetPos.y);
-        if (targetPos.length() > 16.5) targetPos.setLength(16.5);
+        if (targetPos.length() > 18) targetPos.setLength(18);
         pos.current.lerp(targetPos, 0.055);
         look.current.lerp(targetLook, 0.075);
         camera.position.copy(pos.current);
@@ -3125,7 +3163,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 sat a hair flat next to the painted arenas — a slight push
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
-            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }} camera={{ fov: 48, position: [0, 6.2, 12.2], near: 0.1, far: 80 }}>
+            <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }} camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}>
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} />
