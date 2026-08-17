@@ -81,6 +81,10 @@ async function runLegacyDrain(suffix: string) {
         },
         log: [],
         createdAt: Date.now(),
+        // persistedSession stamps endedAt when a row goes terminal. This fixture
+        // seeds the row directly, so it supplies one; otherwise the claim stops
+        // at the terminal-time guard before reaching the legacy drain.
+        endedAt: Date.now(),
     }, { ex: 900 });
 
     const first = response();
