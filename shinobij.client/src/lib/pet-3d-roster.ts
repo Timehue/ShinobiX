@@ -87,6 +87,37 @@ export function inferPet3dProfile(name: string): PetCombatModelProfile {
     return "quadruped";
 }
 
+/**
+ * Half-turn corrections for roster art whose MESH was generated facing the
+ * opposite way from the rig it was bound to.
+ *
+ * Every roster GLB shares one stock skeleton, and in that skeleton the head sits
+ * directly above the pelvis with zero X offset — so the bones are identical in
+ * all 145 models and say nothing about which way the creature actually looks. On
+ * an upright species (a bird especially) a backwards mesh therefore skins onto
+ * that vertical chain perfectly cleanly: nothing tears, nothing is malformed,
+ * and the model passes the certification pass. It simply stands with its back to
+ * whatever it is supposed to be facing, which in an arena means the AI's pet
+ * shows you its tail feathers while its team-mate shows you its beak.
+ *
+ * The mesh does carry the signal, in two places that are independent of each
+ * other: a beak or snout reaches forward of the head bone, and toes reach
+ * forward of the ankle. The entries below are the models where BOTH reach
+ * backwards, under both a centroid and a 97th-percentile-protrusion measure —
+ * four negative readings out of four. Species that merely have a blunt face
+ * (Turtle Duck) or rear-swept plumage (Ember Phoenix) trip one probe and are
+ * deliberately NOT listed: a half-turn applied to a correct model is exactly as
+ * visible as the bug it is meant to fix.
+ *
+ * This is a presentation correction, not an art fix — regenerating the affected
+ * GLBs facing the right way and dropping the entry is the durable repair.
+ */
+const ROSTER_YAW_CORRECTIONS: Readonly<Record<string, number>> = {
+    "standard-36": Math.PI,   // Dust Swift — toe geometry sits almost wholly behind the ankle
+    "legendary-4": Math.PI,   // Ironfang Tiger
+    "mythic-9": Math.PI,      // Worldroot Colossus
+};
+
 export function qaRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatModelConfig {
     const profile = ROSTER_MODEL_PROFILES[pet.id] ?? inferPet3dProfile(pet.name);
     return {
@@ -95,7 +126,7 @@ export function qaRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatMod
         profile,
         targetHeight: profile === "heavy" ? 2.65 : profile === "serpentine" ? 2.5 : profile === "avian" ? 2.4 : 2.35,
         fit: profile === "serpentine" ? "longest" : "height",
-        yawOffset: 0,
+        yawOffset: ROSTER_YAW_CORRECTIONS[pet.id] ?? 0,
         // Smart-UV roster meshes can split vertices at every atlas seam. A
         // scaled backface hull then leaks through those seams as a triangular
         // wireframe, so identity-painted roster art uses its authored ink/rim.
