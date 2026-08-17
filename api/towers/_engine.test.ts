@@ -21,6 +21,7 @@ import { hexDistance } from '../pvp/_aoe.js';
 import { applyJutsu } from '../pvp/move.js';
 import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 import { getEnemyTemplate } from './_enemy-templates.js';
+import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 
@@ -1366,5 +1367,127 @@ describe('Battle Towers basic actions', () => {
         const posBefore = getActor(warded, 'en-1')!.pos;
         applyAction(warded, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'push', targetId: 'en-1' }, makeRng(1));
         assert.equal(getActor(warded, 'en-1')!.pos, posBefore, 'Debuff Prevent blocks displacement (PvP parity)');
+    });
+
+    /*
+     * PvE-only relic power, and the trap in gating it.
+     *
+     * Tower PvP seats the opposing HUMAN team on side 'enemy'
+     * (api/towers/_pvp-session.ts). So gating a PvE-only bonus on `side` would
+     * hand one human team a damage bonus against another — asymmetrically, since
+     * only one side would qualify. The gate is therefore whether the COUNTERPARTY
+     * is a genuine AI (ai && ownerSlug == null), which fails closed for every
+     * human-vs-human fight, including AFK-driven humans (who keep an ownerSlug).
+     */
+    describe('PvE-only relic power stops at the PvP boundary', () => {
+        const floor = makeFloor('defeat-all');
+        const RELIC_CHAR = { ...STRONG, pveDamagePct: 50 };
+
+        const hit = (defender: Partial<TowerActor>) => {
+            const s = makeSession([
+                makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'alice', character: RELIC_CHAR }),
+                makeActor('en-1', 'enemy', 1, { character: WEAK, ...defender }),
+            ]);
+            startRound(s);
+            const before = getActor(s, 'en-1')!.hp;
+            applyAction(s, floor, { actorId: 'sq-1', type: 'attack', targetId: 'en-1' }, makeRng(3));
+            return before - getActor(s, 'en-1')!.hp;
+        };
+
+        it('applies against a real AI enemy', () => {
+            const vsAi = hit({ ai: true, ownerSlug: null });
+            const vsAiNoRelic = (() => {
+                const s = makeSession([
+                    makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'alice', character: STRONG }),
+                    makeActor('en-1', 'enemy', 1, { character: WEAK, ai: true, ownerSlug: null }),
+                ]);
+                startRound(s);
+                const before = getActor(s, 'en-1')!.hp;
+                applyAction(s, floor, { actorId: 'sq-1', type: 'attack', targetId: 'en-1' }, makeRng(3));
+                return before - getActor(s, 'en-1')!.hp;
+            })();
+            assert.ok(vsAi > vsAiNoRelic, `the relic should boost PvE damage (${vsAi} > ${vsAiNoRelic})`);
+        });
+
+        it('does NOT apply against a human seated on the enemy side (tower PvP)', () => {
+            const vsAi = hit({ ai: true, ownerSlug: null });
+            const vsHuman = hit({ ai: false, ownerSlug: 'bob' });
+            assert.ok(vsHuman < vsAi, `PvE power must not reach a human opponent (${vsHuman} < ${vsAi})`);
+        });
+
+        it('does NOT apply against an AFK human, who is ai-driven but still owned', () => {
+            const vsAi = hit({ ai: true, ownerSlug: null });
+            const vsAfk = hit({ ai: true, ownerSlug: 'bob' });
+            assert.ok(vsAfk < vsAi, `an AFK human is still a human (${vsAfk} < ${vsAi})`);
+        });
+
+        it('is off for the WHOLE session in a human-vs-human tower match', () => {
+            // The per-target gate reads the PRIMARY target only, so an AOE aimed at
+            // an NPC inside a PvP match could otherwise splash a human with the
+            // bonus attached. The session marker rules the match out entirely.
+            const inSession = (towerId: string) => {
+                const s = makeSession([
+                    makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'alice', character: RELIC_CHAR }),
+                    makeActor('en-1', 'enemy', 1, { character: WEAK, ai: true, ownerSlug: null }),
+                ], { towerId });
+                startRound(s);
+                const before = getActor(s, 'en-1')!.hp;
+                applyAction(s, floor, { actorId: 'sq-1', type: 'attack', targetId: 'en-1' }, makeRng(3));
+                return before - getActor(s, 'en-1')!.hp;
+            };
+            assert.ok(
+                inSession(TOWER_PVP_TOWER_ID) < inSession('tower-story'),
+                'a tower PvP session grants no PvE power even against an AI actor',
+            );
+        });
+    });
+
+    /*
+     * Towers is the THIRD engine that synthesizes a weapon swing (PvP move.ts and
+     * solo-PvE _engine.ts are the other two), so it needs its own end-to-end proof
+     * that the swing survives a Heal/Shield tag. A named weapon that rolled either
+     * one — 2 of the 12 tags in craft/_named.ts WEAPON_TAGS — used to hit the
+     * support-jutsu "Heal/Shield zeroes the damage" rule in resolveTagStatuses and
+     * swing for exactly 0 here too. Unit coverage: api/pvp/_weapon-damage.test.ts.
+     */
+    describe('weapon swings keep their damage through Heal/Shield tags', () => {
+        const floor = makeFloor('defeat-all');
+        const swing = (weaponTags: unknown[]) => {
+            const weapon = {
+                id: 'named-weapon-test', name: 'Test Fang', slot: 'hand',
+                weaponEp: 33, apCost: 40, weaponRange: 3, weaponCooldown: 5, weaponTags,
+            };
+            const s = makeSession([
+                makeActor('sq-1', 'squad', 0, {
+                    ai: false, ownerSlug: 'alice', hp: 500,
+                    character: {
+                        ...STRONG, jutsu: [], pvpItems: [weapon],
+                        equipment: { hand: 'named-weapon-test' },
+                    },
+                }),
+                makeActor('en-1', 'enemy', 1, { character: WEAK }),
+            ]);
+            startRound(s);
+            const before = getActor(s, 'en-1')!.hp;
+            const r = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'named-weapon-test' }, makeRng(7));
+            return { applied: r.applied, reason: r.reason, damage: before - getActor(s, 'en-1')!.hp, me: getActor(s, 'sq-1')! };
+        };
+
+        const control = swing([]);
+
+        it('a Heal-tagged weapon deals the same damage as an untagged one, and still heals', () => {
+            const healed = swing([{ name: 'Heal', percent: 37 }]);
+            assert.equal(healed.applied, true, `the swing should be accepted (reason: ${healed.reason})`);
+            assert.equal(healed.damage, control.damage, 'the Heal tag must not eat the swing');
+            assert.ok(healed.damage > 0, 'and the untagged control itself deals damage');
+            assert.ok(healed.me.hp > 500, `the wielder is healed on top, hp=${healed.me.hp}`);
+        });
+
+        it('a Shield-tagged weapon deals the same damage as an untagged one, and still shields', () => {
+            const shielded = swing([{ name: 'Shield', percent: 37 }]);
+            assert.equal(shielded.applied, true, `the swing should be accepted (reason: ${shielded.reason})`);
+            assert.equal(shielded.damage, control.damage, 'the Shield tag must not eat the swing');
+            assert.ok(shielded.me.shield > 0, `the wielder gains shield on top, shield=${shielded.me.shield}`);
+        });
     });
 });

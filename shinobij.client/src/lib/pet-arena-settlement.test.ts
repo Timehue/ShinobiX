@@ -101,14 +101,32 @@ test("Pet Arena's App boundary reports foreign and stale responses separately", 
     assert.match(arenaSource, /if \(decision === "stale"\)[\s\S]*clearSpentConsumables/);
 });
 
-test("every retained authoritative Pet Arena result exposes an idempotent retry receipt", () => {
-    for (const kind of ["tactical", "party", "ranked", "casual"] as const) {
+test("every authoritative Pet Arena result exposes an idempotent retry receipt", () => {
+    // Only these two settle under a literal kind; "party" and "casual" come from
+    // the one ternary asserted a few lines below, not from separate call sites.
+    for (const kind of ["tactical", "ranked"] as const) {
         assert.match(arenaSource, new RegExp(`kind: "${kind}"`));
     }
+    // A player challenge settles as "party" or "casual" depending on the format
+    // the two sides agreed to. Both come from ONE settlement now, because both
+    // are the same thing: a server-sealed duel this screen only watched.
+    assert.match(arenaSource, /kind: isParty \? "party" : "casual"/);
     assert.match(arenaSource, /Retry Settlement/);
-    assert.match(arenaSource, /id: `party:\$\{battleToken\}:\$\{reportKey\}`/);
+    // No duel this screen starts freezes an input log any more, because none of
+    // them is fought here: a challenge is resolved when it is accepted, a
+    // wanderer at mint, ranked at its token. An input log proves which buttons
+    // a LOCAL fight pressed, and there is no local fight left to prove.
     assert.doesNotMatch(arenaSource, /livePartyDuel/);
-    assert.match(arenaSource, /const inputLog = liveDuel\?\.inputLog\(\)/);
+    assert.doesNotMatch(arenaSource, /inputLog/);
+    // The legacy engine is gone from this screen entirely — the real guarantee
+    // behind all of the above. Matched as a closing import specifier (`…live"`)
+    // rather than a bare substring, because `pet-duel-live-roster` is a
+    // DIFFERENT module that shares the prefix: it is the fail-closed 2v2 roster
+    // guard this screen is required to keep, and a substring match would read
+    // that guard as the legacy engine and fail.
+    for (const legacy of ["pet-duel-sim", "pet-duel-cinematic", "pet-duel-live"]) {
+        assert.doesNotMatch(arenaSource, new RegExp(`${legacy.replace(/-/g, "\\-")}["']`));
+    }
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /if \(petSettlementBlocksExit\)/);
 });
@@ -121,7 +139,12 @@ test("a rewarded Warfront keeps authoritative Witness progress and its final Chr
     assert.match(warfront, /\{resultSupplement \? \([\s\S]*\{resultSupplement\}/);
     assert.match(warfront, /disabled=\{resultActionsLocked\}/);
     assert.match(warfront, /disabled=\{settlementPending\}/);
-    assert.match(arenaSource, /onFightAgain=\{battleOpponent\?\.hollowGate \|\| battleOpponent\?\.ranked \|\| petSettlementBlocksExit \|\| chronicleCeremony \? undefined/);
+    // Fight Again survives only on the WARFRONT result screen, which is what
+    // this test is about. The duel screen no longer offers it at all: every
+    // fight it starts is spent when it resolves (a challenge is consumed, a
+    // ranked pairing is consumed, a wanderer is cooled down on the World Map),
+    // and the replay player it now renders has no such control to withhold.
+    assert.doesNotMatch(arenaSource, /onFightAgain/);
 });
 
 test("rewarded Warfronts render and settle only the server-minted seed", () => {

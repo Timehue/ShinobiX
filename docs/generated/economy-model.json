@@ -947,7 +947,7 @@
       "amount": 600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
-      "notes": "rare aura"
+      "notes": "rare relic"
     },
     {
       "system": "shop",
@@ -2287,7 +2287,7 @@
       "id": "chakra-ring",
       "name": "Chakra Ring",
       "rarity": "rare",
-      "slot": "aura",
+      "slot": "relic",
       "levelReq": 1,
       "baseCost": 600,
       "currency": "ryo"

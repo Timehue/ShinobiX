@@ -45,6 +45,9 @@ export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentatio
     if (slot === "aura") {
         return { category: "Aura Equipment", use: "Equip for passive bonuses", showPlayerSlot: true, effectLabel: "Aura Effect" };
     }
+    if (slot === "relic") {
+        return { category: "Relic", use: "Equip for passive bonuses", showPlayerSlot: true, effectLabel: "Relic Effect" };
+    }
     if (petGear) {
         return { category: "Pet Gear", use: "Manage in Pet Yard", showPlayerSlot: false, effectLabel: "Pet Effect" };
     }

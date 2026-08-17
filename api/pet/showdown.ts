@@ -34,6 +34,13 @@ import {
 } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
 import { buildServerHollowHound } from './battle-start.js';
+import { loadAdminEventObjects } from '../_admin-event-catalog.js';
+import {
+    buildAuthoredEventBeast,
+    buildDungeonSealBeast,
+    dungeonSealRunIssue,
+    findAuthoredPetBattle,
+} from './_authored-encounter.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 import {
     HOLLOW_GATE_PET_AUTHORITY_VERSION,
@@ -95,6 +102,16 @@ const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
 // for payment — a Showdown session leases 45 minutes, a coliseum battle token
 // 15 — with room to spare on both.
 const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
+// The pools a SPARRING bout rolls between. All three, deliberately: the point
+// of the drill is meeting opposition you did not pick, and a scrapper draw is
+// as instructive as a champion one when both stand at your own pets' levels.
+const SPARRING_TIERS: readonly ShowdownTier[] = ['scrapper', 'warrior', 'champion'];
+
+// (No HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS twin here, unlike pet/battle-result.ts:
+// mintHollowGatePetReceipt below writes the versioned receipt through
+// writeHollowGatePetResult, which owns that lifetime itself. The raw `ex:` write
+// it replaced was the constant's only reader.)
+
 const sessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
 const paidReceiptKey = (playerName: string, receipt: string) => `pet:battle-paid:${playerName}:${receipt}`;
 
@@ -132,6 +149,21 @@ function viewOf(session: ShowdownSession): Record<string, unknown> {
             ? { turnDeadline: session.turnDeadlineAt }
             : {}),
     };
+}
+
+/** Busy gating, shared by every entry that fields pets from a save. Deliberately
+ *  ONE-directional (see the note at the practice entry): a pet that is breeding,
+ *  training or away cannot ENTER a Showdown, but an in-flight session does not
+ *  stamp the pet busy for other systems. */
+function showdownBusyIssue(char: Record<string, unknown>, pets: Pet[]): string | null {
+    const breedingParents = activeBreedingParentIds(char);
+    const now = Date.now();
+    for (const pet of pets) {
+        if (breedingParents.has(String(pet.id))) return `${pet.name} is in the breeding barn.`;
+        if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return `${pet.name} is away on an expedition.`;
+        if (pet.training && Number(pet.training.endsAt ?? 0) > now) return `${pet.name} is mid-training.`;
+    }
+    return null;
 }
 
 function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
@@ -344,7 +376,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'start') {
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-start', 20, 60_000, identity.name))) return;
             const format: ShowdownFormat = body.format === '2v2' ? '2v2' : body.format === '3v3' ? '3v3' : '1v1';
-            const tier: ShowdownTier = body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
+            /*
+             * SPARRING — the practice door's default, and the answer to "give me
+             * a fight right now that is worth practising against".
+             *
+             * The player is not choosing an opponent, they are asking the arena
+             * for one, so the two things a chosen tier decides are decided HERE
+             * instead: the tier is ROLLED (the opposition varies bout to bout,
+             * across all three rarity pools) and the AI is levelled slot-for-slot
+             * against the team brought rather than to its average.
+             *
+             * Reading this flag off the body is safe in a way `body.tier` on the
+             * arena entry is not: this entry seals rewardEligible FALSE
+             * unconditionally below, so nothing a caller can say here reaches a
+             * payout. All it can steer is its own practice.
+             */
+            const sparring = body.sparring === true;
+            const tier: ShowdownTier = sparring
+                ? SPARRING_TIERS[randomInt(0, SPARRING_TIERS.length)]
+                : body.tier === 'champion' ? 'champion' : body.tier === 'warrior' ? 'warrior' : 'scrapper';
             const size = SHOWDOWN_FORMAT_SIZE[format];
             // Team = field + bench, and the bench is the same size in every
             // format (SHOWDOWN_BENCH_SIZE). The first `size` ids start on the
@@ -371,23 +421,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // pays a flat level-based reward, and a 45-min KV lease is not a
             // durable assignment worth save-field + manifest churn. Revisit if
             // Showdown ever grants per-pet progression.
-            const breedingParents = activeBreedingParentIds(myChar ?? {});
-            const now = Date.now();
-            for (const pet of chosen) {
-                if (breedingParents.has(String(pet.id))) {
-                    return res.status(409).json({ error: `${pet.name} is in the breeding barn.` });
-                }
-                if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) {
-                    return res.status(409).json({ error: `${pet.name} is away on an expedition.` });
-                }
-                if (pet.training && Number(pet.training.endsAt ?? 0) > now) {
-                    return res.status(409).json({ error: `${pet.name} is mid-training.` });
-                }
-            }
+            const busyIssue = showdownBusyIssue(myChar ?? {}, chosen);
+            if (busyIssue) return res.status(409).json({ error: busyIssue });
 
             const seed = randomInt(1, 0x7fffffff);
-            // The AI fields a team the same SIZE as the player's (bench parity).
-            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed);
+            // The AI fields a team the same SIZE as the player's (bench parity),
+            // and in a sparring bout at the same LEVELS, pet for pet.
+            const { pets: enemyPets, teamName } = buildShowdownAiTeam(chosen, chosen.length, tier, seed, { mirrorLevels: sparring });
             if (enemyPets.length !== chosen.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
             const sessionId = randomUUID().replace(/-/g, '');
             const session = createShowdownSession({
@@ -445,13 +485,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Same busy gating as the practice entry: a pet that is breeding,
             // training or away cannot be fielded.
-            const breedingParents = activeBreedingParentIds(myChar);
-            const now = Date.now();
-            for (const pet of chosen) {
-                if (breedingParents.has(String(pet.id))) return res.status(409).json({ error: `${pet.name} is in the breeding barn.` });
-                if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return res.status(409).json({ error: `${pet.name} is away on an expedition.` });
-                if (pet.training && Number(pet.training.endsAt ?? 0) > now) return res.status(409).json({ error: `${pet.name} is mid-training.` });
-            }
+            const busyIssue = showdownBusyIssue(myChar, chosen);
+            if (busyIssue) return res.status(409).json({ error: busyIssue });
 
             /*
              * HOLLOW GATE BINDING (optional). A Hollow Gate pet encounter is
@@ -539,6 +574,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, state: viewOf(session), dailyCap: DAILY_ARENA_WIN_CAP });
         }
 
+        if (action === 'encounter') {
+            /*
+             * THE AUTHORED ENCOUNTER — the last entry that fights an opponent
+             * neither the arena nor a ladder picked: the relic-dungeon Rare Beast
+             * Seal, and an admin-authored VN choice with a pet battle in it.
+             *
+             * These are why the legacy client sim survived. Showdown had no entry
+             * that would fight a caller-specified opponent, and the obvious fix —
+             * letting the client post the opponent's stats — is exactly the
+             * surface this repo does not allow. So the request carries a SELECTOR
+             * and nothing else: a dungeon run token, or an event id plus the
+             * authored (petId, difficulty) pair naming which choice it is. The
+             * server rebuilds the opponent from ITS OWN authored content
+             * (_authored-encounter.ts) and never reads a stat, level, kit or name
+             * off the wire.
+             *
+             * IT PAYS NOTHING — the seal below is a hard false. The dungeon's
+             * rewards belong to its own run settlement and the event's to its
+             * completion;
+             * this endpoint decides an OUTCOME, not a purse. That also means the
+             * daily arena cap is untouched, exactly as a Hollow Gate bout is.
+             *
+             * FORMAT IS 1v1 WITH NO BENCH, on purpose. Every other Showdown entry
+             * carries reserves, but this one replaces a fight that was one pet
+             * against one beast — handing the player three pets against a single
+             * authored boss would move the difficulty far more than the engine
+             * swap does, and the whole point of porting these is that the ENGINE
+             * is the only thing that changes.
+             */
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-encounter', 20, 60_000, identity.name))) return;
+            const spec = body.encounter && typeof body.encounter === 'object' && !Array.isArray(body.encounter)
+                ? body.encounter as Record<string, unknown>
+                : null;
+            const kind = String(spec?.kind ?? '');
+            if (kind !== 'dungeon-seal' && kind !== 'story-event') {
+                return res.status(400).json({ error: 'Unknown authored encounter.' });
+            }
+            const myPetId = Array.isArray(body.petIds) ? String(body.petIds[0] ?? '').slice(0, 96) : '';
+            if (!myPetId) return res.status(400).json({ error: 'Pick one pet for this encounter.' });
+
+            const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const myChar = mySave?.character as Record<string, unknown> | undefined;
+            if (!myChar) return res.status(404).json({ error: 'No save found.' });
+            const myPets = Array.isArray(myChar.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
+            const mine = myPets.find((pet) => String(pet?.id ?? '') === myPetId) as unknown as Pet | undefined;
+            if (!mine) return res.status(409).json({ error: 'That pet is not in your roster.' });
+            const encounterBusy = showdownBusyIssue(myChar, [mine]);
+            if (encounterBusy) return res.status(409).json({ error: encounterBusy });
+
+            let beast: Pet | null = null;
+            let tier: ShowdownTier = 'champion';
+            if (kind === 'dungeon-seal') {
+                // Seal 3 sits behind seal 1 — the run must exist, be this
+                // player's, and have its Warden already down. That ordering was
+                // only ever enforced by the dungeon screen's own stage machine.
+                const issue = dungeonSealRunIssue(myChar, spec?.runToken);
+                if (issue) return res.status(409).json({ error: issue });
+                beast = buildDungeonSealBeast(playerName, String(spec?.runToken ?? ''));
+            } else {
+                const eventId = String(spec?.eventId ?? '').trim().slice(0, 120);
+                if (!eventId) return res.status(400).json({ error: 'An event id is required.' });
+                const events = await loadAdminEventObjects();
+                const authored = findAuthoredPetBattle(events.get(eventId), spec?.petId, spec?.difficulty);
+                if (!authored) {
+                    return res.status(409).json({ error: 'That event has no such authored pet encounter.' });
+                }
+                beast = buildAuthoredEventBeast(authored);
+                // The authored difficulty is the only thing that may steer the
+                // AI's sharpness, and it comes from the AUTHORED row, not the
+                // request — the same reason the arena derives its own tier.
+                tier = authored.difficulty === 'easy' ? 'scrapper'
+                    : authored.difficulty === 'hard' || authored.difficulty === 'impossible' ? 'champion'
+                        : 'warrior';
+            }
+            if (!beast) return res.status(409).json({ error: 'This encounter has no opponent to field.' });
+
+            const seed = randomInt(1, 0x7fffffff);
+            const sessionId = randomUUID().replace(/-/g, '');
+            const session = createShowdownSession({
+                sessionId, playerName, format: '1v1', tier, seed,
+                playerPets: [mine], enemyPets: [beast], enemyTeamName: beast.name,
+                rewardEligible: false,
+            });
+            armTurnDeadline(session);
+            await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            return res.status(200).json({ ok: true, state: viewOf(session) });
+        }
+
         const sessionIdRaw = String(body.sessionId ?? '').trim();
         if (!/^[A-Za-z0-9]{8,64}$/.test(sessionIdRaw)) {
             return res.status(400).json({ error: 'Invalid session id.' });
@@ -556,10 +679,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (action === 'forfeit') {
+            /*
+             * A FORFEIT IS A CONCESSION, not an escape.
+             *
+             * This used to delete the session and answer ok. For a practice bout
+             * that is harmless — a loss pays nothing either way — but the moment
+             * a bout became BOUND to something (a Hollow Gate encounter), it
+             * turned into a way to walk out of a fight the run is waiting on:
+             * the receipt is minted by the finishing turn, so a deleted session
+             * left the Gate with a sealed encounter and no outcome to settle,
+             * and no path back to one.
+             *
+             * So a forfeit now DECIDES the session as a loss and runs the same
+             * bound-encounter handshake the finishing turn runs. Conceding is
+             * still free of reward consequences (a loss never pays), but it can
+             * no longer strand the thing that was waiting for the answer.
+             */
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-forfeit', 20, 60_000, identity.name))) return;
-            const session = await kv.get<ShowdownSession>(key);
-            if (session && session.playerName === playerName) await kv.del(key).catch(() => undefined);
-            return res.status(200).json({ ok: true });
+            const conceded = await withKvLock(key, async () => {
+                const session = await kv.get<ShowdownSession>(key);
+                if (!session || session.playerName !== playerName) return null;
+                if (!session.finished) {
+                    session.finished = true;
+                    session.outcome = 'loss';
+                    session.turnDeadlineAt = undefined;
+                    await kv.set(key, session, { ex: SESSION_TTL_SECONDS });
+                }
+                return session;
+            }, { failClosed: true });
+            if (!conceded) return res.status(200).json({ ok: true });
+            const hgBinding = await kv.get<ShowdownHollowGateBinding>(showdownHollowGateKey(playerName, conceded.sessionId));
+            if (hgBinding) {
+                // `nx`, so a concession cannot overwrite an outcome the fight
+                // already reached — and a re-posted forfeit is a no-op.
+                await mintHollowGatePetReceipt(playerName, conceded.sessionId, hgBinding, conceded.outcome ?? 'loss');
+                return res.status(200).json({
+                    ok: true,
+                    conceded: true,
+                    state: viewOf(conceded),
+                    hollowGate: { runId: hgBinding.runId, petReceipt: conceded.sessionId },
+                });
+            }
+            // Unbound bout: nothing is waiting on it, so the session goes away
+            // as before rather than lingering for a full lease.
+            await kv.del(key).catch(() => undefined);
+            return res.status(200).json({ ok: true, conceded: true });
         }
 
         if (action === 'turn') {

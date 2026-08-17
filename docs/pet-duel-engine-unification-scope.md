@@ -260,6 +260,13 @@ honestly left.
 | Pet Ladder (coliseum) | scored + `coliseumScript` from the same inputs |
 | Arena exhibition | new **paid** `arena` entry: arena-matched, cap checked up front |
 | Hollow Gate | arena bout bound to the run, minting the identical `hg-pet-result` receipt |
+| Dungeon seal + authored VN pet battles | `encounter` entry: the server rebuilds the opponent from a selector (§9) |
+
+**§8 records what tracing the client actually found**, and it is worth reading
+before trusting any row here: this table was true of the SERVER, and three rows
+had no client wiring at all when it was written. Hollow Gate and Ranked are now
+wired end to end (§8, §10). Casual AI and PvP/clan-party duels in `PetArena.tsx`
+are the remainder.
 
 Format ruling applied: every war duel is **2v2 with a 2-pet bench**
 (`WAR_DUEL_FORMAT`), teams filled from the owner's roster behind the champion
@@ -272,22 +279,136 @@ counters). Same engine behind both.
 
 ### NOT done — and why each is non-trivial
 
-1. **Historical `DungeonPetBattle` gap — closed for the rewarding Dungeon
-   seal.** At this snapshot, story/event encounters and the Dungeon seal shared
-   a client-local duel with caller-supplied `enemyOverride` data. The current
-   Dungeon path does not send raw enemy stats: `/pet/battle-start` validates the
-   exact active run and constructs the fixed Rare Beast, while
-   `/pet/battle-result` replays the sealed cinematic input log and stamps the
-   Pet proof consumed by `/dungeon/run`. Generic story/event local presentation
-   remains outside that rewarding authority and is never accepted as proof.
+1. ~~**`DungeonPetBattle`**~~ — **DONE 2026-08-14.** See §9 below.
 
 2. **`PetArena`'s legacy machinery.** `startBattle`, `mintCasualPetBattleToken`
    and `reportPetBattle` still serve the PvP and party paths woven through a
-   2,570-line screen. The paid AI exhibition has moved to the Coliseum entry;
-   these remain for player-vs-player.
+   2,570-line screen. **This item is bigger than this line made it sound — see
+   §8, which is what the screen actually still runs.**
 
-3. **Deleting the sim.** Only safe once 1 and 2 land. `api/pet-ladder/_duel-sim.ts`
-   is ALREADY orphaned (no live importer) and can go first, independently.
+3. **Deleting the sim.** Only safe once 1 and 2 land.
+   ~~`api/pet-ladder/_duel-sim.ts` is ALREADY orphaned~~ — **deleted 2026-08-14**
+   (`256e64232`), along with `_walkmask.ts`, its only reader. The rest of the
+   deletion still waits on item 2.
+
+---
+
+## 8. What `PetArena.tsx` still runs — read this before planning item 2
+
+Written 2026-08-14 after tracing every branch of `startBattle`. The "Done" table
+in §7 above is accurate about the **server**, and that is the trap: three of its
+rows have **no client wiring**, so what a player actually plays is still the
+legacy engine. `PetArena.tsx` imports nothing from `pet-showdown-api` — only the
+daily-cap constant.
+
+| Path | Server | Client |
+|---|---|---|
+| Casual AI 1v1 / 2v2 party | Coliseum entry exists (`arena`) | PetArena still runs `runPetDuelCinematic` / `runPetPartyDuelCinematic` |
+| Hollow Gate pet duel | `pet/showdown` `arena` accepts a `hollowGate` binding and mints the identical `hg-pet-result` receipt | **NOTHING CALLS IT.** `startArenaBout` has no `hollowGate` parameter, and `hollow-gate-app-flow.ts` `launchPetFight` still sends the player to `petArena`, which mints a `battle-start` token and fights the legacy sim |
+| Ranked 1v1 | genuinely server-authoritative — `ranked-start` decides the winner at mint (`_ranked-engine.ts` `resolveWarDuel`, `showdown-ranked-v2`) and settlement pays from the sealed resolution | PetArena still runs `runPetDuelCinematic` locally and shows ITS result. The two engines can disagree, so a player can watch a victory and be rated a loss |
+| PvP / clan-war 1v1 and 2v2 | not ported | client-resolved, both clients deriving the same fight from the seed |
+
+So item 2 is four ports, not one, and they are not equally hard:
+
+- ~~**Hollow Gate**~~ — **DONE.** `lib/hollow-gate-app-flow.ts` `launchPetFight`
+  now opens a run-bound Showdown bout on the shrine itself instead of routing to
+  the arena, `components/HollowGatePetFight.tsx` hosts it, and the Gate settles
+  with the session id as the receipt. The handshake is untouched; only the
+  producer moved. Every trace of the Gate is gone from `PetArena.tsx`, and
+  `PetArenaOpponent` no longer carries a run binding.
+- ~~**Ranked**~~ — **DONE, and it was worse than "presentation".** See §10.
+- **Casual AI** duplicates what the Coliseum entry already does; retiring
+  PetArena's own AI exhibition is mostly deletion.
+- **PvP / clan party** is the real remainder, and needs either live PvP on the
+  engine (`session.pvp` + `turnDeadlineAt` exist and are dormant) or headless
+  resolution both clients read back.
+
+### A forfeit is now a concession
+
+Found while wiring the Gate: `pet/showdown` `action:'forfeit'` deleted the
+session and answered ok. Harmless while every bout was practice — a loss pays
+nothing either way — but the moment a bout could be BOUND to a Hollow Gate
+encounter it became a way to walk out of a fight the run was waiting on: the
+receipt is minted by the FINISHING TURN, so a deleted session left the Gate
+sealed with no outcome to settle and no path back to one.
+
+A forfeit now decides the session as a loss and runs the same bound-encounter
+handshake the finishing turn runs. Conceding still cannot pay (the payout path
+is only reachable from a winning finishing turn, and the reward-boundary test
+now asserts that), but it can no longer strand what was waiting on the answer.
+
+---
+
+## 10. Ranked was not a presentation bug — it was two fights
+
+§8 called ranked a presentation-only port. Tracing it properly turned up worse.
+
+The ranked pet queue resolved the SAME match twice, with two engines and two
+seeds:
+
+| | engine | seed |
+|---|---|---|
+| Server (rated it) | `runPetDuel`, the legacy plain duel sim, in `battle-result.ts` | `token.seed`, minted by `ranked-start` |
+| Client (showed it) | `runPetDuelCinematic`, a **different** engine | `petBattleSeed`, a `Date.now()`-derived number the CHALLENGER generated and shipped inside the challenge |
+
+Nothing tied those together. The fight a player watched had no reliable
+relationship to the Elo it moved — a convincing victory could be recorded as a
+loss, and nothing distinguished that from an honest defeat.
+
+The fix makes the watched fight *be* the rated fight:
+
+- `api/pet/_ranked-duel.ts` resolves a match once, on Showdown, as a PURE
+  function of the sealed token (1v1, because the token seals one pet per side).
+- `battle-result.ts` rates through it — both at intent time and at the
+  determinism cross-check — and no longer imports the legacy sim at all.
+- `api/pet/ranked-watch.ts` re-derives the same call and hands the log to the
+  two participants (`store inputs, not fights`, same doctrine as war duels).
+- `PetArena.tsx` plays that log through `PetShowdownReplay`. There is
+  deliberately **no local fallback**: a locally simulated ranked fight is
+  precisely the bug, so a failed fetch shows a retry rather than a lie.
+
+The winner comes back as an account NAME, never a side, because both
+participants call the same endpoint and must never be told different things.
+
+Consequences worth stating: Showdown's judge always decides, so **ranked pet
+matches no longer draw**. The draw settlement branch in `battle-result.ts` is
+kept (the receipt shape still allows it) but is unreachable for any token the
+current engine resolves, and the test that used to prove a stalemate drew now
+proves a stalemate is decided.
+
+---
+
+## 9. The authored-encounter port (item 1) — how the trust problem was solved
+
+The blocker was never effort: `DungeonPetBattle` fights an opponent the caller
+supplies (a random rare beast for the relic dungeon's third seal, an
+admin-authored boss for a VN choice), and Showdown had no entry that would take
+one. Posting the opponent's stats would have been a new surface of exactly the
+kind this repo forbids.
+
+The answer is that the request carries a **selector, never an opponent**:
+
+- **Dungeon Rare Beast Seal** — the client sends its own server-minted dungeon
+  RUN TOKEN. The server checks the run is the caller's, checks its Warden is
+  already down (seal 3 behind seal 1 — an ordering only the dungeon screen's
+  stage machine used to enforce), and derives the beast from
+  `hash(player:runToken)` over the server pet catalog. A reload cannot reroll it.
+- **Authored VN pet battle** — the client sends the event id plus the authored
+  `(petId, difficulty)` pair naming which choice it is standing in. The server
+  reads that event out of `save:admin1` / `save:admin2` / published content
+  (`api/_admin-event-catalog.ts`, the same dual-read shape as the AI catalog),
+  finds the authored row, and builds the boss from it.
+
+Both scale with ports of the client formulas (`scaleEventPetOpponent` +
+`capPetStats`, and the dungeon boost block) so the ENGINE is the only thing that
+changed. Both seal `rewardEligible` false: these bouts decide an OUTCOME, and the
+rewards stay where they were — the dungeon run's own settle endpoint and the
+event's completion. Format is 1v1 with **no bench**, because handing the player
+three pets against a single authored boss would move the difficulty far more
+than the engine swap does.
+
+The reward-boundary test now pins three seal forms rather than two, and asserts
+the authored entry reads no stat, level or tier off the body.
 
 ### Guardrails added along the way, worth keeping
 
@@ -299,3 +420,266 @@ counters). Same engine behind both.
   receipt was minted before the session it points at was durable.
 - `_battle-receipt-idempotency.test.ts` now follows a shared-constant alias
   rather than demanding a duplicated literal.
+
+---
+
+## 11. The player challenge was two fights too — and Phase 5 is not unblocked
+
+§10 found ranked resolving twice. The plain player challenge (`mode:
+'clanWarPet'`, 1v1 and 2v2) was doing something worse, and this section records
+both the fix and the reason the deletion phase still cannot run.
+
+### What was actually happening
+
+Both participants called `/api/pet/battle-start` for their own reward token. That
+endpoint minted **its own `randomInt` seed per caller** and sealed its own
+`authoritativeOutcome` from it. So one challenge produced **two unrelated
+fights**, and each player was rated on the one their own client asked for. Both
+could honestly be told they had won, and the clan-war report each filed came from
+its own view. On top of that, each client then rendered `runPetDuelCinematic` —
+a different engine from the `runPetDuel` the server sealed with — so the fight on
+screen could disagree with the payout even within one client.
+
+### The fix: seal the duel against the challenge, at accept
+
+`api/pet/_pvp-duel.ts` seals ONE duel per challenge: both rosters by value, one
+server-minted seed, one format. It is sealed in `api/player/challenge.ts` at the
+moment the responder accepts, because that is the only point where the server has
+already validated **both** id lists against **both** owners' saves. Sealing later,
+in `battle-start`, would have let whichever participant called first choose which
+of their opponent's pets had to fight.
+
+`battle-start` now reads that seal instead of inventing a fight: same teams, same
+seed, same verdict for either caller, and it returns the `ShowdownReplayScript`
+so both clients watch the fight that was rated. `PetArena.tsx` plays it through
+`PetShowdownReplay` with **no local fallback**, for the same reason ranked has
+none. `battle-result` needed no change — it already took the outcome from the
+token rather than the body.
+
+Two deliberate consequences:
+
+- **Format follows the challenge**, 1v1 or 2v2 with no bench. `WAR_DUEL_FORMAT`'s
+  forced 2v2-plus-bench is a ruling about *war* duels, where the roster that
+  arrived was an accident of the submission flow. Two players who each sent one
+  champion agreed to a 1v1.
+- **Consumables no longer fire** in a challenge duel, and the settlement no longer
+  spends them (`pvpParticipatingPets` seals empty consumable slots). Same split
+  war duels make, for the same reason: the fight is decided at accept, before
+  either side settles, so a burned item could never be honestly charged.
+
+### What the client tracing turned up, which changes the Phase 5 plan
+
+§8's table listed "PvP / clan-war 1v1 and 2v2" as one client-resolved entry.
+Tracing every producer of `pendingPetBattleOpponent` found three, and they do not
+share a fate:
+
+| Entry | Producer | State after this change |
+|---|---|---|
+| Clan-war / casual pet challenge | `Arena.tsx` incoming-challenge list → "Open Pet Coliseum" | **Ported.** Server-sealed, watched. |
+| Live PvP pet duel | `PetArena.tsx` Challenge button → realtime socket → `PetDuelLiveHost` | **Untouched.** Still lockstep on the legacy engine. |
+| Sector wanderer duel | `WorldMap.tsx` → a scaled `genericPetArenaOpponents` beast | **Untouched.** Still the legacy engine locally. |
+
+Two things follow that the earlier plan did not account for.
+
+**Live PvP is not an alternative to the async path — it is the current one.**
+`lib/pet-duel-legacy-challenge.ts` retires any non-arena pet challenge that
+arrives through App's global accept banner, with the note that "PvP pet duels are
+live-only". §8 offered live-PvP-on-Showdown *or* headless resolution as two ways
+to do the same job; they are actually two different features, and only the
+headless one is now done. (Note also a pre-existing inconsistency this change did
+not touch: the global banner retires these challenges while `Arena.tsx`'s own
+list still accepts and starts them.)
+
+**The casual-AI retirement is not "mostly deletion".** Removing the screen's own
+AI opponent picker is — that duplicated the Coliseum entry and is gone. But the
+World Map sends players into this screen to duel a *specific* roaming beast, and
+Showdown has no entry that accepts a caller-named opponent of that shape: the
+authored-encounter entry (§9) takes a dungeon run token or an admin-authored
+event id, and the arena entry picks the opponent itself. Porting it means a new
+server-side selector — a wanderer id the server resolves into a beast, the same
+trust shape §9 used — which is its own piece of work. Until then that one fight
+stays on the legacy engine rather than a live world feature being deleted.
+
+### So Phase 5 remains blocked, and by more than PetArena
+
+Every legacy duel module still has live importers outside this screen:
+
+- `pet-duel-lockstep` ← `pet-duel-transport`, `PetDuelLiveHost` (PetArena **and**
+  `PetLadder`), and server-side `api/_realtime/pet-duel-socket.ts` +
+  `pet-duel-session.ts`. This is live PvP.
+- `pet-duel-cinematic` / `pet-duel-live` ← the wanderer duel above, plus
+  `PetColiseum.tsx`, `PetDuelCommandDeck`, `petvfx.tsx`.
+- `pet-duel-doctrine` ← `PetDoctrineEditor` (mounted by `PetYard`),
+  `pet-duel-transport`, and server-side `api/pet/_duel-replay.ts` +
+  `api/_realtime/pet-duel-socket.ts`.
+- `pet-duel-sim` ← `PetColiseum.tsx`, `pet-duel-broadcast`, `pet-bond-meter`,
+  `PetDuelLiveHost`.
+
+The remaining order, then, is: port the sector wanderer (server-side selector),
+port live lockstep PvP, then delete. Nothing above is a reason to keep the legacy
+engine forever; it is the list of what actually has to move first.
+
+### The wanderer is DONE (2026-08-15) — and `PetArena.tsx` is off the legacy engine
+
+`api/pet/_wanderer-duel.ts` builds the beast; `battle-start` resolves the bout on
+Showdown and hands back the script. The selector shrank to nothing worth
+trusting: the request says only "this is a wanderer duel", and the tier and
+scaling come from the CALLER'S OWN SAVED LEVEL. That closed a real hole rather
+than just swapping engines — the payout scales with the opponent fought
+(`petArenaRyoRewardForTeam`), and the tier used to be the client's pick, so a
+level-5 client asking for the apex template was asking for a bigger purse.
+
+**`PetArena.tsx` now imports no `pet-duel-*` module at all.** Every fight it
+starts is server-decided: ranked at its match token, a challenge at accept, a
+wanderer at mint. One renderer, no input logs, no "fight again" — the screen has
+nothing left to simulate. The settlement guard test now asserts that directly.
+
+Known balance consequence, stated rather than discovered: Showdown has no PvE
+mastery multipliers anywhere, so the Pet Tamer damage bonus, the mastery HP bonus
+and Alpha Bond's revive no longer apply to a wanderer duel. That is the wanderer
+becoming consistent with every other fight already on the engine, not a nerf
+aimed at it.
+
+Server-side, this also orphans the whole casual-PvE replay spine —
+`api/pet/_duel-replay.ts`, `_casual-pve-seal.ts`, and the `runPetDuel` /
+`runPetPartyDuel` imports in `battle-start` — since nothing produces a
+`casualPveSeal` any more. **Live lockstep PvP is now the only thing standing
+between here and deleting the sim.**
+
+### OWNER RULING, 2026-08-15: two modes, and live PvP is PORTED not retired
+
+The long-run target is **the new Pet Arena and the Tactical Arena, and nothing
+else**. That decides the open question above: real-time pet PvP is a feature OF
+the pet arena, not a third mode, so it moves onto Showdown (`session.pvp` +
+`turnDeadlineAt`) rather than being deleted. Retiring it would have been the
+cheap route to deleting the sim and would have cost the game real-time play.
+
+Two consequences worth stating now:
+
+- The remaining work on it is smaller than its line count suggests. The engine,
+  the session, the deadline field and the battle component all exist. What is
+  missing is pairing over the existing socket, both sides submitting to
+  `pet/showdown` `turn`, and the lapsed-round rule the endpoint already
+  describes: resolve with defaults for the absent side, which the engine already
+  does (a missing command defaults to guard).
+- The OLD tactical arena goes with it. `PetArenaMatch` + `lib/pet-arena-sim.ts`
+  are the pre-Warfront arena; the mode that survives is `PetWarfrontMatch` +
+  `pet-warfront-sim`. Two modes means one renderer each, not one each plus their
+  ancestors.
+
+**A finding that changes the size of the final step.** §4 assumed
+`PetColiseum.tsx` (9,786 lines) is "likely a carve, not a file removal" because
+it also serves board modes. It does not, any more. Of its three exports:
+`<PetColiseum>` has ZERO JSX consumers anywhere (it rendered from `battleFrames`,
+which nothing has populated in some time); `PetArenaMatch`'s only consumer is
+`petvfx.tsx`, the `/petvfx.html` dev harness; and `PetColiseumDuel`'s only
+consumer is the sector wanderer duel. Once the wanderer moves, the whole file's
+only remaining reader is a dev preview page — a delete plus a decision about the
+harness, not a carve. Confirm no dynamic import hides a consumer before acting.
+
+---
+
+## 12. Live PvP — the design, and the one thing that makes it a two-client job
+
+Traced 2026-08-15, after the wanderer port left this as the only entry still on
+the legacy engine. Written before implementing on purpose: the analysis is the
+expensive part, and the reason to stop short of coding is specific rather than
+general.
+
+### What is easy, and stays
+
+The pairing already works and is the right shape. `api/_realtime/pet-duel-socket.ts`
+handles `challenge → invite → accept/decline`, seals BOTH rosters server-side at
+accept (`loadAuthoritativePetRoster`, which refuses busy pets), mints the seed
+itself, and emits `start` to both players. Live-only is enforced there too: a
+challenge to someone not connected is refused rather than queued.
+
+**None of that changes.** The socket stops being a game transport and becomes a
+doorbell. What it emits on `start` is a Showdown session id and a side; the fight
+itself then runs over the existing HTTP endpoint, because the engine is already
+server-authoritative and needs no second channel.
+
+That deletes the entire lockstep half — `petduel:input` / `sync` / `progress`,
+`acceptInput`, `reportProgress`, `syncPayload`, the input caps, the watermark,
+and the standing-orders hand-over for a dropped player (Showdown's own turn
+deadline replaces it).
+
+### The server piece — `api/_pet-showdown/live-pvp.ts`
+
+One session, both players, stored under a pair key rather than an owner key
+(today's sessions are `pet:showdown:<player>:<id>`, which cannot be shared):
+
+    { sessionId, p1, p2, session, pending: { p1?, p2? }, round, lastRound }
+
+`submitLivePvpTurn(sessionId, caller, commands)` under `withKvLock`:
+
+1. resolve the caller's side; a non-participant gets nothing;
+2. if finished → return the terminal state (a re-post is idempotent, same rule
+   the AI turn path already follows);
+3. record `pending[side]`; if only one side is in, answer `waiting` and let the
+   client poll;
+4. when BOTH are in — or the turn deadline has lapsed — resolve one round with
+   `resolveShowdownRound(session, p1Commands, p2Commands)` and re-arm the
+   deadline.
+
+The lapsed-round rule is the anti-hostage guarantee and it needs no new combat
+code: the engine already defaults a missing command to guard, so an absent side
+simply submits nothing. `session.pvp` and `turnDeadlineAt` exist for exactly
+this, and `armTurnDeadline` becomes live rather than a no-op.
+
+`turn` / `state` / `forfeit` in `api/pet/showdown.ts` route to this store when
+the session id resolves there. A forfeit is already a concession rather than a
+delete, which is the correct semantics for a live opponent too.
+
+**It pays nothing**, which is worth stating because it removes a whole class of
+risk: live PvP awards no ryo and moves no counters today (`PetDuelLiveHost`
+reports through `onOutcome` to the clan-war helper and nothing else). So
+`rewardEligible: false`, no faucet, no receipt, no settlement path to get wrong.
+
+### The part that makes this a two-client job
+
+**The engine seats the challenger as the `player` side.** A replay tolerates
+that — the ranked watcher already sees the canonical ordering and reads the
+winner by NAME — because watching from the far side is only cosmetic. A
+COMMANDED fight cannot: the responder would be picking moves for the pets drawn
+as the enemy team.
+
+The fix is a client-side mirror for `p2` — swap `player`/`enemy` in the state
+view, swap `enemyTeamName` for their own, and invert `outcome` — applied to both
+the initial view and every round result. It looks small, and the encouraging part
+is that `PetShowdownBattle` derives slot positions, field/bench membership, HUD
+panels and the command prompt FROM those two arrays by id, so a swap re-seats
+everything consistently rather than needing twenty edits.
+
+But "looks small" is exactly the claim that needs two live clients to believe.
+The failure mode is not a crash; it is a fight that renders plausibly while one
+player commands the wrong pets or reads an inverted verdict — the same shape of
+bug as §10's two-engine ranked duel, which also looked fine from one side. There
+is no harness for it: `/showdownpreview.html` drives one client, and the balance
+tools are headless.
+
+So the honest sequencing is: implement the server round protocol with its unit
+tests (both-sides-one-fight, lapsed-round resolution, non-participant refusal,
+idempotent re-post), then the mirror, then **exercise it with two real clients
+before it replaces the working lockstep fight**. Shipping the server half alone
+would recreate precisely the trap §8 documents — a port that reads as finished
+because the server is green and nothing calls it.
+
+### After it lands
+
+`PetColiseum.tsx` (9,786 lines) loses its last consumer, `PetDuelLiveHost` stops
+importing `PetColiseumDuel`, and the deletion in §4 becomes:
+
+- `pet-duel-sim`, `pet-duel-cinematic`, `pet-duel-live`, `pet-duel-lockstep`,
+  `pet-duel-doctrine`, `pet-duel-broadcast`, and `PetColiseum.tsx` itself;
+- server-side `api/pet/_duel-replay.ts`, `_casual-pve-seal.ts`, the
+  `runPetDuel` / `runPetPartyDuel` imports in `battle-start`, and
+  `api/_realtime/pet-duel-session.ts`;
+- `pet-duel-*` out of `scripts/gen-pet-sim.mjs` (KEEP the generator — Warfront
+  still needs it), `pet-cinematic-parity.test.ts`, and the duel half of
+  `scripts/pet-sim-parity.test.ts`;
+- two decisions that are not mechanical: **`petvfx.tsx`** (the `/petvfx.html`
+  harness is the only other reader of `PetColiseum` — repoint it at Showdown or
+  drop it) and **`PetDoctrineEditor`** (standing orders are a player-facing
+  feature mounted by `PetYard`; either they become a Showdown concept or the
+  editor goes with the engine that read them).

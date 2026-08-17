@@ -23,7 +23,17 @@ test("Pet Coliseum result and Chronicle ceremony remain reachable at mobile widt
     assert.match(coliseum, /width: "min\(620px, 100%\)", margin: "auto",[\s\S]*?boxSizing: "border-box"/);
     const dialogStart = coliseum.indexOf('role="dialog" aria-modal="true"');
     assert.ok(coliseum.indexOf("{resultSupplement}", dialogStart) > dialogStart);
-    assert.match(arena, /resultSupplement=\{duelChronicleResultSupplement\}/);
+    // The duel screen no longer mounts the coliseum overlay, so its receipt no
+    // longer rides that component's `resultSupplement` slot. It gets its own
+    // portal ABOVE the replay player — which portals itself fullscreen to
+    // document.body, so an ordinary sibling would put a won card behind the
+    // battle. Same reachability guarantees, asserted on the new host: it scrolls
+    // on its own, honours the safe-area insets, and is width-capped and centred.
+    assert.match(arena, /watchedDuel && duelChronicleResultSupplement && createPortal/);
+    assert.match(arena, /overflowY: "auto", overscrollBehavior: "contain"/);
+    assert.match(arena, /env\(safe-area-inset-top\)[\s\S]*?env\(safe-area-inset-bottom\)/);
+    assert.match(arena, /width: "min\(620px, 100%\)", margin: "auto", boxSizing: "border-box"/);
+    assert.match(arena, /role="dialog"[\s\S]*?aria-modal="true"/);
     assert.match(arena, /chronicleProgress \? <PetChronicleProgress receipt=\{chronicleProgress\} \/> : null/);
     assert.match(witnessProgress, /role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(witnessProgress, /<progress[\s\S]*?aria-label=[\s\S]*?max=\{entry\.threshold\}[\s\S]*?value=\{Math\.min\(entry\.wins, entry\.threshold\)\}/);

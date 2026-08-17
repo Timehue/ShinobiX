@@ -9,7 +9,10 @@ import { GameToastHost, gameToast } from "./components/GameToast";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
-import { SaveConflictBanner } from "./components/SaveConflictBanner";
+// (No save-conflict banner import: that component is deleted — it warned about
+// ordinary unsaved progress and could not be cleared. Capture is silent now; the
+// protection stayed, only the surface went. lib/save-conflict.test.ts forbids
+// naming it in this file at all, comments included.)
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
@@ -48,15 +51,11 @@ import {
     nextSavePayloadRevision,
 } from "./lib/save-flight";
 import { createSavePersistence } from "./lib/save-persistence";
-import { restoreSaveConflictRevision } from "./lib/save-conflict-restore";
 import { protectSaveOnUnload } from "./lib/save-unload";
 import { beginSessionLoad, sessionLoadFetch } from "./lib/session-load-authority";
 import {
     createSaveConflictDraftStore,
-    latestSaveConflictRevision,
     saveConflictAccountKey,
-    saveConflictDownloadFilename,
-    serializeSaveConflictDownload,
     type SaveConflictDraft,
 } from "./lib/save-conflict";
 import { authRateLimitMessage, requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
@@ -179,6 +178,8 @@ const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: 
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
 const HollowGateFight = lazyWithRetry(() => import("./screens/HollowGateFight").then(m => ({ default: m.HollowGateFight })));
+// The sealed PET duel, on the Showdown engine and bound to the run.
+const HollowGatePetFight = lazyWithRetry(() => import("./components/HollowGatePetFight").then(m => ({ default: m.HollowGatePetFight })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
@@ -229,6 +230,7 @@ import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResul
 const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen }));
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
+import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
@@ -677,7 +679,6 @@ import {
     applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
-    scaleEventPetOpponent,
 } from "./lib/pet-balance";
 import { chooseStarterPetServer, reconcileOwnedStarter } from "./lib/pet-acquisition-api";
 export { gainPetXp, collectPetTraining };
@@ -715,7 +716,9 @@ function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
 function normalizePet(pet: Pet): Pet {
     return normalizePetTemplate(pet, petPool);
 }
-// eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance.
+// eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance,
+// and no longer have a caller: an authored VN pet battle is scaled by the SERVER
+// (api/pet/_authored-encounter.ts), which is a port of those two functions.
 // starterBloodlineOffense moved to ./data/jutsu (imported back above).
 
 // Tag tables + tag-name/effect helpers extracted to ./lib/tags. They are
@@ -1967,6 +1970,11 @@ export default function App() {
     const hollowGatePendingAmbushRef = useRef<{ nodeId: string; kind: "ambush" | "boss" } | null>(null);
     const hollowGateStepDrainRef = useRef<Promise<void>>(Promise.resolve());
 
+    // A sealed Hollow Gate pet duel, fought on the Showdown engine on the shrine
+    // screen itself. It used to detour through the Pet Arena as a pending
+    // opponent; the encounter belongs to the run, so it stays with the run.
+    const [hollowGatePetFight, setHollowGatePetFight] = useState<HollowGatePetFightRef | null>(null);
+
     // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
     // the WASD/arrow key handler, both owned by the walk hook. Every walked
     // step goes through moveHollowGatePlayer, so costs/events are identical
@@ -1974,7 +1982,7 @@ export default function App() {
     const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
         active: screen === "hollowGateShrine",
         run: hollowGateRun,
-        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight,
+        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight || !!hollowGatePetFight,
         moveStep: moveHollowGatePlayer,
     });
 
@@ -1994,7 +2002,7 @@ export default function App() {
     useEffect(() => {
         const active = hollowGateRun?.activeCombat;
         const token = hollowGateRun?.runToken;
-        if (screen !== "hollowGateShrine" || !character || !active || !token || hollowGatePveFight) return;
+        if (screen !== "hollowGateShrine" || !character || !active || !token || hollowGatePveFight || hollowGatePetFight) return;
         let cancelled = false;
         void startHollowGateCombat({
             playerName: character.name,
@@ -2013,7 +2021,7 @@ export default function App() {
             if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
         return () => { cancelled = true; };
-    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight]);
+    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight, hollowGatePetFight]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) {
         return [
@@ -2080,13 +2088,12 @@ export default function App() {
     } = useHollowGateAppFlow({
         character,
         run: hollowGateRun,
-        petPool,
         sharedImages,
         setCharacter,
         setRun: setHollowGateRun,
         setEvent: setHollowGateEvent,
         setHiddenChamber: setHollowGateHiddenChamber,
-        setPendingPetBattle: setPendingPetBattleOpponent,
+        setPetFight: setHollowGatePetFight,
         setScreen,
         clearRunState: clearHollowGateRunState,
         clearLog: () => setHollowGateLog([]),
@@ -2856,6 +2863,9 @@ export default function App() {
                 // combatant to the exact pet I just sent as responderPet so the
                 // canonical sim matches the challenger's view of it.
                 ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet, petRankedToken: challenge.petRankedToken } : {}),
+                // ONE server-sealed duel, keyed by the id the challenger also holds,
+                // so both of us watch the identical fight instead of simulating our own.
+                ...(isRanked ? {} : { pvpChallengeId: challenge.id }),
                 ...(doParty && challengerParty && myParty ? {
                     opponentParty: challengerParty,
                     challengerParty: myParty,
@@ -3024,7 +3034,9 @@ export default function App() {
                     // (challengerPetId) so the canonical sim stays in sync.
                     ...(accepted.mode === "rankedPet"
                         ? { ranked: true, opponentRating: accepted.responderPetRating ?? 1000, selfPet: myEligiblePets.find(p => p.id === accepted.challengerPetId), petRankedToken: accepted.petRankedToken }
-                        : {}),
+                        // Challenger side of that same sealed duel: same id,
+                        // same fight, same verdict the responder reads.
+                        : { pvpChallengeId: accepted.id }),
                     ...(accepted.petParty && accepted.responderParty && myParty ? {
                         opponentParty: accepted.responderParty,
                         challengerParty: myParty,
@@ -3611,7 +3623,7 @@ export default function App() {
                 if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
                     const preview = readSavePreview(localAccountName);
                     if (preview && preview.character) {
-                        applyServerSnapshot(preview as ReturnType<typeof buildPlayerSavePayload>);
+                        applyServerSnapshot(preview as ReturnType<typeof buildPlayerSavePayload>, { authoritative: false });
                         // applyServerSnapshot routes a "start" screen to village;
                         // override to the exact hub the player was on so the
                         // hash/lastScreen writers stay no-ops and the reconcile
@@ -4643,11 +4655,12 @@ export default function App() {
             reportStorageFailure: reportConflictStorageFailure,
         });
     }
-    const loadConflictDraftForAccount = saveConflictStoreRef.current.load;
+    // The recovery BANNER was removed (see the note on setSaveConflictDraft): the
+    // capture/rehydrate machinery still protects and settles drafts silently, so
+    // these stay wired; only the player-facing surface is gone.
     const captureSaveConflictDraft = saveConflictStoreRef.current.capture;
     const discardSaveConflictRevision = saveConflictStoreRef.current.discard;
     const rehydrateSaveConflictDraft = saveConflictStoreRef.current.rehydrate;
-    const clearConflictDraftForAccount = saveConflictStoreRef.current.clear;
     if (!savePersistenceRef.current) {
         savePersistenceRef.current = createSavePersistence({
             flight: saveFlightRef.current,
@@ -4665,54 +4678,6 @@ export default function App() {
             setBlocked: setSaveBlocked,
         });
     }
-    async function downloadLocalConflictDraft(): Promise<void> {
-        const draft = saveConflictDraft;
-        if (!draft) throw new Error("No protected local draft is available to download.");
-        const blob = new Blob([serializeSaveConflictDownload(draft)], { type: "application/json" });
-        const objectUrl = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        try {
-            anchor.href = objectUrl;
-            anchor.download = saveConflictDownloadFilename(draft);
-            anchor.hidden = true;
-            document.body.append(anchor);
-            anchor.click();
-        } finally {
-            anchor.remove();
-            URL.revokeObjectURL(objectUrl);
-        }
-    }
-
-    async function restoreLocalConflictDraft(beginBlockingRestore: () => void): Promise<void> {
-        const visibleDraft = saveConflictDraft;
-        if (!visibleDraft || visibleDraft.accountKey !== activeSaveAccountKey()) {
-            throw new Error("Sign in to the matching account before restoring this draft.");
-        }
-        const restoreSessionEpoch = saveSessionEpochRef.current;
-        const confirmed = await gameConfirm(
-            "Restore the newest protected device revision over the active server save? The server will validate it, then the game will reload the authoritative result.",
-            { title: "Restore device draft", confirmLabel: "Restore draft", danger: true },
-        );
-        if (!confirmed) return;
-        if (!isCurrentSaveSession(visibleDraft.accountKey, restoreSessionEpoch)) {
-            throw new Error("The active account changed. Sign back in to the matching account before restoring this draft.");
-        }
-        beginBlockingRestore();
-
-        const { declined } = await restoreSaveConflictRevision({
-            visibleDraft, sessionEpoch: restoreSessionEpoch, runExclusive: savePersistenceRef.current!.runExclusive,
-            isCurrentSession: isCurrentSaveSession, loadDraft: loadConflictDraftForAccount,
-            latestVersion: latestSaveVersionRef, currentSnapshot: () => latestSaveRef.current,
-            captureConflict: captureSaveConflictDraft, applySnapshot: applyServerSnapshot,
-            discardRevision: discardSaveConflictRevision,
-        });
-        // The write is durable either way. Say plainly which parts the server kept
-        // authority over rather than reporting the whole restore as a failure.
-        if (declined.length) {
-            alert(`Your device draft was restored. The server keeps authority over ${declined.join(", ").toLowerCase()}, so those stayed at the server's values.`);
-        }
-    }
-
     useEffect(() => {
         if (!saveConflictDraft) return;
         const nextExpiry = Math.min(...saveConflictDraft.revisions.map((revision) => revision.expiresAt));
@@ -4977,8 +4942,8 @@ export default function App() {
         void pullSharedAdminContent();
     }
 
-    // Apply a full server snapshot to all game state
-    function applyServerSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
+    // Apply a full server snapshot. `authoritative: false` = cache paint, skips conflict classification (see rehydrate).
+    function applyServerSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>, opts: { authoritative?: boolean } = {}): boolean {
         const snapshotAccountKey = saveConflictAccountKey(snap.character.name);
         const incomingSaveVersion = (snap as Record<string, unknown>)._saveVersion;
         if (saveAuthorityAccountKeyRef.current === snapshotAccountKey) {
@@ -5000,7 +4965,7 @@ export default function App() {
         currentAccountNameRef.current = snap.character.name;
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
-        void rehydrateSaveConflictDraft(snap.character.name, snap);
+        if (opts.authoritative !== false) void rehydrateSaveConflictDraft(snap.character.name, snap);
         setCurrentBiome(snap.currentBiome ?? "central");
         setActiveTraining(snap.activeTraining ?? null);
         setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
@@ -5751,6 +5716,12 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
+    // (failDungeon lived here — the loss path for the dungeon Warden fight when
+    // the browser-side Arena reducer hosted it. Warden fights are sealed
+    // Solo-PvE now and a defeat settles server-side in
+    // api/missions/report-ai-fight.ts via applyDungeonWardenSettlement, which
+    // owns the run token. leaveDungeon() above still covers a manual exit.)
+
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
         const token = activeDungeonRunToken;
@@ -5840,6 +5811,11 @@ export default function App() {
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
     }
+
+    // (completePendingArenaStoryBattle / continuePendingArenaStoryBattle lived
+    // here. They existed only to settle a story fight hosted by the browser-side
+    // Arena reducer, which is deleted — story fights run on StoryBossFightHost
+    // and settle through /api/story/settle. The former was already a bare throw.)
 
     // ── Hollow Gate Shrine — actions ──────────────────────────────────────────
     function pushHollowGateLog(line: string) {
@@ -6107,15 +6083,15 @@ export default function App() {
         void startHollowGateBattle({ isAmbush: true, nodeId: sealed?.nodeId });
     }
     useEffect(() => {
-        if (screen !== "hollowGateShrine" || hollowGateEvent || hollowGateHiddenChamber || hollowGatePveFight) return;
+        if (screen !== "hollowGateShrine" || hollowGateEvent || hollowGateHiddenChamber || hollowGatePveFight || hollowGatePetFight) return;
         const pending = hollowGatePendingAmbushRef.current;
         if (!pending) return;
         hollowGatePendingAmbushRef.current = null;
         triggerHollowGateAmbush(pending);
-    }, [screen, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight]);
+    }, [screen, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight, hollowGatePetFight]);
     async function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string; forceMode?: "pve" | "pet" }) {
         if (!character) return;
-        if (hollowGatePveFight) return;
+        if (hollowGatePveFight || hollowGatePetFight) return;
         const token = hollowGateRun?.runToken;
         if (!token) {
             alert("This legacy Hollow Gate run has no secure combat seal. Leave the shrine and begin a new server-backed run before fighting.");
@@ -6457,15 +6433,7 @@ export default function App() {
         >
             <GameAlertHost /><GameConfirmHost /><GamePasswordPromptHost /><GameToastHost />
             <SaveErrorBanner visible={saveBlocked} />
-            <SaveConflictBanner
-                key={saveConflictDraft ? latestSaveConflictRevision(saveConflictDraft).id : "no-save-conflict"}
-                draft={saveConflictDraft}
-                onKeepServer={() => {
-                    if (saveConflictDraft) clearConflictDraftForAccount(saveConflictDraft.accountName);
-                }}
-                onDownload={downloadLocalConflictDraft}
-                onRestore={restoreLocalConflictDraft}
-            />
+
             {sessionExpired && (
                 <div
                     style={{
@@ -6855,7 +6823,7 @@ export default function App() {
                     />
                 )}
 
-                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGatePveFight && (
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGatePveFight && !hollowGatePetFight && (
                     <HollowGateShrineView
                         character={character}
                         hollowGateRun={hollowGateRun}
@@ -7236,16 +7204,30 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onHollowGatePetBattleEnd={onHollowGatePetBattleEnd} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
-                {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
-                    const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
-                    const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);
-                    return <DungeonPetBattle character={character} updateCharacter={setCharacter} editablePets={editablePets} enemyOverride={enemyPet} enemyOwner={pendingEventEncounter.event.name} onWin={completeEventEncounter} onLeave={leaveEventEncounter} sharedImages={sharedImages} />;
-                })()}
+                {/* An authored VN pet battle. The opponent is no longer scaled here:
+                    the server reads the same authored row out of its own copy of the
+                    event and builds the beast from it, so this passes a SELECTOR
+                    (which authored fight) rather than a statline. */}
+                {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (
+                    <DungeonPetBattle
+                        character={character}
+                        encounter={{
+                            kind: "story-event",
+                            eventId: pendingEventEncounter.event.id,
+                            petId: pendingEventEncounter.battle?.petId ?? "",
+                            difficulty: pendingEventEncounter.battle?.difficulty,
+                        }}
+                        enemyOwner={pendingEventEncounter.event.name}
+                        onWin={completeEventEncounter}
+                        onLeave={leaveEventEncounter}
+                        sharedImages={sharedImages}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleEnd={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} />}
@@ -7299,6 +7281,32 @@ export default function App() {
                         onBank={bankEndlessRewards}
                         onBack={goBack}
                     />
+                )}
+                {/* The sealed PET duel. It renders on the shrine because the
+                    encounter belongs to the run: the bout is bound to the run
+                    token server-side and mints the receipt combat-settle
+                    redeems, so detouring through the Pet Arena had nothing left
+                    to do except run a second engine. */}
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePetFight
+                    && (character.pets ?? []).some((pet) => pet.id === character.activePetId) && (
+                    <Suspense fallback={null}>
+                        <HollowGatePetFight
+                            key={hollowGatePetFight.runId}
+                            character={character}
+                            fight={hollowGatePetFight}
+                            activePet={(character.pets ?? []).find((pet) => pet.id === character.activePetId)!}
+                            sharedImages={sharedImages}
+                            onSettled={(result) => {
+                                const gate = hollowGatePetFight;
+                                if (result.character) commitVersionedCharacter(result.character, result._saveVersion);
+                                onHollowGatePetBattleEnd(result, gate);
+                            }}
+                            onUnavailable={(reason) => {
+                                setHollowGatePetFight(null);
+                                pushHollowGateLog(`The seal refused the duel: ${reason}`);
+                            }}
+                        />
+                    </Suspense>
                 )}
                 {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePveFight && (
                     <HollowGateFight

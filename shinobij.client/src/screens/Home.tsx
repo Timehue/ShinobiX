@@ -20,7 +20,7 @@ export function Home({ character, updateCharacter, onVersionedCharacter, onServe
     const [tab, setTab] = useState<PetHomeContentTab>(takePetHomeTabHint);
     return <main className="pet-home-screen">
         <header className="pet-home-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(3,8,18,.96),rgba(3,8,18,.24) 62%,rgba(3,8,18,.76)),url(${homeArt})` }}>
-            <button className="pet-home-back" onClick={onBack}>← Village</button><div><span className="pet-home-kicker">Companion sanctuary</span><h1>Home</h1><p>Every bond, bloodline, and rare miracle under one roof.</p></div>
+            <button className="pet-home-back" onClick={onBack}>← Village</button><div><span className="pet-home-kicker">Companion sanctuary</span><h1>Pet Home</h1><p>Every bond, bloodline, and rare miracle under one roof.</p></div>
         </header>
         <PetHomeTabs active={tab} onHomeTab={setTab} setScreen={setScreen} />
         {tab === "collection"

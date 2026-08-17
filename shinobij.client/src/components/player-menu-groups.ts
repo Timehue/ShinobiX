@@ -16,7 +16,7 @@ export const PLAYER_MENU_GROUPS = [
     ] },
     { id: "character", label: "Character", items: [
         ["profile", "Character", GiNinjaHeroicStance], ["inventory", "Inventory", GiKnapsack],
-        ["home", "Home", GiPawPrint], ["bloodlineMaker", "Bloodline", GiDna1],
+        ["home", "Pet Home", GiPawPrint], ["bloodlineMaker", "Bloodline", GiDna1],
         ["professions", "Professions", GiAnvil],
     ] },
 ] as const;

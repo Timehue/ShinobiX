@@ -32,8 +32,13 @@ export const WAR_DUEL_FORMAT = '2v2' as const;
 export const WAR_TEAM_SIZE = SHOWDOWN_FORMAT_SIZE[WAR_DUEL_FORMAT] + SHOWDOWN_BENCH_SIZE;
 
 /** Clamp a stored pet's stats to its rarity ceiling — the same guard the
- *  single-pet sealers applied, kept so a tampered save cannot field a giant. */
-function clampToCeiling(raw: Record<string, unknown>): Pet {
+ *  single-pet sealers applied, kept so a tampered save cannot field a giant.
+ *
+ *  Exported because the PvP challenge duel (`api/pet/_pvp-duel.ts`) seals the
+ *  exact pets two players agreed to field rather than filling a war team, and
+ *  the clamp is the one part of sealing it still needs. One implementation, so
+ *  a giant refused here cannot be fielded there. */
+export function sealPetToCeiling(raw: Record<string, unknown>): Pet {
     const pet = { ...raw } as unknown as Pet;
     for (const stat of CEIL_STATS) {
         const v = Number(raw[stat]) || 0;
@@ -87,5 +92,5 @@ export function buildWarTeam(character: Record<string, unknown>, leadPetIds: rea
     // 3. Fill from the roster in its own order — the player's arrangement.
     for (const p of eligible) take(p);
 
-    return chosen.map(clampToCeiling);
+    return chosen.map(sealPetToCeiling);
 }

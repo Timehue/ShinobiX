@@ -1,24 +1,25 @@
-/* eslint-disable react-hooks/purity */
-import { useState, useRef, lazy, Suspense } from "react";
+import { useState, useCallback, useRef, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { CardClashDuel } from "./CardClashDuel";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type TileCard } from "../data/tile-cards";
-import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
-import { type DuelResult } from "../lib/pet-duel-sim";
-import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
-import { createLiveDuel, type LiveDuel } from "../lib/pet-duel-live";
-import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
-import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { activeCarriedPets } from "../lib/entitlements";
 import { isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
+// The Rare Beast Seal still RENDERS its bout locally (cinematic, or live when the
+// player-control flag is on) even though the opponent, seed and verdict are all
+// server-sealed. Only the authored VN encounters below moved to the Showdown
+// host, so these presentation modules are still reachable from this screen.
+import { type DuelResult } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
+import { createLiveDuel, type LiveDuel } from "../lib/pet-duel-live";
+import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import {
     settleDungeonPetBattle,
     startDungeonPetBattle,
@@ -27,12 +28,19 @@ import {
 } from "../lib/dungeon-pet-authority";
 import { resolveDungeonStage } from "../lib/dungeon-stage";
 import {
-    petTamerPveMultiplier,
-    type CreatorEvent,
-} from "../App";
+    startAuthoredEncounter,
+    submitShowdownTurn,
+    forfeitShowdown,
+    type ShowdownCommand,
+    type ShowdownEncounterRef,
+    type ShowdownStateView,
+} from "../lib/pet-showdown-api";
+import { type CreatorEvent } from "../App";
 
-// Continuous-duel renderer — the dungeon-duel arena. Lazy so three/r3f only
-// load when a duel actually mounts.
+// The turn-based battle. Lazy so three/r3f only load when a fight actually
+// mounts — the same deal the continuous-duel renderer had before it.
+const PetShowdownBattle = lazy(() => import("../components/PetShowdownBattle").then((m) => ({ default: m.PetShowdownBattle })));
+// Same reason, for the Rare Beast Seal's renderer.
 const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
 export function DungeonEncounter({
@@ -53,8 +61,13 @@ export function DungeonEncounter({
     event: CreatorEvent;
     character: Character;
     creatorCards: TileCard[];
+    /** The server-minted dungeon run token. Seal 3's opponent is derived from
+     *  it server-side, so this is the whole identity of the encounter. */
     dungeonRunToken: string;
     onVersionedCharacter: (character: Character, saveVersion: number) => boolean;
+    // No `stage` / `pageIndex` props: both are derived below from
+    // `character.activeDungeonRun` via resolveDungeonStage, which reads the run
+    // itself rather than trusting a caller to say which seal you are on.
     lineIndex: number;
     setLineIndex: (index: number | ((index: number) => number)) => void;
     onStartAiFight: () => void;
@@ -362,60 +375,88 @@ export function DungeonRareBeastBattle({
     );
 }
 
-export function DungeonPetBattle({ character, updateCharacter: _updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void | Promise<void>; onLeave: () => void | Promise<void>; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
+/**
+ * Every admin-authored VN pet encounter.
+ *
+ * These were among the last fights running a client-local duel sim. They now run
+ * the same server-authoritative Showdown engine as the Coliseum, entered through
+ * /api/pet/showdown's AUTHORED entry: the client sends a selector — the event id
+ * plus the authored (petId, difficulty) pair naming the choice — and the SERVER
+ * builds the opponent from its own copy of the authored content. Nothing about
+ * the beast is decided here anymore, which is exactly why the port was possible.
+ *
+ * The Rare Beast Seal is NOT routed here: it keeps DungeonRareBeastBattle above,
+ * which seals its opponent through the dungeon run's own pet authority and
+ * settles against the save version it started from. Both are server-owned; they
+ * differ in which authority mints the encounter, and lib/dungeon-pet-authority
+ * .test.ts pins the seal to that path.
+ *
+ * The reward contract is unchanged, deliberately. The bout pays nothing; it
+ * decides an OUTCOME, and `onWin` still advances the seal / completes the event
+ * so the dungeon run's own settle endpoint and the event's completion stay the
+ * only things that grant anything.
+ */
+export function DungeonPetBattle({ character, onWin, onLeave, sharedImages = {}, encounter, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; onWin: () => void | Promise<void>; onLeave: () => void | Promise<void>; sharedImages?: Record<string, string>; encounter: ShowdownEncounterRef; enemyOwner?: string; dungeonPetImage?: string }) {
     const eligiblePets = activeCarriedPets<Pet>(character);
     const defaultPetId = eligiblePets.find((pet) => pet.id === character.activePetId)?.id ?? eligiblePets[0]?.id ?? "";
     const [chosenPetId, setChosenPetId] = useState(defaultPetId);
     const selectedPet = eligiblePets.find((pet) => pet.id === chosenPetId) ?? eligiblePets[0];
-    const rarePool = editablePets.filter((pet) => pet.rarity === "rare" || pet.rarity === "legendary" || pet.rarity === "mythic");
-    const basePet = rarePool[Math.floor(Math.random() * Math.max(1, rarePool.length))] ?? genericPetArenaOpponents[2].pet;
-    const [enemyPet] = useState<Pet>(() => enemyOverride ?? ({
-        ...basePet,
-        id: `dungeon-pet-${Date.now()}`,
-        name: basePet.name || "Dungeon Rare Beast",
-        // Admin-uploaded dungeon-specific rare-beast art overrides the
-        // random rare pet's image (lore-aware boss portrait), while all
-        // other stats stay rolled from the random pet so combat behavior
-        // is unchanged.
-        image: dungeonPetImage || basePet.image,
-        rarity: "rare",
-        level: Math.max(55, basePet.level + 25),
-        hp: Math.max(900, Math.floor(basePet.hp * 2.1)),
-        attack: Math.max(110, Math.floor(basePet.attack * 1.9)),
-        defense: Math.max(100, Math.floor(basePet.defense * 1.8)),
-        speed: Math.max(90, Math.floor(basePet.speed * 1.6)),
-        trait: basePet.trait ?? "Battleborn",
-    }));
-    // The Rare Beast Seal is a PLAYER-CONTROLLED duel
-    // (docs/pet-coliseum-player-control-plan.md): the fight runs live behind the
-    // command deck, so its outcome is not known until the player has played it.
-    // Hollow Gate is pure client-side PvE with no server re-sim, so it can command
-    // freely. Flag off → the precomputed cinematic duel, watched as before.
-    const [duelBattle, setDuelBattle] = useState<{
-        result: DuelResult | null; live: LiveDuel | null;
-        playerPet: Pet; enemyPet: Pet; seed: number; id: number;
-    } | null>(null);
-    const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight React key (state, not ref → no render-time ref read)
-    // A ref, not state: onExit fires in the same tick as onOutcome (an exit-forfeit
-    // settles then leaves), so a state write would still be stale when it reads it.
-    const duelOutcome = useRef<"win" | "loss" | "draw" | null>(null);
-    function startBattle() {
+    const [starting, setStarting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [battle, setBattle] = useState<{ state: ShowdownStateView; key: number } | null>(null);
+    const battleKey = useRef(1);
+    // A ref, not state: onExit can fire in the same tick as onFinished (an
+    // exit-forfeit settles then leaves), so a state write would still be stale
+    // when it is read.
+    const outcome = useRef<"win" | "loss" | null>(null);
+
+    async function startBattle() {
+        if (!selectedPet || starting) return;
+        if (isPetOnExpedition(selectedPet)) {
+            setError(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
+            return;
+        }
         primePetSfx(); // unlock the audio context inside the click gesture
         startBattleMusic(); // rotate to a fresh battle track
-        if (!selectedPet) return;
-        if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
-        const seed = Date.now();
-        const nextDuelId = duelNonce + 1;
-        duelOutcome.current = null;
-        const dmg = petTamerPveMultiplier(character), hp = petPveHpMult(character), revive = petAlphaBond(character);
-        const controlled = petPlayerControlEnabled();
-        setDuelNonce(nextDuelId);
-        setDuelBattle({
-            result: controlled ? null : runPetDuelCinematic(selectedPet, enemyPet, seed, dmg, hp, revive, true, undefined, null),
-            live: controlled ? createLiveDuel(selectedPet, enemyPet, seed, dmg, hp, revive, true, undefined, null) : null,
-            playerPet: selectedPet, enemyPet, seed, id: nextDuelId,
-        });
+        setStarting(true);
+        setError(null);
+        const result = await startAuthoredEncounter(character.name, selectedPet.id, encounter);
+        if ("error" in result) {
+            setStarting(false);
+            setError(result.error);
+            return;
+        }
+        // The sealed beast is only named by the response, so its model can only
+        // be warmed here — and the renderer suspends an unwarmed one into
+        // nothing rather than a placeholder. Imported dynamically to match the
+        // lazy PetShowdownBattle above: this screen keeps three/drei out of its
+        // eager chunk, and a static import here would undo that.
+        await import("../lib/pet-model-preload")
+            // `[selectedPet]` is exactly what the renderer receives below, so
+            // both resolve the same art. (Never the raw roster: pets past the
+            // entitlement cap are preserved-but-benched and never take the
+            // field — the rule entitlement-runtime-wiring.test.ts pins.)
+            .then((m) => m.warmShowdownModels(result.state, [selectedPet]))
+            .catch(() => undefined);
+        setStarting(false);
+        outcome.current = null;
+        setBattle({ state: result.state, key: battleKey.current++ });
     }
+
+    const sessionId = battle?.state.sessionId ?? null;
+    const submitTurn = useCallback(
+        async (commands: ShowdownCommand[]) => (sessionId ? submitShowdownTurn(character.name, sessionId, commands) : null),
+        [character.name, sessionId],
+    );
+    // A forfeit is a defeat: it drops the server session and leaves, so quitting
+    // a losing seal can never advance it.
+    function forfeit() {
+        if (sessionId) void forfeitShowdown(character.name, sessionId);
+        outcome.current = "loss";
+        setBattle(null);
+        void onLeave();
+    }
+
     if (!selectedPet) {
         return (
             <div className="card cinematic-card">
@@ -428,7 +469,7 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
     if (isPetOnExpedition(selectedPet)) {
         return <div className="card cinematic-card"><h2>Rare Beast Seal</h2><p className="hint">{petDisplayName(selectedPet)} is away exploring. Choose another pet in the Pet Yard or wait for it to return.</p><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>;
     }
-    if (!duelBattle) {
+    if (!battle) {
         return (
             <div className="card cinematic-card">
                 <h2>Rare Beast Seal</h2>
@@ -444,33 +485,52 @@ export function DungeonPetBattle({ character, updateCharacter: _updateCharacter,
                 )}
                 <div className="pet-arena-grid">
                     <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />
-                    <PetArenaCard owner={enemyOwner} pet={enemyPet} sharedImages={sharedImages} />
+                    {/* The beast is the SERVER's now, so there is nothing honest to
+                        put on a card before the seal opens. Same card shape as the
+                        real one (avatar column + body) so the grid reads unchanged;
+                        the stat block is simply not knowable yet. */}
+                    <div className="pet-arena-card">
+                        <div className="pet-arena-avatar">
+                            {dungeonPetImage
+                                ? <img src={dungeonPetImage} alt={enemyOwner} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                : <span>??</span>}
+                        </div>
+                        <div>
+                            <strong>{enemyOwner}</strong>
+                            <p>The seal keeps its beast hidden until it breaks.</p>
+                        </div>
+                    </div>
                 </div>
+                {error && <p className="hint" style={{ color: "#fca5a5" }}>{error}</p>}
                 <div className="menu">
-                    <button className="admin-button" onClick={startBattle}>Start Pet Battle</button>
+                    <button className="admin-button" disabled={starting} onClick={() => void startBattle()}>
+                        {starting ? "Breaking the seal…" : "Start Pet Battle"}
+                    </button>
                     <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
                 </div>
             </div>
         );
     }
-    // duelBattle is set (the !duelBattle gate above returned the pre-battle card).
-    // Exiting after a win advances the seal (onWin), otherwise it leaves the
-    // dungeon. A commanded fight has no result until it is played, so the branch
-    // reads the settled outcome the renderer hands back — and an exit-forfeit
-    // reports a loss, so quitting a losing seal can never advance it.
+    // The session is live. Exiting after a win advances the seal (onWin),
+    // otherwise it leaves the dungeon — and the outcome comes from the server's
+    // finishing turn, never from anything decided here.
     return (
         <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
-            <PetColiseumDuel
-                key={duelBattle.id}
-                playerPet={duelBattle.playerPet}
-                enemyPet={duelBattle.enemyPet}
-                seed={duelBattle.seed}
-                result={duelBattle.result ?? undefined}
-                live={duelBattle.live ?? undefined}
-                onOutcome={(r) => { duelOutcome.current = r.result; }}
-                sharedImages={sharedImages}
-                onFightAgain={() => startBattle()}
-                onExit={() => ((duelOutcome.current ?? duelBattle.result?.result) === "win" ? onWin() : onLeave())}
+            <PetShowdownBattle
+                key={battle.key}
+                initialState={battle.state}
+                playerPets={[selectedPet]}
+                // Admin-uploaded dungeon art still dresses the boss: the server
+                // names the species it built, so the portrait is overlaid onto
+                // that species' art key for this fight only.
+                sharedImages={dungeonPetImage && battle.state.enemy[0]?.templateId
+                    ? { ...sharedImages, [`petbody:${battle.state.enemy[0].templateId}`]: dungeonPetImage }
+                    : sharedImages}
+                submitTurn={submitTurn}
+                onForfeit={forfeit}
+                onFinished={(result) => { outcome.current = result; }}
+                onExit={() => { setBattle(null); void (outcome.current === "win" ? onWin() : onLeave()); }}
+                onRematch={() => { setBattle(null); void startBattle(); }}
             />
         </Suspense>
     );

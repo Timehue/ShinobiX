@@ -134,7 +134,17 @@ test('tag scaling, Pierce, Wound, Heal, Shield, Drain, and post-damage caps are 
 
     assert.equal(healAmountForMastery(0, 1), 225);
     assert.equal(shieldAmountForMastery(0), 225);
-    assert.equal(healAmountForMastery(50, 2), 750);
+    // HEAL_FLAT caps the JUTSU's own heal; Increase Heal multiplies ON TOP and is
+    // allowed past it (owner ruling 2026-08-16, reversing the 2026-07-01 rule that
+    // folded the boost inside the min). The REAL values: the game authors Increase
+    // Heal at 30/35/40% only, so a maxed heal lands at 975/1012/1050. The x2 case
+    // below is the sanitizer's outer clamp, not content that exists.
+    assert.equal(healAmountForMastery(50, 1), 750);      // unboosted still caps at 750
+    assert.equal(healAmountForMastery(50, 1.3), 975);    // the common 30% tag
+    assert.equal(healAmountForMastery(50, 1.4), 1050);   // the strongest authored, 40%
+    assert.equal(healAmountForMastery(0, 1.3), 292);     // the mastery ramp applies first
+    assert.equal(healAmountForMastery(50, 2), 1500);     // outer clamp only
+    assert.equal(shieldAmountForMastery(50), 750);       // Shield takes no boost — hard 750
     assert.equal(healMultiplierFromStatuses([{ name: 'Increase Heal', percent: 30 }]), 1.3);
     assert.equal(drainTick(0), 50);
     assert.equal(drainTick(50), 300);

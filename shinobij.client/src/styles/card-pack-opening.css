@@ -852,6 +852,13 @@
   padding: 1rem;
   animation: packSummaryIn 0.45s ease both;
   max-width: 100vw;
+  /* The overlay is overflow:hidden, so a summary taller than the screen would
+     put "Done" out of reach — which a ten-card fan does on a short phone (the
+     Traveler's Codex hand-off shows ten). Scroll the fan instead of clipping it;
+     a shop pack is shorter than this and is unaffected. */
+  max-height: calc(100dvh - 4.4rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 @keyframes packSummaryIn {
   from {

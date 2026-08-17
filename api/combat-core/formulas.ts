@@ -274,17 +274,30 @@ export function ampTagCapForRank(rank?: string | null): number {
     return 30;
 }
 
+/**
+ * Amp-tag ceiling for a WEAPON SWING. A weapon has no bloodline rank, so
+ * ampTagCapForRank would floor it at the no-bloodline 30 — but mythic weapons are
+ * authored with 35% effects BY DESIGN (Ashen Dragon Katana / Eclipse Fang Dagger /
+ * Void-Leech Nodachi / Worldsplitter Katana all carry 35), and that 30 silently
+ * shaved them to 30. Owner ruling 2026-08-16: a weapon answers to 35, the same
+ * ceiling an A/B-rank bloodline gets. Forged named weapons roll 35–40 on a
+ * single-tag result and are clamped here to 35 — a crafted weapon can MATCH the
+ * best built-in mythic, never beat it (see the balanced-PvP pillar).
+ */
+export const WEAPON_AMP_TAG_CAP = 35;
+
 export function scaledTagPercent(
     rawPct: number,
     masteryLevel: number,
     tagName?: string,
     bloodlineRank?: string | null,
     cappedTagNames?: ReadonlySet<string>,
+    capOverride?: number,
 ): number {
     const raw = rawPct > 0 ? rawPct : 30;
     const levelScaled = Math.max(0, raw - (50 - masteryLevel) * 0.2);
     if (tagName && cappedTagNames?.has(tagName)) {
-        return Math.min(levelScaled, ampTagCapForRank(bloodlineRank));
+        return Math.min(levelScaled, capOverride ?? ampTagCapForRank(bloodlineRank));
     }
     return levelScaled;
 }
@@ -293,8 +306,24 @@ export function drainTick(masteryLevel: number): number {
     return Math.max(DRAIN_BASE_TICK, Math.min(DRAIN_MAX_TICK, DRAIN_BASE_TICK + masteryLevel * DRAIN_PER_LEVEL));
 }
 
+/**
+ * Heal tag magnitude.
+ *
+ * HEAL_FLAT (750) caps the JUTSU's own heal — the mastery ramp tops out there and
+ * cannot pass it. Increase Heal then multiplies ON TOP and is deliberately
+ * allowed past the cap (owner ruling 2026-08-16, reversing the 2026-07-01 rule
+ * that folded the boost inside the min): 750 is the ceiling on what a jutsu heals
+ * by itself, not on what a player can heal after spending a cast to set up.
+ *
+ * Bounded by construction: Increase Heal is NOT stackable (addStatus replaces on
+ * re-apply), so only one is ever active. In PRACTICE the game authors 30/35/40%,
+ * so a maxed heal lands at 975/1012/1050 — the sanitizer's 100% clamp (x2, 1500)
+ * is only an outer rail nothing reaches. And the buff costs a prior cast: an
+ * Increase Heal applied on the same cast is deferred a round.
+ */
 export function healAmountForMastery(masteryLevel: number, healBoost: number): number {
-    return Math.min(HEAL_FLAT, Math.floor(HEAL_FLAT * masteryDamageFrac(masteryLevel) * healBoost));
+    const jutsuHeal = Math.min(HEAL_FLAT, Math.floor(HEAL_FLAT * masteryDamageFrac(masteryLevel)));
+    return Math.floor(jutsuHeal * Math.max(1, Number(healBoost) || 1));
 }
 
 export function shieldAmountForMastery(masteryLevel: number): number {

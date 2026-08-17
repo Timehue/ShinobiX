@@ -18,6 +18,7 @@
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
+import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
 import { reduceNTargetCast, type NTargetCastHooks } from '../combat-core/cast-reducer.js';
 import {
@@ -50,6 +51,7 @@ import {
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
+import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
@@ -57,6 +59,7 @@ import {
     type TowerSession,
     type TowerActor,
     type TowerSide,
+    type TowerVfxEvent,
     getActor,
     livingOnSide,
     isSideAlive,
@@ -1140,7 +1143,12 @@ const TOWER_CAST_SCOPED_TAGS = new Set([
     'Clear Prevent', 'Stun Prevent', 'Copy', 'Overclock', 'Increase Heal',
     'Increase Generals', 'Increase Discipline',
 ]);
-const TOWER_ZERO_DAMAGE_CAST_TAGS = new Set(['Heal', 'Shield', 'Barrier']);
+// Only BARRIER zeroes a cast. Heal/Shield are payloads that ride on top of a
+// damaging cast (owner ruling 2026-08-16) — this set is the towers-side twin of
+// resolveTagStatuses in api/pvp/move.ts and MUST track it, or an AOE damage jutsu
+// that also heals would land for full in PvP and for nothing in a tower.
+// The 40-AP utility split is unaffected: a utility cast already carries scaledEp 0.
+const TOWER_ZERO_DAMAGE_CAST_TAGS = new Set(['Barrier']);
 
 function splitAoeJutsu(jutsu: JutsuLike): {
     setup: JutsuLike;
@@ -1151,7 +1159,11 @@ function splitAoeJutsu(jutsu: JutsuLike): {
     const tags = Array.isArray(jutsu.tags) ? jutsu.tags : [];
     const setupTags = tags.filter(tag => TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
     const hitTags = tags.filter(tag => !TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
-    const suppressDamage = tags.some(tag => TOWER_ZERO_DAMAGE_CAST_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
+    // Barrier zeroes unconditionally, exactly as in move.ts — it is board control,
+    // and weapons cannot carry it at all (stripped by sanitizePvpItems at the seal).
+    const suppressDamage = tags.some(
+        tag => TOWER_ZERO_DAMAGE_CAST_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))),
+    );
     return {
         setup: { ...jutsu, tags: setupTags },
         perHit: { ...jutsu, tags: hitTags },
@@ -1446,6 +1458,24 @@ function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
     return weatherMultiplier(String(jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
 }
 
+/**
+ * A genuine AI combatant — engine-driven AND unowned. The `ai` flag alone is not
+ * enough: an AFK human is flagged `ai` but keeps its ownerSlug, and tower PvP
+ * seats a live human team on side 'enemy'. Requiring ownerSlug === null means a
+ * PvE-only bonus can never apply in a fight where a human is on the other end.
+ */
+function isAiCombatant(actor: TowerActor): boolean {
+    return actor.ai === true && actor.ownerSlug == null;
+}
+
+/** PvE-only relic multipliers, sealed by hydrateCharacterFromSave (already clamped). */
+function pveRelicDealtMult(actor: TowerActor): number {
+    return 1 + Math.max(0, Number(actor.character?.pveDamagePct) || 0) / 100;
+}
+function pveRelicTakenMult(target: TowerActor): number {
+    return Math.max(0.25, 1 - Math.max(0, Number(target.character?.pveDamageTakenPct) || 0) / 100);
+}
+
 function resolveHit(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor,
     jutsu: JutsuLike, cost: number, deferWinnerCheck = false,
@@ -1464,12 +1494,27 @@ function resolveHit(
     // this scales what a SQUAD DEFENDER receives, and is capped inside debuffTakenMult so the
     // combined enrage × dmgMult × debuff product stays under the one-shot ceiling. ×1 for story.
     const incomingDebuffMult = (!selfCast && target.side === 'squad') ? debuffTakenMult(session, target) : 1;
+    // PvE-only relic power. Gated on the COUNTERPARTY being a genuine AI, never on
+    // `side` — tower PvP seats the opposing HUMAN team on side 'enemy'
+    // (api/towers/_pvp-session.ts), so a side-based gate would hand one human team
+    // a damage bonus against another. isAiCombatant fails closed: an AFK-driven
+    // human still carries an ownerSlug, so no human-vs-human fight ever qualifies.
+    // Two independent gates, because one alone is not enough:
+    //   • session-level — a human-vs-human tower match never grants PvE power at
+    //     all. The per-target check below reads the PRIMARY target, so an AOE
+    //     aimed at an NPC could otherwise splash a human with the bonus attached.
+    //   • per-target — inside a PvE session, the counterparty must still be a real
+    //     AI, so an async/AFK human ally or opponent never feeds it.
+    const pveSession = session.towerId !== TOWER_PVP_TOWER_ID;
+    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor) : 1;
+    const relicTakenMult = (pveSession && !selfCast && isAiCombatant(actor)) ? pveRelicTakenMult(target) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
         * attackerEnrageMult(session, actor) * bulwarkMult(session, target)
         * shrineAttackMult(session, actor)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
         * ascensionDmgMult * incomingDebuffMult
+        * relicDealtMult * relicTakenMult
         * weatherMult(session, jutsu)
     );
     const verb = jutsu.id === 'basic-attack' ? 'attacks'
@@ -1494,6 +1539,7 @@ function resolveHit(
 // Round-end: tick Wound/Poison/Drain DoTs and expire statuses for every living actor,
 // reusing the EXACT PvP helpers so timing/mitigation match the live game.
 function applyRoundStatusTicks(session: TowerSession): void {
+    const roundPlates: TowerVfxEvent[] = [];
     for (const a of session.actors) {
         if (a.hp <= 0) {
             // N-actor policy: a defeated caster's wall survives for the remaining
@@ -1528,8 +1574,21 @@ function applyRoundStatusTicks(session: TowerSession): void {
         }
         a.chakra = Math.max(0, Math.floor(dot.fighter.chakra));
         if (dot.lines.length) session.log.push(...dot.lines);
+        // The shared PvP helper already authored this tick's plates; they were
+        // being dropped on the floor here. A DoT only ever ticks the fighter it
+        // belongs to, so `self` resolves to this actor and `opp` cannot occur.
+        for (const plate of dot.vfx) {
+            if (plate.who !== 'self') continue;
+            roundPlates.push({
+                key: String(plate.key),
+                target: a.id,
+                anchor: plate.anchor,
+                ...(plate.persistent ? { persistent: true } : {}),
+            });
+        }
         a.statuses = tickStatuses(actorToFighter(a), session.round).statuses;
     }
+    publishTowerVfx(session, roundPlates);
 }
 
 // ─── Turn scheduler (side-based rounds; interleaved boss-interrupt is Phase 3) ─
@@ -1973,7 +2032,99 @@ function tickBossPhases(session: TowerSession): void {
 }
 
 // ─── Action application ──────────────────────────────────────────────────────
+/** Replace the session's VFX plates and bump the sequence the client watches. */
+function publishTowerVfx(session: TowerSession, plates: TowerVfxEvent[]): void {
+    if (!plates.length) return;
+    session.vfx = plates.slice(0, MAX_COMBAT_VFX_TILES);
+    session.vfxSeq = (session.vfxSeq ?? 0) + 1;
+}
+
+/**
+ * Author the cosmetic plates for one resolved action.
+ *
+ * Deliberately derived from the action + the actor's own jutsu entry, never from
+ * damage numbers: this runs AFTER the action resolved and must not be able to
+ * influence it. `ko` upgrades the plate to the finisher art, matching solo-PvE.
+ */
+function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerAction, ko: boolean): TowerVfxEvent[] {
+    const foe = 'targetId' in action && action.targetId ? action.targetId : undefined;
+    switch (action.type) {
+        case 'move': case 'dash':
+            return [{ key: 'move', anchor: 'tile', tiles: [action.tile] }];
+        case 'attack':
+            return foe ? [{ key: ko ? 'ko' : 'impact', target: foe, anchor: 'target' }] : [];
+        case 'weapon':
+            return foe ? [{ key: ko ? 'ko' : 'weapon', target: foe, anchor: 'target' }] : [];
+        case 'heal':
+            return [{ key: 'heal', target: actor.id, anchor: 'caster' }];
+        case 'cleanse':
+            return [{ key: 'cleanse', target: actor.id, anchor: 'caster' }];
+        case 'clear':
+            return foe ? [{ key: 'cleanse', target: foe, anchor: 'target' }] : [];
+        case 'item':
+            return [{ key: 'item', target: actor.id, anchor: 'caster' }];
+        case 'summon':
+            return [{ key: 'summon', target: actor.id, anchor: 'caster' }];
+        case 'jutsu': {
+            const jutsu = findJutsu(actor, action.jutsuId);
+            if (!jutsu) return [];
+            const names = canonicalJutsuTagNames(
+                (jutsu.tags as Array<{ name?: string }> | undefined)
+                    ?.filter((tag): tag is { name: string } => typeof tag?.name === 'string'),
+            );
+            // A pure repositioning jutsu already emits the movement plate below.
+            if (names.length && names.every(name => name === 'Move')) {
+                return action.tile === undefined ? [] : [{ key: 'move', anchor: 'tile', tiles: [action.tile] }];
+            }
+            const radius = jutsuAreaRadius(jutsu);
+            const method = String(jutsu.method ?? 'SINGLE');
+            const ground = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL' || String(jutsu.target ?? '') === 'EMPTY_GROUND';
+            const semantic = semanticJutsuVfx(jutsu as Parameters<typeof semanticJutsuVfx>[0], {
+                ...(ground ? { ground: true } : {}),
+                ...(radius > 0 ? { area: true } : {}),
+                ...(ko ? { ko: true } : {}),
+            });
+            // Anchor on the struck tile when the cast named one, otherwise on the
+            // victim (or the caster for a self-cast).
+            const centre = action.tile ?? session.actors.find(a => a.id === foe)?.pos;
+            const tiles = centre === undefined
+                ? undefined
+                : radius > 0
+                    ? filledDiskTiles(centre, radius, session.map.width, session.map.height)
+                    : [centre];
+            const target = semantic.anchor === 'caster' ? actor.id : foe;
+            return [{
+                key: semantic.key,
+                ...(target ? { target } : {}),
+                anchor: semantic.anchor,
+                ...(tiles ? { tiles: tiles.slice(0, MAX_COMBAT_VFX_TILES) } : {}),
+                ...(ground ? { persistent: true } : {}),
+            }];
+        }
+        default:
+            return [];
+    }
+}
+
+/**
+ * Thin cosmetic wrapper around the resolver. It snapshots the actors' HP, runs
+ * the UNCHANGED resolution below, then authors the plates for what happened.
+ * Kept as a wrapper (rather than emission scattered through the resolver's many
+ * early returns) so the combat path itself is byte-for-byte what it was.
+ */
 export function applyAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
+    const hpBefore = new Map(session.actors.map(a => [a.id, a.hp]));
+    const result = applyResolvedAction(session, floor, action, rng);
+    if (!result.applied) return result;
+    const actor = session.actors.find(a => a.id === action.actorId);
+    if (actor) {
+        const ko = session.actors.some(a => a.hp <= 0 && (hpBefore.get(a.id) ?? 0) > 0);
+        publishTowerVfx(session, towerActionVfx(session, actor, action, ko));
+    }
+    return result;
+}
+
+function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
     void rng; // reserved: AI tie-breaking / future variance — damage stays deterministic
     if (session.status !== 'active') return { applied: false, reason: 'session-done' };
     const actor = activeActor(session);

@@ -29,7 +29,7 @@ import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
-import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
+import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petHeroMoveStyle, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import {
     ScarLayer, ResidueFx, ClimateLayer, KindAccentFx, CastGlyphFx, ChargeOrbFx, StreakBurstFx, DebrisFx, kindAccentFamily,
@@ -2218,9 +2218,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         const map = new Map<string, FighterSlotInfo>();
         const playerPos = slotPositions(stateView.player.length, "player");
         const enemyPos = slotPositions(stateView.enemy.length, "enemy");
+        // Both sides resolve their art through the SHARED identity rule
+        // (showdownFighterIdentity): your own fighters prefer their save record
+        // so an evolved starter keeps its stage's body, and server-built
+        // opponents key off their catalog species. The model warm-up in
+        // lib/pet-model-preload runs the same rule — if these two ever disagree,
+        // the warm-up fetches a model this map never asks for and the fighter
+        // suspends into nothing.
         stateView.player.forEach((view, i) => {
-            const realPet = playerPets.find((p) => p.id === view.id) ?? null;
-            const petLike = realPet ?? ({ id: view.id, name: view.name, rarity: view.rarity, element: view.element } as unknown as Pet);
+            const petLike = showdownFighterIdentity(view, playerPets);
             map.set(view.id, {
                 view, side: "player", basePos: playerPos[i],
                 model: petCombatModel(petLike),
@@ -2228,10 +2234,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             });
         });
         stateView.enemy.forEach((view, i) => {
-            const petLike = {
-                id: view.templateId ?? view.id, templateId: view.templateId,
-                name: view.name, rarity: view.rarity, element: view.element,
-            } as unknown as Pet;
+            const petLike = showdownFighterIdentity(view);
             map.set(view.id, {
                 view, side: "enemy", basePos: enemyPos[i],
                 model: petCombatModel(petLike),

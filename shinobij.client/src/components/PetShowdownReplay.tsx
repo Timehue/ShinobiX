@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Pet } from "../types/pet";
 import { PetShowdownBattle } from "./PetShowdownBattle";
+import { warmShowdownModels } from "../lib/pet-model-preload";
 import type { ShowdownCommand, ShowdownTurnResult } from "../lib/pet-showdown-api";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 
@@ -51,6 +52,58 @@ export function PetShowdownReplay({ script, playerPets, sharedImages = {}, onExi
         () => JSON.parse(JSON.stringify(script.initialState)) as ShowdownReplayScript["initialState"],
         [script],
     );
+
+    /*
+     * Warm both rosters before the first frame.
+     *
+     * This gate lives HERE rather than in the three screens that render a
+     * replay (the ranked/ladder cinematics and the war record) because all
+     * three hand over a finished script and mount straight into playback — and
+     * an unwarmed model suspends against a null fallback, so a cold fighter is
+     * not late, it is missing. One gate on the component every caller shares is
+     * the only version of this that a fourth caller cannot forget.
+     */
+    // Gated on WHICH state was warmed rather than a boolean, so a new script
+    // re-arms the gate by identity alone — no synchronous reset to false inside
+    // the effect, which is both a lint error and a wasted render.
+    const [warmedFor, setWarmedFor] = useState<object | null>(null);
+    const warm = warmedFor === initialState;
+    useEffect(() => {
+        let cancelled = false;
+        void warmShowdownModels(initialState, playerPets).then(() => {
+            if (!cancelled) setWarmedFor(initialState);
+        });
+        return () => { cancelled = true; };
+        // Keyed on the SCRIPT only. `playerPets` is read for art identity, and
+        // a roster cannot meaningfully change mid-replay — while its array
+        // identity churns on every parent render (PetLadder rebuilds it inline),
+        // which would re-arm this warm-up continuously.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialState]);
+
+    if (!warm) {
+        // Styled inline deliberately: components in this repo do not import
+        // stylesheets (screens own them), and this element is rendered under
+        // three different screens whose sheets do not overlap.
+        return (
+            <div
+                role="status"
+                aria-live="polite"
+                style={{
+                    position: "fixed", inset: 0, zIndex: 1000000,
+                    display: "grid", placeContent: "center", gap: "10px",
+                    background: "radial-gradient(circle at 50% 40%, #101a2e, #05070e 70%)",
+                    color: "#c9b98d", font: "600 12px/1.6 Inter, sans-serif",
+                    letterSpacing: "0.22em", textTransform: "uppercase", textAlign: "center",
+                }}
+            >
+                <span>Preparing the arena</span>
+                <span style={{ color: "#5f6b80", fontSize: "10px", letterSpacing: "0.14em" }}>
+                    Bringing both fighters to the field
+                </span>
+            </div>
+        );
+    }
 
     return (
         <PetShowdownBattle

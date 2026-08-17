@@ -16,24 +16,34 @@ export type PetArenaOpponent = {
     // battle ends. Defaults to "centralHub" inside PetArena. Used by the
     // Hollow Gate pet_battle tile to return the player to the shrine.
     returnScreen?: Screen;
-    /** One sealed Hollow Gate encounter. The Pet Arena reports its replayed
-     * result back to this binding instead of paying ordinary Coliseum rewards. */
-    hollowGate?: {
-        token: string;
-        runId: string;
-        nodeId: string;
-        floor: number;
-        kind: "battle" | "elite" | "ambush" | "beast" | "boss";
-    };
-    /** Exact natural World Map wanderer context. The preview pet is cosmetic;
-     * battle-start reconstructs this roster slot and builds the real beast. */
-    wanderer?: { id: string; sector: number };
+    // (No `hollowGate` binding: a sealed Gate encounter is no longer replayed
+    // through the Pet Arena — HollowGatePetFight owns that settlement now, and
+    // lib/hollow-gate-pet-fight-wiring.test.ts holds this shape to it.)
+    // (The wanderer binding lives further down, with the other duel contexts.)
     // ── Party (2v2) extensions ────────────────────────────────────────
     // When opponentParty is set, the incoming battle should resolve as a
     // 2-pet set. challengerParty is the player's locked-in pair (carried
     // from a PvP party challenge so we don't re-pick on the player's side).
     opponentParty?: [Pet, Pet];
     challengerParty?: [Pet, Pet];
+    // ── Player-challenge duels (1v1 and 2v2) ──────────────────────────
+    // The accepted challenge's id. The server sealed ONE duel against it when
+    // the responder accepted — both teams, one seed, one verdict — so both
+    // participants' /api/pet/battle-start calls resolve to the same fight and
+    // watch the same script. Without it a challenge duel cannot start: there is
+    // no local simulation to fall back to, and inventing one is the bug the
+    // seal exists to end.
+    pvpChallengeId?: string;
+    // ── Sector wanderer duel (World Map) ──────────────────────────────
+    // A roaming beast challenged the player. The id rides along for the
+    // receipt only: the SERVER picks which arena template the beast fields and
+    // scales it from the caller's own saved level, so nothing about the
+    // opponent is derived from anything the client sends.
+    //
+    // `sector` rides along too, and is not optional decoration: the sealed
+    // wanderer session validates the encounter against the sector the SAVE says
+    // you stand in, and refuses a duel claimed from anywhere else.
+    wanderer?: { id: string; sector: number };
     // ── Ranked 1v1 extensions ─────────────────────────────────────────
     // Set when this opponent came from the pet-ranked ladder queue. The
     // battle resolves deterministically (canonical sim) and the result

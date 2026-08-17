@@ -28,12 +28,14 @@ import {
     directDamageNumberFormula,
     healMultiplierFromStatuses,
     healAmountForMastery,
+    JUTSU_MAX_LEVEL,
     jutsuLevelCapForLevel,
     perRankStatCap,
     postDamageFormula,
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
     shieldAmountForMastery,
+    WEAPON_AMP_TAG_CAP,
     statusDurationFor,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -504,8 +506,10 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: num
 //   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
 // For amp/DR tags, then clamp to the bloodline rank cap (parity with PvE, which
 // caps these via effectiveTagPercent — previously PvP applied no cap).
-function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string, bloodlineRank?: string | null): number {
-    return scaleCombatTagPercent(rawPct, masteryLevel, tagName, bloodlineRank, CAPPED_AMP_TAGS);
+// `capOverride` lets a WEAPON swing answer to WEAPON_AMP_TAG_CAP instead of the
+// bloodline table — a weapon has no rank, so it would otherwise take the 30 floor.
+function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string, bloodlineRank?: string | null, capOverride?: number): number {
+    return scaleCombatTagPercent(rawPct, masteryLevel, tagName, bloodlineRank, CAPPED_AMP_TAGS, capOverride);
 }
 
 // ─── Jutsu application — resolved in explicit, fixed-order phases ─────────────
@@ -587,14 +591,48 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     // the FLAT ceiling — maxed casts stay exactly HEAL_FLAT/SHIELD_FLAT, low-mastery
     // ones heal/shield proportionally less (curbs early heal-spam). See masteryDamageFrac.
 
+    // A WEAPON SWING is not a jutsu. Every weapon synth (PvP move.ts, solo-PvE
+    // _engine.ts, towers _engine.ts) marks itself `isUtility: false` — the flag that
+    // already exempts it from the legacy 40-AP zero-damage rule, and the only place
+    // in the repo that sets it. Two jutsu-only conventions are wrong for a swing:
+    //
+    //  1. Heal/Shield no longer zero the direct damage at all. A cast that deals
+    //     damage KEEPS it, and the heal/shield rides on top (owner ruling
+    //     2026-08-16). This does not open the 40-AP utility door: a utility cast
+    //     already has scaledEp 0 via isZeroDamageFortyApJutsu
+    //     (combat-core/formulas.ts), so its damage is 0 before this loop runs. What
+    //     it fixes is the 60-AP DAMAGE jutsu and the weapon swing, both of which
+    //     were silently zeroed by their own support tag — the named weapons that
+    //     rolled Heal/Shield (2 of the 12 tags in craft/_named.ts WEAPON_TAGS) and
+    //     the built-in Frostfang Oathblade / Glacier King Cleaver swung for ZERO.
+    //     Barrier is deliberately excluded: it is pure board control, not a payload,
+    //     so it still zeroes the cast.
+    //  2. Tag percents ramp with JUTSU MASTERY, and a weapon has none — it is always
+    //     mastery 0, a flat −10 points. That silently made every 10%-effect weapon
+    //     (the whole common tier) completely inert and halved the rest, while the
+    //     item tooltip and the client's own weapon path both promised the authored
+    //     value. Percents resolve at max mastery so the number on the item is the
+    //     number you get, under the weapon's own amp ceiling (WEAPON_AMP_TAG_CAP,
+    //     35 — mythic weapons are authored at 35 by design, and a weapon has no
+    //     bloodline rank so ampTagCapForRank would wrongly floor it at 30).
+    //
+    // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
+    // heals its ~30% share, not a full jutsu's 750. See _weapon-damage.test.ts.
+    const weaponSwing = jutsu.isUtility === false;
+    const tagPercentMastery = weaponSwing ? JUTSU_MAX_LEVEL : masteryLevel;
     for (const tag of tags) {
         // Branch on the CANONICAL name only — sessions are sealed canonical, and
         // normalizeTagName re-canonicalizes here so direct (un-sanitized) callers
         // (engine tests, NPC payloads) resolve aliases the same way.
         const tagName = normalizeTagName(tag.name);
-        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel, tagName, jutsu.bloodlineRank));
-        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; damage = 0; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
-        if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; damage = 0; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
+        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
+        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
+        if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
+        // Barrier stays a JUTSU-only tag: it drops a wall tile on the board, which
+        // is a cast-time control mechanic, not something a blade does. Owner ruling
+        // 2026-08-16 — no built-in weapon carries it and the forge cannot roll it, so
+        // this exempts nothing today; it is the fail-safe if one ever reaches a swing.
+        // sanitizePvpItems strips it from weapon tags at the seal (the real gate).
         if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }

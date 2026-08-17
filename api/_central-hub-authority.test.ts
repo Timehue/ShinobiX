@@ -27,7 +27,15 @@ describe("Central Hub release authority", () => {
     it("settles keyed dungeons and every Endless Tower mutation on the server", () => {
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"start"\)/);
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"settle",\s*token\)/);
-        assert.match(app, /mutateDungeonRunServer\(current\.name,\s*"abandon",\s*token\)/);
+        // Abandon is still server-owned, but no longer from a single call site:
+        // the Warden-DEFEAT path (App's old failDungeon) went away with the
+        // browser-side Arena reducer that hosted that fight — a loss now settles
+        // in api/missions/report-ai-fight.ts via applyDungeonWardenSettlement.
+        // What remains client-side is the manual exit (leaveDungeon) and the
+        // boot sweep for a stale token, so match the call rather than one binding.
+        assert.match(app, /mutateDungeonRunServer\([^,]+,\s*"abandon",\s*\w+\)/);
+        assert.doesNotMatch(app, /activeDungeonRun[^\n]*=\s*null;?\s*\/\/\s*local/i,
+            "a dungeon run must never be closed out purely client-side");
         for (const action of ["start", "settle", "cashout"]) {
             assert.match(endlessActions, new RegExp(`mutateEndlessRun\\([^\\n]+,\\s*"${action}"`));
         }

@@ -7,16 +7,20 @@
  * server seals a different opponent than the client shows — the exact class of
  * bug the migration exists to remove, and one no other test would catch.
  *
- * AI scaling is now owned by the sealed server start. The client host submits
- * intent and renders the returned Solo PvE session; it does not re-level a
- * local combatant.
+ * It also pins the CLAIM this module is built on: that the SERVER re-levels a
+ * combat-mission AI and nothing on the client does. This used to permit exactly
+ * one client call site (the browser PvE reducer's, gated on combat missions);
+ * that reducer is gone and every encounter is now sealed server-side, so the
+ * guard below asserts zero client call sites. AI scaling is owned by the sealed
+ * server start: the client host submits intent and renders the returned Solo PvE
+ * session, and never re-levels a local combatant.
  *
  * Lives in scripts/ — excluded from both build roots — like the other
  * cross-build-root parity tests.
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { readFileSync, globSync } from 'node:fs';
 
 // Client (source of truth)
 import {
@@ -107,5 +111,31 @@ describe('AI-fight scaling parity (server ⇄ client)', () => {
         assert.match(start, /resolveAiFightScaling\(\{\s*opponentId: body\.opponentId,\s*battleKind: body\.battleKind,\s*playerLevel:/, 'sealed AI start no longer resolves mission scaling from server inputs');
         assert.match(start, /\.\.\.\(scaling \? \{ scaling \} : \{\}\)/, 'sealed AI start no longer passes resolved scaling into encounter construction');
         assert.match(encounter, /const profile = params\.scaling && Number\.isFinite\(params\.scaling\.level\)\s*\? relevelAiProfile\(/, 'Solo PvE encounter no longer applies sealed scaling');
+    });
+
+    // The positive case above names the ONE host that must not scale locally;
+    // this sweeps every client file so a NEW screen cannot reintroduce the call
+    // somewhere the assertion above was never pointed at.
+    it('no client screen re-levels its AI — the server owns every encounter build', () => {
+        // The load-bearing premise of _ai-fight-scaling.ts. This used to allow
+        // exactly ONE client call site (the combat-mission one in the browser PvE
+        // reducer). That reducer is deleted and every fight is now built server
+        // side, so the invariant tightened: a client screen that re-levels an AI
+        // would scale it locally while the server builds it at the authored
+        // level — silently divergent, and unenforceable besides.
+        const screens = globSync('shinobij.client/src/**/*.{ts,tsx}')
+            .map((file) => file.replaceAll('\\', '/'))
+            .filter((file) => !/\.test\.tsx?$/.test(file));
+        const offenders = screens.filter((file) => {
+            const src = readFileSync(file, 'utf8');
+            // The definition itself and doc comments referring to it are fine;
+            // an actual invocation is not.
+            return /\brelevelBuiltinAi\(/.test(src) && !/export function relevelBuiltinAi\(/.test(src);
+        });
+        assert.deepEqual(
+            offenders, [],
+            'a client screen re-levels its AI again; server-side encounter building is the only supported path '
+            + '(see api/missions/_ai-fight-scaling.ts)',
+        );
     });
 });

@@ -10,6 +10,7 @@ import type {
     ServerArenaActor,
     ServerArenaSession,
     ServerArenaTransport,
+    ServerArenaVfxEvent,
 } from "./server-arena-runtime";
 
 const SOLO_ARENA_TURN_MS = 75_000;
@@ -69,6 +70,27 @@ function companionActor(session: SoloPveSession): ServerArenaActor | null {
     };
 }
 
+/**
+ * Flatten the session's combat events into a flat, seq-tagged VFX stream.
+ *
+ * A plate's `target` is already an actor id in the projected session ("player" /
+ * "enemy" / "companion" — see fighterActor/companionActor above), so the screen
+ * can anchor a fighter-targeted plate by looking that actor up directly. Plates
+ * that anchor to the board instead carry `tiles`.
+ */
+export function soloPveVfxStream(session: SoloPveSession): ServerArenaVfxEvent[] {
+    return (session.events ?? []).flatMap((event) =>
+        (event.vfx ?? []).map((plate) => ({
+            seq: event.seq,
+            key: plate.key,
+            target: plate.target,
+            anchor: plate.anchor,
+            ...(plate.tiles ? { tiles: plate.tiles } : {}),
+            ...(plate.persistent ? { persistent: true } : {}),
+        })),
+    );
+}
+
 export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSession {
     const companion = companionActor(session);
     return {
@@ -90,6 +112,13 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
             negativeElement: session.environment.weatherNegativeElement,
         },
         companionUsed: !!session.companionUsage,
+        // The engine authors a VFX plate per combat event. Carry the session's
+        // rolling event window through, each plate tagged with its event's seq,
+        // so the screen can play exactly the ones it has not shown yet — a single
+        // submitted action commonly yields several events (the player's action,
+        // then the enemy's whole multi-action turn).
+        vfx: soloPveVfxStream(session),
+        vfxSeq: session.eventSeq,
         ...(session.pendingCompanion ? {
             pendingCompanion: {
                 petId: session.pendingCompanion.petId,

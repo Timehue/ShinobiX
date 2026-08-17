@@ -306,6 +306,7 @@ export const COMBAT_ROUTE_CENSUS = deepFreeze({
     '/card-clash/open-pack': 'Card inventory acquisition, outside Chronicle match authority.',
     '/card-clash/claim-starter': 'One-time card inventory grant, outside Chronicle match authority.',
     '/card-clash/sync-progression': 'Progression synchronization, outside Chronicle match authority.',
+    '/pet/ranked-watch': 'Read-only replay of a ranked duel already decided at its token mint; it re-derives the sealed log and stores, rates and settles nothing.',
     '/pet/evolve': 'Pet progression mutation, outside pet combat authority.',
     '/pet/befriend': 'Pet acquisition settlement, outside pet combat authority.',
     '/pet/encounter-decline': 'Pet acquisition lifecycle, outside pet combat authority.',

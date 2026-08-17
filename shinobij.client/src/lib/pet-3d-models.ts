@@ -139,6 +139,51 @@ export function hasPetCombatModel(pet: PetCombatModelIdentity): boolean {
     return petCombatModel(pet) !== null;
 }
 
+/** The minimum a Showdown state view carries about a fighter. Declared
+ *  structurally rather than importing ShowdownPetView so this module stays
+ *  independent of the battle contract. */
+export type ShowdownFighterView = {
+    id: string;
+    name: string;
+    rarity: string;
+    element: string;
+    templateId?: string;
+};
+
+/**
+ * The art identity for one fighter in a Showdown state view.
+ *
+ * Both sides of a Showdown are server-authored views, not save records, so the
+ * model and the card-image fallback have to be resolved from what the view
+ * carries. Two rules, and they are why this is one shared function rather than
+ * an object literal at each call site:
+ *
+ *  - AI and other server-built opponents are keyed by their CATALOG species
+ *    (`templateId`, e.g. `rare-24`), because their instance id is a per-session
+ *    string (`showdown-ai-0-rare-24`) that no roster allowlist knows.
+ *  - Your OWN pet prefers its real save record when the caller has one, because
+ *    only that carries `evolutionStage` — and an evolved starter resolves a
+ *    different GLB per stage. Identify it from the view alone and a stage-2
+ *    starter silently wears its stage-0 body.
+ *
+ * The renderer and the model warm-up must agree on both, or the warm-up fetches
+ * a model the battle then does not ask for and the fighter renders as nothing.
+ */
+export function showdownFighterIdentity(
+    view: ShowdownFighterView,
+    ownPets?: readonly Pet[],
+): Pet {
+    const owned = ownPets?.find((p) => p.id === view.id);
+    if (owned) return owned;
+    return {
+        id: view.templateId ?? view.id,
+        templateId: view.templateId,
+        name: view.name,
+        rarity: view.rarity,
+        element: view.element,
+    } as unknown as Pet;
+}
+
 /** Returns a model only when it is approved for a large cinematic portrait.
  * Callers with pose artwork use null as the deliberate 2D fallback signal. */
 export function petCloseupPresentationModel(

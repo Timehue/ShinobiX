@@ -441,7 +441,7 @@ const PETS: Guide = {
             blocks: [
                 { type: "list", items: [
                     "Befriend wild pets on the world map and inside the Hollow Gate. You carry 4 battle-ready companions (6 for Shinobi Supporters); every additional companion is kept safely in your unlimited Sanctuary.",
-                    "Open Home → Sanctuary to move companions between storage and your carried roster. A full roster never blocks a capture or hatch — overflow arrives there automatically.",
+                    "Open Pet Home → Sanctuary to move companions between storage and your carried roster. A full roster never blocks a capture or hatch — overflow arrives there automatically.",
                     "Rarity runs Standard → Rare → Legendary → Mythic. Mythics come with full, hand-crafted kits.",
                     "Train pets in the Pet Yard (15 min / 1 hr / 4 hr / 8 hr sessions) or feed treats for instant XP. Pets level up to 100.",
                     "Breeding unlocks for level 50 companions of the same element. Each companion has 5–10 lifetime breeding uses; a sealed egg takes 24 real hours, with a 0.05% Chromatic roll and a separate 0.5% roll for one of the three Apex Shrine traits.",

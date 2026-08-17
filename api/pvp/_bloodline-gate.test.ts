@@ -92,22 +92,26 @@ describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => 
 
 describe('gear specialty-stat fold (server = client Arena build)', () => {
     it('folds equipped-item stat bonuses into the sealed combat stats', () => {
-        // event-kesa-storm-seal carries bonuses { ninjutsuOffense: 20, maxChakra: 80 }.
+        // event-kesa-storm-seal carries bonuses { ninjutsuOffense: 10 }. It moved to
+        // the `relic` slot on 2026-08-16 (the aura slot is reserved for the Aura
+        // Sphere) and its bonus was halved 20 -> 10 in the same pass, since the free
+        // story relics are the floor of the relic pool. Its inert maxChakra 80 was
+        // dropped then too — pools come from level alone, so it never applied.
         const character = {
             name: 'Geared',
-            equipment: { aura: 'event-kesa-storm-seal' },
+            equipment: { relic: 'event-kesa-storm-seal' },
             stats: { ninjutsuOffense: 100, strength: 50 },
         };
         const hydrated = hydrateCharacterFromSave(character, {}, { character, creatorItems: [] });
         const stats = hydrated.stats as Record<string, number>;
-        assert.equal(stats.ninjutsuOffense, 120, 'gear ninjutsuOffense folds into the sealed stat');
+        assert.equal(stats.ninjutsuOffense, 110, 'gear ninjutsuOffense folds into the sealed stat');
         assert.equal(stats.strength, 50, 'unrelated stats untouched');
     });
 
     it('does not fold for save-less (NPC) fighters', () => {
         const npc = {
             name: 'Bandit',
-            equipment: { aura: 'event-kesa-storm-seal' },
+            equipment: { relic: 'event-kesa-storm-seal' },
             stats: { ninjutsuOffense: 100 },
         };
         const hydrated = hydrateCharacterFromSave(npc, {}, null);

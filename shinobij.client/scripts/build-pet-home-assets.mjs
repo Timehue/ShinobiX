@@ -71,9 +71,12 @@ await splitSheet("hatch-overlays-sheet.webp", 2, [
     "src/assets/pet-home/hatch-chromatic-overlay.webp",
 ], 768);
 
-const villageKeys = ["frostfang", "stormveil", "ashen-leaf", "moonshadow"];
-await splitSheet("home-thumbs-sheet.webp", 4, villageKeys.map((key) =>
-    `src/assets/facilities/thumbs/${key}/home.webp`
-), 512);
+// The per-village Pet Home thumbnails are NOT built here any more. The generated
+// home-thumbs-sheet.webp never matched its prompt: the four crests sit off the
+// cell grid on a white ground, and the outer two (Frostfang, Moonshadow) are
+// clipped by the sheet edge — so no split, aligned or not, yields a usable icon.
+// src/assets/facilities/thumbs/<village>/home.webp now carries the painted
+// pet-yard paw emblem, which already matches the village-map icon family.
+// Re-enable this only against a sheet that actually contains four whole crests.
 
 console.log("Built selected Pet Home production assets.");

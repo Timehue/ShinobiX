@@ -604,12 +604,14 @@ export function wanderersVisitingSector(
 // authoritative targets + reward). Each quest tracks a real character counter, and
 // the label states honestly what that counter measures (no "these roads" promise
 // the mechanic can't keep — any qualifying win/explore counts).
-export type WandererQuestMetric = "totalAiKills" | "totalPetWins" | "cardClashWins" | "totalTilesExplored";
+export type WandererQuestMetric = "totalAiKills" | "totalPetWins" | "cardClashWins" | "totalTilesExplored" | "relicSurveyCount";
 export interface WandererQuestDef {
     id: string;
     label: string;
     metric: WandererQuestMetric;
     target: number;
+    /** What the sage says when offering this errand, if it needs explaining. */
+    brief?: string;
 }
 export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
     { id: "wq-cull",       label: "Win 3 battles against any foe",        metric: "totalAiKills",       target: 3 },
@@ -621,7 +623,43 @@ export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
     { id: "wq-highroller", label: "Win 4 Shinobi Chronicle Showdowns",   metric: "cardClashWins",      target: 4 },
     { id: "wq-scout",      label: "Scout 10 tiles across the sectors",    metric: "totalTilesExplored", target: 10 },
     { id: "wq-trailblaze", label: "Scout 25 tiles across the sectors",    metric: "totalTilesExplored", target: 25 },
+    // The relic survey. Unlike every other errand this one tracks a SET (the
+    // distinct countries walked since accepting), which is why its metric is a
+    // length rather than a lifetime total — and why the label can promise
+    // "each" without lying about what the counter measures.
+    {
+        id: "wq-relic-survey",
+        label: "Walk one tile in each of the five countries",
+        metric: "relicSurveyCount",
+        target: 5,
+        brief: "Relics are not forged and not sold — each country keeps its own, "
+            + "and only an ancient chest out in the wild ever gives one up. Walk all "
+            + "five and I will show you which land holds which. Their strength "
+            + "answers in the field, never in a duel.",
+    },
 ];
+
+/**
+ * The five countries the relic survey asks for, in the order the walkthrough
+ * lists them, with the relic each one is known for. This is the ONLY place the
+ * game tells a player that relics are biome-locked — without it the chase reads
+ * as a pure lottery. Mirrors RELICS_BY_BIOME in api/world/_chest.ts.
+ */
+export const RELIC_SURVEY_STEPS: ReadonlyArray<{ biome: string; label: string; relic: string }> = [
+    { biome: "forest",  label: "the deep forest",     relic: "Rootbound Effigy" },
+    { biome: "snow",    label: "the snowfields",      relic: "Rimeglass Lens" },
+    { biome: "volcano", label: "the burning ranges",  relic: "Ashfall Reliquary" },
+    { biome: "shadow",  label: "the dark country",    relic: "Umbral Knot" },
+    { biome: "central", label: "the old middle roads", relic: "Stormglass Pendulum, Gravewatch Fang, Drownstone Compass" },
+];
+
+/** Walkthrough state for the relic survey: which countries are done, which remain. */
+export function relicSurveyWalkthrough(
+    surveyed: readonly string[] | null | undefined,
+): Array<{ biome: string; label: string; relic: string; done: boolean }> {
+    const seen = new Set((surveyed ?? []).filter((b): b is string => typeof b === "string"));
+    return RELIC_SURVEY_STEPS.map((step) => ({ ...step, done: seen.has(step.biome) }));
+}
 
 /** Quest objectives this character has no way to make progress on yet — the same
  *  content locks as lockedWandererVerbs, expressed as counters. Without this a
