@@ -103,12 +103,16 @@ const handlerFiles = httpHandlerFiles();
 
 // ─── Client side: every /api call site ─────────────────────────────────────────
 
+// Real call sites only. Colocated *.test.ts(x) files carry fixture URLs — mock
+// image paths, expected-URL equality assertions — that are not client calls and
+// would otherwise be reported as unregistered routes. The api/ handler scan
+// above skips test files for the same reason.
 function walk(dir: string): string[] {
     const files: string[] = [];
     for (const entry of readdirSync(dir)) {
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) files.push(...walk(full));
-        else if (/\.(ts|tsx)$/.test(entry)) files.push(full);
+        else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) files.push(full);
     }
     return files;
 }

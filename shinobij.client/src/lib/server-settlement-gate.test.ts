@@ -162,7 +162,9 @@ describe("server settlement policy", () => {
             "the Arena lobby must delegate PvP acceptance to the guarded App handler");
         const sectorAttack = appPvp.indexOf("sectorAttackPlayer={async (opponent) => {");
         const sectorGuard = appPvp.indexOf('requireServerSettlement("pvpSession")', sectorAttack);
-        const sectorFetch = appPvp.indexOf("fetch('/api/pvp/session'", sectorAttack);
+        // Session creation goes through lib/pvp-session-create.ts now; the gate
+        // must still precede it.
+        const sectorFetch = appPvp.indexOf("createPvpSessionWithRecovery(", sectorAttack);
         assert.ok(sectorAttack >= 0 && sectorGuard > sectorAttack && sectorFetch > sectorGuard, "sector player attacks must gate before session creation");
 
         const worldMap = source("../screens/WorldMap.tsx");
@@ -214,7 +216,18 @@ describe("server settlement policy", () => {
         assert.doesNotMatch(flag, /localStorage|getItem|setItem/);
 
         const app = source("../App.tsx");
-        assert.match(app, /villageWarRaid\.warCrate && !warCrateServerAuthEnabled\(\)/);
+        // App used to hold a local war-crate grant behind
+        // `villageWarRaid.warCrate && !warCrateServerAuthEnabled()`. That
+        // fallback was removed rather than re-guarded: claims now run only
+        // through the server-auth hook, so assert the stronger property that no
+        // local grant path survives in App at all.
+        const claims = source("./use-war-reward-claims.ts");
+        assert.match(claims, /if \(!claimCharacter \|\| !warCrateServerAuthEnabled\(\)\) return;/,
+            'server war-reward claims must gate on the server-auth flag');
+        assert.match(claims, /claimServerWarCrates\(claimCharacter\)/);
+        assert.match(app, /useWarRewardClaims\(/, 'App must wire the server-auth claim hook');
+        assert.doesNotMatch(app, /inventory:\s*\[\.\.\.[A-Za-z.]*inventory,\s*LEGENDARY_WAR_CRATE_ID\]/,
+            'App must not grant a war crate locally');
         const villageWar = source("../screens/VillageWarScreen.tsx");
         assert.match(villageWar, /fetch\("\/api\/village\/claim-war-crate"/);
         assert.doesNotMatch(villageWar, /inventory:\s*\[\.\.\.character\.inventory,\s*LEGENDARY_WAR_CRATE_ID\]/);
