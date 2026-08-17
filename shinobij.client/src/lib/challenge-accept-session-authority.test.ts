@@ -70,7 +70,7 @@ describe("challenge acceptance save-session authority", () => {
         ], "pet acceptance");
     });
 
-    it("stages the player session response until the final notification fence", () => {
+    it("routes the accepter on publication, before the advisory notice can hang", () => {
         assertOrdered(playerAccept, [
             "const { captureOwnSaveRead } = await loadOwnSaveRead();",
             "if (!acceptanceIsCurrent()) return;",
@@ -78,26 +78,34 @@ describe("challenge acceptance save-session authority", () => {
             "if (!acceptanceIsCurrent()) return;",
             "const ownSaveReadResult = await adoptOwnSaveRead(",
             'if (!acceptanceIsCurrent() || ownSaveReadResult === "foreign") return;',
-            "const res = await fetch('/api/pvp/session'",
+            "const createResult = await createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody",
             "if (!acceptanceIsCurrent()) return;",
-            "const acceptData = await res.json()",
-            "if (!acceptanceIsCurrent()) return;",
-            "const battleId = acceptData.battleId;",
-            "const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice, { shouldContinue: acceptanceIsCurrent });",
-            "if (!acceptanceIsCurrent()) return;",
-            "if (acceptData.session) setPvpSeedSession(acceptData.session);",
+            "const battleId = createResult.battleId;",
+            "setPvpSeedSession(createResult.session);",
             "setPvpBattleId(battleId);",
             'setPvpRole("p2");',
             'setScreen("pvpBattle");',
+            "void postPlayerChallengeNotice(challenge.fromName, acceptedNotice, {",
         ], "player acceptance");
 
-        const parsed = playerAccept.indexOf("const acceptData = await res.json()");
-        const finalFence = playerAccept.indexOf("if (!acceptanceIsCurrent()) return;", playerAccept.indexOf("await postPlayerChallengeNotice", parsed));
+        // This ordering is deliberate and is the opposite of what this test used
+        // to pin. Publication is authoritative: once the server has the session,
+        // the accepter must reach it. Awaiting the opponent notice first meant a
+        // hung or slow notice could strand a live battle behind a blank screen.
+        // The notice still fires, is scope-guarded, and falls back to telling the
+        // player their opponent may need to reopen the game.
+        const publication = playerAccept.indexOf("const battleId = createResult.battleId;");
+        const routed = playerAccept.indexOf('setScreen("pvpBattle");', publication);
+        const notice = playerAccept.indexOf("postPlayerChallengeNotice", routed);
+        assert.ok(publication >= 0 && routed > publication && notice > routed,
+            "a published session must route before the advisory notice is sent");
         assert.doesNotMatch(
-            playerAccept.slice(parsed, finalFence),
-            /setPvp(?:SeedSession|BattleId|Role|BattleContext)\(/,
-            "the response must remain staged until the last awaited notification settles",
+            playerAccept.slice(routed, notice + 400),
+            /const notified = await postPlayerChallengeNotice/,
+            "the notice must not be awaited on the routing path — a hung notice cannot strand a live session",
         );
+        assert.match(playerAccept, /may not be pulled in automatically/,
+            "a failed notice must still tell the accepter their opponent needs to reopen the game");
     });
 
     it("silences stale failures while preserving exact processing-id cleanup", () => {
