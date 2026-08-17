@@ -59,6 +59,10 @@ describe("pvp-reward-claim", () => {
             alreadyClaimed: true,
             completionPending: false,
             rewardAuthorized: false,
+            // claim-rewards now reports progression authority alongside reward
+            // authority. A replay authorizes neither, which is the point of this
+            // case: an already-claimed battle must not re-run either callback.
+            progressionAuthorized: false,
         });
     });
 
@@ -221,8 +225,16 @@ describe("pvp-reward-claim", () => {
         );
         assert.ok(!pvpMount.includes("autoReportClanWarBattleResult"),
             "server-owned Clan War PvP must not invoke the legacy browser report after claim");
-        assert.match(serverClaim, /await settlePvpClanWarContinuation\(session\)/,
+        // The Clan War settlement moved into the shared terminal-effects replay,
+        // which claim-rewards invokes for either participant. Asserting it there
+        // keeps the guarantee — one terminal row settles the accepted challenge
+        // regardless of which side claims — while following the call.
+        const terminalEffects = readFileSync(
+            new URL("../../../api/pvp/_committed-terminal-effects.ts", import.meta.url), "utf8");
+        assert.match(terminalEffects, /await settlePvpClanWarContinuation\(session\)/,
             "either participant claim must help the sealed Clan War result forward");
+        assert.match(serverClaim, /replayCommittedPvpTerminalEffects\(session\)/,
+            "the claim must route through the replay that owns that settlement");
         assert.ok(!screen.includes("damageSectorTerritory("), "the PvP claim UI must not write territory locally");
     });
 
