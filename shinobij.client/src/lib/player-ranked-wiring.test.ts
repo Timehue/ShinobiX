@@ -119,9 +119,16 @@ describe('player-ranked queue to session wiring', () => {
         const validate = appAccept.indexOf('playerRankedAuthorityFromChallenge(challenge)');
         const failClosed = appAccept.indexOf('challenge.mode === "ranked" && !rankedAuthority', validate);
         const payload = appAccept.indexOf('...(rankedAuthority ?? {})', failClosed);
-        const request = appAccept.indexOf("fetch('/api/pvp/session'", failClosed);
+        // The raw POST moved into lib/pvp-session-create.ts, which owns the
+        // ambiguous-commit retry. App now builds createBody first and hands it to
+        // that helper, so the payload is assembled before the request rather than
+        // inline inside the fetch. The fail-closed ordering is what matters.
+        const request = appAccept.indexOf('createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody', payload);
         assert.ok(validate >= 0 && failClosed > validate, 'ranked challenge authority must be revalidated');
-        assert.ok(request > failClosed && payload > request, 'session payload must include authority after the fail-closed guard');
+        assert.ok(payload > failClosed, 'authority enters the session payload only after the fail-closed guard');
+        assert.ok(request > payload, 'the create request carries that guarded payload');
+        assert.match(source('./pvp-session-create.ts'), /fetchFn\("\/api\/pvp\/session", \{/,
+            'the extracted creator is still the only PvP session POST');
 
         assert.match(app, /onAcceptChallenge=\{\(challenge\) => \{ void acceptChallengeGlobal\(challenge\); \}\}/);
         assert.match(arena, /if \(challenge\.mode !== "clanWarPet"\) \{\s*onAcceptChallenge\(challenge\);\s*return;/);
@@ -130,15 +137,29 @@ describe('player-ranked queue to session wiring', () => {
     });
 
     it('scopes the crash-recovery PvP breadcrumb to the active account', () => {
-        const app = source('../App.tsx');
-        const persist = app.indexOf('localStorage.setItem(PVP_SESSION_KEY');
-        const owner = app.indexOf('owner: accountKey(character.name)', persist);
-        const restore = app.indexOf('const expectedOwner = accountKey(String(snap.character.name ?? ""))', owner);
-        const guard = app.indexOf('parsed.owner === expectedOwner && parsed.pvpBattleId', restore);
-        const install = app.indexOf('setPvpBattleId(parsed.pvpBattleId)', guard);
+        // The breadcrumb split in two: use-pvp-session-controller.ts persists it,
+        // pvp-pending-session.ts validates it on restore. App only supplies the
+        // expected owner and installs the result.
+        const controller = source('./use-pvp-session-controller.ts');
+        const persist = controller.indexOf('localStorage.setItem(options.storageKey');
+        const owner = controller.indexOf('owner: ownerKey,', persist);
         assert.ok(persist >= 0 && owner > persist, 'persisted breadcrumb must carry its canonical owner');
-        assert.ok(restore > owner && guard > restore && install > guard,
-            'restore must reject a foreign or legacy owner before installing the battle id');
+        assert.match(controller, /const ownerKey = accountKey\(options\.characterName \?\? ""\)/,
+            'the persisted owner must be the canonical account key');
+
+        const reader = source('./pvp-pending-session.ts');
+        assert.match(reader, /parsed\.owner !== expectedOwner/,
+            'restore must reject a foreign owner');
+        const rejects = reader.indexOf('parsed.owner !== expectedOwner');
+        const clears = reader.indexOf('storage.removeItem(key)', rejects);
+        assert.ok(clears > rejects, 'a foreign or malformed breadcrumb is cleared, not installed');
+
+        const app = source('../App.tsx');
+        const read = app.indexOf('readPvpBrowserBreadcrumb(');
+        const expectedOwner = app.indexOf('accountKey(String(snap.character.name ?? ""))', read);
+        const install = app.indexOf('restoredPvpBattleId = browserPvp.pvpBattleId', expectedOwner);
+        assert.ok(read >= 0 && expectedOwner > read && install > expectedOwner,
+            'App must pass the active account as expected owner before installing the battle id');
     });
 
     it('clears in-memory PvP identity before logout or account deletion can switch owners', () => {
