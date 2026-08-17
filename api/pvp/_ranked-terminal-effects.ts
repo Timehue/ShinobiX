@@ -1,5 +1,5 @@
 import type { KvLike } from '../_storage.js';
-import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
+import { PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from '../combat-core/constants.js';
 import {
     completePlayerRankedAdmission,
     getPlayerRankedAdmission,
@@ -30,10 +30,53 @@ import {
 type RankedTerminalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys'>;
 
 /**
+ * Exact proof that nothing can still need the discoverable terminal row: the
+ * journal is completed with both rating confirmations and both item receipts,
+ * the durable Vanguard outcome exists, and the gate admission is gone. These
+ * are the same facts season close requires before it finishes a terminal
+ * admission whose session row has already been compacted away.
+ */
+async function playerRankedTerminalIsSettled(
+    store: RankedTerminalStore,
+    journal: PlayerRankedJournal,
+    battleId: string,
+): Promise<boolean> {
+    if (journal.state !== 'completed'
+        || !journal.confirmations.a
+        || !journal.confirmations.b
+        || !journal.items.a.confirmed
+        || !journal.items.b.confirmed
+        || journal.terminal.battleId !== battleId) return false;
+    if (await getPlayerRankedAdmission(store, journal.terminal.matchId)) return false;
+    return hasDurableVanguardTerminalOutcome(store, journal.terminal);
+}
+
+/**
+ * Return a fully settled ranked terminal to the ordinary session lease.
+ *
+ * The terminal row is held for the long replay horizon precisely so a crash
+ * anywhere in the saga leaves it discoverable. Once every effect above has
+ * landed there is nothing left to help forward from it — a late claim reads the
+ * separately sealed reward-recovery snapshot, not this row — so it compacts.
+ * Anything short of complete proof keeps the long bind: retaining a row nobody
+ * reads is far cheaper than deleting one recovery still needs.
+ */
+export async function compactSettledPlayerRankedSession(
+    store: RankedTerminalStore,
+    session: PvpSession,
+    journal: PlayerRankedJournal,
+): Promise<boolean> {
+    if (!await playerRankedTerminalIsSettled(store, journal, session.battleId)) return false;
+    await boundExactPvpSession(store, `pvp:${session.battleId}`, session, SESSION_TTL);
+    return true;
+}
+
+/**
  * Durable terminal hook shared by move retries and season rollover. Publication
  * alone is not completion: exact empty-item authority and both rating-side
  * confirmations must land, and the gate admission must be removed, before the
- * caller may compact the non-expiring terminal session.
+ * non-expiring terminal session may be compacted — which this hook then does,
+ * since removing the admission is what takes the match out of every later sweep.
  */
 export async function confirmPlayerRankedTerminalEffects(
     store: RankedTerminalStore,
@@ -89,6 +132,10 @@ export async function confirmPlayerRankedTerminalEffects(
         }
         await completePlayerRankedAdmission(store, admission);
     }
+    // Compaction is now proven for the normal path. The admission has left the
+    // gate, so the season-close sweep will never iterate this match again; this
+    // is the only place that can retire its row from the replay horizon.
+    await compactSettledPlayerRankedSession(store, session, settled.journal);
     return settled.journal;
 }
 

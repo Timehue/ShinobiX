@@ -68,8 +68,11 @@ function isDurablePlayerRankedTerminal(session: PvpSession): boolean {
  * The move lease is intentionally not part of the correctness proof: if a
  * holder pauses past lease expiry, a successor can commit and the stale holder
  * loses this CAS. Player-ranked terminals are made non-expiring at this commit
- * boundary. Their journal/economic recovery later converts the exact owned row
- * back to the ordinary bounded replay TTL.
+ * boundary. Their journal/economic recovery then bounds the exact owned row to
+ * the replay horizon, and compacts it to the ordinary session lease once the
+ * whole saga has settled (see compactSettledPlayerRankedSession). Late reward
+ * paths read the sealed reward-recovery snapshot, which carries the 48-hour
+ * claim window independently of this row.
  */
 export async function commitPvpSessionMutation(
     store: SessionStore,

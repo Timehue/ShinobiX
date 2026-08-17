@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from './session.js';
+import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
 import { normalizeBoard, placeBounty, claimBounty, findBounty, type BountyBoard } from './_bounty.js';
 
 /*
@@ -159,7 +160,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const battleId = typeof body.battleId === 'string' ? body.battleId.trim() : '';
             if (!battleId) return res.status(400).json({ error: 'Missing battleId.' });
 
-            const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+            // A settled player-ranked terminal compacts back to the ordinary
+            // session lease well inside the 2h claim window below, so fall back
+            // to the sealed recovery snapshot — the same immutable terminal
+            // claim-rewards verifies against. Every check below still runs
+            // against it, so a compacted row narrows nothing but the read.
+            const session = await kv.get<PvpSession>(`pvp:${battleId}`)
+                ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
             if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
             if (session.status !== 'done' || !session.winner || session.winner === 'draw') {
                 return res.status(409).json({ error: 'That battle is not decided yet.' });
