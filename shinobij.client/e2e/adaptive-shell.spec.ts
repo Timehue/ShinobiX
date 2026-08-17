@@ -48,6 +48,17 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
         const request = route.request();
         const path = new URL(request.url()).pathname;
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
+        // Live-capability admission fails CLOSED by design: any state other than
+        // "available" — including the "unknown" you get when this call never
+        // resolves — holds the player surface behind the "Checking live service
+        // availability" blocker, so the shell never leaves screen "start".
+        // Without this stub every test using this fixture measures that blocker
+        // instead of the layout it means to assert. The sibling authenticated
+        // specs, and this file's own selected-sector fixture, stub it for the
+        // same reason.
+        if (path === "/api/player/capabilities") {
+            return json(route, { ok: true, capabilities: publicCapabilitiesExcept() });
+        }
         if (path === "/api/player-auth") return json(route, { ok: true, token: "adaptive-e2e-token" });
         const requestedSavePlayer = path.toLowerCase().startsWith("/api/save/")
             ? decodeURIComponent(path.slice("/api/save/".length)).toLowerCase()

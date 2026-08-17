@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
+import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -195,6 +196,20 @@ async function installPetHomeApi(page: Page) {
         const request = route.request();
         const path = new URL(request.url()).pathname.toLowerCase();
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
+        // Live-capability admission fails CLOSED: an unresolved check leaves
+        // availability "unknown", which holds the player surface behind the
+        // "Checking live service availability" blocker and never lets the shell
+        // reach Pet Home. Grant the full public set so these tests measure the
+        // screen rather than the blocker.
+        if (path === "/api/player/capabilities") {
+            return json(route, {
+                ok: true,
+                capabilities: Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
+                    id,
+                    { state: "available", reason: "available" },
+                ])),
+            });
+        }
         if (path === "/api/save/pethomevisualqa") {
             if (request.method() === "GET") return json(route, {
                 character: state.character,
