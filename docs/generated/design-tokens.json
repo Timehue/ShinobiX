@@ -2368,7 +2368,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 759
+            "line": 797
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -2448,7 +2448,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1544
+            "line": 1558
           }
         ]
       },
@@ -2534,7 +2534,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1403
+            "line": 1417
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -2770,7 +2770,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
-            "line": 677
+            "line": 698
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -2948,7 +2948,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 746
+            "line": 784
           },
           {
             "source": "shinobij.client/src/styles/index/25-mobile-profile-tabs.css",
@@ -3096,7 +3096,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1693
+            "line": 1707
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3146,7 +3146,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1316
+            "line": 1327
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -3173,7 +3173,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1735
+            "line": 1749
           }
         ]
       },
@@ -3246,11 +3246,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 391
+            "line": 429
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 868
+            "line": 906
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -3313,7 +3313,7 @@
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
-            "line": 659
+            "line": 680
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
@@ -3555,7 +3555,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1735
+            "line": 1749
           }
         ]
       },

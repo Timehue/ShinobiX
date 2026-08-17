@@ -35,7 +35,15 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
             const r = await fetch("/api/player-auth", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "change", name: playerName, oldPassword: current, newPassword: next }),
+                // A Google or guest account has no current password to send. The
+                // server accepts the session token as proof of ownership in that
+                // case, which turns this into "set your first password".
+                body: JSON.stringify({
+                    action: "change",
+                    name: playerName,
+                    ...(current ? { oldPassword: current } : {}),
+                    newPassword: next,
+                }),
             });
             const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; token?: string };
             if (r.ok && data.ok) {
@@ -66,7 +74,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                     aria-label="Current password"
                     value={current}
                     onChange={(e) => setCurrent(e.target.value)}
-                    placeholder="Current password"
+                    placeholder="Current password (leave blank if you sign in with Google)"
                     autoComplete="current-password"
                 />
                 <input

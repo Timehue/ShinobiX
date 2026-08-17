@@ -13,14 +13,17 @@
     <script src="/boot-watchdog.js"></script>
 
     <title>Shinobi Journey &mdash; A Living Ninja MMO</title>
-    <meta name="description" content="Shinobi Journey is a browser-based shinobi RPG: create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape five rival villages." />
+    <!-- There are four villages (src/data/sectors.ts). This said five, which is
+         the kind of small inaccuracy OAuth brand verification asks you to fix —
+         the home page has to represent the app accurately. -->
+    <meta name="description" content="Shinobi Journey is a free browser-based shinobi RPG: create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape four rival villages." />
     <link rel="canonical" href="https://shinobijourney.com/" />
 
     <!-- Open Graph / Twitter cards for shareable previews -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://shinobijourney.com/" />
     <meta property="og:title" content="Shinobi Journey" />
-    <meta property="og:description" content="Create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape five rival villages." />
+    <meta property="og:description" content="Create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape four rival villages." />
     <meta property="og:image" content="https://shinobijourney.com/landing-hero.webp" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Shinobi Journey" />
@@ -34,7 +37,20 @@
            contents; the pre-module watchdog reveals recovery if it never can. -->
       <div id="boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Shinobi Journey is loading" style="position:fixed;inset:0;z-index:99999;display:flex;overflow:auto;padding:1.25rem;background:#0f172a;color:#94a3b8;font-family:system-ui,-apple-system,sans-serif;box-sizing:border-box;">
         <div style="width:min(30rem,100%);margin:auto;text-align:center;">
-          <div style="font-size:1.05rem;letter-spacing:0.12em;color:#e2e8f0;">SHINOBI&nbsp;JOURNEY</div>
+          <!-- The name and purpose live here in STATIC markup, not only in the
+               React tree, because this is all anything that does not execute
+               JavaScript ever receives. Google's OAuth brand verification
+               rejected the app twice for "home page does not explain the
+               purpose" and "app name does not match" while both were present
+               and correct on the rendered page — a fetch without JS got a 5 KB
+               shell and nothing else.
+               Written as "Shinobi Journey", matching the OAuth consent screen
+               character for character: it was previously an uppercase string
+               joined by a non-breaking space, which no text comparison would
+               match. text-transform keeps the wordmark look while leaving the
+               real name in the DOM. React's first render replaces all of this. -->
+          <h1 style="margin:0;font:inherit;font-size:1.05rem;letter-spacing:0.12em;color:#e2e8f0;text-transform:uppercase;white-space:nowrap;">Shinobi Journey</h1>
+          <p style="margin:0.5rem 0 0;font-size:0.82rem;line-height:1.5;color:#94a3b8;">Shinobi Journey is a free role-playing game you play in your browser. Create a shinobi, train their stats and jutsu, take on missions and story chapters, raise companions, and test your build against other players across four rival villages.</p>
           <div id="boot-loading-state" style="margin-top:0.6rem;font-size:0.8rem;opacity:0.7;">Loading&hellip;</div>
           <div id="boot-recovery" hidden style="margin-top:1.25rem;padding:1.1rem;border:1px solid #475569;border-radius:0.75rem;background:#111c30;color:#e2e8f0;box-shadow:0 1rem 3rem rgba(0,0,0,0.35);">
             <div id="boot-recovery-title" role="heading" aria-level="1" style="font-size:1rem;font-weight:700;">The journey could not finish loading</div>

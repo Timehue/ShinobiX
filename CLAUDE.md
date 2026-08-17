@@ -117,6 +117,15 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   plaintext password once a token exists**, and must keep working when the server
   issues no token (`SESSION_SECRET` unset). Online login always mints a fresh
   token, so the worst failure is a re-login, never a lockout.
+- **Some accounts have no password at all** — Google sign-in
+  (`api/_google-auth.ts`, `api/auth/google/*`) and guest play. They are extra
+  doors to the same slug-keyed account, not a second identity system. Two rules
+  follow: every password comparison must **fail closed** on a missing
+  `hash`/`salt` (see the explicit guard in `verifyAgainst`, and do not reduce it
+  to optional chaining), and those accounts must be **refused at creation** when
+  `SESSION_SECRET` is unset, since they would have no way back in. Guests are
+  reclaimed after 14 days by `api/cron/_guest-sweep.ts`, which rotates the
+  session epoch rather than deleting it.
 - **Never trust the client for rewards/currency/XP/outcomes.** Recompute them
   server-side, or gate them on a **server-minted, single-use token**: a `*-start`
   endpoint mints a token (daily cap, reward params *sealed in*), and the report

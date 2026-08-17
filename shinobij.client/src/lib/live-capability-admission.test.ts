@@ -74,9 +74,28 @@ test("App and admission surfaces consume live capability truth at both boundarie
     assert.match(start, /useCapabilityMutationAvailability\("registrations"\)/);
     assert.match(start, /useCapabilityViewAvailability\(\)/);
     assert.match(start, /creatorAdmissionGranted/);
-    assert.match(start, /if \(!registrationOpen\) \{\s*alert\(registrationMessage\)/);
-    assert.match(start, /if \(normalizeAdminName\(loginName\)\) \{[\s\S]*onAdmin\(loginPassword\);[\s\S]*if \(!playerLoginOpen\)/);
-    assert.match(start, /disabled=\{!!loginStatus \|\| \(!playerLoginOpen && !normalizeAdminName\(loginName\)\)\}/);
+    // The registration gate is enforced where the creator is OPENED rather than
+    // at its submit. Every door into signup — password, guest, and the Google
+    // return — routes through openCreator, so a paused registration is refused
+    // once, before the player fills anything in, and the "create" view still
+    // checks creatorAdmissionGranted so a direct navigation cannot skip it.
+    assert.match(start, /function openCreator\([\s\S]{0,160}?if \(!registrationOpen\) return;/);
+    assert.match(start, /\{registrationMessage\}/,
+        "the paused-registration surface must still say WHY it is paused");
+
+    // The login form moved out of StartScreen into start/LoginGate.tsx when the
+    // sign-in gate was rebuilt around the passwordless doors. Its admin routing
+    // came with it, renamed: only "admin2" auto-routes, and Admin 1 deliberately
+    // does not, so it stays gated behind both passwords.
+    const loginGate = readFileSync("shinobij.client/src/screens/start/LoginGate.tsx", "utf8");
+    assert.match(loginGate, /isAdminTwo\(loginName\)\)\s*\{\s*onAdmin\(loginPassword\);\s*return;/);
+    assert.doesNotMatch(loginGate, /["']admin1["']/i,
+        "Admin 1 must never auto-route from the player login form");
+    // Player-login availability is no longer gated inside the form. It is gated
+    // for the whole surface by App's playerSurfaceBlockerMode (asserted above and
+    // unit-tested at the top of this file), which covers the landing screen too —
+    // an in-form copy would be a second, drifting owner of the same rule.
+    assert.match(app, /playerSurfaceBlockerMode\(/);
     assert.match(start, /if \(view\.startsWith\("legal:"\)\) \{\s*return <LegalPage/);
     assert.match(townHall, /useCapabilityViewAvailability\("villageWar"\)/);
     assert.match(vanguard, /useCapabilityViewAvailability\("villageWar"\)/);
