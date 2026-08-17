@@ -19,7 +19,9 @@ describe("PvP armed-jutsu response ownership", () => {
         assert.match(source, /setPendingJutsuDirect\(current => current\?\.id === jutsuId \? null : current\)/);
         assert.match(source, /if \(pvpAction === "jutsu" && pvpJutsuId\) clearSubmittedPvpJutsu\(pvpJutsuId\)/);
         assert.match(source, /submitInFlightRef\.current = true/);
-        assert.match(source, /finally \{ clearTimeout\(moveTimeout\); submitInFlightRef\.current = false;/);
+        // The finally block was reflowed onto separate lines; the ordering it
+        // pins (clear the timeout, then release the in-flight latch) is unchanged.
+        assert.match(source, /finally \{\s*clearTimeout\(moveTimeout\);\s*submitInFlightRef\.current = false;/);
     });
 
     it("keeps canonical Barrier tiles out of move and ground-jutsu affordances", () => {
