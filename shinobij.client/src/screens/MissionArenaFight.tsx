@@ -10,6 +10,7 @@ import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted,
     // Command-deck glyphs (one per basic action), matching Arena + PvP.
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "react-icons/gi";
 import type { Character, BattleHistoryEntry } from "../types/character";
+import type { JutsuMethod } from "../types/core";
 import type {
     ServerArenaAction,
     ServerArenaSession,
@@ -45,6 +46,8 @@ import {
 } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
+import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
@@ -230,6 +233,10 @@ export function MissionArenaFight({
     const [mode, setMode] = useState<Mode>("idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [selWeaponId, setSelWeaponId] = useState<string>("");
+    // Which tile the cursor/keyboard is on, so a tile-targeted cast can preview
+    // the footprint it would leave there. Hover-only by nature — see
+    // `hittingTargets` for the affordance that survives on touch.
+    const [hoverTile, setHoverTile] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
     const [reject, setReject] = useState<string | null>(null);
     const actionInFlightRef = useRef(false);
@@ -668,6 +675,45 @@ export function MissionArenaFight({
         return new Set<number>();
     })();
 
+    // ── Impact telegraph ────────────────────────────────────────────────────
+    // Only a TILE-targeted cast has a blast: api/combat-core/resolve-jutsu-action.ts
+    // builds `footprint` from the chosen tile, and a direct-target cast has none
+    // (solo PvE is 1v1 besides). So the honest cases to preview are ground zones
+    // and Move+AOE — Blitz lands you on a hex and detonates the ring around it,
+    // and until now nothing on the board said where that ring falls.
+    const allTiles = useMemo(() => Array.from({ length: w * h }, (_, i) => i), [w, h]);
+    const footprintOf = (tile: number) => jutsuImpactPreviewTiles(
+        String(selJutsu?.method ?? "SINGLE") as JutsuMethod,
+        tile,
+        allTiles,
+        (a, b) => towerHexDistance(a, b, w),
+        (centre) => towerNeighbors(centre, w, h),
+    );
+    // Legal centres for the armed cast — a Move landing tile or a ground placement.
+    const tileTargets = (() => {
+        if (mode !== "jutsu" || !selJutsu) return new Set<number>();
+        if (isMoveJutsu(selJutsu)) return rangeTiles;
+        if (selJutsu.target === "EMPTY_GROUND") return new Set([...rangeTiles].filter(t => !unavailableGroundTiles.has(t)));
+        return new Set<number>();
+    })();
+    // What the tile under the cursor (or keyboard focus) would actually hit.
+    const hoveredFootprint = (() => {
+        if (hoverTile === null || !tileTargets.has(hoverTile)) return new Set<number>();
+        const impact = footprintOf(hoverTile);
+        // Pure movement has no blast, but its destination still needs a marker
+        // distinct from the reachable-range wash.
+        return impact.size > 0 ? impact : new Set([hoverTile]);
+    })();
+    // Touch has no hover, so the ring above can never appear there. Mark every
+    // legal centre whose footprint would catch the enemy, which is the question
+    // the player is actually asking. Mirrors the engine's `hitsOpponent`: an
+    // AOE_CIRCLE ring excludes its own centre (the hex you land on), and
+    // `footprintOf` already excludes it by passing circleIncludesCenter=false.
+    const hittingTargets = (() => {
+        if (!enemy || enemy.hp <= 0 || enemyPos < 0 || tileTargets.size === 0) return new Set<number>();
+        return new Set([...tileTargets].filter(t => footprintOf(t).has(enemyPos)));
+    })();
+
     async function send(action: ServerArenaAction) {
         if (actionInFlightRef.current) return;
         actionInFlightRef.current = true;
@@ -693,7 +739,7 @@ export function MissionArenaFight({
         }
     }
 
-    function resetTargeting() { setMode("idle"); setSelJutsu(null); setSelWeaponId(""); }
+    function resetTargeting() { setMode("idle"); setSelJutsu(null); setSelWeaponId(""); setHoverTile(null); }
 
     function onTileClick(tile: number) {
         if (!myTurn || busy) return;
@@ -955,7 +1001,12 @@ export function MissionArenaFight({
                                 })()}
                                 {enemy && (() => {
                                     const { left, top } = towerHexPixel(enemyPos, w);
-                                    return <FighterHpBadge key="enemy-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16} width={ORB} hp={enemy.hp} maxHp={enemy.maxHp} side="enemy" />;
+                                    // AI fighters render full-body art that overflows the fixed orb
+                                    // anchor upward, so the standard -16 lift used for marker-pin
+                                    // actors put the badge squarely on the enemy's face. Clear the
+                                    // sprite box as well, and the bar floats over the head instead.
+                                    const headroom = battlefieldSpriteHeadroom(ORB, enemyBattleSprite);
+                                    return <FighterHpBadge key="enemy-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16 - headroom} width={ORB} hp={enemy.hp} maxHp={enemy.maxHp} side="enemy" />;
                                 })()}
 
                                 {/* Server-authored combat VFX (cosmetic; see the stream above). */}
@@ -970,6 +1021,11 @@ export function MissionArenaFight({
                                     const isFlickerTile = mode === "jutsu" && isMoveJutsu(selJutsu) && rangeTiles.has(i);
                                     const isEnemyTarget = enemy != null && i === enemyPos && enemyInRange && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu) && selJutsu?.target !== "EMPTY_GROUND" && !isMoveJutsu(selJutsu)));
                                     const isSelfTarget = mode === "jutsu" && isSelfCastJutsu(selJutsu) && i === myPos;
+                                    // Blast footprint of the tile being considered, and — for touch,
+                                    // where nothing is ever hovered — which legal centres would land
+                                    // that blast on the enemy.
+                                    const isFootprintTile = hoveredFootprint.has(i);
+                                    const isHittingTarget = hittingTargets.has(i);
                                     const isBarrier = barrierTiles.has(i);
                                     const isBlockedTerrain = session.map.blockedTiles.includes(i);
                                     const tileOccupant = isBarrier
@@ -986,14 +1042,16 @@ export function MissionArenaFight({
                                     const tilePurpose = isEnemyTarget || isSelfTarget
                                         ? "target"
                                         : isFlickerTile
-                                            ? "jutsu move destination"
+                                            ? `jutsu move destination${isHittingTarget ? ", blast catches the enemy" : ""}`
                                         : isGroundTile
-                                            ? "ground target"
+                                            ? `ground target${isHittingTarget ? ", blast catches the enemy" : ""}`
                                             : isMoveTile
                                                 ? "move target"
-                                                : isRangeTile
-                                                    ? "in range"
-                                                    : null;
+                                                : isFootprintTile
+                                                    ? "inside the blast"
+                                                    : isRangeTile
+                                                        ? "in range"
+                                                        : null;
                                     const tileLabel = `Tile ${i + 1}, row ${Math.floor(i / w) + 1}, column ${(i % w) + 1}: ${tileOccupant}${tilePurpose ? `, ${tilePurpose}` : ""}`;
                                     const cls = [
                                         "hex-tile",
@@ -1004,6 +1062,8 @@ export function MissionArenaFight({
                                         isGroundTile ? "ground-target-tile" : "",
                                         isEnemyTarget ? "jutsu-target-tile" : "",
                                         isSelfTarget ? "jutsu-target-tile jutsu-self-target-tile" : "",
+                                        isFootprintTile ? "ground-affected-tile" : "",
+                                        isHittingTarget ? "jutsu-aoe-tile" : "",
                                         gateHazards.has(i) ? "hg-hazard-tile" : "",
                                         gateSafe.has(i) ? "hg-safe-tile" : "",
                                         isBarrier ? "combat-barrier-tile" : "",
@@ -1018,6 +1078,12 @@ export function MissionArenaFight({
                                             aria-label={tileLabel}
                                             style={{ left: `${left}px`, top: `${top}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                             onClick={() => onTileClick(i)}
+                                            // Only a tile-targeted cast consumes the hover, so the rest
+                                            // of the board never re-renders on mouse movement.
+                                            onMouseEnter={tileTargets.has(i) ? () => setHoverTile(i) : undefined}
+                                            onMouseLeave={tileTargets.has(i) ? () => setHoverTile(t => (t === i ? null : t)) : undefined}
+                                            onFocus={tileTargets.has(i) ? () => setHoverTile(i) : undefined}
+                                            onBlur={tileTargets.has(i) ? () => setHoverTile(t => (t === i ? null : t)) : undefined}
                                         >
                                             {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span>
                                                 : i === myPos ? ""
