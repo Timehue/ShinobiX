@@ -55,6 +55,7 @@ import {
     CHRONICLE_PROGRESSION_CARD_IDS,
     isChronicleProgressionCardId,
 } from '../card-clash/_progression-cards.js';
+import { detachPlayerReferences } from '../_delete-player-account.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
@@ -2991,6 +2992,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
             await kv.set(adminLockKey, 1, { ex: 300 });
+            // Detach the rows that point AT this player before the save goes —
+            // the clan is read off the save itself. Deleting `save:` and the
+            // registry entry alone left a departed member still counted on the
+            // clan roster and still occupying a slot in the capped
+            // `mod:by-ip` / `mod:by-fp` alt-detection lists, where dead names
+            // push live players out. Clan records route through this same
+            // handler, so it is scoped to player saves only. Best-effort: a
+            // failure here must not block the deletion the player asked for.
+            if (!isClanSave) {
+                try {
+                    const detached = await detachPlayerReferences(name);
+                    if (detached.failures.length) {
+                        console.warn(`[save DELETE] partial detach for ${name}: ${detached.failures.join('; ')}`);
+                    }
+                } catch (err) {
+                    console.error('[save DELETE detach]', safeLogValue(err));
+                }
+            }
             await Promise.all([
                 kv.del(key),
                 kv.hdel(REGISTRY_KEY, name),
