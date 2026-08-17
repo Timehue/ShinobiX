@@ -1,3 +1,8 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+// The owner-scope effect below resets battle identity when the active account
+// changes — the same reset-derived-state-on-identity-change pattern the sibling
+// components disable this rule for. Deriving it during render instead would let
+// one account's battle id survive into another's first paint.
 import { useCallback, useEffect, useLayoutEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { accountKey } from "./player-accounts";
 import type { PvpSessionState } from "../types/pvp-ui";

@@ -190,7 +190,11 @@ import { readFileSync } from "node:fs";
 // achieved count rather than the 7,666 the previous session set, which was 10 lines
 // below what the tree actually reached. Remaining PvpBattleScreen drain should take
 // this below 7,600 — lower it again then, and do not raise it to fit the rest.)
-const MAX_LINES = 7_676;
+// → 7,675 (net −1: a dead `import type { PvpSessionState }` — the type is
+// re-exported straight from types/pvp-ui a few thousand lines below, so the
+// import binding itself was never consumed. Found by lint while draining the
+// PvP session modules off the startup graph.)
+const MAX_LINES = 7_675;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

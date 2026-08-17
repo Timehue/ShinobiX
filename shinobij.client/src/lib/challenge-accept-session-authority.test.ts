@@ -78,7 +78,9 @@ describe("challenge acceptance save-session authority", () => {
             "if (!acceptanceIsCurrent()) return;",
             "const ownSaveReadResult = await adoptOwnSaveRead(",
             'if (!acceptanceIsCurrent() || ownSaveReadResult === "foreign") return;',
-            "const createResult = await createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody",
+            // The creator is imported lazily so it stays off the startup graph;
+            // the ordering it sits in is unchanged.
+            "const createResult = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody",
             "if (!acceptanceIsCurrent()) return;",
             "const battleId = createResult.battleId;",
             "setPvpSeedSession(createResult.session);",
