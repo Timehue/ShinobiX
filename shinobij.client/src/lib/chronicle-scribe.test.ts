@@ -2,9 +2,10 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import type { Character } from "../types/character";
 import {
-    SCRIBE_ACCEPT_MARKER, SCRIBE_MIN_LEVEL, SCRIBE_WANDERER_ID,
-    claimTravelersCodex, scribeEligible, scribeWandererFor, scribeIntroEvent, synthChronicleScribe,
+    CODEX_FLIP_LIMIT, SCRIBE_ACCEPT_MARKER, SCRIBE_MIN_LEVEL, SCRIBE_WANDERER_ID,
+    claimTravelersCodex, codexRevealCards, scribeEligible, scribeWandererFor, scribeIntroEvent, synthChronicleScribe,
 } from "./chronicle-scribe";
+import { CHRONICLE_STARTER_GRANT_IDS, getChronicleCard } from "../../../shared/chronicle-duel";
 
 const asCharacter = (over: Record<string, unknown>): Character =>
     ({ name: "Aoi", level: 20, ...over }) as unknown as Character;
@@ -110,5 +111,30 @@ describe("claimTravelersCodex", () => {
         assert.equal(result.replayed, true);
         assert.equal(result._saveVersion, 37);
         assert.deepEqual(result.tileCards, ["tc-01", "story-story-ai-stormveil-village-4"]);
+    });
+});
+
+describe("codexRevealCards", () => {
+    it("shows every distinct face of the real grant, without the duplicate copies", () => {
+        const faces = codexRevealCards(CHRONICLE_STARTER_GRANT_IDS);
+        assert.equal(new Set(faces).size, faces.length, "no face is shown twice");
+        assert.deepEqual(faces, [...new Set(CHRONICLE_STARTER_GRANT_IDS)], "grant order is preserved");
+        assert.ok(
+            faces.length < CHRONICLE_STARTER_GRANT_IDS.length,
+            "the grant really does contain duplicate copies to collapse",
+        );
+        for (const id of faces) assert.ok(getChronicleCard(id), `${id} must resolve in the catalog`);
+    });
+
+    it("flips only a slice of a big grant, but never fans less than the whole thing", () => {
+        const faces = codexRevealCards(CHRONICLE_STARTER_GRANT_IDS);
+        assert.ok(
+            faces.length > CODEX_FLIP_LIMIT,
+            "the flip cap only matters because the codex has more faces than it",
+        );
+    });
+
+    it("shows nothing for a grant that added nothing", () => {
+        assert.deepEqual(codexRevealCards([]), []);
     });
 });
