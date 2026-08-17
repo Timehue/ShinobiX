@@ -1,5 +1,6 @@
 import React, { useState, type CSSProperties, type ReactNode } from "react";
 import { isImageAvatar } from "../lib/avatar";
+import { inferSpriteKind, type BattlefieldSpriteKind } from "../lib/battlefield-sprite";
 
 type BattlefieldActorProps = {
     side: "player" | "enemy";
@@ -13,16 +14,10 @@ type BattlefieldActorProps = {
     children?: ReactNode;
 };
 
-export type BattlefieldSpriteKind = "humanoid" | "quadruped" | "flying" | "serpentine" | "boss" | "construct";
-
-function inferSpriteKind(src: string): BattlefieldSpriteKind {
-    if (/forest-hawk/i.test(src)) return "flying";
-    if (/(moon-serpent|leviathan)/i.test(src)) return "serpentine";
-    if (/(wild-boar|wolf|lizard|panther|bear|chakra-beast|warren-alpha|hollow-hound)/i.test(src)) return "quadruped";
-    if (/golem/i.test(src)) return "construct";
-    if (/(apex-|boss-|ravager|armored|spectral|worldstorm|drake|oni|gate-heir|mirror-shard)/i.test(src)) return "boss";
-    return "humanoid";
-}
+// Re-exported so existing importers keep their one-stop `BattlefieldActor`
+// import; the geometry itself (and `battlefieldSpriteHeadroom`, which overlays
+// use to clear a sprite's head) lives in lib/battlefield-sprite.ts.
+export type { BattlefieldSpriteKind };
 
 /**
  * Presentation-only combatant marker. The outer actor anchor remains the source
