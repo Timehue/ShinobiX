@@ -92,6 +92,15 @@ const ECHOES_VERSION = new Set([
 // still responsible for echoing the helper's exact committed version.
 const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     'missions/report-raid.ts',
+    // Ranked/base settlement moved behind writeVersionedPlayerSave, so this route
+    // no longer names a BUMP_MARKER itself. It still bumps — that helper builds a
+    // versionedPlayerRecord and commits it with compareSet — and it still rereads
+    // and echoes the authenticated caller's final `_saveVersion`.
+    'pvp/claim-rewards.ts',
+    // The Honor Seal debit moved into _war-mercenary-hire.ts, so this route no
+    // longer names a BUMP_MARKER either. It still bumps through that saga and
+    // still echoes the hiring player's `_saveVersion`.
+    'village/hire-mercenary.ts',
 ]);
 
 /**
@@ -111,6 +120,19 @@ const PENDING_ECHO = new Set<string>();
  *  - shared helpers / world state — reached through many callers; the caller owns the echo.
  */
 const EXEMPT = new Set([
+    // Village-war Honor Seal sagas. Both debit the declaring/hiring player and
+    // bump that save, but they are helpers with several callers and cannot pick
+    // one participant's version to expose. village/hire-mercenary.ts rereads and
+    // echoes the caller's final `_saveVersion`.
+    //
+    // KNOWN GAP, tracked separately: village/sector-war.ts also reaches
+    // _war-declaration-funding and returns no `_saveVersion` at all, so a player
+    // who declares a sector war is charged and version-bumped without being told,
+    // and can lose in-flight local state once. That route needs the reservation's
+    // committed version threaded out to its response — a change to the helper's
+    // return type, deliberately not bundled into this classification.
+    '_war-declaration-funding.ts',
+    '_war-mercenary-hire.ts',
     'admin/bloodline-review.ts',
     'admin/economy-reconcile.ts',
     'admin/legacy.ts',
