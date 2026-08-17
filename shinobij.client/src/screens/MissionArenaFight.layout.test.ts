@@ -7,6 +7,7 @@ const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", imp
 const battleSkinCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const towerTacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.meta.url), "utf8");
 const combatRestoreCss = readFileSync(new URL("../styles/index/24-combat-mobile-restore.css", import.meta.url), "utf8");
+const territoryCss = readFileSync(new URL("../styles/index/15-territory-panels.css", import.meta.url), "utf8");
 const combatInstanceSource = readFileSync(new URL("../components/CombatInstance.tsx", import.meta.url), "utf8");
 const combatDetailPortalSource = readFileSync(new URL("../components/CombatDetailPortal.tsx", import.meta.url), "utf8");
 const shinobiCombatShellSource = readFileSync(new URL("../components/ShinobiCombatShell.tsx", import.meta.url), "utf8");
@@ -139,6 +140,100 @@ test("mission fight reserves a row for its action notice instead of displacing t
         battleSkinCss,
         /\.combat-layout\.has-action-notice \.hex-battlefield\s*\{\s*grid-row:\s*4\s*!important;/,
         "mobile must move the battlefield to the reserved post-notice row",
+    );
+});
+
+// The player is a map-pin marker that fits inside its orb anchor, so a flat -16
+// lift puts its HP bar just above the token. The AI is full-body sprite art that
+// overflows the SAME anchor upward, so that same -16 landed the bar on the
+// enemy's face. The badge has to clear whatever art the actor actually renders.
+test("the enemy HP badge clears the AI's full-body sprite instead of its face", () => {
+    const enemyBadge = missionSource.match(/key="enemy-hp"[\s\S]*?\/>/);
+    assert.ok(enemyBadge, "mission combat must still render an on-board enemy HP badge");
+    assert.match(
+        enemyBadge![0],
+        /top=\{top \+ HEX_H \* 0\.85 - ORB - 16 - headroom\}/,
+        "the enemy badge must lift by the sprite's headroom on top of the marker offset",
+    );
+    assert.match(
+        missionSource,
+        /const headroom = battlefieldSpriteHeadroom\(ORB, enemyBattleSprite\)/,
+        "the clearance must be derived from the sprite the actor is actually given",
+    );
+
+    // The player/pet badges are marker-anchored and must NOT be lifted, or their
+    // bars float away from tokens that never overflowed in the first place.
+    for (const key of ["player-hp", "pet-hp"]) {
+        const badge = missionSource.match(new RegExp(`key="${key}"[\\s\\S]*?/>`));
+        assert.ok(badge, `mission combat must still render the ${key} badge`);
+        assert.doesNotMatch(badge![0], /headroom/, `${key} renders a marker, so it needs no sprite clearance`);
+    }
+});
+
+// PvE lost its whole targeting telegraph when the browser reducer was retired:
+// the CSS survived but no screen applied it, so an armed AOE showed nothing and
+// the enemy hex was the only in-range tile with no fill. Both halves are easy to
+// drop again silently — the classes are strings and the CSS is an !important
+// ladder — so pin them.
+test("PvE telegraphs where a tile-targeted cast lands and what it catches", () => {
+    assert.match(
+        missionSource,
+        /isFootprintTile \? "ground-affected-tile" : ""/,
+        "the hovered cast must paint the tiles it would damage",
+    );
+    assert.match(
+        missionSource,
+        /isHittingTarget \? "jutsu-aoe-tile" : ""/,
+        "legal centres whose blast reaches the enemy must be marked — touch never hovers",
+    );
+    // The preview must be derived from the shared impact helper, which
+    // jutsu-impact-preview.contract.test.ts pins against the server planner.
+    // Reimplementing the footprint locally is how a telegraph starts lying.
+    assert.match(missionSource, /jutsuImpactPreviewTiles\(/, "the footprint must come from the shared helper");
+    assert.doesNotMatch(
+        missionSource,
+        /const hittingTargets[\s\S]{0,400}?towerNeighbors\(enemyPos/,
+        "the hit test must go through the helper, not a hand-rolled neighbour check",
+    );
+    // Hover is scoped to legal centres so mousing over the board can't re-render it.
+    assert.match(missionSource, /onMouseEnter=\{tileTargets\.has\(i\) \?/);
+    assert.match(missionSource, /onFocus=\{tileTargets\.has\(i\) \?/, "keyboard aiming must reach the same preview");
+    assert.match(
+        missionSource,
+        /function resetTargeting\(\)[^}]*setHoverTile\(null\)/,
+        "disarming must clear the preview or a stale ring outlives its jutsu",
+    );
+
+    // The enemy hex: battle-skin withholds the blue range wash from it, so the
+    // target rule has to supply a fill of its own or it renders like an
+    // unhighlighted tile. Measured before the fix: rgba(51,65,85,0.35), the
+    // no-highlight default, while every other in-range tile was solid blue.
+    const targetRule = territoryCss.match(/body \.arena-fullscreen \.hex-tile\.jutsu-target-tile\s*\{([^}]*)\}/);
+    assert.ok(targetRule, "the target-tile rule must survive");
+    assert.match(targetRule![1], /background:\s*rgba\([^)]*\)\s*!important/, "the target hex needs a fill, not just a ring");
+    assert.match(targetRule![1], /outline:\s*3px solid var\(--gold\)\s*!important/, "…and must keep its gold ring");
+
+    // The "this landing catches them" marker shares tiles with .dash-target-tile /
+    // .ground-target-tile, which set outline with !important at equal specificity.
+    // CSS resolves that by source order, so the marker MUST come after them or it
+    // is inert — exactly how .dash-target-tile itself was once invisible.
+    const dashAnchor = battleSkinCss.lastIndexOf(".arena-fullscreen .hex-tile:is(.hex-enemy, .hex-player).dash-target-tile");
+    const hitAnchor = battleSkinCss.indexOf(".arena-fullscreen .hex-tile:is(.dash-target-tile, .ground-target-tile).jutsu-aoe-tile");
+    assert.ok(dashAnchor > 0, "the dash-target rules must still exist");
+    assert.ok(hitAnchor > 0, "the blast-connects marker must be styled over landing tiles");
+    assert.ok(
+        hitAnchor > dashAnchor,
+        "the .jutsu-aoe-tile marker must be declared AFTER the dash/ground rules it shares !important specificity with, or it never paints",
+    );
+    assert.match(
+        battleSkinCss.slice(hitAnchor, battleSkinCss.indexOf("}", hitAnchor)),
+        /outline:\s*3px solid rgba\(250, 204, 21[^)]*\)\s*!important/,
+        "the connects-marker must override the landing tile's own outline",
+    );
+    assert.match(
+        battleSkinCss,
+        /\.arena-fullscreen \.hex-tile\.ground-affected-tile\s*\{[^}]*background:\s*rgba\([^)]*\)\s*!important/,
+        "the blast footprint needs a fill to read over the painted arena art",
     );
 });
 
