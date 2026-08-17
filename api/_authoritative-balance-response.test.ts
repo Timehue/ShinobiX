@@ -80,7 +80,14 @@ describe('authoritative balance response migration', () => {
         const panel = read('shinobij.client/src/components/BountyBoardPanel.tsx');
         assert.match(api, /balances:\s*\{\s*ryo:\s*debit\.balance\s*\}/);
         assert.match(api, /balances:\s*\{\s*ryo:\s*credit\.balance\s*\}/);
-        assert.match(app, /ryo:\s*b\.balances\.ryo/);
+        // App no longer assigns bounty ryo itself. The settled owner save is
+        // adopted wholesale through commitVersionedCharacter and the bounty
+        // branch only notifies, which is strictly stronger than the previous
+        // `ryo: b.balances.ryo` field adoption.
+        assert.match(app, /commitVersionedCharacter\(ownerSave\.character, ownerSave\.version\)/);
+        assert.match(app, /if \(projection\.bounty\) \{[\s\S]{0,240}gameToast\(`💰 Bounty:/);
+        assert.doesNotMatch(app, /ryo:[^\n]*\bbounty\b[^\n]*\.amount/i,
+            'App must not self-assign bounty ryo');
         assert.match(panel, /ryo:\s*res\.balances\?\.ryo\s*\?\?\s*character\.ryo/);
         assert.doesNotMatch(app, /ryo:\s*\(c\.ryo\s*\?\?\s*0\)\s*\+\s*b\.amount/);
     });

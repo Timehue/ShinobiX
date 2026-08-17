@@ -110,6 +110,10 @@ describe('Sector Combat garrison retirement', { concurrency: false }, () => {
         assert.match(source, /case 'resolve': return await doResolve\(/);
         assert.match(source, /`pvp:\$\{battleId\}`/);
         assert.match(source, /battle\.rewardAuthority !== 'world'/);
-        assert.match(source, /pvpSessionMayReward\(battle\)/);
+        // The gate tightened rather than moved: pvpSessionMayGrantProgress calls
+        // pvpSessionMayReward and additionally requires a progression authority,
+        // base rewards, or a ranked session, so a zero-reward spar or Kage duel
+        // cannot be reused as a generic sector-war reward receipt.
+        assert.match(source, /pvpSessionMayGrantProgress\(battle\)/);
     });
 });
