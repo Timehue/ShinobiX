@@ -125,6 +125,13 @@ describe('server-owned PvP village-war continuation', () => {
         const session = battle('pvp-world-sealed-home-bonus', {
             rewardAuthority: 'world',
             rewardSector: 40,
+            // The worldAttacker claim declares a clan, and sealedWorldRaidAttacker
+            // requires any declared village/clan to match the sealed fighter
+            // snapshot. The default fixture fighter carries no clan, so without
+            // this the attacker resolves to null, the session stops counting as a
+            // sealed World raid, and the home-defense multiplier silently never
+            // applies — which is the guard working, not the bonus being missing.
+            p1: { name: 'Winner', character: { village: 'Leaf', clan: 'LeafClan' } },
             worldAttacker: { side: 'p1', name: 'winner', village: 'Leaf', clan: 'LeafClan' },
             worldTerritoryEvidence: {
                 version: 1,
