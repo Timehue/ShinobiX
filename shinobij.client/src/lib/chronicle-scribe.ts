@@ -184,6 +184,29 @@ export type CodexClaimResult = {
     reason?: "already-claimed" | "level" | "offline" | "error";
 };
 
+/**
+ * How many of the codex's cards the cinematic stops to FLIP.
+ *
+ * The grant is 40 copies across 28 distinct faces, and the pack cinematic costs
+ * a tap per flip — 28 taps is not an introduction, it is a chore. So the
+ * tap-through is the standouts only (CardPackOpening orders the reveal by
+ * rarity, so this is the rarest ten, ending on the best card), while the
+ * summary fan that follows shows every distinct face the player received.
+ */
+export const CODEX_FLIP_LIMIT = 10;
+
+/**
+ * The distinct faces to show for a codex grant, in grant order.
+ *
+ * Duplicates are dropped because flipping the same Smoke Bomb three times is
+ * padding, not a reveal — the copy count is stated in the summary line instead.
+ * `granted` is what the SERVER says it added, so a repeat/top-up claim shows
+ * only the top-up and an already-complete collection shows nothing at all.
+ */
+export function codexRevealCards(granted: readonly string[]): string[] {
+    return [...new Set(granted)];
+}
+
 export async function claimTravelersCodex(playerName: string, fetchImpl: typeof fetch = fetch): Promise<CodexClaimResult> {
     try {
         const res = await fetchImpl("/api/card-clash/claim-starter", {
