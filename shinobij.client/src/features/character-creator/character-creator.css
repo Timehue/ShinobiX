@@ -261,6 +261,27 @@
     gap: 16px;
 }
 
+/* A Google or guest signup has no password fields, so the name is the only
+   control left and a two-column grid would strand it against a blank half. */
+.cc-form-grid:has(.cc-field:only-child) {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 460px;
+}
+
+/* What protects this save, said plainly at the moment it is decided — a guest
+   in particular needs to know the character is browser-bound before they build
+   one, not afterwards. */
+.cc-signup-note {
+    margin: 4px 0 0;
+    padding: 10px 14px;
+    border-left: 2px solid rgba(250, 204, 21, 0.55);
+    border-radius: 0 8px 8px 0;
+    background: rgba(250, 204, 21, 0.08);
+    color: #f8e6b0;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
 .cc-bloodline-card {
     min-height: 360px;
     padding: 0;

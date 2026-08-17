@@ -768,6 +768,40 @@ export default defineConfig({
                     }
                 });
 
+                // The login gate reads this to decide which doors to show, and
+                // hides a control on anything but "available". Without a dev
+                // answer it 404s, both passwordless sign-in paths vanish
+                // locally, and the gate looks broken when it is behaving
+                // exactly as designed. Guest play works against the dev
+                // player-auth below; Google needs a real OAuth round trip, so
+                // it is reported unavailable here rather than offering a button
+                // that cannot complete.
+                server.middlewares.use('/api/player/capabilities', (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'GET') { next(); return; }
+                    const available = { state: 'available', reason: 'available' } as const;
+                    const unavailable = { state: 'temporarily-unavailable', reason: 'configuration-unavailable' } as const;
+                    sendJson(res, 200, {
+                        ok: true,
+                        capabilities: {
+                            gameplay: available,
+                            gameplayMutations: available,
+                            registrations: available,
+                            // Mirrors the server rule: offered only when a client
+                            // id exists. Set GOOGLE_CLIENT_ID locally to render
+                            // and style the button; the redirect itself still
+                            // needs a real OAuth round trip.
+                            googleSignIn: process.env.GOOGLE_CLIENT_ID ? available : unavailable,
+                            guestPlay: available,
+                            villageWar: available,
+                            clanBoss: available,
+                            clanBossParties: available,
+                            legacy: available,
+                            petBreedingStarts: available,
+                            weeklyBossGuardCycle: available,
+                        },
+                    });
+                });
+
                 server.middlewares.use('/api/player-auth', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
 

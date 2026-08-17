@@ -1,5 +1,6 @@
 import { type Character } from "../App";
-import { CharacterCreatorFlow } from "../features/character-creator/CharacterCreatorFlow";
+import { CharacterCreatorFlow, type GoogleSignupHandoff } from "../features/character-creator/CharacterCreatorFlow";
+import type { SignupCredential } from "../lib/guest-play";
 
 function IconUser() {
     return (
@@ -42,10 +43,20 @@ function IconEyeOff() {
 
 export { IconUser, IconLock, IconEyeOpen, IconEyeOff };
 
-export function CharacterCreator({ onCreate, onBack, bare = false }: {
-    onCreate: (character: Character, password: string) => void | Promise<void>;
+export function CharacterCreator({ onCreate, onBack, bare = false, googleSignup = null, guest = false }: {
+    onCreate: (character: Character, credential: SignupCredential) => void | Promise<void>;
     onBack?: () => void;
     bare?: boolean;
+    googleSignup?: GoogleSignupHandoff | null;
+    guest?: boolean;
 }) {
-    return <CharacterCreatorFlow onCreate={onCreate} onBack={onBack} compact={bare} />;
+    return (
+        <CharacterCreatorFlow
+            onCreate={onCreate}
+            onBack={onBack}
+            compact={bare}
+            googleSignup={googleSignup}
+            guest={guest}
+        />
+    );
 }

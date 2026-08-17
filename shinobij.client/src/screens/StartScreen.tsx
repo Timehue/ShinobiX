@@ -5,7 +5,10 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/legal";
 import { LegalPage } from "./LegalPage";
+import { LoginGate } from "./start/LoginGate";
+import { rememberedShinobi } from "../lib/player-accounts";
 import { captureProductEvent } from "../lib/analytics";
+import type { SignupCredential } from "../lib/guest-play";
 
 const PRODUCT_ANALYTICS_ENABLED = import.meta.env.VITE_PRODUCT_ANALYTICS_ENABLED === "1";
 
@@ -25,45 +28,6 @@ const GuidesLibrary = lazyWithRetry(() => import("../components/GuidesLibrary").
 // The real community invite, matching RightMenu / MobileNav. The old
 // "discord.gg/shinobi-journey" vanity link did not resolve.
 const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
-
-function IconUser() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-        </svg>
-    );
-}
-
-function IconLock() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="4" y="10" width="16" height="11" rx="2" />
-            <path d="M8 10V7a4 4 0 1 1 8 0v3" />
-        </svg>
-    );
-}
-
-function IconEyeOpen() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-            <circle cx="12" cy="12" r="3" />
-        </svg>
-    );
-}
-
-function IconEyeOff() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a19.55 19.55 0 0 1 4.06-5.06" />
-            <path d="M22.54 12.88A19.5 19.5 0 0 0 23 12s-4-7-11-7a10.74 10.74 0 0 0-4.06.76" />
-            <path d="M9.9 4.24A9.6 9.6 0 0 1 12 4" />
-            <path d="M1 1l22 22" />
-            <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
-        </svg>
-    );
-}
 
 type StartView = "main" | "create" | "login" | "leaderboard" | "guides" | `legal:${LegalPageSlug}`;
 
@@ -146,12 +110,19 @@ const PATH_HIGHLIGHTS: { label: string; icon: ReactNode }[] = [
 
 type BrandLockupVariant = "nav" | "hero" | "footer";
 
+// The wordmark is artwork, but the app's NAME has to be readable as text, not
+// only painted into a WebP. Google's OAuth brand verification rejected the app
+// for exactly this: it compares the consent-screen app name against the name it
+// can find on the home page, and a 1px-clipped span behind an aria-hidden image
+// gave it nothing to match. The alt text carries the name now — which is also
+// what a screen reader should have been getting all along.
+export const APP_NAME = "Shinobi Journey";
+
 function BrandLockup({ variant = "nav" }: { variant?: BrandLockupVariant }) {
     const src = variant === "hero" ? "/shinobi-journey-title-art.webp" : "/shinobi-journey-logo-wide.webp";
     return (
         <span className={`landing-logo landing-logo--${variant}`}>
-            <span className="landing-logo-readable">Shinobi Journey</span>
-            <img className="landing-logo-art" src={src} alt="" aria-hidden="true" draggable={false} />
+            <img className="landing-logo-art" src={src} alt={APP_NAME} draggable={false} />
         </span>
     );
 }
@@ -159,10 +130,14 @@ function BrandLockup({ variant = "nav" }: { variant?: BrandLockupVariant }) {
 // StartScreen is now a thin router: the cinematic landing is the default view,
 // with the Hall of Legends and Guides library reachable from the top nav /
 // footer (each renders full-screen with its own Back button).
-export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", notice = "" }: {
-    onCreate: (character: Character, password: string) => void | Promise<void>;
+export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialName = "", notice = "", googleSignup = null }: {
+    onCreate: (character: Character, credential: SignupCredential) => void | Promise<void>;
     onLogin: (name: string, password: string) => void | Promise<void>;
     onAdmin: (prefilledPassword?: string) => void;
+    /** Resume a shinobi this browser still holds a token for. */
+    onContinueAs: (name: string) => void | Promise<void>;
+    /** Set when a Google sign-in resolved to somebody with no shinobi yet. */
+    googleSignup?: { suggestedName: string; signupTicket: string; nonce: string } | null;
     // Pre-filled login name + notice, set by App when a session restore failed
     // on refresh (expired token / unreachable server) so the player lands on a
     // pre-filled login with an explanation instead of a blank, silent form.
@@ -172,8 +147,19 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     const [view, setView] = useState<StartView>(() => {
         const legalPage = typeof window === "undefined" ? null : legalPageForPath(window.location.pathname);
         if (legalPage) return `legal:${legalPage}`;
+        // A Google sign-in with no shinobi behind it lands straight in the
+        // creator — they have already committed, so asking them to find the
+        // button again would be the one avoidable step in the whole flow.
+        if (googleSignup) return "create";
         return initialName || notice ? "login" : "main";
     });
+    // Which credential a new character will be claimed with. Google is decided
+    // before the creator opens; guest is chosen from the gate.
+    const [signupMode, setSignupMode] = useState<"password" | "guest">("password");
+    // Does this browser hold a shinobi to come back to? Decides whether the gate
+    // greets a returning player or a newcomer. Read once, same source the gate
+    // itself uses, so the two halves cannot disagree.
+    const [knowsSomeone] = useState(() => Boolean(initialName) || rememberedShinobi().length > 0);
 
     useEffect(() => {
         if (PRODUCT_ANALYTICS_ENABLED && view === "main") captureProductEvent("landing_viewed", { screenId: "landing", source: "navigation" });
@@ -206,7 +192,12 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     if (view === "create") {
         return (
             <Suspense fallback={<div className="start-screen"><div className="start-card">Loading creator...</div></div>}>
-                <CharacterCreator onCreate={onCreate} onBack={() => setView("main")} />
+                <CharacterCreator
+                    onCreate={onCreate}
+                    onBack={() => setView("main")}
+                    googleSignup={googleSignup}
+                    guest={signupMode === "guest"}
+                />
             </Suspense>
         );
     }
@@ -217,11 +208,20 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                 <div className="landing-login-frame">
                     <button type="button" className="start-back-button landing-login-back" onClick={() => setView("main")}>Back</button>
                     <div className="landing-login-shell">
-                        <section className="landing-login-copy" aria-label="Return briefing">
+                        {/* "Your story is still moving" is a lie told to someone
+                            who has never played, and this screen is reachable
+                            from the landing's Log In before any character
+                            exists. Both halves read the same remembered list so
+                            the greeting matches who is actually standing here. */}
+                        <section className="landing-login-copy" aria-label={knowsSomeone ? "Return briefing" : "Village briefing"}>
                             <p className="landing-kicker">Village Gates Open</p>
-                            <h1 className="landing-login-title">Your shinobi story is still moving.</h1>
+                            <h1 className="landing-login-title">
+                                {knowsSomeone ? "Your shinobi story is still moving." : "The village is expecting you."}
+                            </h1>
                             <p className="landing-login-lead">
-                                Step back into missions, rival clans, pet battles, world records, and the next chapter of your shinobi legend.
+                                {knowsSomeone
+                                    ? "Step back into missions, rival clans, pet battles, world records, and the next chapter of your shinobi legend."
+                                    : "Sign in to pick up a shinobi you already have, or start a new one — missions, rival clans, pet battles, and world records are waiting either way."}
                             </p>
                             <div className="landing-login-highlights" aria-label="World activity">
                                 <span><GameIcon name="sword" /> Clan wars</span>
@@ -229,12 +229,14 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                                 <span><GameIcon name="medal" /> Hall records</span>
                             </div>
                         </section>
-                        <LoginPanel
+                        <LoginGate
                             onLogin={onLogin}
                             onAdmin={onAdmin}
+                            onContinueAs={onContinueAs}
+                            onPlayAsGuest={() => { setSignupMode("guest"); setView("create"); }}
                             initialName={initialName}
                             notice={notice}
-                            onCreateAccount={() => setView("create")}
+                            onCreateAccount={() => { setSignupMode("password"); setView("create"); }}
                         />
                     </div>
                 </div>
@@ -261,130 +263,6 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                 setView("leaderboard");
             }}
         />
-    );
-}
-
-// Tabbed Create-Account / Log-In panel docked in the hero. The admin-routing +
-// login submit logic is a verbatim move from the old StartScreen — behavior
-// (Admin 2 auto-route, token-first login via onLogin) is preserved exactly.
-function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: {
-    onLogin: (name: string, password: string) => void | Promise<void>;
-    onAdmin: (prefilledPassword?: string) => void;
-    initialName: string;
-    notice: string;
-    onCreateAccount: () => void;
-}) {
-    const [loginName, setLoginName] = useState(initialName);
-    const [loginPassword, setLoginPassword] = useState("");
-    const [showLoginPw, setShowLoginPw] = useState(false);
-    const [loginStatus, setLoginStatus] = useState("");
-
-    // Only "Admin 2" / "admin2" auto-routes to the admin login from the player
-    // form. Admin 1 is intentionally NOT detected here (see the retired
-    // StartScreen comment / docs) — it flows through logging in as Rill then the
-    // in-game Admin button, gating Admin 1 behind both passwords.
-    function normalizeAdminName(raw: string): "admin2" | null {
-        const n = raw.trim().toLowerCase().replace(/\s+/g, "");
-        if (n === "admin2") return "admin2";
-        return null;
-    }
-
-    async function submitLogin() {
-        if (loginName.trim().length < 2) return alert("Enter your player name.");
-        if (!loginPassword) return alert("Enter your password.");
-
-        if (normalizeAdminName(loginName)) {
-            onAdmin(loginPassword);
-            return;
-        }
-
-        setLoginStatus("Loading...");
-        try {
-            await onLogin(loginName.trim(), loginPassword);
-        } finally {
-            setLoginStatus("");
-        }
-    }
-
-    return (
-        <div className="landing-auth-card landing-login-card start-card">
-            <div className="landing-login-head">
-                <div className="landing-login-art">
-                    <img src="/login-shinobi-legacy.webp" alt="" aria-hidden="true" />
-                    <div className="landing-login-art-copy">
-                        <p className="landing-kicker">Returning Shinobi</p>
-                        <h2 className="start-card-title landing-login-art-title">Continue Your Legacy</h2>
-                    </div>
-                </div>
-            </div>
-
-            {notice && <p className="start-hint landing-auth-notice">{notice}</p>}
-
-            <div className="landing-auth-body">
-                <label className="start-field">
-                    <span className="start-field-label">
-                        <span className="start-field-icon"><IconUser /></span>
-                        Name
-                    </span>
-                    <input
-                        className="start-input"
-                        value={loginName}
-                        onChange={(e) => setLoginName(e.target.value)}
-                        placeholder="Enter existing shinobi name"
-                        autoComplete="username"
-                    />
-                </label>
-
-                <label className="start-field">
-                    <span className="start-field-label">
-                        <span className="start-field-icon"><IconLock /></span>
-                        Password
-                    </span>
-                    <span className="start-input-wrap">
-                        <input
-                            className="start-input has-toggle"
-                            type={showLoginPw ? "text" : "password"}
-                            value={loginPassword}
-                            onChange={(e) => setLoginPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && submitLogin()}
-                            placeholder="Enter your password"
-                            autoComplete="current-password"
-                        />
-                        <button
-                            type="button"
-                            className="start-eye-btn"
-                            onClick={() => setShowLoginPw(s => !s)}
-                            aria-label={showLoginPw ? "Hide password" : "Show password"}
-                        >
-                            {showLoginPw ? <IconEyeOff /> : <IconEyeOpen />}
-                        </button>
-                    </span>
-                </label>
-
-                <button
-                    className="start-primary-btn landing-login-primary"
-                    onClick={submitLogin}
-                    disabled={!!loginStatus}
-                >
-                    {loginStatus || "Enter Village"}
-                </button>
-
-                <button type="button" className="landing-auth-secondary" onClick={onCreateAccount}>
-                    Create a New Shinobi
-                </button>
-
-                {/* There is no self-service password reset: accounts are name + password
-                    only, with no email or other ownership signal on file, so a reset has
-                    to go through a moderator who can verify the character. Saying so here
-                    is the difference between a locked-out player asking for help and one
-                    who assumes the game ate their account. */}
-                <p className="start-hint landing-auth-help">
-                    Forgotten your password? Ask a moderator on{" "}
-                    <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Discord</a>{" "}
-                    to verify your character and reset it.
-                </p>
-            </div>
-        </div>
     );
 }
 
@@ -446,9 +324,18 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         <h1 className="landing-title">
                             <BrandLockup variant="hero" />
                         </h1>
+                        {/* Says what the app IS, in plain words, above the fold.
+                            Atmosphere is the job of the sections below; this
+                            paragraph exists so a first-time visitor — or an
+                            OAuth reviewer checking that the home page explains
+                            the app's purpose — can tell what this is without
+                            interpreting flavour text. Keep the app name in it
+                            verbatim: it has to match the consent screen. */}
                         <p className="landing-tagline">
-                            Create your shinobi, master your jutsu, and step into a world of
-                            rival villages, hidden paths, and hard-earned legend.
+                            <strong>{APP_NAME}</strong> is a free role-playing game you play in your
+                            browser. Create a shinobi, train their stats and jutsu, take on missions
+                            and story chapters, raise companions, and test your build against other
+                            players across {villages.length} rival villages.
                         </p>
 
                         <div className="landing-stat-chips">

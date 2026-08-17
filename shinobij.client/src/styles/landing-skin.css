@@ -27,14 +27,34 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* flex-start + auto block margins on the frame, NOT justify-content:center.
+       Centring a flex child that is taller than its container clips it at BOTH
+       ends with no way to reach the overflow — which is exactly what happened
+       once the gate grew past a name and a password field: on a 900px-tall
+       desktop with a few remembered shinobi, the password-recovery line fell off
+       the bottom and could not be scrolled to. The auto margins still centre the
+       card whenever there is room. */
+    justify-content: flex-start;
     gap: 16px;
+    /* The extra block-end padding reserves the fixed storage-notice bar, which
+       is `position: fixed` with nothing anywhere reserving space for it — so on
+       a first visit it sat over the card's last rows, including the
+       password-recovery line. Measured 60px on desktop/tablet, 129px on a phone
+       where it wraps to three lines. It lives on the CONTAINER rather than the
+       frame on purpose: padding at the end of a scrolling flex column is not
+       reliably included in scrollHeight, so putting it on the child reserved
+       nothing. On a return visit, with the notice dismissed, the auto-centred
+       card just sits slightly higher. */
     padding: clamp(18px, 4vw, 40px) !important;
+    padding-block-end: calc(clamp(18px, 4vw, 40px) + 76px) !important;
     background:
         linear-gradient(90deg, rgba(3, 6, 13, 0.98) 0%, rgba(3, 6, 13, 0.84) 34%, rgba(3, 6, 13, 0.42) 66%, rgba(3, 6, 13, 0.76) 100%),
         linear-gradient(180deg, rgba(3, 6, 13, 0.58), rgba(3, 6, 13, 0.18) 42%, rgba(3, 6, 13, 0.92)),
         url("/landing-hero-village.webp") center / cover no-repeat;
-    overflow: hidden;
+    /* Y scrolls when the card is tall; X stays hidden so the decorative
+       gradients can bleed without ever producing a horizontal scrollbar. */
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .landing-login-screen::before {
@@ -53,6 +73,9 @@
     width: min(1120px, 100%);
     display: grid;
     gap: 18px;
+    /* Centres the card vertically when it fits, and simply starts at the top
+       when it does not — see the note on .landing-login-screen. */
+    margin-block: auto;
 }
 
 .landing-login-back {
@@ -173,18 +196,6 @@
     display: inline-flex;
     align-items: center;
     color: #fbbf24;
-}
-
-.landing-logo-readable {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
 }
 
 .landing-logo-art {
@@ -1317,6 +1328,9 @@
     .landing-login-screen {
         justify-content: flex-start;
         padding-top: clamp(18px, 4vw, 32px) !important;
+        /* The storage notice wraps to three lines on a phone (129px measured),
+           and the mobile nav sits under it — reserve the taller footprint. */
+        padding-block-end: 152px !important;
         background:
             linear-gradient(180deg, rgba(3, 6, 13, 0.74), rgba(3, 6, 13, 0.50) 34%, rgba(3, 6, 13, 0.96)),
             url("/landing-hero-village.webp") 58% center / cover no-repeat;
@@ -1756,4 +1770,234 @@
     .landing-cta {
         padding-inline: 24px;
     }
+}
+
+/* Roboto, self-hosted, solely for the "Sign in with Google" label.
+   Google's branding guidelines name a specific typeface for that button, and
+   Roboto is the freely-licensed one they have specified for it (Apache 2.0 —
+   see public/fonts/roboto-LICENSE.txt, shipped alongside as that licence
+   requires). Google Sans itself is a restricted trademark and is deliberately
+   NOT used.
+   Self-hosted rather than linked: `font-src 'self' data:` blocks Google Fonts,
+   and a webfont link would send every visitor's IP to Google on page load,
+   which would contradict the privacy policy's no-third-party-requests
+   statement. `display: swap` so a slow font never delays the sign-in button. */
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/fonts/roboto-v51-latin-regular.woff2") format("woff2");
+}
+
+/* ── The gate (screens/start/LoginGate.tsx) ──────────────────────────────────
+   Sits inside .landing-login-card, so the frame, art header and hint styles
+   above still apply. What is new here is the order of the doors: remembered
+   shinobi first, then the two that need nothing typed, then the password form.
+   Everything below is scoped under .login-gate so it cannot reach the landing
+   hero or the character creator. */
+
+.login-gate .gate-section-label {
+    margin: 0 0 8px;
+    color: var(--gold-300);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.login-gate .gate-error {
+    color: #fecaca;
+    border-left: 2px solid rgba(248, 113, 113, 0.7);
+    padding-left: 10px;
+}
+
+.login-gate .gate-remembered {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+/* The one-click return. Deliberately the heaviest control on the card: for a
+   returning player it is the only thing on this screen they need. */
+.login-gate .gate-account-chip {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 54px;
+    padding: 0 14px;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid rgba(250, 204, 21, 0.34);
+    background: linear-gradient(180deg, rgba(120, 53, 15, 0.42), rgba(2, 6, 23, 0.62));
+    color: #fff7d6;
+    text-align: left;
+    transition: border-color 0.15s, filter 0.15s, transform 0.15s;
+}
+
+.login-gate .gate-account-chip:hover:not(:disabled) {
+    border-color: rgba(250, 204, 21, 0.78);
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.login-gate .gate-account-chip:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+/* Initial medallion. Reads as a crest rather than a fallback: the ring and the
+   display face are doing the work a portrait would, and every shinobi gets a
+   visibly different one. */
+.login-gate .gate-account-avatar {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(250, 204, 21, 0.42);
+    background: radial-gradient(circle at 34% 28%, rgba(250, 204, 21, 0.26), rgba(2, 6, 23, 0.86) 70%);
+    box-shadow: inset 0 0 10px rgba(250, 204, 21, 0.16);
+    color: #fff7d6;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+/* Marks the character that disappears if it is not claimed. */
+.login-gate .gate-account-tag {
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px dashed rgba(202, 138, 4, 0.6);
+    color: var(--gold-300);
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.login-gate .gate-account-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.login-gate .gate-account-go {
+    flex: 0 0 auto;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--gold-300);
+}
+
+.login-gate .gate-doors {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+/* Google's own guidance is a white button with their wordmark colours intact,
+   which is also the only element on this card that is not gold — that contrast
+   is what makes it read as a third-party control rather than a game button. */
+/* Colours, padding, and logo treatment follow Google's light-theme custom-button
+   spec exactly (fill #FFFFFF, 1px #747775 stroke, #1F1F1F text, 12px edge
+   padding, 10px after the logo, logo neither resized in colour nor stretched).
+   Complying is a condition of brand verification, so do not restyle this to
+   match the gold buttons around it — the visual mismatch is the point.
+   https://developers.google.com/identity/branding-guidelines */
+.login-gate .gate-google-btn {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid #747775;
+    background: #ffffff;
+    color: #1f1f1f;
+    /* Roboto is now shipped with the app (see the @font-face above), so this
+       renders the same on every platform instead of falling through to whatever
+       each OS happened to have. The rest of the stack stays as a safety net for
+       the moments before the font loads or if it fails to.
+       Only weight 400 is bundled. CSS weight matching tries 400 first when 500
+       is asked for, so this uses the real face rather than a synthesised bold —
+       and if a Medium (500) file is ever added, it is picked up automatically
+       with no change here. */
+    font-family: "Roboto", system-ui, -apple-system, "Segoe UI Variable Text",
+        "Segoe UI", "Noto Sans", Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    transition: filter 0.15s, box-shadow 0.15s;
+}
+
+.login-gate .gate-google-btn:hover:not(:disabled) {
+    filter: brightness(0.96);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.login-gate .gate-google-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Square box, square viewBox: Google forbids stretching or recolouring the
+   mark, so this must never pick up a width/height that differ. */
+.login-gate .gate-google-mark {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+}
+
+.login-gate .gate-guest-btn {
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px dashed rgba(202, 138, 4, 0.5);
+    background: rgba(2, 6, 23, 0.42);
+    color: var(--gold-300);
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.login-gate .gate-guest-btn:hover:not(:disabled) {
+    color: #fff7d6;
+    border-color: rgba(250, 204, 21, 0.68);
+}
+
+.login-gate .gate-guest-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.login-gate .gate-password-toggle {
+    margin-bottom: 10px;
+}
+
+.login-gate .gate-password-form {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 12px;
 }

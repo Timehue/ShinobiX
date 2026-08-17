@@ -51,7 +51,9 @@ import {
     saveConflictAccountKey,
     type SaveConflictDraft,
 } from "./lib/save-conflict";
-import { authRateLimitMessage, requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
+import { fetchPlayerSave, verifyPlayerCredentials } from "./lib/player-login";
+import { finishGoogleRedirect, forgetGoogleNonce, readGoogleRedirect } from "./lib/google-signin";
+import { clearGuestSessionFor, rememberGuestSession, resumeGuestFor, signupRequestBody, type SignupCredential } from "./lib/guest-play";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { resolveDungeonWardenPortrait } from "./lib/ai-fight-art";
@@ -1442,7 +1444,15 @@ export default function App() {
             return raw ? String((JSON.parse(raw) as { currentAccountName?: string })?.currentAccountName ?? "") : "";
         } catch { return ""; }
     });
-    const [restoringSession, setRestoringSession] = useState<boolean>(() => Boolean(bootAccountName));
+    // Returning from Google. Read (and strip) the redirect once, before anything
+    // renders, so the ticket never lingers in the address bar. A pending sign-in
+    // holds the restore gate up too — otherwise the login form flashes underneath
+    // while the claim is still in flight.
+    const [googleRedirect] = useState(() => readGoogleRedirect());
+    const [googleNotice, setGoogleNotice] = useState("");
+    type GoogleSignupHandoff = { suggestedName: string; signupTicket: string; nonce: string };
+    const [googleSignup, setGoogleSignup] = useState<GoogleSignupHandoff | null>(null);
+    const [restoringSession, setRestoringSession] = useState<boolean>(() => Boolean(bootAccountName) || Boolean(googleRedirect));
     const [restoreFailed, setRestoreFailed] = useState(false);
     const sessionLoadGenerationRef = useRef(0);
     // Phase 1.3 (see docs/load-and-refresh-perf-audit-2026-06-08.md): true while
@@ -3554,6 +3564,10 @@ export default function App() {
         } catch {
             console.warn("Could not load local save data.");
         }
+        // A Google redirect is an explicit "sign me in as this account", so it
+        // takes precedence over restoring whoever used this browser last. Its
+        // own effect drives the rest.
+        if (googleRedirect) localAccountName = "";
 
         // Always try to pull full save from server (images live here, not in localStorage).
         // Re-prime the authFetch interceptor from localStorage so the auto-load fetch
@@ -3640,14 +3654,26 @@ export default function App() {
             Promise.all([
                 pullSaveFromServer(localAccountName),
                 fetchBattleLockStatus(localAccountName),
-            ]).then(([snap, lock]) => {
+            ]).then(async ([snap, lock]) => {
                 if (!restoreLoad.isCurrent()) return;
-                if (snap && saveConflictAccountKey(snap.character.name) === restoreLoad.accountKey) applySnapshot(snap, lock);
+                if (snap && saveConflictAccountKey(snap.character.name) === restoreLoad.accountKey) { applySnapshot(snap, lock); return; }
+                // A guest has no password to fall back on, so an expired token
+                // would otherwise strand them on a login form they can never
+                // satisfy. Their resume credential is exactly for this moment.
+                const guest = await resumeGuestFor(localAccountName, (a, b) => accountKey(a) === accountKey(b));
+                if (!restoreLoad.isCurrent()) return;
+                if (guest) {
+                    if (guest.token) setActiveToken(guest.token);
+                    setActivePlayer(guest.name);
+                    const retry = await pullSaveFromServer(guest.name);
+                    if (!restoreLoad.isCurrent()) return;
+                    if (retry && saveConflictAccountKey(retry.character.name) === restoreLoad.accountKey) return applySnapshot(retry, lock);
+                }
                 // Stored account but the pull failed (expired token / 4xx /
                 // network after retries) — surface the pre-filled login instead
                 // of silently sitting on the start screen (or on a stale
                 // optimistic paint).
-                else revertRestoreToLogin();
+                revertRestoreToLogin();
             }).finally(() => {
                 window.clearTimeout(restoreTimer);
                 if (!restoreLoad.isCurrent()) return;
@@ -3665,6 +3691,29 @@ export default function App() {
         // which 401 without auth — so skip it here. It loads as soon as they log in
         // or create a character (both call pullSharedAdminContent), dropping two
         // wasted 401s on every cold landing.
+    }, []);
+
+    // Finish a Google sign-in the browser is coming back from. Google decides
+    // who this is, so it wins over whatever account was last on this device.
+    useEffect(() => {
+        if (!googleRedirect) return;
+        let cancelled = false;
+        void finishGoogleRedirect(googleRedirect, {
+            needsSignup: (handoff) => { if (!cancelled) setGoogleSignup(handoff); },
+            failed: (message) => { if (!cancelled) setGoogleNotice(message); },
+            signedIn: async (name, token, linked) => {
+                if (cancelled) return;
+                // Linking is what stops a guest character being disposable, so
+                // its browser-bound credential is no longer the way back in.
+                if (linked) {
+                    setGoogleNotice("Google is now linked to this shinobi.");
+                    clearGuestSessionFor(name, (a, b) => accountKey(a) === accountKey(b));
+                }
+                await enterWithToken(name, token);
+            },
+        }).finally(() => { if (!cancelled) setRestoringSession(false); });
+        return () => { cancelled = true; };
+        // Runs once, for the redirect captured before the first render.
     }, []);
 
     useEffect(() => {
@@ -4819,21 +4868,22 @@ export default function App() {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, []);
 
-    async function createPlayerAccount(newCharacter: Character, password: string) {
+    async function createPlayerAccount(newCharacter: Character, credential: SignupCredential) {
         const createLoad = beginSessionLoad(sessionLoadGenerationRef, newCharacter.name);
         // Registration gives us a useful network window to warm the cinematic
         // that appears immediately after the first save succeeds.
         void loadIntroCinematic().catch(() => {});
         const key = accountKey(newCharacter.name);
+        const password = credential.mode === "password" ? credential.password : undefined;
         let regToken: string | undefined;
         try {
             const authRes = await sessionLoadFetch('/api/player-auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'register', name: newCharacter.name.toLowerCase(), password }),
+                body: JSON.stringify(signupRequestBody(newCharacter.name, credential)),
             });
             if (!createLoad.isCurrent()) return;
-            const regData = await authRes.json().catch(() => null) as { error?: string; token?: string } | null;
+            const regData = await authRes.json().catch(() => null) as { error?: string; token?: string; guestResume?: string } | null;
             if (!createLoad.isCurrent()) return;
             if (authRes.status === 409) {
                 alert(regData?.error ?? "A player with that name already exists. Log in instead or choose another name.");
@@ -4847,6 +4897,12 @@ export default function App() {
             // requests use the cheap HMAC path right away.
             regToken = regData?.token ?? undefined;
             if (regToken) setActiveToken(regToken);
+            // A guest has no password, so this credential is their only way back
+            // in once the 24h token lapses. Nothing else recovers the character.
+            if (credential.mode === "guest" && regData?.guestResume) {
+                rememberGuestSession({ name: newCharacter.name, resume: regData.guestResume });
+            }
+            if (credential.mode === "google") forgetGoogleNonce();
         } catch {
             alert("Could not reach the server to create the account. Check your connection and try again.");
             return;
@@ -4860,7 +4916,7 @@ export default function App() {
         // reauthKeepState does. (To require tokens, enforce on the SERVER first.)
         accounts[key] = { ...(accounts[key] ?? {}), ...(regToken ? { token: regToken } : {}) };
         savePlayerAccounts(accounts);
-        setActivePlayer(newCharacter.name, regToken ? undefined : password);
+        setActivePlayer(newCharacter.name, regToken ? undefined : password ?? undefined);
 
         const characterToCreate = await import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; });
         if (!createLoad.isCurrent()) return;
@@ -4968,90 +5024,55 @@ export default function App() {
         return true;
     }
 
+    /** Keep the per-account token blob in step after any successful sign-in. */
+    function rememberAccountToken(name: string, token: string) {
+        const key = accountKey(name);
+        if (!key) return;
+        const accounts = loadPlayerAccounts();
+        accounts[key] = { ...(accounts[key] ?? {}), token };
+        savePlayerAccounts(accounts);
+    }
+
+    /** Sign in with a token already in hand — Google, guest resume, or a remembered shinobi. */
+    async function enterWithToken(name: string, token?: string) {
+        if (token) { setActiveToken(token); rememberAccountToken(name, token); }
+        await enterGameAsPlayer(name, beginSessionLoad(sessionLoadGenerationRef, name));
+    }
+
+    /** One-click return for a shinobi this browser still holds a credential for. */
+    async function continueRememberedAccount(name: string) {
+        const stored = loadPlayerAccounts()[accountKey(name)]?.token;
+        if (stored) return enterWithToken(name, stored);
+        // A guest's token lapses after a day, but their resume credential is
+        // good for two weeks — so this is still a one-click return for them.
+        const guest = await resumeGuestFor(name, (a, b) => accountKey(a) === accountKey(b));
+        if (guest) return enterWithToken(guest.name, guest.token);
+        alert("That shinobi's session has ended on this device. Sign in again, or create a new character.");
+    }
+
     async function loginPlayerAccount(name: string, password: string) {
         const loginLoad = beginSessionLoad(sessionLoadGenerationRef, name);
 
-        // Always verify password against the server first — this is the authoritative check.
-        // Local localStorage only provides a fast-path pre-check.
-        let authOk = false;
-        let authVerified = false;
-        // Retry up to 2 times — handles Supabase cold starts (first call often slow)
-        for (let attempt = 0; attempt < 2 && !authVerified; attempt++) {
-            try {
-                if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
-                if (!loginLoad.isCurrent()) return;
-                const authRes = await sessionLoadFetch('/api/player-auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
-                }, 15000);
-                if (!loginLoad.isCurrent()) return;
-                if (authRes.status === 503) continue; // storage unavailable — retry
-                const authData = await authRes.json().catch(() => ({})) as PlayerAuthResponse;
-                if (!loginLoad.isCurrent()) return;
-                if (requiresLegacyAdminRecovery(authRes.status, authData)) {
-                    // A save without a server credential cannot be claimed from
-                    // localStorage. Only authenticated admin recovery may bind a
-                    // password to it, so never enter the offline/local fallback.
-                    alert("This legacy account does not yet have a server password. For your security, an administrator must verify ownership and reset the password before you can sign in.");
-                    return;
-                }
-                if (authRes.status === 403) {
-                    // Account is banned. Show the ban detail and bail out — don't
-                    // fall back to local cache, the server explicitly refused.
-                    const b = authData.ban;
-                    if (b) {
-                        const when = b.permanent ? "permanently" : `until ${new Date(b.until).toLocaleString()}`;
-                        alert(`⛔ Your account is banned ${when}.\n\nReason: ${b.reason || "(no reason given)"}`);
-                    } else {
-                        alert("⛔ Your account is banned.");
-                    }
-                    return;
-                }
-                if (authRes.status === 429) { alert(authRateLimitMessage(authData)); return; }
-                if (authRes.ok) {
-                    // Token presence is NOT part of the verdict: issuePlayerToken returns
-                    // null when SESSION_SECRET is unset (the documented password fallback,
-                    // as in createPlayerAccount). Requiring it rejected correct passwords.
-                    authOk = authData.ok === true;
-                    authVerified = true;
-                    // Store the session token so every later /api/ request uses
-                    // the cheap HMAC path instead of re-running scrypt server-side.
-                    if (authData.ok && authData.token) {
-                        setActiveToken(authData.token);
-                        // M5: migrate this account to token-only — drop any
-                        // previously-persisted plaintext password from the blob.
-                        // (Only runs on a successful ONLINE login; the offline
-                        // fallback below never reaches here, so it keeps its
-                        // password until the next successful online login.)
-                        const mk = accountKey(name);
-                        if (mk) {
-                            const maccs = loadPlayerAccounts();
-                            if (maccs[mk]) {
-                                maccs[mk] = { ...maccs[mk], token: authData.token };
-                                savePlayerAccounts(maccs);
-                            }
-                        }
-                    }
-                } else {
-                    // Non-retriable HTTP error — stop
-                    authVerified = true;
-                }
-            } catch {
-                // Network/timeout error — retry once, then require an online login.
-            }
+        // Always verify against the server first — this is the authoritative
+        // check; localStorage only provides a fast-path pre-check.
+        const verdict = await verifyPlayerCredentials(name, password, loginLoad.isCurrent);
+        if (!loginLoad.isCurrent() || verdict.status === "superseded") return;
+        if (verdict.status !== "ok") { alert(verdict.message); return; }
+        // Store the session token so every later /api/ request uses the cheap
+        // HMAC path instead of re-running scrypt server-side, and migrate this
+        // account to token-only by dropping any password an older build left in
+        // the local blob.
+        if (verdict.token) {
+            setActiveToken(verdict.token);
+            rememberAccountToken(name, verdict.token);
         }
-        if (!loginLoad.isCurrent()) return;
-        if (!authVerified) {
-            alert("Could not reach server to verify password. Check your connection and try again.");
-            return;
-        }
+        await enterGameAsPlayer(name, loginLoad, password);
+    }
 
-        if (!authOk) {
-            alert("Player name or password is incorrect.\n\nCheck for typos and capitals in your name. If you've forgotten your password, ask a moderator on Discord (discord.gg/bCQGs8r6SK) to verify your character and reset it.");
-            return;
-        }
-
+    // The second half of signing in: load the save and paint the game. Shared by
+    // the password login, Google sign-in, guest resume, and picking a remembered
+    // shinobi — all four are "we know who you are, now bring them in".
+    async function enterGameAsPlayer(name: string, loginLoad: ReturnType<typeof beginSessionLoad>, password?: string) {
         // Prime the authFetch interceptor *before* the save GET fires.
         // Without this, the interceptor has no credentials and the backend
         // returns 401, which the UI mistranslates as "no save found".
@@ -5062,35 +5083,18 @@ export default function App() {
         // autosave paths) and after every applyServerSnapshot, so it mirrors
         // the most-recent known state. The real save will arrive within a
         // few seconds and applyServerSnapshot will reconcile any drift. Skip
-        // silently if no cache exists (first-time login on this device) or if
-        // the cache's character.name doesn't match (handled inside readSavePreview).
+        // silently if no cache exists (first-time login on this device), if the
+        // cache's character.name doesn't match (handled inside readSavePreview),
+        // or if it predates a schema change and throws.
         const cachedPreview = readSavePreview(name);
         if (cachedPreview && cachedPreview.character) {
-            try {
-                applyServerSnapshot(cachedPreview as ReturnType<typeof buildPlayerSavePayload>);
-            } catch {
-                // Cache may be from an older schema — silently skip the
-                // instant-paint and let the server load take over.
-            }
+            try { applyServerSnapshot(cachedPreview as ReturnType<typeof buildPlayerSavePayload>); } catch { /* stale schema */ }
         }
 
-        // Always pull the full server save - this is where the real character state lives.
-        // Retry once on failure to handle transient Supabase cold starts.
-        let saveRes: Response | null = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-            try {
-                if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
-                if (!loginLoad.isCurrent()) return;
-                saveRes = await sessionLoadFetch(
-                    `/api/save/${encodeURIComponent(name.toLowerCase())}`,
-                    // authFetch uses the minted token here.
-                    undefined,
-                    20000,
-                );
-                if (!loginLoad.isCurrent()) return;
-                if (saveRes.status !== 503) break; // 503 = storage unavailable, retry
-            } catch { /* timeout/network — retry */ }
-        }
+        // Always pull the full server save — this is where the real character
+        // state lives. Retries once past a transient Supabase cold start.
+        const saveRes = await fetchPlayerSave(name, loginLoad.isCurrent);
+        if (!loginLoad.isCurrent()) return;
         if (!saveRes) {
             alert("Could not load your save from the server. Try again in a moment.");
             return;
@@ -5113,11 +5117,10 @@ export default function App() {
                 savePlayerAccounts(accs);
             }
             // Best-effort auth clear — if it fails they'll need admin help, but try.
-            void fetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'delete', name: name.trim().toLowerCase(), password }),
-            });
+            // The session token authorises this too, so it works for an account
+            // that has no password to send (Google sign-in, guest).
+            const clearBody = { action: 'delete', name: name.trim().toLowerCase(), ...(password ? { password } : {}) };
+            void fetch('/api/player-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clearBody) });
             currentAccountNameRef.current = "";
             resetSaveAuthorityScope();
             setSaveConflictDraft(null);
@@ -6553,8 +6556,10 @@ export default function App() {
                     <StartScreen
                         onCreate={createPlayerAccount}
                         onLogin={loginPlayerAccount}
+                        onContinueAs={continueRememberedAccount}
+                        googleSignup={googleSignup}
                         initialName={restoreFailed ? bootAccountName : ""}
-                        notice={restoreFailed ? "Your session timed out — log back in to restore your save. No progress is lost." : ""}
+                        notice={googleNotice || (restoreFailed ? "Your session timed out — log back in to restore your save. No progress is lost." : "")}
                         onAdmin={() => {
                             // The dedicated admin screen requires direct entry;
                             // never shuttle this credential through storage.
