@@ -2,12 +2,16 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
     PVP_BROWSER_RECOVERY_TTL_MS,
-    contextFromPendingPvpSession,
     decidePvpCreateRecovery,
-    fetchPendingPvpRecovery,
-    fetchPendingPvpRecoveryWithRetry,
     readPvpBrowserBreadcrumb,
 } from "./pvp-pending-session";
+// The network half moved to pvp-pending-fetch so the startup graph stops
+// carrying PvP recovery; the breadcrumb reader above stays on the boot path.
+import {
+    contextFromPendingPvpSession,
+    fetchPendingPvpRecovery,
+    fetchPendingPvpRecoveryWithRetry,
+} from "./pvp-pending-fetch";
 import { createPvpSessionWithRecovery } from "./pvp-session-create";
 import type { PvpSessionState } from "../types/pvp-ui";
 

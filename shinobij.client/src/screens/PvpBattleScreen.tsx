@@ -73,7 +73,7 @@ import {
     pvpRuntimeScopeKey,
     splitPvpMoveResponse,
 } from "../lib/pvp-session-runtime";
-import { fetchPendingPvpRecovery } from "../lib/pvp-pending-session";
+import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line

@@ -204,8 +204,8 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
-import { fetchPendingPvpRecovery, fetchPendingPvpRecoveryWithRetry, readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
-import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "./lib/pvp-session-create";
+import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
+const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
 import type { OwnSaveReadAnchor, OwnSaveReadResult } from "./lib/own-save-read"; const loadOwnSaveRead = () => import("./lib/own-save-read");
 import { playerRankedAuthorityFromChallenge } from "./lib/player-ranked-authority";
@@ -294,7 +294,6 @@ import {
     type CreatorMission,
     type CreatorRaid,
 } from "./types/missions";
-import type { PvpSessionState } from "./types/pvp-ui";
 export type {
     Profession,
     Screen,
@@ -2267,7 +2266,7 @@ export default function App() {
                         p2Character: { name: p2Name },
                     });
                     try {
-                        const result = await createPvpSessionWithRecovery(fetch, ownerName, requestBody, {
+                        const result = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, ownerName, requestBody, {
                             signal: createScope.signal, isCurrent: createScope.isCurrent,
                         });
                         if (!createScope.isCurrent()) return;
@@ -3176,7 +3175,7 @@ export default function App() {
                     },
                 });
             const createScope = capturePvpCreateScope(acceptingCharacter.name);
-            const createResult = await createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody, {
+            const createResult = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody, {
                 signal: createScope.signal,
                 isCurrent: () => acceptanceIsCurrent() && createScope.isCurrent(),
             });
@@ -3305,7 +3304,7 @@ export default function App() {
                 pvpSessionAliveOnServer = true;
             }
             const recoveryScope = capturePvpCreateScope(snap.character.name);
-            void fetchPendingPvpRecoveryWithRetry(fetch, snap.character.name, recoveryScope).then((pending) => {
+            void loadPvpPendingFetch().then((m) => m.fetchPendingPvpRecoveryWithRetry(fetch, snap.character.name, recoveryScope)).then((pending) => {
                 if (!pending || !recoveryScope.isCurrent()) return;
                 installPvpRecovery(pending, restoredPvpScope);
                 setScreen("pvpBattle");
@@ -7131,10 +7130,10 @@ export default function App() {
                                 p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
                                 p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                             });
-                            setPvpBattleId(pvpStableBattleIdFromRequestBody(createBody));
+                            setPvpBattleId((await loadPvpSessionCreate()).pvpStableBattleIdFromRequestBody(createBody));
                             setPvpRole("p1");
                             setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
-                            const createResult = await createPvpSessionWithRecovery(fetch, createOwnerName, createBody, {
+                            const createResult = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, createOwnerName, createBody, {
                                 signal: createScope.signal, isCurrent: createIsCurrent,
                             });
                             if (!createIsCurrent()) return;
