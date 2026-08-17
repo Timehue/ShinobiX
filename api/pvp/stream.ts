@@ -7,6 +7,7 @@ import {
     parsePlayerRankedSessionCloseTombstone,
     parsePlayerRankedSessionOrphanTombstone,
 } from '../pet/_ranked-preparation.js';
+import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
 
 // GET /api/pvp/stream?id=<battleId>
 //
@@ -85,7 +86,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Initial session fetch — bail with 404 if the battle doesn't exist
     // BEFORE upgrading to a stream. Saves an SSE connection on bad IDs.
     const initialRaw = await kv.get<unknown>(key);
-    if (!initialRaw) return res.status(404).json({ error: 'Session not found' });
+    // A rolled-back publication is an absent battle, not a malformed one — a
+    // 502 here would read to the client as a server fault worth retrying.
+    if (!initialRaw || pvpSessionPublicationTombstoneFor(initialRaw, battleId)) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
     if (isRankedSessionTerminalControl(initialRaw, battleId)) {
         return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
     }
@@ -133,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await new Promise<void>(r => setTimeout(r, POLL_INTERVAL_MS));
             if (aborted) break;
             const rawSession = await kv.get<unknown>(key);
-            if (!rawSession) {
+            if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
                 sendEvent('end', { reason: 'session-expired' });
                 break;
             }

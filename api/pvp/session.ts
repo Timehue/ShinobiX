@@ -24,6 +24,15 @@ import {
     PLAYER_RANKED_ORPHAN_TOMBSTONE_TTL_SECONDS,
     type PlayerRankedAdmission,
 } from '../pet/_ranked-preparation.js';
+import {
+    isPvpSessionPublicationCapability,
+    makePvpSessionPublicationTombstone,
+    pvpSessionPublicationTombstoneFor,
+    pvpSessionPublicationTombstoneMatchesCapability,
+    PVP_PUBLICATION_ADMIN_CREATOR,
+    PVP_SESSION_PUBLICATION_TOMBSTONE_TTL_SECONDS,
+    type PvpSessionPublicationCapability,
+} from './_session-publication-tombstone.js';
 import { releaseChallengePvpReservation, reserveChallengeForPvpSession } from './_challenge-authorization.js';
 import {
     releaseClanWarPvpReservation,
@@ -433,19 +442,57 @@ async function quarantineUnconfirmedPlayerRankedSession(
     throw new Error('player-ranked-quarantine-busy');
 }
 
-async function rollbackExactUnownedPvpSession(expected: PvpSession): Promise<void> {
+/**
+ * Take back the exact row this request published when the rest of the
+ * publication saga failed.
+ *
+ * The battle id is fenced with a same-capability tombstone rather than simply
+ * deleted, so that a stale copy of this very request — one still paused inside
+ * the publication block — cannot re-place the row after we walked away from it
+ * and leave a live session that no recovery pointer indexes. The identical
+ * request retrying is the one writer allowed to take the id back; see
+ * _session-publication-tombstone.ts for why both halves of that rule matter.
+ *
+ * Player-ranked battle ids are exempt: the admission gate owns them and its own
+ * cancellation CAS only tolerates the exact session row, its own orphan
+ * tombstone, or absence. Those keep the delete.
+ */
+async function rollbackExactUnownedPvpSession(
+    expected: PvpSession,
+    capability: PvpSessionPublicationCapability | null,
+): Promise<void> {
     const key = `pvp:${expected.battleId}`;
+    const fence = capability
+        && !isAuthoritativePlayerRankedSession(expected)
+        && isPvpSessionPublicationCapability(capability)
+        && capability.battleId === expected.battleId
+        ? capability
+        : null;
     for (let attempt = 0; attempt < 12; attempt += 1) {
         const current = await kv.get<unknown>(key);
         if (current === null) return;
+        if (fence && pvpSessionPublicationTombstoneMatchesCapability(current, fence)) return;
         if (!isDeepStrictEqual(current, expected)) {
             throw new Error('pvp-session-publication-rollback-conflict');
         }
+        if (!fence) {
+            try {
+                if (await kv.delIfEqual(key, current)) return;
+            } catch (error) {
+                const recovered = await kv.get<unknown>(key);
+                if (recovered === null) return;
+                throw error;
+            }
+            continue;
+        }
+        const tombstone = makePvpSessionPublicationTombstone(fence, Date.now());
         try {
-            if (await kv.delIfEqual(key, current)) return;
+            if (await kv.compareSet(key, current, tombstone, {
+                ex: PVP_SESSION_PUBLICATION_TOMBSTONE_TTL_SECONDS,
+            })) return;
         } catch (error) {
-            const recovered = await kv.get<unknown>(key);
-            if (recovered === null) return;
+            const recovered = await kv.get<unknown>(key).catch(() => null);
+            if (pvpSessionPublicationTombstoneMatchesCapability(recovered, fence)) return;
             throw error;
         }
     }
@@ -1537,7 +1584,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             try {
                 const pointer = await loadPvpPendingSessionPointer(kv, requestedPlayer);
                 if (!pointer) return res.status(404).json({ error: 'No pending PvP session.' });
-                const liveRaw = await kv.get<unknown>(`pvp:${pointer.battleId}`);
+                const rawRow = await kv.get<unknown>(`pvp:${pointer.battleId}`);
+                // A publication fence is not a session row. Read it as absence
+                // so recovery keeps its snapshot / reservation-freshness path,
+                // exactly as it behaved when rollback deleted the row.
+                const liveRaw = pvpSessionPublicationTombstoneFor(rawRow, pointer.battleId) ? null : rawRow;
                 if (parsePlayerRankedSessionCloseTombstone(liveRaw)?.battleId === pointer.battleId
                     || parsePlayerRankedSessionOrphanTombstone(liveRaw)?.battleId === pointer.battleId
                     || pvpSessionHasRankedCloseFence(liveRaw)) {
@@ -1599,7 +1650,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // hide a session that finishes publishing during the bounded retry.
         res.setHeader('Cache-Control', 'no-store');
         const sessionRaw = await kv.get<unknown>(`pvp:${battleId}`);
-        if (!sessionRaw) return res.status(404).json({ error: 'Session not found' });
+        if (!sessionRaw) {
+            // A settled player-ranked terminal compacts back to the ordinary
+            // session lease, so absence here is not proof the battle never
+            // happened. The sealed snapshot answers for the rest of the claim
+            // horizon. It exists only because the publication barrier already
+            // ran, so — exactly as the pointer path above does when there is no
+            // live row — it is returned without re-running that barrier.
+            let recovered: PvpSession | null = null;
+            try {
+                recovered = await loadPvpRewardRecoverySnapshot(kv, battleId);
+            } catch (error) {
+                // A corrupt snapshot is not absence. Answering 404 would tell a
+                // client its finished battle never existed; keep it retryable.
+                console.error('[pvp/session] recovery snapshot unreadable', error);
+                return res.status(503).json({
+                    error: 'Battle recovery snapshot is unavailable. Retry this session.',
+                });
+            }
+            if (!recovered) return res.status(404).json({ error: 'Session not found' });
+            return res.status(200).json(recovered);
+        }
+        // A rolled-back publication reads as absence, never as a session body.
+        if (pvpSessionPublicationTombstoneFor(sessionRaw, battleId)) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
         if (parsePlayerRankedSessionCloseTombstone(sessionRaw)?.battleId === battleId
             || parsePlayerRankedSessionOrphanTombstone(sessionRaw)?.battleId === battleId
             || pvpSessionHasRankedCloseFence(sessionRaw)) {
@@ -1704,6 +1779,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 weatherPositiveElement: typeof weatherPositiveElement === 'string' ? weatherPositiveElement : null,
                 weatherNegativeElement: typeof weatherNegativeElement === 'string' ? weatherNegativeElement : null,
             })).digest('hex');
+            // The identity a rolled-back battle id stays reserved for. Same
+            // inputs as the fingerprint above, kept as explicit fields so a
+            // publication tombstone can be re-checked field by field instead of
+            // on the digest alone. Null (a nameless or self-duelling creator)
+            // simply means this request cannot fence a battle id.
+            const publicationCapabilityFor = (
+                candidateBattleId: string,
+            ): PvpSessionPublicationCapability | null => {
+                const capability = {
+                    battleId: candidateBattleId,
+                    creator: identity.admin ? PVP_PUBLICATION_ADMIN_CREATOR : identity.name,
+                    p1: p1Norm,
+                    p2: p2Norm,
+                    createRequestFingerprint: createRequestFingerprintFor(candidateBattleId),
+                };
+                return isPvpSessionPublicationCapability(capability) ? capability : null;
+            };
 
             if (!identity.admin) {
                 const me = identity.name;
@@ -1719,7 +1811,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(400).json({ error: 'You cannot duel yourself.' });
                 }
                 if (stableBattleIdRequested) {
-                    const existing = await kv.get<PvpSession>(`pvp:${battleId}`);
+                    const existingRaw = await kv.get<unknown>(`pvp:${battleId}`);
+                    // A publication tombstone is a fence, not a session. Only
+                    // the capability that published the rolled-back generation
+                    // may take the battle id back — for anyone else the id
+                    // stays bound, exactly as if the row were still live.
+                    const fence = pvpSessionPublicationTombstoneFor(existingRaw, battleId);
+                    if (fence) {
+                        const capability = publicationCapabilityFor(battleId);
+                        if (!capability
+                            || !pvpSessionPublicationTombstoneMatchesCapability(fence, capability)) {
+                            return res.status(409).json({ error: 'That stable battle capability is already bound to another session.' });
+                        }
+                    }
+                    const existing = fence ? null : existingRaw as PvpSession | null;
                     if (existing) {
                         const exactRetry = existing.battleId === battleId
                             && safeName(existing.p1?.name ?? '') === p1Norm
@@ -1912,7 +2017,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: 'That accepted clan-war challenge cannot authorize this PvP session.' });
             }
             if (clanWarReservation && !clanWarReservation.owned) {
-                const existing = await kv.get<PvpSession>(`pvp:${clanWarReservation.battleId}`);
+                const existingRow = await kv.get<unknown>(`pvp:${clanWarReservation.battleId}`);
+                // A rolled-back publication is not an inconsistent canonical
+                // battle — it is no battle at all. Republish instead of 409ing.
+                const existing = pvpSessionPublicationTombstoneFor(existingRow, clanWarReservation.battleId)
+                    ? null
+                    : existingRow as PvpSession | null;
                 if (existing) {
                     const canonical = existing.battleId === clanWarReservation.battleId
                         && existing.rewardAuthority === 'clan-war'
@@ -2495,6 +2605,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             let publishedSession = session;
+            // Fence the battle id on rollback for every publication EXCEPT the
+            // player-ranked branch below. There the admission gate owns the id:
+            // its quarantine writer and the season-close cancellation both CAS
+            // against the exact session row, its own orphan tombstone, or
+            // absence, and a foreign row makes them throw
+            // (player-ranked-active-cancellation-unfenced) instead of cancelling
+            // — poisoning the match rather than fencing it. Keyed on the same
+            // condition that selects the ranked publication path, not on a
+            // re-derivation from the session shape.
+            const publicationCapability = rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId
+                ? null
+                : publicationCapabilityFor(battleId);
             try {
                 const sessionKey = `pvp:${battleId}`;
                 if (creatorReservation) {
@@ -2518,13 +2640,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         publishedSession = existing;
                     }
                 } else {
-                    const placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
+                    let placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
                     if (!placed) {
                         let existing = await kv.get<unknown>(sessionKey);
-                        if (!pvpSessionMatchesCreateRetry(existing, session)) {
-                            throw new Error('pvp-session-capability-conflict');
+                        // A fence left by an earlier rollback of THIS exact
+                        // create capability is the one row this publication may
+                        // overwrite — that is the whole 503-retry contract. The
+                        // swap is a CAS on the exact tombstone, so a foreign
+                        // writer that got there first still wins the conflict.
+                        if (publicationCapability
+                            && pvpSessionPublicationTombstoneMatchesCapability(existing, publicationCapability)) {
+                            placed = await kv.compareSet(sessionKey, existing, session, {
+                                ex: SESSION_TTL,
+                            }) ? 'OK' : null;
+                            if (!placed) existing = await kv.get<unknown>(sessionKey);
                         }
-                        publishedSession = existing;
+                        if (!placed) {
+                            if (!pvpSessionMatchesCreateRetry(existing, session)) {
+                                throw new Error('pvp-session-capability-conflict');
+                            }
+                            publishedSession = existing;
+                        }
                     }
                 }
             } catch (writeError) {
@@ -2560,7 +2696,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 try {
                     await requireClanWarPvpReservation(clanWarReservation);
                 } catch (error) {
-                    if (isDeepStrictEqual(publishedSession, session)) await rollbackExactUnownedPvpSession(session);
+                    if (isDeepStrictEqual(publishedSession, session)) {
+                        await rollbackExactUnownedPvpSession(session, publicationCapability);
+                    }
                     if (creatorPointer) {
                         await clearPvpPendingSessionPointer(
                             kv,
@@ -2635,7 +2773,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // Exact readback proves activation; continue to success.
                     } else {
                         if (isDeepStrictEqual(publishedSession, session)) {
-                            await rollbackExactUnownedPvpSession(session);
+                            await rollbackExactUnownedPvpSession(session, publicationCapability);
                         }
                         if (exactPointer?.phase === 'reserving') {
                             await clearPvpPendingSessionPointer(

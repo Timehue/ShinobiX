@@ -10,6 +10,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { isPlayerOnline, stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import type { PvpSession } from '../pvp/session.js';
+import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-tombstone.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
 import {
     canDeclareChallenge, isChallengeExpired, newChallenge, applyPress, applySeatTransfer,
@@ -224,8 +225,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // duel must be a live session fought by exactly {seated Kage, challenger}
             // (an abandoned real duel is handled by PvP's own AFK-claim, which
             // completes the session and auto-settles the seat).
-            const session = await kv.get<PvpSession>(`pvp:${battleId}`);
-            const sessionFighters = session ? [safeName(session.p1.name), safeName(session.p2.name)] : null;
+            const sessionRow = await kv.get<PvpSession>(`pvp:${battleId}`);
+            // A rolled-back publication leaves a fence at the battle key, not a
+            // session — reading it as one would dereference absent fighters.
+            const session = pvpSessionPublicationTombstoneFor(sessionRow, battleId) ? null : sessionRow;
+            const sessionFighters = session?.p1 && session.p2
+                ? [safeName(session.p1.name), safeName(session.p2.name)]
+                : null;
             const out = await withKvLock<{ status: number; body: unknown; sealBattleId?: string; challengeId?: string }>(key, async () => {
                 let raw = await kv.get<KageStateLike>(key);
                 let state = raw ?? { kageSystemUnlocked: false };

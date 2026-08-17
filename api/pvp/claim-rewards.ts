@@ -25,6 +25,7 @@ import {
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
 import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
+import { compactSettledPlayerRankedSession } from './_ranked-terminal-effects.js';
 import { boundExactPvpSession } from './_session-mutation.js';
 import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import { settleRaidProgressionWithDailyCap, type CappedRaidProgressionResult } from '../missions/_raid-progression.js';
@@ -44,6 +45,7 @@ import {
     loadPvpRewardRecoverySnapshot,
     sealPvpRewardRecoverySnapshot,
 } from './_reward-recovery.js';
+import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
 import {
     clearPvpPendingSessionPointer,
     PVP_PENDING_SESSION_TTL_SECONDS,
@@ -199,7 +201,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // unlocking the client-applied ryo / XP / ranked-rating / clan-war
         // grants on the next save flush. Mirrors the verification regime
         // already used by api/missions/report-pvp-win.ts.
-        const liveSession = await kv.get<PvpSession>(`pvp:${battleId}`);
+        const liveRow = await kv.get<PvpSession>(`pvp:${battleId}`);
+        // A publication fence is not a session. Read it as absence so the
+        // durable terminal snapshot still answers, exactly as it did when a
+        // rolled-back publication deleted the row outright.
+        const liveSession = pvpSessionPublicationTombstoneFor(liveRow, battleId) ? null : liveRow;
         let session = liveSession
             ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
         if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
@@ -502,7 +508,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const journal = playerRankedJournal;
                     if (!journal) throw new Error('player-ranked-journal-missing');
                     const settled = await settlePlayerRankedJournal(kv, journal, Date.now());
-                    await boundExactPvpSession(kv, `pvp:${battleId}`, session, PVP_TERMINAL_REPLAY_TTL);
+                    // A settled terminal compacts to the ordinary session lease;
+                    // anything still unproven keeps the discoverable replay
+                    // horizon so the other side's claim can help it forward.
+                    if (!await compactSettledPlayerRankedSession(kv, session, settled.journal)) {
+                        await boundExactPvpSession(kv, `pvp:${battleId}`, session, PVP_TERMINAL_REPLAY_TTL);
+                    }
                     const side = claimerSlug === journal.terminal.a ? 'a'
                         : claimerSlug === journal.terminal.b ? 'b'
                             : null;
