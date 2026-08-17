@@ -28,6 +28,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
 import { enforceRateLimit } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 import { safeLogValue } from './api/_safe-log.js';
@@ -1596,6 +1597,34 @@ app.use((req, res, next) => {
         res.setHeader('X-Robots-Tag', 'noindex');
     }
     next();
+});
+
+// Prerendered legal pages (privacy, terms, …). These are client-side routes, so
+// the SPA fallback below answers them with a shell containing no policy text —
+// which is what anything that does not execute JavaScript would receive at the
+// privacy policy URL published on the OAuth consent screen. build-client.mjs
+// writes a static copy of each page into dist/prerendered/ at build time.
+//
+// The directory listing IS the allowlist: a slug is served here only because a
+// file for it exists, so this cannot be coaxed into reading arbitrary paths, and
+// a build that skipped the prerender step falls through to the SPA fallback and
+// behaves exactly as it did before. Read once at boot — dist only changes on
+// deploy, and a deploy always restarts the process.
+const _prerenderedPages = new Map<string, Buffer>();
+try {
+    const dir = join(staticDir, 'prerendered');
+    for (const file of readdirSync(dir)) {
+        if (file.endsWith('.html')) _prerenderedPages.set(file.slice(0, -'.html'.length), readFileSync(join(dir, file)));
+    }
+} catch {
+    // No prerendered output in this build; the SPA fallback still serves these paths.
+}
+
+app.get('/:slug', (req, res, next) => {
+    const page = _prerenderedPages.get(req.params.slug);
+    if (!page) { next(); return; }
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(page);
 });
 
 app.use(express.static(staticDir, {
