@@ -45,6 +45,11 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'lastLoginRewardDate', 'loginStreak', 'academyChecklistClaimed', 'academyTrialClaimed',
     'cardClashDailyWinDate', 'claimedWarCrateIds', 'claimedVillageAgendaDate',
     'claimedMapControlDate', 'warGroundBountyDate', 'villageWarMissionDate',
+    // Exact-once Honor Seal intents and debit receipts co-written by the
+    // village-war declaration funding and mercenary sagas
+    // (api/_war-declaration-funding.ts, api/_war-mercenary-hire.ts).
+    // Server-owned payout stamps.
+    'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
     'villageWarRaidProgress', 'lastExpeditionClaimDate', 'expeditionsClaimedToday',
     'expeditionStartAllowance', 'expeditionStartReceipts', 'petEscortBonusReady',
     'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',

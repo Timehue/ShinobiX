@@ -43,7 +43,12 @@ test("the opponent's turn does not replace the PvP jutsu or battle-log area", ()
 });
 
 test("the PvP battle log uses the large scrollable PvE-style text feed", () => {
-    assert.match(source, /<PlainCombatBattleLog[\s\S]*?lines=\{session\.log\}/);
+    // The feed is still session-owned; battleLogLines is session.log plus a
+    // transient move-feedback line, so assert both the wiring and its derivation
+    // rather than the old inline lines={session.log}.
+    assert.match(source, /<PlainCombatBattleLog[\s\S]*?lines=\{battleLogLines\}/);
+    assert.match(source, /const battleLogLines = session && moveFeedback\s*\?\s*\[\.\.\.session\.log, `⚠️ \$\{moveFeedback\}`\]\s*:\s*\(session\?\.log \?\? \[\]\)/,
+        "the PvP log must stay fed by the authoritative session log");
     assert.match(source, /from "\.\.\/components\/CombatHudLayout"/);
     assert.match(combatHudSource, /className=\{classNames\("combat-text-log", className\)\}/);
     assert.match(
