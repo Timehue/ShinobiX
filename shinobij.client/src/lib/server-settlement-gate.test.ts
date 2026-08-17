@@ -147,8 +147,11 @@ describe("server settlement policy", () => {
         const bank = source("../screens/Bank.tsx");
         assertGuardBefore(bank, "moveRyo", "bankDeposit", "fetch(\"/api/bank/transfer\"");
 
-        const arena = source("../screens/Arena.tsx");
-        assertGuardBefore(arena, "joinRankedQueue", "rankedPvp", "setRankedQueueActive(");
+        // joinRankedQueue moved with the rest of the ranked queue lifecycle into
+        // the Arena hook; the rankedPvp release gate must still precede the first
+        // local mutation there.
+        const rankedQueueHook = source("../features/arena/hooks/use-ranked-queue.ts");
+        assertGuardBefore(rankedQueueHook, "joinRankedQueue", "rankedPvp", "setRankedQueueActive(");
         const rankedServer = source("../../../api/pvp/ranked-queue.ts");
         assert.match(rankedServer, /rankedPvpActionAllowedDuringSettlement\(action\)/);
         assert.doesNotMatch(rankedServer, /Ranked PvP is temporarily unavailable/);
