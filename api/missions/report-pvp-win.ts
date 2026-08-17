@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { reportMissionEvent } from './_progress.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
+import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { hasRecentIpOverlap, hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { extractPvpLegacyDeltas, guardDefenseDeltas } from '../_legacy-pvp.js';
@@ -54,7 +55,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // — must match what session.ts writes and move.ts reads (an earlier
         // mismatched `pvp:session:${id}` here silently 404'd every Vanguard
         // PvP-win mission report).
-        const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+        // A settled player-ranked terminal compacts back to the ordinary session
+        // lease well inside this endpoint's 24h replay window, so the live row is
+        // not the only authority. The sealed recovery snapshot is an immutable
+        // copy of the same terminal — the one claim-rewards already validates
+        // against — and keeps a late report honest instead of 404-ing it.
+        const session = await kv.get<PvpSession>(`pvp:${battleId}`)
+            ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
         if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
