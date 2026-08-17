@@ -18,6 +18,7 @@ const NEW_DEFENDER = 'Stormveil Village';
 const TERRITORY_KEY = `world:territory:${SECTOR}`;
 const ATTACKER_TERRITORY_KEY = `world:territory:${ATTACKER_SECTOR}`;
 const ATTACKER_WR_KEY = 'shared:village-war:moonshadowvillage';
+const CALLER_SAVE_KEY = 'save:authorityraceadmin';
 const OLD_CONTEST_KEY = 'shared:sector-war:23:moonshadowvillage-vs-frostfangvillage';
 const NEW_CONTEST_KEY = 'shared:sector-war:23:moonshadowvillage-vs-stormveilvillage';
 
@@ -110,5 +111,43 @@ describe('sector-war declaration territory authority race', { concurrency: false
             const row = await kv.get<{ status?: string }>(key);
             assert.notEqual(row?.status, 'reserved', `${key} must not retain a live reservation`);
         }
+    });
+});
+
+/*
+ * Why this route returns no `_saveVersion` (see api/save/_version-echo-coverage.test.ts):
+ * a sector declaration spends the VILLAGE's War Resource pool, never a player's
+ * Honor Seals, so _war-declaration-funding.ts takes its `war-resources` branch
+ * and no player save is opened or versioned. There is no committed save version
+ * to thread out. If this ever changes, the declaring player must be told.
+ */
+describe('sector-war declaration funding source', { concurrency: false }, () => {
+    it('debits the village War Resource pool and versions no player save', async () => {
+        const callerSave = {
+            _saveVersion: 3,
+            _saveAt: Date.now() - 1_000,
+            character: { name: 'Authority Race Admin', village: ATTACKER, honorSeals: 800 },
+        };
+        await kv.set(CALLER_SAVE_KEY, callerSave);
+
+        const response = await declare();
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+
+        const pool = await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY);
+        assert.ok(
+            (pool?.warResources ?? 1_000) < 1_000,
+            'the declaration must spend the attacking village’s War Resources',
+        );
+
+        const funding = (await kv.get<Record<string, unknown>>(OLD_CONTEST_KEY))?.declarationFunding as
+            { status?: string; source?: { kind?: string; recordKey?: string } } | undefined;
+        assert.equal(funding?.status, 'active');
+        assert.equal(funding?.source?.kind, 'war-resources');
+        assert.equal(funding?.source?.recordKey, ATTACKER_WR_KEY);
+
+        // No `save:` row was touched at all, so the 200 has no save version to
+        // echo and cannot strand a stale `_baseSaveVersion` on the client.
+        assert.deepEqual(await kv.keys('save:*'), [CALLER_SAVE_KEY]);
+        assert.deepEqual(await kv.get(CALLER_SAVE_KEY), callerSave);
     });
 });
