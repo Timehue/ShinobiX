@@ -120,6 +120,79 @@ describe('world-state village-war declaration authority', { concurrency: false }
         assert.equal(receipts[0].amount, 0);
     });
 
+    // The war-map kill switch swaps the declaration's funding source from the
+    // village WR pool to the declaring Kage's Honor Seals — the one branch of
+    // _war-declaration-funding.ts that versions a player save. The charged
+    // player must be told the committed version, or their next autosave 409s
+    // and silently rolls back whatever it had in flight
+    // (api/save/_version-echo-coverage.test.ts).
+    it('echoes the declaring Kage’s committed save version when Honor Seals fund the war', async () => {
+        await kv.set('save:leafkage', {
+            _saveVersion: 4,
+            _saveAt: Date.now() - 1_000,
+            character: { name: 'Leaf Kage', village: 'Leaf', honorSeals: 800 },
+        });
+        process.env.DISABLE_VILLAGE_WAR = '1';
+        let declared;
+        try {
+            declared = await invoke('leafkage', ['Leaf', 'Mist']);
+        } finally {
+            delete process.env.DISABLE_VILLAGE_WAR;
+        }
+
+        assert.equal(declared.statusCode, 200, declared.body?.error);
+        const save = await kv.get<Record<string, any>>('save:leafkage');
+        assert.equal(save?.character?.honorSeals, 300, 'the declaration must spend 500 Honor Seals');
+        assert.ok(Number(save?._saveVersion) > 4, 'the Honor debit must version the charged save');
+        assert.equal(
+            declared.body?._saveVersion,
+            save?._saveVersion,
+            'the 200 must echo the exact committed save version, not a stale or rounded one',
+        );
+
+        // A war-resources declaration versions no save, so it must NOT invent one.
+        const keys = await kv.keys('*');
+        if (keys.length) await kv.del(...keys);
+        await kv.set('world:territory:1', { sector: 1, ownerVillage: 'Mist' });
+        await kv.set('shared:village-war:leaf', { warResources: 0, structures: {} });
+        await kv.set('save:leafkage', { _saveVersion: 4, character: { name: 'Leaf Kage', village: 'Leaf' } });
+        await kv.set('village:kage:leaf', { seatedKage: 'leafkage' });
+        const wrDeclared = await invoke('leafkage', ['Leaf', 'Mist']);
+        assert.equal(wrDeclared.statusCode, 200, wrDeclared.body?.error);
+        assert.equal(wrDeclared.body?._saveVersion, undefined);
+        assert.equal((await kv.get<Record<string, any>>('save:leafkage'))?._saveVersion, 4);
+    });
+
+    // The commonest Honor outcome is a REFUSAL, and it is version-bumping too:
+    // the source intent and the abort fence that releases it are both versioned
+    // writes, so a Kage who cannot afford the war pays nothing yet still moves
+    // their save version. Refusing without telling them is the same in-flight
+    // state loss as a silent success, for no gain at all.
+    it('echoes the committed save version when Honor Seals are too few to declare', async () => {
+        await kv.set('save:leafkage', {
+            _saveVersion: 4,
+            character: { name: 'Leaf Kage', village: 'Leaf', honorSeals: 100 },
+        });
+        process.env.DISABLE_VILLAGE_WAR = '1';
+        let refused;
+        try {
+            refused = await invoke('leafkage', ['Leaf', 'Mist']);
+        } finally {
+            delete process.env.DISABLE_VILLAGE_WAR;
+        }
+
+        assert.equal(refused.statusCode, 400);
+        assert.match(String(refused.body?.error), /Honor Seals/);
+        const save = await kv.get<Record<string, any>>('save:leafkage');
+        assert.equal(save?.character?.honorSeals, 100, 'a refused declaration must spend nothing');
+        assert.ok(Number(save?._saveVersion) > 4, 'the intent and its abort fence still version the save');
+        assert.equal(
+            refused.body?._saveVersion,
+            save?._saveVersion,
+            'the refusal must echo the version it moved, or it strands the client one version behind',
+        );
+    });
+
     it('exact-CAS replaces an ended pair after cooldown with a unique funded generation', async () => {
         const first = await invoke('leafkage', ['Leaf', 'Mist']);
         assert.equal(first.statusCode, 200, first.body?.error);

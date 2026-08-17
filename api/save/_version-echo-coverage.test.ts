@@ -125,12 +125,21 @@ const EXEMPT = new Set([
     // one participant's version to expose. village/hire-mercenary.ts rereads and
     // echoes the caller's final `_saveVersion`.
     //
-    // KNOWN GAP, tracked separately: village/sector-war.ts also reaches
-    // _war-declaration-funding and returns no `_saveVersion` at all, so a player
-    // who declares a sector war is charged and version-bumped without being told,
-    // and can lose in-flight local state once. That route needs the reservation's
-    // committed version threaded out to its response — a change to the helper's
-    // return type, deliberately not bundled into this classification.
+    // _war-declaration-funding.ts bumps a player save on its `honor-seals`
+    // branch ONLY — projectSourceEntry/projectDebit reach versionedPlayerRecord
+    // just there. Its `war-resources` branch debits the village pool row
+    // (`shared:village-war:*`) and never opens a save at all. The saga now
+    // returns the exact committed `sourceRow` alongside the receipt, so its one
+    // honor-seals caller — world-state.ts's village-war declare — echoes that
+    // row's `_saveVersion` to the charged Kage (gated by
+    // _world-war-declaration.test.ts). The helper itself stays exempt: several
+    // callers reach it, and only each caller knows which participant it may echo.
+    //
+    // village/sector-war.ts funds exclusively from `war-resources`: it 404s
+    // whenever the war map is disabled, and that flag being disabled is the only
+    // condition that selects honor-seals. So that route commits no player save
+    // version and has none to echo. The invariant is gated below and,
+    // end-to-end, by village/sector-war-authority-race.test.ts.
     '_war-declaration-funding.ts',
     '_war-mercenary-hire.ts',
     'admin/bloodline-review.ts',
@@ -169,6 +178,10 @@ const EXEMPT = new Set([
     // exposing the host's version from the helper would be ambiguous and unsafe.
     'towers/_entry-recovery.ts',
     'towers/_tower-store.ts',
+    // Many actions on one route, most of them world/village rows rather than
+    // saves. Its one save-versioning action — the village-war declaration's
+    // Honor Seal debit, live only when the war map is disabled — echoes the
+    // declaring Kage's committed `_saveVersion` (_world-war-declaration.test.ts).
     'world-state.ts',
     '_clan-points.ts',
     // Shared acceptance writer; sage.ts and stats.ts return the exact record
@@ -235,6 +248,23 @@ test('the pending backlog shrinks rather than drifts', () => {
             `${rel} now echoes its save version — move it from PENDING_ECHO to ECHOES_VERSION`,
         );
     }
+});
+
+/*
+ * The `_war-declaration-funding.ts` exemption above rests on sector-war never
+ * selecting the save-bumping `honor-seals` branch. Lock that here: the moment a
+ * sector declaration spends a player's Honor Seals it starts bumping that
+ * player's save version, and the route owes them a `_saveVersion` echo.
+ */
+test('sector-war declarations never fund from a player save', () => {
+    const src = readFileSync(join(API_DIR, 'village/sector-war.ts'), 'utf8');
+    assert.deepEqual(
+        src.match(/'honor-seals'/g) ?? [],
+        [],
+        'village/sector-war.ts now names an honor-seals funding source — that branch bumps the '
+        + "declaring player's save version, so the route must reread and echo `_saveVersion` "
+        + '(the village/hire-mercenary.ts pattern) and leave the _war-declaration-funding exemption',
+    );
 });
 
 test('every mutatePlayerSave route acknowledges the committed version', () => {
