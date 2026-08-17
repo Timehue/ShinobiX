@@ -7,10 +7,13 @@
 import type { DuelChallenge } from "../App";
 import type { Character } from "../types/character";
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
+import { abortableDelay } from "./pvp-session-runtime";
 
 export type PlayerChallengeNoticeOptions = {
     /** Stops retries and rejects an in-flight success when its owning UI session has retired. */
     shouldContinue?: () => boolean;
+    signal?: AbortSignal;
+    requestTimeoutMs?: number;
 };
 
 export async function postPlayerChallengeNotice(
@@ -19,21 +22,24 @@ export async function postPlayerChallengeNotice(
     options: PlayerChallengeNoticeOptions = {},
 ) {
     const shouldContinue = options.shouldContinue ?? (() => true);
+    const requestTimeoutMs = Math.max(10, Math.min(15_000, Math.floor(options.requestTimeoutMs ?? 8_000)));
     for (let attempt = 0; attempt < 3; attempt += 1) {
-        if (!shouldContinue()) return false;
+        if (!shouldContinue() || options.signal?.aborted) return false;
         try {
+            const timeout = AbortSignal.timeout(requestTimeoutMs);
             const res = await fetch('/api/player/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName, challenge }),
+                signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
             });
-            if (res.ok) return shouldContinue();
+            if (res.ok) return shouldContinue() && !options.signal?.aborted;
         } catch {
             // retry below
         }
         if (attempt === 2) break;
-        await new Promise(resolve => setTimeout(resolve, 350 + attempt * 500));
-        if (!shouldContinue()) return false;
+        try { await abortableDelay(350 + attempt * 500, options.signal); } catch { return false; }
+        if (!shouldContinue() || options.signal?.aborted) return false;
     }
     return false;
 }

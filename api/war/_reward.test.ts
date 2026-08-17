@@ -37,6 +37,28 @@ describe('authoritative war reward settlement', () => {
         assert.equal(result.character.fateShards, 2);
     });
 
+    it('does not let generation-one reward markers suppress a rematch reward', () => {
+        const now = 2_000_000;
+        const base = { name: 'Kira', village: 'Leaf', profession: 'vanguard', inventory: [], claimedWarCrateIds: [], ryo: 0 };
+        const generationOne = {
+            id: 'leaf-vs-sand', declarationGeneration: 1, villages: ['Leaf', 'Sand'] as [string, string],
+            endedAt: now - 2, winnerVillage: 'Leaf', warCrateId: 'war-crate-leaf-vs-sand-g1',
+            mvpByVillage: { Leaf: 'Kira' }, contributions: { kira: { name: 'Kira', side: 'Leaf', damage: 60 } },
+        };
+        const first = settleVillageWarRewards(base, generationOne, now);
+        assert.equal(first.granted, true);
+        const generationTwo = {
+            ...generationOne,
+            declarationGeneration: 2,
+            endedAt: now - 1,
+            warCrateId: 'war-crate-leaf-vs-sand-g2',
+        };
+        const rematch = settleVillageWarRewards(first.character, generationTwo, now);
+        assert.equal(rematch.granted, true);
+        assert.ok((rematch.character.claimedWarCrateIds as string[]).includes('mvp-crate-leaf-vs-sand-g2'));
+        assert.ok((rematch.character.claimedWarCrateIds as string[]).includes('stats-leaf-vs-sand-g2'));
+    });
+
     it('derives clan consolation and lifetime damage from completed server challenges', () => {
         const now = 2_000_000;
         const war: ClanWar = {

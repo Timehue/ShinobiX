@@ -14,6 +14,7 @@ const CLAN_CRATE = 'clan-war-crate-ashen-vs-crimson';
 
 test('parseWarCrate distinguishes village vs clan crate ids and extracts the warId', () => {
     assert.deepEqual(parseWarCrate(VILLAGE_CRATE), { kind: 'village', warId: 'stormveil-vs-frostfang' });
+    assert.deepEqual(parseWarCrate(`${VILLAGE_CRATE}-g2`), { kind: 'village', warId: 'stormveil-vs-frostfang' });
     assert.deepEqual(parseWarCrate(CLAN_CRATE), { kind: 'clan', warId: 'ashen-vs-crimson' });
     assert.equal(parseWarCrate('war-crate-foo'), null);                    // no -vs-
     assert.equal(parseWarCrate('war-crate-Storm-vs-Frost'), null);         // uppercase (slugs are lowercase)

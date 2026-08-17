@@ -6,7 +6,6 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { awardWarEndClanXp } from './_war-xp.js';
 import { awardFinalizedWarPoints } from './_war-points.js';
-import { pvpSessionMayReward, type PvpSession } from '../../pvp/session.js';
 import { clanWarPvpReportAuthorityError } from '../../pvp/_clan-war-authorization.js';
 import {
     applyFinalResult,
@@ -18,43 +17,6 @@ import {
     type ClanWar,
     type ClanChallenge,
 } from './_storage.js';
-
-// For PvP-mode challenges (mode includes a battleId), cross-check the
-// reported result against the authoritative PvpSession. Returns null when
-// the session validates the report, or an error tuple to short-circuit.
-//
-// Pet-mode challenges don't have a session to validate against — those rely
-// entirely on the existing two-phase opposite-side-confirmation defense.
-async function validateAgainstPvpSession(
-    ch: ClanChallenge,
-    result: ChallengeResult,
-): Promise<{ status: 409 | 404; body: { error: string } } | null> {
-    const authorityError = clanWarPvpReportAuthorityError(ch);
-    if (authorityError) return { status: 409, body: { error: authorityError } };
-    if (!ch.battleId) return null;
-    const session = await kv.get<PvpSession>(`pvp:${ch.battleId}`);
-    if (!session) return { status: 404, body: { error: 'The authoritative PvP session is missing or expired; this result cannot be rewarded.' } };
-    if (session.status !== 'done' || !session.winner) {
-        return { status: 409, body: { error: 'Battle session not yet decided — wait for the fight to finish before reporting.' } };
-    }
-    if (!pvpSessionMayReward(session)) {
-        return { status: 409, body: { error: 'This PvP session was not authorized or both fighters did not join.' } };
-    }
-    if (session.rewardAuthority !== 'clan-war' || session.clanWarChallengeId !== ch.id) {
-        return { status: 409, body: { error: 'That PvP session is not the sealed battle for this Clan War challenge.' } };
-    }
-    // Map the session winner back to challenge sides. fromPlayer / fromPlayer2
-    // are on the "from" side; the rest are on the "to" side.
-    const winnerName = session.winner === 'p1' ? session.p1.name : session.p2.name;
-    const winnerLower = (winnerName ?? '').toLowerCase();
-    const fromNames = [ch.fromPlayer, ch.fromPlayer2].filter(Boolean).map((n) => (n ?? '').toLowerCase());
-    const winnerOnFromSide = fromNames.includes(winnerLower);
-    const expected: ChallengeResult = winnerOnFromSide ? 'from-wins' : 'to-wins';
-    if (result !== expected) {
-        return { status: 409, body: { error: `Reported result disagrees with the PvP session. The session recorded ${expected}.` } };
-    }
-    return null;
-}
 
 // POST /api/clan/war/report
 // Body: { warId, challengeId, result: 'from-wins' | 'to-wins' | 'draw' }
@@ -148,25 +110,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409 as const, body: { error: 'Pet battles are settled by the server when both sides send their pets — there is nothing to report.' } };
             }
 
+            // Sealed PvP challenges are server-owned end-to-end. Allowing the
+            // legacy report path to finalize one would race/double the exact
+            // claim continuation's points and Clan XP settlements.
+            if (!identity.admin) {
+                const authorityError = clanWarPvpReportAuthorityError(ch);
+                if (authorityError) return { status: 409 as const, body: { error: authorityError } };
+            }
+
             // Participant check (admin bypasses for both phases).
             if (!identity.admin && !isParticipant(identity.name, ch)) {
                 return { status: 403 as const, body: { error: 'Only a participant can report this result.' } };
-            }
-
-            // PvP-session cross-check (non-admin only). For challenges that
-            // produced a server-side PvP battle, refuse reports that
-            // disagree with the authoritative session winner. This blocks
-            // colluding-pair / sock-puppet fake wins. Pet modes (no
-            // battleId) skip this and rely on two-phase reporting alone.
-            //
-            // Includes 'draw' reports: previously a losing side could
-            // immediately self-report 'draw' to deny the legitimate winner
-            // their reward, because the session check was skipped for draws.
-            // Now any non-draw session outcome refuses the contradictory
-            // draw claim.
-            if (!identity.admin) {
-                const sessionError = await validateAgainstPvpSession(ch, result);
-                if (sessionError) return sessionError;
             }
 
             const now = Date.now();

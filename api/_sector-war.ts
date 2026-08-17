@@ -28,6 +28,11 @@ import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { homeVillageForSector, isWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
+import { PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from './combat-core/constants.js';
+import {
+    warDeclarationFundingMarkerFromRow,
+    type WarDeclarationFundingMarker,
+} from './_war-declaration-funding.js';
 
 /** How long a sector war runs. Fixed and visible to both sides from declare. */
 export const SECTOR_WAR_DURATION_MS = 72 * 60 * 60 * 1000;
@@ -47,6 +52,12 @@ export interface SectorWarSession {
     /** startedAt + SECTOR_WAR_DURATION_MS — battles after this score nothing. */
     endsAt: number;
     updatedAt: number;
+    /** Monotonic per contest identity. Keeps permanent debit receipts distinct
+     * across re-sieges after an earlier record's cooldown has elapsed. */
+    declarationGeneration?: number;
+    /** Server-owned row-first declaration funding state. Rows carrying this
+     * field are not playable until its strict marker is `active`. */
+    declarationFunding?: WarDeclarationFundingMarker;
     /** true once SETTLEMENT awarded the sector to the attacker. */
     flipped: boolean;
     /** Set when the war ended WITHOUT a flip — the defender held (or the attacker
@@ -81,6 +92,58 @@ export interface SectorWarBattleReceipt {
 }
 
 export const SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
+
+function parseSectorWarBattleReceipts(raw: unknown): SectorWarBattleReceipt[] {
+    if (raw === undefined) return [];
+    if (!Array.isArray(raw) || raw.length > SECTOR_WAR_BATTLE_RECEIPT_CAP) {
+        throw new Error('sector-war-battle-receipt-ledger-invalid');
+    }
+    const out: SectorWarBattleReceipt[] = [];
+    const ids = new Set<string>();
+    for (const entry of raw) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            throw new Error('sector-war-battle-receipt-ledger-invalid');
+        }
+        const value = entry as Record<string, unknown>;
+        const allowed = new Set([
+            'battleId', 'attackerWon', 'points', 'by', 'garrison', 'at',
+            // Pre-scored-model receipt fields retained for bounded migration.
+            'hpDealt', 'hpRegen',
+        ]);
+        if (Object.keys(value).some((key) => !allowed.has(key))) {
+            throw new Error('sector-war-battle-receipt-ledger-invalid');
+        }
+        const battleId = typeof value.battleId === 'string' ? value.battleId.trim() : '';
+        const currentShape = value.points !== undefined;
+        const legacyShape = !currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined);
+        const points = currentShape
+            ? Number(value.points)
+            : Number(value.hpDealt ?? 0) + Number(value.hpRegen ?? 0);
+        if (!battleId
+            || ids.has(battleId)
+            || typeof value.attackerWon !== 'boolean'
+            || (!currentShape && !legacyShape)
+            || !Number.isSafeInteger(points)
+            || points < 0
+            || (currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined))
+            || (value.by !== undefined && typeof value.by !== 'string')
+            || (value.garrison !== undefined && value.garrison !== true)
+            || !Number.isSafeInteger(value.at)
+            || Number(value.at) <= 0) {
+            throw new Error('sector-war-battle-receipt-ledger-invalid');
+        }
+        ids.add(battleId);
+        out.push({
+            battleId,
+            attackerWon: value.attackerWon,
+            points,
+            by: typeof value.by === 'string' ? value.by : '',
+            ...(value.garrison === true ? { garrison: true } : {}),
+            at: Number(value.at),
+        });
+    }
+    return out;
+}
 
 // ── Score caps (anti-farm) ─────────────────────────────────────────────────────
 // Player scoring is deliberately UNCAPPED (owner ruling 2026-08-07 — a
@@ -163,27 +226,17 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
 }): SectorWarSession | null {
     if (!raw || typeof raw !== 'object') return null;
     if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage) return null;
+    const hasFundingMarker = Object.prototype.hasOwnProperty.call(raw, 'declarationFunding');
+    const declarationFunding = hasFundingMarker ? warDeclarationFundingMarkerFromRow(raw) : null;
+    // A malformed server-owned funding marker must never be normalized back
+    // into a playable legacy contest.
+    if (hasFundingMarker && !declarationFunding) return null;
     const startedAt = Math.floor(Number(raw.startedAt) || 0);
     const legacy = raw.endsAt === undefined && raw.controlHpMax !== undefined;
     const legacyDamage = legacy
         ? Math.max(0, nonNeg(raw.controlHpMax) - nonNeg(raw.controlHp))
         : 0;
-    const appliedBattles = Array.isArray(raw.appliedBattles)
-        ? raw.appliedBattles
-            .filter((entry): entry is SectorWarBattleReceipt => !!entry && typeof (entry as { battleId?: unknown }).battleId === 'string')
-            .map((entry) => {
-                const e = entry as SectorWarBattleReceipt & { hpDealt?: unknown; hpRegen?: unknown };
-                return {
-                    battleId: e.battleId,
-                    attackerWon: e.attackerWon === true,
-                    points: e.points !== undefined ? nonNeg(e.points) : nonNeg(e.hpDealt) + nonNeg(e.hpRegen),
-                    by: typeof e.by === 'string' ? e.by : '',
-                    ...(e.garrison ? { garrison: true } : {}),
-                    at: Math.floor(Number(e.at) || 0),
-                } as SectorWarBattleReceipt;
-            })
-            .slice(0, SECTOR_WAR_BATTLE_RECEIPT_CAP)
-        : [];
+    const appliedBattles = parseSectorWarBattleReceipts(raw.appliedBattles);
     const legacyReason = raw.expiredReason as unknown;
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
@@ -196,6 +249,10 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
         startedAt,
         endsAt: raw.endsAt !== undefined ? Math.floor(Number(raw.endsAt) || 0) : startedAt + SECTOR_WAR_DURATION_MS,
         updatedAt: Math.floor(Number(raw.updatedAt) || 0),
+        ...(Number.isSafeInteger(Number(raw.declarationGeneration)) && Number(raw.declarationGeneration) > 0
+            ? { declarationGeneration: Math.floor(Number(raw.declarationGeneration)) }
+            : {}),
+        ...(declarationFunding ? { declarationFunding } : {}),
         flipped: raw.flipped === true,
         ...(Number(raw.expiredAt) > 0
             ? {
@@ -211,11 +268,13 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
 
 /** True while the war is running and battles can still score. */
 export function isSectorWarActive(
-    session: Pick<SectorWarSession, 'flipped' | 'expiredAt' | 'endsAt'> | null | undefined,
+    session: Pick<SectorWarSession, 'flipped' | 'expiredAt' | 'startedAt' | 'endsAt' | 'declarationFunding'> | null | undefined,
     now: number,
 ): boolean {
     if (!session || session.flipped || session.expiredAt) return false;
-    return now < Math.floor(Number(session.endsAt) || 0);
+    if (session.declarationFunding && session.declarationFunding.status !== 'active') return false;
+    return now >= Math.floor(Number(session.startedAt) || 0)
+        && now < Math.floor(Number(session.endsAt) || 0);
 }
 
 // ── Scoring ────────────────────────────────────────────────────────────────────
@@ -317,6 +376,13 @@ export function recordSectorWarBattleOutcome(
 ): { session: SectorWarSession; receipt: SectorWarBattleReceipt } {
     const prior = findSectorWarBattleReceipt(outcome.session, args.battleId);
     if (prior) return { session: outcome.session, receipt: prior };
+    const receipts = outcome.session.appliedBattles ?? [];
+    if (receipts.length >= SECTOR_WAR_BATTLE_RECEIPT_CAP) {
+        // This ledger is settlement authority, not presentation history. Never
+        // evict an unacknowledged battle proof: a crash before the external
+        // receipt would otherwise allow that battle to score again after churn.
+        throw new Error('sector-war-battle-receipt-ledger-full');
+    }
     const receipt: SectorWarBattleReceipt = {
         battleId: args.battleId,
         attackerWon: args.attackerWon,
@@ -328,7 +394,7 @@ export function recordSectorWarBattleOutcome(
     return {
         session: {
             ...outcome.session,
-            appliedBattles: [receipt, ...(outcome.session.appliedBattles ?? [])].slice(0, SECTOR_WAR_BATTLE_RECEIPT_CAP),
+            appliedBattles: [receipt, ...receipts],
         },
         receipt,
     };
@@ -339,8 +405,8 @@ export function recordSectorWarBattleOutcome(
  *  200 rows the war-map's 15s poll would otherwise ship to every viewer, with
  *  per-player attribution nobody renders. Keep responses on this projection;
  *  never return a raw session. Pure. */
-export function projectSectorWarForClient(session: SectorWarSession): Omit<SectorWarSession, 'appliedBattles'> {
-    const { appliedBattles: _receipts, ...view } = session;
+export function projectSectorWarForClient(session: SectorWarSession): Omit<SectorWarSession, 'appliedBattles' | 'declarationFunding'> {
+    const { appliedBattles: _receipts, declarationFunding: _funding, ...view } = session;
     return view;
 }
 
@@ -437,9 +503,15 @@ export function sectorDeclareLockKey(sector: number): string {
 
 // ── Single-use battle token (Combat) ──────────────────────────────────────────
 
-export const SECTOR_WAR_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h — a battle is short
+// Match the terminal PvP recovery horizon: either participant may be the first
+// one to help-forward the sector continuation after a long offline period.
+// A token is minted at session registration but first resolution may happen at
+// the very end of the active-session horizon, followed by the full terminal
+// recovery window. Never expire the sealed contest binding before that point.
+export const SECTOR_WAR_TOKEN_TTL_MS = (SESSION_TTL + PVP_TERMINAL_REPLAY_TTL) * 1000;
 
 export interface SectorWarBattleToken {
+    version: 2;
     battleId: string;
     sectorWarId: string;
     sector: number;
@@ -451,6 +523,8 @@ export interface SectorWarBattleToken {
     p2Name: string;
     p1Village: string;
     p2Village: string;
+    /** Defender terrain sealed at the first exact registration. */
+    biome: string;
     createdAt: number;
     expiresAt: number;
 }
@@ -471,9 +545,11 @@ export function newSectorWarBattleToken(args: {
     p2Name: string;
     p1Village: string;
     p2Village: string;
+    biome: string;
     now: number;
 }): SectorWarBattleToken {
     return {
+        version: 2,
         battleId: args.battleId,
         sectorWarId: args.sectorWarId,
         sector: args.sector,
@@ -485,28 +561,66 @@ export function newSectorWarBattleToken(args: {
         p2Name: args.p2Name,
         p1Village: args.p1Village,
         p2Village: args.p2Village,
+        biome: args.biome,
         createdAt: args.now,
         expiresAt: args.now + SECTOR_WAR_TOKEN_TTL_MS,
     };
 }
 
 export function normalizeSectorWarBattleToken(raw: Partial<SectorWarBattleToken>): SectorWarBattleToken | null {
-    if (!raw || typeof raw !== 'object') return null;
-    if (!raw.battleId || !raw.sectorWarId || !raw.attackerVillage || !raw.defenderVillage) return null;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const currentKeys = [
+        'version', 'battleId', 'sectorWarId', 'sector', 'attackerVillage',
+        'defenderVillage', 'registeredBy', 'winCondition', 'p1Name', 'p2Name',
+        'p1Village', 'p2Village', 'biome', 'createdAt', 'expiresAt',
+    ].sort().join('|');
+    // Rolling-deploy compatibility: legacy tokens remain bound to their
+    // immutable PvP row, whose existing session biome is the sealed terrain.
+    const legacyKeys = [
+        'battleId', 'sectorWarId', 'sector', 'attackerVillage', 'defenderVillage',
+        'registeredBy', 'winCondition', 'p1Name', 'p2Name', 'p1Village',
+        'p2Village', 'createdAt', 'expiresAt',
+    ].sort().join('|');
+    const keys = Object.keys(value).sort().join('|');
+    const current = value.version === 2 && keys === currentKeys;
+    const legacy = value.version === undefined && keys === legacyKeys;
+    const sector = Number(value.sector);
+    const createdAt = Number(value.createdAt);
+    const expiresAt = Number(value.expiresAt);
+    if ((!current && !legacy)
+        || typeof value.battleId !== 'string' || !value.battleId.trim()
+        || typeof value.sectorWarId !== 'string' || !value.sectorWarId.trim()
+        || !Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR
+        || typeof value.attackerVillage !== 'string' || !value.attackerVillage.trim()
+        || typeof value.defenderVillage !== 'string' || !value.defenderVillage.trim()
+        || value.attackerVillage === value.defenderVillage
+        || typeof value.registeredBy !== 'string' || !value.registeredBy.trim()
+        || value.winCondition !== 'combat'
+        || typeof value.p1Name !== 'string' || !value.p1Name.trim()
+        || typeof value.p2Name !== 'string' || !value.p2Name.trim()
+        || typeof value.p1Village !== 'string' || !value.p1Village.trim()
+        || typeof value.p2Village !== 'string' || !value.p2Village.trim()
+        || value.p1Village === value.p2Village
+        || (current && (typeof value.biome !== 'string' || !value.biome.trim()))
+        || !Number.isSafeInteger(createdAt) || createdAt <= 0
+        || !Number.isSafeInteger(expiresAt) || expiresAt <= createdAt) return null;
     return {
-        battleId: String(raw.battleId),
-        sectorWarId: String(raw.sectorWarId),
-        sector: clampInt(raw.sector, 1, MAX_WILD_SECTOR),
-        attackerVillage: String(raw.attackerVillage),
-        defenderVillage: String(raw.defenderVillage),
-        registeredBy: String(raw.registeredBy ?? ''),
-        winCondition: asWinCondition(raw.winCondition),
-        p1Name: String(raw.p1Name ?? ''),
-        p2Name: String(raw.p2Name ?? ''),
-        p1Village: String(raw.p1Village ?? ''),
-        p2Village: String(raw.p2Village ?? ''),
-        createdAt: Math.floor(Number(raw.createdAt) || 0),
-        expiresAt: Math.floor(Number(raw.expiresAt) || 0),
+        version: 2,
+        battleId: value.battleId.trim(),
+        sectorWarId: value.sectorWarId.trim(),
+        sector,
+        attackerVillage: value.attackerVillage.trim(),
+        defenderVillage: value.defenderVillage.trim(),
+        registeredBy: value.registeredBy.trim(),
+        winCondition: 'combat',
+        p1Name: value.p1Name.trim(),
+        p2Name: value.p2Name.trim(),
+        p1Village: value.p1Village.trim(),
+        p2Village: value.p2Village.trim(),
+        biome: current ? String(value.biome).trim() : '',
+        createdAt,
+        expiresAt,
     };
 }
 

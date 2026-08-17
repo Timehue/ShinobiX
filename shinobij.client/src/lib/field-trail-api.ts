@@ -18,12 +18,13 @@ export async function postFieldTrail(params: {
     playerName: string;
     missionId: string;
     action: "accept" | "state" | "abandon";
-}): Promise<FieldTrailResult> {
+}, signal?: AbortSignal): Promise<FieldTrailResult> {
     try {
         const response = await fetch("/api/missions/field-trail", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(params),
+            signal,
         });
         const data = await response.json().catch(() => null) as FieldTrailResult | null;
         if (!response.ok || data?.ok !== true) {
@@ -34,7 +35,8 @@ export async function postFieldTrail(params: {
             };
         }
         return data;
-    } catch {
+    } catch (error) {
+        if (signal?.aborted) throw error;
         return { ok: false, error: "The Mission Hall is unreachable." };
     }
 }

@@ -2,7 +2,11 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import type { PvpSession } from './session.js';
+import { pvpSessionHasRankedCloseFence, type PvpSession } from './session.js';
+import {
+    parsePlayerRankedSessionCloseTombstone,
+    parsePlayerRankedSessionOrphanTombstone,
+} from '../pet/_ranked-preparation.js';
 
 // GET /api/pvp/stream?id=<battleId>
 //
@@ -47,6 +51,22 @@ const STREAM_DURATION_MS = 13 * 60 * 1000;  // 13 minutes
 const POLL_INTERVAL_MS = 100;
 const HEARTBEAT_INTERVAL_MS = 15_000;
 
+function parseLiveSession(value: unknown, battleId: string): PvpSession | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const candidate = value as Partial<PvpSession>;
+    if (candidate.battleId !== battleId
+        || (candidate.status !== 'active' && candidate.status !== 'done')
+        || !candidate.p1
+        || !candidate.p2) return null;
+    return candidate as PvpSession;
+}
+
+function isRankedSessionTerminalControl(value: unknown, battleId: string): boolean {
+    return parsePlayerRankedSessionCloseTombstone(value)?.battleId === battleId
+        || parsePlayerRankedSessionOrphanTombstone(value)?.battleId === battleId
+        || (pvpSessionHasRankedCloseFence(value) && value.battleId === battleId);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -64,8 +84,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Initial session fetch — bail with 404 if the battle doesn't exist
     // BEFORE upgrading to a stream. Saves an SSE connection on bad IDs.
-    const initial = await kv.get<PvpSession>(key);
-    if (!initial) return res.status(404).json({ error: 'Session not found' });
+    const initialRaw = await kv.get<unknown>(key);
+    if (!initialRaw) return res.status(404).json({ error: 'Session not found' });
+    if (isRankedSessionTerminalControl(initialRaw, battleId)) {
+        return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
+    }
+    const initial = parseLiveSession(initialRaw, battleId);
+    if (!initial) return res.status(502).json({ error: 'Invalid battle session projection' });
 
     // Upgrade to SSE.
     res.setHeader('Content-Type', 'text/event-stream');
@@ -107,9 +132,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         while (!aborted && (Date.now() - startedAt) < STREAM_DURATION_MS) {
             await new Promise<void>(r => setTimeout(r, POLL_INTERVAL_MS));
             if (aborted) break;
-            const session = await kv.get<PvpSession>(key);
-            if (!session) {
+            const rawSession = await kv.get<unknown>(key);
+            if (!rawSession) {
                 sendEvent('end', { reason: 'session-expired' });
+                break;
+            }
+            if (isRankedSessionTerminalControl(rawSession, battleId)) {
+                sendEvent('end', { reason: 'ranked-no-contest' });
+                break;
+            }
+            const session = parseLiveSession(rawSession, battleId);
+            if (!session) {
+                sendEvent('end', { reason: 'session-invalid' });
                 break;
             }
             const json = JSON.stringify(session);

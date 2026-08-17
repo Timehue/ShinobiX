@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
-import { SESSION_TTL } from '../combat-core/constants.js';
+import { PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from '../combat-core/constants.js';
 import {
     makePlayerRankedSessionCloseFence,
     makePlayerRankedSessionCloseTombstone,
@@ -13,6 +13,7 @@ import {
 } from '../pet/_ranked-preparation.js';
 import {
     isPlayerRankedV2Session,
+    nextPvpStateRevision,
     PVP_MOVE_TOKEN_HISTORY,
     trimPvpLog,
     type PvpSession,
@@ -28,15 +29,33 @@ export type PlayerRankedCloseFenceResult =
     | { status: 'terminal'; session: PvpSession }
     | { status: 'fenced'; value: PvpSession | PlayerRankedSessionCloseTombstone };
 
-function persistedSession(session: PvpSession, moveToken?: string): PvpSession {
+function persistedSession(expected: PvpSession, desired: PvpSession, moveToken?: string): PvpSession {
     const recentMoveTokens = moveToken
-        ? [...(session.recentMoveTokens ?? []), moveToken].slice(-PVP_MOVE_TOKEN_HISTORY)
-        : session.recentMoveTokens;
-    return {
-        ...session,
-        log: trimPvpLog(session.log),
+        ? [...(desired.recentMoveTokens ?? []), moveToken].slice(-PVP_MOVE_TOKEN_HISTORY)
+        : desired.recentMoveTokens;
+    const endedAt = desired.status === 'done'
+        ? Number.isSafeInteger(desired.endedAt) && Number(desired.endedAt) > 0
+            ? Number(desired.endedAt)
+            : Number.isSafeInteger(expected.endedAt) && Number(expected.endedAt) > 0
+                ? Number(expected.endedAt)
+                : Date.now()
+        : desired.endedAt;
+    const candidate = {
+        ...desired,
+        // The expected row is the only revision authority. A caller cannot
+        // pre-mint or reuse a revision in `desired`; only the exact CAS winner
+        // publishes this successor value.
+        stateRevision: nextPvpStateRevision(expected),
+        log: trimPvpLog(desired.log),
         recentMoveTokens,
+        endedAt,
     };
+    // Remote KV rows are JSON. Canonicalize before the CAS so a committed row
+    // whose acknowledgement is lost compares exactly with its readback (object
+    // properties such as `recentMoveTokens: undefined` disappear in storage).
+    // Returning this same canonical object also keeps every caller aligned with
+    // the bytes that actually won authority.
+    return JSON.parse(JSON.stringify(candidate)) as PvpSession;
 }
 
 function isDurablePlayerRankedTerminal(session: PvpSession): boolean {
@@ -59,8 +78,11 @@ export async function commitPvpSessionMutation(
     desired: PvpSession,
     options: { moveToken?: string; ttlSeconds?: number } = {},
 ): Promise<PvpSessionMutationResult> {
-    const next = persistedSession(desired, options.moveToken);
-    const ttlSeconds = Math.max(1, Math.floor(options.ttlSeconds ?? SESSION_TTL));
+    const next = persistedSession(expected, desired, options.moveToken);
+    const requestedTtl = Math.max(1, Math.floor(options.ttlSeconds ?? SESSION_TTL));
+    const ttlSeconds = next.status === 'done'
+        ? Math.max(requestedTtl, PVP_TERMINAL_REPLAY_TTL)
+        : requestedTtl;
     const durableTerminal = isDurablePlayerRankedTerminal(next);
     const casOptions = durableTerminal ? undefined : { ex: ttlSeconds };
 

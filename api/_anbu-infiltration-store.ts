@@ -29,6 +29,7 @@
  * kv / lock / now are INJECTABLE (default to the real ones) so the currency logic
  * is unit-testable with a fake in-memory store.
  */
+import { isDeepStrictEqual } from 'node:util';
 import { kv as realKv, type KvLike } from './_storage.js';
 import { withKvLock as realWithKvLock, type LockOptions } from './_lock.js';
 import { mergePreservingImages, safeName, setSafeRecordValue } from './_utils.js';
@@ -66,7 +67,7 @@ import type { SoloPveSession } from './solo-pve/_session.js';
 import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
 
 // ─── injectable deps ─────────────────────────────────────────────────────────
-export type InfilKv = Pick<KvLike, 'get' | 'set' | 'del'>;
+export type InfilKv = Pick<KvLike, 'get' | 'set' | 'del' | 'compareSet'>;
 export type InfilLock = <T>(target: string, fn: () => Promise<T>, options?: LockOptions) => Promise<T>;
 export type StoreDeps = { kv?: InfilKv; lock?: InfilLock; now?: () => number };
 function resolve(deps: StoreDeps) {
@@ -327,7 +328,15 @@ export async function settleInfiltrationWin(
                 const ledger = await kv.get<DailyLossLedger>(supplyLedgerKey(run.sector));
                 const { skim, ledger: nextLedger } = applySkim(ledger, collected, t);
                 if (skim <= 0) return 0;
-                await kv.set(key, { ...fresh, warSupply: collected - skim, lastSupplyAt: nextLastSupplyAt, updatedAt: t });
+                const candidate = { ...fresh, warSupply: collected - skim, lastSupplyAt: nextLastSupplyAt, updatedAt: t };
+                try {
+                    if (!(await kv.compareSet(key, fresh, candidate))) {
+                        throw new Error('anbu-territory-publication-conflict');
+                    }
+                } catch (error) {
+                    const recovered = await kv.get<unknown>(key).catch(() => null);
+                    if (!isDeepStrictEqual(recovered, candidate)) throw error;
+                }
                 await kv.set(supplyLedgerKey(run.sector), nextLedger, { ex: INFIL_LEDGER_TTL });
                 return skim;
             }, { failClosed: true });

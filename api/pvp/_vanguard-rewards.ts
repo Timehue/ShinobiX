@@ -239,7 +239,16 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
             pendingTtlSeconds: 10,
             metadata: { battleId: session.battleId, winner: winnerSlug, loser: loserSlug },
         });
-        if (reservation.status !== 'reserved') return { granted: false, reason: 'already-granted' };
+        if (reservation.status === 'conflict') throw new Error('vanguard-legacy-receipt-conflict');
+        if (reservation.status === 'replay') {
+            // A legacy pending row is deliberately ambiguous: the save write
+            // may have landed while its acknowledgement was lost. Never turn
+            // that uncertainty into a successful terminal continuation.
+            if (reservation.receipt?.state === 'pending') {
+                throw new Error('vanguard-legacy-receipt-pending');
+            }
+            return { granted: false, reason: 'already-granted' };
+        }
 
         // Transactional ordering: escort stamps go FIRST. Each escort stamp is
         // idempotent (setting petEscortBonusReady=true twice is a no-op), so if
@@ -658,11 +667,12 @@ async function abortVanguardIntent(
     ).catch(() => false);
 }
 
-function vanguardRecoveryEnabled(options: VanguardRewardOptions): boolean {
+function vanguardRecoveryEnabled(options: VanguardRewardOptions, session: PvpSession): boolean {
     if (options.allowLeaseTakeover !== undefined) return options.allowLeaseTakeover;
     // Exact player-ranked V2 admissions are themselves default-off until the
     // worker drain. Generic PvP requires its separate second-stage switch.
     return options.rankedTerminal !== undefined
+        || session.vanguardRewardAuthorityVersion === 2
         || process.env.ENABLE_VANGUARD_REWARD_V2 === '1';
 }
 
@@ -908,7 +918,9 @@ export async function grantVanguardRewardsForSession(
     // Stage-1 rolling compatibility: legacy terminal callers stay on the
     // d76a receipt/save shape. The marker saga is activated only by an exact
     // V2 terminal journal after the documented worker drain.
-    if (!options.rankedTerminal && process.env.ENABLE_VANGUARD_REWARD_V2 !== '1') {
+    if (!options.rankedTerminal
+        && session.vanguardRewardAuthorityVersion !== 2
+        && process.env.ENABLE_VANGUARD_REWARD_V2 !== '1') {
         return (options.legacyGrant ?? grantVanguardRewardsForSessionLegacy)(session);
     }
     const authority = buildVanguardAuthority(session, options.rankedTerminal);
@@ -953,7 +965,7 @@ export async function grantVanguardRewardsForSession(
             const priorResolved = !!priorIntent
                 && priorIntent.fingerprint === marker.fingerprint
                 && priorIntent.state === 'committed';
-            if (!priorResolved && (!vanguardRecoveryEnabled(options) || now < marker.recoverUntil)) {
+            if (!priorResolved && (!vanguardRecoveryEnabled(options, session) || now < marker.recoverUntil)) {
                 throw new Error('vanguard-prior-reward-unresolved');
             }
         }
@@ -1017,7 +1029,7 @@ export async function grantVanguardRewardsForSession(
                 }
             }
             if (now < Number(current.leaseExpiresAt ?? 0)) throw new Error('vanguard-reward-owner-active');
-            if (!vanguardRecoveryEnabled(options)) throw new Error('vanguard-reward-owner-drain-required');
+            if (!vanguardRecoveryEnabled(options, session)) throw new Error('vanguard-reward-owner-drain-required');
             if (Number(winnerRecord._saveVersion ?? 0) < current.expectedSaveVersion) {
                 throw new Error('vanguard-reward-save-version-rollback');
             }

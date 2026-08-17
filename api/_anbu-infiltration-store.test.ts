@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { isDeepStrictEqual } from 'node:util';
 import {
     settleInfiltrationWin,
     settleInfiltrationLoss,
@@ -35,6 +36,12 @@ function fakeKv(): InfilKv & { store: Map<string, unknown> } {
             if (opts?.nx && store.has(key)) return null;
             store.set(key, value);
             return 'OK';
+        },
+        async compareSet(key, expected, value) {
+            const current = store.has(key) ? store.get(key) : null;
+            if (!isDeepStrictEqual(current, expected)) return false;
+            store.set(key, value);
+            return true;
         },
         async del(...keys: string[]) { let n = 0; for (const k of keys) if (store.delete(k)) n++; return n; },
     };

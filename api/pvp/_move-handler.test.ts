@@ -2,6 +2,7 @@ import { before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { syncBuiltinESMExports } from 'node:module';
+import { isDeepStrictEqual } from 'node:util';
 import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
@@ -12,6 +13,7 @@ process.env.DISABLE_COMBAT_RECEIPTS = '1';
 
 const store = new Map<string, unknown>();
 const clone = <T>(v: T): T => (v === undefined || v === null) ? null as T : JSON.parse(JSON.stringify(v));
+let beforeCompareSet: ((key: string, expected: unknown, value: unknown) => Promise<void> | void) | null = null;
 
 type Handler = (req: never, res: never) => Promise<unknown>;
 let moveHandler: Handler;
@@ -25,6 +27,13 @@ before(async () => {
         if (options?.nx && store.has(key)) return null;
         store.set(key, clone(value));
         return 'OK' as const;
+    };
+    kv.compareSet = async (key: string, expected: unknown, value: unknown) => {
+        await beforeCompareSet?.(key, clone(expected), clone(value));
+        const current = store.has(key) ? clone(store.get(key)) : null;
+        if (!isDeepStrictEqual(current, expected)) return false;
+        store.set(key, clone(value));
+        return true;
     };
     kv.del = async (...keys: string[]) => keys.reduce((n, key) => n + (store.delete(key) ? 1 : 0), 0);
     kv.delIfEqual = async (key: string, expected: string) => {
@@ -67,6 +76,7 @@ before(async () => {
 
 beforeEach(() => {
     store.clear();
+    beforeCompareSet = null;
 });
 
 function fakeReq(playerName: string, body: Record<string, unknown>) {
@@ -284,6 +294,25 @@ function session(battleId: string, patch: Partial<PvpSession> = {}): PvpSession 
     };
 }
 
+test('a ranked tombstone returns terminal control instead of dereferencing fighters', async () => {
+    store.set('pvp:tombstone-control', {
+        version: 'player-ranked-session-close-tombstone-v1',
+        battleId: 'tombstone-control',
+        matchId: 'player-ranked-tombstone',
+        transitionId: 'season-close',
+    });
+
+    const out = await postMove('alice', {
+        battleId: 'tombstone-control',
+        role: 'p1',
+        action: 'wait',
+        moveToken: 'must-not-dereference',
+    });
+
+    assert.equal(out.statusCode, 409);
+    assert.match(String((out.body as { error?: string }).error), /no longer active/i);
+});
+
 test('an unsolicited opponent cannot claim an AFK win before both fighters join', async () => {
     seed(session('unjoined-afk', {
         activePlayer: 'p2',
@@ -304,7 +333,13 @@ test('an unsolicited opponent cannot claim an AFK win before both fighters join'
 });
 
 test('join is an authenticated, idempotent membership handshake even out of turn', async () => {
-    seed(session('join-handshake', { activePlayer: 'p1', joined: { p1: true, p2: false } }));
+    seed(session('join-handshake', {
+        activePlayer: 'p1',
+        joined: { p1: true, p2: false },
+        // A different fighter can choose this predictable string as an action
+        // token. Membership authority must be the joined bit, not token history.
+        recentMoveTokens: ['join-join-handshake-p2'],
+    }));
     const joined = await postMove('bob', {
         battleId: 'join-handshake',
         role: 'p2',
@@ -313,6 +348,103 @@ test('join is an authenticated, idempotent membership handshake even out of turn
     });
     assert.equal(joined.statusCode, 200);
     assert.deepEqual(storedSession('join-handshake').joined, { p1: true, p2: true });
+    assert.equal(storedSession('join-handshake').stateRevision, 1,
+        'the first mutation upgrades a bounded legacy row to revision 1');
+
+    const replay = await postMove('bob', {
+        battleId: 'join-handshake',
+        role: 'p2',
+        action: 'join',
+        moveToken: 'join-handshake-p2',
+    });
+    assert.equal(replay.statusCode, 200);
+    assert.equal(storedSession('join-handshake').stateRevision, 1,
+        'an idempotent replay must not mint a projection revision');
+});
+
+test('join exact-clears a stale sessionless pointer and recovers in the same request', async () => {
+    const battleId = 'join-stale-pointer';
+    seed(session(battleId, {
+        joined: { p1: true, p2: false },
+        realFighters: { p1: true, p2: true },
+    }));
+    store.set('pvp:pending-session:bob', JSON.stringify({
+        version: 1,
+        playerName: 'bob',
+        battleId: 'expired-old-battle',
+        role: 'p2',
+        createdAt: Date.now() - 60_000,
+        phase: 'active',
+    }));
+
+    const joined = await postMove('bob', {
+        battleId,
+        role: 'p2',
+        action: 'join',
+        moveToken: 'join-stale-pointer-token',
+    });
+    assert.equal(joined.statusCode, 200);
+    assert.equal(storedSession(battleId).joined?.p2, true);
+    const pointer = JSON.parse(String(store.get('pvp:pending-session:bob')));
+    assert.equal(pointer.battleId, battleId);
+    assert.equal(pointer.phase, 'active');
+});
+
+test('join preserves a prior draw pointer until its exact completion ACK is durable', async () => {
+    const oldBattleId = 'join-prior-kage-draw';
+    const newBattleId = 'join-after-kage-draw';
+    const old = session(oldBattleId, {
+        status: 'done',
+        winner: 'draw',
+        endedAt: Date.now(),
+        joined: { p1: true, p2: true },
+        realFighters: { p1: true, p2: true },
+    });
+    seed(old);
+    seed(session(newBattleId, {
+        joined: { p1: true, p2: false },
+        realFighters: { p1: true, p2: true },
+    }));
+    store.set('pvp:pending-session:bob', JSON.stringify({
+        version: 1,
+        playerName: 'bob',
+        battleId: oldBattleId,
+        role: 'p2',
+        createdAt: old.createdAt,
+        phase: 'active',
+        recoveryExpiresAt: Number(old.endedAt) + 48 * 60 * 60 * 1_000,
+    }));
+
+    const blocked = await postMove('bob', {
+        battleId: newBattleId,
+        role: 'p2',
+        action: 'join',
+        moveToken: 'join-draw-pending',
+    });
+    assert.equal(blocked.statusCode, 409);
+    assert.equal(storedSession(newBattleId).joined?.p2, false);
+    assert.equal(JSON.parse(String(store.get('pvp:pending-session:bob'))).battleId, oldBattleId);
+
+    const completedAt = Date.now();
+    store.set(`pvp:rewarded:bob:${oldBattleId}`, {
+        version: 2,
+        outcome: 'draw',
+        claimedAt: completedAt,
+        completionRequired: true,
+        completionState: 'completed',
+        completedAt,
+        serverCreditsState: 'completed',
+        serverCreditsCompletedAt: completedAt,
+    });
+    const joined = await postMove('bob', {
+        battleId: newBattleId,
+        role: 'p2',
+        action: 'join',
+        moveToken: 'join-draw-completed',
+    });
+    assert.equal(joined.statusCode, 200);
+    assert.equal(storedSession(newBattleId).joined?.p2, true);
+    assert.equal(JSON.parse(String(store.get('pvp:pending-session:bob'))).battleId, newBattleId);
 });
 
 function seed(s: PvpSession): void {
@@ -391,6 +523,50 @@ test('moveToken retry returns the current session without double-applying a juts
     assert.equal(afterSecond.p1.stamina, afterFirst.p1.stamina);
     assert.equal(afterSecond.log.length, afterFirst.log.length);
     assert.deepEqual(afterSecond.recentMoveTokens, ['same-token']);
+});
+
+test('duplicate-token retry repairs an action receipt missing after combat CAS', async () => {
+    const previous = process.env.DISABLE_COMBAT_RECEIPTS;
+    process.env.DISABLE_COMBAT_RECEIPTS = '0';
+    try {
+        const { withPvpActionReceiptReplay, pvpActionReceiptKey } = await import('./_action-receipt-replay.js');
+        const pre = session('receipt-crash', { stateRevision: 8 });
+        const post = {
+            ...pre,
+            ap: { ...pre.ap, p1: 60 },
+            actionsThisTurn: 1,
+            log: [...pre.log, 'alice attacks bob.'],
+        };
+        const candidate = withPvpActionReceiptReplay(pre, post, {
+            role: 'p1',
+            actionId: 'basicAttack',
+            actionName: 'Basic Attack',
+            actionType: 'basicAttack',
+            moveToken: 'receipt-crash-token',
+        }, 1234);
+        seed({
+            ...candidate,
+            stateRevision: 9,
+            recentMoveTokens: ['receipt-crash-token'],
+        });
+
+        const out = await postMove('alice', {
+            battleId: 'receipt-crash',
+            role: 'p1',
+            action: 'basicAttack',
+            moveToken: 'receipt-crash-token',
+        });
+
+        assert.equal(out.statusCode, 200);
+        const key = pvpActionReceiptKey('receipt-crash', 9);
+        const receipt = store.get(key) as { moveToken?: string; createdAt?: number } | undefined;
+        assert.equal(receipt?.moveToken, 'receipt-crash-token');
+        assert.equal(receipt?.createdAt, 1234);
+        assert.equal(storedSession('receipt-crash').ap.p1, 60,
+            'repair must not reapply the committed action');
+    } finally {
+        process.env.DISABLE_COMBAT_RECEIPTS = previous ?? '1';
+    }
 });
 
 test('insufficient AP rejects without mutating fighter state or persisting the retry token', async () => {
@@ -720,6 +896,172 @@ test('successful flee spends the adjusted Overclock cost without negative termin
         assert.equal(after.ap.p1, 0, '80 AP with 20% Overclock must spend the adjusted 80 AP, not raw 100 AP');
         assert.equal(after.actionsThisTurn, 1);
         assert.equal(after.log.filter(line => /alice fled the battle/i.test(line)).length, 1);
+    } finally {
+        crypto.randomInt = originalRandomInt;
+        syncBuiltinESMExports();
+    }
+});
+
+test('consumable-authority v1 refuses a real casual fighter even if a stale worker left a positive charge', async () => {
+    const smokeBomb = {
+        id: 'test-v1-smoke-bomb',
+        name: 'Smoke Bomb',
+        slot: 'item',
+        weaponCooldown: 0,
+        weaponEffect: 'Decrease Damage Given',
+        weaponEffectValue: 100,
+        weaponEffectTarget: 'both',
+        apCost: 20,
+    };
+    seed(session('smoke-v1-disabled', {
+        p1: withEquippedItem(fighter('alice', 0), smokeBomb, 'item1'),
+        pvpConsumableAuthorityVersion: 1,
+        realFighters: { p1: true, p2: true },
+        itemCharges: { p1: { 'test-v1-smoke-bomb': 3 }, p2: {} },
+        itemsUsed: { p1: {}, p2: {} },
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'smoke-v1-disabled',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-v1-smoke-bomb',
+        moveToken: 'smoke-v1-disabled-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('smoke-v1-disabled');
+    assert.match(after.log.at(-1) ?? '', /out of Smoke Bomb/i);
+    assert.equal(after.ap.p1, 100);
+    assert.equal(after.itemsUsed?.p1['test-v1-smoke-bomb'], undefined);
+    assert.equal(after.itemCharges?.p1['test-v1-smoke-bomb'], 3);
+});
+
+test('terminal retry restores a missing battle receipt body with stable endedAt', async () => {
+    const previous = process.env.DISABLE_COMBAT_RECEIPTS;
+    process.env.DISABLE_COMBAT_RECEIPTS = '0';
+    try {
+        const battleId = 'terminal-receipt-repair';
+        seed(session(battleId, {
+            stateRevision: 2,
+            p2: fighter('bob', 1, { hp: 1 }),
+        }));
+        // Model the legacy marker-before-body crash. New PvP replay authority
+        // must ignore this orphan marker and CAS the receipt body itself.
+        store.set(`receipt:wrote:${battleId}`, { ts: 1 });
+        const body = {
+            battleId,
+            role: 'p1',
+            action: 'basicAttack',
+            moveToken: 'terminal-receipt-token',
+        };
+        const first = await postMove('alice', body);
+        assert.equal(first.statusCode, 200);
+        const terminal = storedSession(battleId);
+        assert.equal(terminal.status, 'done');
+        assert.ok(Number(terminal.endedAt) > 0);
+        const receiptKey = `receipt:battle:${battleId}`;
+        const firstReceipt = clone(store.get(receiptKey)) as { endedAt?: number };
+        assert.equal(firstReceipt.endedAt, terminal.endedAt);
+
+        store.delete(receiptKey);
+        const replay = await postMove('alice', body);
+        assert.equal(replay.statusCode, 200);
+        const repaired = clone(store.get(receiptKey)) as { endedAt?: number };
+        assert.equal(repaired.endedAt, terminal.endedAt,
+            'replay must use the immutable terminal timestamp, not fresh wall time');
+    } finally {
+        process.env.DISABLE_COMBAT_RECEIPTS = previous ?? '1';
+    }
+});
+
+test('a final move paused past its lease cannot overwrite an advanced session', async () => {
+    const originalRandomInt = crypto.randomInt;
+    crypto.randomInt = (() => 0) as typeof crypto.randomInt;
+    syncBuiltinESMExports();
+    try {
+        const initial = session('lease-expired-terminal', { stateRevision: 4 });
+        const successor = session('lease-expired-terminal', {
+            stateRevision: 5,
+            round: 7,
+            activePlayer: 'p2',
+            log: ['A successor committed after the old lease expired.'],
+        });
+        seed(initial);
+        let raced = false;
+        beforeCompareSet = (key, expected, candidate) => {
+            if (key !== 'pvp:lease-expired-terminal' || raced) return;
+            raced = true;
+            assert.equal((expected as PvpSession).stateRevision, 4);
+            assert.equal((candidate as PvpSession).status, 'done', 'the paused request had derived a terminal candidate');
+            assert.equal((candidate as PvpSession).stateRevision, 5, 'only the exact-CAS candidate may mint the successor revision');
+            store.set(key, clone(successor));
+        };
+
+        const out = await postMove('alice', {
+            battleId: 'lease-expired-terminal',
+            role: 'p1',
+            action: 'flee',
+            moveToken: 'lease-expired-terminal-token',
+        });
+
+        assert.equal(out.statusCode, 200);
+        assert.equal(raced, true);
+        assert.deepEqual(storedSession('lease-expired-terminal'), successor);
+        assert.match(String((out.body as PvpSession).rejected?.reason), /battle advanced/i);
+        assert.equal([...store.keys()].some((key) => key.includes('vanguard-rewarded:lease-expired-terminal')), false,
+            'a losing terminal candidate must not run reward effects');
+    } finally {
+        crypto.randomInt = originalRandomInt;
+        syncBuiltinESMExports();
+    }
+});
+
+test('a ranked close fence that wins before the final CAS is never overwritten', async () => {
+    const originalRandomInt = crypto.randomInt;
+    crypto.randomInt = (() => 0) as typeof crypto.randomInt;
+    syncBuiltinESMExports();
+    try {
+        const initial = session('ranked-close-terminal', {
+            stateRevision: 8,
+            ranked: false,
+            rankedKind: 'player',
+            playerRankedAuthorityVersion: 2,
+            rankedMatchId: 'player-ranked-close-handler',
+            rankedSeasonId: 3,
+            rankedSeasonEpoch: 9,
+            rewardAuthority: 'ranked',
+            baseRewards: false,
+        });
+        const fenced = session('ranked-close-terminal', {
+            ...initial,
+            stateRevision: 9,
+            rankedCloseFence: {
+                version: 'player-ranked-session-close-fence-v1',
+                matchId: 'player-ranked-close-handler',
+                seasonId: 3,
+                seasonEpoch: 9,
+                transitionId: 'ranked-season-3-4',
+                fencedAt: Date.now(),
+            },
+        });
+        seed(initial);
+        beforeCompareSet = (key) => {
+            if (key !== 'pvp:ranked-close-terminal') return;
+            store.set(key, clone(fenced));
+            beforeCompareSet = null;
+        };
+
+        const out = await postMove('alice', {
+            battleId: 'ranked-close-terminal',
+            role: 'p1',
+            action: 'flee',
+            moveToken: 'ranked-close-terminal-token',
+        });
+
+        assert.equal(out.statusCode, 409);
+        assert.deepEqual(storedSession('ranked-close-terminal'), fenced);
+        assert.match(String((out.body as { error?: string }).error), /no-contest/i);
     } finally {
         crypto.randomInt = originalRandomInt;
         syncBuiltinESMExports();

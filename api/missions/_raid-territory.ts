@@ -3,6 +3,7 @@ import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
 import { isWildSector } from '../../shared/sector-geo.js';
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 const TERRITORY_HP_MAX = 20_000;
 const MAX_RECEIPTS = 160;
@@ -23,6 +24,26 @@ type RaidDamageReceipt = {
 type DurableRaidDamageReceipt = RaidDamageReceipt & {
     version: 1;
     sector: number;
+};
+
+export type SealedRaidTerritoryEvidence = {
+    version: 1;
+    sector: number;
+    ownerClan: string;
+    ownerVillage: string;
+    raidDamage: number;
+    observedAt: number;
+};
+
+export type RaidTerritoryDamageResult = {
+    proofId: string;
+    playerName: string;
+    amount: number;
+    sector?: number;
+    hpAfter?: number;
+    destroyed?: boolean;
+    at: number;
+    replayed: boolean;
 };
 
 export function raidTerritoryProofKey(proofId: string): string {
@@ -138,21 +159,46 @@ async function helpForwardPendingReceipt(
     }
     await publishDurableReceipt(pending);
     const cleared = withoutPendingReceipt(row);
-    await kv.set(territoryKey, cleared);
-    return cleared;
+    try {
+        if (await kv.compareSet(territoryKey, row, cleared)) return cleared;
+    } catch (error) {
+        const recovered = await kv.get<unknown>(territoryKey).catch(() => null);
+        if (isDeepStrictEqual(recovered, cleared)) return cleared;
+        throw error;
+    }
+    throw new Error('raid-territory-row-conflict');
 }
 
 async function pinAndFinalizeReceipt(
     territoryKey: string,
-    row: Record<string, unknown>,
+    expectedRow: Record<string, unknown>,
+    projectedRow: Record<string, unknown>,
     receipt: DurableRaidDamageReceipt,
 ): Promise<Record<string, unknown>> {
-    const pinned = { ...row, serverRaidDamagePending: receipt };
-    await kv.set(territoryKey, pinned);
+    const pinned = { ...projectedRow, serverRaidDamagePending: receipt };
+    try {
+        if (!(await kv.compareSet(territoryKey, expectedRow, pinned))) {
+            throw new Error('raid-territory-row-conflict');
+        }
+    } catch (error) {
+        const recovered = await kv.get<unknown>(territoryKey).catch(() => null);
+        if (!isDeepStrictEqual(recovered, pinned)) throw error;
+    }
     await publishDurableReceipt(receipt);
     const cleared = withoutPendingReceipt(pinned);
-    await kv.set(territoryKey, cleared);
-    return cleared;
+    try {
+        if (await kv.compareSet(territoryKey, pinned, cleared)) return cleared;
+    } catch (error) {
+        const recovered = await kv.get<unknown>(territoryKey).catch(() => null);
+        if (isDeepStrictEqual(recovered, cleared)) return cleared;
+        throw error;
+    }
+    const recovered = await kv.get<Record<string, unknown>>(territoryKey);
+    if (recovered && !Object.prototype.hasOwnProperty.call(recovered, 'serverRaidDamagePending')) {
+        const replay = receipts(recovered.serverRaidDamageReceipts).find((entry) => entry.proofId === receipt.proofId);
+        if (replay) return recovered;
+    }
+    throw new Error('raid-territory-pending-clear-conflict');
 }
 
 function receipts(value: unknown): RaidDamageReceipt[] {
@@ -185,13 +231,29 @@ export async function settleRaidTerritoryDamage(params: {
     playerName: string;
     proofId: string;
     sector?: number;
-}): Promise<{ amount: number; sector?: number; hpAfter?: number; destroyed?: boolean; replayed: boolean }> {
+    eventAt?: number;
+    evidence?: SealedRaidTerritoryEvidence;
+}): Promise<RaidTerritoryDamageResult> {
     const sector = Math.floor(Number(params.sector));
-    if (!isWildSector(sector)) return { amount: 0, replayed: false };
+    const eventAt = Number(params.eventAt ?? Date.now());
     const proofId = typeof params.proofId === 'string' ? params.proofId.trim().slice(0, 180) : '';
-    if (!proofId) throw new Error('invalid-raid-territory-proof');
     const playerName = safeName(params.playerName);
-    if (!playerName) throw new Error('invalid-raid-territory-player');
+    if (!proofId || !playerName || !Number.isSafeInteger(eventAt) || eventAt <= 0) {
+        throw new Error('invalid-raid-territory-proof');
+    }
+    if (!isWildSector(sector)) return { proofId, playerName, amount: 0, at: eventAt, replayed: false };
+    const evidence = params.evidence;
+    if (evidence && (evidence.version !== 1
+        || evidence.sector !== sector
+        || !Number.isSafeInteger(evidence.raidDamage)
+        || evidence.raidDamage < 0
+        || evidence.raidDamage > 250
+        || !Number.isSafeInteger(evidence.observedAt)
+        || evidence.observedAt <= 0
+        || typeof evidence.ownerClan !== 'string'
+        || typeof evidence.ownerVillage !== 'string')) {
+        throw new Error('invalid-raid-territory-evidence');
+    }
     const key = `world:territory:${sector}`;
     const proofKey = raidTerritoryProofKey(proofId);
     return withKvLock(proofKey, async () => {
@@ -200,10 +262,13 @@ export async function settleRaidTerritoryDamage(params: {
             if (durablePrior.playerName.toLowerCase() !== playerName.toLowerCase()
                 || durablePrior.sector !== sector) throw new Error('raid-territory-proof-binding-conflict');
             return {
+                proofId,
+                playerName,
                 amount: durablePrior.amount,
                 sector,
                 hpAfter: durablePrior.hpAfter,
                 destroyed: durablePrior.destroyed,
+                at: durablePrior.at,
                 replayed: true,
             };
         }
@@ -225,12 +290,15 @@ export async function settleRaidTerritoryDamage(params: {
                 // Rolling-upgrade rows may predate terminal proof keys. Pin the
                 // old exact result before backfilling so a crash cannot let later
                 // raids evict it from the bounded audit ring.
-                await pinAndFinalizeReceipt(key, current, durable);
+                await pinAndFinalizeReceipt(key, current, current, durable);
                 return {
+                    proofId,
+                    playerName,
                     amount: prior.amount,
                     sector,
                     hpAfter: prior.hpAfter,
                     destroyed: prior.destroyed,
+                    at: prior.at,
                     replayed: true,
                 };
             }
@@ -241,12 +309,16 @@ export async function settleRaidTerritoryDamage(params: {
                 ? current.guards.map((guard) => safeName(String(guard))).filter(Boolean).slice(0, 20)
                 : [];
             let amount = 0;
-            const playerSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
-            const playerClan = String(playerSave?.character?.clan ?? '').trim();
-            const playerVillage = String(playerSave?.character?.village ?? '').trim();
-            const controlsTerritory = (!!ownerClan && ownerClan === playerClan)
-                || (!!ownerVillage && ownerVillage === playerVillage);
-            if (ownerClan && !controlsTerritory) {
+            if (evidence) {
+                const sameTarget = ownerClan === evidence.ownerClan && ownerVillage === evidence.ownerVillage;
+                amount = sameTarget ? evidence.raidDamage : 0;
+            } else {
+                const playerSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+                const playerClan = String(playerSave?.character?.clan ?? '').trim();
+                const playerVillage = String(playerSave?.character?.village ?? '').trim();
+                const controlsTerritory = (!!ownerClan && ownerClan === playerClan)
+                    || (!!ownerVillage && ownerVillage === playerVillage);
+                if (ownerClan && !controlsTerritory) {
                 const villageState = await kv.get<{ anbuAppointees?: unknown }>(
                     `game:village-state:${villageSlug(ownerVillage)}`,
                 );
@@ -255,6 +327,7 @@ export async function settleRaidTerritoryDamage(params: {
                     : []);
                 const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
                 amount = anbuCount > 0 ? Math.max(50, 250 - anbuCount * 50) : guards.length > 0 ? 150 : 250;
+                }
             }
             const hpBefore = Math.max(0, Math.min(TERRITORY_HP_MAX, Math.floor(Number(current.hp) || TERRITORY_HP_MAX)));
             const destroyed = amount > 0 && hpBefore - amount <= 0;
@@ -265,7 +338,7 @@ export async function settleRaidTerritoryDamage(params: {
                 amount,
                 hpAfter,
                 destroyed,
-                at: Date.now(),
+                at: eventAt,
             };
             const next = destroyed ? {
                 ...current,
@@ -288,8 +361,8 @@ export async function settleRaidTerritoryDamage(params: {
                 serverRaidDamageReceipts: [...existing, receipt].slice(-MAX_RECEIPTS),
             };
             const durable: DurableRaidDamageReceipt = { version: 1, sector, ...receipt };
-            await pinAndFinalizeReceipt(key, next, durable);
-            return { amount, sector, hpAfter, destroyed, replayed: false };
+            await pinAndFinalizeReceipt(key, current, next, durable);
+            return { proofId, playerName, amount, sector, hpAfter, destroyed, at: eventAt, replayed: false };
         }, { failClosed: true });
     }, { failClosed: true });
 }

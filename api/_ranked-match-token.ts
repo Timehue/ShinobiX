@@ -30,6 +30,23 @@ export type PlayerRankedMatchToken = {
 
 type TokenStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'del'>;
 
+type PetRankedMatchToken = {
+    mintedAt: number;
+    battleId?: string;
+    consumedAt?: number;
+};
+
+function isPetRankedMatchToken(value: unknown): value is PetRankedMatchToken {
+    if (!isRecord(value)
+        || !Number.isSafeInteger(value.mintedAt)
+        || Number(value.mintedAt) <= 0) return false;
+    if (value.battleId === undefined && value.consumedAt === undefined) return true;
+    return typeof value.battleId === 'string'
+        && /^pvp-[0-9a-f-]{36}$/.test(value.battleId)
+        && Number.isSafeInteger(value.consumedAt)
+        && Number(value.consumedAt) > 0;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -209,6 +226,66 @@ export async function mintRankedMatchToken(a: string, b: string, ladder: RankedL
     await kv.set(rankedMatchTokenKey(a, b, ladder), { mintedAt: Date.now() }, { ex: RANKED_TOKEN_TTL_SECONDS });
 }
 
+export async function proveRankedMatchTokenForBattleWithStore(
+    store: Pick<TokenStore, 'get'>,
+    a: string,
+    b: string,
+    ladder: RankedLadder,
+    battleId: string,
+): Promise<boolean> {
+    if (ladder === 'player') throw new Error('use-provePlayerRankedMatchToken');
+    const token = await store.get<unknown>(rankedMatchTokenKey(a, b, ladder));
+    return isPetRankedMatchToken(token) && (token.battleId === undefined || token.battleId === battleId);
+}
+
+export async function consumeRankedMatchTokenForBattleWithStore(
+    store: Pick<TokenStore, 'get' | 'compareSet'>,
+    a: string,
+    b: string,
+    ladder: RankedLadder,
+    battleId: string,
+): Promise<boolean> {
+    if (ladder === 'player') throw new Error('use-provePlayerRankedMatchToken');
+    const key = rankedMatchTokenKey(a, b, ladder);
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+        const current = await store.get<unknown>(key);
+        if (!isPetRankedMatchToken(current)) return false;
+        if (current.battleId !== undefined) return current.battleId === battleId;
+        const desired: PetRankedMatchToken = {
+            mintedAt: current.mintedAt,
+            battleId,
+            consumedAt: Date.now(),
+        };
+        try {
+            if (await store.compareSet(key, current, desired, { ex: RANKED_TOKEN_TTL_SECONDS })) return true;
+        } catch (error) {
+            const recovered = await store.get<unknown>(key).catch(() => null);
+            if (isPetRankedMatchToken(recovered) && recovered.battleId === battleId) return true;
+            throw error;
+        }
+    }
+    throw new Error('pet-ranked-token-consume-busy');
+}
+
+export async function proveRankedMatchTokenForBattle(
+    a: string,
+    b: string,
+    ladder: RankedLadder,
+    battleId: string,
+): Promise<boolean> {
+    return proveRankedMatchTokenForBattleWithStore(kv, a, b, ladder, battleId);
+}
+
+export async function consumeRankedMatchTokenForBattle(
+    a: string,
+    b: string,
+    ladder: RankedLadder,
+    battleId: string,
+): Promise<boolean> {
+    return consumeRankedMatchTokenForBattleWithStore(kv, a, b, ladder, battleId);
+}
+
+/** @deprecated Only old callers may use destructive pair-token consumption. */
 export async function consumeRankedMatchToken(a: string, b: string, ladder: RankedLadder): Promise<boolean> {
     if (ladder === 'player') throw new Error('use-provePlayerRankedMatchToken');
     return (await kv.del(rankedMatchTokenKey(a, b, ladder))) > 0;

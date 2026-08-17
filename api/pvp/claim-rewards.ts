@@ -8,8 +8,8 @@ import { creditRankedOutcome, rankedDelta } from '../_ranked-rating.js';
 import { computePvpWinGains, creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
 import { recordPairWinAndDecay } from './_reward-farm.js';
-import { hasRecentIpOrFpOverlap, hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import {
@@ -21,24 +21,38 @@ import {
 } from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
 import {
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
 import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
-import { confirmPlayerRankedTerminalEffects } from './_ranked-terminal-effects.js';
 import { boundExactPvpSession } from './_session-mutation.js';
-import { SESSION_TTL } from '../combat-core/constants.js';
+import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import { settleRaidProgressionWithDailyCap, type CappedRaidProgressionResult } from '../missions/_raid-progression.js';
+import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
+import type { PlayerRankedJournal } from './_player-ranked-journal.js';
+import {
+    acknowledgePvpRewardCompletion,
+    markPvpRewardServerCreditsCompleted,
+    pvpRewardCompletionSessionCreatedAt,
+    reservePvpRewardCompletion,
+} from './_reward-completion.js';
+import {
+    creditPvpWarGroundReward,
+} from './_war-ground-reward.js';
+import { settlePvpVillageWarContinuation } from '../world-state.js';
+import {
+    loadPvpRewardRecoverySnapshot,
+    sealPvpRewardRecoverySnapshot,
+} from './_reward-recovery.js';
+import {
+    clearPvpPendingSessionPointer,
+    PVP_PENDING_SESSION_TTL_SECONDS,
+    pvpRecoveryRemainingTtlSeconds,
+    pvpTerminalRecoveryExpiresAt,
+} from './_pending-session.js';
+import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
 
 export { deductUsedItems } from './_consumable-settlement.js';
-
-// Session-replay window — tightened from 24h to 2h. Sessions themselves
-// have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
-// the evidence by 23+ hours. 2 hours gives players with bad connections,
-// background-tab freezes, and mobile-app-switch delays plenty of headroom
-// while closing most of the reward-shifting gap.
-const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 // One-shot idempotency gate for the CLIENT-side PvP reward payout.
 //
@@ -52,14 +66,16 @@ const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 // every one of those local grants.
 //
 // Contract:
-//   POST { battleId, playerName, outcome: 'win' | 'loss' }
-//   → 200 { ok: true, alreadyClaimed: boolean }
-//   The caller MUST skip its local reward grant when alreadyClaimed is true.
+//   POST { battleId, playerName, outcome: 'win' | 'loss' | 'draw', completionVersion: 1 }
+//   → 200 { ok: true, alreadyClaimed: boolean, completionPending: boolean }
+//   The claim receipt keeps completion pending until the authenticated browser
+//   ACKs that its idempotent App callbacks finished. This survives a lost
+//   claim response even when localStorage is unavailable.
 //
-// Storage: pvp:rewarded:<playerName>:<battleId>  (24h TTL — well past the
-// 60-min session TTL, so even a slow re-mount can't slip past.)
+// Storage: pvp:rewarded:<playerName>:<battleId>. Keep this at the same 48-hour
+// horizon as the recovery proof and authenticated pending-session pointer.
 
-const CLAIM_TTL_SECONDS = 24 * 60 * 60;
+const CLAIM_TTL_SECONDS = PVP_PENDING_SESSION_TTL_SECONDS;
 const MAX_RAID_REPORTS_PER_DAY = 60;
 
 function raidProgressionBody(result: CappedRaidProgressionResult | null) {
@@ -73,7 +89,9 @@ function raidProgressionBody(result: CappedRaidProgressionResult | null) {
         bonusRyo: result.settlement?.bonusRyo ?? 0,
         bonusSeals: result.settlement?.bonusSeals ?? 0,
         territoryDamage: result.territoryDamage,
-        sector: result.settlement?.sector,
+        territoryDestroyed: result.territory.destroyed === true,
+        territoryHpAfter: result.territory.hpAfter,
+        sector: result.settlement?.sector ?? result.territory.sector,
     };
 }
 
@@ -116,17 +134,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body?.playerName ?? ''));
         const battleId = String(body?.battleId ?? '').trim();
         const outcome = String(body?.outcome ?? '').trim();
+        const clientCompletionVersion = body?.completionVersion === 1;
+        const completionAck = body?.completionAck === true;
         if (!playerName || !battleId) {
             return res.status(400).json({ error: 'Missing playerName or battleId.' });
         }
-        if (outcome !== 'win' && outcome !== 'loss') {
-            return res.status(400).json({ error: "outcome must be 'win' or 'loss'." });
+        if (outcome !== 'win' && outcome !== 'loss' && outcome !== 'draw') {
+            return res.status(400).json({ error: "outcome must be 'win', 'loss', or 'draw'." });
         }
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only claim your own rewards.' });
+        }
+
+        const key = claimKey(playerName, battleId);
+        if (completionAck) {
+            if (!clientCompletionVersion) {
+                return res.status(400).json({ error: 'Unsupported completion acknowledgement.' });
+            }
+            try {
+                const receiptGeneration = pvpRewardCompletionSessionCreatedAt(
+                    await kv.get<unknown>(key),
+                );
+                const ack = await acknowledgePvpRewardCompletion(
+                    kv,
+                    key,
+                    outcome,
+                    CLAIM_TTL_SECONDS,
+                    Date.now(),
+                    receiptGeneration ?? undefined,
+                );
+                if (ack === 'missing') {
+                    return res.status(409).json({ error: 'Reward claim must be confirmed before completion.' });
+                }
+                if (ack === 'not-ready') {
+                    return res.status(409).json({ error: 'Authoritative reward credits are still pending.' });
+                }
+                if (receiptGeneration !== null) {
+                    await clearPvpPendingSessionPointer(
+                        kv,
+                        playerName,
+                        battleId,
+                        receiptGeneration,
+                    );
+                }
+                // The exact player+battle+outcome receipt authorizes this ACK even
+                // after the terminal combat row expires. No gameplay authority is
+                // created here; only an existing pending obligation is completed.
+                return res.status(200).json({ ok: true, completionPending: false });
+            } catch (error) {
+                if (error instanceof Error && error.message.includes('outcome-conflict')) {
+                    return res.status(409).json({ error: 'Reward completion outcome does not match the claim.' });
+                }
+                throw error;
+            }
         }
 
         // Authoritative outcome check — load the actual session and verify
@@ -136,32 +199,145 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // unlocking the client-applied ryo / XP / ranked-rating / clan-war
         // grants on the next save flush. Mirrors the verification regime
         // already used by api/missions/report-pvp-win.ts.
-        const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+        const liveSession = await kv.get<PvpSession>(`pvp:${battleId}`);
+        let session = liveSession
+            ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
         if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
         }
         const exactPlayerRankedV2Terminal = isPlayerRankedV2Session(session);
-        const sessionAge = Date.now() - Number(session.createdAt ?? 0);
-        if (!exactPlayerRankedV2Terminal && sessionAge > SESSION_REPLAY_WINDOW_MS) {
-            return res.status(409).json({ error: 'Battle session is too old to claim.' });
-        }
-        const winnerName = (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
-        const loserName = (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
-        // winnerName/loserName are stored DISPLAY names (may contain spaces);
-        // canonicalize through safeName to compare with the slug `playerName`.
-        const expectedSide = outcome === 'win' ? winnerName : loserName;
-        if (!identity.admin && safeName(expectedSide) !== playerName) {
-            return res.status(403).json({
-                error: `Recorded ${outcome === 'win' ? 'winner' : 'loser'} of this battle is not you.`,
+        const durableCompletionAuthority = session.pvpCompletionAuthorityVersion === 1;
+        if (session.pvpCompletionAuthorityVersion === 1 && !clientCompletionVersion) {
+            return res.status(409).json({
+                error: 'This battle requires the durable reward-completion protocol.',
             });
         }
+        const completionVersion = clientCompletionVersion
+            || session.pvpCompletionAuthorityVersion === 1;
+        const terminalIsDraw = session.winner === 'draw';
+        const winnerName = terminalIsDraw
+            ? ''
+            : (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
+        const loserName = terminalIsDraw
+            ? ''
+            : (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
+        // winnerName/loserName are stored DISPLAY names (may contain spaces);
+        // canonicalize through safeName to compare with the slug `playerName`.
+        const expectedSide = outcome === 'win' ? winnerName : outcome === 'loss' ? loserName : '';
+        const drawParticipant = terminalIsDraw
+            && [safeName(session.p1.name), safeName(session.p2.name)].includes(playerName);
+        if (terminalIsDraw !== (outcome === 'draw')) {
+            return res.status(409).json({ error: 'Claim outcome does not match the terminal battle.' });
+        }
+        if (!identity.admin && !(drawParticipant || safeName(expectedSide) === playerName)) {
+            return res.status(403).json({
+                error: outcome === 'draw'
+                    ? 'Only a participant may confirm this drawn battle.'
+                    : `Recorded ${outcome === 'win' ? 'winner' : 'loser'} of this battle is not you.`,
+            });
+        }
+        const rewardEventAt = Number(session.endedAt);
+        if (!Number.isSafeInteger(rewardEventAt)
+            || rewardEventAt <= 0
+            || rewardEventAt < Number(session.createdAt)
+            || rewardEventAt > Date.now() + 60_000) {
+            return res.status(409).json({ error: 'Battle terminal time is invalid.' });
+        }
+        let recoveryExpiresAt: number;
+        let claimTtlSeconds: number;
+        try {
+            recoveryExpiresAt = pvpTerminalRecoveryExpiresAt(session)
+                ?? (() => { throw new Error('pvp-terminal-recovery-deadline-missing'); })();
+            claimTtlSeconds = pvpRecoveryRemainingTtlSeconds(recoveryExpiresAt);
+        } catch {
+            return res.status(409).json({ error: 'Battle recovery window has expired.' });
+        }
 
-        const key = claimKey(playerName, battleId);
+        // Seal the exact terminal evidence before any consumable, progression,
+        // claim receipt, or credit write. The immutable 48-hour recovery row
+        // matches the claim/pointer horizon, so a crash after reservation can
+        // help-forward even if the live combat row has since expired.
+        if (liveSession) {
+            try {
+                session = await sealPvpRewardRecoverySnapshot(kv, battleId, liveSession);
+            } catch (error) {
+                console.error('[pvp/claim-rewards] recovery snapshot pending', error);
+                return res.status(503).json({ error: 'Battle recovery proof is still finalizing. Retry this claim.' });
+            }
+        }
+
         const rewardAuthorized = pvpSessionMayReward(session);
+        const progressionAuthorized = pvpSessionMayGrantProgress(session);
         const playerRankedV2Claim = exactPlayerRankedV2Terminal
             && (session.winner === 'p1' || session.winner === 'p2');
-        let playerRankedJournal: Awaited<ReturnType<typeof confirmPlayerRankedTerminalEffects>> | undefined;
+        let playerRankedJournal: PlayerRankedJournal | undefined;
+
+        // Draws have no personal payout callback, but they still own mandatory
+        // server terminal effects (notably an accepted Kage duel, where a draw
+        // is an incumbent defense). Give each real participant the same durable
+        // completion/ACK barrier instead of clearing their recovery pointer as
+        // soon as a terminal frame arrives.
+        if (terminalIsDraw) {
+            const reservation = await reservePvpRewardCompletion(
+                kv,
+                key,
+                'draw',
+                completionVersion,
+                claimTtlSeconds,
+                Date.now(),
+                true,
+                recoveryExpiresAt,
+                session.createdAt,
+            );
+            try {
+                if (reservation.serverCreditsPending) {
+                    if (exactPlayerRankedV2Terminal) {
+                        // Ranked V2 owns consumable confirmation inside its
+                        // durable terminal journal. Calling the legacy drain
+                        // first would reject the draw because no journal had
+                        // been published yet. Replay the committed terminal
+                        // saga first and require its exact draw journal.
+                        const replay = await replayCommittedPvpTerminalEffects(session);
+                        if (!replay.playerRankedJournal) {
+                            throw new Error('player-ranked-draw-terminal-journal-missing');
+                        }
+                    } else {
+                        await settlePvpConsumablesDurably(
+                            kv,
+                            session,
+                            (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
+                            { legacyPlayerName: playerName },
+                        );
+                        await replayCommittedPvpTerminalEffects(session);
+                    }
+                    const marked = await markPvpRewardServerCreditsCompleted(
+                        kv,
+                        key,
+                        'draw',
+                        claimTtlSeconds,
+                        Date.now(),
+                        session.createdAt,
+                    );
+                    if (marked !== 'completed') throw new Error('draw-server-credits-unconfirmed');
+                }
+            } catch (error) {
+                console.error('[pvp/claim-rewards] draw terminal settlement pending', error);
+                return res.status(503).json({
+                    error: 'Draw settlement is still finalizing. Retry this claim.',
+                });
+            }
+            if (!reservation.completionPending) {
+                await clearPvpPendingSessionPointer(kv, playerName, battleId, session.createdAt);
+            }
+            return res.status(200).json({
+                ok: true,
+                alreadyClaimed: reservation.alreadyClaimed,
+                completionPending: reservation.completionPending,
+                rewardAuthorized: false,
+                progressionAuthorized: false,
+            });
+        }
 
         // ── Server-authoritative PvP consumable deduction ───────────────────
         // Remove the throwables / consumables / potions the SERVER recorded each
@@ -182,12 +358,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             );
             if (playerRankedV2Claim) {
                 // A claim may be the first retry after terminal-session CAS and
-                // process death. Run the full publish -> empty-item-confirm saga
-                // before Elo, rather than assuming move already published it.
-                playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {
-                    eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
-                    lock: saveLock,
-                });
+                // process death. Replay every post-CAS terminal effect; the
+                // ranked helper propagates until its journal is fully durable.
+                const replay = await replayCommittedPvpTerminalEffects(session);
+                playerRankedJournal = replay.playerRankedJournal;
+                if (!playerRankedJournal) throw new Error('player-ranked-terminal-journal-missing');
             } else {
                 await settlePvpConsumablesDurably(
                     kv,
@@ -195,6 +370,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     saveLock,
                     { legacyPlayerName: playerName },
                 );
+                // Legacy terminal effects are individually idempotent and can be
+                // repaired by either participant's claim after a move lost its
+                // post-CAS continuation.
+                await replayCommittedPvpTerminalEffects(session);
             }
         } catch (error) {
             console.error('[pvp/claim-rewards] consumable settlement pending', error);
@@ -212,10 +391,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let worldRaidProgression: CappedRaidProgressionResult | null = null;
         const raidSector = Math.floor(Number(session.rewardSector));
         const worldAttacker = sealedWorldRaidAttacker(session);
-        if (outcome === 'win'
-            && safeName(winnerName) === playerName
-            && worldAttacker?.side === session.winner
-            && worldAttacker.name === playerName
+        if (worldAttacker?.side === session.winner
+            && worldAttacker.name === safeName(winnerName)
             && rewardAuthorized
             && session.rewardAuthority === 'world'
             && pvpSessionMayGrantProgress(session)
@@ -224,17 +401,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             && raidSector <= 66) {
             try {
                 worldRaidProgression = await settleRaidProgressionWithDailyCap({
-                    playerName,
+                    playerName: worldAttacker.name,
                     proofId: `pvp-raid:${battleId}`,
-                    proofAt: Math.floor(Number(session.createdAt)),
+                    proofAt: rewardEventAt,
                     sector: raidSector,
                     dailyLimit: MAX_RAID_REPORTS_PER_DAY,
+                    ...(session.worldTerritoryEvidence
+                        ? { territoryEvidence: session.worldTerritoryEvidence }
+                        : {}),
                 });
             } catch (error) {
                 console.error('[pvp/claim-rewards] world raid progression pending', error);
                 return res.status(503).json({
                     error: 'The raid settlement is still finalizing. Retry this claim.',
                 });
+            }
+        }
+        const worldRaidProgressionForCaller = worldAttacker?.name === playerName
+            ? worldRaidProgression
+            : null;
+
+        // Either participant's claim help-forwards village-war settlement on the
+        // server; personal war-ground save credit remains winner-only below.
+        // That settlement derives its delta from the sealed battle, publishes it
+        // under the war-row CAS, and returns the canonical ground-reward verdict.
+        // No process-local client cache or unlocked speculative war read is part
+        // of this authority boundary.
+        const warGroundRewardAt = rewardEventAt;
+        const shouldSettleVillageWar = pvpSessionMayGrantProgress(session)
+            && session.rewardAuthority !== 'admin'
+            && !(session.ranked === true && session.rankedKind === 'pet');
+        if (shouldSettleVillageWar) {
+            if (!Number.isSafeInteger(warGroundRewardAt)
+                || warGroundRewardAt <= 0
+                || warGroundRewardAt < Number(session.createdAt)
+                || warGroundRewardAt > Date.now() + 60_000) {
+                return res.status(409).json({ error: 'Battle terminal time is invalid; village-war reward was not settled.' });
             }
         }
 
@@ -262,7 +464,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && (session.rankedKind === 'player' || session.rankedKind === 'pet')
                 && (session.winner === 'p1' || session.winner === 'p2'));
         const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win';
-        if (isRankedClaim || creditBase) {
+        if (isRankedClaim || creditBase || shouldSettleVillageWar) {
             const kind: 'player' | 'pet' = session.rankedKind === 'pet' ? 'pet' : 'player';
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
             const winnerRating = Number((session.winner === 'p1' ? session.p1Rating : session.p2Rating) ?? 1000);
@@ -277,6 +479,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 totalPvpKills?: number;
                 monthlyPvpKills?: number;
                 pvpKillMonth?: string;
+            };
+            type WarGroundOut = {
+                fresh: boolean;
+                bountyCredited: boolean;
+                raidProgress: number;
             };
 
             // Ladder-integrity guard (audit #2): when the two fighters share a
@@ -295,7 +502,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const journal = playerRankedJournal;
                     if (!journal) throw new Error('player-ranked-journal-missing');
                     const settled = await settlePlayerRankedJournal(kv, journal, Date.now());
-                    await boundExactPvpSession(kv, `pvp:${battleId}`, session, SESSION_TTL);
+                    await boundExactPvpSession(kv, `pvp:${battleId}`, session, PVP_TERMINAL_REPLAY_TTL);
                     const side = claimerSlug === journal.terminal.a ? 'a'
                         : claimerSlug === journal.terminal.b ? 'b'
                             : null;
@@ -335,19 +542,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // separate-key receipt COULD be placed while the save write was lost —
             // and the retry then skipped, permanently losing the Elo change.
             const settleRatingFor = async (slug: string, role: 'winner' | 'loser'): Promise<RatingOut | undefined> => {
-                if (!rankedEligible || !slug) return undefined;
+                if (!rankedEligible) return undefined;
+                if (!slug) throw new Error(`ranked-${role}-identity-missing`);
                 const saveKey = `save:${slug}`;
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
-                if (!record || !char) return undefined;
+                if (!record || !char) throw new Error(`ranked-${role}-save-missing`);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
                 const sid = pvpSettlementId('rating', battleId);
                 const decision = inspectPvpCredit(char, sid, `rating-${role}`);
                 if (decision.fresh) {
                     const credited = embedPvpSettlementReceipt({ ...char, ...r.patch }, decision.receipts, sid, `rating-${role}`, Date.now());
-                    const next = bumpSaveVersion({ ...record, character: credited });
-                    await writeSaveProjected(saveKey, next, record);
+                    await writeVersionedPlayerSave(saveKey, record, credited);
                     return { field: ratingField, value: r.newRating, delta: r.delta };
+                }
+                if (decision.needsBackfill) {
+                    const backfilled = embedPvpSettlementReceipt(
+                        char,
+                        decision.receipts,
+                        sid,
+                        `rating-${role}`,
+                        Date.now(),
+                    );
+                    await writeVersionedPlayerSave(saveKey, record, backfilled);
                 }
                 // Already settled — return the stored authoritative rating.
                 const cur = Number(char[ratingField]);
@@ -363,7 +580,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const saveKey = `save:${winnerSlug}`;
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
-                if (!record || !char) return undefined;
+                if (!record || !char) throw new Error('pvp-base-winner-save-missing');
                 // #1A settlement-side guard (defense in depth): base ryo/XP is a
                 // PvP-win reward, so re-verify AT THE MONEY-MOVING STEP that the
                 // loser was a real player with an authoritative save — session
@@ -372,7 +589,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the session-side gate landed) never pays out. Fails closed on a
                 // transient loser-save read miss; the winner can retry the claim.
                 const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
-                if (!loserRecord?.character) return undefined;
+                if (!loserRecord?.character) throw new Error('pvp-base-loser-save-missing');
                 const { ryoGain, growthMult } = computePvpWinGains(char, session.rewardSector);
                 const sid = pvpSettlementId('base', battleId);
                 const decision = inspectPvpCredit(char, sid, 'base');
@@ -406,19 +623,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // creditBase). Ranked = 0 (skill-pure). The client mirrors the
                         // allocated stats via summary.statGrowth and the pool via
                         // summary.unspentStats (applyServerBaseReward + applyStatGrowth).
-                        const budgetKey = `combat-stat-count:${winnerSlug}:${new Date().toISOString().slice(0, 10)}`;
-                        const spentToday = Number((await kv.get<number>(budgetKey)) ?? 0);
-                        const remaining = Math.max(0, DAILY_COMBAT_STAT_CAP - spentToday);
                         const statsNow = (finalChar.stats ?? {}) as Record<string, number>;
                         // The slice ledger charges BASE points; boosts multiply the
                         // payout after slice accounting (map §4.1): the retired Swift
                         // +25% / Death's Gate ×2 XP bonuses (growthMult) and the era
                         // dial scale what's granted, not what's charged.
-                        const baseEarned = Math.max(0, Math.min(PVP_CASUAL_STAT_POINTS_PER_WIN, remaining));
+                        const statBudget = await reservePvpCombatStatBudget(kv, {
+                            playerName: winnerSlug,
+                            battleId,
+                            eventAt: rewardEventAt,
+                            requested: PVP_CASUAL_STAT_POINTS_PER_WIN,
+                            cap: DAILY_COMBAT_STAT_CAP,
+                        });
+                        const baseEarned = statBudget.points;
                         const boosted = Math.round(baseEarned * growthMult * statGainMultiplier());
                         const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, boosted, boosted);
                         if (baseEarned > 0 && g.spent > 0) {
-                            await kv.set(budgetKey, spentToday + baseEarned, { ex: 25 * 60 * 60 }).catch(() => undefined);
                             const newStats: Record<string, number> = { ...statsNow };
                             for (const [k, v] of Object.entries(g.allocated)) newStats[k] = (Number(newStats[k]) || 0) + (v ?? 0);
                             const newUnspent = (Number(finalChar.unspentStats) || 0) + g.unspentGain;
@@ -439,14 +659,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             };
                         }
                     }
-                    const month = new Date().toISOString().slice(0, 7);
-                    const monthlyKills = finalChar.pvpKillMonth === month ? Number(finalChar.monthlyPvpKills) || 0 : 0;
+                    const eventMonth = new Date(rewardEventAt).toISOString().slice(0, 7);
+                    const storedMonth = typeof finalChar.pvpKillMonth === 'string' ? finalChar.pvpKillMonth : '';
+                    const preserveNewerMonth = /^\d{4}-\d{2}$/.test(storedMonth) && storedMonth > eventMonth;
+                    const month = preserveNewerMonth ? storedMonth : eventMonth;
+                    const monthlyKills = preserveNewerMonth
+                        ? Math.max(0, Math.floor(Number(finalChar.monthlyPvpKills) || 0))
+                        : storedMonth === eventMonth
+                            ? Math.max(0, Math.floor(Number(finalChar.monthlyPvpKills) || 0)) + 1
+                            : 1;
                     finalChar = {
                         ...finalChar,
                         auraDust: Math.max(0, Number(finalChar.auraDust) || 0) + 6,
                         inventory: grantTerritoryScrollsToInventory(finalChar, 5),
                         totalPvpKills: Math.max(0, Math.floor(Number(finalChar.totalPvpKills) || 0)) + 1,
-                        monthlyPvpKills: monthlyKills + 1,
+                        monthlyPvpKills: monthlyKills,
                         pvpKillMonth: month,
                     };
                     summary = {
@@ -460,9 +687,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Embed the idempotency receipt INTO the credited character so
                     // the payout and its marker persist together in one atomic write.
                     const credited = embedPvpSettlementReceipt(finalChar, decision.receipts, sid, 'base', Date.now());
-                    const next = bumpSaveVersion({ ...record, character: credited });
-                    await writeSaveProjected(saveKey, next, record);
+                    await writeVersionedPlayerSave(saveKey, record, credited);
                     return summary;
+                }
+                if (decision.needsBackfill) {
+                    const backfilled = embedPvpSettlementReceipt(
+                        char,
+                        decision.receipts,
+                        sid,
+                        'base',
+                        Date.now(),
+                    );
+                    await writeVersionedPlayerSave(saveKey, record, backfilled);
                 }
                 return {
                     ryo: Number(char.ryo) || 0,
@@ -481,6 +717,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             };
 
+            const settleWarGroundForWinner = async (creditWarGround: boolean): Promise<WarGroundOut | undefined> => {
+                if (!creditWarGround) return undefined;
+                const saveKey = `save:${winnerSlug}`;
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = (record?.character ?? null) as Record<string, unknown> | null;
+                if (!record || !char) throw new Error('war-ground-winner-save-missing');
+                const credited = creditPvpWarGroundReward(char, battleId, warGroundRewardAt);
+                if (credited.writeRequired) {
+                    await writeVersionedPlayerSave(saveKey, record, credited.character);
+                }
+                return {
+                    fresh: credited.fresh,
+                    bountyCredited: credited.bountyCredited,
+                    raidProgress: credited.raidProgress,
+                };
+            };
+
             try {
                 // Lock every save we may write — claimer + opponent for a ranked
                 // settlement, winner-only for a casual base reward.
@@ -489,14 +742,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Caller's own claim receipt — gates the client's local
                     // self-apply (alreadyClaimed). Distinct from the per-player
                     // rating receipts below.
-                    const placedSelf = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-                    const already = !placedSelf;
+                    const reservation = await reservePvpRewardCompletion(
+                        kv,
+                        key,
+                        outcome,
+                        completionVersion,
+                        claimTtlSeconds,
+                        Date.now(),
+                        true,
+                        recoveryExpiresAt,
+                        session.createdAt,
+                    );
+                    const already = reservation.alreadyClaimed;
+                    // The server-credit phase is independent from the browser
+                    // continuation phase. A lost browser ACK keeps completion
+                    // pending but must not replay credits after their bounded
+                    // in-save receipts churn. Legacy callers retain their old
+                    // help-forward behavior after a failed credit attempt.
+                    const helpForwardServerCredits = !completionVersion || reservation.serverCreditsPending;
+                    let creditWarGround = false;
+                    if (helpForwardServerCredits && shouldSettleVillageWar) {
+                        const warSettlement = await settlePvpVillageWarContinuation(
+                            battleId,
+                            winnerSlug,
+                            session,
+                            worldRaidProgression?.territory,
+                        );
+                        if (warSettlement.status !== 200) {
+                            throw new Error(String(
+                                warSettlement.body.error
+                                ?? `pvp-village-war-settlement-${warSettlement.status}`,
+                            ));
+                        }
+                        creditWarGround = warSettlement.body.warGroundRewardEligible === true;
+                    }
 
                     // Settle BOTH ratings (each exactly once across the battle).
-                    const winnerRatingOut = playerRankedV2Claim
+                    const winnerRatingOut = playerRankedV2Claim || !helpForwardServerCredits
                         ? undefined
                         : await settleRatingFor(winnerSlug, 'winner');
-                    const loserRatingOut = playerRankedV2Claim
+                    const loserRatingOut = playerRankedV2Claim || !helpForwardServerCredits
                         ? undefined
                         : (loserSlug && loserSlug !== winnerSlug)
                             ? await settleRatingFor(loserSlug, 'loser')
@@ -506,7 +791,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // own in-save receipt gates the credit now (not `already`), so
                     // a crash that placed `key` but lost the payout is RECOVERED on
                     // retry instead of being permanently skipped.
-                    const base = (creditBase && claimerSlug === winnerSlug)
+                    const warGround = (helpForwardServerCredits && creditWarGround && claimerSlug === winnerSlug)
+                        ? await settleWarGroundForWinner(creditWarGround)
+                        : undefined;
+                    const base = (helpForwardServerCredits && creditBase && claimerSlug === winnerSlug)
                         ? await settleBaseForWinner()
                         : undefined;
 
@@ -514,7 +802,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ?? (claimerSlug === winnerSlug ? winnerRatingOut
                         : claimerSlug === loserSlug ? loserRatingOut
                         : undefined);
-                    return { already, rating, base };
+                    if (reservation.serverCreditsPending) {
+                        const sealed = await markPvpRewardServerCreditsCompleted(
+                            kv,
+                            key,
+                            outcome,
+                            claimTtlSeconds,
+                            Date.now(),
+                            session.createdAt,
+                        );
+                        if (sealed === 'missing') throw new Error('pvp-reward-server-credit-receipt-missing');
+                    }
+                    return { already, completionPending: reservation.completionPending, rating, base, warGround };
                 });
                 // Record the server-credited settlement on the durable battle
                 // receipt (Priority 4 visibility). Best-effort: never blocks or
@@ -527,6 +826,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
                 const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
+                if (!out.completionPending) {
+                    await clearPvpPendingSessionPointer(kv, playerName, battleId, session.createdAt);
+                }
                 if (!out.already) {
                     await recordBetaMetric({
                         event: 'pvp.settled',
@@ -538,10 +840,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
+                    completionPending: out.completionPending,
                     rewardAuthorized,
+                    progressionAuthorized,
                     ...(out.rating ? { rating: out.rating } : {}),
                     ...(out.base ? { base: out.base } : {}),
-                    ...(worldRaidProgression ? { raidProgression: raidProgressionBody(worldRaidProgression) } : {}),
+                    ...(out.warGround ? { warGroundReward: out.warGround } : {}),
+                    ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                     ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });
@@ -568,10 +873,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // can't masquerade as a successful claim.
         let alreadyClaimed = false;
         try {
-            const placed = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-            alreadyClaimed = !placed;
+            const reservation = await reservePvpRewardCompletion(
+                kv,
+                key,
+                outcome,
+                completionVersion,
+                claimTtlSeconds,
+                Date.now(),
+                false,
+                recoveryExpiresAt,
+                session.createdAt,
+            );
+            alreadyClaimed = reservation.alreadyClaimed;
             const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
             const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
+            if (!reservation.completionPending) {
+                await clearPvpPendingSessionPointer(kv, playerName, battleId, session.createdAt);
+            }
             if (!alreadyClaimed) {
                 await recordBetaMetric({
                     event: 'pvp.settled',
@@ -583,15 +901,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({
                 ok: true,
                 alreadyClaimed,
+                completionPending: reservation.completionPending,
                 rewardAuthorized,
-                ...(worldRaidProgression ? { raidProgression: raidProgressionBody(worldRaidProgression) } : {}),
+                progressionAuthorized,
+                ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                 ...(finalChar ? { character: finalChar } : {}),
                 _saveVersion: Number(finalSave?._saveVersion ?? 0),
             });
         } catch (reserveErr) {
-            console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);
+            // Completion-aware clients only run their durable settlement
+            // callbacks after this reservation is confirmed. Returning 200
+            // without a receipt would let a storage-denied browser run those
+            // callbacks, fail its ACK, then run them again when a later retry
+            // creates the reservation. Keep that ambiguity retryable. Legacy
+            // callers retain the historical casual fail-open behavior.
+            if (completionVersion) {
+                console.error('[pvp/claim-rewards] completion reservation failed', reserveErr);
+                return res.status(503).json({ error: 'Could not reserve battle settlement — please retry.' });
+            }
+            console.error('[pvp/claim-rewards] reserve failed (legacy fail-open)', reserveErr);
             const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
-            return res.status(200).json({ ok: true, alreadyClaimed: false, rewardAuthorized, degraded: true, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+            return res.status(200).json({
+                ok: true,
+                alreadyClaimed: false,
+                rewardAuthorized,
+                progressionAuthorized,
+                degraded: true,
+                _saveVersion: Number(finalSave?._saveVersion ?? 0),
+            });
         }
     } catch (err) {
         console.error('[pvp/claim-rewards]', err);

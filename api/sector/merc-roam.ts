@@ -8,9 +8,10 @@ import { isWarVillage } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { wrMercTierById } from '../_war-economy.js';
 import { activeContestOnSector } from '../_sector-war-store.js';
-import { activeVillageWarEnemiesOf } from '../world-state.js';
+import { mutableVillageWarEnemiesOf } from '../world-state.js';
 import { deployOneMerc, deployMercVillageWar } from '../_merc-auto.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
+import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import {
     type HostileBand,
     synthRoamingMercs,
@@ -61,7 +62,7 @@ async function hostileBandsFor(
     const out: Array<HostileBand & { hirer: string; contestId?: string }> = [];
 
     // 1. Village-war enemies — their mercs follow the viewer's players everywhere.
-    const enemies = await activeVillageWarEnemiesOf(viewerVillage);
+    const enemies = await mutableVillageWarEnemiesOf(viewerVillage);
     for (const enemy of enemies) {
         for (const band of await activeBandsOf(enemy, now)) {
             const tier = wrMercTierById(band.tierId);
@@ -100,9 +101,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'You can only act as yourself.' });
         }
 
-        const village = typeof body.village === 'string' ? body.village.trim() : '';
+        // Village membership is authorization, never a client selector. The
+        // request still carries `village` for old clients, but it cannot make a
+        // player browse/engage another village's hostile bands.
+        const actorSave = await kv.get<{ character?: { village?: unknown } }>(`save:${playerName}`);
+        const village = String(actorSave?.character?.village ?? '').trim();
         const sector = Math.floor(Number(body.sector) || 0);
-        if (!isWarVillage(village)) return res.status(400).json({ error: 'Not a war village.' });
+        if (!isWarVillage(village)) return res.status(403).json({ error: 'Your saved character is not in a war village.' });
+        if (!identity.admin) {
+            const presenceBlock = sectorPresenceBlock(playerName, sector);
+            if (presenceBlock) return res.status(presenceBlock.status).json({ error: presenceBlock.error });
+        }
 
         switch (action) {
             case 'roster': {
@@ -139,7 +148,7 @@ async function doEngage(req: VercelRequest, res: VercelResponse, identity: Ident
 
     if (band.context === 'sector') {
         if (!band.contestId) return res.status(409).json({ error: 'No active siege on this sector.' });
-        const r = await deployOneMerc({ village: band.village, tierId: band.tierId, hirer: band.hirer, sector, targetPlayer: playerName, contestId: band.contestId, mercLevel: band.level, now });
+        const r = await deployOneMerc({ village: band.village, tierId: band.tierId, hirer: band.hirer, sector, targetPlayer: playerName, targetVillage: viewerVillage, contestId: band.contestId, mercLevel: band.level, now });
         if (!r) return res.status(409).json({ error: 'That mercenary band is spent or just attacked you.' });
         return res.status(200).json({ ok: true, context: 'sector', winner: r.winner, attackerPoints: r.attackerPoints, defenderPoints: r.defenderPoints, mercsRemaining: r.mercsRemaining });
     }

@@ -37,7 +37,59 @@ export function pvpSettlementId(kind: string, battleId: string): string {
     return `pvp-${kind}-${battleId}`.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
 }
 
-export type PvpCreditDecision = { fresh: boolean; receipts: ServerSettlementReceipt[] };
+const PVP_REWARD_RECEIPTS_FIELD = 'pvpRewardSettlementReceipts';
+const PVP_REWARD_RECEIPT_LIMIT = 2_048;
+const PVP_REWARD_RECEIPT_RETENTION_MS = 2 * 24 * 60 * 60 * 1_000;
+
+type DurablePvpRewardReceipt = { fingerprint: string; settledAt: number };
+type DurablePvpRewardReceipts = Record<string, DurablePvpRewardReceipt>;
+
+function durableReceiptsOf(character: Record<string, unknown>): DurablePvpRewardReceipts {
+    const raw = character[PVP_REWARD_RECEIPTS_FIELD];
+    if (raw === undefined) return {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw new Error('pvp-reward-receipt-ledger-invalid');
+    }
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== Object.prototype && proto !== null) {
+        throw new Error('pvp-reward-receipt-ledger-invalid');
+    }
+    const entries = Object.entries(raw as Record<string, unknown>);
+    if (entries.length > PVP_REWARD_RECEIPT_LIMIT) {
+        throw new Error('pvp-reward-receipt-ledger-invalid');
+    }
+    const out: DurablePvpRewardReceipts = {};
+    for (const [id, value] of entries) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            throw new Error('pvp-reward-receipt-ledger-invalid');
+        }
+        const valueProto = Object.getPrototypeOf(value);
+        const keys = Object.keys(value as Record<string, unknown>).sort();
+        const row = value as Partial<DurablePvpRewardReceipt>;
+        if (!/^[A-Za-z0-9_-]{16,80}$/.test(id)
+            || valueProto !== Object.prototype
+            || keys.length !== 2
+            || keys[0] !== 'fingerprint'
+            || keys[1] !== 'settledAt'
+            || typeof row.fingerprint !== 'string'
+            || !row.fingerprint.trim()
+            || row.fingerprint !== row.fingerprint.trim()
+            || row.fingerprint.length > 256
+            || !Number.isSafeInteger(row.settledAt)
+            || Number(row.settledAt) <= 0) {
+            throw new Error('pvp-reward-receipt-ledger-invalid');
+        }
+        out[id] = { fingerprint: row.fingerprint, settledAt: Number(row.settledAt) };
+    }
+    return out;
+}
+
+export type PvpCreditDecision = {
+    fresh: boolean;
+    needsBackfill: boolean;
+    receipts: ServerSettlementReceipt[];
+    durableReceipts: DurablePvpRewardReceipts;
+};
 
 /**
  * Decide whether `character` still needs crediting for `settlementId`.
@@ -53,8 +105,24 @@ export function inspectPvpCredit(
     settlementId: string,
     fingerprint: string,
 ): PvpCreditDecision {
+    const durableReceipts = durableReceiptsOf(character);
+    const durable = durableReceipts[settlementId];
+    if (durable) {
+        if (durable.fingerprint !== fingerprint) {
+            throw new Error('pvp-reward-receipt-fingerprint-conflict');
+        }
+        return { fresh: false, needsBackfill: false, receipts: [], durableReceipts };
+    }
     const r = inspectSettlementReceipt(character, settlementId, fingerprint);
-    return { fresh: r.status === 'fresh', receipts: r.status === 'fresh' ? r.receipts : [] };
+    if (r.status === 'conflict' || r.status === 'invalid') {
+        throw new Error(`pvp-reward-shared-receipt-${r.status}`);
+    }
+    return {
+        fresh: r.status === 'fresh',
+        needsBackfill: r.status === 'replay',
+        receipts: r.receipts,
+        durableReceipts,
+    };
 }
 
 /**
@@ -70,10 +138,20 @@ export function embedPvpSettlementReceipt(
     fingerprint: string,
     now: number,
 ): Record<string, unknown> {
-    return appendSettlementReceipt(creditedCharacter, receipts, {
+    const retained = Object.fromEntries(Object.entries(durableReceiptsOf(creditedCharacter)).filter(([, receipt]) => (
+        receipt.settledAt >= now - PVP_REWARD_RECEIPT_RETENTION_MS
+    ))) as DurablePvpRewardReceipts;
+    if (!retained[settlementId] && Object.keys(retained).length >= PVP_REWARD_RECEIPT_LIMIT) {
+        throw new Error('pvp-reward-receipt-ledger-full');
+    }
+    retained[settlementId] = { fingerprint, settledAt: now };
+    return {
+        ...appendSettlementReceipt(creditedCharacter, receipts, {
         requestId: settlementId,
         fingerprint,
         value: { settled: 1 },
         settledAt: now,
-    });
+        }),
+        [PVP_REWARD_RECEIPTS_FIELD]: retained,
+    };
 }

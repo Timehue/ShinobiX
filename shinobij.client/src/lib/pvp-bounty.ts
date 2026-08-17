@@ -37,18 +37,19 @@ export async function placeBounty(playerName: string, target: string, amount: nu
 // Claim any bounty on the player you just beat. Returns the payout, or null if
 // there was none / it was voided (shared connection) / it errored — the caller
 // only credits + notifies when a real amount comes back.
-export async function claimBountyOnWin(playerName: string, battleId: string): Promise<{ amount: number; target: string; balances: { ryo: number } } | null> {
-    try {
-        const res = await fetch("/api/pvp/bounty", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "claim", playerName, battleId }),
-        });
-        const data = await res.json().catch(() => ({})) as { amount?: number; target?: string; balances?: { ryo: number } };
-        return (data.amount ?? 0) > 0 && data.balances ? { amount: data.amount!, target: data.target ?? "your opponent", balances: data.balances } : null;
-    } catch {
-        return null;
-    }
+export async function claimBountyOnWin(playerName: string, battleId: string, signal?: AbortSignal): Promise<{ amount: number; target: string; balances: { ryo: number } } | null> {
+    const res = await fetch("/api/pvp/bounty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "claim", playerName, battleId }),
+        ...(signal ? { signal } : {}),
+    });
+    const data = await res.json().catch(() => ({})) as { amount?: number; target?: string; balances?: { ryo: number } };
+    // PvP completion awaits this promise before ACKing its durable callback
+    // obligation. Propagate transport/abort ambiguity so a retry can replay the
+    // battle-idempotent bounty claim instead of silently stranding it.
+    if (!res.ok) throw new Error(`Bounty settlement failed (HTTP ${res.status}).`);
+    return (data.amount ?? 0) > 0 && data.balances ? { amount: data.amount!, target: data.target ?? "your opponent", balances: data.balances } : null;
 }
 
 export async function startBountyHunter(playerName: string, hunterId: string): Promise<{ ok: boolean; error?: string; reason?: string; bounty?: BountyEntry }> {

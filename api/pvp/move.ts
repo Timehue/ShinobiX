@@ -5,7 +5,6 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget, CombatVfxTarget, CombatVfxKey } from './session.js';
-import { pvpSessionMayGrantProgress, trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
 import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL } from '../combat-core/constants.js';
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
@@ -130,9 +129,6 @@ function vfxEvent(
         tiles: patch.tiles?.slice(0, MAX_COMBAT_VFX_TILES),
     };
 }
-import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
-import { writeBattleReceipt, writeActionReceipt, buildBattleReceipt, indexBattleForParticipants } from '../_receipts.js';
-import { withKvLock } from '../_lock.js';
 import type { ActionReceiptCategory } from '../_receipts.js';
 
 // Readable fallback label + category per raw move action, used to seed the
@@ -168,8 +164,14 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
     'claim-afk-win': 'system',
     join: 'system',
 };
-import { onlineStore } from '../_realtime/online-store.js';
-import { settleKageDuel, recordPendingKageSettle, kageDuelKey } from '../village/_kage-settle.js';
+import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
+import { commitPvpSessionMutation } from './_session-mutation.js';
+import {
+    replayCommittedPvpActionReceipt,
+    withPvpActionReceiptReplay,
+} from './_action-receipt-replay.js';
+import { ensurePvpSectorWarRegistration } from './_sector-war-continuation.js';
+import { ensureKageDuelAdmission } from '../village/_kage-settle.js';
 import {
     TAG_ALIASES,
     STACKABLE_STATUS,
@@ -179,24 +181,18 @@ import {
     createCanonicalGroundEffect,
     resolveJutsuActionPlan,
 } from '../combat-core/resolve-jutsu-action.js';
-
-// All session writes flow through here so the combat log gets capped
-// + the idempotency token ring buffer is appended before it hits KV.
-// Without log trim the payload bloats unbounded across a long fight;
-// without the token append, retries from network blips could
-// double-apply moves.
-async function saveSession(
-    key: string,
-    session: PvpSession,
-    opts: { ex?: number; moveToken?: string } = {},
-): Promise<void> {
-    const trimmedLog = trimPvpLog(session.log);
-    const tokens = opts.moveToken
-        ? [...(session.recentMoveTokens ?? []), opts.moveToken].slice(-PVP_MOVE_TOKEN_HISTORY)
-        : session.recentMoveTokens;
-    const next: PvpSession = { ...session, log: trimmedLog, recentMoveTokens: tokens };
-    await kv.set(key, next, { ex: opts.ex ?? SESSION_TTL });
-}
+import {
+    activatePvpPendingSessionPointer,
+    clearPvpPendingSessionPointer,
+    loadPvpPendingSessionPointer,
+    pendingPointerMatchesSession,
+    pendingPointerForSessionRole,
+    pvpPendingReservationIsFresh,
+    publishPvpPendingSessionPointer,
+    requirePvpPendingSessionOwnership,
+} from './_pending-session.js';
+import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
+import { pvpRewardCompletionStatus } from './_reward-completion.js';
 
 // Combat formula constants and pure numeric helpers live in combat-core/formulas.
 // move.ts keeps PvP session/API glue, tag aliases, grid mutation, and log wording.
@@ -1025,6 +1021,23 @@ function endTurn(session: PvpSession): PvpSession {
     return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0 };
 }
 
+function isPvpSessionRow(value: unknown, battleId: string): value is PvpSession {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const candidate = value as Partial<PvpSession>;
+    return candidate.battleId === battleId
+        && (candidate.status === 'active' || candidate.status === 'done')
+        && !!candidate.p1
+        && !!candidate.p2;
+}
+
+async function helpCommittedTerminal(session: PvpSession): Promise<void> {
+    if (session.status !== 'done') return;
+    // The recovery snapshot + player discovery pointers are a mandatory first
+    // phase inside this replay. Propagate failure so the client retries the
+    // exact terminal row instead of receiving an undiscoverable success.
+    await replayCommittedPvpTerminalEffects(session);
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -1064,32 +1077,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-move', 120, 60_000, identity.name))) return;
 
         const key = `pvp:${battleId}`;
-        const sessionMaybe = await kv.get<PvpSession>(key);
+        const sessionMaybe = await kv.get<unknown>(key);
         if (!sessionMaybe) return res.status(404).json({ error: 'Battle session not found' });
+        // Close tombstones and malformed rows are control data, never combat.
+        // Validate before role ownership dereferences p1/p2.
+        if (!isPvpSessionRow(sessionMaybe, battleId)) {
+            return res.status(409).json({ error: 'This battle session is no longer active.' });
+        }
         // `let`, not `const`: once we hold the move lock below we re-read the
         // freshest session and reassign, so the read-modify-write resolves
         // against the latest committed state (audit #5).
         let session: PvpSession = sessionMaybe;
-
-        // Idempotency: if the client's moveToken matches a recently
-        // applied move, return the current session without re-applying.
-        // Stops a retried request (network blip, double-tap) from
-        // double-applying the move.
-        if (moveToken && Array.isArray(session.recentMoveTokens) && session.recentMoveTokens.includes(moveToken)) {
-            return res.status(200).json(session);
-        }
-        // Environment is read from the session — clients can't override it.
-        const biome: string = session.biome ?? 'central';
-        const weatherPositiveElement: string = session.weatherPositiveElement ?? '';
-        const weatherNegativeElement: string = session.weatherNegativeElement ?? '';
-        if (session.status === 'done') return res.status(200).json(session);
-        // Out-of-turn actions are ignored — EXCEPT 'claim-afk-win', which is by
-        // definition submitted by the INACTIVE player (the one claiming the
-        // active player went AFK). Letting only that action through the guard;
-        // the switch case re-validates that the claimant is indeed inactive.
-        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
-            return res.status(200).json(session);
-        }
 
         // Verify the requester actually owns the role they're moving as.
         // Without this, anyone could submit moves on another player's behalf.
@@ -1099,6 +1097,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (claimedName !== identity.name) {
                 return res.status(403).json({ error: 'Cannot move as another player.' });
             }
+        }
+
+        // Repair a process death immediately after the preceding combat CAS.
+        // This runs before any later mutation can replace its replay capsule.
+        await replayCommittedPvpActionReceipt(kv, session);
+
+        // Idempotency: if the token already landed, return the exact current
+        // projection. Terminal reads also replay post-CAS settlement after a
+        // process death or lost response; none of those helpers mutate combat.
+        if (action !== 'join' && moveToken
+            && Array.isArray(session.recentMoveTokens)
+            && session.recentMoveTokens.includes(moveToken)) {
+            await helpCommittedTerminal(session);
+            return res.status(200).json(session);
+        }
+        if (session.status === 'done') {
+            await helpCommittedTerminal(session);
+            return res.status(200).json(session);
+        }
+        if (session.rankedCloseFence) {
+            return res.status(409).json({ error: 'This ranked match ended as a season-close no-contest.' });
+        }
+        // Environment is read from the session — clients can't override it.
+        let biome: string = session.biome ?? 'central';
+        let weatherPositiveElement: string = session.weatherPositiveElement ?? '';
+        let weatherNegativeElement: string = session.weatherNegativeElement ?? '';
+        // Out-of-turn actions are ignored — EXCEPT 'claim-afk-win', which is by
+        // definition submitted by the INACTIVE player (the one claiming the
+        // active player went AFK). Letting only that action through the guard;
+        // the switch case re-validates that the claimant is indeed inactive.
+        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
+            return res.status(200).json(session);
         }
 
         const lockKey = `${key}:lock`;
@@ -1130,7 +1160,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         async function finish(payload: PvpSession) {
             await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
+            if (payload.rankedCloseFence) {
+                return res.status(409).json({ error: 'This ranked match ended as a season-close no-contest.' });
+            }
             return res.status(200).json(payload);
+        }
+
+        async function finishTerminal(payload: PvpSession) {
+            await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
+            await helpCommittedTerminal(payload);
+            return res.status(200).json(payload);
+        }
+
+        async function finishUnavailable(status: 404 | 409 | 503, message: string) {
+            await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
+            return res.status(status).json({ error: message });
         }
 
         // Now that we hold the lock, re-read the freshest session: a writer may
@@ -1138,31 +1182,216 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // latest state and re-check the state-dependent gates (audit #5). This
         // closes the read-modify-write window the pre-lock snapshot left open.
         {
-            const fresh = await kv.get<PvpSession>(key);
-            if (fresh) {
-                session = fresh;
-                if (moveToken && Array.isArray(session.recentMoveTokens) && session.recentMoveTokens.includes(moveToken)) {
-                    return finish(session); // our move already landed during the wait
+            const fresh = await kv.get<unknown>(key);
+            if (!fresh) {
+                return finishUnavailable(404, 'Battle session not found');
+            }
+            if (!isPvpSessionRow(fresh, battleId)) {
+                return finishUnavailable(409, 'This battle session is no longer active.');
+            }
+            session = fresh;
+            await replayCommittedPvpActionReceipt(kv, session);
+            if (action !== 'join' && moveToken
+                && Array.isArray(session.recentMoveTokens)
+                && session.recentMoveTokens.includes(moveToken)) {
+                return session.status === 'done' ? finishTerminal(session) : finish(session);
+            }
+            if (session.status === 'done') return finishTerminal(session);
+            if (session.rankedCloseFence) {
+                return finishUnavailable(409, 'This ranked match ended as a season-close no-contest.');
+            }
+            try {
+                await ensureKageDuelAdmission(session);
+            } catch (error) {
+                console.error('[pvp/move] official Kage duel admission pending', error);
+                return finishUnavailable(503, 'The official Kage duel is still being sealed; retry.');
+            }
+            try {
+                const registration = await ensurePvpSectorWarRegistration(session);
+                if (registration.registered
+                    && registration.biome
+                    && session.biome !== registration.biome) {
+                    const terrainWrite = await commitPvpSessionMutation(
+                        kv,
+                        key,
+                        session,
+                        { ...session, biome: registration.biome },
+                        { ttlSeconds: SESSION_TTL },
+                    );
+                    if (terrainWrite.status !== 'committed') {
+                        return finishUnavailable(503, 'Sector terrain changed while registration finalized; retry.');
+                    }
+                    session = terrainWrite.session;
                 }
-                if (session.status === 'done') return finish(session);
-                if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
-                    return finish(withRejected(session, 'It is no longer your turn.'));
-                }
+                biome = session.biome ?? 'central';
+                weatherPositiveElement = session.weatherPositiveElement ?? '';
+                weatherNegativeElement = session.weatherNegativeElement ?? '';
+            } catch (error) {
+                console.error('[pvp/move] sector contest registration pending', error);
+                return finishUnavailable(503, 'Sector contest registration is still finalizing; retry.');
+            }
+            if (action !== 'join'
+                && (session.joined?.p1 !== true || session.joined?.p2 !== true)) {
+                return finish(withRejected(session, 'Waiting for both fighters to join before combat can advance.'));
+            }
+            if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
+                return finish(withRejected(session, 'It is no longer your turn.'));
             }
         }
         // Opening the battle screen sends this idempotent membership handshake.
         // AFK forfeits and every reward consumer require both bits, so merely
         // creating an unsolicited session against an offline name can never pay.
         if (action === 'join') {
-            if (session.joined?.[role] === true) return finish(session);
+            async function reserveJoinPointer(desired: NonNullable<ReturnType<typeof pendingPointerForSessionRole>>) {
+                try {
+                    return await publishPvpPendingSessionPointer(kv, desired);
+                } catch (error) {
+                    if (!(error instanceof Error) || !error.message.startsWith('pvp-pending-session-conflict:')) {
+                        throw error;
+                    }
+                    const current = await loadPvpPendingSessionPointer(kv, desired.playerName);
+                    const liveRaw = current ? await kv.get<unknown>(`pvp:${current.battleId}`) : null;
+                    const priorSession = current && isPvpSessionRow(liveRaw, current.battleId)
+                        ? liveRaw
+                        : current
+                            ? await loadPvpRewardRecoverySnapshot(kv, current.battleId)
+                            : null;
+                    let stale = !current;
+                    if (current && !priorSession) stale = !pvpPendingReservationIsFresh(current);
+                    if (current && priorSession) stale = !pendingPointerMatchesSession(current, priorSession);
+                    if (!stale && current && priorSession?.status === 'done') {
+                        if (!priorSession.winner) {
+                            stale = true;
+                        } else {
+                            const completion = pvpRewardCompletionStatus(await kv.get<unknown>(
+                                `pvp:rewarded:${current.playerName}:${current.battleId}`,
+                            ));
+                            if (completion === 'invalid') throw new Error('pvp-join-prior-completion-invalid');
+                            stale = completion === 'completed';
+                        }
+                    }
+                    if (!stale || !current) throw error;
+                    await clearPvpPendingSessionPointer(
+                        kv,
+                        current.playerName,
+                        current.battleId,
+                        current.createdAt,
+                        current.role,
+                    );
+                    return publishPvpPendingSessionPointer(kv, desired);
+                }
+            }
+
+            if (session.joined?.[role] === true) {
+                const existingPointer = pendingPointerForSessionRole(session, role);
+                if (existingPointer) {
+                    try {
+                        await reserveJoinPointer(existingPointer);
+                        await activatePvpPendingSessionPointer(
+                            kv,
+                            existingPointer.playerName,
+                            existingPointer.battleId,
+                            existingPointer.createdAt,
+                            existingPointer.createRequestFingerprint,
+                        );
+                    } catch {
+                        return finishUnavailable(409, 'Finish the pending PvP battle settlement before joining another battle.');
+                    }
+                }
+                return finish(session);
+            }
             const joined = {
                 p1: session.joined?.p1 === true,
                 p2: session.joined?.p2 === true,
                 [role]: true,
             } as { p1: boolean; p2: boolean };
             const updated = { ...session, joined };
-            await saveSession(key, updated);
-            return finish(updated);
+            const desiredPointer = pendingPointerForSessionRole(updated, role, 'reserving');
+            let pointerCreated = false;
+            let reservedPointer = desiredPointer;
+            if (desiredPointer) {
+                try {
+                    const reservation = await reserveJoinPointer(desiredPointer);
+                    pointerCreated = reservation.created;
+                    reservedPointer = reservation.pointer;
+                } catch (error) {
+                    console.error('[pvp/move] join pending-session reservation failed', error);
+                    return finishUnavailable(409, 'Finish the pending PvP battle settlement before joining another battle.');
+                }
+            }
+            let write;
+            try {
+                if (reservedPointer) await requirePvpPendingSessionOwnership(kv, reservedPointer);
+                write = await commitPvpSessionMutation(kv, key, session, updated, {
+                    ttlSeconds: SESSION_TTL,
+                });
+            } catch (error) {
+                if (pointerCreated && desiredPointer) {
+                    await clearPvpPendingSessionPointer(
+                        kv,
+                        desiredPointer.playerName,
+                        desiredPointer.battleId,
+                        desiredPointer.createdAt,
+                        desiredPointer.role,
+                    );
+                }
+                throw error;
+            }
+            if (write.status === 'committed') {
+                if (desiredPointer) {
+                    try {
+                        if (reservedPointer) await requirePvpPendingSessionOwnership(kv, reservedPointer);
+                    } catch {
+                        const rollback = await commitPvpSessionMutation(kv, key, write.session, session, {
+                            ttlSeconds: SESSION_TTL,
+                        });
+                        return rollback.status === 'committed'
+                            ? finishUnavailable(409, 'PvP join reservation expired before publication; retry join.')
+                            : finishUnavailable(503, 'PvP join publication could not be quarantined; retry.');
+                    }
+                    try {
+                        await activatePvpPendingSessionPointer(
+                            kv,
+                            desiredPointer.playerName,
+                            desiredPointer.battleId,
+                            desiredPointer.createdAt,
+                            desiredPointer.createRequestFingerprint,
+                        );
+                    } catch {
+                        return finishUnavailable(503, 'The battle join is published but recovery is still finalizing. Retry join.');
+                    }
+                }
+                return finish(write.session);
+            }
+            const current = isPvpSessionRow(write.session, battleId) ? write.session : null;
+            if (pointerCreated && desiredPointer && current?.joined?.[role] !== true) {
+                await clearPvpPendingSessionPointer(
+                    kv,
+                    desiredPointer.playerName,
+                    desiredPointer.battleId,
+                    desiredPointer.createdAt,
+                    desiredPointer.role,
+                );
+            }
+            if (!current || current.rankedCloseFence) {
+                return finishUnavailable(409, 'This ranked match ended as a season-close no-contest.');
+            }
+            if (desiredPointer && current.joined?.[role] === true) {
+                try {
+                    await activatePvpPendingSessionPointer(
+                        kv,
+                        desiredPointer.playerName,
+                        desiredPointer.battleId,
+                        desiredPointer.createdAt,
+                        desiredPointer.createRequestFingerprint,
+                    );
+                } catch {
+                    return finishUnavailable(503, 'The battle join is published but recovery is still finalizing. Retry join.');
+                }
+            }
+            return current.status === 'done'
+                ? finishTerminal(current)
+                : finish(withRejected(current, 'The battle advanced while joining. Please retry.'));
         }
         // Annotate a soft-rejected move with a structured, response-only reason.
         // The session itself is unchanged (and NOT persisted), so this never
@@ -1171,15 +1400,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // For paths that ALSO append a shared log line, pass that same string as
         // `reason` so the client shows it exactly once (it de-dups on substring).
         function withRejected(payload: PvpSession, reason: string): PvpSession {
-            return { ...payload, rejected: { applied: false, reason, serverRound: session.round, activePlayer: session.activePlayer } };
+            return { ...payload, rejected: { applied: false, reason, serverRound: payload.round, activePlayer: payload.activePlayer } };
         }
         // Soft-reject that ALSO records a shared log line (persisted) — e.g. out of
         // range, not enough chakra. Saves the line (spectators see it) and returns
         // the same text as the structured reason, so the client shows it once.
         async function rejectWithLog(reason: string): Promise<PvpSession> {
             const updated = { ...session, log: [...session.log, reason] };
-            await saveSession(key, updated);
-            return withRejected(updated, reason);
+            const write = await commitPvpSessionMutation(kv, key, session, updated, {
+                ttlSeconds: SESSION_TTL,
+            });
+            if (write.status === 'committed') return withRejected(write.session, reason);
+            const current = isPvpSessionRow(write.session, String(battleId)) ? write.session : session;
+            return withRejected(current, 'The battle advanced before that action could be recorded. Please retry.');
         }
 
         const me = role === 'p1' ? session.p1 : session.p2;
@@ -1245,6 +1478,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // (or a melee weapon, never sealed) allows the action without tracking.
         function spendItemCharge(itemId: string): { ok: boolean; patch: Partial<PvpSession> } {
             const r = role as 'p1' | 'p2';
+            if (session.pvpConsumableAuthorityVersion === 1 && session.realFighters?.[r] === true) {
+                return { ok: false, patch: {} };
+            }
             const myCharges = session.itemCharges?.[r];
             if (!myCharges || myCharges[itemId] === undefined) return { ok: true, patch: {} };
             const remaining = myCharges[itemId];
@@ -1913,95 +2149,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
 
-        // If this commit resolved the fight, grant server-side Vanguard
-        // rewards (Honor Seals + Vanguard XP) for the winner. Idempotent via
-        // session.vanguardRewardsGranted, so retries don't double-grant.
-        if (result.status === 'done' && result.winner && result.winner !== 'draw'
-            && pvpSessionMayGrantProgress(result)
-            && !(result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted) {
-            try {
-                const grant = await grantVanguardRewardsForSession(result);
-                if (grant.granted) {
-                    (result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted = true;
-                    result = { ...result, log: [...result.log, `Vanguard rewards: +${grant.seals} Seals, +${grant.xp} XP`] };
-                }
-            } catch (err) {
-                console.error('[pvp/move] vanguard reward grant failed', err);
-            }
-        }
-        // Clear both fighters' inBattle + pendingAttacker flags when a battle
-        // resolves. Otherwise the loser is "engaged" for ~60s after their
-        // fight ends (pendingAttacker has a 60s TTL) and the cached presence
-        // entry blocks third parties from attacking them. Best-effort —
-        // failures don't undo the battle resolution.
-        if (result.status === 'done') {
-            // Clear both fighters' inBattle + pendingAttacker in the in-memory
-            // store so third parties can attack them again right after the fight
-            // resolves. No-ops if either has since gone offline.
-            onlineStore.setInBattle(result.p1.name, false);
-            onlineStore.clearPendingAttacker(result.p1.name);
-            onlineStore.setInBattle(result.p2.name, false);
-            onlineStore.clearPendingAttacker(result.p2.name);
-            // Durable battle receipt (Priority 3). Best-effort + idempotent (NX
-            // marker), derived from the already-finalized session — it never
-            // feeds back into resolution. Outlives the 15-min session TTL so a
-            // support / reward dispute can be reconstructed later. Disable with
-            // DISABLE_COMBAT_RECEIPTS=1.
-            await writeBattleReceipt(result).catch(() => undefined);
-            // Index the finished battle into BOTH players' durable history lists
-            // so it stays reachable after the 15-min session TTL — without this a
-            // resolved fight is only findable if you already know its battleId.
-            // Runs AFTER the receipt so the index can never point at a battle
-            // with no record. Display-only and dedup-by-battleId, so a retried
-            // terminal move adds nothing; failures are logged, never rolled back.
-            try {
-                const built = buildBattleReceipt(result, Date.now());
-                await indexBattleForParticipants(built, { lock: withKvLock, safeName });
-            } catch (err) {
-                console.error('[pvp/move] battle history index failed', err);
-            }
-            // If this finished duel was an OFFICIAL Kage challenge (the server
-            // wrote a `kage-duel:<battleId>` pointer when the Kage accepted),
-            // settle the seat now so neither player has to manually press
-            // resolve. Fully authoritative: settleKageDuel re-reads the live
-            // challenge + this PvpSession and re-runs every anti-cheat gate. The
-            // manual /kage-challenge resolve action stays as a backup. Best-effort
-            // (never blocks the fight response) and idempotent (pointer + challenge
-            // are cleared on settle, so a retry no-ops).
-            if (result.winner && result.winner !== 'draw') {
-                try {
-                    const kagePtr = await kv.get<{ village?: string; challengeId?: string }>(kageDuelKey(result.battleId));
-                    if (kagePtr?.village) {
-                        // Durably record the outcome FIRST so a stuck settle can be
-                        // reconciled from it even after the 15-min session TTL, THEN
-                        // attempt the immediate settle (which deletes the record on success).
-                        await recordPendingKageSettle(kagePtr.village, result, kagePtr.challengeId);
-                        await settleKageDuel(kagePtr.village, result.battleId, Date.now(), { expectChallengeId: kagePtr.challengeId });
-                    }
-                } catch (err) {
-                    console.error('[pvp/move] kage auto-settle failed', err);
-                }
-            }
-        }
-        // Durable per-action combat receipt (phase 1). Best-effort + flag-gated
-        // (DISABLE_COMBAT_RECEIPTS) + idempotent per moveToken. Derived from the
-        // pre/post session here — BEFORE saveSession trims the log — so it
-        // captures this action's untrimmed narrative (flavor/cast line + effect
-        // lines) plus compact resource deltas. Never feeds back into resolution
-        // and lives under its own `receipt:action:` keys, off the streamed
-        // session payload. Every committed action funnels through this chokepoint.
-        await writeActionReceipt({
-            pre: session,
-            post: result,
+        // Publish the combat projection before any terminal or receipt side
+        // effect. The exact pre-move row, not the expiring lease, is authority.
+        const receiptCandidate = withPvpActionReceiptReplay(session, result, {
             role,
-            // Identity + label come from `receiptAction`, which each switch
-            // branch overwrote from the object the SERVER resolved. Previously
-            // these read `jutsuId ?? itemId ?? action` / `itemName ?? jutsuId`,
-            // so a jutsu stored its raw ID as the display name and the label was
-            // partly client-controlled.
             actionId: receiptAction.id,
             actionName: receiptAction.name,
-            actionType: action, // the raw move action label (jutsu/weapon/item/move/wait/flee/basicAttack/…)
+            actionType: action,
             display: {
                 label: receiptAction.name,
                 category: receiptAction.category,
@@ -2010,16 +2164,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 imageRef: receiptAction.imageRef,
             },
             moveToken,
-        }).catch(() => undefined);
-        // Cap log size — UI only renders the last ~20 entries anyway, and an
-        // Final commit also threads the moveToken into the recent-tokens
-        // ring buffer so a retry of this same request (network blip,
-        // double-tap) short-circuits at the top of the handler instead
-        // of re-applying the move. (Note: saveSession already trims
-        // the log internally; the manual 100-line cap below was a
-        // legacy guard now subsumed by trimPvpLog.)
-        await saveSession(key, result, { moveToken });
-        return finish(result);
+        });
+        const write = await commitPvpSessionMutation(kv, key, session, receiptCandidate, {
+            moveToken,
+            ttlSeconds: SESSION_TTL,
+        });
+        if (write.status === 'conflict') {
+            await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
+            const current = isPvpSessionRow(write.session, battleId) ? write.session : null;
+            if (!current || current.rankedCloseFence) {
+                return res.status(409).json({ error: 'This ranked match ended as a season-close no-contest.' });
+            }
+            await replayCommittedPvpActionReceipt(kv, current);
+            await helpCommittedTerminal(current);
+            return res.status(200).json(withRejected(current, 'The battle advanced before this action committed. Please retry.'));
+        }
+        const persisted = write.session;
+        await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
+        // The receipt body uses a deterministic revision-derived key and is
+        // recoverable from the committed capsule. Propagate a transient failure:
+        // the same-token retry repairs it before returning current combat state.
+        await replayCommittedPvpActionReceipt(kv, persisted);
+        await helpCommittedTerminal(persisted);
+        return res.status(200).json(persisted);
     } catch (err) {
         console.error('[pvp/move]', err);
         return res.status(500).json({ error: 'Internal server error.' });
