@@ -1063,7 +1063,14 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await commandPanel.getByRole("button", { name: "Recover", exact: true }).click();
     await expect(noticeDialog).toBeVisible();
     await expect(noticeDialog).toContainText("You recovered in Sector 44. +14 stamina.");
-    await expect.poll(async () => (await readDisplayedStamina()).current).toBe(
+    // At LEAST the recover grant, not exactly it. Idle vitals regenerate on their
+    // own clock, so a tick can land between the pre-read and this poll and push
+    // the displayed value past the +14 — which made this the flakiest assertion
+    // in the suite (seen as 138 where an exact match wanted 128, on whichever
+    // project happened to run slowest). The guarantee worth holding is that the
+    // recover reached the UI; the server-side check a few lines below already
+    // uses this same >= form for exactly this reason.
+    await expect.poll(async () => (await readDisplayedStamina()).current).toBeGreaterThanOrEqual(
         Math.min(displayedStaminaBeforeRecover.max, displayedStaminaBeforeRecover.current + 14),
     );
     await noticeDialog.getByRole("button", { name: "OK", exact: true }).click();
