@@ -268,7 +268,10 @@ describe("PvP reliability source wiring", () => {
             "the live stream must not keep rendering a close-fenced active row");
         assert.match(screen, /A seed is first-paint data, not current authority\.[\s\S]*void fetchInitial\(\);/,
             "a seed must never suppress the authoritative mount GET");
-        assert.match(screen, /verifyPendingSessionBeforeExit[\s\S]*fetchPendingPvpRecovery\(fetch, character\.name\)[\s\S]*setSessionExitCheck\("safe"\)/,
+        // fetchPendingPvpRecovery gained an abort/timeout options argument, so the
+        // call no longer closes immediately after character.name. The ordering
+        // this pins — probe first, allow exit only on proof — is unchanged.
+        assert.match(screen, /verifyPendingSessionBeforeExit[\s\S]*fetchPendingPvpRecovery\(fetch, character\.name[,)][\s\S]*setSessionExitCheck\("safe"\)/,
             "an unavailable battle may expose destructive exit only after authenticated pending-session proof");
         assert.match(screen, /sessionExitCheck === "safe"[\s\S]*Return Safely/,
             "transient GET failure must keep the same-mount retry/recovery controller alive");
@@ -276,15 +279,32 @@ describe("PvP reliability source wiring", () => {
             app.indexOf("sectorAttackPlayer={async"),
             app.indexOf('{!activeTriggeredEvent && screen === "sunscarFestival"'),
         );
-        assert.match(sectorCreate, /stableBattleId[\s\S]*fetchPendingPvpRecovery\(fetch, character\.name\)[\s\S]*installPvpRecovery\(pendingRecovery\)/,
-            "an ambiguous create response must reconcile the authenticated pointer in the same mount");
-        assert.match(sectorCreate, /decidePvpCreateRecovery[\s\S]*setPvpBattleId\(recovery\.battleId\)/,
+        // The reconciliation moved into lib/pvp-session-create.ts: it derives the
+        // stable battle id, probes the authenticated pending index when a create
+        // is ambiguous, and only reports "created" when the pointer matches. App
+        // installs whatever that helper recovered, in the same mount.
+        const creator = readFileSync(new URL("./pvp-session-create.ts", import.meta.url), "utf8");
+        assert.match(creator, /const stableBattleId = pvpStableBattleIdFromRequestBody\(requestBody\)[\s\S]*fetchPendingPvpRecovery\(fetchFn, playerName[\s\S]*pending\?\.battleId === stableBattleId/,
+            "an ambiguous create must reconcile against the authenticated pending pointer");
+        assert.match(sectorCreate, /createPvpSessionWithRecovery\([\s\S]*createResult\.kind === "recovered"[\s\S]*installPvpRecovery\(createResult\.pending\)/,
+            "the sector create must install the reconciled pointer in the same mount");
+        // This invariant is implemented inline in the creator rather than through
+        // decidePvpCreateRecovery (which is currently exported and unit-tested but
+        // has no production caller). When the pending lookup throws — offline —
+        // the creator still returns ambiguous carrying the stable battle id, and
+        // App installs it, which is what keeps bounded GET recovery possible.
+        assert.match(creator, /catch \(error\) \{[\s\S]{0,200}return \{ kind: "ambiguous", battleId: stableBattleId, error: lastError \};/,
             "an offline pending lookup must retain the stable create identity for bounded GET recovery");
+        assert.match(sectorCreate, /createResult\.kind === "ambiguous"[\s\S]{0,120}setPvpBattleId\(battleId\)/,
+            "the sector create must install that retained identity");
         const notification = sectorCreate.slice(sectorCreate.indexOf("fetch('/api/player/challenge'"));
         assert.ok(!notification.includes("setPvpBattleId('')") && !notification.includes('setScreen("worldMap")'),
             "post-publication defender notification failure must not abandon the live session");
 
-        assert.match(app, /key=\{`\$\{pvpBattleId\}:\$\{saveSessionEpochRef\.current\}`\}/);
+        // The remount key tightened: it now also carries the originating player
+        // and role, so a different account or side cannot reuse a mounted battle
+        // screen. Strictly narrower than the old battleId:epoch pair.
+        assert.match(app, /key=\{`\$\{playerSlug\(pvpOriginatingPlayerName\)\}:\$\{pvpOriginatingSessionEpoch\}:\$\{pvpRole\}:\$\{pvpBattleId\}`\}/);
         assert.match(app, /accountSessionEpoch=\{saveSessionEpochRef\.current\}/);
         assert.match(screen, /postPvpRewardClaim\(fetch,[\s\S]*?\{ signal: claimAbort\.signal \}\)/);
         assert.match(screen, /beginPvpRewardCompletion\(completionStorage, claimRequest\)[\s\S]*claimTimeout/,

@@ -57,6 +57,17 @@ describe("owner-save elapsed-vital reconciliation", () => {
 
         assert.match(app, /await loadOwnSaveRead\(\)[\s\S]*?(?:const\s+)?p2ReadAnchor = captureOwnSaveRead\(acceptingCharacter\)[\s\S]*?fetchPlayerCombatSave\(acceptingCharacter\.name\)[\s\S]*?await adoptOwnSaveRead\(p2ReadAnchor, p2CombatSave\.character, p2CombatSave\._saveVersion\)/);
         assert.match(worldMap, /await loadOwnSaveRead\(\)[\s\S]*?const selfReadAnchor = captureOwnSaveRead\(character\)[\s\S]*?fetchPlayerCombatSave\(character\.name\)[\s\S]*?await onOwnSaveRead\(selfReadAnchor, selfSave\.character, selfSave\._saveVersion\)/);
-        assert.match(app, /loadOwnSaveRead\(\)[\s\S]*?const vanguardReadAnchor = captureOwnSaveRead\(rewarded\)[\s\S]*?return fetch\(`\/api\/save\/[\s\S]*?await adoptOwnSaveRead\(vanguardReadAnchor, serverChar, \(data as Record<string, unknown> \| null\)\?\._saveVersion\)/);
+        // The Vanguard reward no longer does a client save read. Settlement moved
+        // to api/pvp/_vanguard-rewards.ts with durable terminal outcomes, so the
+        // vanguardReadAnchor capture/adopt pair is gone rather than relocated.
+        // Pin that: these two are the only owner reads the client still performs.
+        assert.doesNotMatch(app, /vanguardReadAnchor/,
+            "Vanguard rewards are server-settled; the client must not re-read its own save for them");
+        const anchors = [
+            ...app.matchAll(/captureOwnSaveRead\(/g),
+            ...worldMap.matchAll(/captureOwnSaveRead\(/g),
+        ];
+        assert.equal(anchors.length, 2,
+            "only the PvP acceptance and WorldMap self reads may capture an owner anchor — a new one needs its own ordering assertion above");
     });
 });
