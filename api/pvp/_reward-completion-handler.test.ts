@@ -405,7 +405,9 @@ test('an official draw closes the accepted Kage challenge as a durable defense b
 
     const state = await kv.get<Record<string, any>>('village:kage:leaf');
     assert.equal(state?.seatedKage, incumbent);
-    assert.equal(state?.challenge, undefined);
+    // `challenge: null` is the Kage system's canonical cleared value — see
+    // _kage-challenge.ts and the ServerKageState type.
+    assert.equal(state?.challenge, null);
     assert.equal(state?.pvpDuelSettlementReceipts?.[battleId]?.outcome, 'defended');
     assert.equal(state?.pvpDuelSettlementReceipts?.[battleId]?.winnerName, 'draw');
     assert.deepEqual(await kv.get(`kage-duel:${battleId}`), { village, challengeId });
