@@ -397,6 +397,18 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
     },
 };
 
+// The heading and summary of each document, without rendering it. The build
+// step that writes a static copy of these pages (scripts/prerender-legal.mts)
+// needs a real <title> and meta description for each one, and those are the
+// only two things a crawler that does not run JavaScript reads before the body.
+// Exported from a component file, which costs this file fast refresh. Moving it
+// out would mean moving `documents` — the entire published wording — out with
+// it, and the wording belongs next to the component that renders it.
+// eslint-disable-next-line react-refresh/only-export-components
+export const LEGAL_DOCUMENT_META = Object.fromEntries(
+    Object.entries(documents).map(([slug, doc]) => [slug, { title: doc.title, summary: doc.summary }]),
+) as Record<LegalPageSlug, { title: string; summary: string }>;
+
 export function LegalPage({ slug }: { slug: LegalPageSlug }) {
     const document = documents[slug];
 
