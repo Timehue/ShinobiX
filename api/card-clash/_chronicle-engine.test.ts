@@ -34,8 +34,8 @@ import {
   flipSummon,
   getChronicleCard,
   migrateLegacyDeck,
-  normalSet,
-  normalSummon,
+  normalSet as normalSetRaw,
+  normalSummon as normalSummonRaw,
   passResponse,
   previewChronicleBattle,
   projectMatchForViewer,
@@ -43,6 +43,7 @@ import {
   startBattlePhase,
   tributeCountForLevel,
   validateDeckIds,
+  type ChronicleActionIntent,
   type ChronicleMatch,
   type ChronicleSideKey,
 } from "../../shared/chronicle-duel.js";
@@ -62,12 +63,211 @@ function match(): ChronicleMatch {
   return createMatch("One", deck, "Two", deck, fixedRandom, 1_000);
 }
 
-function summonReady(cardId: string, levelTributes = 0): ChronicleMatch {
+/**
+ * Put `cardId` in hand with enough Tributes on the field to summon it.
+ *
+ * The Tribute count is DERIVED from the card's own Level rather than declared
+ * by the caller. Power tier is deliberately independent of rarity now, so a
+ * card's Level is a balance decision that moves — hard-coding "this fixture
+ * needs no Tributes" is exactly the assumption this suite must stop making.
+ * Pass `levelTributes` only to deliberately supply the WRONG number.
+ *
+ * Tributes fill zones 0..n-1, and summonIntent() below spends exactly those, so
+ * a fixture can still summon into zone 0: the engine allows an occupied target
+ * zone when that zone is itself one of the Tributes.
+ */
+/**
+ * Zones summonReady() parks Tribute fodder in — the TOP of the board, counting
+ * down. Fixtures overwhelmingly summon into zone 0 and assert on it, so filling
+ * from the bottom would make the fodder collide with the card under test.
+ */
+const TRIBUTE_ZONES = [4, 3] as const;
+
+function tributesFor(cardId: string): number {
+  const fixture = getChronicleCard(cardId);
+  return fixture?.cardClass === "monster"
+    ? tributeCountForLevel(fixture.level)
+    : 0;
+}
+
+/**
+ * Add the Tributes `cardId` actually costs to a summon/set intent, spending the
+ * zones summonReady() filled.
+ *
+ * An intent that already names its own tributeZoneIndexes is left alone, so a
+ * test can still supply the WRONG Tributes on purpose.
+ */
+function withTributes(
+  cardId: string,
+  intent: ChronicleActionIntent,
+): ChronicleActionIntent {
+  if (intent.tributeZoneIndexes) return intent;
+  const required = tributesFor(cardId);
+  return required
+    ? { ...intent, tributeZoneIndexes: TRIBUTE_ZONES.slice(0, required) }
+    : intent;
+}
+
+/**
+ * Summon/Set as the fixtures use them: they say "Set this card" and these fill
+ * in whatever Tributes its Level costs. Before power tier was decoupled from
+ * rarity, every fixture card was small enough to summon for free and the rule
+ * never came up; now a fixture's Level is a balance decision that can move, so
+ * restating it per call site would just re-encode the assumption that broke.
+ */
+function summonedCard(
+  state: ChronicleMatch,
+  actor: ChronicleSideKey,
+  intent: ChronicleActionIntent,
+): string {
+  return state[actor].hand[intent.handIndex ?? 0] ?? "";
+}
+function normalSummon(
+  state: ChronicleMatch,
+  actor: ChronicleSideKey,
+  intent: ChronicleActionIntent,
+  now?: number,
+) {
+  return normalSummonRaw(
+    state,
+    actor,
+    withTributes(summonedCard(state, actor, intent), intent),
+    now,
+  );
+}
+function normalSet(
+  state: ChronicleMatch,
+  actor: ChronicleSideKey,
+  intent: ChronicleActionIntent,
+  now?: number,
+) {
+  return normalSetRaw(
+    state,
+    actor,
+    withTributes(summonedCard(state, actor, intent), intent),
+    now,
+  );
+}
+
+/**
+ * A Monster that costs exactly `tributes` to summon. Fixtures that care about
+ * the Tribute rule ask for that SHAPE rather than naming a card and assuming
+ * its Level — Level is independent of rarity now and is a balance decision that
+ * moves, so a named card is the wrong thing to pin.
+ */
+/**
+ * A vanilla Monster whose ATK clears `stat`. Battle fixtures need "an attacker
+ * strong enough to break this" — naming a card and trusting its ATK is the same
+ * mistake as trusting its Level. Vanilla so the battle under test isn't
+ * disturbed by a second effect firing.
+ */
+function monsterWithAttackAbove(stat: number): string {
+  const found = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      card.monsterType === "normal" &&
+      card.attack > stat,
+  );
+  assert.ok(found, `no vanilla Monster has more than ${stat} ATK`);
+  return found.id;
+}
+
+/**
+ * A pair where the element wheel ALONE decides the battle: the defender out-ATKs
+ * the attacker by `margin`, and the attacker's element beats the defender's, so
+ * the +200 edge flips the result and leaves exactly (200 - margin) of damage.
+ * Searched rather than named, because a card's stats move with balance.
+ */
+function elementEdgePair(margin = 100): { attacker: string; defender: string } {
+  const vanilla = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.monsterType === "normal" ? [card] : [],
+  );
+  for (const attacker of vanilla) {
+    const beats = CHRONICLE_ELEMENT_ADVANTAGE[attacker.element];
+    const defender = vanilla.find(
+      (card) =>
+        card.element === beats && card.attack === attacker.attack + margin,
+    );
+    if (defender) return { attacker: attacker.id, defender: defender.id };
+  }
+  assert.fail(`no element-edge pair with a ${margin} ATK margin`);
+}
+
+/**
+ * Attacker/defender of the SAME element (so the wheel contributes nothing in
+ * either direction) with the attacker ahead by exactly `margin` ATK. Battle
+ * fixtures that want plain ATK-vs-ATK arithmetic use this so the numbers under
+ * test are the cards' own.
+ */
+function plainAttackPair(): {
+  attacker: string;
+  defender: string;
+  attack: number;
+  defense: number;
+  damage: number;
+} {
+  const vanilla = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.monsterType === "normal" ? [card] : [],
+  );
+  let best: ReturnType<typeof plainAttackPair> | null = null;
+  for (const attacker of vanilla) {
+    for (const defender of vanilla) {
+      if (defender.element !== attacker.element) continue;
+      const damage = attacker.attack - defender.attack;
+      if (damage <= 0) continue;
+      if (!best || damage < best.damage)
+        best = {
+          attacker: attacker.id,
+          defender: defender.id,
+          attack: attacker.attack,
+          defense: defender.attack,
+          damage,
+        };
+    }
+  }
+  assert.ok(best, "no same-element pair where one out-ATKs the other");
+  return best;
+}
+
+/** The first vanilla Monster matching `want` — fixtures state the property the
+ *  rule under test needs instead of naming a card whose stats move. */
+function monsterWhere(
+  want: (card: {
+    level: number;
+    attack: number;
+    defense: number;
+    element: string;
+  }) => boolean,
+  label: string,
+): string {
+  const found = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      card.monsterType === "normal" &&
+      want(card),
+  );
+  assert.ok(found, `no vanilla Monster ${label}`);
+  return found.id;
+}
+
+function monsterCostingTributes(tributes: number): string {
+  const found = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      tributeCountForLevel(card.level) === tributes,
+  );
+  assert.ok(found, `no Monster costs ${tributes} Tributes`);
+  return found.id;
+}
+
+function summonReady(cardId: string, levelTributes?: number): ChronicleMatch {
   const state = match();
   const actor = state.activePlayer;
   const side = state[actor];
   side.hand[0] = cardId;
-  for (let i = 0; i < levelTributes; i++) {
+  const required = levelTributes ?? tributesFor(cardId);
+  for (let t = 0; t < required; t++) {
+    const i = TRIBUTE_ZONES[t];
     side.monsterZones[i] = {
       instanceId: `tribute-${i}`,
       cardId: "tc-01",
@@ -264,20 +464,43 @@ test("all cards carry art while Smoke Bomb is the locked Trap", () => {
   );
 });
 
-test("Effect Monsters occupy the reviewed 20-25 percent band with complete typed metadata", () => {
+test("Effects are an Epic-and-up perk, with complete typed metadata", () => {
   const monsters = CHRONICLE_CARD_CATALOG.filter(
     (card) => card.cardClass === "monster",
   );
   const effectMonsters = monsters.filter(
     (card) => card.monsterType === "effect",
   );
-  const share = effectMonsters.length / monsters.length;
 
   assert.equal(monsters.length, 292);
-  assert.equal(effectMonsters.length, 66);
-  assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 66);
-  assert.ok(share >= 0.2 && share <= 0.25, `Effect share was ${share}`);
-  assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 66);
+  assert.equal(effectMonsters.length, 157);
+  assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 157);
+  assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 157);
+
+  // This replaces a flat "20-25% of all Monsters" band. Rarity no longer buys a
+  // bigger Level, so what it buys instead is the effect: every Epic, Legendary
+  // and Mythic Monster carries one, while Commons and Rares keep only the
+  // handful that were authored for them by name.
+  const coverage = (rarity: string) => {
+    const at = monsters.filter((card) => card.rarity === rarity);
+    return at.filter((card) => card.monsterType === "effect").length / at.length;
+  };
+  for (const rarity of ["epic", "legendary", "mythic"]) {
+    assert.equal(coverage(rarity), 1, `${rarity} Monsters must all have effects`);
+  }
+  for (const rarity of ["common", "rare"]) {
+    assert.ok(
+      coverage(rarity) < 0.35,
+      `${rarity} effect coverage was ${coverage(rarity)}`,
+    );
+  }
+  // Only the Epic-and-up jump is a rule. Common vs Rare is whatever their
+  // authored effects happen to be — those were written per card, by name, and
+  // are deliberately left where their text makes sense.
+  assert.ok(
+    coverage("epic") > coverage("rare") && coverage("epic") > coverage("common"),
+    "Epic effect coverage must exceed both lower rarities",
+  );
 
   for (const card of monsters) {
     if (card.monsterType === "effect") {
@@ -359,24 +582,63 @@ test("the Monster pool uses exactly five nearly-even elements and no neutral Mon
   );
 });
 
-test("reviewed monster ladder keeps starter creatures weak and world entities mythic", () => {
+test("rarity buys power at a Level, never the Level itself", () => {
+  // The old ladder asserted the opposite — that tc-02 was weak/low-Level and
+  // tc-150 mythic/Level 8 — i.e. that rarity and Level were the same axis. They
+  // are deliberately independent now, so what is pinned is the RULE: every
+  // rarity spans the curve, and within a Level the rarity order is strict.
+  const monsters = CHRONICLE_CARD_CATALOG.filter(
+    (card) => card.cardClass === "monster",
+  );
   const training = getChronicleCard("tc-01");
-  const cat = getChronicleCard("tc-02");
-  const world = getChronicleCard("tc-150");
   assert.equal(training?.cardClass, "monster");
-  assert.equal(cat?.cardClass, "monster");
-  assert.equal(world?.cardClass, "monster");
-  if (
-    training?.cardClass === "monster" &&
-    cat?.cardClass === "monster" &&
-    world?.cardClass === "monster"
-  ) {
-    assert.equal(training.level, 1);
-    assert.equal(cat.powerTier, "weak");
-    assert.ok(cat.level <= 3);
-    assert.equal(world.powerTier, "mythic");
-    assert.equal(world.level, 8);
+  if (training?.cardClass === "monster") assert.equal(training.level, 1);
+
+  // 1. Every rarity reaches both ends of the curve.
+  for (const rarity of ["common", "rare", "epic", "legendary"]) {
+    const at = monsters.filter((card) => card.rarity === rarity);
+    assert.ok(
+      at.some((card) => tributeCountForLevel(card.level) === 0),
+      `${rarity} must have Monsters that need no Tribute`,
+    );
+    assert.ok(
+      at.some((card) => tributeCountForLevel(card.level) === 2),
+      `${rarity} must have two-Tribute Monsters`,
+    );
   }
+
+  // 2. At any given Level, a higher rarity is strictly stronger.
+  const RANK = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 };
+  const total = (card: { attack: number; defense: number }) =>
+    card.attack + card.defense;
+  for (let level = 1; level <= 8; level++) {
+    const at = monsters.filter((card) => card.level === level);
+    for (const a of at) {
+      for (const b of at) {
+        if (RANK[a.rarity] < RANK[b.rarity]) {
+          assert.ok(
+            total(a) <= total(b),
+            `lvl ${level}: ${a.rarity} ${a.name} (${total(a)}) outstats ${b.rarity} ${b.name} (${total(b)})`,
+          );
+        }
+      }
+    }
+  }
+});
+
+test("an on-Tribute-Summon effect never lands on a Monster that summons for free", () => {
+  // Power tier is assigned independently of rarity now, so a card carrying an
+  // onTributeSummon effect can be handed a Level that never tributes — which
+  // makes its printed text dead. TRIBUTE_TRIGGER_IDS in chronicle-duel.ts keeps
+  // those cards on Tribute Levels; this is the guard that it stays complete.
+  const stranded = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" &&
+    card.monsterEffect?.trigger === "onTributeSummon" &&
+    tributeCountForLevel(card.level) === 0
+      ? [`${card.id} (${card.name}) is Level ${card.level}`]
+      : [],
+  );
+  assert.deepEqual(stranded, []);
 });
 
 test("classic starter spans low, medium, one-Tribute, and two-Tribute Monster bands", () => {
@@ -402,7 +664,10 @@ test("classic starter spans low, medium, one-Tribute, and two-Tribute Monster ba
         }).length,
       ]),
     ),
-    { Fire: 5, Water: 5, Earth: 5, Wind: 5, Lightning: 4 },
+    // Shifted by the free-tier swap: the seven Grand Marketplace cards this deck
+    // used to grant were replaced with free-tier Monsters at the same Levels,
+    // which moved two copies off Lightning.
+    { Fire: 6, Water: 6, Earth: 5, Wind: 5, Lightning: 2 },
   );
   assert.equal(
     fallbackMonsters.filter((id) => {
@@ -431,11 +696,17 @@ test("classic starter spans low, medium, one-Tribute, and two-Tribute Monster ba
     }),
     {},
   );
-  assert.ok(catalogTierCounts.weak >= 50);
-  assert.ok(catalogTierCounts.standard >= 40);
-  assert.ok(catalogTierCounts.elite >= 50);
-  assert.ok(catalogTierCounts.boss >= 30);
-  assert.ok(catalogTierCounts.mythic >= 20);
+  // Every tier stays well represented across the catalog. The thresholds moved
+  // down slightly for weak/standard when tier assignment stopped following the
+  // rarity-ordered id bands and started cycling evenly within each rarity.
+  assert.ok(catalogTierCounts.weak >= 45, `weak ${catalogTierCounts.weak}`);
+  assert.ok(
+    catalogTierCounts.standard >= 35,
+    `standard ${catalogTierCounts.standard}`,
+  );
+  assert.ok(catalogTierCounts.elite >= 50, `elite ${catalogTierCounts.elite}`);
+  assert.ok(catalogTierCounts.boss >= 30, `boss ${catalogTierCounts.boss}`);
+  assert.ok(catalogTierCounts.mythic >= 20, `mythic ${catalogTierCounts.mythic}`);
 });
 
 test("founding role pass provides deep Jutsu and Snare pools without copied identities", () => {
@@ -746,13 +1017,28 @@ test("five Living Witness cards preserve fixed companion records outside packs",
     assert.equal(card.family, "Bonded Beast / Living Witness");
     assert.equal(card.rarity, "rare");
     assert.equal(card.level, 4);
-    assert.equal(card.attack, source.attack);
-    assert.equal(card.defense, source.defense);
+    // Stats now come from the shared rarity ladder rather than the source's own
+    // hand-set numbers, so that a Rare witness cannot outstat an Epic of the
+    // same Level. What stays fixed is the RECORD — id, element, family, rarity
+    // and Level — which is what "preserved outside packs" is protecting.
+    assert.ok(card.attack > 0 && card.defense > 0);
+    assert.equal(card.element, source.element);
   }
+  // All five sit on one stat line: same tier, same rarity, differing only by the
+  // element shape they were recorded with.
+  const witnesses = CHRONICLE_PET_WITNESS_SOURCES.map((source) =>
+    getChronicleCard(source.id),
+  ).flatMap((card) => (card?.cardClass === "monster" ? [card] : []));
+  assert.equal(
+    new Set(witnesses.map((card) => card.attack + card.defense)).size,
+    1,
+    "every Living Witness spends the same budget",
+  );
 });
 
 test("Normal Summon/Set uses exact distinct Tributes and sends them to Graveyard", () => {
-  const level5 = summonReady("tc-96", 1);
+  const oneTribute = monsterCostingTributes(1);
+  const level5 = summonReady(oneTribute, 1);
   const actor = level5.activePlayer;
   assert.equal(
     normalSummon(level5, actor, {
@@ -767,12 +1053,12 @@ test("Normal Summon/Set uses exact distinct Tributes and sends them to Graveyard
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 1,
-    tributeZoneIndexes: [0],
+    tributeZoneIndexes: TRIBUTE_ZONES.slice(0, 1),
   });
   assert.equal(summoned.ok, true);
   if (summoned.ok) {
     assert.equal(summoned.state[actor].graveyard.includes("tc-01"), true);
-    assert.equal(summoned.state[actor].monsterZones[1]?.cardId, "tc-96");
+    assert.equal(summoned.state[actor].monsterZones[1]?.cardId, oneTribute);
     assert.equal(summoned.state[actor].monsterZones[1]?.position, "attack");
     assert.equal(summoned.state.normalSummonUsed, true);
     assert.equal(
@@ -784,13 +1070,14 @@ test("Normal Summon/Set uses exact distinct Tributes and sends them to Graveyard
       false,
     );
   }
-  const level8 = summonReady("tc-150", 2);
+  const level8 = summonReady(monsterCostingTributes(2), 2);
   assert.equal(
     normalSummon(level8, level8.activePlayer, {
       action: "normal-summon",
       handIndex: 0,
       zoneIndex: 2,
-      tributeZoneIndexes: [0, 0],
+      // The same zone twice is not two distinct Tributes.
+      tributeZoneIndexes: [TRIBUTE_ZONES[0], TRIBUTE_ZONES[0]],
     }).ok,
     false,
   );
@@ -972,8 +1259,11 @@ test("the five-element wheel adds 200 only to the advantaged battle stat", () =>
   const defender = actor === "p1" ? "p2" : "p1";
   state.turnNumber = 2;
   state.phase = "battle";
-  placeMonster(state, actor, 0, "tc-21"); // Earth, 1500 ATK
-  placeMonster(state, defender, 0, "tc-23"); // Water, 1600 ATK
+  // The defender out-ATKs the attacker by 100; the attacker's element beats the
+  // defender's, so the +200 edge decides it and 100 damage gets through.
+  const edge = elementEdgePair(100);
+  placeMonster(state, actor, 0, edge.attacker);
+  placeMonster(state, defender, 0, edge.defender);
 
   const result = declareAttack(state, actor, {
     action: "attack",
@@ -993,16 +1283,17 @@ test("visible battle preview mirrors elemental battle resolution", () => {
   const defender = actor === "p1" ? "p2" : "p1";
   state.turnNumber = 2;
   state.phase = "battle";
-  placeMonster(state, actor, 0, "tc-13");
-  placeMonster(state, defender, 0, "tc-02");
+  const pair = plainAttackPair();
+  placeMonster(state, actor, 0, pair.attacker);
+  placeMonster(state, defender, 0, pair.defender);
   const projection = projectMatchForViewer(state, actor);
   const preview = previewChronicleBattle(projection, 0, 0);
   assert.equal(preview?.legal, true);
   assert.equal(preview?.kind, "break");
-  assert.equal(preview?.attackerValue, 1_100);
-  assert.equal(preview?.defenderValue, 1_000);
-  assert.equal(preview?.damage, 100);
-  assert.match(preview?.label ?? "", /BREAK · 100 DAMAGE/);
+  assert.equal(preview?.attackerValue, pair.attack);
+  assert.equal(preview?.defenderValue, pair.defense);
+  assert.equal(preview?.damage, pair.damage);
+  assert.match(preview?.label ?? "", new RegExp(`BREAK · ${pair.damage} DAMAGE`));
 
   const resolved = applyAction(state, actor, {
     action: "attack",
@@ -1012,7 +1303,10 @@ test("visible battle preview mirrors elemental battle resolution", () => {
   assert.equal(resolved.ok, true);
   if (!resolved.ok) return;
   assert.equal(resolved.state[defender].monsterZones[0], null);
-  assert.equal(resolved.state[defender].lifePoints, STARTING_LIFE_POINTS - 100);
+  assert.equal(
+    resolved.state[defender].lifePoints,
+    STARTING_LIFE_POINTS - pair.damage,
+  );
 });
 
 test("battle preview respects a face-up Guard before exposing a hidden target", () => {
@@ -1051,7 +1345,10 @@ test("structured replay events preserve actions without leaking set cards", () =
   const state = match();
   const actor = state.activePlayer;
   const opponent = actor === "p1" ? "p2" : "p1";
-  state[actor].hand[0] = "tc-13";
+  // Any Monster that Sets for free — the replay contract is what's under test,
+  // not the Tribute rule.
+  const setCard = monsterCostingTributes(0);
+  state[actor].hand[0] = setCard;
   const set = applyAction(state, actor, {
     action: "set-monster",
     handIndex: 0,
@@ -1065,7 +1362,7 @@ test("structured replay events preserve actions without leaking set cards", () =
   const ownerEvent = ownerView.events?.at(-1);
   const opponentEvent = opponentView.events?.at(-1);
   assert.equal(ownerEvent?.kind, "monster-set");
-  assert.equal(ownerEvent?.cardId, "tc-13");
+  assert.equal(ownerEvent?.cardId, setCard);
   assert.equal(opponentEvent?.kind, "monster-set");
   assert.equal(opponentEvent?.cardId, undefined);
 });
@@ -1081,8 +1378,28 @@ test("Field Magic replaces rather than stacks with the neutral element wheel", (
     fieldId: "desert",
     owner: actor,
   };
-  placeMonster(state, actor, 0, "tc-21"); // Earth 1500 +300
-  placeMonster(state, defender, 0, "tc-23"); // Water 1600 -200
+  // Desert boosts Earth and penalises Water. Pick a pair where the boosted
+  // Earth attacker still wins, and derive the damage from their real stats
+  // rather than restating numbers the balance pass can move.
+  const desert = CHRONICLE_FIELD_DEFINITIONS.find(
+    (field) => field.id === "desert",
+  );
+  assert.ok(desert);
+  const vanilla = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.monsterType === "normal" ? [card] : [],
+  );
+  const earth = vanilla.find((card) => card.element === "Earth");
+  assert.ok(earth);
+  const boosted = earth.attack + desert.attackBonus;
+  const water = vanilla.find(
+    (card) =>
+      card.element === "Water" &&
+      card.attack + desert.attackPenalty < boosted,
+  );
+  assert.ok(water);
+  const fieldDamage = boosted - (water.attack + desert.attackPenalty);
+  placeMonster(state, actor, 0, earth.id);
+  placeMonster(state, defender, 0, water.id);
 
   const result = declareAttack(state, actor, {
     action: "attack",
@@ -1091,7 +1408,10 @@ test("Field Magic replaces rather than stacks with the neutral element wheel", (
   });
   assert.equal(result.ok, true);
   if (!result.ok) return;
-  assert.equal(result.state[defender].lifePoints, STARTING_LIFE_POINTS - 400);
+  assert.equal(
+    result.state[defender].lifePoints,
+    STARTING_LIFE_POINTS - fieldDamage,
+  );
   assert.equal(result.state.log.some((line) => line.includes("Element edge")), false);
   assert.equal(
     elementBattleBonus("Earth", "Water", result.state.activeField),
@@ -1122,6 +1442,14 @@ test("Flip effects draw, heal, weaken an attacker, and spring a concealed tag am
   assert.equal(lookout.state[actor].deck.length, deckBefore - 1);
 
   state = summonReady("tc-13");
+  // The heal is rarity-scaled now, so read it off the card instead of restating
+  // the authored figure.
+  const wispCard = getChronicleCard("tc-13");
+  const wispHeal =
+    wispCard?.cardClass === "monster"
+      ? (wispCard.monsterEffect?.amount ?? 0)
+      : 0;
+  assert.ok(wispHeal > 0, "tc-13 must still heal on flip");
   state[state.activePlayer].lifePoints = 7_900;
   const setWisp = normalSet(state, state.activePlayer, {
     action: "set-monster",
@@ -1135,14 +1463,26 @@ test("Flip effects draw, heal, weaken an attacker, and spring a concealed tag am
   const wisp = flipSummon(setWisp.state, setWisp.state.activePlayer, 0);
   assert.equal(wisp.ok, true);
   if (wisp.ok)
-    assert.equal(wisp.state[wisp.state.activePlayer].lifePoints, 8_400);
+    assert.equal(
+      wisp.state[wisp.state.activePlayer].lifePoints,
+      7_900 + wispHeal,
+    );
 
   state = match();
   state.turnNumber = 2;
   state.phase = "battle";
   const attackSide = state.activePlayer;
   const defendSide = attackSide === "p1" ? "p2" : "p1";
-  placeMonster(state, attackSide, 0, "tc-21", { instanceId: "tag-attacker" });
+  // Strong enough to break the mouse's DEF, so the mouse dies to battle while
+  // its Flip effect takes the attacker down with it.
+  const mouse = getChronicleCard("tc-08");
+  assert.equal(mouse?.cardClass, "monster");
+  const tagAttacker = monsterWithAttackAbove(
+    mouse?.cardClass === "monster" ? mouse.defense : 0,
+  );
+  placeMonster(state, attackSide, 0, tagAttacker, {
+    instanceId: "tag-attacker",
+  });
   placeMonster(state, defendSide, 0, "tc-08", {
     position: "defense",
     faceUp: false,
@@ -1157,7 +1497,7 @@ test("Flip effects draw, heal, weaken an attacker, and spring a concealed tag am
   if (!tagAmbush.ok) return;
   assert.equal(tagAmbush.state[attackSide].monsterZones[0], null);
   assert.equal(tagAmbush.state[defendSide].monsterZones[0], null);
-  assert.ok(tagAmbush.state[attackSide].graveyard.includes("tc-21"));
+  assert.ok(tagAmbush.state[attackSide].graveyard.includes(tagAttacker));
   assert.ok(tagAmbush.state[defendSide].graveyard.includes("tc-08"));
 
   state = match();
@@ -1170,6 +1510,22 @@ test("Flip effects draw, heal, weaken an attacker, and spring a concealed tag am
     position: "defense",
     faceUp: false,
   });
+  // Attacker is weakened by the Flip effect, then loses to the DEF wall by the
+  // remainder. Both figures are read off the cards — the weaken amount is
+  // rarity-scaled and the stats come from the ladder.
+  const brawler = getChronicleCard("tc-02");
+  const weakener = getChronicleCard("tc-85");
+  assert.equal(brawler?.cardClass, "monster");
+  assert.equal(weakener?.cardClass, "monster");
+  const weakenBy =
+    weakener?.cardClass === "monster"
+      ? (weakener.monsterEffect?.amount ?? 0)
+      : 0;
+  const recoil =
+    weakener?.cardClass === "monster" && brawler?.cardClass === "monster"
+      ? weakener.defense - (brawler.attack - weakenBy)
+      : 0;
+  assert.ok(recoil > 0, "the weakened attacker must lose to the DEF wall");
   const weakened = declareAttack(state, weakenedAttackSide, {
     action: "attack",
     attackerZoneIndex: 0,
@@ -1177,7 +1533,10 @@ test("Flip effects draw, heal, weaken an attacker, and spring a concealed tag am
   });
   assert.equal(weakened.ok, true);
   if (weakened.ok) {
-    assert.equal(weakened.state[weakenedAttackSide].lifePoints, 7_000);
+    assert.equal(
+      weakened.state[weakenedAttackSide].lifePoints,
+      STARTING_LIFE_POINTS - recoil,
+    );
     assert.ok(weakened.state[weakenedAttackSide].monsterZones[0]);
     assert.ok(weakened.state[weakenedDefendSide].monsterZones[0]);
   }
@@ -1238,7 +1597,18 @@ test("founding Monster roles remove, recover, recruit, discard, and suppress Sna
   state.phase = "battle";
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
-  placeMonster(state, actor, 0, "tc-150", { instanceId: "recruit-attacker" });
+  // Strong enough to destroy the messenger, which is what fires its recruit.
+  const messenger = getChronicleCard("tc-20");
+  assert.equal(messenger?.cardClass, "monster");
+  placeMonster(
+    state,
+    actor,
+    0,
+    monsterWithAttackAbove(
+      messenger?.cardClass === "monster" ? messenger.attack : 0,
+    ),
+    { instanceId: "recruit-attacker" },
+  );
   placeMonster(state, opponent, 0, "tc-20", {
     instanceId: "village-messenger",
   });
@@ -1299,9 +1669,17 @@ test("founding Monster roles remove, recover, recruit, discard, and suppress Sna
   state.phase = "battle";
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
-  placeMonster(state, actor, 0, "tc-21", { instanceId: "bounder-attacker" });
+  // The reflect resolves BEFORE damage calculation, so the attacker must win
+  // the battle itself — otherwise it eats the reflect plus the losing battle and
+  // this stops measuring the effect.
+  const beetle = getChronicleCard("tc-63");
+  assert.equal(beetle?.cardClass, "monster");
+  const bounder = monsterWithAttackAbove(
+    beetle?.cardClass === "monster" ? beetle.attack : 0,
+  );
+  placeMonster(state, actor, 0, bounder, { instanceId: "bounder-attacker" });
   placeMonster(state, opponent, 0, "tc-63", { instanceId: "static-beetle" });
-  const reflectedAttack = getChronicleCard("tc-21");
+  const reflectedAttack = getChronicleCard(bounder);
   const reflectedDamage =
     reflectedAttack?.cardClass === "monster" ? reflectedAttack.attack : 0;
   const reflectedBattle = declareAttack(state, actor, {
@@ -1335,7 +1713,7 @@ test("founding Monster roles remove, recover, recruit, discard, and suppress Sna
   assert.equal(phased.state[actor].deck.at(-1), "tc-21");
   assert.equal(phased.state[opponent].deck.at(-1), "tc-44");
 
-  state = summonReady("tc-50", 1);
+  state = summonReady("tc-50");
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
   state.turnNumber = 3;
@@ -1351,7 +1729,6 @@ test("founding Monster roles remove, recover, recruit, discard, and suppress Sna
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 1,
-    tributeZoneIndexes: [0],
   });
   assert.equal(trapMaster.ok, true);
   if (trapMaster.ok) assert.equal(trapMaster.state.responseWindow, null);
@@ -1365,6 +1742,15 @@ test("battle effects resolve piercing, defensive retaliation, and once-per-turn 
   let defender: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
   placeMonster(state, actor, 0, "tc-142");
   placeMonster(state, defender, 0, "tc-01", { position: "defense" });
+  // Piercing sends the excess over the wall through as damage; both figures are
+  // read off the cards rather than restated.
+  const piercer = getChronicleCard("tc-142");
+  const wall = getChronicleCard("tc-01");
+  const pierceDamage =
+    piercer?.cardClass === "monster" && wall?.cardClass === "monster"
+      ? piercer.attack - wall.defense
+      : 0;
+  assert.ok(pierceDamage > 0, "the piercer must overpower the wall");
   const pierced = declareAttack(state, actor, {
     action: "attack",
     attackerZoneIndex: 0,
@@ -1372,7 +1758,10 @@ test("battle effects resolve piercing, defensive retaliation, and once-per-turn 
   });
   assert.equal(pierced.ok, true);
   if (!pierced.ok) return;
-  assert.equal(pierced.state[defender].lifePoints, 5_600);
+  assert.equal(
+    pierced.state[defender].lifePoints,
+    STARTING_LIFE_POINTS - pierceDamage,
+  );
   assert.equal(pierced.state[defender].monsterZones[0], null);
 
   state = match();
@@ -1401,6 +1790,15 @@ test("battle effects resolve piercing, defensive retaliation, and once-per-turn 
   placeMonster(state, actor, 0, "tc-150", { instanceId: "first-attacker" });
   placeMonster(state, actor, 1, "tc-150", { instanceId: "second-attacker" });
   placeMonster(state, defender, 0, "tc-127", { instanceId: "glacier-king" });
+  // Both attackers must actually threaten the king, or "survives once per turn"
+  // never gets exercised.
+  const glacierKing = getChronicleCard("tc-127");
+  assert.equal(glacierKing?.cardClass, "monster");
+  const kingBreaker = monsterWithAttackAbove(
+    glacierKing?.cardClass === "monster" ? glacierKing.attack : 0,
+  );
+  placeMonster(state, actor, 0, kingBreaker, { instanceId: "first-attacker" });
+  placeMonster(state, actor, 1, kingBreaker, { instanceId: "second-attacker" });
   const first = declareAttack(state, actor, {
     action: "attack",
     attackerZoneIndex: 0,
@@ -1426,18 +1824,28 @@ test("destroyed-by-battle effects draw, displace, recycle, and revive determinis
     state: ChronicleMatch;
     actor: ChronicleSideKey;
     defender: ChronicleSideKey;
+    attackerId: string;
   } => {
     const state = match();
     state.turnNumber = 2;
     state.phase = "battle";
     const actor = state.activePlayer;
     const defender = actor === "p1" ? "p2" : "p1";
-    placeMonster(state, actor, 0, "tc-150", { instanceId: "battle-attacker" });
+    // These cases all turn on the defender being DESTROYED, so the attacker is
+    // chosen to beat this particular wall rather than being a card that merely
+    // used to be the biggest in the set.
+    const target = getChronicleCard(defenderId);
+    const attackerId = monsterWithAttackAbove(
+      target?.cardClass === "monster" ? target.defense : 0,
+    );
+    placeMonster(state, actor, 0, attackerId, {
+      instanceId: "battle-attacker",
+    });
     placeMonster(state, defender, 0, defenderId, {
       position: "defense",
       instanceId: "effect-defender",
     });
-    return { state, actor, defender };
+    return { state, actor, defender, attackerId };
   };
 
   let setup = battle("tc-05");
@@ -1460,7 +1868,7 @@ test("destroyed-by-battle effects draw, displace, recycle, and revive determinis
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.state[setup.actor].monsterZones[0], null);
-  assert.ok(result.state[setup.actor].hand.includes("tc-150"));
+  assert.ok(result.state[setup.actor].hand.includes(setup.attackerId));
 
   setup = battle("tc-51");
   result = applyAction(setup.state, setup.actor, {
@@ -1509,8 +1917,13 @@ test("continuous, attack-success, withdrawal, and Tribute effects alter authorit
   let actor = state.activePlayer;
   let defender: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
   placeMonster(state, actor, 0, "tc-45", { instanceId: "storm-serpent" });
+  const serpent = getChronicleCard("tc-45");
+  assert.equal(serpent?.cardClass, "monster");
   let projected = projectMatchForViewer(state, actor);
-  assert.equal(projected[actor].monsterZones[0]?.attack, 1_950);
+  assert.equal(
+    projected[actor].monsterZones[0]?.attack,
+    serpent?.cardClass === "monster" ? serpent.attack : 0,
+  );
   state.phase = "main1";
   state[actor].hand[0] = "chronicle-recon-scroll";
   const fueled = activateMagic(state, actor, {
@@ -1521,14 +1934,29 @@ test("continuous, attack-success, withdrawal, and Tribute effects alter authorit
   if (!fueled.ok) return;
   state = fueled.state;
   projected = projectMatchForViewer(state, actor);
-  assert.equal(projected[actor].monsterZones[0]?.attack, 2_150);
+  // The serpent's continuous effect adds to its printed ATK; both terms come
+  // off the card so the balance pass can move either.
+  const serpentBoost =
+    serpent?.cardClass === "monster" ? (serpent.monsterEffect?.amount ?? 0) : 0;
+  assert.ok(serpentBoost > 0, "tc-45 must still gain ATK from its effect");
+  assert.equal(
+    projected[actor].monsterZones[0]?.attack,
+    (serpent?.cardClass === "monster" ? serpent.attack : 0) + serpentBoost,
+  );
 
   state = match();
   actor = state.activePlayer;
   placeMonster(state, actor, 0, "tc-100", { instanceId: "marshal" });
   placeMonster(state, actor, 1, "tc-02", { instanceId: "wind-ally" });
+  const marshal = getChronicleCard("tc-100");
+  const ally = getChronicleCard("tc-02");
+  const allyBoost =
+    marshal?.cardClass === "monster" ? (marshal.monsterEffect?.amount ?? 0) : 0;
   projected = projectMatchForViewer(state, actor);
-  assert.equal(projected[actor].monsterZones[1]?.attack, 1_200);
+  assert.equal(
+    projected[actor].monsterZones[1]?.attack,
+    (ally?.cardClass === "monster" ? ally.attack : 0) + allyBoost,
+  );
 
   state = match();
   state.turnNumber = 3;
@@ -1586,7 +2014,7 @@ test("continuous, attack-success, withdrawal, and Tribute effects alter authorit
   if (!stole.ok) return;
   assert.equal(stole.state[actor].deck.length, deckBefore - 1);
 
-  state = summonReady("story-wandering-sage", 1);
+  state = summonReady("story-wandering-sage");
   actor = state.activePlayer;
   const tributeDeckBefore = state[actor].deck.length;
   const tributeHandBefore = state[actor].hand.length;
@@ -1594,7 +2022,7 @@ test("continuous, attack-success, withdrawal, and Tribute effects alter authorit
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 1,
-    tributeZoneIndexes: [0],
+
   });
   assert.equal(sage.ok, true);
   if (sage.ok) {
@@ -1683,19 +2111,51 @@ test("optional monster guidelines add position locks, tactical scaling, recovery
   state = match();
   actor = state.activePlayer;
   placeMonster(state, actor, 0, "tc-48");
+  // Gains ATK while it is the only Monster; both figures come off the card.
+  const loner = getChronicleCard("tc-48");
+  assert.equal(loner?.cardClass, "monster");
+  const lonerAttack = loner?.cardClass === "monster" ? loner.attack : 0;
+  const lonerBonus =
+    loner?.cardClass === "monster" ? (loner.monsterEffect?.amount ?? 0) : 0;
+  assert.ok(lonerBonus > 0, "tc-48 must still gain ATK while alone");
   let projection = projectMatchForViewer(state, actor);
-  assert.equal(projection[actor].monsterZones[0]?.attack, 2_300);
+  assert.equal(
+    projection[actor].monsterZones[0]?.attack,
+    lonerAttack + lonerBonus,
+  );
   placeMonster(state, actor, 1, "tc-01");
   projection = projectMatchForViewer(state, actor);
-  assert.equal(projection[actor].monsterZones[0]?.attack, 1_800);
+  assert.equal(projection[actor].monsterZones[0]?.attack, lonerAttack);
 
   state = match();
   state.turnNumber = 2;
   state.phase = "battle";
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
+  // The underdog only wins if the target is stronger than it, but by LESS than
+  // the ATK its effect grants — otherwise nothing is being measured.
+  const underdogCard = getChronicleCard("tc-81");
+  assert.equal(underdogCard?.cardClass, "monster");
+  const underdogAttack =
+    underdogCard?.cardClass === "monster" ? underdogCard.attack : 0;
+  const underdogBonus =
+    underdogCard?.cardClass === "monster"
+      ? (underdogCard.monsterEffect?.amount ?? 0)
+      : 0;
   placeMonster(state, actor, 0, "tc-81");
-  placeMonster(state, opponent, 0, "tc-45");
+  placeMonster(
+    state,
+    opponent,
+    0,
+    monsterWhere(
+      (card) =>
+        card.element ===
+          (underdogCard?.cardClass === "monster" ? underdogCard.element : "") &&
+        card.attack > underdogAttack &&
+        card.attack < underdogAttack + underdogBonus,
+      "stronger than the underdog but inside its bonus, same element",
+    ),
+  );
   const underdog = declareAttack(state, actor, {
     action: "attack",
     attackerZoneIndex: 0,
@@ -1706,7 +2166,7 @@ test("optional monster guidelines add position locks, tactical scaling, recovery
   assert.ok(underdog.state[actor].monsterZones[0]);
   assert.equal(underdog.state[opponent].monsterZones[0], null);
 
-  state = summonReady("tc-97", 1);
+  state = summonReady("tc-97");
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
   state[opponent].magicTrapZones[0] = {
@@ -1721,7 +2181,7 @@ test("optional monster guidelines add position locks, tactical scaling, recovery
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 1,
-    tributeZoneIndexes: [0],
+
   });
   assert.equal(stormbreaker.ok, true);
   if (!stormbreaker.ok) return;
@@ -1760,7 +2220,15 @@ test("optional monster guidelines add position locks, tactical scaling, recovery
   state.phase = "battle";
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
-  placeMonster(state, actor, 0, "tc-150");
+  // The shrine's recovery only fires when it is destroyed by battle.
+  const shrine = getChronicleCard("tc-49");
+  assert.equal(shrine?.cardClass, "monster");
+  placeMonster(
+    state,
+    actor,
+    0,
+    monsterWithAttackAbove(shrine?.cardClass === "monster" ? shrine.attack : 0),
+  );
   placeMonster(state, opponent, 0, "tc-49");
   state[opponent].graveyard.push("chronicle-field-volcano");
   const shrineFallen = declareAttack(state, actor, {
@@ -1780,7 +2248,14 @@ test("optional Magic guidelines add low-DEF removal, hand cycling, Field recover
   let actor = state.activePlayer;
   let opponent: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
   state[actor].hand[0] = "chronicle-hollow-breach";
-  placeMonster(state, opponent, 0, "tc-34");
+  // Hollow Breach only answers 1,000 DEF or less, so the two targets are picked
+  // by DEF rather than by name.
+  placeMonster(
+    state,
+    opponent,
+    0,
+    monsterWhere((card) => card.defense > 1_000, "above the 1,000 DEF cap"),
+  );
   const illegalBreach = activateMagic(state, actor, {
     action: "activate-magic",
     handIndex: 0,
@@ -1789,7 +2264,12 @@ test("optional Magic guidelines add low-DEF removal, hand cycling, Field recover
   });
   assert.equal(illegalBreach.ok, false);
   state[opponent].monsterZones[0] = null;
-  placeMonster(state, opponent, 0, "tc-13");
+  placeMonster(
+    state,
+    opponent,
+    0,
+    monsterWhere((card) => card.defense <= 1_000, "within the 1,000 DEF cap"),
+  );
   const breach = activateMagic(state, actor, {
     action: "activate-magic",
     handIndex: 0,
@@ -1945,9 +2425,27 @@ test("optional Trap guidelines add scaling armor, redirection, defensive feints,
       : 0,
   );
 
+  // The Trap redirects onto whichever OTHER Monster has the highest DEF, so the
+  // zone that dies is computed from the cards rather than assumed — the ladder
+  // decides which of these two now walls harder. The attacker also has to be
+  // able to break it, or the redirect proves nothing.
+  const bench = [
+    { zone: 1, id: "tc-34" },
+    { zone: 2, id: "tc-10" },
+  ].map((slot) => {
+    const card = getChronicleCard(slot.id);
+    assert.equal(card?.cardClass, "monster");
+    return {
+      ...slot,
+      defense: card?.cardClass === "monster" ? card.defense : 0,
+    };
+  });
+  const redirectedTo = bench.reduce((a, b) => (b.defense > a.defense ? b : a));
+  const survivingZone = bench.find((slot) => slot.zone !== redirectedTo.zone);
+  assert.ok(survivingZone);
   const redirected = trapBattle(
     "chronicle-moonshadow-slip",
-    "tc-150",
+    monsterWithAttackAbove(redirectedTo.defense),
     [
       { zone: 0, id: "tc-13", position: "defense" },
       { zone: 1, id: "tc-34", position: "defense" },
@@ -1955,8 +2453,19 @@ test("optional Trap guidelines add scaling armor, redirection, defensive feints,
     ],
     0,
   );
-  assert.ok(redirected.state[redirected.responder].monsterZones[0]);
-  assert.equal(redirected.state[redirected.responder].monsterZones[1], null);
+  assert.ok(
+    redirected.state[redirected.responder].monsterZones[0],
+    "the original target is spared",
+  );
+  assert.equal(
+    redirected.state[redirected.responder].monsterZones[redirectedTo.zone],
+    null,
+    "the highest-DEF bench Monster takes the redirected attack",
+  );
+  assert.ok(
+    redirected.state[redirected.responder].monsterZones[survivingZone.zone],
+    "the other bench Monster is untouched",
+  );
 
   const feinted = trapBattle(
     "chronicle-ironwood-bulwark",
@@ -2123,19 +2632,42 @@ test("period battle Traps reinforce DEF, weaken attackers, draw, and change posi
   const defended = setup("chronicle-tidal-deflection", 0);
   assert.ok(defended.state[defended.attacker].monsterZones[0]);
   assert.ok(defended.state[defended.responder].monsterZones[0]);
+  // The Trap reinforces the wall, and the attacker eats the difference. Both
+  // the wall and the reinforcement are read off the cards.
+  const tidal = getChronicleCard("chronicle-tidal-deflection");
+  const wall = getChronicleCard("tc-23");
+  const raider = getChronicleCard("tc-21");
+  const reinforce =
+    tidal && "effect" in tidal ? (tidal.effect?.amount ?? 0) : 0;
+  const recoil =
+    wall?.cardClass === "monster" && raider?.cardClass === "monster"
+      ? wall.defense +
+        reinforce -
+        (raider.attack + elementBattleBonus(raider.element, wall.element, null))
+      : 0;
+  assert.ok(recoil > 0, "the reinforced wall must beat the attacker");
   assert.equal(
     defended.state[defended.attacker].lifePoints,
-    STARTING_LIFE_POINTS - 400,
+    STARTING_LIFE_POINTS - recoil,
   );
 
+  // Direct attack, weakened by the Trap: what lands is the attacker's ATK less
+  // the Trap's own figure.
+  const smoke = getChronicleCard("chronicle-wall-of-smoke");
+  // Authored as a negative modifier, so take its magnitude.
+  const weakenAmount = Math.abs(
+    smoke && "effect" in smoke ? (smoke.effect?.amount ?? 0) : 0,
+  );
+  assert.ok(weakenAmount > 0);
   const weakened = setup("chronicle-wall-of-smoke", null);
   assert.equal(
     weakened.state[weakened.responder].lifePoints,
-    STARTING_LIFE_POINTS - 1_000,
+    STARTING_LIFE_POINTS -
+      ((raider?.cardClass === "monster" ? raider.attack : 0) - weakenAmount),
   );
   assert.equal(
     weakened.state[weakened.attacker].monsterZones[0]?.temporaryAttack,
-    -500,
+    -weakenAmount,
   );
 
   const watchedState = match();
@@ -2152,7 +2684,16 @@ test("period battle Traps reinforce DEF, weaken attackers, draw, and change posi
     faceUp: false,
     setOnTurn: 1,
   };
-  watchedState[watcher].hand = ["tc-24"];
+  // Long Watch only calls out a Level 4 or lower defender, and the attack then
+  // CONTINUES into it — so the defender also has to survive the attacker, or it
+  // is called out and destroyed in the same breath.
+  const watchDefender = monsterWhere(
+    (card) =>
+      card.level <= 4 &&
+      card.defense > (raider?.cardClass === "monster" ? raider.attack : 0),
+    "at Level 4 or lower that walls the attacker",
+  );
+  watchedState[watcher].hand = [watchDefender];
   const watchWindow = declareAttack(watchedState, watchedAttacker, {
     action: "attack",
     attackerZoneIndex: 0,
@@ -2164,8 +2705,13 @@ test("period battle Traps reinforce DEF, weaken attackers, draw, and change posi
   assert.equal(watched.ok, true);
   if (!watched.ok) return;
   assert.equal(watched.state[watcher].hand.length, 0);
-  assert.equal(watched.state[watcher].monsterZones[0]?.cardId, "tc-24");
-  assert.equal(watched.state[watcher].monsterZones[0]?.position, "defense");
+  // Which zone it lands in is the engine's choice; what matters is that the
+  // called-out defender is on the field, face-up, in Defense.
+  const called = watched.state[watcher].monsterZones.find(
+    (zone) => zone?.cardId === watchDefender,
+  );
+  assert.ok(called, `${watchDefender} should have been called to the field`);
+  assert.equal(called?.position, "defense");
   assert.equal(watched.state[watcher].lifePoints, STARTING_LIFE_POINTS);
 
   const warded = setup("chronicle-palm-ward", null);
@@ -2286,8 +2832,19 @@ test("supplied Trap guidelines add reinforcement, delayed retribution, formation
   const coffin = activateTrap(coffinWindow.state, defender, 0);
   assert.equal(coffin.ok, true);
   if (!coffin.ok) return;
-  assert.equal(coffin.state[attacker].monsterZones[1], null);
-  assert.ok(coffin.state[attacker].graveyard.includes("tc-02"));
+  // The Trap takes the attacker's LOWEST-ATK Monster; which of the two that is
+  // follows from the ladder, so it is computed rather than assumed.
+  const coffinBoard = [
+    { zone: 0, id: "tc-21" },
+    { zone: 1, id: "tc-02" },
+  ].map((slot) => {
+    const card = getChronicleCard(slot.id);
+    assert.equal(card?.cardClass, "monster");
+    return { ...slot, attack: card?.cardClass === "monster" ? card.attack : 0 };
+  });
+  const doomed = coffinBoard.reduce((a, b) => (b.attack < a.attack ? b : a));
+  assert.equal(coffin.state[attacker].monsterZones[doomed.zone], null);
+  assert.ok(coffin.state[attacker].graveyard.includes(doomed.id));
 
   const summonTrap = (
     trapId: string,
@@ -2410,12 +2967,13 @@ test("summon Traps ignore Sets and enforce their pending Monster Level cap", () 
   assert.equal(set.ok, true);
   if (set.ok) assert.equal(set.state.responseWindow, null);
 
-  const high = build("tc-150", 2);
+  // Above the Trap's Level cap — asked for by Tribute cost, since which card is
+  // "high Level" is a balance decision now.
+  const high = build(monsterCostingTributes(2), 2);
   const summoned = normalSummon(high.state, high.actor, {
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 2,
-    tributeZoneIndexes: [0, 1],
   });
   assert.equal(summoned.ok, true);
   if (summoned.ok) assert.equal(summoned.state.responseWindow, null);
@@ -2502,7 +3060,7 @@ test("a Summon resolves onto the field and into the log before its Snare window 
 
   // A Summoned Monster that seals Snares closes the window from the field it
   // just entered, so no response opens against its own arrival.
-  const sealer = summonReady("tc-50", 1);
+  const sealer = summonReady("tc-50");
   const sealActor = sealer.activePlayer;
   const sealDefender = sealActor === "p1" ? "p2" : "p1";
   sealer.turnNumber = 3;
@@ -2511,7 +3069,7 @@ test("a Summon resolves onto the field and into the log before its Snare window 
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 1,
-    tributeZoneIndexes: [0],
+
   });
   assert.equal(sealed.ok, true);
   if (!sealed.ok) return;
@@ -2521,7 +3079,7 @@ test("a Summon resolves onto the field and into the log before its Snare window 
   // Same ordering for a Tribute effect that removes back row: Stormbreaker
   // Drake destroys the Set Snare as part of its Summon, so there is nothing
   // left to respond with.
-  const drake = summonReady("tc-97", 1);
+  const drake = summonReady("tc-97");
   const drakeActor = drake.activePlayer;
   const drakeDefender = drakeActor === "p1" ? "p2" : "p1";
   drake.turnNumber = 3;
@@ -2530,7 +3088,7 @@ test("a Summon resolves onto the field and into the log before its Snare window 
     action: "normal-summon",
     handIndex: 0,
     zoneIndex: 1,
-    tributeZoneIndexes: [0],
+
   });
   assert.equal(struck.ok, true);
   if (!struck.ok) return;
@@ -2612,7 +3170,12 @@ test("diversified Magic draws with a cost and recovers different graveyard cards
 
   state = match();
   actor = state.activePlayer;
-  state[actor].graveyard.push("tc-08");
+  // Ancestral Muster only revives Level 4 or lower, so the fixture asks for one.
+  const musterTarget = monsterWhere(
+    (card) => card.level <= 4,
+    "at Level 4 or lower",
+  );
+  state[actor].graveyard.push(musterTarget);
   const effectMonsterIndex = state[actor].graveyard.length - 1;
   state[actor].hand[0] = "chronicle-ancestral-muster";
   const muster = activateMagic(state, actor, {
@@ -2622,7 +3185,7 @@ test("diversified Magic draws with a cost and recovers different graveyard cards
   });
   assert.equal(muster.ok, true);
   if (!muster.ok) return;
-  assert.equal(muster.state[actor].monsterZones[0]?.cardId, "tc-08");
+  assert.equal(muster.state[actor].monsterZones[0]?.cardId, musterTarget);
   assert.equal(muster.state[actor].monsterZones[0]?.position, "defense");
 
   state = match();
@@ -2631,7 +3194,12 @@ test("diversified Magic draws with a cost and recovers different graveyard cards
     placeMonster(state, actor, zoneIndex, "tc-01", {
       instanceId: `full-zone-${zoneIndex}`,
     });
-  state[actor].graveyard.push("tc-23");
+  // Second-Wind Recall only returns Level 4 or lower.
+  const recallTarget = monsterWhere(
+    (card) => card.level <= 4,
+    "at Level 4 or lower",
+  );
+  state[actor].graveyard.push(recallTarget);
   const monsterIndex = state[actor].graveyard.length - 1;
   state[actor].hand[0] = "chronicle-second-wind-recall";
   const recovered = activateMagic(state, actor, {
@@ -2641,7 +3209,7 @@ test("diversified Magic draws with a cost and recovers different graveyard cards
   });
   assert.equal(recovered.ok, true);
   if (!recovered.ok) return;
-  assert.ok(recovered.state[actor].hand.includes("tc-23"));
+  assert.ok(recovered.state[actor].hand.includes(recallTarget));
 });
 
 test("advanced Magic supports position control, back-row removal, and Monster removal", () => {
