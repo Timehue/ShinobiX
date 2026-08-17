@@ -2,6 +2,10 @@ export type PublicCapabilityId =
     | 'gameplay'
     | 'gameplayMutations'
     | 'registrations'
+    // Which doors into the game are actually open. The login screen reads these
+    // rather than rendering a button that can only answer with a 503.
+    | 'googleSignIn'
+    | 'guestPlay'
     | 'villageWar'
     | 'clanBoss'
     | 'clanBossParties'
