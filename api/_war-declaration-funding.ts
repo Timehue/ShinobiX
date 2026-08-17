@@ -118,10 +118,31 @@ export type WarDeclarationFundingAbortResult<T extends Record<string, unknown>> 
     | { status: 'conflict'; row: Record<string, unknown> | null };
 
 export type WarDeclarationFundingResult<T extends Record<string, unknown>> =
-    | { status: 'active'; row: WarDeclarationFundingRow<T>; replayed: boolean; receipt: WarDeclarationDebitReceipt }
+    /**
+     * `sourceRow` is the exact committed debit holder, present ONLY for an
+     * `honor-seals` source — the one kind that versions a player save. Its
+     * caller MUST echo that row's `_saveVersion` to the charged player: a
+     * version they never learn about turns their next autosave into a silent
+     * rollback (api/save/_version-echo-coverage.test.ts). A `war-resources`
+     * debit lands on the village pool, versions nothing, and deliberately
+     * carries no `sourceRow` — those lanes stay byte-identical.
+     */
+    | {
+        status: 'active';
+        row: WarDeclarationFundingRow<T>;
+        replayed: boolean;
+        receipt: WarDeclarationDebitReceipt;
+        sourceRow?: Record<string, unknown>;
+    }
     | { status: 'busy'; row: Record<string, unknown> }
     | { status: 'conflict'; row: Record<string, unknown> | null }
-    | { status: 'insufficient'; have: number; cost: number }
+    /**
+     * A rejected declaration spends nothing, but on an `honor-seals` source its
+     * intent and the abort fence that releases it are still two versioned
+     * writes. `sourceRow` is that fenced holder, so the refusal can carry the
+     * committed version the player never spent anything to reach.
+     */
+    | { status: 'insufficient'; have: number; cost: number; sourceRow?: Record<string, unknown> }
     | { status: 'stale-lease'; row?: Record<string, unknown> | null };
 
 export type WarDeclarationFundingSourceProofState =
@@ -871,15 +892,28 @@ export async function debitWarDeclarationFunding<T extends Record<string, unknow
     throw new Error('war-declaration-funding-debit-busy');
 }
 
+/**
+ * Surface the committed holder only when it is a player save. A `war-resources`
+ * result then stays exactly what it was before this echo existed — which is what
+ * lets the village-pool lanes (sector wars, the war-map village declaration)
+ * assert an unchanged result shape.
+ */
+function echoableSourceRow(
+    source: WarDeclarationFundingSource,
+    row: Record<string, unknown> | null | undefined,
+): { sourceRow?: Record<string, unknown> } {
+    return source.kind === 'honor-seals' && row ? { sourceRow: row } : {};
+}
+
 async function confirmDebitReceipt(
     store: FundingStore,
     marker: WarDeclarationFundingMarker,
-): Promise<WarDeclarationDebitReceipt> {
+): Promise<{ receipt: WarDeclarationDebitReceipt; row: Record<string, unknown> }> {
     const sourceRow = await store.get<Record<string, unknown>>(marker.source.recordKey);
     if (!sourceRow) throw new Error('war-declaration-funding-account-missing');
     const receipt = exactReceiptFromRow(sourceRow, marker);
     if (!receipt) throw new Error('war-declaration-funding-receipt-missing');
-    return receipt;
+    return { receipt, row: sourceRow };
 }
 
 /** Activate only the exact funding row whose debit receipt is durably present. */
@@ -893,7 +927,7 @@ export async function activateWarDeclarationFunding<T extends Record<string, unk
     if (!marker || marker.status !== 'funding' || positiveSafeInteger(activatedAt) === null) {
         throw new TypeError('An exact funding row and activation clock are required.');
     }
-    const receipt = await confirmDebitReceipt(store, marker);
+    const { receipt } = await confirmDebitReceipt(store, marker);
     const desired = {
         ...fundingRow,
         [WAR_DECLARATION_FUNDING_FIELD]: {
@@ -938,8 +972,14 @@ export async function settleReservedWarDeclarationFunding<T extends Record<strin
     if (reservation.status === 'active') {
         const marker = markerFromRow(reservation.row);
         if (!marker) return { status: 'conflict', row: reservation.row };
-        const receipt = await confirmDebitReceipt(store, marker);
-        return { status: 'active', row: reservation.row, replayed: true, receipt };
+        const confirmed = await confirmDebitReceipt(store, marker);
+        return {
+            status: 'active',
+            row: reservation.row,
+            replayed: true,
+            receipt: confirmed.receipt,
+            ...echoableSourceRow(plan.source, confirmed.row),
+        };
     }
     let debit: WarDeclarationDebitResult;
     try {
@@ -970,6 +1010,7 @@ export async function settleReservedWarDeclarationFunding<T extends Record<strin
                         row: activation.row,
                         replayed: true,
                         receipt: aborted.receipt,
+                        ...echoableSourceRow(plan.source, aborted.row),
                     };
                 }
             }
@@ -992,11 +1033,19 @@ export async function settleReservedWarDeclarationFunding<T extends Record<strin
                 row: activation.row,
                 replayed: true,
                 receipt: aborted.receipt,
+                ...echoableSourceRow(plan.source, aborted.row),
             };
         }
         if (aborted.status === 'stale-lease') return aborted;
         if (aborted.status === 'conflict') return aborted;
-        return debit;
+        // Nothing was spent, but on an honor source the intent + fence already
+        // versioned the save. Hand back the fenced holder so the rejection can
+        // still carry the committed version to the player who was refused.
+        // War-resources refusals skip the read entirely and stay unchanged.
+        const refused = plan.source.kind === 'honor-seals'
+            ? await store.get<Record<string, unknown>>(plan.source.recordKey)
+            : null;
+        return { ...debit, ...echoableSourceRow(plan.source, refused) };
     }
     if (debit.status === 'source-fenced') {
         const aborted = await abortWarDeclarationFunding(
@@ -1009,7 +1058,13 @@ export async function settleReservedWarDeclarationFunding<T extends Record<strin
         if (aborted.status === 'funded') {
             const activation = await activateWarDeclarationFunding(store, plan.warKey, reservation.row, plan.now);
             if (activation.status !== 'active') return activation;
-            return { status: 'active', row: activation.row, replayed: true, receipt: aborted.receipt };
+            return {
+                status: 'active',
+                row: activation.row,
+                replayed: true,
+                receipt: aborted.receipt,
+                ...echoableSourceRow(plan.source, aborted.row),
+            };
         }
         if (aborted.status === 'conflict' || aborted.status === 'stale-lease') return aborted;
         return { status: 'stale-lease', row: aborted.row };
@@ -1022,6 +1077,7 @@ export async function settleReservedWarDeclarationFunding<T extends Record<strin
         row: activation.row,
         replayed: reservation.replayed || debit.replayed || activation.replayed,
         receipt: debit.receipt,
+        ...echoableSourceRow(plan.source, debit.row),
     };
 }
 

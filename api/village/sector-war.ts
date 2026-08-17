@@ -76,6 +76,7 @@ import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
+import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-tombstone.js';
 import { SESSION_TTL } from '../combat-core/constants.js';
 import { settlePvpSectorWarContinuation } from '../pvp/_sector-war-continuation.js';
 
@@ -303,8 +304,11 @@ function sendSectorResolutionReceipt(res: VercelResponse, receipt: SectorWarReso
 }
 
 async function loadTerminalSectorBattle(battleId: string): Promise<ReadBattle | null> {
-    return await kv.get<ReadBattle>(`pvp:${battleId}`)
-        ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
+    const live = await kv.get<ReadBattle>(`pvp:${battleId}`);
+    // A publication fence is not a battle row: keep falling through to the
+    // durable terminal snapshot rather than reading the fence as the battle.
+    if (live && !pvpSessionPublicationTombstoneFor(live, battleId)) return live;
+    return await loadPvpRewardRecoverySnapshot(kv, battleId);
 }
 
 async function abortChangedSectorAuthority(context: SectorFundingContext, now: number): Promise<SectorFundingOutcome> {

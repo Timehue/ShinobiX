@@ -2212,7 +2212,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 if (funding.status === 'insufficient') {
                                     await releaseVillageWarReservations(kv, reservationPlan, 'funding-aborted', mutationNow);
                                     const unit = source.kind === 'war-resources' ? 'War Resources' : 'Honor Seals';
-                                    return { status: 400 as const, body: { error: `Declaring war costs ${funding.cost} ${unit}. You hold ${funding.have}.` } };
+                                    // A refused Honor declaration spends nothing, but its source intent
+                                    // and the abort fence that releases it still versioned THIS caller's
+                                    // save. Echo that too — otherwise the commonest outcome, trying to
+                                    // declare without the seals, strands the version and costs the
+                                    // player their in-flight local state for no gain at all.
+                                    const refusedSaveVersion = source.kind === 'honor-seals'
+                                        ? Math.floor(Number(funding.sourceRow?._saveVersion) || 0)
+                                        : 0;
+                                    return {
+                                        status: 400 as const,
+                                        body: {
+                                            error: `Declaring war costs ${funding.cost} ${unit}. You hold ${funding.have}.`,
+                                            ...(refusedSaveVersion > 0 ? { _saveVersion: refusedSaveVersion } : {}),
+                                        },
+                                    };
                                 }
                                 if (funding.status === 'conflict') {
                                     await releaseVillageWarReservations(kv, reservationPlan, 'funding-conflict', mutationNow);
