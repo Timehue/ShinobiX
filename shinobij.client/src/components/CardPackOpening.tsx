@@ -9,8 +9,12 @@
  * pops out → each tap flips a card with a rarity-scaled flourish → summary fan
  * with NEW badges and an "open another" shortcut.
  *
- * Styles live in ../styles/card-pack-opening.css, imported by Shop.tsx — the
- * screen chunk owns the CSS import; component modules must stay CSS-free so
+ * Also plays once outside the shop: the Chronicle Scribe's traveler's codex
+ * hand-off ends on it (screens/WorldMap), which is what `title`/`countLabel`
+ * are for — the same cinematic, named as the codex rather than a shop pack.
+ *
+ * Styles live in ../styles/card-pack-opening.css, imported by Shop.tsx and
+ * WorldMap.tsx — the screen chunk owns the CSS import; component modules must stay CSS-free so
  * node tests can import them. Portaled to <body> at z-index 1000000 per the
  * overlay pattern (the fixed nav/side rails paint over anything inside
  * <main>). Sounds use the shared, sample-based Chronicle mix.
@@ -49,6 +53,9 @@ export function CardPackOpening({
     cards,
     cardsById,
     ownedBefore,
+    title,
+    countLabel,
+    flipLimit,
     onClose,
     onOpenAnother,
     openAnotherLabel,
@@ -60,6 +67,16 @@ export function CardPackOpening({
     cardsById: Record<string, ChronicleDisplayCard>;
     /** Owned-copy counts BEFORE this pack was applied (drives the NEW badges). */
     ownedBefore: ReadonlyMap<string, number>;
+    /** Names this opening when it isn't a shop pack (the Traveler's Codex
+     *  hand-off), replacing the pack's own label and the summary heading. */
+    title?: string;
+    /** Replaces the "N cards" phrase when `cards` is a showcase rather than the
+     *  whole grant, so the foil and the summary still state what was received. */
+    countLabel?: string;
+    /** Cap the tap-through at the rarest N cards while the summary still fans
+     *  ALL of them. For a big handout like the Traveler's Codex, flipping every
+     *  face is a chore; the player still sees the whole set on the summary. */
+    flipLimit?: number;
     onClose: () => void;
     onOpenAnother?: () => void;
     openAnotherLabel?: string;
@@ -70,7 +87,14 @@ export function CardPackOpening({
         () => planPackReveal(cards, (id) => cardsById[id]?.rarity, ownedBefore),
         [cards, cardsById, ownedBefore],
     );
-    const [phase, setPhase] = useState<Phase>(plan.length ? "pack" : "summary");
+    // What the player taps through. `plan` is ordered rarest-last, so trimming
+    // from the FRONT keeps the crescendo and drops the commons — which the
+    // summary still shows.
+    const flipPlan = useMemo(
+        () => (flipLimit && flipLimit < plan.length ? plan.slice(plan.length - flipLimit) : plan),
+        [plan, flipLimit],
+    );
+    const [phase, setPhase] = useState<Phase>(flipPlan.length ? "pack" : "summary");
     const [idx, setIdx] = useState(0);
     const [flipped, setFlipped] = useState(false);
     const [leaving, setLeaving] = useState(false);
@@ -229,14 +253,14 @@ export function CardPackOpening({
     };
 
     // ------------------------------------------------------- card reveal ---
-    const current = plan[idx];
+    const current = flipPlan[idx];
     const currentCard = current ? cardsById[current.id] : undefined;
     const tier = rarityTier(currentCard?.rarity);
     const accent = RARITY_ACCENT[currentCard?.rarity ?? ""] ?? "#cfd8e3";
     const sparkCount = Math.round(SPARKS_BY_TIER[tier] * (lite ? 0.5 : 1));
     const sparks = useMemo(
-        () => packParticles(idx * 31 + plan.length * 7, sparkCount),
-        [idx, plan.length, sparkCount],
+        () => packParticles(idx * 31 + flipPlan.length * 7, sparkCount),
+        [idx, flipPlan.length, sparkCount],
     );
 
     // Brief lockout after a flip so an eager double-tap cannot dismiss a card
@@ -263,7 +287,7 @@ export function CardPackOpening({
             return;
         }
         if (flipLockRef.current) return;
-        if (idx + 1 >= plan.length) {
+        if (idx + 1 >= flipPlan.length) {
             setPhase("summary");
             return;
         }
@@ -283,6 +307,8 @@ export function CardPackOpening({
     const revealedCount = idx + (flipped ? 1 : 0);
     const showPack = phase === "pack" || phase === "tearing";
     const showStack = phase === "tearing" || phase === "reveal";
+    const label = title ?? theme.label;
+    const countText = countLabel ?? `${plan.length} card${plan.length === 1 ? "" : "s"}`;
 
     const overlayVars = {
         "--pack-accent": theme.accent,
@@ -301,7 +327,7 @@ export function CardPackOpening({
             style={overlayVars}
             role="dialog"
             aria-modal="true"
-            aria-label={`${theme.label} opening`}
+            aria-label={`${label} opening`}
         >
             <div className="pack-open-dust" aria-hidden="true" />
             {phase === "reveal" && flipped && tier >= 3 && (
@@ -315,10 +341,10 @@ export function CardPackOpening({
 
             <div className="pack-open-topbar">
                 <div className="pack-open-title">
-                    {theme.label}
-                    {phase === "reveal" && plan.length > 1 && (
+                    {label}
+                    {phase === "reveal" && flipPlan.length > 1 && (
                         <span className="pack-open-count">
-                            {Math.min(revealedCount, plan.length)} / {plan.length}
+                            {Math.min(revealedCount, flipPlan.length)} / {flipPlan.length}
                         </span>
                     )}
                 </div>
@@ -336,7 +362,7 @@ export function CardPackOpening({
                 {showStack && (
                     <div className="pack-reveal">
                         <div className={`pack-reveal__stage${phase === "tearing" ? " rising" : ""}`}>
-                            {plan.slice(idx, idx + 4).map((entry, depth) => {
+                            {flipPlan.slice(idx, idx + 4).map((entry, depth) => {
                                 const isTop = depth === 0 && phase === "reveal";
                                 const flippedNow = isTop && flipped;
                                 const card = cardsById[entry.id];
@@ -434,7 +460,7 @@ export function CardPackOpening({
                             {phase === "reveal" && !flipped && idx === 0 ? "Tap the card to reveal" : " "}
                         </div>
                         <div className="pack-reveal__dots" aria-hidden="true">
-                            {plan.map((_, i) => (
+                            {flipPlan.map((_, i) => (
                                 <span key={i} className={i < revealedCount ? "done" : ""} />
                             ))}
                         </div>
@@ -460,7 +486,7 @@ export function CardPackOpening({
                                 </div>
                                 <div />
                                 <div className="pack-foil__ribbon">
-                                    {theme.label} · {plan.length} card{plan.length === 1 ? "" : "s"}
+                                    {label} · {countText}
                                 </div>
                                 <div className="pack-foil__crimp" />
                             </div>
@@ -488,10 +514,8 @@ export function CardPackOpening({
                 {phase === "summary" && (
                     <div className="pack-summary">
                         <div className="pack-summary__head">
-                            <h2>Your Pull</h2>
-                            <p>
-                                {theme.label} — {plan.length} card{plan.length === 1 ? "" : "s"}
-                            </p>
+                            <h2>{title ?? "Your Pull"}</h2>
+                            <p>{title ? countText : `${label} — ${countText}`}</p>
                         </div>
                         <div className="pack-summary__row">
                             {plan.map((entry, i) => {

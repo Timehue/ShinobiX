@@ -10,7 +10,11 @@
  */
 import type { AiLoadoutId } from "../types/creator-ai";
 
-export type QuestMetric = "totalAiKills" | "totalPetWins" | "cardClashWins" | "totalTilesExplored";
+// Epic-questbook stages use the first four. `relicSurveyCount` is a WANDERER
+// metric that reaches metricLabel() through the Missions bounty card, which
+// renders whichever catalog the active quest came from — so the union has to
+// cover it or a new wanderer metric fails to typecheck at the call site.
+export type QuestMetric = "totalAiKills" | "totalPetWins" | "cardClashWins" | "totalTilesExplored" | "relicSurveyCount";
 
 export interface QuestChoiceOption {
     key: string;
@@ -180,6 +184,7 @@ export function metricLabel(metric: QuestMetric): string {
         case "totalPetWins": return "pet duels won";
         case "cardClashWins": return "card rounds won";
         case "totalTilesExplored": return "sectors scouted";
+        case "relicSurveyCount": return "countries walked";
         default: return "foes defeated";
     }
 }

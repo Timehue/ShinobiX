@@ -21,7 +21,7 @@ import type { Screen } from "../types/core";
 import { isPetOnExpedition } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petPvpGearById } from "../data/pet-config";
-import { preloadPetColiseumModels } from "../lib/pet-model-preload";
+import { preloadPetColiseumModels, warmShowdownModels } from "../lib/pet-model-preload";
 import {
     startShowdown,
     submitShowdownTurn,
@@ -33,8 +33,8 @@ import {
     startArenaBout,
     type ShowdownCommand,
     type ShowdownFormat,
+    type ShowdownOpposition,
     type ShowdownStateView,
-    type ShowdownTier,
     type ShowdownTurnResponse,
 } from "../lib/pet-showdown-api";
 import { PetShowdownBattle } from "../components/PetShowdownBattle";
@@ -90,7 +90,13 @@ const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string 
 // GameIcon is already on the entry path (MobileNav), so reusing it from this
 // lazy screen costs nothing new — and it keeps the lobby in the same drawn
 // language as the battle HUD instead of three OS emoji.
-const TIERS: { id: ShowdownTier; label: string; icon: GameIconName; blurb: string }[] = [
+//
+// SPARRING leads, and is the default, because it is the answer to the question
+// a player actually arrives with: give me a fight worth practising against, now.
+// The three tiers below it are the deliberate choice — a specific rarity band,
+// held level after level — and they stay for the player drilling one matchup.
+const TIERS: { id: ShowdownOpposition; label: string; icon: GameIconName; blurb: string }[] = [
+    { id: "sparring", label: "Sparring", icon: "dice", blurb: "The arena draws a random team, levelled to match your own pets." },
     { id: "scrapper", label: "Scrapper", icon: "paw", blurb: "Street strays. Learn the ropes." },
     { id: "warrior", label: "Warrior", icon: "sword", blurb: "Hardened kennels. A fair fight." },
     { id: "champion", label: "Champion", icon: "medal", blurb: "Apex beasts. Bring your best." },
@@ -121,9 +127,13 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         const ready = (character.pets ?? []).length;
         return ready >= 2 ? "2v2" : "1v1";
     });
-    const [tier, setTier] = useState<ShowdownTier>("scrapper");
+    const [tier, setTier] = useState<ShowdownOpposition>("sparring");
     const [selected, setSelected] = useState<string[]>([]);
-    const [starting, setStarting] = useState(false);
+    /* Two beats, because the wait now has two causes and they fail differently:
+     * "matching" is the server picking your opposition, "taking-the-field" is
+     * their models loading. A single spinner across both makes the second look
+     * like the first has hung. */
+    const [starting, setStarting] = useState<false | "matching" | "fielding">(false);
     const [error, setError] = useState<string | null>(null);
     const [battle, setBattle] = useState<{ state: ShowdownStateView; key: number } | null>(null);
     const battleKey = useRef(1);
@@ -178,6 +188,13 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             const state = await fetchShowdownState(character.name, crumb.sessionId);
             if (cancelled) return;
             if (state && !state.finished) {
+                // A resumed fight mounts just as directly as a fresh one, so it
+                // needs the same warm-up — after a reload nothing is cached.
+                // The full roster here, not the picked team: `selected` is
+                // restored from the crumb on the line below, so there is no
+                // team yet. A superset resolves the same pets by id.
+                await warmShowdownModels(state, pets);
+                if (cancelled) return;
                 setSelected(crumb.petIds);
                 setBattle({ state, key: battleKey.current++ });
                 setSignals(true, true);
@@ -205,20 +222,28 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
 
     const launch = useCallback(async () => {
         if (starting || selected.length < size) return;
-        setStarting(true);
+        setStarting("matching");
         setError(null);
         const result = bout === "arena"
             ? await startArenaBout(character.name, format, selected)
             : await startShowdown(character.name, format, tier, selected);
-        setStarting(false);
         if ("error" in result) {
+            setStarting(false);
             setError(result.error);
             return;
         }
+        // The opponent is only known now, so its models can only be warmed now.
+        // Hold the lobby rather than mount into a fight whose other side has no
+        // body yet — the CTA names this beat, so the wait is legible.
+        setStarting("fielding");
+        // `selectedPets` is exactly what the battle below receives, so the
+        // warm-up and the renderer resolve identical art.
+        await warmShowdownModels(result.state, selectedPets);
+        setStarting(false);
         setBattle({ state: result.state, key: battleKey.current++ });
         writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
         setSignals(true, true);
-    }, [starting, selected, size, character.name, format, tier, bout, setSignals]);
+    }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals]);
 
     const activeSession = battle?.state.sessionId ?? null;
 
@@ -261,8 +286,14 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         <div className="showdown-screen">
             <div className="showdown-header">
                 <button type="button" className="showdown-chip" onClick={() => setScreen("petArena")}>← Pet Arena</button>
-                <h1>Pet Showdown</h1>
-                <p className="showdown-tagline">Command your companions in cinematic turn-based battle. Read the elements, ride the stamina, land the perfect strike — and finish with a signature.</p>
+                {/* Name the door the player walked through. Both bouts are the
+                    same engine, but arriving at a screen headed "Pet Showdown"
+                    after pressing "Training Grounds" reads as having landed
+                    somewhere else. */}
+                <h1>{bout === "arena" ? "The Coliseum" : "Training Grounds"}</h1>
+                <p className="showdown-tagline">{bout === "arena"
+                    ? "The arena has your challenger. Read the elements, ride the stamina, land the perfect strike — and finish with a signature."
+                    : "Spar as long as you like. Read the elements, ride the stamina, land the perfect strike — and finish with a signature. Nothing here is paid or capped."}</p>
             </div>
 
             <div className="showdown-config">
@@ -298,7 +329,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                             <button
                                 key={t.id}
                                 type="button"
-                                className={`showdown-choice ${tier === t.id ? "active" : ""}`}
+                                className={`showdown-choice ${t.id === "sparring" ? "featured" : ""} ${tier === t.id ? "active" : ""}`}
                                 onClick={() => setTier(t.id)}
                             >
                                 <span className="showdown-choice-label"><GameIcon name={t.icon} size={15} /> {t.label}</span>
@@ -306,6 +337,15 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                             </button>
                         ))}
                     </div>
+                    {/* Say what a level-matched draw actually means, because the
+                        roster it matches is right below and the player can see
+                        the numbers being promised. */}
+                    {tier === "sparring" && (
+                        <p className="showdown-choice-note">
+                            Each opponent is rolled fresh and stood at the level of the pet it faces — one for one,
+                            across the {SHOWDOWN_FORMAT_SIZE[format]} on the field and the bench behind them. Nothing is paid and nothing is capped.
+                        </p>
+                    )}
                 </div>}
             </div>
 
@@ -401,10 +441,12 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 <button
                     type="button"
                     className="showdown-cta"
-                    disabled={selected.length < size || starting}
+                    disabled={selected.length < size || starting !== false}
                     onClick={() => void launch()}
                 >
-                    {starting ? "Summoning your opponents…" : `Enter the ${format} Showdown`}
+                    {starting === "matching" ? "Summoning your opponents…"
+                        : starting === "fielding" ? "Taking the field…"
+                            : `Enter the ${format} Showdown`}
                 </button>
                 {/* A disabled CTA must always say what would enable it. */}
                 {!starting && selected.length < size && (

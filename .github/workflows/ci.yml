@@ -23,7 +23,24 @@ jobs:
   server_contracts:
     name: CI / server-contracts
     runs-on: ubuntu-latest
+    # 29, not the 75 the old single-job workflow needed. That job kept outgrowing
+    # its ceiling (30m17s → raised to 45, then run 31863101952 at 45m18s → 75)
+    # because ONE job carried the full suite, two builds, the Playwright browser
+    # install and the cross-browser smoke. Its own comment prescribed the fix:
+    # "split the Playwright steps into their own parallel job instead of raising
+    # this again." That split is this file, so each job is sized to its own work
+    # rather than to the sum of everything.
+    #
+    # The reasoning behind it still stands: a timeout cancel is WORSE than a slow
+    # run, because the trailing steps silently never execute and gate nothing
+    # while main shows red. If a job here approaches its ceiling, split it again
+    # rather than raising the number.
     timeout-minutes: 29
+    # (No job-level Sentry env block: the split hoisted VITE_SENTRY_DSN /
+    # VITE_SENTRY_RELEASE / VITE_BUILD_COMMIT to the workflow `env:` above, so
+    # every job exercises the same Sentry-enabled bundle path Railway builds
+    # rather than only this one. The dummy DSN is public-format test data and
+    # sends nothing during build or smoke.)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

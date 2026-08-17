@@ -131,7 +131,14 @@ test("creator VN battles use canonical non-paying practice until an event receip
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     const launch = worldMap.slice(worldMap.indexOf("function launchCreatorEventFight"), worldMap.indexOf("if (activePetEncounter"));
-    const triggered = app.slice(app.indexOf("function startTriggeredEventArenaBattle"), app.indexOf("function pushHollowGateLog"));
+    const triggeredStart = app.indexOf("function startTriggeredEventArenaBattle");
+    assert.ok(triggeredStart > 0, "startTriggeredEventArenaBattle is gone — this contract needs re-pointing");
+    // Bounded by the next declaration, NOT by a neighbour that might be deleted:
+    // this slice previously ended at completePendingArenaStoryBattle, so retiring
+    // that function silently widened it to the rest of the file.
+    const triggeredEnd = app.indexOf("function pushHollowGateLog", triggeredStart);
+    assert.ok(triggeredEnd > triggeredStart, "could not bound the triggered-event slice");
+    const triggered = app.slice(triggeredStart, triggeredEnd);
     assert.match(launch, /requestAiFight\(/);
     assert.match(launch, /battleKind: "practice"/);
     assert.doesNotMatch(launch, /battleKind: "world"|setScreen\("arena"\)/);
@@ -180,6 +187,17 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
         "legacy Arena snapshots must fail closed at the resume boundary");
     assert.match(app, /bootLock\.kind === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/,
         "a server-visible legacy Arena lock must be retired without resuming local HP");
+    // The reducer that produced these snapshots is deleted, so there is nothing
+    // left to replay one INTO, and ArenaBattlePersister — their only writer — is
+    // gone too (asserted below). The sweep therefore lives in ONE place, App's
+    // boot path, asserted just above: the lobby is not a second owner of it.
+    // screens/Arena.authority.test.ts holds the other half of that split, that
+    // this screen never names a retired storage key at all — a lobby that knows
+    // about a combat snapshot is a lobby that could grow a reason to read one.
+    assert.doesNotMatch(arena, /arena\.battle\.v3|arenaStory\.context/,
+        "the Arena lobby must not know about retired local-combat storage keys");
+    assert.doesNotMatch(arena, /setBattleStarted|startPrefight|ArenaBattlePersister/,
+        "nothing in the Arena lobby may restore or arm a browser-side fight");
 });
 
 test("rolling upgrades retire every pre-cutover local Arena story breadcrumb", () => {
@@ -191,8 +209,16 @@ test("rolling upgrades retire every pre-cutover local Arena story breadcrumb", (
     const boot = app.slice(bootStart, app.indexOf("battleResumeStateExists(bootLock", bootStart));
     assert.match(boot, /\["triggeredEvent", "academySparring"\]/);
     assert.match(boot, /localStorage\.removeItem\(arenaStoryCtxKey\(normalized\.name\)\)/);
-    assert.doesNotMatch(app, /function completePendingArenaStoryBattle|function continuePendingArenaStoryBattle/,
-        "retired local story callbacks must not remain callable after upgrade");
+    // The local story-settlement entry points are GONE, not merely stubbed. They
+    // existed only to settle a story fight hosted by the deleted browser reducer;
+    // a stale snapshot now has nothing to call at all.
+    for (const gone of ["completePendingArenaStoryBattle", "continuePendingArenaStoryBattle", "failDungeon"]) {
+        assert.doesNotMatch(
+            app,
+            new RegExp(`function ${gone}\\b`),
+            `${gone} is back — local settlement for a browser-hosted fight must not return`,
+        );
+    }
 });
 
 test("field-explore proof discovers cross-device active runs from server state", () => {

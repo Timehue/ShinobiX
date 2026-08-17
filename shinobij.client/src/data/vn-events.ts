@@ -81,6 +81,7 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
             speaker: "Village Elder",
             dialogue: [
                 "Village Elder: Equip it in your aura slot. Only then will its menu reveal itself to you.",
+                "Village Elder: That slot holds the sphere and nothing else. Do not go looking for a second stone to crowd it.",
                 "Village Elder: Feed it Aura Dust from battles, raids, bosses, war contribution, and ancient chests.",
                 "Village Elder: Treat it well, and one day your own aura will answer before you speak.",
             ],

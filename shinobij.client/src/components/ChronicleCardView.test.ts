@@ -21,16 +21,21 @@ test("Monster cards render the complete physical TCG information hierarchy", () 
 
   // The subtype ("EFFECT MONSTER") is no longer a top-of-card eyebrow — it now
   // reads only once, in the "BEAST / EFFECT MONSTER" taxonomy line below the art.
+  // Level and stats are read off the card: this test is about the ORDER the
+  // card face presents its information in, and those figures move whenever the
+  // rarity/power ladder is retuned.
+  const solar = getChronicleCard("tc-142");
+  assert.ok(solar && solar.cardClass === "monster");
   const expectedInOrder = [
     "Solar God Beast",
-    "LEVEL 8",
+    `LEVEL ${solar.level}`,
     "/chronicle/cards/tc-142.webp",
     "BEAST / EFFECT MONSTER",
     "When this card overpowers a Defense Position Monster",
     "ATK",
-    "3200",
+    String(solar.attack),
     "DEF",
-    "2600",
+    String(solar.defense),
     "SJ-CDX",
     "tc-142",
   ];

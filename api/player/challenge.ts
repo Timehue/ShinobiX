@@ -8,6 +8,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { blockRelationship } from './_blocks.js';
+import { sealPvpPetDuel } from '../pet/_pvp-duel.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import type { PvpSession } from '../pvp/session.js';
@@ -508,6 +509,15 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             const battleId = boundedString(rawChallenge.battleId, 100);
             const petProtocol = record.mode === 'clanWarPet' || record.mode === 'rankedPet';
             let refreshedChallenger: unknown = null;
+            // Carried out of the validation block so the pet duel can be sealed
+            // AFTER the record resolves — sealing before would leave an orphan
+            // fight behind every accept that lost the resolution race.
+            let sealablePetDuel: {
+                challengerCharacter: Record<string, unknown>;
+                responderCharacter: Record<string, unknown>;
+                challengerPetIds: string[];
+                responderPetIds: string[];
+            } | null = null;
             if (accepted && petProtocol) {
                 const stored = record.challenge;
                 const arenaSize = stored.arenaMatch === true && (stored.arenaSize === 2 || stored.arenaSize === 4)
@@ -545,6 +555,20 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                     return res.status(409).json({ error: 'Both sides must reselect eligible, combat-ready carried pets.' });
                 }
                 refreshedChallenger = projectChallengerCharacter(challengerCharacter);
+                // A plain pet challenge (not a Warfront arena match, not the
+                // ranked queue — both of which seal their own fights elsewhere)
+                // resolves as ONE server-decided duel for both participants. The
+                // ids above are the only ones checked against both owners' live
+                // saves, which is why the seal is built from them and from
+                // nothing either client sends later.
+                if (record.mode === 'clanWarPet' && !arenaSize) {
+                    sealablePetDuel = {
+                        challengerCharacter: challengerCharacter as Record<string, unknown>,
+                        responderCharacter: responderCharacter as Record<string, unknown>,
+                        challengerPetIds: challengerIds,
+                        responderPetIds: responderIds,
+                    };
+                }
             }
             if (accepted && !petProtocol) {
                 if (!isBattleId(battleId) || record.battleId !== battleId) {
@@ -569,6 +593,25 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: 'Challenge was already resolved differently or no longer matches.' });
             }
             if (resolution === 'declined') await releaseRankedChallengeAdmission(resolutionResult.record);
+
+            // The accepted pet challenge IS a fight now, decided here once for
+            // both players, rather than two fights each client resolved for
+            // itself off its own seed. /api/pet/battle-start reads this seal.
+            // A failure to seal is not fatal to the accept — the battle screen
+            // reports a duel it cannot load and the players retry — so it must
+            // not undo a resolution that already committed.
+            if (sealablePetDuel) {
+                try {
+                    await sealPvpPetDuel({
+                        challengeId: id,
+                        challengerName: record.from,
+                        responderName: record.to,
+                        ...sealablePetDuel,
+                    });
+                } catch (sealError) {
+                    console.error('[player/challenge] pet duel seal', sealError);
+                }
+            }
 
             const noticeRecord = refreshedChallenger
                 ? {

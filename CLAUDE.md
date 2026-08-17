@@ -148,6 +148,47 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - Always run the relevant tests before saying a task is complete.
 - For frontend changes, run `npm run lint` inside `shinobij.client/`.
 - For backend/API changes, run `npm test` from the repo root.
+- **For any change to a SCREEN or COMPONENT, run the two e2e suites CI gates on.**
+  Root `npm test` is `node:test` only — it never opens a browser — so a change
+  that lints, typechecks and passes 6,300 unit tests can still redden CI. That
+  is not hypothetical: it is how a pet-duel branch reached `main` in 2026-08 and
+  failed the release gate on a screen it never touched. Both run from
+  `shinobij.client/`, and both need a **client build first** (CI runs the root
+  `npm run build` ahead of them) plus browsers once via
+  `npm run test:e2e:install`:
+  - `npm run test:e2e` — the cross-browser responsive + accessibility smoke
+    (`e2e/`, 5 browser projects). ~2 min locally, ~5 min in CI.
+  - `npm run test:e2e:combat-layout` — the combat layout / jutsu-arming matrix
+    (`e2e-live/combat-layout-matrix.spec.ts`). **~11 min locally** — budget for
+    it; it is much slower than its CI wall time suggests. Run it as
+    `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run
+    test:e2e:combat-layout`; without those two you are running a laxer check
+    than the gate does.
+
+  For a narrow change, `npx playwright test <spec> --project=<name>` is seconds
+  rather than minutes and is enough to clear a specific suspicion — but only the
+  full suites match what CI will actually say.
+
+  Two things that will stop you before any test runs, both verified 2026-08-16:
+  - **Delete `shinobij.client/.playwright-dist-*` between runs.** The preview
+    harness refuses to overwrite its own snapshot ("Refusing to overwrite
+    pre-existing immutable snapshot"), so a previous run's leftover makes the
+    webServer fail to start and every spec reports as failed without executing.
+    It is gitignored, so `rm -rf shinobij.client/.playwright-dist-*` is free.
+  - **WebKit does not launch on Windows here** — `browserType.launch: Target
+    page, context or browser has been closed`, on every webkit project. Those
+    are environment failures, not assertions: a clean local run on this machine
+    is "chromium + firefox green, webkit unlaunchable". CI runs Linux with
+    `--with-deps` and does cover webkit, so read a webkit-only local failure as
+    "not tested here", and do not chase it as a regression.
+
+  **These are flaky under load.** A single red e2e is not yet a regression: check
+  whether the same spec passes on the other browser projects in that run, and
+  re-run it locally before reverting anything. Two consecutive `main` runs in
+  2026-08 failed on two *different* unrelated specs, and the first one passed on
+  re-run. Read the failing assertion before believing the failure is yours.
+  (The other suites — `test:e2e:live`, `:visual`, `:warfront` — are NOT in CI.
+  Run them when touching what they cover, but they gate nothing.)
 
 ## Refactoring Rules
 

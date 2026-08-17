@@ -30,9 +30,18 @@ function assertOrdered(source: string, needles: readonly string[], contract: str
 }
 
 test("WorldMap and its selected-sector leaves keep the projection line-budget ratchets", () => {
+    // 5,258 RAISED from 5,190 at the origin/main merge. This screen was 5,176
+    // on this branch and gained ~84 lines of main's own World Map work (the
+    // sealed hunt launch carrying enemyAvatar, the relic-survey walkthrough,
+    // quest-metric labelling). None of that is a retired overview layer coming
+    // back, which is what this ratchet actually guards — the structural
+    // assertions in this file still hold (one exhaustive chest flow, no
+    // unreachable overview fallback, live charting before sector markers), and
+    // the wanderer dialog stayed extracted in WorldWandererDialog.tsx instead of
+    // returning inline. Set to the exact achieved count with no buffer.
     assert.ok(
-        lineCount(worldMapSource) <= 5_190,
-        `WorldMap.tsx grew past 5,190 lines; retired overview layers must stay retired.`,
+        lineCount(worldMapSource) <= 5_258,
+        `WorldMap.tsx grew past 5,258 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

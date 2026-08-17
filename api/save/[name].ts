@@ -9,6 +9,7 @@ import { normalizeMasteryFocus } from '../../shared/activity-spine.js';
 import { PROGRESSION_EXAM_HOLDS } from '../../shared/progression-holds.js';
 import { budgetItemBonuses } from '../_item-budget.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { AURA_SPHERE_ITEM_ID } from '../pvp/_multipliers.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody, setSafeRecordValue } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin, isFullAdmin } from '../_auth.js';
@@ -385,7 +386,11 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
 // webhook-only, weaponElements core-endpoint-only, …) lives on the entries there.
 
 const EQUIPMENT_SLOTS = new Set([
-    'aura', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
+    // 'relic' holds story keepsakes/trinkets. It exists so they stop competing
+    // with the Aura Sphere for 'aura'. A slot missing from THIS set is silently
+    // stripped from equipment on every save write, so a new slot must be added
+    // here as well as to the client's EquipmentSlot union.
+    'aura', 'relic', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
     'item', 'item1', 'item2', 'item3', 'thrown', 'potion',
     'weapon', 'armor', 'accessory',
 ]);
@@ -555,6 +560,14 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
         const canonicalSlot = canonicalEquipmentSlot(slot);
         if (!EQUIPMENT_SLOTS.has(slot) || !id || equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
         if (!owned.has(id)) continue;
+        // The aura slot belongs to the Aura Sphere ALONE — it is the one
+        // forever-improving keystone, and its perks key off being equipped. Seven
+        // keepsakes used to share this slot and silently evicted it; they now live
+        // on `relic`. Deliberately NOT grandfathered: a save still holding a
+        // keepsake here from before the relic slot existed gets it unequipped on
+        // the next write (the item stays in the backpack), which self-heals the
+        // slot instead of leaving the sphere permanently locked out.
+        if (canonicalSlot === 'aura' && id !== AURA_SPHERE_ITEM_ID) continue;
         const grandfathered = String(storedEquipment[slot] ?? '') === id;
         const builtin = ITEM_CATALOG[id];
         if (!grandfathered && builtin && !slotAcceptsItemKind(slot, builtin.slot)) continue;

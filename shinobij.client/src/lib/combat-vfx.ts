@@ -401,8 +401,18 @@ export function dedupeCombatVfx<T>(events: T[], anchorKey: (event: T) => string)
     });
 }
 
-export function safeCombatVfxSpec(spec: Partial<CombatVfxSpec> | null | undefined): CombatVfxSpec {
-    const key = spec?.key && spec.key in COMBAT_VFX_REGISTRY ? spec.key : "impact";
+/**
+ * Sanitize an untrusted VFX spec into a renderable one.
+ *
+ * `key` is deliberately typed as a loose string: this function exists to accept
+ * whatever the server sent and narrow it, and a solo-PvE plate arrives off the
+ * wire as a plain string. An unrecognised key falls back to "impact" rather than
+ * rendering nothing.
+ */
+export function safeCombatVfxSpec(
+    spec: (Partial<Omit<CombatVfxSpec, "key">> & { key?: string }) | null | undefined,
+): CombatVfxSpec {
+    const key: CombatVfxKey = spec?.key && spec.key in COMBAT_VFX_REGISTRY ? spec.key as CombatVfxKey : "impact";
     const defaults = COMBAT_VFX_REGISTRY[key];
     return {
         key,

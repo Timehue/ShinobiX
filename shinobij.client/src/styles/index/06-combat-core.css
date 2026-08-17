@@ -1382,6 +1382,7 @@
 .slot-left-item-1,
 .slot-left-hand,
 .slot-left-item-2,
+.slot-relic,
 .slot-left-item-3 {
     left: 18px;
 }
@@ -1422,6 +1423,7 @@
 }
 
 .slot-left-item-2,
+.slot-relic,
 .slot-legs,
 .slot-right-item-2 {
     top: 318px;

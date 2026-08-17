@@ -64,6 +64,9 @@ const FROZEN = {
         'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',
         'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
         'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
+        // Relic-survey quest bookkeeping — non-combat, so stripped from the
+        // sealed fighter snapshot like every other progress counter.
+        'relicSurvey', 'relicSurveyCount',
         'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
         'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
         'dailyFateSpins', 'lastDailyReset',
@@ -167,6 +170,9 @@ const FROZEN = {
     SERVER_MIRRORED_CHARACTER_FIELDS: [
         'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',
         'serverChestDate', 'serverChestsToday', 'redeemedAncientChests',
+        // Relic survey: world/explore appends the biome, quest accept resets it.
+        // Mirrored so a client cannot write its own objective progress.
+        'relicSurvey', 'relicSurveyCount',
         'unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles',
         'endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins',
         'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions',

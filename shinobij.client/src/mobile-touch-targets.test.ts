@@ -62,11 +62,25 @@ test('visual novel navigation and choice actions keep 44px touch targets in port
 });
 
 test('mobile combat VFX stay fighter-sized while preserving capped visual hierarchy', () => {
-    const mobileStart = battleSkinCss.indexOf('@media (max-width: 800px)');
-    const phoneStart = battleSkinCss.indexOf('@media (max-width: 420px)', mobileStart);
-    assert.notEqual(mobileStart, -1, 'missing mobile battle skin');
+    // Anchor on the rule itself, then walk back to the media block that OWNS it.
+    // This used to slice from the first `max-width: 800px` block in the file to
+    // the next `420px` one, which only contained these rules by accident — the
+    // span happened to be ~1900 lines wide, and deleting an unrelated 800px block
+    // elsewhere silently moved the window off them.
+    const vfxRuleAt = battleSkinCss.indexOf('.arena-fullscreen .pvp-combat-vfx {');
+    assert.notEqual(vfxRuleAt, -1, 'missing the mobile combat-VFX sizing rule');
+    const opens = [...battleSkinCss.slice(0, vfxRuleAt).matchAll(/@media \(max-width:\s*(\d+)px\)\s*\{/g)];
+    assert.ok(opens.length, 'the mobile combat-VFX rules must live inside a max-width block');
+    const owningBlock = opens[opens.length - 1];
+    assert.equal(
+        owningBlock[1], '1023',
+        `mobile combat VFX are gated at max-width ${owningBlock[1]}px but the combat shell switches at 1023px — `
+        + 'they would be desktop-sized across the gap',
+    );
+    // Everything from the owning block's start up to the next narrower tier.
+    const phoneStart = battleSkinCss.indexOf('@media (max-width: 420px)', vfxRuleAt);
     assert.notEqual(phoneStart, -1, 'missing phone battle skin boundary');
-    const mobileCss = battleSkinCss.slice(mobileStart, phoneStart);
+    const mobileCss = battleSkinCss.slice(owningBlock.index!, phoneStart);
     assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx\s*\{[\s\S]*?--vfx-scale:\s*1\s*!important;[\s\S]*?--vfx-render-scale:\s*clamp\(0\.92,\s*var\(--vfx-asset-scale,\s*1\),\s*1\.25\);[\s\S]*?width:\s*52px\s*!important;[\s\S]*?height:\s*52px\s*!important;/);
     assert.match(mobileCss, /\.arena-fullscreen \.pvp-combat-vfx-tile\s*\{[\s\S]*?width:\s*36px\s*!important;[\s\S]*?height:\s*36px\s*!important;/);
     assert.match(mobileCss, /\.arena-fullscreen \.pvp-vfx-asset\s*\{[\s\S]*?width:\s*112%\s*!important;[\s\S]*?height:\s*112%\s*!important;/);

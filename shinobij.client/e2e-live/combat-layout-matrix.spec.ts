@@ -800,6 +800,10 @@ type LayoutMeasurement = {
     firstJutsuCenterHit: string | null;
     firstJutsu: Rect | null;
     firstJutsuLabel: string | null;
+    /** False when the measured card was disabled — i.e. it is not this side's
+     *  turn. Reported so a layout failure is never mistaken for a turn-order
+     *  one, or the reverse. */
+    firstJutsuEnabled: boolean;
     actionScroll: { scrollTop: number; clientHeight: number; scrollHeight: number } | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
@@ -883,7 +887,31 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const tileCentersHitTheirTile = tileCenterHitCount === tiles.length;
         const commandButtons = [...(root?.querySelectorAll<HTMLElement>('.shinobi-command-bar button, .battle-tab') ?? [])]
             .map(rect).filter((value): value is Rect => value !== null);
-        const firstJutsu = root?.querySelector<HTMLElement>('.combat-jutsu-button:not(:disabled)') ?? null;
+        /*
+         * Geometry probe: prefer an ENABLED jutsu, but fall back to any jutsu.
+         *
+         * What this measures is whether the first card's centre sits inside the
+         * action tray and is hit-testable — a LAYOUT property a disabled card
+         * has identically, since nothing in the stylesheets keys pointer-events
+         * off :disabled. Matching only `:not(:disabled)` made a layout assertion
+         * depend on TURN STATE, and that dependency cannot be waited out: PvP
+         * turns lapse on a 75s server timer (api/pvp/session.ts auto-waits a
+         * lapsed turn), the matrix walks 22 viewports plus the zoom
+         * equivalents, and on webkit that outlives the timer. The turn then
+         * passes to an opponent with no client attached, so every card stays
+         * disabled for a whole turn cycle and the probe reported rect=null at
+         * 2560x1440.
+         *
+         * Actionability is still gated where turn state IS controlled:
+         * assertJutsuSelectionGeometryStable requires
+         * `.combat-jutsu-button:not(:disabled)` to be visible and to actually
+         * arm, on focused viewports reached long before the timer can lapse.
+         * firstJutsuEnabled keeps the distinction in the failure text so a
+         * genuinely unreachable deck still reads as one.
+         */
+        const enabledJutsu = root?.querySelector<HTMLElement>('.combat-jutsu-button:not(:disabled)') ?? null;
+        const firstJutsu = enabledJutsu ?? root?.querySelector<HTMLElement>('.combat-jutsu-button') ?? null;
+        const firstJutsuEnabled = Boolean(enabledJutsu);
         const firstJutsuRect = rect(firstJutsu);
         const firstJutsuHit = firstJutsuRect
             ? document.elementFromPoint(firstJutsuRect.x + firstJutsuRect.width / 2, firstJutsuRect.y + firstJutsuRect.height / 2)
@@ -948,6 +976,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             firstJutsuCenterHit: firstJutsuHit instanceof HTMLElement ? firstJutsuHit.className : firstJutsuHit?.nodeName ?? null,
             firstJutsu: firstJutsuRect,
             firstJutsuLabel: firstJutsu?.getAttribute('aria-label') ?? firstJutsu?.textContent?.trim().slice(0, 80) ?? null,
+            firstJutsuEnabled,
             actionScroll: actionNode ? {
                 scrollTop: (actionNode as HTMLElement).scrollTop,
                 clientHeight: (actionNode as HTMLElement).clientHeight,
@@ -979,6 +1008,17 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
         await settleLayout(page);
         current = await measure(page, rootSelector);
     }
+    /*
+     * Deliberately NO wait-for-actionable loop here.
+     *
+     * A previous fix spun up to 6s for a jutsu to become enabled, because the
+     * geometry probe only matched `:not(:disabled)`. That race is unwinnable:
+     * a lapsed PvP turn passes to an opponent with no client attached, so the
+     * deck stays disabled for a full 75s turn cycle — far longer than any wait
+     * this suite can afford, which is why webkit still failed at 2560x1440.
+     * measure() now falls back to a disabled card, whose geometry is identical,
+     * removing the race instead of racing it.
+     */
     return current;
 }
 
@@ -1533,7 +1573,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.actions?.height ?? 0, `${label} selected action panel height`).toBeGreaterThanOrEqual(44);
         expect(
             current.firstJutsuCenterVisibleAndHit,
-            `${label} first jutsu center inaccessible; hit=${current.firstJutsuCenterHit}; action=${current.firstJutsuLabel}; rect=${JSON.stringify(current.firstJutsu)}; scroll=${JSON.stringify(current.actionScroll)}`,
+            `${label} first jutsu center inaccessible; hit=${current.firstJutsuCenterHit}; action=${current.firstJutsuLabel}; enabled=${current.firstJutsuEnabled}; rect=${JSON.stringify(current.firstJutsu)}; scroll=${JSON.stringify(current.actionScroll)}`,
         ).toBe(true);
         expect(
             current.board?.height ?? 0,

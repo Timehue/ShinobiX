@@ -29,11 +29,18 @@
  * Baselines (see _item-catalog.ts legendary tiers):
  *   passive %s (damage/absorb/reflect/lifesteal) ≤ 2   (Named Armor rolls up to 2%)
  *   shield ≤ 150                                        (Named Armor rolls up to 150)
- *   vitals (maxHp/maxChakra/maxStamina) ≤ 150           (chakra-ring maxChakra)
+ *   vitals (maxHp/maxChakra/maxStamina) ≤ 150           (no built-in grants these
+ *     any more — pools come from LEVEL alone, so a vitals bonus is inert; the
+ *     clamp stays only so a custom/admin item can't author an absurd one)
  *   specialty-stat TOTAL per slot: armor 280 (8×35 Named Armor), hand 420 (gloves 4×75+4×30)
  */
 
 const PASSIVE_PCT_FIELDS = new Set(['damagePercent', 'absorbPercent', 'reflectPercent', 'lifeStealPercent']);
+// PvE-only relic power (see api/pvp/_multipliers.ts derivePveBonuses). These sit
+// OUTSIDE the per-rank stat cap, so an authored item must not be able to mint an
+// arbitrary one — the built-in ceiling is 10 (legendary wild relic).
+const PVE_PCT_FIELDS = new Set(['pveDamagePercent', 'pveDamageTakenPercent']);
+const MAX_PVE_PCT = 10;
 const VITAL_FIELDS = new Set(['maxHp', 'maxChakra', 'maxStamina']);
 const MAX_PASSIVE_PCT = 2;
 const MAX_SHIELD = 150;
@@ -66,11 +73,12 @@ export function budgetItemBonuses<T extends Record<string, unknown>>(item: T): T
     for (const f of PASSIVE_PCT_FIELDS) if (f in out) out[f] = Math.max(0, Math.min(MAX_PASSIVE_PCT, out[f]));
     if ('shield' in out) out.shield = Math.max(0, Math.min(MAX_SHIELD, out.shield));
     for (const f of VITAL_FIELDS) if (f in out) out[f] = Math.max(0, Math.min(MAX_VITAL, out[f]));
+    for (const f of PVE_PCT_FIELDS) if (f in out) out[f] = Math.max(0, Math.min(MAX_PVE_PCT, out[f]));
 
     // Everything else = a specialty stat (ninjutsuOffense, …). Scale the positive
     // total down to the per-slot budget; leave negatives (self-penalties) intact.
     const specialtyKeys = Object.keys(out).filter(
-        (k) => !PASSIVE_PCT_FIELDS.has(k) && k !== 'shield' && !VITAL_FIELDS.has(k),
+        (k) => !PASSIVE_PCT_FIELDS.has(k) && k !== 'shield' && !VITAL_FIELDS.has(k) && !PVE_PCT_FIELDS.has(k),
     );
     let total = 0;
     for (const k of specialtyKeys) if (out[k] > 0) total += out[k];

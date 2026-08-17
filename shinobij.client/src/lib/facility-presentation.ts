@@ -67,7 +67,7 @@ export const FACILITY_PRESENTATION: Record<FacilityId, FacilityPresentation> = {
   "stat-training": facility("Stat Training", "training", statTrainingHero, "#dc805d", "83%", "25%"),
   "jutsu-training": facility("Jutsu Training", "jutsuTraining", jutsuTrainingHero, "#68cde6", "80%", "81%"),
   "world-map": facility("World Map", "worldMap", worldMapHero, "#78bfd2", "45%", "68%"),
-  home: facility("Home", "home", homeHero, "#8fca8d", "32%", "55%"),
+  home: facility("Pet Home", "home", homeHero, "#8fca8d", "32%", "55%"),
   "pet-yard": facility("Pet Yard", "pets", petYardHero, "#8fca8d", "32%", "55%", false),
   "card-hall": facility("Card Hall", "shinobiTiles", cardHallHero, "#ab91e8", "52%", "55%"),
 };

@@ -33,6 +33,13 @@ import {
 } from './_action-idempotency.js';
 
 export const TOWER_PVP_ID = /^tpvp-[a-f0-9]{32}$/;
+/**
+ * Session-level marker for a human-vs-human tower match. Exported so the engine
+ * can rule out PvE-only power for the WHOLE session rather than per target:
+ * the per-target AI check reads the PRIMARY target, so an AOE aimed at an NPC
+ * could otherwise splash a human with a PvE bonus attached.
+ */
+export const TOWER_PVP_TOWER_ID = 'tower-mpvp-v1';
 export const TOWER_PVP_READY_MS = 90_000;
 export const TOWER_PVP_AFK_STRIKES_TO_FORFEIT = 2;
 
@@ -160,7 +167,7 @@ export function createTowerPvpMatch(input: {
     };
     const actors = roster.map(member => fighterActor(bySlug.get(member.slug)!, member, positions[member.actorId]!));
     const combat = createTowerSession({
-        towerId: 'tower-mpvp-v1',
+        towerId: TOWER_PVP_TOWER_ID,
         runId: input.matchId,
         floor: TOWER_PVP_FLOOR.id,
         seed: input.seed,

@@ -415,7 +415,14 @@ describe('executable multi-engine runtime registry', () => {
     assert.ok(paidColiseum?.clientEntries.includes('screens/PetArena.tsx'),
       'the paid Showdown-owned Coliseum row must include its Arena CTA');
 
-    assert.match(startSource, /const mode = body\.mode === '2v2' \? '2v2' : '1v1'/);
+    // The requested format is still clamped to exactly 1v1/2v2 — a body cannot
+    // introduce a third — but it is no longer the last word. A sealed player
+    // duel imposes the format both sides agreed to when the challenge was
+    // accepted, so a caller cannot re-enter a 2v2 challenge as a 1v1 (or the
+    // reverse) and fight a different shape than the one that was rated.
+    assert.match(startSource, /const bodyMode = body\.mode === '2v2' \? '2v2' : '1v1'/);
+    assert.match(startSource, /const mode = pvpDuel \? pvpDuel\.format : bodyMode/,
+      'a sealed challenge duel must impose its own format over the request body');
     assert.match(startSource, /return res\.status\(410\)\.json\(\{[\s\S]{0,200}pick-your-opponent Pet Coliseum is retired/,
       'new context-free cinematic AI admission must fail closed with 410');
     assert.match(startSource, /active\.settlementPolicy === undefined/,
@@ -430,8 +437,14 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(resultSource, /\{ petDuelWins: 1 \}/);
     assert.match(resultSource, /result\.progressionEligible === true/,
       'legacy progression must follow only a newly committed pre-cap paid receipt');
-    assert.match(arenaSource, /mintCasualPetBattleToken\([^\n]+"2v2"/);
-    assert.match(arenaSource, /mintCasualPetBattleToken\([^\n]+"1v1"/);
+    // One mint call site now, with the format resolved on the line above it,
+    // rather than two call sites each passing a literal. Both formats still
+    // reach the sealed mint — the party flag is what chooses between them — so
+    // the contract is the derivation plus the single call, not two literals.
+    assert.match(arenaSource, /const mode: "1v1" \| "2v2" = pvpParty \? "2v2" : "1v1"/,
+      'the duel format must still be derived from the party flag, not taken from a caller');
+    assert.match(arenaSource, /mintCasualPetBattleToken\(battleScope, opponent, mode, myPets, theirPets\)/,
+      'every duel this screen starts must go through the sealed server mint');
     assert.doesNotMatch(arenaSource, /opponentMode === "ai"|setOpponentMode\("ai"\)|Choose both contenders/,
       'PetArena must not expose a new user-picked cinematic AI entry');
     assert.match(arenaSource, /setScreen\("petColiseum"\)/,
@@ -588,7 +601,19 @@ describe('executable multi-engine runtime registry', () => {
     assert.equal(rankedCompat.authorityEngine, E.LEGACY_PET_DUEL);
     assert.match(rankedPetStartSource, /_ranked-authority\.js/);
     assert.doesNotMatch(rankedPetStartSource, /_ranked-engine\.js/);
-    assert.match(petArenaSource, /runPetDuelCinematic\(canonicalPlayerPet, canonicalOpponentPet/);
+    // The CLIENT half of this defect row is closed. Ranked used to be resolved
+    // twice — PetArena ran runPetDuelCinematic over a challenger-supplied seed
+    // while the server rated the match on a different engine and seed, so a
+    // watched victory could be recorded as a loss. The screen now WATCHES the
+    // server's rated log (/pet/ranked-watch re-derives it from the sealed match
+    // token) and has no local fallback at all. Matched on the call rather than
+    // the bare name, because the comments explaining this still say it.
+    assert.doesNotMatch(petArenaSource, /runPetDuelCinematic\(/,
+      'ranked must never be simulated on the client again — it is watched, not fought');
+    assert.match(petArenaSource, /fetchRankedPetDuel\(opponent\.petRankedToken/,
+      'the ranked screen must read the fight the server actually rated');
+    // The row itself stays `defect`: the legacy start/settlement pair it names
+    // is still the compatibility path, and retiring it is an owner decision.
     assert.match(petBattleResultSource, /runPetDuel/);
 
     const hollowGatePet = runtimeModeById('hollow-gate-pet-cinematic');

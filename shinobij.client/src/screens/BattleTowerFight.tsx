@@ -11,6 +11,9 @@ import gameBg from "../assets/background-image.webp";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, towerClosingRingTiles, HEX_W, HEX_H,
 } from "../lib/tower-grid";
+import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
+import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
+import { prefersLiteCombatFx } from "../lib/device-tier";
 import { useBoardScale } from "../lib/use-board-scale";
 import {
     buildTowerMilestoneReceipt, buildTowerThreatSummary, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
@@ -66,6 +69,9 @@ import wardSprite from "../assets/towers/pylons/ward.webp";
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
 
 type Mode = "idle" | "move" | "dash" | "attack" | "jutsu" | "weapon" | "clear";
+/** A VFX plate in flight on the board. `target` is the anchoring actor's id
+ *  (absent for a purely tile-anchored plate). */
+type TowerCombatVfx = { id: string; target?: string; spec: CombatVfxSpec };
 type ActionFeedback =
     | { phase: "idle" }
     | { phase: "submitting"; label: string }
@@ -565,6 +571,107 @@ export function BattleTowerFight({
 
     const w = session.map.width, h = session.map.height;
     const layer = useMemo(() => towerLayerSize(w, h), [w, h]);
+
+    // ── Server-authored combat VFX ───────────────────────────────────────────
+    // The engine replaces session.vfx wholesale per resolved action / DoT tick
+    // and bumps vfxSeq (api/towers/_engine.ts). Draw a batch once per bump;
+    // re-polling the same session must not replay it. Cosmetic only — nothing
+    // here is read back as combat authority.
+    const liteFx = useMemo(() => prefersLiteCombatFx(), []);
+    const [combatVfx, setCombatVfx] = useState<TowerCombatVfx[]>([]);
+    const lastVfxSeqRef = useRef<number | undefined>(undefined);
+    const hasObservedVfxRef = useRef(false);
+
+    const tileCenter = useCallback((pos: number) => {
+        const { left, top } = towerHexPixel(pos, w);
+        return { x: left + HEX_W / 2, y: top + HEX_H / 2 };
+    }, [w]);
+
+    useEffect(() => {
+        // Mounting mid-run (refresh, or joining a co-op fight already in
+        // progress) must not replay whatever plate the session happens to hold.
+        const watchedFromStart = hasObservedVfxRef.current;
+        hasObservedVfxRef.current = true;
+        const seq = session.vfxSeq;
+        if (seq == null) return;
+        const last = lastVfxSeqRef.current;
+        lastVfxSeqRef.current = seq;
+        if (seq === last) return;
+        if (last === undefined && !watchedFromStart) return;
+
+        const plates = session.vfx ?? [];
+        if (!plates.length) return;
+        const mapped = plates.map((plate, i) => ({
+            id: `${plate.target ?? "tile"}-vfx-${seq}-${i}`,
+            target: plate.target,
+            spec: safeCombatVfxSpec({
+                key: plate.key,
+                target: plate.anchor,
+                persistent: plate.persistent,
+                tiles: plate.tiles,
+                ...(liteFx ? { maxParticles: 4 } : {}),
+            }),
+        }));
+        // Collapse plates that would land on the same tile (a hit plus its
+        // ward reaction, several DoTs ticking together). Mirrors PvP/solo PvE.
+        const deduped = dedupeCombatVfx(mapped, (fx) =>
+            combatVfxAnchorKey(fx.spec, session.actors.find(a => a.id === fx.target)?.pos ?? -1));
+        setCombatVfx((existing) => [...existing, ...deduped].slice(liteFx ? -6 : -14));
+        const lifetime = Math.max(...deduped.map((fx) => fx.spec.durationMs), 900);
+        const timeout = window.setTimeout(() => {
+            setCombatVfx((existing) => existing.filter((fx) => !deduped.some((added) => added.id === fx.id)));
+        }, lifetime + 80);
+        return () => window.clearTimeout(timeout);
+        // Keyed on vfxSeq ALONE: session.vfx/actors get fresh identities on every
+        // poll, so listing them would replay the same plates on an idle board.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session.vfxSeq]);
+
+    // Same markup and class contract as PvP and solo PvE, so all three modes
+    // share one stylesheet (.pvp-combat-vfx / .pvp-vfx-* in battle-skin.css).
+    const renderCombatVfx = (fx: TowerCombatVfx) => {
+        const tiles = (fx.spec.tiles ?? [])
+            .filter((tile) => tile >= 0 && tile < w * h)
+            .slice(0, liteFx ? 7 : 14);
+        const anchored = session.actors.find(a => a.id === fx.target);
+        const centers = tiles.length
+            ? tiles.map(tileCenter)
+            : anchored
+                ? [tileCenter(anchored.pos)]
+                : [];
+        if (!centers.length) return null;
+        const avg = centers.reduce((acc, c) => ({ x: acc.x + c.x, y: acc.y + c.y }), { x: 0, y: 0 });
+        const center = { x: avg.x / centers.length, y: avg.y / centers.length };
+        const asset = combatVfxAssetFor(fx.spec.key);
+        const baseClass = `pvp-combat-vfx pvp-vfx-${fx.spec.key} pvp-vfx-${fx.spec.intensity} pvp-vfx-has-asset pvp-vfx-plane-${asset.plane}${liteFx ? " pvp-vfx-lite" : ""}`;
+        const styleFor = (point: { x: number; y: number }, scale = 1) => ({
+            left: `${point.x}px`,
+            top: `${point.y}px`,
+            "--vfx-duration": `${fx.spec.durationMs}ms`,
+            "--vfx-scale": scale,
+            "--vfx-asset-scale": asset.assetScale,
+            "--vfx-asset-lift": `${asset.liftPx}px`,
+            "--vfx-asset-opacity": asset.opacity,
+        } as React.CSSProperties);
+        return (
+            <div key={fx.id} className="pvp-combat-vfx-group" aria-hidden="true">
+                {centers.length > 1 && centers.map((point, idx) => (
+                    <span key={`${fx.id}-tile-${idx}`} className={`${baseClass} pvp-combat-vfx-tile`} style={styleFor(point, 0.72)}>
+                        <i className="pvp-vfx-ring" />
+                    </span>
+                ))}
+                <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.45 : fx.spec.intensity === "heavy" ? 1.18 : 1)}>
+                    <i className="pvp-vfx-art">
+                        <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
+                    </i>
+                    <i className="pvp-vfx-ring" />
+                    <i className="pvp-vfx-core" />
+                    <i className="pvp-vfx-cut" />
+                    {!liteFx && <i className="pvp-vfx-sparks" />}
+                </span>
+            </div>
+        );
+    };
     const { battlefieldCallbackRef, boardContainerSize, effectiveScale: fittedScale } = useBoardScale(layer.width, layer.height);
     const [boardZoom, setBoardZoom] = useState(TOWER_ZOOM_MIN);
     const [boardPan, setBoardPan] = useState<TowerPan>({ x: 0, y: 0 });
@@ -1706,6 +1813,9 @@ export function BattleTowerFight({
                                         </button>
                                     );
                                 })}
+
+                                {/* Server-authored combat VFX (cosmetic; see the stream above). */}
+                                {combatVfx.map(renderCombatVfx)}
                             </div>
                         </div>
                     </div>

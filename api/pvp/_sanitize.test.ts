@@ -318,3 +318,28 @@ describe('sanitizePvpItems — canonicalizes weapon tags + effect', () => {
         assert.deepEqual(tags, ['Siphon', 'Bloodline Seal']);
     });
 });
+
+/*
+ * Barrier is JUTSU-ONLY (owner ruling 2026-08-16): it drops a wall tile on the
+ * board, a cast-time control mechanic rather than something a blade does. No
+ * built-in weapon carries it and craft/_named.ts cannot roll it, so this only
+ * bites an admin-authored or tampered definition — stripped at the SEAL so every
+ * engine inherits the rule at once.
+ */
+describe('weapons cannot carry Barrier', () => {
+    it('strips a Barrier tag and a Barrier weaponEffect from a weapon', () => {
+        const [tagged, effected] = sanitizePvpItems([
+            { id: 'w1', slot: 'hand', name: 'Authored Blade', weaponEp: 30, weaponTags: [{ name: 'Barrier' }, { name: 'Wound', percent: 20 }] },
+            { id: 'w2', slot: 'thrown', name: 'Authored Kunai', weaponEp: 20, weaponEffect: 'Barrier', weaponEffectValue: 30 },
+        ]) as Array<Record<string, unknown>>;
+        assert.deepEqual(tagged.weaponTags, [{ name: 'Wound', percent: 20 }], 'Barrier gone, the real tag kept');
+        assert.equal(effected.weaponEffect, undefined, 'a Barrier weaponEffect is dropped');
+    });
+
+    it('leaves every other weapon tag alone', () => {
+        const [item] = sanitizePvpItems([
+            { id: 'w3', slot: 'hand', name: 'Blade', weaponEp: 30, weaponTags: [{ name: 'Heal' }, { name: 'Shield' }, { name: 'Wound', percent: 20 }] },
+        ]) as Array<Record<string, unknown>>;
+        assert.equal((item.weaponTags as unknown[]).length, 3, 'Heal/Shield/Wound are legitimate weapon tags');
+    });
+});

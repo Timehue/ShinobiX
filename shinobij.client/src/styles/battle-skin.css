@@ -112,44 +112,6 @@
         0 0 16px rgba(78,168,255,0.45),
         inset 0 1px 0 rgba(255,255,255,0.1);
 }
-/* Rookie fight coaching for early PvE mission battles. */
-.arena-fullscreen .rookie-combat-tip {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 8px 0 6px;
-    padding: 9px 11px;
-    border: 1px solid rgba(232,212,150,0.45);
-    border-left: 4px solid var(--bsv2-gold-bright);
-    border-radius: 6px;
-    background: linear-gradient(135deg, rgba(232,212,150,0.12), rgba(78,168,255,0.08));
-    color: #dbeafe;
-    font-size: 12px;
-    line-height: 1.35;
-}
-
-.arena-fullscreen .rookie-combat-tip strong {
-    flex: 0 0 auto;
-    color: var(--bsv2-gold-bright);
-    font-family: var(--font-display);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-}
-
-.arena-fullscreen .rookie-combat-tip span {
-    min-width: 0;
-    color: var(--slate-300);
-}
-
-@media (max-width: 800px) {
-    .arena-fullscreen .rookie-combat-tip {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 4px;
-    }
-}
-
 /* Compact mobile status strip (MobileEffectsStrip). Hidden on desktop (the
    verbose Buffs/Debuffs columns are shown there); a mobile media query swaps
    them — see index.css. Green = buff, red = debuff, neutral = "+N more". */
@@ -1396,7 +1358,7 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     /* Rookie Explore/mission fights add the First Fight Plan as a real grid
        child. Give it its own row so it cannot shift the terrain strip into the
        battlefield row and collapse the actual hex board to a thin sliver. */
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-main-area {
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .combat-main-area {
         grid-template-rows: auto auto auto minmax(300px, 1fr) auto minmax(120px, 0.22fr) minmax(96px, 0.18fr);
     }
 
@@ -2157,26 +2119,23 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         grid-template-rows: auto auto minmax(232px, 42dvh) auto auto minmax(96px, 1fr) !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip {
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice {
         grid-template-rows: auto auto auto minmax(232px, 42dvh) auto auto minmax(96px, 1fr) !important;
     }
 
     /* Mobile flattens .combat-main-area with display:contents and pins every
        battle band to an explicit outer-grid row. Shift those bands together
-       when the rookie tip is present so the new row is real, not an implicit
-       overflow row below the controls. */
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .rookie-combat-tip {
-        grid-column: 1 / -1 !important;
-        grid-row: 2 !important;
-        margin: 0 !important;
-    }
-
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .twp-strip { grid-row: 3 !important; }
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .hex-battlefield { grid-row: 4 !important; }
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .battle-tabbar { grid-row: 5 !important; }
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .shinobi-command-bar { grid-row: 6 !important; }
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-jutsu-bar { grid-row: 7 !important; }
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-text-log { grid-row: 6 / span 2 !important; }
+       when the action-notice row is reserved (`has-action-notice`, set by
+       CombatHudLayout's hasActionNotice) so the new row is real, not an implicit
+       overflow row below the controls. The notice element itself is pinned to
+       row 2 by the owning screen — see mission-arena-fight.css
+       `.combat-layout.has-action-notice .combat-action-notice`. */
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .twp-strip { grid-row: 3 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .hex-battlefield { grid-row: 4 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .battle-tabbar { grid-row: 5 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .shinobi-command-bar { grid-row: 6 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .combat-jutsu-bar { grid-row: 7 !important; }
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .combat-text-log { grid-row: 6 / span 2 !important; }
 
     /* The board fills its row instead of forcing a 260px content minimum —
        the row's minmax governs, so short phones can compress it. */
@@ -2224,7 +2183,7 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         gap: 4px !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip {
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice {
         grid-template-rows: auto auto auto minmax(196px, 36dvh) auto auto minmax(88px, 1fr) !important;
     }
 
@@ -2737,7 +2696,7 @@ html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-jutsu-thumb {
         grid-template-rows: auto auto minmax(216px, 1.36fr) auto minmax(214px, 0.92fr) minmax(48px, 0.2fr);
     }
 
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-rookie-tip .combat-main-area {
+    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .combat-main-area {
         grid-template-rows: auto auto auto minmax(206px, 1.36fr) auto minmax(206px, 0.92fr) minmax(46px, 0.2fr);
     }
 
@@ -4762,13 +4721,13 @@ html body > .arena-fullscreen.shinobi-combat-shell .battle-chat-col {
 /* On the shortest phone tier, reserve a compact feedback track. Floating the
    notice over the board made it collide with both terrain and tactical input. */
 @container shinobi-combat (max-width: 520px) and (max-height: 700px) {
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-rookie-tip > .combat-main-area {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-action-notice > .combat-main-area {
         position: relative !important;
         grid-template-rows: auto auto minmax(0, 1.7fr) 48px auto auto minmax(96px, 0.5fr) !important;
     }
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-action-notice,
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-rookie-tip .combat-action-notice {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-action-notice .combat-action-notice {
         position: static !important;
         inset: auto !important;
         width: auto !important;
@@ -5027,7 +4986,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         box-sizing: border-box !important;
     }
 
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-rookie-tip > .combat-main-area {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-action-notice > .combat-main-area {
         grid-template-columns: minmax(0, 1.55fr) minmax(220px, 0.85fr) !important;
         grid-template-rows: 48px auto auto minmax(44px, 1fr) !important;
         grid-template-areas:
@@ -5038,7 +4997,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 
     /* Retire legacy mobile explicit row pins, including the Solo mission
-       `has-rookie-tip` variant, before assigning the short-layout areas. */
+       `has-action-notice` variant, before assigning the short-layout areas. */
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area > .dual-ap-panel {
         grid-area: ap !important;
     }
@@ -5076,7 +5035,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-action-notice,
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-rookie-tip .combat-action-notice {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-action-notice .combat-action-notice {
         height: 24px !important;
         min-height: 24px !important;
         max-height: 24px !important;
@@ -5144,7 +5103,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
    logical board to 10px and paints status/notice text over adjacent controls. */
 @container shinobi-combat (max-width: 360px) and (max-height: 600px) {
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout > .combat-main-area,
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-rookie-tip > .combat-main-area {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-layout.has-action-notice > .combat-main-area {
         grid-template-columns: minmax(0, 1fr) !important;
         grid-template-rows: 44px auto minmax(90px, 1.7fr) 44px 18px auto minmax(48px, 0.4fr) !important;
         grid-template-areas:
@@ -5203,7 +5162,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         white-space: nowrap !important;
     }
 
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-rookie-tip > .combat-main-area > .twp-strip {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-action-notice > .combat-main-area > .twp-strip {
         grid-column: 1 !important;
         grid-row: 2 !important;
     }
@@ -5214,7 +5173,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-action-notice,
-    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-rookie-tip .combat-action-notice {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-action-notice .combat-action-notice {
         position: static !important;
         inset: auto !important;
         grid-column: 1 !important;
@@ -5307,7 +5266,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         padding: max(6px, env(safe-area-inset-top)) 6px max(8px, env(safe-area-inset-bottom)) !important;
     }
 
-    #combat .combat-layout.has-rookie-tip {
+    #combat .combat-layout.has-action-notice {
         grid-template-rows: minmax(116px, auto) auto auto minmax(196px, 42cqh) 48px auto minmax(88px, 1fr) !important;
     }
 
@@ -5500,16 +5459,16 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     }
 
-    #combat .combat-layout.has-rookie-tip .combat-action-notice {
+    #combat .combat-layout.has-action-notice .combat-action-notice {
         grid-row: 2 !important;
     }
 
-    #combat .combat-layout.has-rookie-tip .twp-strip { grid-row: 3 !important; }
-    #combat .combat-layout.has-rookie-tip .combat-board-stage { grid-row: 4 !important; }
-    #combat .combat-layout.has-rookie-tip .battle-tabbar { grid-row: 5 !important; }
-    #combat .combat-layout.has-rookie-tip .shinobi-command-bar { grid-row: 6 !important; }
-    #combat .combat-layout.has-rookie-tip .combat-jutsu-bar { grid-row: 7 !important; }
-    #combat .combat-layout.has-rookie-tip .combat-text-log { grid-row: 6 / span 2 !important; }
+    #combat .combat-layout.has-action-notice .twp-strip { grid-row: 3 !important; }
+    #combat .combat-layout.has-action-notice .combat-board-stage { grid-row: 4 !important; }
+    #combat .combat-layout.has-action-notice .battle-tabbar { grid-row: 5 !important; }
+    #combat .combat-layout.has-action-notice .shinobi-command-bar { grid-row: 6 !important; }
+    #combat .combat-layout.has-action-notice .combat-jutsu-bar { grid-row: 7 !important; }
+    #combat .combat-layout.has-action-notice .combat-text-log { grid-row: 6 / span 2 !important; }
 }
 
 @container shinobi-combat (max-width: 979px) and (min-height: 501px) and (max-height: 740px) {
@@ -5518,7 +5477,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         gap: 4px !important;
     }
 
-    #combat .combat-layout.has-rookie-tip {
+    #combat .combat-layout.has-action-notice {
         grid-template-rows: minmax(100px, auto) auto auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
     }
 
@@ -5544,7 +5503,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         gap: 3px !important;
     }
 
-    #combat .combat-layout.has-rookie-tip {
+    #combat .combat-layout.has-action-notice {
         grid-template-rows: minmax(96px, auto) 18px 18px minmax(90px, 1.7fr) 44px auto minmax(48px, 0.4fr) !important;
     }
 
@@ -5612,7 +5571,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         grid-template-rows: minmax(126px, auto) auto minmax(90px, 1fr) 44px auto 96px !important;
     }
 
-    #combat .combat-layout.has-rookie-tip {
+    #combat .combat-layout.has-action-notice {
         grid-template-rows: minmax(126px, auto) auto auto minmax(90px, 1fr) 44px auto 96px !important;
     }
 

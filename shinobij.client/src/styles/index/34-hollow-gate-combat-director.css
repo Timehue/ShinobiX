@@ -174,3 +174,29 @@
         animation: none !important;
     }
 }
+
+/* Settlement banner for a Showdown-fought Gate encounter.
+ *
+ * The battle view is a full-screen portal, so this is portalled too and has to
+ * sit above it (the project's overlay convention: portal to body, z 1000000+).
+ * It exists because a decided encounter that never reaches combat-settle leaves
+ * the run stuck on an unresolved node — the player must be able to SEE that the
+ * seal has not closed yet, and that Exit will retry rather than abandon it. */
+.hollow-gate-settle-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000001;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(167, 139, 250, 0.55);
+    background: rgba(12, 8, 26, 0.94);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    color: #ede9fe;
+    font-size: 0.92rem;
+    line-height: 1.35;
+    text-align: center;
+    pointer-events: none;
+}

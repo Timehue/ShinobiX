@@ -213,12 +213,21 @@ describe('both handlers wire the durable receipt in the safe order', () => {
 describe('every showdown action is rate limited', () => {
     // state and forfeit shipped without limits while start and turn had them,
     // so an unauthenticated-shaped loop could hammer the session store for free.
-    const ACTIONS = ['start', 'turn', 'state', 'forfeit'] as const;
+    // EVERY action belongs in this list — the two session-minting entries that
+    // landed after it (arena, encounter) are the expensive ones, since each
+    // writes a session and the authored entry also reads the admin content
+    // catalog.
+    const ACTIONS = ['start', 'arena', 'encounter', 'turn', 'state', 'forfeit'] as const;
 
+    // Matched on each branch's full opening line, not a bare `action === 'x'`.
+    // The Hollow Gate admission guard tests `action === 'arena'` as part of a
+    // COMPOUND condition earlier in the file, so the loose needle anchored the
+    // arena branch to that guard — a short rejection that touches no KV — and
+    // every assertion below then read the wrong block.
     const branchFor = (action: string): string => {
-        const start = indexOfOrFail(showdownSrc, 'showdown.ts', `action === '${action}'`);
+        const start = indexOfOrFail(showdownSrc, 'showdown.ts', `if (action === '${action}') {`);
         const nextStarts = ACTIONS
-            .map((other) => showdownSrc.indexOf(`action === '${other}'`, start + 1))
+            .map((other) => showdownSrc.indexOf(`if (action === '${other}') {`, start + 1))
             .filter((idx) => idx > start);
         return showdownSrc.slice(start, nextStarts.length ? Math.min(...nextStarts) : showdownSrc.length);
     };

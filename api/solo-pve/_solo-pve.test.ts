@@ -431,6 +431,43 @@ describe('solo-PvE engine', () => {
         assert.ok(result.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Given'));
     });
 
+    // End-to-end guard for the zero-damage weapon bug: a named weapon that rolled
+    // Heal or Shield (2 of the 12 tags in craft/_named.ts WEAPON_TAGS), and the
+    // built-in Shield weapons, used to swing for exactly 0 in PvE — the tag hit the
+    // support-jutsu "Heal/Shield zeroes the damage" rule in resolveTagStatuses.
+    // Unit-level coverage lives in api/pvp/_weapon-damage.test.ts; this pins the
+    // whole PvE path, from the equipped item through to the enemy's HP.
+    for (const tagName of ['Heal', 'Shield'] as const) {
+        it(`a named weapon whose rolled tag is ${tagName} still damages the enemy`, () => {
+            const player = makeFighter('Alice', 62, {
+                character: {
+                    level: 100, specialty: 'Bukijutsu',
+                    stats: { bukijutsuOffense: 1_200, strength: 500, intelligence: 500 },
+                    jutsu: [],
+                    pvpItems: [{
+                        id: 'named-weapon-test', name: 'Test Fang', slot: 'hand',
+                        weaponEp: 33, apCost: 40, weaponRange: 3, weaponCooldown: 5,
+                        weaponTags: [{ name: tagName, percent: 37 }],
+                    }],
+                    equipment: { hand: 'named-weapon-test' },
+                },
+            });
+            const session = createSoloPveSession({
+                sessionId: `named-weapon-${tagName}`, ownerSlug: 'alice',
+                encounter: { kind: 'test', id: 'named-weapon' },
+                player, enemy: makeFighter('Rival', 63), now: NOW,
+            });
+
+            const result = applySoloPveAction(session, { type: 'weapon', itemId: 'named-weapon-test' });
+
+            assert.equal(result.applied, true, `the swing should be accepted (reason: ${result.reason})`);
+            assert.ok(
+                result.session.enemy.hp < session.enemy.hp,
+                `a ${tagName} weapon must still deal damage, enemy hp=${result.session.enemy.hp}`,
+            );
+        });
+    }
+
     it('automatically advances a player turn when the accepted action leaves no legal move', () => {
         const session = makeSession();
         session.player.character.jutsu = [{

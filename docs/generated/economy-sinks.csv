@@ -13,7 +13,7 @@ shop,bulwark-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary h
 shop,bulwark-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
 shop,bulwark-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
 shop,chain-obi,ryo,320,per unit,api/pvp/_item-catalog.ts,rare waist
-shop,chakra-ring,ryo,600,per unit,api/pvp/_item-catalog.ts,rare aura
+shop,chakra-ring,ryo,600,per unit,api/pvp/_item-catalog.ts,rare relic
 shop,cloth-hood,ryo,120,per unit,api/pvp/_item-catalog.ts,common head
 shop,cloth-pants,ryo,105,per unit,api/pvp/_item-catalog.ts,common legs
 shop,cloth-robe,ryo,150,per unit,api/pvp/_item-catalog.ts,common body

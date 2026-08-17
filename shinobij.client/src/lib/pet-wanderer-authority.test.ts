@@ -24,7 +24,13 @@ test('WorldMap sends exact natural context without pre-spending the cooldown', (
 });
 
 test('PetArena sends no competing opponent context and watches the sealed Showdown result', () => {
-    const mint = section(arenaSource, 'async function mintCasualPetBattleToken', 'async function settleHollowGatePetBattle');
+    // Bounded at `startBattle`, the function that now follows the mint. The old
+    // boundary was `settleHollowGatePetBattle`, which is gone on purpose: Hollow
+    // Gate settlement moved out of this screen entirely and into
+    // HollowGatePetFight, and lib/hollow-gate-pet-fight-wiring.test.ts holds it
+    // there. Bounding on a neighbour that was deliberately deleted would fail
+    // this contract for a reason that has nothing to do with the wanderer.
+    const mint = section(arenaSource, 'async function mintCasualPetBattleToken', 'async function startBattle');
     assert.match(mint, /opponent\.wanderer\s*\?\s*\{\s*wanderer:\s*opponent\.wanderer\s*\}/);
     assert.match(mint, /opponentName:[\s\S]*opponentPetIds/);
     assert.match(arenaSource, /<PetShowdownReplay[\s\S]*script=\{watchedDuel\.script\}/);

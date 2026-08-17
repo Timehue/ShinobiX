@@ -33,6 +33,42 @@ test("solo session maps into the runtime-neutral normal Arena view", () => {
     assert.equal(view.companionUsed, false);
 });
 
+test("the Arena view carries the server's VFX plates through, tagged by event seq", () => {
+    const source = session();
+    source.eventSeq = 12;
+    source.events = [
+        {
+            kind: "action", seq: 11, round: 2, actor: "player", target: "enemy", action: "jutsu",
+            before: {} as never, after: {} as never, log: [],
+            vfx: [{ key: "fireball", target: "enemy", anchor: "target", tiles: [33, 34] }],
+            status: "active", winner: null, outcome: null,
+        },
+        {
+            kind: "action", seq: 12, round: 2, actor: "enemy", target: "player", action: "basicAttack",
+            before: {} as never, after: {} as never, log: [],
+            vfx: [{ key: "impact", target: "player", anchor: "target" }],
+            status: "active", winner: null, outcome: null,
+        },
+    ] as never;
+
+    const view = soloPveSessionForArena(source);
+    assert.equal(view.vfxSeq, 12, "the view must expose the server's newest event seq");
+    assert.deepEqual(view.vfx, [
+        { seq: 11, key: "fireball", target: "enemy", anchor: "target", tiles: [33, 34] },
+        { seq: 12, key: "impact", target: "player", anchor: "target" },
+    ]);
+    // A plate's target must be an ACTOR ID in the projected view, or the screen
+    // cannot anchor it to a fighter's tile.
+    const actorIds = new Set(view.actors.map((actor) => actor.id));
+    for (const plate of view.vfx ?? []) assert.ok(actorIds.has(plate.target), `${plate.target} is not an actor id`);
+});
+
+test("a fight with no VFX yet still projects an empty stream rather than undefined", () => {
+    const view = soloPveSessionForArena(session());
+    assert.deepEqual(view.vfx, []);
+    assert.equal(view.vfxSeq, 0);
+});
+
 test("the Arena view preserves whether the one-time PvE pet summon was consumed", () => {
     const source = session();
     source.companionUsage = { petId: "pet-1" };
