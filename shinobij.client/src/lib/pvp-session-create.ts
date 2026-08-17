@@ -1,5 +1,5 @@
 import type { PvpSessionState } from "../types/pvp-ui";
-import { fetchPendingPvpRecovery, type PendingPvpRecovery } from "./pvp-pending-session";
+import { decidePvpCreateRecovery, fetchPendingPvpRecovery, type PendingPvpRecovery } from "./pvp-pending-session";
 import { abortableDelay, parsePvpSessionProjection } from "./pvp-session-runtime";
 
 export type PvpSessionCreateRecoveryResult =
@@ -141,23 +141,37 @@ export async function createPvpSessionWithRecovery(
     }
 
     if (options.signal?.aborted || !isCurrent()) throw abortError();
+    let pending: PendingPvpRecovery | null = null;
+    let recoveryChecked = false;
     try {
         const pendingTimeout = AbortSignal.timeout(requestTimeoutMs);
         const pendingSignal = options.signal
             ? AbortSignal.any([options.signal, pendingTimeout])
             : pendingTimeout;
-        const pending = await fetchPendingPvpRecovery(fetchFn, playerName, { signal: pendingSignal });
+        const found = await fetchPendingPvpRecovery(fetchFn, playerName, { signal: pendingSignal });
         if (options.signal?.aborted || !isCurrent()) throw abortError();
-        if (pending?.battleId === stableBattleId) {
-            return { kind: "created", battleId: stableBattleId, session: pending.session };
-        }
-        if (pending) return { kind: "recovered", pending };
-        if (conclusiveRejection && !ambiguous) return { kind: "rejected", error: lastError };
-        return { kind: "ambiguous", battleId: stableBattleId, error: lastError };
-    } catch (error) {
+        pending = found;
+        recoveryChecked = true;
+    } catch {
         if (options.signal?.aborted || !isCurrent()) {
             throw abortError();
         }
-        return { kind: "ambiguous", battleId: stableBattleId, error: lastError };
     }
+    if (pending?.battleId === stableBattleId) {
+        return { kind: "created", battleId: stableBattleId, session: pending.session };
+    }
+    // One owner for the three-way branch: adopt a published pointer, else keep
+    // the stable id discoverable, else clear. An unchecked (offline) lookup is
+    // never conclusive, so it can only retain the stable id.
+    const decision = decidePvpCreateRecovery({
+        pending,
+        createRejected: conclusiveRejection && !ambiguous,
+        recoveryChecked,
+        stableBattleId,
+    });
+    if (decision.kind === "pending") return { kind: "recovered", pending: decision.pending };
+    if (decision.kind === "stable-id") {
+        return { kind: "ambiguous", battleId: decision.battleId, error: lastError };
+    }
+    return { kind: "rejected", error: lastError };
 }
