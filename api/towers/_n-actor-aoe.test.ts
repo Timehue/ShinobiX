@@ -357,9 +357,15 @@ describe('Tower N-actor AOE cutover', () => {
         assert.equal(getActor(s, 'caster')!.shield, setupReference.self.shield);
         assert.equal(s.log.filter(line => line.startsWith('Heal: caster')).length, 1);
         assert.equal(s.log.filter(line => line.startsWith('Shield: caster')).length, 1);
+        // CHANGED 2026-08-16 (owner ruling): Heal/Shield are payloads, not a trade —
+        // a 60-AP DAMAGE cast keeps its damage and heals/shields on top. Only Barrier
+        // still zeroes a cast. The 40-AP utility split is untouched and enforced
+        // upstream by isZeroDamageFortyApJutsu, so a real support jutsu still hits for
+        // nothing. This is the towers AOE path; the single-target twin lives in
+        // api/pvp/_weapon-damage.test.ts.
         for (const id of ['target-a', 'target-b', 'target-c']) {
             const victim = getActor(s, id)!;
-            assert.equal(victim.hp, victim.maxHp, 'Heal/Shield makes the cast zero-damage');
+            assert.ok(victim.hp < victim.maxHp, `${id} should take the AOE's damage alongside the caster's heal`);
             assert.equal(victim.statuses.filter(status => status.name === 'Poison').length, 1);
         }
         assert.equal(s.activeAp, 40);

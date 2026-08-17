@@ -128,6 +128,19 @@ export type TowerFloorProvenance =
         floorId: number;
     };
 
+/**
+ * One cosmetic VFX plate. `target` is an ACTOR ID on this board (the tower is
+ * n-actor, unlike PvP's fixed p1/p2), or omitted for a plate the client anchors
+ * from `tiles` alone.
+ */
+export type TowerVfxEvent = {
+    key: string;
+    target?: TowerActorId;
+    anchor: 'caster' | 'target' | 'tile' | 'area';
+    tiles?: number[];
+    persistent?: boolean;
+};
+
 export type TowerSession = {
     towerId: string;
     runId: string;
@@ -158,6 +171,17 @@ export type TowerSession = {
     recentMoveReceipts?: Array<{ token: string; fingerprint: string }>;
     rewardSettlementState: 'pending' | 'settled';
     log: string[];
+    /**
+     * Cosmetic combat VFX for the plates the client draws. Authored by the
+     * engine alongside each resolved action / DoT tick and REPLACED wholesale
+     * each time (mirrors PvP's session.vfx), with `vfxSeq` bumping so a client
+     * can tell new plates from a re-poll of the same ones.
+     *
+     * Never read back as authority — damage, statuses, and settlement come from
+     * the actors and the log. Safe to drop entirely from an old session.
+     */
+    vfx?: TowerVfxEvent[];
+    vfxSeq?: number;
     createdAt: number;
     lastActionAt: number;
     /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op

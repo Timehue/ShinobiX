@@ -42,7 +42,7 @@ import {
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
-import { deriveCombatMultipliers, deriveEquipmentStatBonuses, buildItemLookup } from './_multipliers.js';
+import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
 import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
@@ -787,6 +787,18 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             if (out.restoreChakra != null)     out.restoreChakra  = clampNumber(out.restoreChakra,  0, 5000, 0);
             if (out.restoreStamina != null)    out.restoreStamina = clampNumber(out.restoreStamina, 0, 5000, 0);
             if (out.weaponEffectValue != null) out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
+            // Barrier is JUTSU-ONLY (owner ruling 2026-08-16): it drops a wall tile on
+            // the board, a cast-time control mechanic rather than something a blade
+            // does. No built-in weapon carries it and craft/_named.ts cannot roll it,
+            // so this strips it only from an admin-authored or tampered definition —
+            // at the SEAL, so every engine inherits the rule at once.
+            const isWeaponItem = out.slot === 'hand' || out.slot === 'thrown' || out.slot === 'weapon';
+            if (isWeaponItem && String(out.weaponEffect) === 'Barrier') delete out.weaponEffect;
+            if (isWeaponItem && Array.isArray(out.weaponTags)) {
+                out.weaponTags = (out.weaponTags as unknown[]).filter(
+                    (t) => !(t && typeof t === 'object' && String((t as Record<string, unknown>).name) === 'Barrier'),
+                );
+            }
             // Tag list — same whitelist + cap (10) as sanitizeJutsuList.
             if (out.weaponTags != null) {
                 const rawTags = Array.isArray(out.weaponTags) ? out.weaponTags : [];
@@ -1226,6 +1238,14 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
             // Keys come from the fixed EQUIPMENT_STAT_BONUS_FIELDS whitelist.
             stats[field] = clampNumber((Number(stats[field]) || 0) + bonus, 0, SESSION_MAX_STAT, 0);
         }
+        // PvE-ONLY gear power (relics). Sealed onto the fighter here so every
+        // engine sees the same authoritative number, but READ ONLY by the PvE
+        // engines — api/pvp/move.ts never touches these fields, so PvP is
+        // unaffected by construction rather than by a flag. Capped well under the
+        // damage-multiplier bounds so a stack of authored content can't run away.
+        const pve = derivePveBonuses(saveCharacter, save, admin?.items ?? null);
+        merged.pveDamagePct      = clampNumber(pve.pveDamagePct,      0, 100, 0);
+        merged.pveDamageTakenPct = clampNumber(pve.pveDamageTakenPct, 0, 75, 0);
     }
     // Vitals defense-in-depth. A tampered save could ship a huge maxHp
     // (effectively unkillable) or maxChakra (Poison ticks scale off the victim's

@@ -387,40 +387,126 @@ const FIELD_BY_ID = new Map(
   CHRONICLE_FIELD_DEFINITIONS.map((field) => [field.id, field]),
 );
 
-const WEAK_IDS = new Set([
-  ...Array.from(
-    { length: 20 },
-    (_, i) => `tc-${String(i + 1).padStart(2, "0")}`,
-  ),
-  ...Array.from({ length: 20 }, (_, i) => `tc-${i + 51}`),
-]);
-const STANDARD_IDS = new Set([
-  ...Array.from({ length: 20 }, (_, i) => `tc-${i + 21}`),
-  ...Array.from({ length: 25 }, (_, i) => `tc-${i + 71}`),
-]);
-const ELITE_IDS = new Set([
-  ...Array.from({ length: 10 }, (_, i) => `tc-${i + 41}`),
-  ...Array.from({ length: 25 }, (_, i) => `tc-${i + 96}`),
-]);
-const BOSS_IDS = new Set(Array.from({ length: 18 }, (_, i) => `tc-${i + 121}`));
-const MYTHIC_IDS = new Set(
-  Array.from({ length: 12 }, (_, i) => `tc-${i + 139}`),
-);
+const BASE_TIER_CYCLE: readonly MonsterPowerTier[] = [
+  "weak",
+  "standard",
+  "elite",
+  "boss",
+  "mythic",
+];
 
-/** Explicit reviewed tier map. The ranges mirror authored catalog story bands,
- * not a hash or a runtime rarity conversion. Individual canon overrides live
- * here and are asserted in tests. */
+/** Tiers that actually cost Tributes to summon. */
+const TRIBUTE_TIER_CYCLE: readonly MonsterPowerTier[] = [
+  "elite",
+  "boss",
+  "mythic",
+];
+
+/**
+ * Cards whose authored effect only fires ON A TRIBUTE SUMMON. The cycle must
+ * never hand these a Level that summons for free, or the printed text is dead
+ * on the card. Listed explicitly because REVIEWED_MONSTER_EFFECTS is defined
+ * further down this file and cannot be read from here; the engine test asserts
+ * the two agree, so adding an onTributeSummon effect without adding its id here
+ * fails the suite rather than silently shipping an effect that never fires.
+ */
+const TRIBUTE_TRIGGER_IDS: ReadonlySet<string> = new Set(["tc-97"]);
+
+/**
+ * Power tier — which decides LEVEL, and therefore tribute cost — assigned
+ * INDEPENDENTLY OF RARITY (owner ruling, 2026-08-16).
+ *
+ * It used to be assigned by id band, and rarity is authored in id order too, so
+ * the two were the same axis wearing different names: every Common was a 2-star,
+ * every Legendary a 7- or 8-star. The consequence was economic rather than
+ * cosmetic — the entire tribute half of the level curve sat behind the premium
+ * storefront, so a free player could never field a Tribute Monster at all, and
+ * the starter deck could only teach tributing by handing out Legendaries.
+ *
+ * Now the two axes are separate: this one sets the body (level + baseline
+ * stats), and rarity sets how good that body is (RARITY_STAT_BONUS, plus
+ * effects). Common and Rare Tribute Monsters exist; so do Legendary 4-stars
+ * that hit far above their level.
+ *
+ * The spread is UNIFORM: within each rarity band, cards cycle through the five
+ * tiers in id order, so every rarity covers the whole curve evenly. Positional
+ * rather than hashed, so it stays reviewable and reproducible, and the resulting
+ * distribution is asserted in tests. Individual canon overrides live in
+ * MONSTER_STAT_OVERRIDES below.
+ */
 export const REVIEWED_MONSTER_TIERS: Readonly<
   Record<string, MonsterPowerTier>
 > = Object.freeze(
-  Object.fromEntries([
-    ...[...WEAK_IDS].map((id) => [id, "weak"] as const),
-    ...[...STANDARD_IDS].map((id) => [id, "standard"] as const),
-    ...[...ELITE_IDS].map((id) => [id, "elite"] as const),
-    ...[...BOSS_IDS].map((id) => [id, "boss"] as const),
-    ...[...MYTHIC_IDS].map((id) => [id, "mythic"] as const),
-  ]),
+  (() => {
+    const seenPerRarity = new Map<string, number>();
+    const assigned: Record<string, MonsterPowerTier> = {};
+    for (const card of shinobiTileCards) {
+      const seen = seenPerRarity.get(card.rarity) ?? 0;
+      seenPerRarity.set(card.rarity, seen + 1);
+      assigned[card.id] = TRIBUTE_TRIGGER_IDS.has(card.id)
+        ? TRIBUTE_TIER_CYCLE[seen % TRIBUTE_TIER_CYCLE.length]
+        : BASE_TIER_CYCLE[seen % BASE_TIER_CYCLE.length];
+    }
+    return assigned;
+  })(),
 );
+
+/**
+ * What rarity buys now that it no longer buys levels: a flat stat premium on
+ * top of the tier baseline, on every body. A Common 7-star is a plain tribute
+ * wall; a Legendary 7-star is the same body hitting 500 harder — and a
+ * Legendary 4-star hits like a 5-star for no tribute at all. Monster effects
+ * (which already skew to the top rarities) are the other half of the premium.
+ */
+const RARITY_STAT_BONUS: Readonly<
+  Record<ChronicleRarity, { attack: number; defense: number }>
+> = {
+  common: { attack: 0, defense: 0 },
+  rare: { attack: 150, defense: 100 },
+  epic: { attack: 300, defense: 250 },
+  legendary: { attack: 450, defense: 400 },
+  mythic: { attack: 600, defense: 500 },
+};
+
+/**
+ * Why the ordering this creates is guaranteed rather than hoped for: within one
+ * Level, the tier baseline is a constant and every ELEMENT_PROFILE row nets
+ * exactly +100 across ATK+DEF (Fire +200/-100, Earth -100/+200, and so on), so
+ * element only ever redistributes between the two stats. That leaves this table
+ * as the sole term that changes a card's total, and its totals strictly climb
+ * (0 < 250 < 550 < 850 < 1100). An Epic therefore outclasses every Rare at the
+ * same Level, at every Level — which is the rule, not a coincidence of the
+ * current numbers.
+ */
+const RARITY_STAT_TOTALS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(RARITY_STAT_BONUS).map(([rarity, bonus]) => [
+      rarity,
+      bonus.attack + bonus.defense,
+    ]),
+  ),
+);
+
+/**
+ * The one place a Monster's ATK/DEF is decided, for EVERY family — base set,
+ * Legacy, Story, pet witnesses. Each family still chooses its own Level (the
+ * base set cycles tiers, Legacy uses its earned ladder, Story follows boss
+ * difficulty), but they all spend the same budget at that Level, which is what
+ * makes the rarity ordering hold across families and not merely within one.
+ */
+function ladderStats(
+  tier: MonsterPowerTier,
+  element: ChronicleElement,
+  rarity: ChronicleRarity,
+): { attack: number; defense: number } {
+  const base = TIER_PROFILE[tier];
+  const shape = ELEMENT_PROFILE[element];
+  const premium = RARITY_STAT_BONUS[rarity];
+  return {
+    attack: Math.max(100, base.attack + shape.attack + premium.attack),
+    defense: Math.max(100, base.defense + shape.defense + premium.defense),
+  };
+}
 
 const TIER_PROFILE: Record<
   MonsterPowerTier,
@@ -505,8 +591,13 @@ const MONSTER_STAT_OVERRIDES: Readonly<
     { level: number; attack: number; defense: number; powerTier: MonsterPowerTier }
   >
 > = {
-  // Blue Blade Raccoon — promoted to a Legendary signature card.
-  "tc-41": { level: 8, attack: 3_500, defense: 2_500, powerTier: "mythic" },
+  // Blue Blade Raccoon — promoted to a Legendary signature card. It keeps its
+  // canon 3500 ATK, but its DEF is set so the pair totals what the Level-8
+  // Legendary budget actually pays (3450+3200+100 of element = 6750): the old
+  // 3500/2500 spent 750 less than the formula, which put the signature card
+  // below several Rares and Epics of its own Level and broke the rarity ladder
+  // in the only 15 places it was still broken. Same budget, spent on attack.
+  "tc-41": { level: 8, attack: 3_500, defense: 3_250, powerTier: "mythic" },
 };
 
 function monsterFromSource(source: TileCard): ChronicleMonsterCard {
@@ -516,6 +607,7 @@ function monsterFromSource(source: TileCard): ChronicleMonsterCard {
   const profile = ELEMENT_PROFILE[element];
   const isTrainingDummy = source.id === "tc-01";
   const override = isTrainingDummy ? undefined : MONSTER_STAT_OVERRIDES[source.id];
+  const premium = RARITY_STAT_BONUS[source.rarity];
   return {
     id: source.id,
     name: source.name,
@@ -541,10 +633,12 @@ function monsterFromSource(source: TileCard): ChronicleMonsterCard {
     level: isTrainingDummy ? 1 : (override?.level ?? base.level),
     attack: isTrainingDummy
       ? 300
-      : (override?.attack ?? Math.max(100, base.attack + profile.attack)),
+      : (override?.attack ??
+        Math.max(100, base.attack + profile.attack + premium.attack)),
     defense: isTrainingDummy
       ? 800
-      : (override?.defense ?? Math.max(100, base.defense + profile.defense)),
+      : (override?.defense ??
+        Math.max(100, base.defense + profile.defense + premium.defense)),
     powerTier: override?.powerTier ?? powerTier,
   };
 }
@@ -637,8 +731,12 @@ function monsterFromLegacy(
     monsterType: "normal",
     family: "Legacy Pattern",
     level: profile.level,
-    attack: profile.attack,
-    defense: profile.defense,
+    // Stats come from the SHARED ladder (tier baseline + element + rarity
+    // premium), not from LEGACY_PROFILE's own attack/defense. Those hand-set
+    // numbers predate the rarity rule and broke it across families — a Rare
+    // tc-card could outstat an Epic Legacy card of the same Level. Level still
+    // comes from the Legacy ladder, so the progression fiction is untouched.
+    ...ladderStats(profile.powerTier, element, profile.rarity),
     powerTier: profile.powerTier,
   };
 }
@@ -732,8 +830,14 @@ function monsterFromStory(source: ChronicleStorySource): ChronicleMonsterCard {
       ? "Kage / Hollow"
       : "Story Combatant",
     level: profile.level,
-    attack: profile.attack,
-    defense: profile.defense,
+    // Level still tracks the boss's own difficulty band (a Kage stays Level 8);
+    // the stats come from the shared ladder so the rarity order holds against
+    // the base set too. See ladderStats.
+    ...ladderStats(
+      profile.powerTier as MonsterPowerTier,
+      STORY_ELEMENT_BY_VILLAGE[source.village] ?? "Earth",
+      profile.rarity as ChronicleRarity,
+    ),
     powerTier: profile.powerTier as MonsterPowerTier,
   };
 }
@@ -750,8 +854,9 @@ function monsterFromPetWitness(source: ChroniclePetWitnessSource): ChronicleMons
     monsterType: "normal",
     family: "Bonded Beast / Living Witness",
     level: 4,
-    attack: source.attack,
-    defense: source.defense,
+    // Shared ladder, same as every other family (see ladderStats) — the source's
+    // own attack/defense predate the rarity rule.
+    ...ladderStats("standard", source.element, "rare"),
     powerTier: "standard",
   };
 }
@@ -1319,18 +1424,140 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
   },
 });
 
+/**
+ * Effects an Epic/Legendary/Mythic monster gets when it has no authored one.
+ *
+ * Every entry is IDENTITY-NEUTRAL — it talks about "this card" and never about
+ * a shell, a tail or a beak — because these are granted by rarity across the
+ * whole catalog. (Re-pointing the authored effects instead would have put
+ * tc-03's "its shell prevents that destruction" on a phoenix.) The authored
+ * effects stay exactly where their text was written for.
+ */
+const HIGH_RARITY_DEFAULT_EFFECTS: readonly {
+  effect: ChronicleMonsterEffect;
+  effectText: string;
+}[] = [
+  {
+    effect: { kind: "piercingBattleDamage", trigger: "whileFaceUp" },
+    effectText:
+      "When this card overpowers a Defense Position Monster, inflict the excess ATK as battle damage.",
+  },
+  {
+    effect: {
+      kind: "gainAttackPerOpponentMonster",
+      trigger: "whileFaceUp",
+      amount: 200,
+    },
+    effectText:
+      "This card gains 200 ATK for each Monster your opponent controls.",
+  },
+  {
+    effect: { kind: "drawOnBattleDamage", trigger: "onBattleDamage", amount: 1 },
+    effectText: "When this card inflicts battle damage: Draw 1 card.",
+  },
+  {
+    effect: { kind: "surviveBattleOncePerTurn", trigger: "whileFaceUp" },
+    effectText:
+      "The first time this card would be destroyed by battle each turn, it is not destroyed.",
+  },
+  {
+    effect: {
+      kind: "reflectDamageWhenAttacked",
+      trigger: "whenAttacked",
+      amount: 400,
+    },
+    effectText:
+      "When this card is attacked: The attacking player takes 400 damage.",
+  },
+  {
+    effect: {
+      kind: "gainAttackWhenBattlingStronger",
+      trigger: "whileFaceUp",
+      amount: 500,
+    },
+    effectText:
+      "During damage calculation with a Monster of higher ATK, this card gains 500 ATK.",
+  },
+  {
+    effect: {
+      kind: "discardOpponentCardOnBattleDamage",
+      trigger: "onBattleDamage",
+      amount: 1,
+    },
+    effectText:
+      "When this card inflicts battle damage: Your opponent discards 1 card.",
+  },
+  {
+    effect: {
+      kind: "drawWhenDestroyedByBattle",
+      trigger: "onDestroyedByBattle",
+      amount: 1,
+    },
+    effectText: "When this card is destroyed by battle: Draw 1 card.",
+  },
+];
+
+/** Rarity does not just grant an effect, it sharpens it. */
+const EFFECT_AMOUNT_SCALE: Readonly<Record<ChronicleRarity, number>> = {
+  common: 1,
+  rare: 1,
+  epic: 1.5,
+  legendary: 2,
+  mythic: 2.5,
+};
+
+/** Effects are an Epic-and-up perk: at those rarities every Monster carries one. */
+function rarityGrantsDefaultEffect(rarity: ChronicleRarity): boolean {
+  return rarity === "epic" || rarity === "legendary" || rarity === "mythic";
+}
+
+function scaleEffectAmount(
+  effect: ChronicleMonsterEffect,
+  rarity: ChronicleRarity,
+): ChronicleMonsterEffect {
+  const scale = EFFECT_AMOUNT_SCALE[rarity] ?? 1;
+  if (typeof effect.amount !== "number" || scale === 1) return effect;
+  // ONLY magnitudes scale — damage, healing and ATK figures, which are the
+  // numbers rarity should sharpen, rounded to 50s so the board stays readable.
+  // Card counts are deliberately excluded: "draw 1" becoming "draw 2" is a
+  // swing in card advantage far larger than any stat premium, and it silently
+  // doubled several effects when this scaled everything.
+  if (effect.amount < 50) return effect;
+  return { ...effect, amount: Math.round((effect.amount * scale) / 50) * 50 };
+}
+
 function applyReviewedMonsterEffect(
   card: ChronicleMonsterCard,
 ): ChronicleMonsterCard {
   const review = REVIEWED_MONSTER_EFFECTS[card.id];
-  if (!review) return card;
+  if (!review) {
+    // No authored effect: rarity decides whether this Monster gets one at all.
+    if (!rarityGrantsDefaultEffect(card.rarity)) return card;
+    const fallback =
+      HIGH_RARITY_DEFAULT_EFFECTS[
+        stableElementIndex(card.id, HIGH_RARITY_DEFAULT_EFFECTS.length)
+      ];
+    return {
+      ...card,
+      monsterType: "effect",
+      effectText: fallback.effectText,
+      monsterEffect: scaleEffectAmount(fallback.effect, card.rarity),
+    };
+  }
+  // attackAdjustment/defenseAdjustment are deliberately NOT applied any more.
+  // They used to tax a monster's stats for carrying an effect, which is the one
+  // term that could invert the rarity ladder: a -400 tax is larger than the
+  // premium a rarity step buys, so an effect-bearing Rare could land below a
+  // vanilla Common at the same Level (56 such pairs existed). Under the current
+  // rule an effect is something rarity BUYS, never something it pays for, so
+  // stats come from tier + element + RARITY_STAT_BONUS alone and the ladder
+  // holds at every Level. The fields are retained as the record of the original
+  // authored intent while effects are redistributed toward Epic/Legendary.
   return {
     ...card,
     monsterType: "effect",
-    attack: Math.max(100, card.attack + (review.attackAdjustment ?? 0)),
-    defense: Math.max(100, card.defense + (review.defenseAdjustment ?? 0)),
     effectText: review.effectText,
-    monsterEffect: review.effect,
+    monsterEffect: scaleEffectAmount(review.effect, card.rarity),
     ...(review.deckLimit ? { deckLimit: review.deckLimit } : {}),
   };
 }
@@ -3406,16 +3633,20 @@ export const CHRONICLE_STARTER_MONSTER_IDS = Object.freeze([
   "tc-08",
   "tc-09",
   "tc-11",
+  // Free-tier only (owner ruling, 2026-08-16). These slots used to hold
+  // tc-25/41/74/103/104/125/128 — all Grand Marketplace cards, i.e. the premium
+  // Fate-Shard pool handed out for free at level 17. Since power tier no longer
+  // tracks rarity, the teaching deck keeps its Tribute Monsters WITHOUT them.
+  "tc-15",
+  "tc-19",
   "tc-21",
   "tc-23",
-  "tc-25",
   "tc-31",
-  "tc-41",
-  "tc-74",
-  "tc-103",
-  "tc-104",
-  "tc-125",
-  "tc-128",
+  "tc-36",
+  "tc-38",
+  "tc-54",
+  "tc-67",
+  "tc-70",
 ]);
 export const CHRONICLE_STARTER_CORE_IDS = Object.freeze([
   ...CHRONICLE_STARTER_MONSTER_IDS,
@@ -3548,16 +3779,19 @@ export const CHRONICLE_FIXED_FALLBACK_DECK: readonly string[] = Object.freeze([
   "tc-09",
   "tc-09",
   "tc-11",
+  // Free-tier replacements for the seven Grand Marketplace cards this deck used
+  // to hand out (tc-25/41/74/103/104/125/128). Same level slots, so the tribute
+  // curve the deck teaches is unchanged; see CHRONICLE_STARTER_MONSTER_IDS.
   "tc-21",
   "tc-23",
-  "tc-25",
   "tc-31",
-  "tc-41",
-  "tc-74",
-  "tc-103",
-  "tc-104",
-  "tc-125",
-  "tc-128",
+  "tc-36",
+  "tc-38",
+  "tc-67",
+  "tc-19",
+  "tc-54",
+  "tc-15",
+  "tc-70",
   "chronicle-recon-scroll",
   "chronicle-recon-scroll",
   "chronicle-medical-salve",

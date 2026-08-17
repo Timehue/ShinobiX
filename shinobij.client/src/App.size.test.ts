@@ -183,6 +183,7 @@ import { readFileSync } from "node:fs";
 // settle}.ts) paid for by draining the retired local Endless authority + the pure half of
 // pickRandomEndlessAi → lib/endless-tower (−22). App keeps only the App-local
 // setTemporaryStoryAi registration.)
+// ── this branch's chain ──
 // → 7,676 (net +6, budget ratcheted 7,727 → 7,676: the PvP session runtime moved
 // to lib/pvp-{pending-session,session-create,session-intent,session-runtime}.ts +
 // lib/use-pvp-session-controller.ts (836 new lines), but App.tsx churned +473/−467
@@ -194,7 +195,48 @@ import { readFileSync } from "node:fs";
 // re-exported straight from types/pvp-ui a few thousand lines below, so the
 // import binding itself was never consumed. Found by lint while draining the
 // PvP session modules off the startup graph.)
-const MAX_LINES = 7_675;
+//
+// ── origin/main's chain, over the same base ──
+// → 7,743 RAISED, and worth being explicit because raising a ratchet is the
+// thing a ratchet exists to prevent. This is a rebase reconciliation, not new
+// App.tsx code: at the merge base the file was 7,674 against a 7,727 budget;
+// `origin/main`'s save-recovery work grew it +17 (to 7,691, still inside its
+// budget), and the pet-duel branch grew it independently — the two additions
+// only meet here.
+// → 7,690 LOWERED. Removing the save-recovery banner took its two action
+// handlers (download + restore) and the render block out of App.tsx: 7,744 →
+// 7,683, a real 61-line drain. Ratcheted to the new count plus a small buffer.
+// → 7,639 LOWERED. Retiring the browser-side Arena reducer took its App-side
+// bookkeeping with it: 13 now-unread props off the <Arena> call site, plus
+// completePendingArenaStoryBattle / continuePendingArenaStoryBattle / failDungeon,
+// all of which existed only to settle a fight this client no longer hosts
+// (a Warden defeat now settles server-side via applyDungeonWardenSettlement).
+// 7,683 → 7,632 on top of the banner drain above; ratcheted to that plus the
+// same small buffer.
+//
+// → 7,683 RAISED at the merge of those two chains, and stated plainly because a
+// raise is the thing this gate exists to prevent. Neither side's number can hold
+// here: 7,675 was measured on a tree without main's save-recovery growth, and
+// 7,639 on a tree without this branch's PvP-session rewiring. The two grew the
+// same file independently and only meet here.
+//
+// Main's drains DID land — the save-recovery banner is gone (its component is
+// deleted outright), and so are the Arena-reducer's App-side leftovers:
+// completePendingArenaStoryBattle, continuePendingArenaStoryBattle and
+// failDungeon are all absent, which lib/ai-fight-request.test.ts asserts
+// directly. 7,683 is in fact the exact count main itself recorded after the
+// banner drain, before its Arena-reducer drain took it to 7,632; this branch's
+// PvP-session work is what puts the difference back.
+//
+// Nothing was moved INTO App.tsx to buy this number. The merge's own additions
+// are two comments and one 3-line `pvpChallengeId` spread that seals the player
+// duel. Set to the exact achieved count with NO buffer, so the next line added
+// fails this gate rather than sliding under a cushion.
+//
+// This is a ceiling to pay down, not a new normal: the PvpBattleScreen drain
+// this branch already started should take App.tsx below 7,600. Lower it then —
+// and do not raise it again to fit the rest.
+const MAX_LINES = 7_683;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

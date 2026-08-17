@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyAncientChestLoot, rollAncientChestLoot, settleAncientChestLoot } from './_chest.js';
+import {
+    applyAncientChestLoot, rollAncientChestLoot, settleAncientChestLoot, wildRelicForRoll,
+    relicBandForSector, CHEST_RELIC_IDS, WILD_RELIC_IDS, DUPLICATE_RELIC_FATE_SHARDS, WILD_RELIC_DROP_CHANCE,
+} from './_chest.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 function sequence(...values: number[]) { let i = 0; return () => values[i++] ?? 0; }
@@ -20,6 +24,70 @@ describe('ancient chest settlement', () => {
         assert.equal(card?.cardId, 'tc-71');
         assert.equal(card?.xp, 0);
         assert.equal(card?.ryo, 40 + 60 * 2); // guaranteed floor, no bonus ryo roll in this sequence
+    });
+
+    /*
+     * Relics are BIOME-LOCKED: each drops only where its lore says it came from,
+     * so the world tells you where to hunt. The band sits at the very bottom of
+     * the SAME slot roll and draws no extra random value, which is why adding it
+     * changed no existing chest outcome.
+     */
+    const BIOME_SECTOR = { central: 1, forest: 9, shadow: 17, snow: 26, volcano: 33 } as const;
+
+    it('drops each relic only in its own biome', () => {
+        const lowRoll = (sector: number) => rollAncientChestLoot(sector, sequence(0.9, 0.0001, 0, 0.9))?.itemId;
+        assert.equal(lowRoll(BIOME_SECTOR.volcano), 'relic-ashfall-reliquary');
+        assert.equal(lowRoll(BIOME_SECTOR.forest), 'relic-rootbound-effigy');
+        assert.equal(lowRoll(BIOME_SECTOR.snow), 'relic-rimeglass-lens');
+        assert.equal(lowRoll(BIOME_SECTOR.shadow), 'relic-umbral-knot');
+        // Central hosts three; the band is 3× as wide so each keeps the same odds.
+        const central = relicBandForSector(BIOME_SECTOR.central);
+        assert.equal(central.pool.length, 3);
+        assert.equal(central.width, 3 * WILD_RELIC_DROP_CHANCE);
+        for (const [i, expected] of central.pool.entries()) {
+            const roll = (i + 0.5) * WILD_RELIC_DROP_CHANCE;
+            assert.equal(wildRelicForRoll(roll, BIOME_SECTOR.central), expected);
+        }
+    });
+
+    it('never drops the rift relic from the ground — that one is the Weekly Boss', () => {
+        for (const sector of Object.values(BIOME_SECTOR)) {
+            const { pool } = relicBandForSector(sector);
+            assert.ok(!pool.includes('relic-hollow-gate-cinder'), `sector ${sector} must not host the Cinder`);
+        }
+    });
+
+    it('leaves ordinary loot untouched immediately above the band', () => {
+        const { width } = relicBandForSector(BIOME_SECTOR.volcano);
+        const justAbove = rollAncientChestLoot(BIOME_SECTOR.volcano, sequence(0.9, width + 0.0001, 0, 0.9));
+        assert.equal(justAbove?.itemId, 'pet-treat');
+    });
+
+    it('only ever yields real catalogued relic-slot items', () => {
+        for (const id of CHEST_RELIC_IDS) {
+            const item = ITEM_CATALOG[id] as { slot?: string } | undefined;
+            assert.ok(item, `${id} is not in the item catalog`);
+            assert.equal(item?.slot, 'relic', `${id} must be a relic-slot item`);
+        }
+    });
+
+    it('converts a DUPLICATE relic into Fate Shards instead of swallowing it', () => {
+        // applyAncientChestLoot drops a non-stackable id the player already owns,
+        // so without this the rarest roll in the game would pay literally nothing.
+        const owner = { level: 1, xp: 0, fateShards: 2, inventory: ['relic-ashfall-reliquary'], tileCards: [] };
+        const settled = settleAncientChestLoot(owner, { xp: 0, itemId: 'relic-ashfall-reliquary' });
+        assert.equal(settled.loot.itemId, undefined, 'the duplicate item is not granted');
+        assert.equal(settled.loot.fateShards, DUPLICATE_RELIC_FATE_SHARDS);
+        assert.equal(settled.character.fateShards, 2 + DUPLICATE_RELIC_FATE_SHARDS);
+        assert.deepEqual(settled.character.inventory, ['relic-ashfall-reliquary'], 'no second copy');
+    });
+
+    it('grants a FIRST relic normally', () => {
+        const fresh = { level: 1, xp: 0, fateShards: 0, inventory: [], tileCards: [] };
+        const settled = settleAncientChestLoot(fresh, { xp: 0, itemId: 'relic-ashfall-reliquary' });
+        assert.equal(settled.loot.itemId, 'relic-ashfall-reliquary');
+        assert.equal(settled.loot.fateShards, undefined);
+        assert.deepEqual(settled.character.inventory, ['relic-ashfall-reliquary']);
     });
 
     it('draws gear from the whole tier, not a single fixed item', () => {
@@ -76,5 +144,30 @@ describe('ancient chest settlement', () => {
         );
         assert.equal(room.loot.cardId, 'tc-01');
         assert.equal((room.character.tileCards as string[]).length, 1_200);
+    });
+});
+
+/*
+ * The chase-relic list is the source of truth for duplicate compensation, so it
+ * must stay in lock-step with the catalog and with the Weekly Boss faucet. An
+ * id-prefix convention would drift silently; this pins it.
+ */
+describe('wild relic roster integrity', () => {
+    it('covers all 8 chase relics and every one is a real relic-slot item', () => {
+        assert.equal(WILD_RELIC_IDS.length, 8);
+        assert.equal(new Set(WILD_RELIC_IDS).size, 8, 'no duplicates in the roster');
+        for (const id of WILD_RELIC_IDS) {
+            assert.equal((ITEM_CATALOG[id] as { slot?: string } | undefined)?.slot, 'relic', `${id}`);
+        }
+    });
+
+    it('excludes chakra-ring, which is ordinary chest rare-gear', () => {
+        assert.ok(!WILD_RELIC_IDS.includes('chakra-ring'),
+            'a duplicate shop relic must not pay premium currency');
+    });
+
+    it('includes the Weekly Boss relic even though no chest yields it', () => {
+        assert.ok(WILD_RELIC_IDS.includes('relic-hollow-gate-cinder'));
+        assert.ok(!CHEST_RELIC_IDS.includes('relic-hollow-gate-cinder'));
     });
 });

@@ -8,10 +8,11 @@ import {
 import { petArenaTraitCombat } from "./_arena-sim.js";
 
 /*
- * Pet-ladder core. Also the server-side smoke test that the PORTED engines
- * (_duel-sim.ts / _arena-sim.ts) load + run under the cPanel build: resolve*()
- * call them. Determinism + stronger-wins guard parity with the client engines;
- * the offer/swap logic guards the Sword-x-Staff ladder math.
+ * Pet-ladder core. Also the server-side smoke test that the resolution engines
+ * load + run in the server build: resolveColiseum runs the Showdown engine
+ * (api/_pet-showdown/) and resolveTactical runs the ported _arena-sim.ts.
+ * Determinism + stronger-wins are the invariants both must hold; the offer/swap
+ * logic guards the Sword-x-Staff ladder math.
  */
 
 const pet = (over: Partial<LadderPet> = {}): LadderPet => ({

@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, type WandererQuestSeal } from './_wanderer-quest.js';
+import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, type WandererQuestSeal } from './_wanderer-quest.js';
 import { currentWandererCooldownUntil, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
@@ -85,11 +85,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (cooldownUntil) return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
                 }
 
-                const baseline = num(char[def.metric]);
+                // A SURVEY metric (relicSurveyCount) is zeroed on accept, so progress
+                // only ever counts work done after the errand was taken — otherwise a
+                // well-travelled player would complete it the moment they accepted.
+                // Both the counter and its backing set are server-mirrored fields, so
+                // clearing them here is authoritative.
+                const surveyReset = RESET_ON_ACCEPT_METRICS.has(def.metric);
+                const clearedSurvey: Record<string, unknown> = surveyReset
+                    ? {
+                        [def.metric]: 0,
+                        ...Object.fromEntries((SURVEY_RESET_FIELDS[def.metric] ?? []).map((f) => [f, []])),
+                    }
+                    : {};
+                const baseline = surveyReset ? 0 : num(char[def.metric]);
                 const sealed: WandererQuestSeal = { id: questId, baseline, at: now };
                 await kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
-                let updated: Record<string, unknown> = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
+                let updated: Record<string, unknown> = { ...char, ...clearedSurvey, activeWandererQuest: { id: questId, target: def.target, baseline } };
                 const body: Record<string, unknown> = { ok: true, id: questId, target: def.target, baseline };
                 if (naturalWanderer) {
                     const used = withWandererUseState(updated, wandererId, now, sector);

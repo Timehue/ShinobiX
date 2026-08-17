@@ -196,7 +196,11 @@ async function loadScreen(page: Page, hash: string) {
 }
 
 test("product truth and player focus visual matrix", async ({ page }, testInfo) => {
-    test.setTimeout(60_000);
+    // 12 captured states, several behind lazy routes and a full reload. CI
+    // measured ~86s for this test where a local run takes ~30s, so the old 60s
+    // budget was itself part of the flake: a lazy chunk that arrives late has
+    // to fit inside the test's remaining time, not just its own assertion.
+    test.setTimeout(120_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "single Chromium visual evidence run");
     const runtime = await installRuntime(page);
 
@@ -272,7 +276,14 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await loadScreen(page, "centralHub");
     await page.getByRole("button", { name: /Celestial Tower Endless PvE climb/ }).click();
     await page.getByRole("button", { name: /Battle Towers Curated squad floors/ }).click();
-    await expect(page.locator("h1", { hasText: "Battle Towers" })).toBeVisible();
+    // The towers screen is a LAZY route (`lazyWithRetry` in App.tsx), so this
+    // click starts a dynamic chunk fetch and the heading cannot exist until it
+    // lands. The default 10s assertion timeout is a race against that fetch on
+    // a cold, loaded CI runner — it passes locally and has failed twice on CI,
+    // including the automatic retry, on an element that is present and correct
+    // (BattleTowersLobby.tsx renders it). Waiting for the chunk is the fix; the
+    // assertion itself is unchanged, so a genuinely missing heading still fails.
+    await expect(page.locator("h1", { hasText: "Battle Towers" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByLabel("Live service status")).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/desktop-first|soft-launch|staffed beta/i);
     await capture(page, testInfo, "11-live-towers-no-stale-warning.png");

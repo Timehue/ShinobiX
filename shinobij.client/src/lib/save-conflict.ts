@@ -366,7 +366,17 @@ export function createSaveConflictDraftStore(params: {
         ]);
         if (!merged) throw new Error("The local conflict draft could not be prepared.");
         memory.set(revision.accountKey, merged);
-        if (params.activeAccountKey() === revision.accountKey) params.onVisibleDraft(merged);
+        // ⛔ Capture PROTECTS, it does not ANNOUNCE. Never surface the draft here.
+        //
+        // A capture happens the moment a save is rejected, before recovery has run
+        // and before the payload has ever been compared to the server — its areas
+        // are still the "Unsaved device progress" placeholder. Most conflicts heal
+        // themselves a round-trip later, so surfacing here showed the player a
+        // recovery banner for a divergence that did not survive the next refetch:
+        // it appeared mid-play, then dismissed itself seconds later. Every capture
+        // path is followed by a rehydrate (409 → refetch → applyServerSnapshot;
+        // unload → next boot; restore → applyAuthoritative), and rehydrate
+        // classifies against real authority. Let IT decide what the player sees.
         try { writeSaveConflictRevision(params.storage, revision); } catch (error) { params.reportStorageFailure(error); }
         return merged;
     };
@@ -381,6 +391,17 @@ export function createSaveConflictDraftStore(params: {
         else memory.delete(revision.accountKey);
         params.onVisibleDraft(remaining);
     };
+    /**
+     * Re-classify stored drafts against authority and surface what survives.
+     *
+     * ⛔ `serverSnapshot` must be the SERVER's answer, never the localStorage
+     * preview cache. Classifying a protected draft against that cache compares
+     * the client to its own stale copy — they differ by whatever changed since
+     * the last autosave, so it always "finds" a divergence. The optimistic boot
+     * paint applies the preview through applyServerSnapshot, which is why that
+     * call passes `authoritative: false`: without it the recovery banner flashed
+     * on every refresh and dismissed itself once the real save landed.
+     */
     const rehydrate = async (accountName: string, serverSnapshot?: unknown): Promise<SaveConflictDraft | null> => {
         const accountKey = saveConflictAccountKey(accountName);
         if (serverSnapshot !== undefined) {

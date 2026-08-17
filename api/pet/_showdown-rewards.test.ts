@@ -81,28 +81,54 @@ describe('showdown.ts wires practice as unpaid', () => {
         // The comment this test used to carry said "until a live entry point
         // exists". That entry point now exists, so the assertion moves from
         // "nothing pays" to "exactly one thing pays, and it is the right one".
-        // Exactly TWO seal sites exist, and each is pinned to its entry:
-        //   practice → the literal false
-        //   arena    → `!hollowGate`, i.e. it pays UNLESS the bout is bound to a
-        //              Hollow Gate run, which pays through the run's own
-        //              settlement instead. Paying both would be a double faucet.
+        // Exactly THREE seal sites exist, and each is pinned to its entry:
+        //   practice  → the literal false
+        //   arena     → `!hollowGate`, i.e. it pays UNLESS the bout is bound to a
+        //               Hollow Gate run, which pays through the run's own
+        //               settlement instead. Paying both would be a double faucet.
+        //   encounter → the literal false. An authored encounter (dungeon Rare
+        //               Beast Seal, admin-authored VN pet battle) decides an
+        //               OUTCOME; its rewards belong to the dungeon run's own
+        //               settlement and the event's completion.
         const seals = [...src.matchAll(/rewardEligible: ([^,\n]+)/g)].map((m) => m[1].trim());
-        assert.deepEqual(seals, ['false', '!hollowGate'], 'only these two seal forms may exist, in this order');
+        assert.deepEqual(seals, ['false', '!hollowGate', 'false'], 'only these three seal forms may exist, in this order');
 
         const practiceAt = indexOfOrFail("action === 'start'");
+        // The paid branch is matched on its FULL opening line, not on a bare
+        // `action === 'arena'`: the Hollow Gate admission guard below tests the
+        // same action earlier in the file, so the loose needle would bind
+        // arenaAt to that guard and every ordering assertion here would be
+        // measuring the wrong block.
         const arenaAt = indexOfOrFail("if (action === 'arena') {");
+        const encounterAt = indexOfOrFail("action === 'encounter'");
         const hollowGateRetirement = indexOfOrFail("action === 'arena' && body.hollowGate != null");
         const paidSeal = src.indexOf('rewardEligible: !hollowGate');
         const practiceSeal = src.indexOf('rewardEligible: false');
-        assert.ok(paidSeal > arenaAt, 'the paying seal belongs to the arena entry');
+        const encounterSeal = src.indexOf('rewardEligible: false', arenaAt);
+        assert.ok(paidSeal > arenaAt && paidSeal < encounterAt, 'the paying seal belongs to the arena entry');
         assert.ok(practiceSeal > practiceAt && practiceSeal < arenaAt, 'the practice entry seals itself unpaid');
         assert.ok(hollowGateRetirement < arenaAt, 'new Hollow Gate Showdown admission must fail before the paid arena branch');
+        assert.ok(encounterSeal > encounterAt, 'the authored-encounter entry seals itself unpaid');
+
+        // An authored encounter must never take the opponent from the request —
+        // that is the whole reason it took this long to port. It names WHICH
+        // authored fight it is in; the server rebuilds the opponent from its own
+        // content. A stat, level or kit read off the body here would reopen the
+        // surface the mint-token pattern exists to close.
+        const encounterBlock = src.slice(encounterAt, src.indexOf('const sessionIdRaw', encounterAt));
+        for (const forbidden of ['body.hp', 'body.attack', 'body.defense', 'body.speed', 'body.level', 'body.enemy', 'body.opponent', 'body.tier']) {
+            assert.equal(encounterBlock.includes(forbidden), false, `the authored entry must not read ${forbidden}`);
+        }
+        assert.ok(/buildDungeonSealBeast|buildAuthoredEventBeast/.test(encounterBlock),
+            'its opponent comes from the server-side authored-encounter builders');
+        assert.ok(encounterBlock.includes('dungeonSealRunIssue'),
+            'and a dungeon seal is gated on the player\'s own active run');
 
         // `hollowGate` must be SERVER-derived — built only after the run token
         // and combat binding validate — never lifted from the body. A client
         // can therefore make itself ineligible (harmless) but can never argue
         // itself INTO a payout.
-        const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
+        const arenaBlock = src.slice(arenaAt, encounterAt);
         assert.ok(/hollowGate = \{ runId, petIds/.test(arenaBlock), 'the binding is constructed server-side');
         assert.ok(arenaBlock.includes('validateHollowGatePetClaim'), 'and only after the run claim validates');
     });
@@ -111,11 +137,34 @@ describe('showdown.ts wires practice as unpaid', () => {
         // The payout rides on sealedOpponentLevel, derived from the opponent the
         // SERVER builds. A body-supplied tier would let a player dial the
         // opposition down and farm the faucet at full price.
+        // Same full-line needle as above, and bounded at the encounter entry
+        // rather than at `const sessionIdRaw` — that marker now sits PAST the
+        // encounter branch, so the looser bound would sweep the authored entry
+        // into the arena block and test the wrong code.
         const arenaAt = indexOfOrFail("if (action === 'arena') {");
-        const arenaBlock = src.slice(arenaAt, src.indexOf('const sessionIdRaw', arenaAt));
+        const arenaBlock = src.slice(arenaAt, indexOfOrFail("action === 'encounter'"));
         assert.equal(/body\.tier/.test(arenaBlock), false, 'the arena entry must not read a tier from the body');
         assert.ok(/const tier: ShowdownTier = avgLevel/.test(arenaBlock), 'its tier is derived from the team brought');
         assert.ok(arenaBlock.includes('DAILY_ARENA_WIN_CAP'), 'it checks the daily cap BEFORE the fight, not only at settlement');
+    });
+
+    it('confines the sparring flag to the unpaid practice entry', () => {
+        // Sparring lets the CALLER ask for a rolled tier and a level-mirrored AI
+        // team. That is safe only where it lives: the practice entry, which seals
+        // itself unpaid whatever the body says. On the arena entry the same flag
+        // would be a difficulty dial on a faucet — the exact thing `body.tier` is
+        // already barred from doing there.
+        const practiceAt = indexOfOrFail("action === 'start'");
+        // Full opening line, as above: the Hollow Gate admission guard tests
+        // `action === 'arena'` BEFORE the practice entry, so the loose needle
+        // would put arenaAt ahead of practiceAt and make the range below
+        // unsatisfiable for every reader.
+        const arenaAt = indexOfOrFail("if (action === 'arena') {");
+        const sparringReads = [...src.matchAll(/body\.sparring/g)].map((m) => m.index ?? -1);
+        assert.ok(sparringReads.length > 0, 'the practice entry reads the sparring flag');
+        for (const at of sparringReads) {
+            assert.ok(at > practiceAt && at < arenaAt, 'body.sparring may only be read inside the practice entry');
+        }
     });
 
     it('never takes eligibility from the request body', () => {
@@ -124,6 +173,25 @@ describe('showdown.ts wires practice as unpaid', () => {
         assert.equal(/body\.rewardEligible/.test(src), false, 'eligibility must never be read from the body');
         assert.equal(/rewardEligible\s*[:=]\s*(?!true\b|false\b)[A-Za-z_$]/.test(src), false,
             'eligibility must be a literal at each seal site, not a variable a request can steer');
+    });
+
+    it('makes a forfeit a CONCESSION, so a bound encounter still gets an outcome', () => {
+        // A forfeit used to delete the session and answer ok. Harmless while
+        // every bout was practice; the moment one could be BOUND to a Hollow
+        // Gate encounter it became a way to walk out of a fight the run was
+        // waiting on — the receipt is minted by the finishing turn, so a deleted
+        // session left the Gate sealed with no outcome to settle and no path
+        // back to one.
+        const forfeitAt = indexOfOrFail("action === 'forfeit'");
+        const branch = src.slice(forfeitAt, indexOfOrFail("action === 'turn'"));
+        assert.ok(/session\.finished = true/.test(branch), 'a forfeit must DECIDE the session');
+        assert.ok(/session\.outcome = 'loss'/.test(branch), 'and decide it as a loss');
+        assert.ok(branch.includes('mintHollowGatePetReceipt'),
+            'a bound bout must still mint the receipt its run settles with');
+        // Conceding must never be a way to be paid. settleShowdownWin is only
+        // reached from the finishing turn, and only on a win.
+        assert.equal(branch.includes('settleShowdownWin'), false,
+            'a concession must not reach the payout path');
     });
 
     it('short-circuits an ineligible win BEFORE taking the save lock', () => {

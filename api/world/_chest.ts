@@ -1,5 +1,5 @@
 import { gainXp } from '../_xp-engine.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 
 export const DAILY_ANCIENT_CHEST_LIMIT = 23;
@@ -31,6 +31,106 @@ const RARE_GEAR = [
     'ashen-leaf-saber', 'riverbone-spear', 'iron-fang-knuckles', 'blue-thread-dagger',
 ];
 
+/*
+ * Wild relics — the open-world chase drop.
+ *
+ * The `relic` slot's other occupants are handed out by the story (one per
+ * Reckoning) or sold for 600 ryo, so they are the FLOOR of the pool. These are
+ * the ceiling, and they have exactly TWO faucets — keep them out of every shop
+ * and every other reward table:
+ *   1. Ancient Chests, BIOME-LOCKED (below) — seven of the eight.
+ *   2. The Weekly Boss — `relic-hollow-gate-cinder` only, top-10 cohort, 8% on a
+ *      stable per-(week,boss,player) hash. See api/weekly-boss.ts.
+ *
+ * A duplicate pays DUPLICATE_RELIC_FATE_SHARDS instead of vanishing: these are
+ * unique gear, so applyAncientChestLoot would otherwise silently swallow the
+ * rarest roll in the game.
+ *
+ * SAFE BY CONSTRUCTION: a relic's combat power is stat bonuses (clamped by the
+ * per-rank stat cap, so it cannot lift a capped fighter) plus PvE-ONLY
+ * percentages that the PvP engine never reads at all. RNG buys speed toward the
+ * shared ceiling in PvE, never a higher PvP ceiling. Do NOT add
+ * damagePercent/absorb/reflect/lifesteal/shield to a relic — those apply in PvP
+ * and sit OUTSIDE the stat cap, so luck would raise real PvP power.
+ */
+/**
+ * Per-relic chance, per chest. Deliberately tiny — these are the game's rarest
+ * drop. At the 23-chest daily cap, farming a single-relic biome is
+ * 1-(1-0.0015)^23 ≈ 3.4% a day, so a specific relic averages roughly a month of
+ * focused hunting. Tune HERE; everything else derives from it.
+ */
+export const WILD_RELIC_DROP_CHANCE = 0.0015;
+
+/**
+ * BIOME-LOCKED sourcing: a relic drops only where its lore says it came from, so
+ * the world tells you where to hunt and a player can PURSUE one instead of
+ * praying at a slot machine. Sector→biome comes from the shared world registry,
+ * and rollAncientChestLoot already receives the sector, so this costs no new
+ * plumbing.
+ *
+ * `relic-hollow-gate-cinder` is deliberately ABSENT — it fell out of a rift, not
+ * out of the ground, and comes off the Weekly Boss instead (api/weekly-boss.ts).
+ * Central carries three because it is half the map (30 of 66 wild sectors); each
+ * still rolls at exactly WILD_RELIC_DROP_CHANCE, so no relic is rarer than
+ * another by accident of geography.
+ */
+const RELICS_BY_BIOME: Readonly<Record<string, readonly string[]>> = {
+    volcano: ['relic-ashfall-reliquary'],
+    forest: ['relic-rootbound-effigy'],
+    snow: ['relic-rimeglass-lens'],
+    shadow: ['relic-umbral-knot'],
+    central: ['relic-stormglass-pendulum', 'relic-gravewatch-fang', 'relic-drownstone-compass'],
+};
+
+/** Every relic a chest can yield, for tests and tooling. */
+export const CHEST_RELIC_IDS: readonly string[] = Object.values(RELICS_BY_BIOME).flat();
+
+/**
+ * Payout for rolling a relic you already own. Relics are unique gear, so a second
+ * copy is worthless — but the roll is the rarest event in the game and must never
+ * pay nothing. 15 Fate Shards is a meaningful consolation without becoming a
+ * reason to WANT the duplicate.
+ */
+export const DUPLICATE_RELIC_FATE_SHARDS = 15;
+
+/**
+ * The eight CHASE relics — the ones a duplicate should compensate for. Kept as an
+ * explicit list rather than an `id.startsWith('relic-')` convention, which would
+ * silently miss a relic named differently and silently include anything that ever
+ * borrowed the prefix.
+ *
+ * Deliberately NOT every relic-slot item: `chakra-ring` sits in the chest's
+ * ordinary RARE_GEAR pool, so a duplicate of it should behave like any other
+ * duplicate gear (swallowed) rather than paying premium currency.
+ */
+export const WILD_RELIC_IDS: readonly string[] = [...CHEST_RELIC_IDS, 'relic-hollow-gate-cinder'];
+
+function isRelicId(id: string): boolean {
+    return WILD_RELIC_IDS.includes(id);
+}
+
+/**
+ * The relic band for a sector: width scales with how many relics that biome
+ * hosts, so each individual relic keeps the same per-chest chance.
+ */
+export function relicBandForSector(sector: number): { width: number; pool: readonly string[] } {
+    const biome = String(sectorBiomeOf(sector) ?? '');
+    const pool = RELICS_BY_BIOME[biome] ?? [];
+    return { width: pool.length * WILD_RELIC_DROP_CHANCE, pool };
+}
+
+/**
+ * Pick the relic from the winning roll's POSITION inside the band rather than
+ * drawing again — that keeps the seeded sequence identical for every other
+ * outcome, so this band changed no existing chest result.
+ */
+export function wildRelicForRoll(roll: number, sector: number): string | null {
+    const { width, pool } = relicBandForSector(sector);
+    if (pool.length === 0 || roll >= width) return null;
+    const t = Math.max(0, Math.min(0.999999999, roll / width));
+    return pool[Math.min(pool.length - 1, Math.floor(t * pool.length))];
+}
+
 export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): AncientChestLoot | null {
     const sector = Math.floor(Number(sectorRaw));
     // Shared world registry, not a literal — see the note in _explore.ts.
@@ -42,7 +142,14 @@ export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): 
     const loot: AncientChestLoot = { xp: 0, ryo: 40 + sector * 2 };
     if (unit() < 0.5) loot.ryo = (loot.ryo ?? 0) + 100 + Math.floor(unit() * 401);
     const roll = unit();
-    if (roll < 0.2) loot.itemId = TREATS[Math.floor(unit() * TREATS.length)];
+    // The relic band is carved off the BOTTOM of the treats band, the most
+    // abundant and least valuable slot, so nothing meaningful lost rate. Its width
+    // depends on the sector's biome (see relicBandForSector), and a biome with no
+    // relic simply has a zero-width band — that sector's chests behave exactly as
+    // they did before relics existed.
+    const relicId = wildRelicForRoll(roll, sector);
+    if (relicId) loot.itemId = relicId;
+    else if (roll < 0.2) loot.itemId = TREATS[Math.floor(unit() * TREATS.length)];
     else if (roll < 0.55) loot.itemId = COMMON_GEAR[Math.floor(unit() * COMMON_GEAR.length)];
     else if (roll < 0.65) loot.itemId = RARE_GEAR[Math.floor(unit() * RARE_GEAR.length)];
     else if (roll < 0.83) loot.cardId = COMMON_CARDS[Math.floor(unit() * COMMON_CARDS.length)];
@@ -83,6 +190,21 @@ export function settleAncientChestLoot(character: Record<string, unknown>, rolle
     const tileCards = Array.isArray(character.tileCards)
         ? (character.tileCards as unknown[]).filter((id): id is string => typeof id === 'string')
         : [];
+    // A DUPLICATE RELIC would otherwise be swallowed whole: applyAncientChestLoot
+    // only appends a non-stackable id when the player does not already own it, so
+    // landing the game's rarest drop twice used to pay literally nothing. Convert
+    // it, same as the over-cap card below, so the roll is never wasted.
+    const inventory = Array.isArray(character.inventory)
+        ? (character.inventory as unknown[]).filter((id): id is string => typeof id === 'string')
+        : [];
+    if (typeof rolled.itemId === 'string' && isRelicId(rolled.itemId) && inventory.includes(rolled.itemId)) {
+        const loot: AncientChestLoot = {
+            ...rolled,
+            itemId: undefined,
+            fateShards: (rolled.fateShards ?? 0) + DUPLICATE_RELIC_FATE_SHARDS,
+        };
+        return { character: applyAncientChestLoot(character, loot), loot };
+    }
     const addsUniqueCard = typeof rolled.cardId === 'string' && !tileCards.includes(rolled.cardId);
     if (!addsUniqueCard || canAppendPackableChronicleCards(tileCards, 1)) {
         return { character: applyAncientChestLoot(character, rolled), loot: rolled };

@@ -17,14 +17,25 @@ const petLadder = source("../screens/PetLadder.tsx");
 test("outgoing and public Arena pet challenges consume entitlement-projected pets", () => {
     assert.match(arena, /const combatEligiblePets = activeCarriedPets<Pet>\(character\)/);
 
+    // Upper bound stays `startTournament`: this Arena extracted `declineChallenge`
+    // out to the App along with challenge acceptance, so main's needle for it would
+    // silently return -1 and slice nearly the whole file.
     const challenge = arena.slice(arena.indexOf("async function challengePlayer"), arena.indexOf("function startTournament"));
+    // The in-fight summon pick moved to the server-driven hosts with the rest of
+    // the reducer; what Arena still picks a pet FOR is the outgoing challenge.
+    assert.match(challenge, /combatEligiblePets\.find\(\(?pet\)? => pet\.id === character\.activePetId/);
     assert.match(challenge, /availablePetBattleCount\(combatEligiblePets\)/);
     assert.match(challenge, /publicEligiblePets\(knownPetTarget\)/);
     assert.doesNotMatch(challenge, /knownPetTarget\.character\.pets/);
 
     assert.match(petArena, /const combatEligiblePets = activeCarriedPets<Pet>\(character\)/);
     assert.match(petArena, /publicEligiblePets\(targetRecord\)/);
-    assert.match(petArena, /publicEligiblePets\(player\)\.filter/);
+    // The roster-wide opponent PET list (`publicEligiblePets(player).filter`)
+    // is gone: the Pet Arena no longer offers a pick-a-pet-to-fight list of its
+    // own, so there is nothing left to project. What remains is the challenge
+    // target check above, which is still the entitlement projection and not the
+    // raw save.
+    assert.doesNotMatch(petArena, /player\.pets/);
 });
 
 test("shared pet combat entry points consume the active carried projection", () => {

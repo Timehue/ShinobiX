@@ -12,6 +12,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { hydrateCharacterFromSave } from './session.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
+import { ITEM_CATALOG } from './_item-catalog.js';
 import { buildAdminItemCatalog } from '../_admin-item-catalog.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 
@@ -144,5 +145,27 @@ describe('equipped-item resolution against the admin catalog', () => {
         assert.ok(mult.itemReflectPct > 2, 'authored value is not cut to the built-in baseline');
         assert.ok(mult.itemReflectPct <= 500, 'derived value is still a finite, bounded number');
         assert.ok(Number.isFinite(mult.itemDamagePct));
+    });
+});
+
+/*
+ * Chakra and stamina pools are derived from LEVEL alone (maxChakraForLevel /
+ * maxStaminaForLevel in shinobij.client/src/lib/stats.ts). Nothing — client or
+ * server — ever adds an equipped item's maxChakra/maxStamina bonus to a pool, so
+ * such a bonus is inert: it showed up in the inventory popup as a stat the player
+ * was promised and never received. Five built-ins carried one (chakra-ring and
+ * four story-Reckoning drops); they were stripped 2026-08-16 by owner ruling.
+ * This guard stops a new one being authored into the built-in catalog.
+ */
+describe('no built-in item advertises an inert vitals bonus', () => {
+    it('grants no maxHp / maxChakra / maxStamina from the built-in catalog', () => {
+        const offenders: string[] = [];
+        for (const [id, item] of Object.entries(ITEM_CATALOG as Record<string, Record<string, unknown>>)) {
+            const bonuses = (item.bonuses ?? {}) as Record<string, unknown>;
+            for (const field of ['maxHp', 'maxChakra', 'maxStamina']) {
+                if (Number(bonuses[field] ?? 0) > 0) offenders.push(`${id}.${field}`);
+            }
+        }
+        assert.deepEqual(offenders, [], `these bonuses are never applied to any pool: ${offenders.join(', ')}`);
     });
 });

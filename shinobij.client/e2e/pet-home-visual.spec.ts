@@ -259,13 +259,13 @@ async function openHome(page: Page) {
     // The SPA intentionally applies bookmarked hashes during boot rather than
     // reacting to hash-only changes after mount, so force the normal restore path.
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
     await expect(page.locator(".session-restore-overlay")).toHaveCount(0);
 }
 
 async function reloadHome(page: Page) {
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
 }
 
 async function shot(page: Page, testInfo: TestInfo, name: string) {
@@ -286,11 +286,11 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     const state = await installPetHomeApi(page);
 
     await page.goto("/#/village", { waitUntil: "networkidle" });
-    const homeFacility = page.getByRole("button", { name: "Enter Home" });
+    const homeFacility = page.getByRole("button", { name: "Enter Pet Home" });
     await expect(homeFacility).toBeVisible();
     await shot(page, testInfo, "01-village-home-facility");
     await homeFacility.click();
-    await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
     await expect(page.locator(".pet-collection-card")).toHaveCount(4);
     await shot(page, testInfo, "02-desktop-home-collection");
 

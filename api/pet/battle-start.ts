@@ -40,7 +40,13 @@ import {
     parseDungeonPetResultReceipt,
     type DungeonPetBattleBinding,
 } from './_dungeon-battle.js';
+// The sector wanderer runs as its own sealed session rather than through the
+// generic opponent flow: it owns a durable use-cooldown proof, the sector move,
+// and a resume that re-serves the first verdict. `_wanderer-duel.ts`'s inline
+// `buildWandererBeast` is the simpler shape this supersedes — see the early
+// return in the handler.
 import { startNaturalWandererPetSession } from './_wanderer-session.js';
+import { loadPvpPetDuel, pvpPetDuelOutcomeFor, pvpSettlementSnapshot, resolvePvpPetDuel } from './_pvp-duel.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -95,8 +101,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         const opponentName = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
-        const mode = body.mode === '2v2' ? '2v2' : '1v1';
-        const playerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
+        // A player-challenge duel takes its shape from the fight sealed when the
+        // responder accepted, never from the caller: format, teams, seed and
+        // verdict were all fixed there, for both participants at once.
+        const pvpChallengeId = typeof body.pvpChallengeId === 'string'
+            ? body.pvpChallengeId.trim().slice(0, 80)
+            : '';
+        const bodyMode = body.mode === '2v2' ? '2v2' : '1v1';
+        // (Nothing parses `body.wanderer` here. A sector wanderer duel is claimed
+        // by the sealed wanderer session a few lines below, which validates the
+        // encounter id AND the sector against the caller's own save before it
+        // resolves anything.)
+        const requestedPlayerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
+        // `let`, not `const`: the Dungeon Rare Beast branch below replaces these
+        // with the ids of the beast the SERVER built, so the token seals what was
+        // actually fought rather than what the caller named.
         let opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         // The battle receipt owns both identifiers. A caller cannot search for a
         // favourable deterministic seed and then ask the server to certify it.
@@ -113,6 +132,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Natural sector pet wanderers are a distinct server-owned journey.
         // Isolate it before any generic opponent/HG/Dungeon branch can infer a
         // different authority from overlapping request fields.
+        //
+        // This returns before any generic opponent handling below ever runs, and
+        // deliberately so. A simpler inline version of this duel is possible —
+        // pick a template by the caller's level, scale it, resolve one bout — but
+        // it stamps none of the durable state a wanderer owes the world: the
+        // per-encounter use cooldown, the sector move, the save-version echo, and
+        // a resume that re-serves the FIRST verdict instead of restaging the
+        // fight. See api/pet/wanderer-authority.test.ts for the whole contract.
         if (body.wanderer !== undefined) {
             const started = await startNaturalWandererPetSession(playerName, body as Record<string, unknown>);
             if (!started.ok) return res.status(started.status).json({ error: started.error });
@@ -134,19 +161,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 _saveVersion: started._saveVersion,
             });
         }
-        let seed = identity.admin && Number.isSafeInteger(Number(body.seed))
-            ? Number(body.seed)
-            : randomInt(1, 0x7fffffff);
+        /*
+         * THE SEALED PLAYER DUEL, if this is one.
+         *
+         * Both participants call this endpoint for their own reward token, and
+         * each used to be handed its own `randomInt` seed and its own sealed
+         * outcome — two unrelated fights for one challenge, either of which
+         * could name its caller the winner. The duel is now sealed once against
+         * the challenge (api/pet/_pvp-duel.ts), so both calls read the same
+         * teams, the same seed and the same verdict, and the script returned
+         * below is the fight both of them watch.
+         */
+        const pvpDuel = pvpChallengeId ? await loadPvpPetDuel(pvpChallengeId) : null;
+        if (pvpChallengeId && !pvpDuel) {
+            return res.status(409).json({ error: 'That pet challenge has no sealed duel. It may have expired.' });
+        }
+        const pvpResolution = pvpDuel ? resolvePvpPetDuel(pvpDuel) : null;
+        const pvpOutcome = pvpDuel && pvpResolution
+            ? pvpPetDuelOutcomeFor(pvpDuel, playerName, pvpResolution.winnerName)
+            : null;
+        if (pvpDuel && !pvpOutcome) {
+            return res.status(403).json({ error: 'That pet duel does not name you.' });
+        }
+        const mode = pvpDuel ? pvpDuel.format : bodyMode;
+        // `let`: the Hollow Gate publish-before-pointer branch below adopts an
+        // already-published seal's seed rather than overwriting it with a freshly
+        // rolled one, which is what stops outcome shopping on a retry.
+        let seed = pvpDuel
+            ? pvpDuel.seed
+            : identity.admin && Number.isSafeInteger(Number(body.seed))
+                ? Number(body.seed)
+                : randomInt(1, 0x7fffffff);
+        // The caller's own side of the sealed duel — the pets it agreed to
+        // field, not the ones it asks to field now.
+        const pvpSelfIsA = pvpDuel ? pvpDuel.a.toLowerCase() === playerName.toLowerCase() : false;
+        const pvpSelfPets = pvpDuel ? (pvpSelfIsA ? pvpDuel.aPets : pvpDuel.bPets) : null;
+        const pvpFoePets = pvpDuel ? (pvpSelfIsA ? pvpDuel.bPets : pvpDuel.aPets) : null;
+        const pvpFoeName = pvpDuel ? (pvpSelfIsA ? pvpDuel.b : pvpDuel.a) : '';
+        const playerPetIds = pvpSelfPets ? pvpSelfPets.map((pet) => String(pet.id)) : requestedPlayerPetIds;
 
         const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const myChar = mySave?.character as Record<string, unknown> | undefined;
         const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {});
-        const playerPets = playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
+        const playerPets = pvpSelfPets
+            ? pvpSelfPets
+            : playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
         const expectedTeamSize = mode === '2v2' ? 2 : 1;
         if (playerPets.length !== expectedTeamSize || new Set(playerPets.map((pet) => String(pet.id))).size !== expectedTeamSize) {
             return res.status(409).json({ error: `A complete stored ${mode} player team is required.` });
         }
-        if (playerPets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
+        // A sealed player duel skips this: eligibility was checked for BOTH
+        // sides when the responder accepted, and the fight was decided in the
+        // same breath. Refusing the token now would not un-fight it — it would
+        // only strand one participant with a result they cannot settle while
+        // their opponent settles normally.
+        if (!pvpDuel && playerPets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
             return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
         }
         let opponentPets: Pet[] = [];
@@ -163,7 +232,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (hollowGateBody && dungeonBody) {
             return res.status(400).json({ error: 'A pet battle cannot carry both Dungeon and Hollow Gate authority.' });
         }
-        if (dungeonBody) {
+        // A sealed player duel is checked FIRST: its teams were fixed at accept,
+        // so it must not be re-derived from a parent-mode body the caller also
+        // happened to send.
+        if (pvpFoePets) {
+            // Sealed at accept from the opponent's own save. Not re-read here:
+            // the fight this token settles was decided against these exact
+            // pets, so a later roster edit must not change what was fought.
+            opponentPets = pvpFoePets;
+            const foeSave = await kv.get<Record<string, unknown>>(`save:${pvpFoeName.toLowerCase()}`);
+            const foeChar = foeSave?.character as Record<string, unknown> | undefined;
+            if (foeChar) realOpponentLevel = clampLevel(Number(foeChar.level ?? 1));
+        } else if (dungeonBody) {
             if (mode !== '1v1' || playerPets.length !== 1) {
                 return res.status(400).json({ error: 'The Dungeon Rare Beast seal requires one carried pet.' });
             }
@@ -286,6 +366,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 error: 'The pick-your-opponent Pet Coliseum is retired. Enter the paid Showdown arena instead.',
             });
         }
+        // No generic `opponentPets = opponentPetIds.map(SERVER_ARENA_PETS)` fallback
+        // follows. Resolving a caller-named roster id into a live opponent is
+        // exactly the pick-your-opponent admission the 410 above retires, and the
+        // recovery branch there already covers the one case that still needs it:
+        // redeeming a receipt minted before the cutover. New paid admission goes
+        // through Showdown's `arena` action, which derives the tier itself.
         if (opponentPets.length !== expectedTeamSize || new Set(opponentPets.map((pet) => String(pet.id))).size !== expectedTeamSize) {
             return res.status(409).json({ error: `A complete server-known ${mode} opponent team is required.` });
         }
@@ -309,6 +395,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // fight. So it is also the only one whose reward can come from replaying
         // the player's inputs. Seal everything that replay needs; the client
         // restates none of it when it reports the result.
+        //
+        // A wanderer duel is excluded: it resolves on Showdown below, so there is
+        // no local fight to replay and nothing for these params to describe.
+        //
+        // With the wanderer ported, NOTHING IN THE APP produces a casualPveSeal
+        // any more — the sealed-params branch below, and the legacy sims it feeds,
+        // are reachable only by a caller naming a SERVER_ARENA_PETS id directly.
+        // They are kept rather than deleted for two reasons: battle-result must
+        // still settle tokens minted before this deploy (15-minute TTL), and
+        // `_duel-replay.ts` is still the live-PvP lockstep path's replay. Both go
+        // when live PvP ports.
+        // Gated on `isAiOpponent` alone. A wanderer duel never reaches this line
+        // — it is answered by the sealed session and returned far above — so an
+        // extra wanderer term here could only ever read as true, while implying
+        // a second wanderer path through this function that does not exist.
         const sealedParams: SealedDuelParams | null = isAiOpponent ? {
             mode,
             seed,
@@ -333,7 +434,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // empty log reproduces the uncommanded AI fight exactly), so the sealed
         // value finally agrees with the fight on screen instead of coming from
         // the retired pet-duel-sim engine. Non-PvE casual duels are untouched.
-        const result = casualPveSeal
+        /*
+         * There is deliberately no wanderer branch in this chain. A sector
+         * wanderer duel is resolved by the sealed wanderer session and returned
+         * at the top of this handler, together with the cooldown and relocation
+         * it writes — it never falls through to here. A second resolution at
+         * this point would decide the same encounter a second way, which is the
+         * exact class of split this endpoint has been closing.
+         */
+        const result = pvpOutcome
+            // Already decided, on Showdown, for both participants at once. The
+            // legacy sims below never run for a player challenge again.
+            ? pvpOutcome
+            : casualPveSeal
             ? replayCasualPetDuel(casualPveSeal.playerPets, casualPveSeal.opponentPets, casualPveSeal.params, []).outcome
             : mode === '2v2'
                 ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
@@ -356,6 +469,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             opponentPetIds,
             ...(hollowGate ? { sealedOpponentPets: opponentPets, hollowGate } : {}),
             ...(dungeon ? { dungeon } : {}),
+            // The pets this token settles for, with the consumable slot cleared —
+            // the sealed duel does not fire consumables (a fight decided at accept
+            // has no settlement to charge one against), so battle-result must not
+            // spend them either. An empty consumable snapshot makes its spend step
+            // a deliberate no-op.
+            ...(pvpChallengeId && pvpSelfPets
+                ? { pvpChallengeId, pvpParticipatingPets: pvpSettlementSnapshot(pvpSelfPets) }
+                : {}),
             settlementPolicy: dungeon || hollowGate ? 'parent-mode' : 'casual-no-progression',
             sealedParams,
             ...(casualPveSeal ? { casualPveSeal } : {}),
@@ -501,6 +622,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     seed: active.seed,
                     resumed: true,
                     ...(dungeon ? { dungeon: true } : {}),
+                    // A refresh mid-duel re-derives the same script from the
+                    // same seal rather than restaging the fight.
+                    ...(pvpResolution && pvpOutcome
+                        ? {
+                            showdownScript: pvpResolution.script,
+                            winnerName: pvpResolution.winnerName,
+                            outcome: pvpOutcome,
+                        }
+                        : {}),
                     ...(active.casualPveSeal
                         ? {
                             playerPets: active.casualPveSeal.playerPets,
@@ -513,6 +643,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (ownsPublishedSeal) await kv.del(tokenKey).catch(() => undefined);
             return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
         }
+        // (No second `kv.set` of the battle token here. The seal is written once,
+        // above, through `tokenData` — which carries the same pvpChallengeId /
+        // pvpParticipatingPets fields plus `settlementPolicy` and the Dungeon
+        // binding, and which publishes a Hollow Gate seal with `nx` BEFORE its
+        // pointer. A second unconditional write at this point would overwrite an
+        // already-published Gate seal with a freshly rolled one, reopening the
+        // outcome shopping that protocol exists to close.)
 
         if (!await hollowGatePublicationIsValid(token)) {
             return res.status(409).json({ error: 'The Hollow Gate encounter ended before its pet battle became active.' });
@@ -523,6 +660,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reportKey,
             seed,
             ...(dungeon ? { dungeon: true } : {}),
+            // The fight itself, for a player challenge. Both participants get
+            // this same script from their own call, so the duel they watch is
+            // the duel that was rated — there is nothing left for the client to
+            // simulate, and deliberately no local fallback if it is absent.
+            //
+            // `outcome` is the caller's OWN side of the verdict, decided here.
+            // The client is not asked to work it out by matching `winnerName`
+            // against its account name: account names are normalised
+            // (`safeName`) before they reach a seal, so a display name that
+            // normalises differently would compare unequal and quietly report
+            // every duel as a loss. `winnerName` is still returned, for display.
+            ...(pvpResolution && pvpOutcome
+                ? {
+                    showdownScript: pvpResolution.script,
+                    winnerName: pvpResolution.winnerName,
+                    outcome: pvpOutcome,
+                }
+                : {}),
             ...(casualPveSeal
                 ? {
                     playerPets: casualPveSeal.playerPets,

@@ -11,6 +11,7 @@
  * the emissary matching the player's Legacy category becomes their trial-giver:
  * an in-world face for the trial endpoint, with guidance and lore.
  */
+import type { WandererQuestMetric } from "./wanderers";
 import type { Wanderer } from "./wanderers";
 import { wandererLevelFor } from "./wanderers";
 
@@ -183,11 +184,20 @@ export function emissaryByQuestId(id: string): EmissaryDef | null {
     return null;
 }
 
-export const EMISSARY_METRIC_LABELS: Record<EmissaryQuestDef["metric"], string> = {
+/**
+ * Progress-line nouns. Keyed by the WANDERER metric union (a superset of the
+ * emissary one) because the wanderer dialog resolves both catalogs through this
+ * single map — typing it to the narrower union let a new wanderer metric compile
+ * while rendering "undefined" to the player.
+ */
+export const EMISSARY_METRIC_LABELS: Record<WandererQuestMetric, string> = {
     totalAiKills: "foes defeated",
     totalPetWins: "pet duels won",
     cardClashWins: "card rounds won",
     totalTilesExplored: "tiles scouted",
+    // Not an emissary errand, but the wanderer dialog resolves BOTH catalogs
+    // through this map — a missing entry renders "Progress: 2 / 5 undefined".
+    relicSurveyCount: "countries walked",
 };
 
 /** Stable wanderer-id prefix the WorldMap dialog keys off. */

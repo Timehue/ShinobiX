@@ -199,7 +199,7 @@ describe("save-conflict drafts", () => {
         assert.deepEqual(detectSaveConflictAreas(local, server), ["Save timing only"]);
     });
 
-    it("keeps a recoverable in-memory draft when browser storage fails", () => {
+    it("keeps a recoverable in-memory draft when browser storage fails", async () => {
         const storage = new MemoryStorage();
         storage.setItem = () => { throw new Error("quota unavailable"); };
         const visible: Array<string[] | null> = [];
@@ -211,12 +211,56 @@ describe("save-conflict drafts", () => {
             reportStorageFailure: (error) => failures.push(error),
         });
 
-        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 } });
+        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
         assert.equal(captured.revisions.length, 1);
         assert.equal(failures.length, 1, "the storage failure remains observable");
         assert.equal(storage.length, 0);
         assert.deepEqual(store.load("Kaya")?.revisions.map((revision) => revision.id), [captured.revisions[0].id]);
+        // Capture is silent by contract, so prove recoverability through the path
+        // the player actually reaches it by: classification against authority.
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 9 });
         assert.deepEqual(visible.at(-1), [captured.revisions[0].id], "the active account can still restore from memory");
+    });
+
+    it("captures silently — a protected draft is never shown before it is classified", async () => {
+        // The banner used to appear the instant a save was rejected, before
+        // recovery ran and before the payload had been compared to the server.
+        // Most conflicts heal a round-trip later, so the player saw a recovery
+        // banner mid-play that dismissed itself seconds afterwards.
+        const storage = new MemoryStorage();
+        const visible: Array<number | null> = [];
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => saveConflictAccountKey("Kaya"),
+            onVisibleDraft: (draft) => visible.push(draft?.revisions.length ?? null),
+            reportStorageFailure: assert.fail,
+        });
+
+        const captured = store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        assert.equal(captured.revisions.length, 1, "the draft is still protected");
+        assert.equal(storage.length, 1, "and still written to storage");
+        assert.deepEqual(visible, [], "but nothing is shown to the player yet");
+
+        // A divergence that survives classification DOES surface.
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 9 });
+        assert.deepEqual(visible, [1], "a real, still-unresolved divergence is announced");
+    });
+
+    it("never announces a conflict that recovery resolved", async () => {
+        const storage = new MemoryStorage();
+        const visible: Array<number | null> = [];
+        const store = createSaveConflictDraftStore({
+            storage,
+            activeAccountKey: () => saveConflictAccountKey("Kaya"),
+            onVisibleDraft: (draft) => visible.push(draft?.revisions.length ?? null),
+            reportStorageFailure: assert.fail,
+        });
+
+        store.capture("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        // The refetch lands and the server already has everything the draft held.
+        await store.rehydrate("Kaya", { character: { name: "Kaya", level: 12 }, currentSector: 20 });
+        assert.deepEqual(visible, [null], "the player is never shown a self-healing conflict");
+        assert.equal(storage.length, 0, "and the resolved guard is cleaned up");
     });
 
     it("rehydrates against authority and removes timing-only guards", async () => {
@@ -250,8 +294,6 @@ describe("save-conflict App and accessibility contracts", () => {
     const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     const persistenceSource = readFileSync(new URL("./save-persistence.ts", import.meta.url), "utf8");
     const unloadSource = readFileSync(new URL("./save-unload.ts", import.meta.url), "utf8");
-    const bannerSource = readFileSync(new URL("../components/SaveConflictBanner.tsx", import.meta.url), "utf8");
-    const bannerCss = readFileSync(new URL("../styles/save-conflict-banner.css", import.meta.url), "utf8");
     const petArenaSource = readFileSync(new URL("../screens/PetArena.tsx", import.meta.url), "utf8");
     const cardHallSource = readFileSync(new URL("../screens/CardHall.tsx", import.meta.url), "utf8");
 
@@ -282,23 +324,12 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(unloadSource, /params\.discardRevision\(guard\)/);
     });
 
-    it("keeps restore server-authoritative and retains the draft on a second 409", () => {
-        const restoreStart = appSource.indexOf("async function restoreLocalConflictDraft");
-        const restore = appSource.slice(restoreStart, appSource.indexOf("\n    useEffect(() => {", restoreStart));
-        assert.ok(restore.indexOf("await gameConfirm") < restore.indexOf("beginBlockingRestore()"));
-        assert.ok(restore.indexOf("beginBlockingRestore()") < restore.indexOf("restoreSaveConflictRevision({"));
-        assert.match(restore, /visibleDraft, sessionEpoch: restoreSessionEpoch/);
-        assert.match(restore, /captureConflict: captureSaveConflictDraft, applySnapshot: applyServerSnapshot/);
-        assert.match(restore, /discardRevision: discardSaveConflictRevision/);
-    });
-
-    it("runs restore through the account-scoped FIFO instead of an independent save POST", () => {
-        const restoreStart = appSource.indexOf("async function restoreLocalConflictDraft");
-        const restore = appSource.slice(restoreStart, appSource.indexOf("\n    useEffect(() => {", restoreStart));
-        assert.match(restore, /runExclusive: savePersistenceRef\.current!\.runExclusive/);
-        assert.match(restore, /isCurrentSession: isCurrentSaveSession/);
-        assert.match(restore, /loadDraft: loadConflictDraftForAccount/);
-    });
+    // The player-facing recovery banner was removed (it fired on ordinary
+    // unsaved progress, which is the normal state between autosaves). The
+    // restore/download ACTIONS went with it; capture, rehydrate and the unload
+    // guard below still run, silently. lib/save-conflict-restore.ts is retained
+    // and still covered by its own suite, in case a deliberate, non-interrupting
+    // recovery entry point is ever wanted.
 
     it("protects the exact latest revision on unload even while autosave is in flight", () => {
         const unloadStart = appSource.indexOf("function handleBeforeUnload()", appSource.indexOf("Save on page unload"));
@@ -381,6 +412,26 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(appSource, /createSaveConflictDraftStore\(\{/);
     });
 
+    it("never classifies a protected draft against the localStorage preview cache", () => {
+        // The optimistic boot paint applies the preview cache through
+        // applyServerSnapshot. Classifying a draft against it compares the client
+        // to its own stale copy, which reliably "finds" a divergence — that is
+        // what flashed the recovery banner on every refresh and then dismissed it
+        // once the real save landed.
+        assert.match(
+            appSource,
+            /applyServerSnapshot\(preview as ReturnType<typeof buildPlayerSavePayload>, \{ authoritative: false \}\)/,
+            "the optimistic preview paint must declare itself non-authoritative",
+        );
+        assert.match(
+            appSource,
+            /if \(opts\.authoritative !== false\) void rehydrateSaveConflictDraft\(snap\.character\.name, snap\)/,
+            "conflict rehydration must be gated on the snapshot being authoritative",
+        );
+        // Every other caller stays authoritative by default.
+        assert.match(appSource, /function applyServerSnapshot\([^)]*opts: \{ authoritative\?: boolean \} = \{\}\)/);
+    });
+
     it("adopts the save version from every read of the player's OWN combat save", () => {
         // An own-character combat-save read settles elapsed state — a completed
         // journey, an expired Hollow Gate run — and can bump `_saveVersion`.
@@ -426,15 +477,15 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.ok(restoreLoad < restoreExclusive, "load the mirror before the exclusive restore body runs");
     });
 
-    it("renders a nonmodal, keyboard-native, busy and error-announcing banner", () => {
-        assert.match(bannerSource, /<aside/);
-        assert.doesNotMatch(bannerSource, /role=["']dialog["']/);
-        assert.match(bannerSource, /aria-busy=\{busy\}/);
-        assert.match(bannerSource, /role="alert" tabIndex=\{-1\}/);
-        assert.match(bannerSource, /<button type="button"/);
-        assert.match(bannerSource, /errorRef\.current\?\.focus\(\)/);
-        assert.match(bannerSource, /createPortal\(recoveryUi, document\.body\)/);
-        assert.match(bannerSource, /backdropClassName="save-conflict-restore-backdrop"/);
-        assert.match(bannerCss, /\.ui-modal-backdrop\.save-conflict-restore-backdrop\s*\{[\s\S]*z-index: 100001/);
+    it("keeps the save-recovery banner OUT of the player-facing shell", () => {
+        // It fired on ordinary unsaved progress — the normal state between
+        // autosaves — so it warned about healthy behaviour and could not be
+        // acted on. Removed deliberately; do not reintroduce a blocking surface
+        // without a signal that distinguishes "not saved yet" from "at risk".
+        assert.doesNotMatch(appSource, /SaveConflictBanner/);
+        assert.doesNotMatch(appSource, /restoreLocalConflictDraft|downloadLocalConflictDraft/);
+        // The silent protection stays wired.
+        assert.match(appSource, /createSaveConflictDraftStore\(\{/);
+        assert.match(appSource, /captureConflict: captureSaveConflictDraft/);
     });
 });

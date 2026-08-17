@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 
 const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
+const arenaLobby = readFileSync(new URL("../screens/Arena.tsx", import.meta.url), "utf8");
+const arenaDistrictLobby = readFileSync(new URL("../features/arena/components/ArenaDistrictLobby.tsx", import.meta.url), "utf8");
 const solo = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const pvp = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
 const tacticalPve = readFileSync(new URL("../screens/BattleTowerFight.tsx", import.meta.url), "utf8");
@@ -53,6 +55,34 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
         "tactical PvE must expose the server-owned pet summon when a companion is sealed",
     );
     assert.match(solo, /<span>Summon Pet<\/span>/, "authoritative PvE must label the summon explicitly");
+});
+
+test("the Arena screen stays a lobby and never hosts a fight again", () => {
+    // Solo PvE moved server-side; Arena's browser-side reducer was deleted. If a
+    // combat shell, a board, or a turn/HP reducer reappears here, a client-
+    // authoritative fight has been reintroduced behind the lobby.
+    for (const marker of [
+        /<ShinobiCombatShell/, /<CombatHudLayout/, /<CombatBoardStage/, /<CombatCommandBar/,
+        /<CombatInstance/, /hex-battlefield/, /setBattleStarted/, /startPrefight/,
+        /function calculateDamage|calculateDamage\(/, /setEnemyHp\(/, /setPlayerHp\(/,
+    ]) {
+        assert.doesNotMatch(arenaLobby, marker, `Arena must not regain combat internals: ${marker}`);
+    }
+    // What it DOES still own — note this screen is now a 499-line composition
+    // root, not the 870-line lobby that inlined all of it, so several of these
+    // assert on WHERE the work lives rather than that it is written inline.
+    // The lobby markup moved to the feature component it renders.
+    assert.match(arenaLobby, /<ArenaDistrictLobby/);
+    assert.match(arenaDistrictLobby, /className="card arena-lobby"/);
+    // The outgoing challenge is still authored here.
+    assert.match(arenaLobby, /async function challengePlayer/);
+    // Ranked queueing is owned by its hook; Arena consumes it and wires it out.
+    assert.match(arenaLobby, /useRankedQueue\(\{/);
+    assert.match(arenaLobby, /onJoinRankedQueue=\{joinRankedQueue\}/);
+    // Challenge ACCEPTANCE is delegated to the App, which owns the save write.
+    // Arena must not grow a second acceptance authority alongside it.
+    assert.doesNotMatch(arenaLobby, /async function acceptChallenge\b/,
+        "challenge acceptance belongs to App.acceptChallengeGlobal, not the lobby");
 });
 
 test("shared-shell dossiers remain symmetric and mission PvE restores its desktop columns", () => {

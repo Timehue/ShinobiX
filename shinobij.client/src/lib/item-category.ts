@@ -71,7 +71,7 @@ const PET_ID_PREFIXES = ["collar-", "pvp-", "pve-", "consum-", "evo-stone-"] as 
 // Equippable player gear — weapons, armor, accessories, throwables. Everything
 // here goes under "Gear"; slot "item"/"potion" are handled before this check.
 const GEAR_SLOTS: ReadonlySet<string> = new Set([
-    "head", "body", "waist", "legs", "feet", "hand", "gloves", "aura", "thrown",
+    "head", "body", "waist", "legs", "feet", "hand", "gloves", "aura", "relic", "thrown",
 ]);
 
 /**

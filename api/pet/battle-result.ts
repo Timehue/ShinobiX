@@ -7,7 +7,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
-import { runPetDuel } from '../_pet-sim/pet-duel-sim.js';
+import { resolveRankedPetDuel } from './_ranked-duel.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -265,19 +265,15 @@ async function retireRankedMatchProof(key: string, token: RankedPetMatchToken): 
     });
 }
 
+/** The rated result, resolved on the Showdown engine from the sealed token.
+ *
+ *  This used to run the legacy `runPetDuel` here while the screen played
+ *  `runPetDuelCinematic` over a DIFFERENT, client-supplied seed — so the fight
+ *  a player watched and the fight that moved their Elo were unrelated. Both now
+ *  come from resolveRankedPetDuel, and api/pet/ranked-watch.ts hands the client
+ *  the very log this call produces. */
 function rankedWinnerFromToken(token: RankedPetMatchToken): string | null {
-    const aIsCanonical = token.a <= token.b;
-    const simulated = runPetDuel(
-        (aIsCanonical ? token.aPet : token.bPet) as unknown as Pet,
-        (aIsCanonical ? token.bPet : token.aPet) as unknown as Pet,
-        token.seed,
-        1,
-        1,
-        false,
-    ).result;
-    if (simulated === 'draw') return null;
-    const aWon = aIsCanonical ? simulated === 'win' : simulated === 'loss';
-    return aWon ? token.a : token.b;
+    return resolveRankedPetDuel(token).winnerName;
 }
 
 async function establishRankedSettlementIntent(
@@ -494,6 +490,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 settlementPolicy?: unknown;
                 wanderer?: { id?: unknown; sector?: unknown; verb?: unknown };
                 wandererParticipatingPets?: Pet[];
+                pvpChallengeId?: string;
+                pvpParticipatingPets?: Pet[];
             }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 const priorDungeonResult = parseDungeonPetResultReceipt(
@@ -660,6 +658,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 casualPvePlayerPets = parseSealedPetSnapshots(tokenData.bluePets, tokenPlayerPetIds);
                 if (!casualPvePlayerPets) {
                     return res.status(409).json({ error: 'Warfront token carries an invalid participating-pet snapshot.' });
+                }
+            }
+            if (tokenData.pvpChallengeId) {
+                // A sealed player duel fights WITHOUT consumables — it is decided
+                // when the responder accepts, so a consumable burned in it could
+                // never be honestly charged. The snapshot sealed at start carries
+                // empty consumable slots, which makes the spend below a no-op
+                // instead of quietly eating whatever is equipped now.
+                casualPvePlayerPets = parseSealedPetSnapshots(tokenData.pvpParticipatingPets, tokenPlayerPetIds);
+                if (!casualPvePlayerPets) {
+                    return res.status(409).json({ error: 'Player duel token carries an invalid participating-pet snapshot.' });
                 }
             }
             if (casualPveSeal) {
@@ -1068,18 +1077,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!tok.aPet || !tok.bPet || !Number.isSafeInteger(tok.seed)) {
                 return res.status(409).json({ error: 'Ranked token lacks a sealed combat snapshot.' });
             }
-            const aIsCanonical = tok.a <= tok.b;
-            const simulated = runPetDuel(
-                (aIsCanonical ? tok.aPet : tok.bPet) as unknown as Pet,
-                (aIsCanonical ? tok.bPet : tok.aPet) as unknown as Pet,
-                Number(tok.seed), 1, 1, false,
-            ).result;
-            const simulatedAWon = aIsCanonical ? simulated === 'win' : simulated === 'loss';
-            const simulatedWinner = simulated === 'draw' ? null : simulatedAWon ? tok.a : tok.b;
+            // Determinism cross-check: re-derive the verdict and refuse to
+            // settle if it disagrees with the intent recorded when the pair was
+            // first claimed. Both derivations go through resolveRankedPetDuel,
+            // so this is a real guard against an engine change landing between
+            // intent and settlement — not two engines being compared.
+            const simulatedWinner = resolveRankedPetDuel(tok).winnerName;
             if (settlementIntent?.winnerName !== simulatedWinner) {
                 return res.status(409).json({ error: 'Ranked settlement intent does not match the sealed server replay.' });
             }
-            if (simulated === 'draw') {
+            // Showdown's judge always decides, so this branch is unreachable for
+            // any token resolved by the current engine. It stays because a draw
+            // is still representable in the receipt shape.
+            if (simulatedWinner === null) {
                 const settleDrawPet = async (
                     slug: string,
                     petSnapshot: Record<string, unknown>,
@@ -1133,8 +1143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(503).json({ error: 'Could not finish recording the ranked draw — please retry.' });
                 }
             }
-            const aWon = aIsCanonical ? simulated === 'win' : simulated === 'loss';
-            outcome = callerIsA === aWon ? 'win' : 'loss';
+            outcome = (simulatedWinner === playerName) ? 'win' : 'loss';
             const opponentName = callerIsA ? tok.b : tok.a;
             const myRating = Number(callerIsA ? tok.aRating : tok.bRating);
             const oppRating = Number(callerIsA ? tok.bRating : tok.aRating);
