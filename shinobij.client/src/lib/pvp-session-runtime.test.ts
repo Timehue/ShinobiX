@@ -288,12 +288,15 @@ describe("PvP reliability source wiring", () => {
             "an ambiguous create must reconcile against the authenticated pending pointer");
         assert.match(sectorCreate, /createPvpSessionWithRecovery\([\s\S]*createResult\.kind === "recovered"[\s\S]*installPvpRecovery\(createResult\.pending\)/,
             "the sector create must install the reconciled pointer in the same mount");
-        // This invariant is implemented inline in the creator rather than through
-        // decidePvpCreateRecovery (which is currently exported and unit-tested but
-        // has no production caller). When the pending lookup throws — offline —
-        // the creator still returns ambiguous carrying the stable battle id, and
-        // App installs it, which is what keeps bounded GET recovery possible.
-        assert.match(creator, /catch \(error\) \{[\s\S]{0,200}return \{ kind: "ambiguous", battleId: stableBattleId, error: lastError \};/,
+        // The post-create three-way branch has one owner: decidePvpCreateRecovery
+        // in lib/pvp-pending-session.ts, which the creator calls. When the pending
+        // lookup throws — offline — recoveryChecked stays false, so the decision
+        // can only be "stable-id": the creator returns ambiguous carrying the
+        // stable battle id, and App installs it, which is what keeps bounded GET
+        // recovery possible.
+        assert.match(creator, /const found = await fetchPendingPvpRecovery\([\s\S]{0,160}throw abortError\(\);\s*pending = found;\s*recoveryChecked = true;\s*\} catch \{/,
+            "an unproven pending lookup must commit neither the pointer nor recoveryChecked");
+        assert.match(creator, /decidePvpCreateRecovery\(\{[\s\S]{0,200}recoveryChecked,[\s\S]{0,220}decision\.kind === "stable-id"[\s\S]{0,120}return \{ kind: "ambiguous", battleId: decision\.battleId, error: lastError \};/,
             "an offline pending lookup must retain the stable create identity for bounded GET recovery");
         assert.match(sectorCreate, /createResult\.kind === "ambiguous"[\s\S]{0,120}setPvpBattleId\(battleId\)/,
             "the sector create must install that retained identity");
