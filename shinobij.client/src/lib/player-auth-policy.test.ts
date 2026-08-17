@@ -30,9 +30,16 @@ describe("legacy account recovery classification", () => {
     });
 
     it("keeps login and local-dev auth wired to the fail-closed recovery path", () => {
+        // The credential half of login lives in lib/player-login.ts; App.tsx
+        // keeps the save-loading half. The classifier has to stay on the path
+        // that reads the verify response, wherever that path lives.
         const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-        assert.match(appSource, /requiresLegacyAdminRecovery\(authRes\.status, authData\)/);
+        const loginSource = readFileSync(new URL("./player-login.ts", import.meta.url), "utf8");
+        assert.match(loginSource, /requiresLegacyAdminRecovery\(response\.status, data\)/);
+        // A legacy save with no server credential must never be claimable from
+        // local state — only authenticated admin recovery may bind a password.
         assert.doesNotMatch(appSource, /if \(legacy && account/);
+        assert.doesNotMatch(loginSource, /if \(legacy && account/);
 
         const viteSource = readFileSync(new URL("../../vite.config.ts", import.meta.url), "utf8");
         const changeStart = viteSource.indexOf("if (action === 'change')");
@@ -63,13 +70,13 @@ describe("legacy account recovery classification", () => {
         // IP-keyed, so one household shares it) and a token-less success both fell
         // through to the generic "Player name or password is incorrect" alert, and
         // there was no recovery route to point players at.
-        const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+        const loginSource = readFileSync(new URL("./player-login.ts", import.meta.url), "utf8");
 
         // 429 must be classified before the generic verdict, and must NOT reuse the
         // credential-failure copy.
         assert.match(
-            appSource,
-            /if \(authRes\.status === 429\) \{ alert\(authRateLimitMessage\(authData\)\); return; \}/,
+            loginSource,
+            /if \(response\.status === 429\) return \{ status: "rejected", message: authRateLimitMessage\(data\) \};/,
             "login must handle 429 explicitly instead of falling through to the password alert",
         );
 
@@ -77,20 +84,29 @@ describe("legacy account recovery classification", () => {
         // when SESSION_SECRET is unset — the documented password fallback — so
         // requiring a token here rejects correct passwords.
         assert.match(
-            appSource,
-            /authOk = authData\.ok === true;/,
+            loginSource,
+            /data\.ok === true\s*\?\s*\{ status: "ok", token: data\.token \?\? undefined \}/,
             "login must not require a session token to accept a verified password",
         );
         assert.doesNotMatch(
-            appSource,
-            /authOk = authData\.ok === true && typeof authData\.token === 'string'/,
+            loginSource,
+            /status: "ok"[^}]*typeof data\.token === "string"/,
             "the token requirement must stay out of the login verdict",
         );
 
-        // A locked-out player needs somewhere to go: accounts carry no email, so a
-        // reset can only happen through a moderator who verifies the character.
-        const startSource = readFileSync(new URL("../screens/StartScreen.tsx", import.meta.url), "utf8");
-        assert.match(startSource, /Forgotten your password\?/, "the login panel must surface a recovery route");
+        // A passwordless account (Google, guest) has no password to be wrong
+        // either, so it must be named rather than reported as a bad credential.
+        assert.match(
+            loginSource,
+            /if \(body\.passwordless\) \{[\s\S]*?status: "passwordless"/,
+            "an account that signs in another way must not be told its password is incorrect",
+        );
+
+        // A locked-out player needs somewhere to go: password accounts carry no
+        // email, so a reset can only happen through a moderator who verifies the
+        // character.
+        const gateSource = readFileSync(new URL("../screens/start/LoginGate.tsx", import.meta.url), "utf8");
+        assert.match(gateSource, /Forgotten your password\?/, "the login gate must surface a recovery route");
     });
 
     it("explains an auth rate limit as a shared-network wait, with a concrete time", () => {
