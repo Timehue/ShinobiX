@@ -145,11 +145,14 @@
       "lastDailyReset": "2020-01-02",
       "dailyMissionsCompleted": 2,
       "warGroundBountyDate": "2020-01-01",
+      "villageWarMissionDate": "2020-01-02",
+      "villageWarRaidProgress": 4,
       "claimedVillageAgendaDate": "2020-01-01",
       "claimedMapControlDate": "",
       "battleTowerBestFloor": 6,
       "battleTowerRating": 1010,
       "someUnknownCharField": "kept-by-current-behavior",
+      "totalEndlessTowerWins": 0,
       "totalVillageRaids": 0,
       "warsWon": 0,
       "warMvpCount": 0,
@@ -157,7 +160,6 @@
       "monthlyPvpKills": 0,
       "dailyAiKills": 0,
       "totalPetWins": 0,
-      "totalEndlessTowerWins": 0,
       "totalTournamentsCompleted": 0,
       "totalTilesExplored": 0,
       "rankedWins": 0,
@@ -353,11 +355,14 @@
       "lastDailyReset": "2020-01-02",
       "dailyMissionsCompleted": 2,
       "warGroundBountyDate": "2020-01-01",
+      "villageWarMissionDate": "2020-01-02",
+      "villageWarRaidProgress": 4,
       "claimedVillageAgendaDate": "2020-01-01",
       "claimedMapControlDate": "",
       "battleTowerBestFloor": 6,
       "battleTowerRating": 1010,
       "someUnknownCharField": "kept-by-current-behavior",
+      "totalEndlessTowerWins": 0,
       "totalVillageRaids": 0,
       "warsWon": 0,
       "warMvpCount": 0,
@@ -365,7 +370,6 @@
       "monthlyPvpKills": 0,
       "dailyAiKills": 0,
       "totalPetWins": 0,
-      "totalEndlessTowerWins": 0,
       "totalTournamentsCompleted": 0,
       "totalTilesExplored": 0,
       "rankedWins": 0,
@@ -458,10 +462,10 @@
       ],
       "pets": [],
       "equipment": {},
+      "honorSeals": 0,
       "boneCharms": 0,
       "auraStones": 0,
       "auraDust": 0,
-      "honorSeals": 0,
       "hollowShards": 0,
       "professionXp": 0,
       "professionRank": 1,
@@ -581,10 +585,10 @@
       ],
       "pets": [],
       "equipment": {},
+      "honorSeals": 0,
       "boneCharms": 0,
       "auraStones": 0,
       "auraDust": 0,
-      "honorSeals": 0,
       "hollowShards": 0,
       "professionXp": 0,
       "professionRank": 1,
@@ -807,10 +811,13 @@
       "lastDailyReset": "2020-01-02",
       "dailyMissionsCompleted": 2,
       "warGroundBountyDate": "2020-01-01",
+      "villageWarMissionDate": "2020-01-02",
+      "villageWarRaidProgress": 4,
       "claimedVillageAgendaDate": "2020-01-01",
       "claimedMapControlDate": "",
       "battleTowerBestFloor": 6,
       "battleTowerRating": 1010,
+      "totalEndlessTowerWins": 0,
       "totalVillageRaids": 0,
       "warsWon": 0,
       "warMvpCount": 0,
@@ -818,7 +825,6 @@
       "monthlyPvpKills": 0,
       "dailyAiKills": 0,
       "totalPetWins": 0,
-      "totalEndlessTowerWins": 0,
       "totalTournamentsCompleted": 0,
       "totalTilesExplored": 0,
       "rankedWins": 0,
@@ -900,7 +906,6 @@
       "professionRank": 3,
       "professionXp": 400
     },
-    "savedBloodlines": [],
     "creatorItems": [
       {
         "id": "admin-blade",
@@ -912,7 +917,8 @@
         "name": "Soulrender",
         "slot": "hand"
       }
-    ]
+    ],
+    "savedBloodlines": []
   },
   "public-dto.shared-content": {
     "character": {
@@ -1038,8 +1044,7 @@
       "customTitle": "",
       "nindo": "My way.",
       "nindoBg": "ember",
-      "avatarImage": "preset:leaf-1",
-      "warGroundBountyDate": "2020-01-01"
+      "avatarImage": "preset:leaf-1"
     },
     "_trainingReceipts": [
       "t-1"
