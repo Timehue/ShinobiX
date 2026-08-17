@@ -2,11 +2,30 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CHRONICLE_AI_DIFFICULTIES,
+  CHRONICLE_CARD_CATALOG,
   CHRONICLE_FIXED_FALLBACK_DECK,
   MAIN_DECK_SIZE,
+  getChronicleCard,
+  tributeCountForLevel,
   validateDeckIds,
   type ChronicleProjection,
 } from "../../shared/chronicle-duel.js";
+
+/**
+ * A Flip-effect Monster the AI can Set for free. Power tier is independent of
+ * rarity now, so a card's Level moves with balance — naming one and assuming it
+ * Sets without Tributes is exactly the assumption that breaks.
+ */
+function freeFlipMonster(): string {
+  const found = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      card.monsterEffect?.trigger === "onFlip" &&
+      tributeCountForLevel(card.level) === 0,
+  );
+  assert.ok(found, "no Flip Monster summons without Tributes");
+  return found.id;
+}
 import {
   CHRONICLE_AI_DECKS,
   advanceAi,
@@ -78,14 +97,15 @@ test("AI Sets concealed Flip Monsters and later reveals useful Flip effects", ()
   session.state.turnNumber = 2;
   session.state.phase = "main1";
   session.state.normalSummonUsed = false;
-  session.state.p2.hand = ["tc-10"];
+  const lookoutId = freeFlipMonster();
+  session.state.p2.hand = [lookoutId];
   session.state.p2.monsterZones = session.state.p2.monsterZones.map(() => null);
   session.state.p2.magicTrapZones = session.state.p2.magicTrapZones.map(
     () => null,
   );
   advanceAi(session, 2_000);
   const setLookout = session.state.p2.monsterZones.find(Boolean);
-  assert.equal(setLookout?.cardId, "tc-10");
+  assert.equal(setLookout?.cardId, lookoutId);
   assert.equal(setLookout?.faceUp, false);
   assert.equal(setLookout?.position, "defense");
 
@@ -95,7 +115,7 @@ test("AI Sets concealed Flip Monsters and later reveals useful Flip effects", ()
   session.state.normalSummonUsed = false;
   advanceAi(session, 4_000);
   const revealedLookout = session.state.p2.monsterZones.find(
-    (monster) => monster?.cardId === "tc-10",
+    (monster) => monster?.cardId === lookoutId,
   );
   assert.equal(revealedLookout?.faceUp, true);
 });
@@ -188,9 +208,19 @@ test("Hard AI removes the strongest visible legal target", () => {
   session.state.p1.magicTrapZones = session.state.p1.magicTrapZones.map(
     () => null,
   );
+  // Hollow Breach only answers 1,000 DEF or less, so BOTH targets have to be
+  // legal for "picks the strongest" to mean anything. Chosen by stats rather
+  // than named, since Level and stats move with the balance pass.
+  const breachable = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.defense <= 1_000 ? [card] : [],
+  ).sort((a, b) => a.attack - b.attack);
+  assert.ok(breachable.length >= 2, "need two legal Hollow Breach targets");
+  const weakTargetId = breachable[0].id;
+  const strongTargetId = breachable[breachable.length - 1].id;
+  assert.notEqual(weakTargetId, strongTargetId);
   session.state.p1.monsterZones[0] = {
     instanceId: "weak-target",
-    cardId: "tc-13",
+    cardId: weakTargetId,
     owner: "p1",
     zoneIndex: 0,
     position: "attack",
@@ -203,7 +233,7 @@ test("Hard AI removes the strongest visible legal target", () => {
   };
   session.state.p1.monsterZones[1] = {
     instanceId: "strong-target",
-    cardId: "tc-04",
+    cardId: strongTargetId,
     owner: "p1",
     zoneIndex: 1,
     position: "attack",
@@ -216,9 +246,9 @@ test("Hard AI removes the strongest visible legal target", () => {
   };
 
   advanceAi(session, 2_000);
-  assert.equal(session.state.p1.monsterZones[0]?.cardId, "tc-13");
+  assert.equal(session.state.p1.monsterZones[0]?.cardId, weakTargetId);
   assert.equal(session.state.p1.monsterZones[1], null);
-  assert.ok(session.state.p1.graveyard.includes("tc-04"));
+  assert.ok(session.state.p1.graveyard.includes(strongTargetId));
 });
 
 test("AI never accepts forged card stats or legacy play/location actions", () => {
