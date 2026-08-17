@@ -95,8 +95,15 @@ export async function sealPvpRewardRecoverySnapshot(
     const ttlSeconds = pvpRecoveryRemainingTtlSeconds(expiresAt);
     const initial = await store.get<unknown>(key);
     if (exactSnapshot(initial, desired)) return desired.session;
-    const legacy = parseSnapshot(initial, battleId);
-    if (legacy && legacy.version === 1 && !isDeepStrictEqual(legacy.session, desired.session)) {
+    // The seal is immutable for the whole recovery horizon, whatever version
+    // wrote it. Only a byte-identical session may re-seal — that is the
+    // idempotent replay path, and it also lets a v1 row upgrade to v2 or a v2
+    // row refresh its expiry. A different terminal for the same battle is a
+    // conflict and must never overwrite the sealed one: claims pay out from this
+    // snapshot, so a silent overwrite could re-settle a battle with the other
+    // player as winner.
+    const existing = parseSnapshot(initial, battleId);
+    if (existing && !isDeepStrictEqual(existing.session, desired.session)) {
         throw new Error('pvp-reward-recovery-snapshot-conflict');
     }
     try {
