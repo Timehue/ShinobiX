@@ -494,6 +494,28 @@
     filter: none !important;
 }
 
+/* Blast footprint — the tiles a tile-targeted cast would actually damage from
+   the hex under the cursor. It carried a cyan ring but no fill, which loses
+   against the painted arena art at exactly the moment the player is deciding
+   where to land. Cyan wash, distinct from blue reach and green landing. */
+.arena-fullscreen .hex-tile.ground-affected-tile {
+    background: rgba(34, 211, 238, 0.32) !important;
+}
+
+/* "Landing here catches the enemy." Without this the marker is invisible: the
+   dash and ground rules above are `!important` at equal specificity and come
+   first, so they win the outline and the class reads as an ordinary landing
+   tile — the same way `.dash-target-tile` itself was once inert. Keep the
+   underlying fill (it IS still a landing/ground tile) and overlay a gold ring,
+   which is the colour every other "this connects" telegraph already uses. */
+.arena-fullscreen .hex-tile:is(.dash-target-tile, .ground-target-tile).jutsu-aoe-tile {
+    outline: 3px solid rgba(250, 204, 21, 0.98) !important;
+    box-shadow:
+        inset 0 0 22px rgba(120, 53, 15, 0.55),
+        0 0 18px rgba(250, 204, 21, 0.9) !important;
+    filter: saturate(1.25) brightness(1.1) !important;
+}
+
 /* Self-cast target — when a self/buff jutsu is armed, the player's own tile
    becomes the click target so self jutsu use the same arm-then-click flow as
    opponent and ground jutsu (no instant auto-cast). Cyan-white pulse reads as
