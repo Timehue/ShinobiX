@@ -79,6 +79,20 @@ function sessionSecret(): string | null {
     return s && s.length > 0 ? s : null;
 }
 
+/**
+ * Whether session tokens can be issued and verified at all.
+ *
+ * Password accounts do not care — they fall back to the password path. But a
+ * passwordless account (Google sign-in, guest) has *nothing* to fall back to:
+ * created while this is false, it would 401 on every authenticated request
+ * forever. Those creation paths must refuse up front rather than mint an
+ * account nobody can ever enter.
+ */
+export function playerSessionsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    const s = env.SESSION_SECRET;
+    return !!s && s.length > 0;
+}
+
 function b64url(s: string): string {
     return Buffer.from(s, 'utf8').toString('base64url');
 }

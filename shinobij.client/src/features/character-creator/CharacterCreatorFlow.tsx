@@ -11,6 +11,7 @@ import { BLOODLINE_PRESENTATION, CREATOR_STEPS, STARTER_AVATARS, getVillageTheme
 import type { CreatorStep, IdentityErrors, StarterAvatarId } from "./characterCreatorTypes";
 import { hasIdentityErrors, validateIdentity } from "./characterCreatorUtils";
 import { PLAYER_PASSWORD_MAX_LENGTH, PLAYER_NAME_MAX_LENGTH } from "../../lib/player-auth-policy";
+import type { SignupCredential } from "../../lib/guest-play";
 import "./character-creator.css";
 
 const STEP_ORDER = CREATOR_STEPS.map((step) => step.id);
@@ -29,13 +30,24 @@ const ALL_TOUCHED: TouchedFields = {
     confirmPassword: true,
 };
 
-export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
-    onCreate: (character: Character, password: string) => void | Promise<void>;
+/** Carried over from a Google sign-in that resolved to somebody with no shinobi. */
+export type GoogleSignupHandoff = { suggestedName: string; signupTicket: string; nonce: string };
+
+export function CharacterCreatorFlow({ onCreate, onBack, compact = false, googleSignup = null, guest = false }: {
+    onCreate: (character: Character, credential: SignupCredential) => void | Promise<void>;
     onBack?: () => void;
     compact?: boolean;
+    googleSignup?: GoogleSignupHandoff | null;
+    guest?: boolean;
 }) {
+    // How this character will be claimed. Google and guest both skip the
+    // password fields entirely — there is no password on those accounts to
+    // collect, and asking for one would be a lie about what protects the save.
+    const signupMode: SignupCredential["mode"] = googleSignup ? "google" : guest ? "guest" : "password";
+    const wantsPassword = signupMode === "password";
+
     const [step, setStep] = useState<CreatorStep>("welcome");
-    const [name, setName] = useState("");
+    const [name, setName] = useState(googleSignup?.suggestedName ?? "");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +61,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
     const stepIndex = Math.max(0, STEP_ORDER.indexOf(step));
     const selectedAvatar = STARTER_AVATARS.find((avatar) => avatar.id === avatarId) ?? STARTER_AVATARS[0];
     const selectedBloodline = starterSavedBloodlines.find((b) => b.name === bloodline) ?? starterSavedBloodlines[0];
-    const identityErrors = validateIdentity({ name, password, confirmPassword });
+    const identityErrors = validateIdentity({ name, password, confirmPassword, requirePassword: wantsPassword });
     const canSubmitIdentity = !hasIdentityErrors(identityErrors);
     const selectedJutsuNames = useMemo(() => selectedBloodline.jutsus.map((jutsu) => jutsu.name), [selectedBloodline]);
 
@@ -77,7 +89,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
     }
 
     async function submitCharacter() {
-        const errors = validateIdentity({ name, password, confirmPassword });
+        const errors = validateIdentity({ name, password, confirmPassword, requirePassword: wantsPassword });
         if (hasIdentityErrors(errors)) {
             setTouched(ALL_TOUCHED);
             goToStep("identity");
@@ -92,7 +104,12 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                 starterBloodlineOffense[bloodline] ?? "Ninjutsu",
                 bloodline,
             );
-            await Promise.resolve(onCreate({ ...character, avatarImage: selectedAvatar.image }, password));
+            const credential: SignupCredential = googleSignup
+                ? { mode: "google", signupTicket: googleSignup.signupTicket, nonce: googleSignup.nonce }
+                : guest
+                    ? { mode: "guest" }
+                    : { mode: "password", password };
+            await Promise.resolve(onCreate({ ...character, avatarImage: selectedAvatar.image }, credential));
         } finally {
             setSubmitting(false);
         }
@@ -158,8 +175,20 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                         <h2>Name and Enter the World</h2>
                         <p>
                             Your village, bloodline, and portrait are set. Add the name other players see
-                            and the password that protects this save.
+                            {wantsPassword ? " and the password that protects this save." : "."}
                         </p>
+                        {signupMode === "google" && (
+                            <p className="cc-signup-note">
+                                Your Google account protects this save — there is no password to choose or forget.
+                            </p>
+                        )}
+                        {signupMode === "guest" && (
+                            <p className="cc-signup-note">
+                                You are playing as a guest, so this character lives in this browser. Link a Google
+                                account from Settings at any point to keep it for good — otherwise it is released
+                                after two weeks without playing.
+                            </p>
+                        )}
 
                         <div className="cc-form-grid">
                             <label className="cc-field" htmlFor="cc-name">
@@ -178,6 +207,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                                 {identityErrorFor("name") && <em id="cc-name-error">{identityErrorFor("name")}</em>}
                             </label>
 
+                            {wantsPassword && <>
                             <label className="cc-field" htmlFor="cc-password">
                                 <span>Password</span>
                                 <span className="cc-password-wrap">
@@ -221,6 +251,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                                 </span>
                                 {identityErrorFor("confirmPassword") && <em id="cc-confirm-error">{identityErrorFor("confirmPassword")}</em>}
                             </label>
+                            </>}
                         </div>
                     </div>
                 );
@@ -322,7 +353,9 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
         village: "Choose Bloodline",
         bloodline: "Choose Avatar",
         avatar: "Preview Shinobi",
-        preview: "Name and Password",
+        // A Google or guest signup collects no password, so promising one here
+        // would be the button lying about the step it opens.
+        preview: wantsPassword ? "Name and Password" : "Name Your Shinobi",
         identity: submitting ? "Creating..." : "Enter the World",
     };
 
