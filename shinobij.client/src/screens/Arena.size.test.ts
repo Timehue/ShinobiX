@@ -63,7 +63,9 @@ test("Arena keeps controller ordering for pet acceptance, spectating, and ladder
     assertOrdered(petAcceptance, [
         "if (!challengerPet || !responderPet)",
         "savePendingClanPetBattle({",
-        "setDuelChallenges(duelChallenges.filter",
+        // b907ef933 moved this to a functional updater so the accept path cannot
+        // drop a challenge that arrived after render. Same ordering contract.
+        "setDuelChallenges((current) => current.filter",
         "method: \"DELETE\"",
         "method: \"POST\"",
         "setPendingPetBattleOpponent?.(",
