@@ -1224,20 +1224,33 @@ export async function settlePvpVillageWarContinuation(
         && worldAttacker?.side === session.winner
         && worldAttacker.name === actor;
     const territoryEvidence = session.worldTerritoryEvidence;
-    if (sealedWorldRaid) {
-        const expectedProofId = raidProgressionReceiptId(`pvp-raid:${battleId}`);
-        const proofAmount = Number(raidTerritoryProof?.amount);
-        if (!territoryEvidence
-            || territoryEvidence.version !== 1
-            || territoryEvidence.sector !== rewardSector
-            || raidTerritoryProof?.proofId !== expectedProofId
-            || raidTerritoryProof.playerName !== actor
-            || raidTerritoryProof.sector !== rewardSector
-            || (proofAmount !== 0 && proofAmount !== territoryEvidence.raidDamage)
-            || raidTerritoryProof.at !== settledAt) {
-            return { status: 503, body: { error: 'The sealed raid-territory proof is still finalizing.' } };
-        }
-    }
+    // A sealed World raid may only APPLY territory damage against an exact,
+    // verified proof. That check is evaluated here but enforced at the points of
+    // application rather than returned immediately, because a battle that cannot
+    // affect this war at all — no war row, war already inactive, non-overlapping
+    // window, or finished after canonical peace — resolves to a durable
+    // not-applicable receipt and applies nothing, so it needs no proof.
+    //
+    // Returning 503 up front made those cases permanently unsettleable:
+    // pvp/claim-rewards throws on any non-200 from this settler and retries
+    // forever, and the world-state publish route calls it with no proof at all.
+    // 503 also advertises "retry", which is the wrong shape for a condition that
+    // can never resolve on its own.
+    const expectedRaidProofId = raidProgressionReceiptId(`pvp-raid:${battleId}`);
+    const raidProofAmount = Number(raidTerritoryProof?.amount);
+    const raidProofVerified = !!territoryEvidence
+        && territoryEvidence.version === 1
+        && territoryEvidence.sector === rewardSector
+        && raidTerritoryProof?.proofId === expectedRaidProofId
+        && raidTerritoryProof.playerName === actor
+        && raidTerritoryProof.sector === rewardSector
+        && (raidProofAmount === 0 || raidProofAmount === territoryEvidence.raidDamage)
+        && raidTerritoryProof.at === settledAt;
+    const raidProofUnverified = sealedWorldRaid && !raidProofVerified;
+    const raidProofPending = {
+        status: 503,
+        body: { error: 'The sealed raid-territory proof is still finalizing.' },
+    };
     // A target-owner change after session creation produces an exact durable
     // zero receipt. That is a canonical superseded raid, not a retryable gap:
     // ordinary cross-village PvP may still settle, but ground/capture effects
@@ -1278,6 +1291,11 @@ export async function settlePvpVillageWarContinuation(
             }
 
             if (embeddedWarBattleReplay(raw.pvpBattleReceipts, battleId, actor)) {
+                // This battle is already recorded against the war, so the raid
+                // did land and a proof must exist. Reporting eligibility from an
+                // unverified proof could under- or over-pay the ground reward, so
+                // this stays retryable until the caller supplies it.
+                if (raidProofUnverified) return raidProofPending;
                 const warGroundRewardEligible = appliedSealedWorldRaid
                     && pvpWarGroundRewardEligible({
                         actorVillage,
@@ -1359,6 +1377,11 @@ export async function settlePvpVillageWarContinuation(
             // A battle that started before an ending blow may still help-forward
             // its receipt after the war ends, but it may never mutate HP/winner.
             if (raw.endedAt && settledAt > Number(raw.endedAt)) return writeNoop();
+            // Past every not-applicable exit: this battle is about to mutate the
+            // war row. A sealed World raid may not do that on an unverified
+            // proof, so enforce the gate here, where something is actually
+            // applied, rather than before the no-op paths could resolve.
+            if (raidProofUnverified) return raidProofPending;
             const attemptNow = Date.now();
             const decay = raw.endedAt ? { war: raw, changed: false } : applyWarDecay(raw, attemptNow);
             const current = decay.war;
@@ -2168,7 +2191,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                         ts: mutationNow, action: 'declare-war', actor: identity.name,
                                         village: actorVillage, villages: war.villages,
                                     }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-                                    return { status: 200 as const, body: { war: funding.row, replayed: funding.replayed } };
+                                    // An Honor Seal declaration debits THIS caller's save and bumps its
+                                    // stored version, so echo the exact committed version the saga
+                                    // returned (api/save/_version-echo-coverage.test.ts) — otherwise the
+                                    // client's next autosave 409s and rolls back its in-flight state.
+                                    // The war-resources branch debits the village pool and versions no
+                                    // save, so it has nothing to echo.
+                                    const declaredSaveVersion = source.kind === 'honor-seals'
+                                        ? Math.floor(Number(funding.sourceRow?._saveVersion) || 0)
+                                        : 0;
+                                    return {
+                                        status: 200 as const,
+                                        body: {
+                                            war: funding.row,
+                                            replayed: funding.replayed,
+                                            ...(declaredSaveVersion > 0 ? { _saveVersion: declaredSaveVersion } : {}),
+                                        },
+                                    };
                                 }
                                 if (funding.status === 'insufficient') {
                                     await releaseVillageWarReservations(kv, reservationPlan, 'funding-aborted', mutationNow);
