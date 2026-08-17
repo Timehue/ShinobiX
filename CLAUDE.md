@@ -175,12 +175,27 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
     pre-existing immutable snapshot"), so a previous run's leftover makes the
     webServer fail to start and every spec reports as failed without executing.
     It is gitignored, so `rm -rf shinobij.client/.playwright-dist-*` is free.
-  - **WebKit does not launch on Windows here** — `browserType.launch: Target
-    page, context or browser has been closed`, on every webkit project. Those
-    are environment failures, not assertions: a clean local run on this machine
-    is "chromium + firefox green, webkit unlaunchable". CI runs Linux with
-    `--with-deps` and does cover webkit, so read a webkit-only local failure as
-    "not tested here", and do not chase it as a regression.
+  - **WebKit DOES run here now** (re-verified 2026-08-17, Playwright 1.61.1 /
+    WebKit 26.5). This entry used to say the opposite — `browserType.launch:
+    Target page, context or browser has been closed` on every webkit project —
+    and that stale note cost real money: two consecutive `main` CI failures were
+    webkit-only regressions that nobody reproduced locally because everyone
+    believed webkit was unlaunchable. **Run webkit before pushing anything that
+    touches combat layout**; it is the browser CI fails on:
+    ```bash
+    npx playwright test --config=playwright.combat-layout.config.ts --project=webkit-layout
+    ```
+    A single webkit spec is ~30s, so there is no excuse for shipping blind. If
+    webkit ever does fail to launch again, re-check this before believing it —
+    the failure below is far more common and looks identical.
+  - **A leftover preview server masquerades as a browser failure.** Ports 4173
+    (`test:e2e`) and 4183 (`test:e2e:combat-layout`) are held by any orphaned
+    run, and the harness then dies with `http://127.0.0.1:4183/health is already
+    used` before a single spec executes — which reads exactly like a
+    catastrophic browser regression. Check the port first:
+    ```bash
+    netstat -ano | grep ":4183.*LISTENING"   # then Stop-Process that PID
+    ```
 
   **These are flaky under load.** A single red e2e is not yet a regression: check
   whether the same spec passes on the other browser projects in that run, and
