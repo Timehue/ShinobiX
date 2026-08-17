@@ -32,7 +32,8 @@ test.beforeEach(async ({ page }) => {
         body: JSON.stringify({
             ok: true,
             capabilities: Object.fromEntries([
-                'gameplay', 'gameplayMutations', 'registrations', 'villageWar', 'anbuInfiltration', 'clanBoss',
+                'gameplay', 'gameplayMutations', 'registrations', 'googleSignIn', 'guestPlay',
+                'villageWar', 'anbuInfiltration', 'clanBoss',
                 'clanBossParties', 'legacy', 'petBreedingStarts', 'weeklyBossGuardCycle',
             ].map((id) => [id, { state: 'available', reason: 'available' }])),
         }),
@@ -114,6 +115,97 @@ test('landing and creator have no serious WCAG A/AA axe violations', async ({ pa
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();
     expect(creator.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
+});
+
+// The sign-in gate is the screen every player meets before anything else, and
+// it is the one route out of a lost session — so it gets the same accessibility
+// bar as the landing, and its layout is asserted rather than assumed. It grew
+// past the viewport once already: the container clipped its own overflow, and
+// the password-recovery line fell off the bottom with no way to scroll to it.
+test('the sign-in gate is reachable, complete, and accessible', async ({ page }) => {
+    await page.addInitScript(() => {
+        // A returning player with several shinobi — the tallest the card gets.
+        localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({
+            kaze: { token: 'e2e' }, rill: { token: 'e2e' },
+        }));
+        localStorage.setItem('shinobix:guestResume', 'e2e-resume');
+        localStorage.setItem('shinobix:guestName', 'Wanderer');
+    });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Log In' }).first().click();
+    await expect(page.getByRole('heading', { name: 'Enter the Village' })).toBeVisible();
+
+    // Every door the capability probe reported is present and pressable.
+    await expect(page.getByRole('button', { name: 'Continue as kaze' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Continue as wanderer \(guest character\)/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Play as a guest' })).toBeVisible();
+
+    // The recovery route must be reachable, not merely present in the DOM.
+    const recovery = page.getByText('Forgotten your password?');
+    await recovery.scrollIntoViewIfNeeded();
+    await expect(recovery).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    const gate = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+    expect(gate.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
+});
+
+// Signing up with Google is the longest new path in the app and the only one
+// that crosses a redirect: Google bounces back to `/?gauth=…`, the client trades
+// the ticket for a verdict, and a first-time Google user has to land in the
+// creator with the password fields gone. Every link in that chain is somewhere
+// different, so nothing but an end-to-end walk proves it holds together. The
+// two network calls are stubbed; everything between them is the real client.
+test('a first-time Google user lands in the creator and registers without a password', async ({ page }) => {
+    await page.route('**/api/auth/google/claim', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, needsSignup: true, suggestedName: 'Kaze', signupTicket: 'tkt-123' }),
+    }));
+    let registration: Record<string, unknown> | null = null;
+    await page.route('**/api/player-auth', async (route) => {
+        registration = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ ok: true, name: 'kaze', token: 'v2.e2e.token' }),
+        });
+    });
+    // The nonce this browser generated before it was sent to Google.
+    await page.addInitScript(() => sessionStorage.setItem('shinobix:googleNonce', 'nonce-from-this-browser'));
+
+    await page.goto('/?gauth=signup&gticket=abc123', { waitUntil: 'networkidle' });
+
+    // The ticket is credential-shaped and must not survive in the address bar.
+    await expect.poll(() => new URL(page.url()).search).toBe('');
+    await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Choose Village', exact: true }).click();
+    await page.locator('.cc-village-card').first().click();
+    await page.getByRole('button', { name: 'Choose Bloodline', exact: true }).click();
+    await page.locator('.cc-bloodline-card').first().click();
+    await page.getByRole('button', { name: 'Choose Avatar', exact: true }).click();
+    await page.locator('.cc-avatar-card').first().click();
+    await page.getByRole('button', { name: 'Preview Shinobi', exact: true }).click();
+
+    // The step must not promise a password it will never ask for.
+    await page.getByRole('button', { name: 'Name Your Shinobi', exact: true }).click();
+    await expect(page.locator('#cc-name')).toHaveValue('Kaze');
+    await expect(page.locator('#cc-password')).toHaveCount(0);
+    await expect(page.locator('#cc-confirm-password')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Enter the World', exact: true }).click();
+    await expect.poll(() => registration).not.toBeNull();
+    // The Google identity rides the server-side ticket, never the request body.
+    expect(registration).toMatchObject({
+        action: 'register-google',
+        name: 'kaze',
+        signupTicket: 'tkt-123',
+        nonce: 'nonce-from-this-browser',
+    });
+    expect(registration).not.toHaveProperty('password');
 });
 
 test('footer policy links open public, responsive, accessible pages', async ({ page }) => {

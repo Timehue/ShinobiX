@@ -23,6 +23,15 @@ export function nextCapabilityRefreshDelay(
     return Math.round(backoff * jitter);
 }
 
+// (No module-level memoized `capabilityRequest` promise here. main carried one,
+// with a fix so a failed request is not cached — one blip at boot otherwise
+// disabled every capability-gated control for the life of the page, including
+// the Google and guest buttons on the login screen. This branch had already
+// retired that whole shape in favour of LiveCapabilitiesStore below, which
+// coalesces only the in-flight request, tracks freshness, and can refresh with
+// backoff. `loadPublicCapabilities` is defined at the bottom of this file as a
+// thin delegate to that store, so the failure main was fixing cannot occur.)
+
 export type LiveCapabilitiesSnapshot = Readonly<{
     capabilities: PublicCapabilities | null;
     freshness: CapabilityFreshness;

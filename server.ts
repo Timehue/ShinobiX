@@ -255,6 +255,10 @@ import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import pveFightOutcomeHandler from './api/pve/fight-outcome.js';
 import soloPveActionHandler from './api/solo-pve/action.js';
 import soloPveStateHandler from './api/solo-pve/state.js';
+import { googleRedirectUriProblem }    from './api/_google-auth.js';
+import googleAuthStartHandler         from './api/auth/google/start.js';
+import googleAuthCallbackHandler      from './api/auth/google/callback.js';
+import googleAuthClaimHandler         from './api/auth/google/claim.js';
 import patreonOauthStartHandler       from './api/patreon/oauth-start.js';
 import patreonOauthCallbackHandler    from './api/patreon/oauth-callback.js';
 import patreonWebhookHandler          from './api/patreon/webhook.js';
@@ -1056,6 +1060,13 @@ route('/img', imgHandler);
 route('/player-auth', playerAuthHandler);
 route('/admin-auth',  adminAuthHandler);
 
+// Google sign-in (server-side authorization-code flow — see api/_google-auth.ts).
+// The callback path is what Google itself redirects to, so it must stay exactly
+// in step with the registered GOOGLE_REDIRECT_URI.
+route('/auth/google/start',    googleAuthStartHandler);
+route('/auth/google/callback', googleAuthCallbackHandler);
+route('/auth/google/claim',    googleAuthClaimHandler);
+
 // Admin
 route('/admin/players',      adminPlayersHandler);
 route('/admin/grant-subscription', adminGrantSubscriptionHandler);
@@ -1714,6 +1725,25 @@ server.listen(PORT, () => {
             + 'authenticated request will re-verify the password with scrypt. Set it in the '
             + 'Railway environment and redeploy.',
         );
+    }
+    // Google sign-in fails in ways the operator never sees: a redirect URI that
+    // does not match the Cloud Console entry exactly produces a
+    // `redirect_uri_mismatch` on GOOGLE's page, in front of the player. Say so
+    // at boot instead. Silence here means either "fully configured" or
+    // "deliberately not configured", both fine.
+    if (String(process.env.GOOGLE_CLIENT_ID ?? '').trim()) {
+        const redirectProblem = googleRedirectUriProblem();
+        if (redirectProblem) {
+            console.error(`[startup] Google sign-in is CONFIGURED BUT DISABLED: ${redirectProblem}`);
+        } else if (!String(process.env.SESSION_SECRET ?? '').trim()) {
+            console.error(
+                '[startup] Google sign-in is CONFIGURED BUT DISABLED: it needs SESSION_SECRET. A Google '
+                + 'account has no password to fall back on, so one created without session tokens could '
+                + 'never be signed into again.',
+            );
+        } else if (process.env.DISABLE_GOOGLE_AUTH === '1') {
+            console.warn('[startup] Google sign-in is configured but switched off via DISABLE_GOOGLE_AUTH=1.');
+        }
     }
     // Rehydrate the online roster the previous process handed over, so a deploy does
     // not present an empty world for a beat. Rows past the offline window are dropped

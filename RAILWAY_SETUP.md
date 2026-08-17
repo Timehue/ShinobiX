@@ -80,6 +80,13 @@ See `.env.example` for the annotated list. Minimum to boot:
 | `SUPABASE_URL` | ▲ | Server-side Supabase REST/Storage base (if used). |
 | `SUPABASE_SERVICE_ROLE_KEY` | ▲ | Server-side service role — NEVER exposed to the client. |
 | `PG_POOL_MAX` | ▲ | Pool size. Defaults to `15` on Railway (detected via `RAILWAY_ENVIRONMENT`), `5` elsewhere; set only to override. |
+| `GOOGLE_CLIENT_ID` | ○ | Google sign-in — full console walkthrough in [docs/GOOGLE_SIGNIN_SETUP.md](docs/GOOGLE_SIGNIN_SETUP.md). Without all three `GOOGLE_*` vars the feature is inert and its buttons are hidden. |
+| `GOOGLE_CLIENT_SECRET` | ○ | Companion secret for the OAuth client. |
+| `GOOGLE_REDIRECT_URI` | ○ | Must match the Google Cloud Console entry **exactly**, and must be the apex: `https://shinobijourney.com/api/auth/google/callback`. |
+| `GOOGLE_APP_RETURN_URL` | ○ | Where the callback bounces back to. Defaults to `/`. |
+| `DISABLE_GOOGLE_AUTH` | ✖ | Kill switch — `1` hides and refuses Google sign-in without unsetting the credentials. |
+| `DISABLE_GUEST_PLAY` | ✖ | Kill switch for guest characters. |
+| `GUEST_SWEEP_ENABLED` | ○ | `1` lets the daily cron actually delete guest characters idle for 14 days. Unset, it only logs what it would take — read a night of that first. |
 | `CRON_SECRET` | ▲ | Guards the daily snapshot job (set if you use Railway Cron). |
 | `RESTART_TOKEN` | ▲ | Guards `POST /restart`. |
 | `KV_PROXY_URL` | ✖ | **RETIRED 2026-07-17 — leave unset.** Rollback-only: re-points save/image keys at the cPanel disk overlay (docs/RETIRE_CPANEL_RUNBOOK.md). |

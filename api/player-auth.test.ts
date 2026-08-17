@@ -166,6 +166,189 @@ describe('player auth hardening', () => {
         assert.equal(await verifyPlayerPassword('policyuser', 'Original1'), true);
     });
 
+    // A Google or guest account stores no hash/salt at all. Every password
+    // comparison must read that as "authentication failed", never as a match,
+    // and never as a thrown 500 — a 500 here would be an oracle telling an
+    // attacker which names are passwordless, which is exactly what the
+    // DUMMY_AUTH_RECORD enumeration guard exists to prevent.
+    describe('passwordless accounts', () => {
+        const passwordless = { google: { sub: 'g-12345', email: 'a@b.test', linkedAt: 1 }, sessionEpoch: 0 };
+
+        it('never authenticates a passwordless record with any password', async () => {
+            store.set('auth:googleonly', { ...passwordless });
+
+            for (const attempt of ['StrongPass1', 'x', 'undefined', 'null', '0']) {
+                assert.equal(
+                    await verifyPlayerPassword('googleonly', attempt),
+                    false,
+                    `"${attempt}" must not authenticate a passwordless account`,
+                );
+            }
+            assert.equal(await verifyPlayerPassword('googleonly', ''), false);
+        });
+
+        it('answers the password form with a 200 that names the right door', async () => {
+            store.set('auth:googleonly', { ...passwordless });
+            const attempt = await post({ action: 'verify', name: 'googleonly', password: 'StrongPass1' });
+            assert.equal(attempt.statusCode, 200, 'must not throw — a 500 would leak the account type');
+            assert.equal(attempt.body?.ok, false);
+            assert.equal(attempt.body?.passwordless, true);
+            assert.equal(attempt.body?.google, true);
+            assert.equal(attempt.body?.token, undefined);
+        });
+
+        it('refuses to set a password without a session token for that account', async () => {
+            store.set('auth:googleonly', { ...passwordless });
+            const noProof = await post({ action: 'change', name: 'googleonly', newPassword: 'BrandNew1' });
+            assert.equal(noProof.statusCode, 401);
+            assert.equal(await verifyPlayerPassword('googleonly', 'BrandNew1'), false, 'no password may be written');
+
+            // A token for a DIFFERENT account must not grant it either.
+            const other = await register('someoneelse', 'StrongPass1');
+            const wrongOwner = await post(
+                { action: 'change', name: 'googleonly', newPassword: 'BrandNew1' },
+                { 'x-player-token': String(other.body?.token) },
+            );
+            assert.equal(wrongOwner.statusCode, 401);
+            assert.equal(await verifyPlayerPassword('googleonly', 'BrandNew1'), false);
+        });
+
+        it('lets the account owner set a first password without losing the Google link', async () => {
+            store.set('auth:googleonly', { ...passwordless });
+            const { issuePlayerToken } = await import('./_auth.js');
+            const token = issuePlayerToken('googleonly', undefined, 0)!;
+
+            const set = await post(
+                { action: 'change', name: 'googleonly', newPassword: 'BrandNew1' },
+                { 'x-player-token': token },
+            );
+            assert.equal(set.statusCode, 200);
+            assert.equal(await verifyPlayerPassword('googleonly', 'BrandNew1'), true);
+
+            const record = store.get('auth:googleonly') as { google?: { sub: string } };
+            assert.equal(record.google?.sub, 'g-12345', 'setting a password must not unlink Google');
+            assert.equal(await verifyPlayerToken(token), null, 'the epoch rotates, revoking the pre-change token');
+        });
+
+        it('lets the owner delete the account by token and releases the Google link', async () => {
+            store.set('auth:googleonly', { ...passwordless });
+            store.set('auth-google:g-12345', { name: 'googleonly' });
+            const { issuePlayerToken } = await import('./_auth.js');
+            const token = issuePlayerToken('googleonly', undefined, 0)!;
+
+            const removed = await post({ action: 'delete', name: 'googleonly' }, { 'x-player-token': token });
+            assert.equal(removed.statusCode, 200);
+            assert.equal(store.has('auth:googleonly'), false);
+            assert.equal(store.has('auth-google:g-12345'), false, 'the sub must be released or it can never sign in again');
+        });
+
+        it('still refuses a delete with no proof at all', async () => {
+            store.set('auth:googleonly', { ...passwordless });
+            const denied = await post({ action: 'delete', name: 'googleonly' });
+            assert.equal(denied.statusCode, 401);
+            assert.equal(store.has('auth:googleonly'), true);
+        });
+    });
+
+    // Guest play is a real account with a real save and no owner yet. Its whole
+    // premise is that the player can come back tomorrow, so the resume
+    // credential — not the 24h token — is what has to survive.
+    describe('guest play', () => {
+        it('creates a passwordless account and hands back a resume credential', async () => {
+            const guest = await post({ action: 'guest', name: 'Wanderer' });
+            assert.equal(guest.statusCode, 200);
+            assert.equal(guest.body?.name, 'wanderer');
+            assert.equal(await verifyPlayerToken(String(guest.body?.token)), 'wanderer');
+
+            const record = store.get('auth:wanderer') as { guest?: true; hash?: string; createdAt?: number };
+            assert.equal(record.guest, true);
+            assert.equal(record.hash, undefined, 'a guest stores no password');
+            assert.ok(record.createdAt, 'the sweep needs a floor for a guest who never saves');
+
+            const resume = String(guest.body?.guestResume);
+            assert.ok(resume.length > 16, 'the resume credential must be unguessable');
+            assert.deepEqual(store.get(`guest-resume:${resume}`), { name: 'wanderer' });
+        });
+
+        it('lets a returning guest trade the resume credential for a fresh token', async () => {
+            const guest = await post({ action: 'guest', name: 'Wanderer' });
+            const resume = String(guest.body?.guestResume);
+
+            const resumed = await post({ action: 'guest-resume', name: 'Wanderer', guestResume: resume });
+            assert.equal(resumed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'wanderer');
+
+            // Deliberately reusable: it is the guest's only way back in, so a
+            // dropped response must not lock them out.
+            const again = await post({ action: 'guest-resume', name: 'Wanderer', guestResume: resume });
+            assert.equal(again.statusCode, 200);
+        });
+
+        it('will not resume a name the credential does not belong to', async () => {
+            const guest = await post({ action: 'guest', name: 'Wanderer' });
+            const resume = String(guest.body?.guestResume);
+            await register('someoneelse', 'StrongPass1');
+
+            const probe = await post({ action: 'guest-resume', name: 'someoneelse', guestResume: resume });
+            assert.equal(probe.statusCode, 410);
+            assert.equal(probe.body?.token, undefined);
+        });
+
+        it('stops resuming once the account has a real owner', async () => {
+            const guest = await post({ action: 'guest', name: 'Wanderer' });
+            const resume = String(guest.body?.guestResume);
+
+            // Standing in for the Google link, which clears the guest flag.
+            const record = store.get('auth:wanderer') as Record<string, unknown>;
+            delete record.guest;
+            record.google = { sub: 'g-1', email: '', linkedAt: Date.now() };
+            store.set('auth:wanderer', record);
+
+            const stale = await post({ action: 'guest-resume', name: 'Wanderer', guestResume: resume });
+            assert.equal(stale.statusCode, 409);
+            assert.equal(stale.body?.token, undefined);
+            assert.equal(
+                store.has(`guest-resume:${resume}`),
+                false,
+                'the pre-claim browser must not keep a credential to an owned account',
+            );
+        });
+
+        it('applies the same name gates and the emergency switch as a password signup', async () => {
+            assert.equal((await post({ action: 'guest', name: 'admin' })).statusCode, 403);
+            assert.equal((await post({ action: 'guest', name: 'clan-cheat' })).statusCode, 403);
+
+            process.env.DISABLE_NEW_REGISTRATIONS = '1';
+            const blocked = await post({ action: 'guest', name: 'Wanderer' });
+            assert.equal(blocked.statusCode, 503);
+            assert.equal(blocked.body?.code, 'registrations_disabled');
+            assert.equal(store.has('auth:wanderer'), false);
+        });
+
+        it('refuses guest play with no SESSION_SECRET rather than stranding the account', async () => {
+            const secret = process.env.SESSION_SECRET;
+            delete process.env.SESSION_SECRET;
+            try {
+                const out = await post({ action: 'guest', name: 'Wanderer' });
+                assert.equal(out.statusCode, 503);
+                assert.equal(store.has('auth:wanderer'), false, 'an account nobody can enter must never exist');
+            } finally {
+                process.env.SESSION_SECRET = secret;
+            }
+        });
+
+        it('cannot be taken over with a password, and no password can be guessed onto it', async () => {
+            await post({ action: 'guest', name: 'Wanderer' });
+            assert.equal(await verifyPlayerPassword('wanderer', 'StrongPass1'), false);
+
+            const hijack = await register('Wanderer', 'StrongPass1');
+            assert.equal(hijack.statusCode, 409, 'the slug is taken — register must not overwrite it');
+            const record = store.get('auth:wanderer') as { guest?: true; hash?: string };
+            assert.equal(record.guest, true);
+            assert.equal(record.hash, undefined);
+        });
+    });
+
     it('rejects blocked usernames server-side, including a leetspeak variant', async () => {
         const blocked = await register('n1gger-ninja', 'StrongPass1');
         assert.equal(blocked.statusCode, 400);

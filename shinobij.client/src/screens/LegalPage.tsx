@@ -14,8 +14,15 @@ type LegalDocument = {
     sections: LegalSection[];
 };
 
-const LAST_UPDATED = "July 20, 2026";
-const VERSION = "1.3";
+// Bump BOTH whenever the published wording changes — the pages tell players
+// these identify the notice currently in force, so leaving them stale makes
+// that statement false. 1.4: Google sign-in and guest characters (what each
+// sign-in method collects, the guest fourteen-day deletion, and IP / device
+// fingerprint processing stated plainly rather than implied).
+// 1.5: third-party notices — Apache 2.0 attribution for the self-hosted Roboto
+// webfont, and the Google trademark disclaimer for the sign-in button.
+const LAST_UPDATED = "August 17, 2026";
+const VERSION = "1.5";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -36,7 +43,8 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "accounts",
                 title: "Accounts",
                 content: <>
-                    <p>You are responsible for your account credentials and activity. Use an original player name, keep your password private, and tell staff promptly if you believe your account has been compromised.</p>
+                    <p>You are responsible for your account credentials and activity. Use an original player name, keep your password private, and tell staff promptly if you believe your account has been compromised. If you sign in with Google, whoever controls that Google account can reach your character, so protect it accordingly.</p>
+                    <p>A guest character is not a protected account: it has no password and no linked identity, it exists only in the browser that made it, and it is deleted after fourteen days without play. Link a Google account or set a password to keep one permanently.</p>
                     <p>Do not sell, trade, share, impersonate, or obtain accounts without permission. Staff may restrict or recover accounts when needed to protect players or the service.</p>
                 </>,
             },
@@ -100,7 +108,9 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Information collected",
                 content: <>
                     <p>Shinobi Journey processes account identifiers, salted password hashes, session records, character saves, progression, inventory, currencies, combat results, rankings, clan and social activity, preferences, and support or moderation records.</p>
-                    <p>The service may also process IP addresses, a browser-derived device fingerprint, request and performance diagnostics, error details, and security events. If you use social or creative features, submitted messages, titles, names, images, uploads, and optional image-generation prompts are also processed.</p>
+                    <p><strong>Sign-in method.</strong> There are three ways to create an account, and they collect different things. A shinobi name and password collects no email address. Guest play collects no email address and no password. Signing in with Google shares your email address and a permanent Google account identifier with us; both are stored on your account, the identifier so the same Google account returns you to the same character and the email so you can tell which Google account you linked. We request nothing else from Google, neither value is shown to other players, and both are deleted when the account is deleted. You can add a password to a Google account at any time from your Profile, and you are never required to use Google to play.</p>
+                    <p><strong>IP addresses and device signals.</strong> Every request to the service is processed with the IP address it came from, and the game additionally derives a device fingerprint in your browser from characteristics such as screen size, time zone, language, and graphics rendering. Both are recorded against your account name and retained. Depending on where you live, an IP address and a device fingerprint may themselves be personal information — we treat them that way. They are collected on every account type, including guest play, and there is no way to use the service without them.</p>
+                    <p>The service may also process request and performance diagnostics, error details, and security events. If you use social or creative features, submitted messages, titles, names, images, uploads, and optional image-generation prompts are also processed.</p>
                     <p>Shinobi Journey is intended for players aged 13 and older and is not directed to children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact staff through the official community link and we will remove the account and its personal information.</p>
                 </>,
             },
@@ -122,7 +132,8 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Service providers",
                 content: <>
                     <p>Hosting and database providers process game data to run the service. Error reporting may be sent to Sentry when that feature is configured. When optional AI image generation is enabled and used, the submitted prompt is sent to OpenAI to generate the requested image.</p>
-                    <p>These providers process information for their service roles. Shinobi Journey does not state that personal information is sold or shared for behavioral advertising.</p>
+                    <p>If you choose to sign in with Google, that sign-in happens on Google's own pages and is governed by Google's privacy policy. We receive only your email address and a Google account identifier, and we send Google nothing about your character or play. Choosing another sign-in method means no data is exchanged with Google at all.</p>
+                    <p>These providers process information for their service roles. Shinobi Journey does not sell personal information and does not share it for behavioral advertising.</p>
                 </>,
             },
             {
@@ -130,7 +141,8 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Browser storage, retention, and deletion",
                 content: <>
                     <p>The game uses browser storage for sign-in, preferences, cached game state, and interrupted-session recovery. Details appear in the <a href="/cookies">Cookie and Local Storage Notice</a>.</p>
-                    <p>Records are kept while needed to operate accounts, shared game systems, security, moderation, troubleshooting, and backups. Some shared records may need to be anonymized rather than removed. Current deletion is handled by request and is complete only after connected records have been reviewed.</p>
+                    <p><strong>Guest characters are deleted automatically.</strong> A guest character has no password and no linked account, so it exists only in the browser that made it. If it goes fourteen days without being played, it and its save are deleted permanently and the name is released. Linking a Google account to it stops that clock immediately and makes it an ordinary account. Clearing your browser storage before you link one loses a guest character with no way to recover it — we hold nothing that could identify you as its owner.</p>
+                    <p>Records are kept while needed to operate accounts, shared game systems, security, moderation, troubleshooting, and backups. IP and device records are kept for abuse investigation. Some shared records — clan history, leaderboard entries, chat other players have seen — may need to be anonymized rather than removed. Current deletion is handled by request and is complete only after connected records have been reviewed.</p>
                 </>,
             },
             {
@@ -235,6 +247,8 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Storage categories",
                 content: <ul>
                     <li><strong>Strictly necessary:</strong> authentication, account selection, save recovery, security, and essential game continuity.</li>
+                    <li><strong>Guest characters:</strong> a guest character's only credential is a random key held in this browser's storage. It is what signs you back in, it is not shared with anyone, and clearing it loses that character permanently.</li>
+                    <li><strong>Google sign-in:</strong> a short-lived random value is held for the length of one sign-in attempt so a completed sign-in can be matched to the browser that started it. It is discarded as soon as the attempt finishes.</li>
                     <li><strong>Preference and functional:</strong> interface choices, audio choices, dismissed guidance, and cached content.</li>
                     <li><strong>Diagnostics:</strong> short-lived performance and error context used to find reliability problems.</li>
                     <li><strong>Advertising:</strong> no advertising-storage feature is currently described by the game client.</li>
@@ -337,7 +351,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
     notices: {
         shortTitle: "Notices",
         title: "Additional Notices",
-        summary: "Who runs the service and how to reach us, plus accessibility, families, AI content, and security reporting.",
+        summary: "Who runs the service and how to reach us, plus accessibility, families, third-party notices, AI content, and security reporting.",
         sections: [
             {
                 id: "provider-contact",
@@ -355,7 +369,16 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             {
                 id: "children",
                 title: "Children and families",
-                content: <p>Shinobi Journey is intended for players aged 13 and older and is not directed to children under 13 — see the <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms</a>. We take a data-minimizing, high-privacy-by-default approach: an email is not required to play, there is no advertising or third-party tracking, and product analytics are aggregate-only. We do not knowingly collect personal information from children under 13.</p>,
+                content: <p>Shinobi Journey is intended for players aged 13 and older and is not directed to children under 13 — see the <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms</a>. We aim to collect as little as the game needs: there is no advertising and no third-party tracking, product analytics are aggregate-only, and an email address is never required — it is collected only if you choose to sign in with Google. Playing does require processing your IP address and a browser-derived device fingerprint, which we use for security and abuse investigation and which may count as personal information where you live; the <a href="/privacy">Privacy Policy</a> sets out what is kept and why. We do not knowingly collect personal information from children under 13.</p>,
+            },
+            {
+                id: "third-party-notices",
+                title: "Third-party software and fonts",
+                content: <>
+                    <p>Shinobi Journey includes open-source components. Their licences are honoured and their notices are preserved.</p>
+                    <p><strong>Roboto</strong> — Copyright 2011 Google Inc., used under the Apache License 2.0. It renders the label on the "Sign in with Google" button, whose branding guidelines call for that typeface. The font is served from this site rather than from Google's font service, so displaying it sends nothing to a third party. The full licence ships with the game at <a href="/fonts/roboto-LICENSE.txt">/fonts/roboto-LICENSE.txt</a>.</p>
+                    <p>The Google "G" mark on that button is a trademark of Google LLC, reproduced under Google's Sign in with Google branding guidelines. Shinobi Journey is not affiliated with, endorsed by, or sponsored by Google.</p>
+                </>,
             },
             {
                 id: "ai-content",

@@ -17,10 +17,16 @@ import {
 } from "./live-capabilities";
 import { liveServiceNotice } from "./live-service-notice";
 
+// Must list EVERY id in PUBLIC_CAPABILITY_IDS. The parser fails closed on a
+// partial response, so a fixture that misses one silently turns every parse in
+// this file into `null` instead of the shape under test — which is how adding
+// googleSignIn / guestPlay broke eight assertions at once.
 const available: PublicCapabilities = {
     gameplay: { state: "available", reason: "available" },
     gameplayMutations: { state: "available", reason: "available" },
     registrations: { state: "available", reason: "available" },
+    googleSignIn: { state: "available", reason: "available" },
+    guestPlay: { state: "available", reason: "available" },
     villageWar: { state: "available", reason: "available" },
     clanBoss: { state: "available", reason: "available" },
     clanBossParties: { state: "available", reason: "available" },
