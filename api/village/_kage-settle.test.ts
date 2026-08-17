@@ -140,7 +140,11 @@ test('a pointer publication gap and post-expiry draw recovery close as an exact 
     if (result.ok) assert.equal(result.result, 'defended');
     const landed = await kv.get<Record<string, any>>(stateKey);
     assert.equal(landed?.seatedKage, 'incumbent');
-    assert.equal(landed?.challenge, undefined);
+    // Cleared, not absent. `challenge: null` is the Kage system's canonical
+    // "no open challenge" value — _kage-challenge.ts writes it at all three of
+    // its clear sites and ServerKageState types the field as
+    // `challenge?: ServerKageChallenge | null`.
+    assert.equal(landed?.challenge, null);
     assert.equal(landed?.pvpDuelSettlementReceipts?.[battleId]?.winnerName, 'draw');
     assert.equal(landed?.pvpDuelSettlementReceipts?.[battleId]?.settledAt, terminalAt);
 });
