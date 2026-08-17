@@ -10,7 +10,12 @@ delete process.env.SESSION_SECRET;
 type Handler = (req: never, res: never) => Promise<unknown>;
 type ResponseOut = { statusCode: number; body?: Record<string, unknown> };
 
-const NOW = 1_800_000_000_000;
+// The route stamps its own Date.now(), so the fixture clock must track the real
+// one. A fixed future timestamp left the sector contest not yet started and the
+// merc lease unreachable: every engage 409'd at "that mercenary is no longer
+// here" before the deploy core ran, which made the authority test below
+// unreachable and the forged-village test above pass for the wrong reason.
+const NOW = Date.now();
 const SECTOR = 23;
 const ATTACKER = 'Moonshadow Village';
 const DEFENDER = 'Frostfang Village';
