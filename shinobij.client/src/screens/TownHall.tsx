@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { GiBroadsword, GiCrossedSwords, GiMoneyStack, GiPagoda, GiShield, GiTreasureMap } from "react-icons/gi";
 import { visiblePoll } from "../lib/poll";
+import type { ServerKageChallenge, ServerKageState } from "../lib/kage-challenge-state";
 import type { Character, ServerPlayerSummary, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { NoticePostType } from "../types/clan";
@@ -50,8 +51,10 @@ const TOWN_TABS = [["status", "Command"], ["upgrades", "Upgrades"], ["treasury",
 const KAGE_CHALLENGE_SEAL_COST = 500;
 const KAGE_CHALLENGE_MIN_LEVEL = 90;
 const KAGE_CHALLENGE_MIN_CONTRIBUTION = 250;
-type ServerKageChallenge = { challenger: string; status: "pending" | "accepted"; createdAt: number; obligationRemainingMs: number; battleId?: string };
-type ServerKageState = { kageSystemUnlocked?: boolean; seatedKage?: string; firstLiberator?: string; challenge?: ServerKageChallenge | null; postDefenseGraceUntil?: number };
+// ServerKageChallenge/ServerKageState are imported from lib/kage-challenge-state,
+// which is the canonical shape the server returns. The local copies that used to
+// live here omitted challengeId, so the durable-challenge proof this screen now
+// requires before sending the official duel could not be read.
 function formatObligation(ms: number): string {
     const total = Math.max(0, Math.floor(ms / 1000));
     const m = Math.floor(total / 60);
