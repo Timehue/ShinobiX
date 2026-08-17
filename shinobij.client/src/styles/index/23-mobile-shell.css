@@ -327,6 +327,44 @@
   margin-top: 8px;
 }
 
+/* Link a Google account (Profile → Account), directly above the password form
+   because for a guest it is the more important of the two. */
+.google-link-card {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+.google-link-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #e5e7eb;
+}
+.google-link-card .hint {
+  max-width: 60ch;
+}
+.google-link-card .google-link-error {
+  color: #fecaca;
+}
+.google-link-card button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.google-link-card button:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, 0.7);
+  background: rgba(250, 204, 21, 0.14);
+}
+.google-link-card button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* Profile action buttons (UserView) + Users-directory follow controls. */
 .profile-actions {
   display: flex;

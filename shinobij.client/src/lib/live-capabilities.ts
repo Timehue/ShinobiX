@@ -13,7 +13,16 @@ export function loadPublicCapabilities(): Promise<PublicCapabilities | null> {
                 const body = await response.json() as Partial<PublicCapabilitiesResponse>;
                 return body.ok === true && body.capabilities ? body.capabilities : null;
             })
-            .catch(() => null);
+            .catch(() => {
+                // Only a SUCCESSFUL answer is worth memoizing. Caching the null
+                // meant one blip at boot disabled every capability-gated control
+                // for the life of the page — and the login screen hides the
+                // Google and guest buttons on anything but "available", so a
+                // single dropped request silently removed two of the three ways
+                // into the game until the player thought to reload.
+                capabilityRequest = null;
+                return null;
+            });
     }
     return capabilityRequest;
 }

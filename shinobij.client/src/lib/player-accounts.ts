@@ -38,6 +38,26 @@ export function accountKey(name: string) {
     return name.trim().toLowerCase();
 }
 
+/**
+ * The shinobi this browser can return to in one press: accounts it still holds
+ * a session token for, plus a guest character if one lives here.
+ *
+ * Shared so the gate and the copy beside it agree. Greeting a first-time
+ * visitor with "your story is still moving" is a small lie, and the only way to
+ * avoid it is for both halves of the screen to read the same list.
+ */
+export function rememberedShinobi(): { name: string; guest: boolean }[] {
+    const accounts = loadPlayerAccounts();
+    let guestName = "";
+    try { guestName = (localStorage.getItem("shinobix:guestName") ?? "").toLowerCase(); } catch { /* private mode */ }
+
+    const named = Object.entries(accounts)
+        .filter(([, account]) => Boolean(account?.token))
+        .map(([key]) => key);
+    const all = guestName && !named.includes(guestName) ? [...named, guestName] : named;
+    return all.slice(0, 4).map((name) => ({ name, guest: name === guestName }));
+}
+
 export function loadPlayerAccounts(): PlayerAccounts {
     try {
         const raw = localStorage.getItem(PLAYER_ACCOUNTS_STORAGE);
