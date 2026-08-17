@@ -27,6 +27,7 @@ import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
 import { withScheduledJobLease } from './_job-lease.js';
+import { runGuestSweep } from './_guest-sweep.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 import { clanBossWeekId } from '../clan-boss/_storage.js';
 
@@ -50,6 +51,7 @@ const LEASE_TTL = {
     mercAuto: 9 * 60,
     settlementReconciliation: 4 * 60,
     clanBossPartySweep: 4 * 60,
+    guestSweep: 20 * 60 * 60,
 } as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
@@ -193,6 +195,18 @@ async function fire(): Promise<void> {
         }
     } catch (err) {
         console.error('[cron-scheduler] village-war daily pass threw:', (err as Error).message);
+    }
+    // Reclaim abandoned guest accounts. Reports what it would take unless
+    // GUEST_SWEEP_ENABLED=1, so the first cycles can be read before anything is
+    // deleted. Only accounts still flagged `guest` are ever in scope.
+    try {
+        const g = await runLeasedJob('guest-sweep', LEASE_TTL.guestSweep, () => runGuestSweep());
+        if (g && (g.expired.length > 0 || g.failures.length > 0)) {
+            console.log(`[cron-scheduler] guest sweep${g.enabled ? '' : ' (DRY RUN — set GUEST_SWEEP_ENABLED=1 to delete)'}: ${g.expired.length}/${g.guests} guests expired of ${g.scanned} accounts${g.failures.length ? `, ${g.failures.length} failures` : ''}.`);
+            if (g.failures.length) console.warn(`[cron-scheduler] guest sweep failures: ${g.failures.slice(0, 5).join('; ')}`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] guest sweep threw:', (err as Error).message);
     }
     // Era milestone pass (Legacy system). No-op unless ENABLE_LEGACY=1. Covers
     // the case where the credited trigger fired BEFORE the server-wide
