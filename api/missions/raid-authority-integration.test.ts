@@ -177,8 +177,35 @@ describe('sealed raid authority', () => {
             baseRewards: true,
             rewardSector: 18,
             createdAt: Date.now(),
+            // persistedSession stamps endedAt when a row goes terminal; these
+            // rows are written straight to kv, so they supply their own.
+            endedAt: Date.now(),
         };
-        assert.deepEqual(sealedWorldRaidAttacker(base as never), { side: 'p2', name: attacker });
+        // The seal now carries the attacker's village and clan alongside side and
+        // name. These fighters have empty characters, so both read empty here;
+        // what this case proves is unchanged — the attacker resolves from the
+        // sealed side, not from fighter ordering.
+        assert.deepEqual(sealedWorldRaidAttacker(base as never),
+            { side: 'p2', name: attacker, village: '', clan: '' });
+        // Identity does propagate when the fighter snapshot carries it, which is
+        // what the home-defense multiplier and territory checks read downstream.
+        assert.deepEqual(
+            sealedWorldRaidAttacker({
+                ...base,
+                p2: { name: attacker, character: { village: 'Leaf', clan: 'LeafClan' } },
+            } as never),
+            { side: 'p2', name: attacker, village: 'Leaf', clan: 'LeafClan' },
+        );
+        // And a worldAttacker claim contradicting the sealed fighter is refused
+        // outright rather than quietly resolved to the fighter's own values.
+        assert.equal(
+            sealedWorldRaidAttacker({
+                ...base,
+                p2: { name: attacker, character: { village: 'Leaf', clan: 'LeafClan' } },
+                worldAttacker: { side: 'p2', name: attacker, village: 'Mist' },
+            } as never),
+            null,
+        );
 
         await kv.set('pvp:raidbattleattackerwin', { ...base, battleId: 'raidbattleattackerwin', winner: 'p2' });
         const won = await post(reportRaid, attacker, { battleId: 'raidbattleattackerwin' });
