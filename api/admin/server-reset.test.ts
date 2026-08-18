@@ -33,3 +33,17 @@ test('full reset revokes sessions for deleted auth rows and preserves protected 
     );
     assert.equal(WIPE_PATTERNS.includes('auth-session:*'), false, 'rotated epochs must survive reset');
 });
+
+test('full reset wipes every credential that POINTS AT an account, not just auth rows', () => {
+    // These live beside `auth:<slug>` rather than under it, so the `auth:*`
+    // pattern does not reach them (a LIKE 'auth:%' scan stops at the colon).
+    // Each one left behind becomes a credential to whoever claims that name
+    // after the wipe — slugs are reusable. Adding a new credential key of this
+    // shape without adding it here is the mistake this guard exists to catch.
+    for (const pattern of ['auth:*', 'auth-google:*', 'guest-resume:*', 'auth-recovery:*']) {
+        assert.ok(WIPE_PATTERNS.includes(pattern), `WIPE_PATTERNS must include ${pattern}`);
+    }
+    // The one deliberate exception: rotated epochs must OUTLIVE the reset, or a
+    // token minted before it would authenticate as the next holder of the name.
+    assert.equal(WIPE_PATTERNS.includes('auth-session:*'), false);
+});

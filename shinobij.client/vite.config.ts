@@ -10,6 +10,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
+import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-code';
 import { sectorExitById } from '../shared/sector-links';
 import { SHRINE_DEFS } from '../shared/shrines';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth';
@@ -170,7 +171,36 @@ const RESERVED_DEV_AUTH_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
 type DevAuthRecord = {
     salt: string;
     hash: string;
+    /**
+     * Dev mirror of the production `auth-recovery:<slug>` row. Hashed here too,
+     * even though this store never leaves the machine — a mock that keeps the
+     * secret in the clear teaches the wrong shape to whoever reads it next.
+     */
+    recovery?: { salt: string; hash: string };
 };
+
+/** Crockford base32, matching api/_recovery-code.ts. */
+const DEV_RECOVERY_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+function generateDevRecoveryCode(): string {
+    const bytes = randomBytes(20);
+    let raw = '';
+    for (let i = 0; i < 20; i += 1) raw += DEV_RECOVERY_ALPHABET[bytes[i] & 31];
+    return formatRecoveryCode(raw);
+}
+
+function devRecoveryMatches(record: DevAuthRecord | undefined, supplied: unknown): boolean {
+    const normalized = normalizeRecoveryCode(supplied);
+    if (!normalized || !record?.recovery?.salt || !record.recovery.hash) return false;
+    return devStringMatches(record.recovery.hash, hashDevPassword(normalized, record.recovery.salt));
+}
+
+function attachDevRecoveryCode(record: DevAuthRecord): string {
+    const code = generateDevRecoveryCode();
+    const salt = randomBytes(16).toString('hex');
+    record.recovery = { salt, hash: hashDevPassword(normalizeRecoveryCode(code), salt) };
+    return code;
+}
 
 type DevAuthStore = Record<string, DevAuthRecord>;
 
@@ -809,12 +839,13 @@ export default defineConfig({
                         const parsed = parseJsonBody(await readBody(req));
                         if ('error' in parsed) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
 
-                        const { action, name, password, oldPassword, newPassword } = parsed.body as {
+                        const { action, name, password, oldPassword, newPassword, recoveryCode } = parsed.body as {
                             action?: string;
                             name?: string;
                             password?: string;
                             oldPassword?: string;
                             newPassword?: string;
+                            recoveryCode?: string;
                         };
                         if (!name) { sendJson(res, 400, { ok: false, error: 'Missing name.' }); return; }
 
@@ -944,6 +975,62 @@ export default defineConfig({
                             store[playerId] = createDevAuthRecord(newPassword);
                             saveDevAuthStore(authPath, store);
                             sendJson(res, 200, { ok: true });
+                            return;
+                        }
+
+                        // ── Self-serve recovery (dev mirror) ─────────────────
+                        // Mirrors api/player-auth.ts so the whole flow is
+                        // exercisable under `npm run dev`, which otherwise
+                        // answers "Unknown action" and makes a working feature
+                        // look broken locally.
+                        if (action === 'recovery-issue') {
+                            const tokenPlayer = devTokenPlayer(req);
+                            const record = store[playerId];
+                            const authed = tokenPlayer === playerId
+                                || (!!record && typeof password === 'string' && !!password
+                                    && devStringMatches(record.hash, hashDevPassword(password, record.salt)));
+                            if (!record || !authed) {
+                                sendJson(res, 401, { ok: false, error: 'Authentication required.' });
+                                return;
+                            }
+                            const code = attachDevRecoveryCode(record);
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true, recoveryCode: code });
+                            return;
+                        }
+
+                        if (action === 'admin-recovery') {
+                            const adminPassword = env.ADMIN_PASSWORD;
+                            const suppliedAdminPassword = req.headers['x-admin-password'];
+                            if (!adminPassword || typeof suppliedAdminPassword !== 'string' || !devStringMatches(adminPassword, suppliedAdminPassword)) {
+                                sendJson(res, 401, { ok: false, error: 'Admin authentication required.' });
+                                return;
+                            }
+                            const record = store[playerId];
+                            if (!record) { sendJson(res, 404, { ok: false, error: 'Account does not exist.' }); return; }
+                            const code = attachDevRecoveryCode(record);
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true, name: playerId, recoveryCode: code });
+                            return;
+                        }
+
+                        if (action === 'recover') {
+                            const policyError = playerPasswordPolicyError(newPassword);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
+                            const record = store[playerId];
+                            // One answer for a wrong code, a codeless account and
+                            // an account that does not exist — the production
+                            // anti-enumeration rule, mirrored so the client is
+                            // developed against the shape it will really meet.
+                            if (!devRecoveryMatches(record, recoveryCode)) {
+                                sendJson(res, 200, { ok: false, error: 'That recovery code is not valid for this shinobi.' });
+                                return;
+                            }
+                            const next = createDevAuthRecord(newPassword as string);
+                            store[playerId] = next;
+                            const replacement = attachDevRecoveryCode(next);
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true, token: issueDevSessionToken(playerId), recoveryCode: replacement });
                             return;
                         }
 

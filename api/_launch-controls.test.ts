@@ -64,7 +64,10 @@ describe('emergency launch controls', () => {
         assert.deepEqual(evaluateLaunchControl({ path: '/shop/settle', method: 'GET' }, env), { allowed: true });
         assert.deepEqual(evaluateLaunchControl({ path: '/weekly-boss', method: 'GET' }, env), { allowed: true });
         assert.deepEqual(evaluateLaunchControl({ path: '/world-state', method: 'GET' }, env), { allowed: true });
-        for (const action of ['verify', 'change', 'adminreset']) {
+        // `recover` is credential recovery, so freezing it would mean the one
+        // incident an operator most wants players able to work around is the
+        // one where nobody can get back in.
+        for (const action of ['verify', 'change', 'adminreset', 'guest-resume', 'recover', 'recovery-issue', 'admin-recovery']) {
             assert.deepEqual(evaluateLaunchControl({ path: '/player-auth', method: 'POST', body: { action } }, env), { allowed: true });
         }
         for (const body of [

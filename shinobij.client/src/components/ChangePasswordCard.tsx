@@ -14,6 +14,7 @@ import { useState } from "react";
 import { setActiveToken, setActivePlayer } from "../authFetch";
 import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 import { refreshAccountStatus } from "../lib/account-status";
+import { RecoveryCodeReveal } from "./RecoveryCodeCard";
 
 export function ChangePasswordCard({ playerName }: { playerName: string }) {
     const [current, setCurrent] = useState("");
@@ -22,6 +23,11 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
     const [show, setShow] = useState(false);
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+    // The server returns a recovery code when this call is what FIRST gives the
+    // account a password — most importantly when a guest claims their
+    // character, which is the same moment their browser's resume credential
+    // stops working. That is the one instant where showing it is not optional.
+    const [issuedCode, setIssuedCode] = useState("");
 
     async function submit() {
         if (busy) return;
@@ -46,7 +52,9 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                     newPassword: next,
                 }),
             });
-            const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; token?: string };
+            const data = (await r.json().catch(() => ({}))) as {
+                ok?: boolean; error?: string; token?: string; recoveryCode?: string;
+            };
             if (r.ok && data.ok) {
                 // Refresh the stored credential. With a token we stay token-first
                 // (the helper drops any persisted password); without one
@@ -59,7 +67,16 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 // the standing rather than assuming, and it lifts without a
                 // reload. Harmless for an ordinary password change.
                 void refreshAccountStatus();
-                setMsg({ kind: "ok", text: "Password changed." });
+                // The same call that opens those surfaces is the one that
+                // retires the browser's resume key, so this is also where the
+                // replacement credential arrives.
+                if (data.recoveryCode) setIssuedCode(data.recoveryCode);
+                setMsg({
+                    kind: "ok",
+                    text: data.recoveryCode
+                        ? "Password set. Save the recovery code below — it is your only way back in."
+                        : "Password changed.",
+                });
                 setCurrent(""); setNext(""); setConfirm("");
             } else {
                 setMsg({ kind: "err", text: data.error || "Could not change password." });
@@ -111,9 +128,10 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                     {msg.text}
                 </p>
             )}
-            <button disabled={busy || !current || !next || !confirm} onClick={() => void submit()}>
+            <button disabled={busy || !next || !confirm} onClick={() => void submit()}>
                 {busy ? "Saving…" : "Update Password"}
             </button>
+            {issuedCode && <RecoveryCodeReveal code={issuedCode} onDone={() => setIssuedCode("")} />}
         </div>
     );
 }
