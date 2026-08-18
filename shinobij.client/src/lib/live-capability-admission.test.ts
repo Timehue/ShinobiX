@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
     capabilityAdmissionAllowed,
+    capabilityAdmissionOpenUntilRefused,
     capabilityPreferenceAllowsAdmission,
     isVillageWarDedicatedScreen,
     mutationAdmissionMessage,
@@ -46,15 +47,33 @@ test("maintenance and mutation-freeze copy preserves operator, legal, read, and 
     assert.match(registrationAdmissionMessage("unavailable"), /Existing players can still log in/);
     assert.match(mutationAdmissionMessage("unavailable"), /Read-only status and active recovery remain available/i);
 
-    assert.equal(playerSurfaceBlockerMode(false, "start", "unknown"), "checking");
     assert.equal(playerSurfaceBlockerMode(false, "start", "unavailable"), "maintenance");
     assert.equal(playerSurfaceBlockerMode(false, "start", "available"), null);
     assert.equal(playerSurfaceBlockerMode(true, "start", "unavailable"), "maintenance");
     assert.equal(playerSurfaceBlockerMode(true, "adminLogin", "unavailable"), "maintenance");
     assert.equal(playerSurfaceBlockerMode(true, "adminPanel", "unavailable"), "maintenance");
     assert.equal(playerSurfaceBlockerMode(true, "home", "available"), null);
-    assert.equal(playerSurfaceBlockerMode(true, "home", "unknown"), "checking");
     assert.equal(playerSurfaceBlockerMode(true, "home", "unavailable"), "maintenance");
+});
+
+// A cold or aged capability read is not an incident, and it happens on every
+// single page load. Blocking the whole surface on it put a full-screen
+// "Checking live service availability" dialog in front of players on every
+// refresh, and again whenever two polls in a row missed mid-session. Only the
+// server saying "unavailable" earns that dialog now; the boot check renders
+// nothing, and MAINTENANCE_MODE is enforced server-side anyway.
+test("a capability check that is merely in flight never blocks the player surface", () => {
+    assert.equal(playerSurfaceBlockerMode(false, "start", "unknown"), null);
+    assert.equal(playerSurfaceBlockerMode(true, "home", "unknown"), null);
+    assert.equal(playerSurfaceBlockerMode(true, "villageWarMap", "unknown"), null);
+
+    // Doors that are visible before truth arrives stay open on cold truth and
+    // close only on an explicit refusal. Progress-committing admissions keep
+    // using capabilityAdmissionAllowed, which still fails closed on "unknown".
+    assert.equal(capabilityAdmissionOpenUntilRefused("available"), true);
+    assert.equal(capabilityAdmissionOpenUntilRefused("unknown"), true);
+    assert.equal(capabilityAdmissionOpenUntilRefused("unavailable"), false);
+    assert.equal(capabilityAdmissionAllowed("unknown"), false);
 });
 
 test("App and admission surfaces consume live capability truth at both boundaries", () => {
@@ -69,8 +88,20 @@ test("App and admission surfaces consume live capability truth at both boundarie
     assert.match(app, /useCapabilityViewAvailability\("villageWar"\)/);
     assert.match(app, /villageWarScreenMountAllowed\(screen, villageWarAvailability\)/);
     assert.match(app, /const currentVillageWarAvailability = viewAvailability\("villageWar"\);[\s\S]*villageWarScreenMountAllowed\(nextScreen, currentVillageWarAvailability\)/);
-    assert.match(app, /const currentRegistration = mutationAvailability\("registrations"\);[\s\S]*if \(!capabilityAdmissionAllowed\(currentRegistration\)\)/);
-    assert.match(app, /const currentAvailability = viewAvailability\(\);[\s\S]*if \(!capabilityAdmissionAllowed\(currentAvailability\)\)/);
+    // Both sign-in doors SETTLE cold truth rather than refusing it. Refusing on
+    // "unknown" turned the boot capability round-trip into a player-facing
+    // "still checking" alert on any click that beat it; awaiting the coalesced
+    // request yields a real answer, and only "unavailable" turns anyone away.
+    assert.match(app, /const currentRegistration = await settleAdmission\(\(\) => mutationAvailability\("registrations"\), refreshCapabilities\);[\s\S]*if \(currentRegistration === "unavailable"\)/);
+    assert.match(app, /const currentAvailability = await settleAdmission\(\(\) => viewAvailability\(\), refreshCapabilities\);[\s\S]*if \(currentAvailability === "unavailable"\)/);
+    // A capability refresh that cannot reach the server must not invent a
+    // refusal: api/_launch-controls.ts 503s both actions during MAINTENANCE_MODE
+    // and is the authority. So the helper returns the read as-is and the caller
+    // only ever refuses on an explicit "unavailable".
+    const admission = readFileSync("shinobij.client/src/lib/live-capability-admission.ts", "utf8");
+    assert.match(admission, /export async function settleAdmission\([\s\S]{0,200}?if \(read\(\) !== "unknown"\) return read\(\);\s*await refresh\(\);\s*return read\(\);/);
+    assert.doesNotMatch(app, /settleAdmission[\s\S]{0,400}?capabilityAdmissionAllowed\(current/,
+        "a settled sign-in read must not be re-narrowed by the fail-closed helper");
     assert.match(start, /useCapabilityMutationAvailability\("registrations"\)/);
     assert.match(start, /useCapabilityViewAvailability\(\)/);
     assert.match(start, /creatorAdmissionGranted/);
@@ -144,7 +175,15 @@ test("global maintenance pauses player restore and polling while preserving oper
     assert.match(boundary, /const playerSurfaceBlocked = mode !== null \|\| operatorRecoveryOpen/);
     assert.match(boundary, /<div inert=\{playerSurfaceBlocked\} style=\{\{ display: "contents" \}\}>[\s\S]*<Activity name="player-surface" mode=\{playerSurfaceBlocked \? "hidden" : "visible"\}>\s*\{children\}/,
         "the state-preserving Activity boundary must clean up all mounted leaf effects while blocked");
-    assert.match(boundary, /playerSurfaceBlocked && \([\s\S]*<PlayerSurfaceBlocker[\s\S]*mode=\{mode \?\? "checking"\}/);
+    // The blocker takes no mode: cold capability truth no longer raises it at
+    // all, so "maintenance" is the only surface left and there is nothing to
+    // select. Pin that it still renders only when the surface is blocked, and
+    // that it cannot regain a mode without this assertion failing.
+    assert.match(boundary, /playerSurfaceBlocked && \(\s*<PlayerSurfaceBlocker\s+onOperatorRecovery=/);
+    assert.doesNotMatch(blocker, /"checking"/,
+        "the cold-truth blocker mode is removed, not merely unreachable");
+    assert.doesNotMatch(blocker, /Checking live service availability/,
+        "the string players saw on every refresh must not exist in the shipped component");
     assert.match(boundary, /onOperatorRecovery=\{\(\) => setOperatorView\("login"\)\}/);
     assert.match(boundary, /operatorSurface=\{operatorSurface\}/);
     assert.doesNotMatch(app, /onOperatorRecovery=\{\(\) => setScreen\(/, "operator recovery must not navigate or unmount the paused player screen");

@@ -1,6 +1,12 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
-export type PlayerSurfaceBlockerMode = "checking" | "maintenance";
+/** Only an explicit server "unavailable" raises this surface. There was a
+ * second cold-capability-truth mode; it put this full-screen
+ * dialog in front of every player on every refresh while the boot capability
+ * request was merely in flight, so it is gone rather than merely unreachable —
+ * see playerSurfaceBlockerMode in lib/live-capability-admission.ts. With one
+ * surface left there is nothing for a `mode` prop to select. */
+export type PlayerSurfaceBlockerMode = "maintenance";
 
 /**
  * A modal dialog is used instead of a visual-only overlay because showModal()
@@ -9,12 +15,10 @@ export type PlayerSurfaceBlockerMode = "checking" | "maintenance";
  * fallback for browsers that do not implement the dialog top layer.
  */
 export function PlayerSurfaceBlocker({
-    mode,
     onOperatorRecovery,
     operatorSurface,
     onCloseOperatorRecovery,
 }: {
-    mode: PlayerSurfaceBlockerMode;
     onOperatorRecovery: () => void;
     operatorSurface?: ReactNode;
     onCloseOperatorRecovery?: () => void;
@@ -35,7 +39,6 @@ export function PlayerSurfaceBlocker({
         };
     }, []);
 
-    const checking = mode === "checking";
     const operatorRecoveryOpen = operatorSurface !== undefined && operatorSurface !== null;
     return (
         <dialog
@@ -65,13 +68,9 @@ export function PlayerSurfaceBlocker({
             ) : (
                 <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
                     <section className="card" role="status" aria-live="polite" style={{ maxWidth: 620, padding: "1.4rem" }}>
-                        <h1 id="player-surface-blocker-title">
-                            {checking ? "Checking live service availability" : "ShinobiX is temporarily unavailable"}
-                        </h1>
+                        <h1 id="player-surface-blocker-title">ShinobiX is temporarily unavailable</h1>
                         <p>
-                            {checking
-                                ? "Player actions are paused until fresh service truth arrives. The current screen and resumable operation state remain mounted underneath this check."
-                                : "The game is in maintenance. Player polling and actions are paused; your current screen and resumable operation state remain mounted and preserved."}
+                            The game is in maintenance. Player polling and actions are paused; your current screen and resumable operation state remain mounted and preserved.
                         </p>
                         <button type="button" autoFocus onClick={onOperatorRecovery}>Operator recovery</button>
                         <p style={{ marginBottom: 0 }}>
