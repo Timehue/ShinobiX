@@ -94,10 +94,10 @@ unreachable. `server-routes.test.ts` enforces this both ways
   `x-player-password`, `x-player-name`, `x-kv-token`, `x-client-fp`).
 - Tests are colocated as `*.test.ts` next to the code under test and run with the
   built-in `node:test` runner via `tsx`. **`scripts/run-tests.mjs`** (the `test`
-  script) **auto-discovers** them: it scans `api/`, `scripts/`,
+  script) **auto-discovers** them: it scans `api/`, `scripts/`, `shared/`,
   `shinobij.client/src/`, and `shinobij.client/scripts/` recursively for
   `*.test.{ts,mjs,cjs}` (skipping `node_modules/` and `dist/`), so a test
-  colocated under one of those four roots runs with **no registration step**. Note
+  colocated under one of those five roots runs with **no registration step**. Note
   each root is resolved from the repo root, so `shinobij.client/scripts` must be
   spelled out — a bare `scripts` means the repo-root one only. A test file
   **outside** those roots is invisible to the runner unless it is named in the

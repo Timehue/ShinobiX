@@ -334,15 +334,29 @@ describe('Kage challenge cost — server/client parity', () => {
 
     it('the declare cost is RYO, not Honor Seals, on every copy', () => {
         // Seals are the Vanguard's PvP earnings and fund VILLAGE upgrades; a
-        // civic act must not tax them (owner ruling 2026-08-17). Three copies of
-        // this number exist (server core + two client modules), so pin them.
+        // civic act must not tax them (owner ruling 2026-08-17). The number now
+        // exists exactly TWICE — the server core and the one client mirror.
         const server = read('api/village/_kage-challenge.ts');
         const townHall = read('shinobij.client/src/screens/TownHall.tsx');
         const stateLib = read('shinobij.client/src/lib/kage-challenge-state.ts');
 
         assert.match(server, /export const KAGE_DECLARE_RYO_COST = 250_000;/);
-        assert.match(townHall, /const KAGE_CHALLENGE_RYO_COST = 250_000;/);
         assert.match(stateLib, /export const KAGE_CHALLENGE_RYO_COST = 250_000;/);
+
+        // TownHall must IMPORT that mirror rather than re-declare the price. It
+        // used to keep its own copy, which is a third place for the number to
+        // drift — the same failure mode that let the fate dice, the black market
+        // and this very cost each quote one price and charge another.
+        assert.match(
+            townHall,
+            /import \{[^}]*KAGE_CHALLENGE_RYO_COST[^}]*\} from "\.\.\/lib\/kage-challenge-state"/s,
+            'TownHall must import the kage cost from lib/kage-challenge-state',
+        );
+        assert.doesNotMatch(
+            townHall,
+            /^const KAGE_CHALLENGE_(?:RYO_COST|MIN_LEVEL|MIN_CONTRIBUTION)\s*=/m,
+            'TownHall must not re-declare the kage entry terms',
+        );
 
         // The old seal constant must be gone everywhere, or a player is told one
         // price and charged another.

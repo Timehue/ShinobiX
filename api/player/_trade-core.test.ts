@@ -37,6 +37,17 @@ test('planTrade: tax floors so the burn absorbs the rounding remainder', () => {
     assert.equal(plan.credit + plan.burned, plan.debit);
 });
 
+test('planTrade: a single-unit trade delivers that unit', () => {
+    // TRADE_MINS.fateShards is 1, so this trade is accepted — and floor(1 * 0.9)
+    // would have credited 0, silently eating the whole transfer.
+    const plan = planTrade('fateShards', 1, 1);
+    assert.equal(plan.ok, true);
+    if (!plan.ok) return;
+    assert.equal(plan.credit, 1);
+    assert.equal(plan.burned, 0);
+    assert.equal(plan.credit + plan.burned, plan.debit);
+});
+
 test('planTrade: rejects below minimum', () => {
     const plan = planTrade('ryo', TRADE_MINS.ryo - 1, 1_000_000);
     assert.equal(plan.ok, false);

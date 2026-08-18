@@ -4,7 +4,11 @@ import { run } from 'node:test';
 import { spec } from 'node:test/reporters';
 
 const root = resolve(import.meta.dirname, '..');
-const scanRoots = ['api', 'scripts', 'shinobij.client/src', 'shinobij.client/scripts'];
+// `shared` earns its place here: it holds the cross-cutting contracts both
+// sides import (item-level-gate, tower-pvp, the hollow-gate/chronicle/pet
+// showdown contracts). Its one test file sat invisible to this runner for its
+// whole life — passing locally, never once executed by CI.
+const scanRoots = ['api', 'scripts', 'shared', 'shinobij.client/src', 'shinobij.client/scripts'];
 const files = ['cpanel-dns.test.cjs', 'server-routes.test.ts'];
 
 function collect(dir) {

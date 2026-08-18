@@ -46,6 +46,21 @@ describe('treasury gift tax', () => {
         }
     });
 
+    it('a single-unit gift delivers that unit instead of evaporating', () => {
+        // The rare treasury currencies are gifted one at a time. floor(1 * 0.9)
+        // is 0, which would debit the treasury and credit the member nothing.
+        for (const currency of ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals']) {
+            const split = planTreasuryGift(currency, 1);
+            assert.equal(split.credit, 1, `${currency} must deliver its single unit`);
+            assert.equal(split.burned, 0, `${currency} must not burn the whole gift`);
+        }
+        // Everything above one unit keeps the exact floored split.
+        assert.deepEqual(
+            [2, 9, 10, 1001].map((n) => planTreasuryGift('ryo', n).credit),
+            [1, 8, 9, 900],
+        );
+    });
+
     it('is junk-safe', () => {
         for (const bad of [0, -5, NaN, undefined, null, 'free']) {
             const split = planTreasuryGift('ryo', bad);
