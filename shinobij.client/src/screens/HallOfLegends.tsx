@@ -431,7 +431,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                     <>
                         {/* Four small boards under one tab: wars won, MVP wall,
                             lifetime damage, raid count. All four read from
-                            character fields populated by claimPendingWarCrates
+                            character fields populated by the server war-reward claim
                             at war-end time. */}
                         <p className="hol-board-label"><GiTrophy style={HOL_ICON} />Wars Won</p>
                         {(() => {

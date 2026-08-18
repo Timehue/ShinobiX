@@ -251,7 +251,7 @@ import { readFileSync } from "node:fs";
 //
 // Still the exact achieved count with NO buffer, and the paydown note above
 // still stands.
-const MAX_LINES = 7_690;
+const MAX_LINES = 7_670;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

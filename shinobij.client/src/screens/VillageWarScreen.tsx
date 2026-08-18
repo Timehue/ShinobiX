@@ -174,7 +174,7 @@ export function VillageWarScreen({
 
     async function claimVictory(war: VillageWarRecord) {
         // Canonical winner reward: 1× Legendary War Crate, dedup via
-        // claimedWarCrateIds. Matches claimPendingWarCrates exactly so
+        // claimedWarCrateIds. Matches the server reward markers exactly so
         // whichever path the player triggers first delivers the same
         // payout — previously this button also gave +500 ryo + 250 XP
         // that the auto-sweep didn't, so first-touch silently locked

@@ -196,10 +196,21 @@ describe("server settlement policy", () => {
 
     test("war rewards settle on the server and fail closed with no network fallback", () => {
         const world = source("./world-state.ts");
-        const pending = functionSlice(world, "claimPendingWarCrates");
-        assert.ok(
-            pending.indexOf('isServerSettlementReady("clientWarCrateGrant")') < pending.indexOf("const claimed ="),
-            "cached war rewards must return before deriving a local payout",
+        // claimPendingWarCrates was REMOVED (2026-08-18). It derived crates, ryo,
+        // seals and shards from the browser's cached war state, had no callers, and
+        // would have DOUBLE-PAID if re-wired — api/war/_reward.ts already grants the
+        // MVP and consolation legs. Its guard had also stopped protecting anything,
+        // since SERVER_SETTLEMENT_STATUS.clientWarCrateGrant is permanently true.
+        // Assert it stays gone rather than asserting the order of a guard inside it.
+        assert.doesNotMatch(
+            world,
+            /function claimPendingWarCrates/,
+            "the cached-war-state payout sweep must not come back — settle via /api/war/claim-reward",
+        );
+        assert.doesNotMatch(
+            world,
+            /honorBonus\s*\+=|shardsBonus\s*\+=|ryoBonus\s*\+=/,
+            "world-state must not accumulate a currency payout locally",
         );
 
         const claimStart = world.indexOf("export async function claimServerWarCrates");
