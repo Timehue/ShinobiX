@@ -124,6 +124,28 @@ describe('guest sweep', () => {
         assert.equal(store.has('auth:undated'), true);
     });
 
+    it('never deletes a guest who set a password, however stale', async () => {
+        // The `change` action spreads the record when setting a FIRST password,
+        // so `guest: true` survives on an account that now has a real, portable
+        // credential. Selecting on the flag alone deleted exactly the players
+        // who had done the thing we ask them to do.
+        seed('committed', { guest: true, hash: 'scrypt:x', salt: 's', createdAt: LONG_AGO }, { lastSeen: LONG_AGO });
+
+        const result = await runGuestSweep(NOW);
+        assert.deepEqual(result.expired, [], 'a password-holder is nobody to reclaim');
+        assert.equal(store.has('auth:committed'), true);
+        assert.equal(result.guests, 0, 'and it is not counted as a guest at all');
+    });
+
+    it('still deletes a guest holding half a credential', async () => {
+        // Neither half alone can verify a password, so the account still has no
+        // way back in — it is abandoned, not committed.
+        seed('halfway', { guest: true, hash: 'scrypt:x', createdAt: LONG_AGO }, { lastSeen: LONG_AGO });
+
+        const result = await runGuestSweep(NOW);
+        assert.deepEqual(result.expired, ['halfway']);
+    });
+
     it('never touches a password or Google account, however stale', async () => {
         seed('veteran', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 }, { lastSeen: LONG_AGO });
         seed('linked', { google: { sub: 'g-1', email: '', linkedAt: 1 }, createdAt: LONG_AGO }, { lastSeen: LONG_AGO });

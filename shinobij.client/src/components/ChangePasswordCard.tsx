@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { setActiveToken, setActivePlayer } from "../authFetch";
 import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
+import { refreshAccountStatus } from "../lib/account-status";
 
 export function ChangePasswordCard({ playerName }: { playerName: string }) {
     const [current, setCurrent] = useState("");
@@ -53,6 +54,11 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 // so subsequent requests still authenticate.
                 if (data.token) setActiveToken(data.token);
                 else setActivePlayer(playerName, next);
+                // A guest who just set their first password is no longer a
+                // throwaway account, so the tavern and messages open. Re-read
+                // the standing rather than assuming, and it lifts without a
+                // reload. Harmless for an ordinary password change.
+                void refreshAccountStatus();
                 setMsg({ kind: "ok", text: "Password changed." });
                 setCurrent(""); setNext(""); setConfirm("");
             } else {

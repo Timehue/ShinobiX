@@ -7,6 +7,8 @@ import { type PlayerRecord } from "../types/character";
 import { titleStyleColor, useLegacyAvailability } from "../lib/legacy";
 import { tavernGossipLine } from "../lib/legacy-rumors";
 import { GameIcon } from "../components/icons/GameIcon";
+import { GuestSocialLock } from "../components/GuestSocialLock";
+import { useSocialLock } from "../lib/account-status";
 import { GiCrown, GiLaurelCrown, GiTalk } from "react-icons/gi";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
@@ -26,6 +28,10 @@ const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
 export
 function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerRoster }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void; playerRoster: PlayerRecord[] }) {
     const legacyAvailable = useLegacyAvailability();
+    // The tavern is shut to unclaimed guests, reading included — the server
+    // answers 403 on both GET and POST, so there is nothing to show and nothing
+    // to poll for. `loading` covers the gap before the server has answered.
+    const { locked, loading: lockLoading } = useSocialLock(character.name);
     const [messages, setMessages] = useState<TavernMsg[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
@@ -100,6 +106,9 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
 
     // Load on mount + poll every 30s; pause completely when tab is in the background
     useEffect(() => {
+        // A locked guest gets 403 on every one of these, and an unanswered lock
+        // could still turn out to be locked — so poll neither case.
+        if (locked || lockLoading) return;
         // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchMessages syncs to external system (server)
         void fetchMessages();
         let interval: ReturnType<typeof setInterval> | null = setInterval(() => {
@@ -124,11 +133,12 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
             document.removeEventListener("visibilitychange", handleVisibility);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [character.village]);
+    }, [character.village, locked, lockLoading]);
 
     // Fetch the seated Kage once per village. Cheap (server caches the kage key
     // ~30s) and one request per visit, not per poll — Kage changes are rare.
     useEffect(() => {
+        if (locked || lockLoading) return;
         let cancelled = false;
         void (async () => {
             try {
@@ -139,7 +149,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
             } catch { /* ignore — the badge just won't show */ }
         })();
         return () => { cancelled = true; };
-    }, [character.village]);
+    }, [character.village, locked, lockLoading]);
 
     // Newest is on top, so jump the log to the top when a new message arrives
     // (fetchMessages only calls setMessages when the count actually changed, so
@@ -197,6 +207,13 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
                 </div>
             </div>
+            {/* Hold the room back until the server has answered, rather than
+                flashing the compose box at a guest and taking it away again. */}
+            {lockLoading && <p className="tavern-empty">Checking your standing…</p>}
+            {locked && (
+                <GuestSocialLock what="The tavern is closed to guest characters, so the room and its talk stay out of reach." />
+            )}
+            {!locked && !lockLoading && (<>
             {legacyAvailable && gossip && (
                 <div
                     className="tavern-gossip"
@@ -317,6 +334,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                     </button>
                 </div>
             </div>
+            </>)}
         </div>
     );
 }

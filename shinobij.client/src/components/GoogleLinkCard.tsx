@@ -44,7 +44,7 @@ export function GoogleLinkCard({ playerName }: { playerName: string }) {
             <h3>Google sign-in</h3>
             <p className="hint">
                 {isGuest
-                    ? "This character currently lives only in this browser, and is released after two weeks without playing. Link a Google account to keep it for good and sign in from anywhere."
+                    ? "This character currently lives only in this browser, and is released after two weeks without playing. Link a Google account to keep it for good, sign in from anywhere, and unlock the tavern and messages. Setting a password does the same."
                     : "Link a Google account to sign in without typing a password, and to get back in if you ever forget it."}
             </p>
             {error && <p className="hint google-link-error" role="alert">{error}</p>}

@@ -123,13 +123,69 @@ and redeems for a fresh token — the guest's only way back after the 24h token
 lapses. Linking Google clears the `guest` flag **and rotates the epoch**, so the
 anonymous browser stops holding a credential to an account that now has an owner.
 
-The daily cron (`api/cron/_guest-sweep.ts`) reclaims guests idle for 14 days.
+The daily cron (`api/cron/_guest-sweep.ts`) reclaims **credential-less** guests
+idle for 14 days — see `isCredentialLessGuest` below; setting a password takes
+an account out of the sweep permanently, exactly as linking Google does.
 Activity is read from `player:registry.lastSeen`, which the save path already
 writes — there is no per-heartbeat touch write, and nothing that would make the
 hottest endpoint in the game contend the auth lock. It **rotates** the session
 epoch rather than deleting `auth-session:<slug>`: a missing epoch reads as zero,
 so deleting it would let an old token authenticate as whoever registers the
 freed name next.
+
+**Guests are shut out of every player-visible text channel** until the account
+gains a real credential. An account created anonymously, three per hour per
+fingerprint, with no email and no owner is the cheapest possible spam and
+harassment vehicle, so `api/_guest-gate.ts` gates the tavern (`village/chat`,
+read *and* post), direct messages (`messages`, POST only — an existing inbox
+stays readable), clan chat (`clan/chat/send`) and battle chat (`pvp/chat`).
+
+Signs left in the world (`sector/trail-sign.ts`) are gated the same way, since
+they are name-attributed text strangers read. Only the `leave` path — `spark`
+is a wordless thumbs-up with nothing to moderate, and a new player should be
+able to cheer someone's sign on day one.
+
+**One predicate, `isCredentialLessGuest` in `player-auth.ts`: `guest` AND
+passwordless.** Both halves are load-bearing. Linking Google clears the `guest`
+flag outright, but setting a first password (`player-auth` action `change`)
+deliberately spreads the record and *keeps* it — so selecting on the flag alone
+catches someone who has a real, portable credential. Either door releases them.
+
+⚠ **One place still reads the raw flag, and it is a known hole.** The
+`guest-resume` branch of `player-auth` revokes the browser's resume credential
+with `if (!record.guest)`. Because only the Google link clears that flag, an
+account claimed with a **password** keeps its resume key live: a browser once
+used for guest play goes on minting fresh 24h tokens, TTL refreshing on each
+use, and the password never locks it out (the epoch rotation in `change` does
+not help — this path mints a new token). Confirmed against the built handler.
+
+It is **deliberately still open**. The fix is one word — `isCredentialLessGuest`
+— but applying it before there is a **self-serve password reset** would strand
+anyone who sets a password and forgets it, since recovery today needs an admin.
+Order of work: ship the reset path, then flip the predicate and fix the
+"signs in with Google" message that assumes the other claim route.
+
+⚠ **Keep it single.** The tavern lock and account RECLAMATION
+(`api/cron/_guest-sweep.ts`) ask the same question — "does this character belong
+to anybody?" — with wildly different consequences. They were written with
+different predicates once, and the result was that a player who set a password
+could talk in the tavern and still have their character **deleted** for
+inactivity two weeks later. `_guest-gate-wiring.test.ts` now asserts both read
+the shared helper, and that the sweep's old `if (!record?.guest)` selector never
+returns.
+
+Two properties of that gate are load-bearing:
+
+- It **fails open** on a storage error. The record read cannot tell "not a
+  guest" from "could not tell", so failing closed would silence every player's
+  chat during one Supabase blip. This is an anti-spam gate, not a currency
+  path — the opposite of the `withKvLock({failClosed:true})` rule in §3.
+- The client learns the lock from `GET /api/player/account-status`, never from
+  localStorage. `socialLocked` is computed server-side from the same switch the
+  endpoints read, so the UI lock and the gate cannot drift — including under the
+  `DISABLE_GUEST_SOCIAL_LOCK=1` rollback, which must reopen both at once.
+  `api/_guest-gate-wiring.test.ts` asserts each handler still calls the gate,
+  after the identity is known and before the work it prevents.
 
 The browser fingerprint (`fingerprint.ts` → `x-client-fp`) is a **soft**
 anti-alt signal only — trivially spoofable. Never gate auth, rate-limit, or

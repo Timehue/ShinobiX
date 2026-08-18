@@ -9,6 +9,7 @@ import { isCleanText, sanitizeUserText, TEXT_LIMITS, hasReservedTitleTerm } from
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { blockedPlayersFor } from '../player/_blocks.js';
+import { rejectUnclaimedGuest } from '../_guest-gate.js';
 
 // A quoted reference to the message being replied to. Display-only — just the
 // original author + a short snippet so the client can render a quote block.
@@ -79,6 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !await memberCharacter(identity.name, village)) {
             return res.status(403).json({ error: 'You can only read your own village chat.' });
         }
+        // The tavern is shut to unclaimed guests, reading included — it is a
+        // village room, not a feed, and a locked room shows no transcript.
+        if (await rejectUnclaimedGuest(res, identity)) return;
         const allMessages = await kv.get<ChatMessage[]>(key) ?? [];
         const blocked = identity.admin ? new Set<string>() : new Set(await blockedPlayersFor(identity.name));
         const messages = allMessages.filter((message) => message.system || !blocked.has(safeName(message.author)));
@@ -122,6 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && !await memberCharacter(identity.name, village)) {
                 return res.status(403).json({ error: 'You can only post in your own village chat.' });
             }
+            if (await rejectUnclaimedGuest(res, identity)) return;
 
             // Silenced players can read but not post. Admin bypasses.
             if (!identity.admin) {
