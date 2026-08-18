@@ -363,6 +363,11 @@ describe('Kage challenge cost — server/client parity', () => {
         for (const [name, src] of [['server', server], ['TownHall', townHall], ['state lib', stateLib]] as const) {
             assert.doesNotMatch(src, /KAGE_DECLARE_SEAL_COST|KAGE_CHALLENGE_SEAL_COST/, `${name} still references the seal cost`);
         }
+        // Player-facing STRINGS drift separately from the constants. The refund
+        // path told the challenger their "Honor Seals were refunded" long after
+        // the stake became ryo — the code was right and the sentence was wrong.
+        const handler = read('api/village/kage-challenge.ts');
+        assert.doesNotMatch(handler, /Honor Seal/, 'the kage handler must not mention Honor Seals anywhere, prose included');
         // …and the readiness checklist must measure ryo, not the seal balance.
         assert.match(stateLib, /ok: ryo >= KAGE_CHALLENGE_RYO_COST/);
     });

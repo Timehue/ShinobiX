@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollBlackMarket, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from './_black-market.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/festival/black-market — POST (one ryo-gamble pull)
@@ -95,6 +96,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (out.status === 200) {
             await kv.set(`audit:black-market:${now}`, { ts: now, player: playerName, cost: BLACK_MARKET_COST, reward: out.body.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            // Economy telemetry — log the pull as its two real halves. The stake is
+            // a hard ryo sink on every pull; the payout is a faucet only when the
+            // roll pays ryo back. Netting them would hide the gross churn, which is
+            // the number that says whether this table is a sink at all.
+            const reward = (out.body.reward ?? {}) as { ryo?: number; fateShards?: number };
+            await recordEconomyTxn({ txnId: `black-market:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: -BLACK_MARKET_COST, source: 'blackmarket.stake' });
+            if (Number(reward.ryo) > 0) {
+                await recordEconomyTxn({ txnId: `black-market-payout:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: Number(reward.ryo), source: 'blackmarket.payout' });
+            }
+            if (Number(reward.fateShards) > 0) {
+                await recordEconomyTxn({ txnId: `black-market-shards:${playerName}:${now}`, player: playerName, currency: 'fateShards', delta: Number(reward.fateShards), source: 'blackmarket.payout' });
+            }
         }
         return res.status(out.status).json(out.body);
     } catch (err) {

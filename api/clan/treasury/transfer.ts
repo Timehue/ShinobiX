@@ -8,6 +8,7 @@ import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-
 import { planTreasuryGift } from '../../_treasury-gift-tax.js';
 import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
 import { settlementFingerprint } from '../../_durable-settlement.js';
+import { recordEconomyTxn } from '../../_economy.js';
 
 /*
  * /api/clan/treasury/transfer — POST only
@@ -235,6 +236,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...('currency' in transfer.result ? { currency: transfer.result.currency, amount: transfer.result.amount } : {}),
             ...('itemId' in transfer.result ? { itemId: transfer.result.itemId } : {}),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        // Economy telemetry — the gift levy is currency DESTROYED, the same
+        // signal as trade.burn. Without this the treasury channel moves volume
+        // the faucet/sink ledger never sees, which is precisely the blind spot
+        // the levy was added to close (api/_treasury-gift-tax.ts).
+        if ('currency' in transfer.result && Number(transfer.result.burned) > 0) {
+            await recordEconomyTxn({
+                txnId: `clan-treasury-gift-burn:${Date.now()}`,
+                player: recipientName,
+                currency: String(transfer.result.currency),
+                delta: -Number(transfer.result.burned),
+                source: 'clan.gift.burn',
+            });
+        }
         return res.status(200).json({ ok: true, ...transfer.result });
     } catch (err) {
         if (err instanceof SettlementValidationError) {
