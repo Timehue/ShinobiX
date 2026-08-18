@@ -367,6 +367,34 @@ describe('Kage challenge cost — server/client parity', () => {
         assert.match(stateLib, /ok: ryo >= KAGE_CHALLENGE_RYO_COST/);
     });
 
+    it('the panel names the gate the server actually enforces', () => {
+        // The server gate is personal Village Merit (KAGE_MIN_MERIT, read from
+        // char.villageMerit). TownHall used to advertise it as "contribution" —
+        // directly above a village CONTRIBUTION POINTS leaderboard, which is a
+        // different stat entirely. A player could top that board, read the hint as
+        // met, declare, and be refused.
+        const townHall = read('shinobij.client/src/screens/TownHall.tsx');
+        assert.match(townHall, /Village Merit/, 'the Kage panel must name Village Merit');
+        assert.doesNotMatch(
+            townHall,
+            /KAGE_CHALLENGE_MIN_CONTRIBUTION/,
+            'the merit gate must not be relabelled as contribution',
+        );
+        // …and it must show the player their own standing against each requirement.
+        assert.match(townHall, /kageEligibility\(character, kageNow\)/);
+    });
+
+    it('the client account-age check defaults the same way the server does', () => {
+        // Server: num(char.createdAt) coerces a missing field to 0, so the age
+        // check PASSES. A client default of `now` would fail the same save and
+        // show a blocker that does not exist.
+        const stateLib = read('shinobij.client/src/lib/kage-challenge-state.ts');
+        assert.match(stateLib, /Number\(character\.createdAt \?\? 0\)/);
+        assert.doesNotMatch(stateLib, /Number\(character\.createdAt \?\? now\)/);
+        const handler = read('api/village/kage-challenge.ts');
+        assert.match(handler, /challengerAccountCreatedAt: num\(char\.createdAt\)/);
+    });
+
     it('the handler debits and refunds ryo', () => {
         const handler = read('api/village/kage-challenge.ts');
         assert.match(handler, /ryo: num\(c\.ryo\) - KAGE_DECLARE_RYO_COST/);
