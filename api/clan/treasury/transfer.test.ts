@@ -62,7 +62,15 @@ describe('clan treasury transfer settlement', () => {
         assert.equal(replay.statusCode, 200);
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(CLAN_KEY))?.treasury?.ryo, 75);
         const recipient = await kv.get<{ _saveVersion?: number; character?: { ryo?: number } }>(RECIPIENT_KEY);
-        assert.equal(recipient?.character?.ryo, 35);
+                // Gift tax (api/_treasury-gift-tax.ts, 2026-08-17): the pool loses the
+        // full 25, the recipient receives 22 and 3 is BURNED. 10 + 22 = 32.
+        assert.equal(recipient?.character?.ryo, 32);
+        // The burn is the POINT of this leg: the treasury lost 25 and the
+        // recipient gained 22, so 3 ryo left the economy. Without it the
+        // donate->gift round trip is a 0% laundering channel that undercuts the
+        // taxed /api/player/trade.
+        assert.equal(first.body?.burned, 3, 'the gift must report the burned amount');
+        assert.equal(first.body?.amount, 22, 'the gift must report the CREDITED amount, not the raw one');
         assert.equal(first.body?._saveVersion, recipient?._saveVersion, 'fresh transfer must echo the exact recipient commit version');
         assert.equal(replay.body?._saveVersion, recipient?._saveVersion, 'durable replay must preserve the original commit version');
     });
@@ -88,7 +96,7 @@ describe('clan treasury transfer settlement', () => {
             kv.compareSet = originalCompareSet;
         }
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(CLAN_KEY))?.treasury?.ryo, 75);
-        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 35);
+        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 32);
     });
 
     it('recovers after the completion journal write fails without duplicating either side', { concurrency: false }, async () => {
@@ -108,12 +116,12 @@ describe('clan treasury transfer settlement', () => {
         try {
             assert.equal((await post(body)).statusCode, 500);
             assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(CLAN_KEY))?.treasury?.ryo, 75);
-            assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 35);
+            assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 32);
             assert.equal((await post(body)).statusCode, 200);
         } finally {
             kv.set = originalSet;
         }
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(CLAN_KEY))?.treasury?.ryo, 75);
-        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 35);
+        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 32);
     });
 });

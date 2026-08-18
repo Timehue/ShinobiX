@@ -5,6 +5,8 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
+import { planTreasuryGift } from '../../_treasury-gift-tax.js';
+import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
 import { settlementFingerprint } from '../../_durable-settlement.js';
 
 /*
@@ -226,6 +228,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             validateRecipient: async ({ character }) => {
                 if (!isAdmin && String(character.village ?? '').trim() !== village.trim()) throw new SettlementValidationError(403, 'Recipient is not a member of this village.');
                 if (!isAdmin) {
+                    // Shared-connection guard, matching /api/player/trade. Fails
+                    // OPEN on error (ruling 8: player experience first) — a broken
+                    // anti-cheat lookup must never block a legitimate Kage gift.
+                    try {
+                        if (actorName && await hasRecentIpOrFpOverlap(actorName, recipientName)) {
+                            throw new SettlementValidationError(403, "You can't gift treasury resources to someone sharing your connection.");
+                        }
+                    } catch (err) { if (err instanceof SettlementValidationError) throw err; }
                     const freshKage = await kv.get<VillageKageState>(kageKey(village));
                     if (!freshKage?.kageSystemUnlocked || safeName(freshKage.seatedKage ?? '') !== actorName) throw new SettlementValidationError(403, 'Only the seated Kage may transfer village treasury.');
                 }
@@ -233,7 +243,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             creditRecipient: (character) => {
                 if (isCurrency) {
                     const key = currency as TransferCurrency;
-                    return { character: { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + amount }, result: { currency: key, amount } };
+                    // Treasury gift tax (api/_treasury-gift-tax.ts). The pool loses the
+                    // full amount; the recipient receives it minus a burn, so this
+                    // channel can no longer undercut the taxed /api/player/trade.
+                    // Honor Seals are exempt — that leg is village supply, not
+                    // wealth transfer.
+                    const split = planTreasuryGift(key, amount);
+                    return { character: { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + split.credit }, result: { currency: key, amount: split.credit, burned: split.burned } };
                 }
                 const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
                 inventory.push(itemId!);

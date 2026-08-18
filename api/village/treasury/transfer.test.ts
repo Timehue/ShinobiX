@@ -58,7 +58,9 @@ describe('village treasury transfer settlement', () => {
         assert.equal(replay.statusCode, 200);
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(VILLAGE_KEY))?.treasury?.ryo, 75);
         const recipient = await kv.get<{ _saveVersion?: number; character?: { ryo?: number } }>(RECIPIENT_KEY);
-        assert.equal(recipient?.character?.ryo, 35);
+                // Gift tax (api/_treasury-gift-tax.ts, 2026-08-17): the pool loses the
+        // full 25, the recipient receives 22 and 3 is BURNED. 10 + 22 = 32.
+        assert.equal(recipient?.character?.ryo, 32);
         assert.equal(first.body?._saveVersion, recipient?._saveVersion, 'fresh transfer must echo the exact recipient commit version');
         assert.equal(replay.body?._saveVersion, recipient?._saveVersion, 'durable replay must preserve the original commit version');
     });
@@ -84,6 +86,6 @@ describe('village treasury transfer settlement', () => {
             kv.compareSet = originalCompareSet;
         }
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(VILLAGE_KEY))?.treasury?.ryo, 75);
-        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 35);
+        assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 32);
     });
 });
