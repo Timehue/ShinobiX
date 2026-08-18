@@ -78,6 +78,7 @@ import {
     playerLoginAdmissionMessage,
     registrationAdmissionMessage,
     sectorMapAdmissionMessage,
+    settleAdmission,
     villageWarScreenMountAllowed,
 } from "./lib/live-capability-admission";
 import { useCapabilityGuardedAutosave } from "./lib/use-capability-guarded-autosave";
@@ -1408,7 +1409,7 @@ export function stringifyServerSavePayload(payload: unknown) {
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
-    const { mutationAvailability, viewAvailability } = useLiveCapabilities();
+    const { mutationAvailability, refresh: refreshCapabilities, viewAvailability } = useLiveCapabilities();
     const gameplayViewAvailability = useCapabilityViewAvailability();
     const gameplayMutationAvailability = useCapabilityMutationAvailability();
     const villageWarAvailability = useCapabilityViewAvailability("villageWar");
@@ -4909,12 +4910,10 @@ export default function App() {
         // is the last client-side checkpoint before the registration POST, and it
         // guards three signup modes now rather than one: a Google or guest signup
         // is still a registration and is gated the same way.
-        const currentGameplay = viewAvailability();
-        const currentRegistration = mutationAvailability("registrations");
-        if (!capabilityAdmissionAllowed(currentRegistration)) {
-            alert(capabilityAdmissionAllowed(currentGameplay)
-                ? registrationAdmissionMessage(currentRegistration)
-                : playerLoginAdmissionMessage(currentGameplay));
+        const currentRegistration = await settleAdmission(() => mutationAvailability("registrations"), refreshCapabilities);
+        if (currentRegistration === "unavailable") {
+            const gameplay = await settleAdmission(() => viewAvailability(), refreshCapabilities);
+            alert(gameplay === "unavailable" ? playerLoginAdmissionMessage(gameplay) : registrationAdmissionMessage(currentRegistration));
             return;
         }
         const createLoad = beginSessionLoad(sessionLoadGenerationRef, newCharacter.name);
@@ -5099,8 +5098,8 @@ export default function App() {
     }
 
     async function loginPlayerAccount(name: string, password: string) {
-        const currentAvailability = viewAvailability();
-        if (!capabilityAdmissionAllowed(currentAvailability)) {
+        const currentAvailability = await settleAdmission(() => viewAvailability(), refreshCapabilities);
+        if (currentAvailability === "unavailable") {
             alert(playerLoginAdmissionMessage(currentAvailability));
             return;
         }

@@ -14,7 +14,7 @@ import {
     useCapabilityViewAvailability,
 } from "../lib/live-capabilities-context";
 import {
-    capabilityAdmissionAllowed,
+    capabilityAdmissionOpenUntilRefused,
     playerLoginAdmissionMessage,
     registrationAdmissionMessage,
 } from "../lib/live-capability-admission";
@@ -155,8 +155,14 @@ export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialN
 }) {
     const playerLoginAvailability = useCapabilityViewAvailability();
     const registrationsAvailability = useCapabilityMutationAvailability("registrations");
-    const playerLoginOpen = capabilityAdmissionAllowed(playerLoginAvailability);
-    const registrationOpen = capabilityAdmissionAllowed(registrationsAvailability);
+    const playerLoginOpen = capabilityAdmissionOpenUntilRefused(playerLoginAvailability);
+    // Open until the server actually refuses. Failing closed here greyed out the
+    // landing call to action and printed "Checking whether new character
+    // registration is available" on every cold load, for the length of one
+    // capability round-trip, to every visitor — while the real gate never moved:
+    // App.createPlayerAccount rechecks with fresh truth at submit, and the server
+    // 503s a paused registration at the route boundary either way.
+    const registrationOpen = capabilityAdmissionOpenUntilRefused(registrationsAvailability);
     const playerLoginMessage = playerLoginAdmissionMessage(playerLoginAvailability);
     const registrationMessage = playerLoginOpen
         ? registrationAdmissionMessage(registrationsAvailability)

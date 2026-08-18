@@ -48,11 +48,11 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
         const request = route.request();
         const path = new URL(request.url()).pathname;
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
-        // Live-capability admission fails CLOSED by design: any state other than
-        // "available" — including the "unknown" you get when this call never
-        // resolves — holds the player surface behind the "Checking live service
-        // availability" blocker, so the shell never leaves screen "start".
-        // Without this stub every test using this fixture measures that blocker
+        // An unresolved capability read no longer blocks the surface — only an
+        // explicit "unavailable" does. This stub is still required, because
+        // capability-gated ADMISSIONS (boot restore, polling, mutations) fail
+        // closed on cold truth, so without it the shell never leaves screen
+        // "start" and every test using this fixture measures a stalled boot
         // instead of the layout it means to assert. The sibling authenticated
         // specs, and this file's own selected-sector fixture, stub it for the
         // same reason.

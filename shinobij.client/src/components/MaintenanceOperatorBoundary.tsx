@@ -84,7 +84,6 @@ export function MaintenanceOperatorBoundary({
             </div>
             {playerSurfaceBlocked && (
                 <PlayerSurfaceBlocker
-                    mode={mode ?? "checking"}
                     onOperatorRecovery={() => setOperatorView("login")}
                     operatorSurface={operatorSurface}
                     onCloseOperatorRecovery={closeOperatorRecovery}
