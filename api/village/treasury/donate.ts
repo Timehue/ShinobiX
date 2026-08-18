@@ -40,7 +40,10 @@ const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const VILLAGE_CURRENCIES = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'] as const;
 
 const CURRENCY_CAPS: Record<string, number> = {
-    ryo: 10_000_000,
+    // Matched to the 200,000 gift cap so both legs share one blast radius.
+    // Was 10,000,000: a single call could pool fifty gifts' worth, which made
+    // the donate->gift round trip a bulk laundering channel (2026-08-17).
+    ryo: 200_000,
     honorSeals: 100_000,
     fateShards: 100_000,
     boneCharms: 100_000,

@@ -5,6 +5,8 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
+import { planTreasuryGift } from '../../_treasury-gift-tax.js';
+import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
 import { settlementFingerprint } from '../../_durable-settlement.js';
 
 /*
@@ -192,16 +194,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const character = (record?.character ?? null) as CharacterRow | null;
                 return record && character ? { record, character } : null;
             },
-            validateRecipient: ({ character }) => {
+            validateRecipient: async ({ character }) => {
                 if (!isAdmin && safeName(String(character.clan ?? '')) !== safeName(clanName)) {
                     throw new SettlementValidationError(403, 'Recipient is no longer a member of this clan.');
+                }
+                if (!isAdmin && actorName) {
+                    // Shared-connection guard, matching /api/player/trade. Founding
+                    // a clan is free, so without this the donate->gift round trip is
+                    // a zero-cost funnel to your own alt. Fails OPEN on error
+                    // (ruling 8: player experience first).
+                    try {
+                        if (await hasRecentIpOrFpOverlap(actorName, recipientName)) {
+                            throw new SettlementValidationError(403, "You can't gift treasury resources to someone sharing your connection.");
+                        }
+                    } catch (err) { if (err instanceof SettlementValidationError) throw err; }
                 }
             },
             creditRecipient: (character) => {
                 if (isCurrency) {
                     const key = currency as TransferCurrency;
-                    const next = { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + amount };
-                    return { character: next, result: { currency: key, amount } };
+                    // Treasury gift tax (api/_treasury-gift-tax.ts). The pool loses
+                    // the full amount; the recipient receives it minus a burn, so a
+                    // free clan can no longer be a 0% wealth-laundering channel that
+                    // undercuts the taxed /api/player/trade. Honor Seals are exempt.
+                    const split = planTreasuryGift(key, amount);
+                    const next = { ...character, [key]: Math.max(0, Number(character[key] ?? 0)) + split.credit };
+                    return { character: next, result: { currency: key, amount: split.credit, burned: split.burned } };
                 }
                 const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
                 inventory.push(itemId!);
