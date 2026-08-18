@@ -54,11 +54,18 @@ export type TreasuryGiftSplit = {
  * Split one treasury gift into credit and burn. The treasury always loses the
  * full `amount`; the burn is the difference. Floored so the burn absorbs the
  * rounding remainder and a recipient can never receive more than the pool lost.
+ *
+ * One exception to the floor: a gift of a single unit delivers that unit. The
+ * rare treasury currencies (mythic seals, aura stones, bone charms) are handed
+ * out one at a time — floor(1 * 0.9) = 0 would have made the leader pay a unit
+ * and the member receive nothing, which reads as a broken button rather than a
+ * tax. Only the amount === 1 case is special-cased; every larger gift keeps the
+ * exact floored split, so the burn stays intact where laundering is possible.
  */
 export function planTreasuryGift(currency: unknown, amountRaw: unknown): TreasuryGiftSplit {
     const amount = Math.max(0, Math.floor(Number(amountRaw) || 0));
     const exempt = typeof currency === 'string' && GIFT_TAX_EXEMPT_CURRENCIES.includes(currency);
     if (exempt || amount <= 0) return { debit: amount, credit: amount, burned: 0, exempt: true };
-    const credit = Math.floor(amount * (1 - TREASURY_GIFT_TAX_PCT));
+    const credit = Math.max(1, Math.floor(amount * (1 - TREASURY_GIFT_TAX_PCT)));
     return { debit: amount, credit, burned: amount - credit, exempt: false };
 }

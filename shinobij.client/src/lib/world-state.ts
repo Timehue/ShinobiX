@@ -1027,8 +1027,11 @@ export function claimPendingWarCrates(
         return { character, count: 0 };
     }
 
-    // Honor Seals are Vanguard-only. For non-Vanguards, redirect what would
-    // have been seals into Bone Charms (8:1) AND Fate Shards (25:1).
+    // Honor Seals themselves stay Vanguard-only (vanguardOnlyHonorSeals). The
+    // charm (8:1, min 1) and shard (25:1, no min) companions are NOT a
+    // non-Vanguard consolation despite the legacy `nonVanguard*` alias names —
+    // they pay EVERY profession, Vanguards included. See the helper block in
+    // App.tsx before "restoring" a profession check here.
     const honorSealGain = vanguardOnlyHonorSeals(character, honorBonus);
     const charmSubstitute = nonVanguardCharmSubstitute(character, honorBonus);
     const shardSubstitute = nonVanguardShardSubstitute(character, honorBonus);
