@@ -413,7 +413,7 @@ makes migration risk low. Implementation progress:
   countdown polish (Training.tsx). Lint-clean.
 - ✅ **Stage 2+3 core (client) — DONE, DEFAULT ON, verified:** training now grows
   the chosen stat **directly** at the calibrated rate (`lib/training-config.ts`,
-  15m/1h/4h/8h → +6/22/84/160, gentle 23→20/hr slope), bounded by the per-rank cap
+  15m/1h/4h/8h → +3/10/38/72, 10.5→9/hr slope), bounded by the per-rank cap
   (`statCapForLevel`); leveling no longer grants a stat budget
   (`reconcileCharacterStatBudget` now preserves a stored `unspentStats` pool, not
   budget-derived — parity/AI functions `statBudgetAtLevel` etc. left intact);

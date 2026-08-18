@@ -6,13 +6,18 @@
  * (statCapForLevel). It is the primary way stats grow; leveling raises the caps
  * and pools, and combat feeds the manual unspent-points pool.
  *
- * Rates are a gentle downward slope — shorter tiers are only *slightly* more
- * efficient per hour (kept close together, ~1.15× top-to-bottom, NOT a steep
- * reference-style curve), so no tier is a trap or a spam meta. Calibrated so a
- * dedicated daily player (~16 effective training-hours/day) fully caps a 12-stat
- * build in ~90 days: 12 × (2500 − 10) ≈ 30,000 pts ÷ (16 h/day × ~20 pts/h) ≈ 94
- * days. Longer tiers win on coverage (they run while you sleep); shorter tiers
- * win slightly on rate but can't run while away — so the two roughly balance.
+ * Rates descend with tier length (10.5 / 10 / 9.5 / 9 per real hour) — shorter
+ * tiers pay MORE per hour, so coming back often out-earns setting one 8-hour
+ * session and leaving. The server allows 96 starts/day (= 24h / 15min), so any
+ * tier can cover the whole day, and chaining the short ones is meant to win:
+ * 96× 15m = 288/day > 24× 1h = 240 > 6× 4h = 228 > 3× 8h = 216. Attention is
+ * the thing being rewarded — do NOT flatten this table.
+ *
+ * Magnitude is set from the reference regimen (12× 1h + 1× 4h + 1× 8h = 230
+ * pts/day, full 24h coverage), which fully caps a 12-stat build — 12 × (2500 −
+ * 10) = 29,880 pts — in ~90 days. Lighter play scales down and the most
+ * attentive scales up: 96× 15m ~74 days, reference ~90, 3× 8h ~94, 16h/day
+ * ~127, one 8h session ~267.
  *
  * Pure/dependency-free so it can be shared by the client screen, the server-auth
  * training endpoints (Stage 2), and the pacing sim.
@@ -31,12 +36,13 @@ export interface TrainingTier {
     staminaCost: number;
 }
 
-// Per-hour rates 23/22/21/20 → per full session ≈ 6 / 22 / 84 / 160.
+// Per-hour 10.5 / 10 / 9.5 / 9 → per full session 3 / 10 / 38 / 72.
+// MIRROR: api/_training-config.ts (parity-pinned by api/_training-parity.test.ts).
 export const TRAINING_TIERS: TrainingTier[] = [
-    { id: "15m", label: "15 Minutes", ms: 15 * 60 * 1000,     ratePerHour: 23, xp: 20,  staminaCost: 5 },
-    { id: "1h",  label: "1 Hour",     ms: 60 * 60 * 1000,     ratePerHour: 22, xp: 70,  staminaCost: 15 },
-    { id: "4h",  label: "4 Hours",    ms: 4 * 60 * 60 * 1000, ratePerHour: 21, xp: 220, staminaCost: 35 },
-    { id: "8h",  label: "8 Hours",    ms: 8 * 60 * 60 * 1000, ratePerHour: 20, xp: 375, staminaCost: 60 },
+    { id: "15m", label: "15 Minutes", ms: 15 * 60 * 1000,     ratePerHour: 10.5, xp: 20,  staminaCost: 5 },
+    { id: "1h",  label: "1 Hour",     ms: 60 * 60 * 1000,     ratePerHour: 10,   xp: 70,  staminaCost: 15 },
+    { id: "4h",  label: "4 Hours",    ms: 4 * 60 * 60 * 1000, ratePerHour: 9.5,  xp: 220, staminaCost: 35 },
+    { id: "8h",  label: "8 Hours",    ms: 8 * 60 * 60 * 1000, ratePerHour: 9,    xp: 375, staminaCost: 60 },
 ];
 
 /**
@@ -53,4 +59,30 @@ export function trainingStatGain(tier: TrainingTier, elapsedMs: number, bonusPct
     const hours = cappedMs / (60 * 60 * 1000);
     const boosted = tier.ratePerHour * hours * (1 + Math.max(0, bonusPct) / 100);
     return Math.max(0, Math.round(boosted));
+}
+
+// ── Rookie momentum (early-game level redistribution) ───────────────────────
+// A multiplier on early-game stat training so the first levels arrive quickly
+// without changing what a level COSTS. Level is derived from earned stat points
+// and the AI opponent curve scales off level, so cheapening the level anchors
+// would hand the AI a free power lead at every level; raising the early income
+// instead leaves points-at-level — and therefore every combat relationship —
+// untouched.
+//
+// Linear taper from PEAK at L1 to exactly 1.0 at ROOKIE_TAPER_END_LEVEL, and
+// 1.0 forever after: it never drops below 1.0, so no player is ever slowed, and
+// it is continuous so no level-up makes training feel worse.
+//
+// MIRROR: api/_training-config.ts — the server seals the gain, this copy only
+// renders the same number on the Training screen. Parity-pinned by
+// api/_training-parity.test.ts; the full rationale lives in the server copy.
+export const ROOKIE_STAT_PEAK_MULTIPLIER = 5;
+export const ROOKIE_TAPER_END_LEVEL = 35;
+
+/** Early-game stat-gain multiplier for `level`. PEAK at L1 → 1.0 at L35+. */
+export function rookieStatMultiplier(level: unknown): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    if (lvl >= ROOKIE_TAPER_END_LEVEL) return 1;
+    const remaining = (ROOKIE_TAPER_END_LEVEL - lvl) / (ROOKIE_TAPER_END_LEVEL - 1);
+    return 1 + (ROOKIE_STAT_PEAK_MULTIPLIER - 1) * remaining;
 }

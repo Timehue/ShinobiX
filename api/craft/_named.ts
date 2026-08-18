@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 
 export const NAMED_FORGE_COST = 1000;
 const CURRENCY_POINTS = { boneCharms: 5, fateShards: 5, auraStones: 25, mythicSeals: 75 } as const;
@@ -61,5 +62,11 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     const description = flavorRaw || (isGauntlet
         ? `A master-forged pair of gauntlets. ${roll.special.kind} ${roll.special.value}.`
         : `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% damage reduction. ${roll.special.kind} ${roll.special.value}.`);
-    return { id, name, slot: roll.slot, rarity: 'legendary', ...(isGauntlet ? {} : { armorQuality: roll.armorQuality }), cost: 0, levelReq: 30, description, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal, ninjutsuDefense: roll.defenseVal, taijutsuDefense: roll.defenseVal, bukijutsuDefense: roll.defenseVal, genjutsuDefense: roll.defenseVal, [roll.special.bonusKey]: roll.special.value } };
+    // Forged gear sits ABOVE mythic on the ladder — it is the last equipment a
+    // character earns, so it is gated at 90 (owner ruling 2026-08-17). The
+    // `rarity` string stays 'legendary' because the rarity vocabulary is shared
+    // with the shop/pack tables and a new value would ripple through both; the
+    // `named-*` id prefix is what marks the tier, and shared/item-level-gate.ts
+    // resolves it to NAMED_ITEM_LEVEL_REQ. Was 30.
+    return { id, name, slot: roll.slot, rarity: 'legendary', ...(isGauntlet ? {} : { armorQuality: roll.armorQuality }), cost: 0, levelReq: NAMED_ITEM_LEVEL_REQ, description, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal, ninjutsuDefense: roll.defenseVal, taijutsuDefense: roll.defenseVal, bukijutsuDefense: roll.defenseVal, genjutsuDefense: roll.defenseVal, [roll.special.bonusKey]: roll.special.value } };
 }

@@ -9,8 +9,22 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
 import { buildNamedItem, debitNamedForge, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
+import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
+
+/**
+ * Named gear is the level-90 tier (shared/item-level-gate.ts), so the FORGE
+ * itself is gated, not just wearing the result. Rolling is gated too: letting a
+ * level-20 player roll, name and pay for a piece they cannot equip for 70 levels
+ * is a trap, and the roll is the step the player thinks of as "rolling for" one.
+ * Reads the stored save — never a client-supplied level.
+ */
+async function forgeLevelBlocked(playerName: string): Promise<boolean> {
+    const record = await kv.get<{ character?: { level?: unknown } }>(`save:${playerName}`);
+    const level = Math.max(1, Math.floor(Number(record?.character?.level) || 1));
+    return level < NAMED_ITEM_LEVEL_REQ;
+}
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
     try {
@@ -21,6 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your forge.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'craft-named', 60, 60_000, identity.name))) return;
+        if (!identity.admin && await forgeLevelBlocked(playerName)) {
+            return res.status(403).json({ error: `Named forging unlocks at level ${NAMED_ITEM_LEVEL_REQ}.`, requiredLevel: NAMED_ITEM_LEVEL_REQ });
+        }
         if (action === 'roll') {
             const kind = body.kind === 'armor' ? 'armor' : 'weapon'; const roll = rollNamedForge(kind, body.slot);
             const token = randomUUID().replace(/-/g, '');

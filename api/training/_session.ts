@@ -1,8 +1,11 @@
-import { trainingStatGain, type TrainingTier } from '../_training-config.js';
+import { trainingStatGain, rookieStatMultiplier, type TrainingTier } from '../_training-config.js';
 import { combinedStatBoost } from '../_stat-growth.js';
+import { earnedStatPoints, levelForEarned } from '../_xp-engine.js';
 
 export const TRAINING_TOKEN_TTL_SECONDS = 25 * 60 * 60;
 export const MAX_TRAINING_RECEIPTS = 256;
+/** Sanity ceiling for a sealed training grant — see storedTrainingGrant. */
+export const MAX_SEALED_STAT_GAIN = 2500;
 
 export interface ActiveTrainingSession {
     token: string;
@@ -63,10 +66,14 @@ export function storedTrainingGrant(raw: unknown, token: string): StoredTraining
     const sealedGain = Math.floor(Number(record.statGain));
     const sealedXp = Math.floor(Number(record.xp));
     if (!TRAINING_STATS.has(stat)) return null;
-    // 8h tier base 160 × the aggregate boost ceiling (2.5) = 400; 1000 leaves
-    // headroom without opening a mint surface. sealedXp is a retired legacy
-    // field (character XP is gone) — still parsed off old leases, never paid.
-    if (!Number.isFinite(sealedGain) || sealedGain < 0 || sealedGain > 1000) return null;
+    // Hard upper bound on anything trustedTrainingRewards can seal: 8h tier base
+    // 160 × the aggregate boost ceiling (2.5) × the rookie peak (5) = 2,000.
+    // MAX_SEALED_STAT_GAIN carries a little headroom above that so a tier or
+    // dial nudge does not silently start rejecting valid leases — it is a
+    // sanity bound, not a balance lever. Old leases (sealed before the rookie
+    // curve, ≤1000) still validate unchanged. sealedXp is a retired legacy field
+    // (character XP is gone) — still parsed off old leases, never paid.
+    if (!Number.isFinite(sealedGain) || sealedGain < 0 || sealedGain > MAX_SEALED_STAT_GAIN) return null;
     if (!Number.isFinite(sealedXp) || sealedXp < 0 || sealedXp > 750) return null;
     return { stat, startedAt: active.startedAt, endsAt: active.endsAt, sealedGain, sealedXp };
 }
@@ -100,16 +107,38 @@ export function trainingBonusPct(character: Record<string, unknown> | undefined)
  * capped in combinedStatBoost) — never by anything client-supplied. Character
  * XP is retired: sealedXp stays in the token shape for old-lease compatibility
  * but is always 0 and never paid.
+ *
+ * The rookie multiplier is a DELIBERATELY SEPARATE factor, applied outside
+ * combinedStatBoost's aggregate cap — the same reasoning as `moraleTimeMult` in
+ * _jutsu-ryo.ts. Folded into `bonusPct` it would be swallowed by the 2.5x
+ * ceiling for anyone who already has a village training bonus, so the early-game
+ * curve would bite hardest for the players least likely to have one and not at
+ * all for the rest.
+ *
+ * ⛔ It is fed the LEDGER-DERIVED level — levelForEarned(earnedStatPoints) —
+ * and NOT `character.level`. The two differ whenever an exam hold is active:
+ * examLevelCap freezes the stored level at 20 (Genin) or 39 (Chunin) until the
+ * exam is passed, so reading `character.level` would let a player refuse the
+ * Genin exam and farm the level-20 multiplier (2.76x) forever. Measured over
+ * 600 simulated days that was +146% total stat points versus playing normally —
+ * the exam becomes something you are punished for taking. The earned-points
+ * ledger cannot be frozen (it is exactly what training grants), so deriving the
+ * level from it keeps the curve monotone in real progress and removes the
+ * incentive entirely, while leaving the tuned shape identical for anyone who is
+ * not exam-blocked.
  */
 export function trustedTrainingRewards(
     tier: TrainingTier,
     character?: Record<string, unknown>,
-): { sealedGain: number; sealedXp: number; bonusPct: number } {
+): { sealedGain: number; sealedXp: number; bonusPct: number; rookieMult: number } {
     const bonusPct = trainingBonusPct(character);
+    const ledgerLevel = character ? levelForEarned(earnedStatPoints(character)) : 1;
+    const rookieMult = rookieStatMultiplier(ledgerLevel);
     const base = Math.max(0, trainingStatGain(tier, tier.ms, 0));
     return {
-        sealedGain: Math.max(0, Math.round(base * combinedStatBoost(bonusPct))),
+        sealedGain: Math.max(0, Math.round(base * combinedStatBoost(bonusPct) * rookieMult)),
         sealedXp: 0,
         bonusPct,
+        rookieMult,
     };
 }

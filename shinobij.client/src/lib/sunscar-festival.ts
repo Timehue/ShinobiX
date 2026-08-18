@@ -1,6 +1,8 @@
 import type { Character } from "../types/character";
 
-export const FATE_DICE_COST = 25;
+// MIRROR: api/festival/_sunscar.ts FATE_DICE_COST — the server debits, this is
+// the displayed price. Keep in sync.
+export const FATE_DICE_COST = 250;
 export const FATE_DICE_DAILY_CAP = 5;
 
 export type FateDiceSymbol = "scorpion" | "coin" | "eye" | "blade" | "moon" | "star";

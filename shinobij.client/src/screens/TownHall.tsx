@@ -48,7 +48,10 @@ const TOWN_TABS = [["status", "Command"], ["upgrades", "Upgrades"], ["treasury",
 // Server-authoritative Kage succession (mirrors api/village/_kage-challenge.ts —
 // keep these in sync). The full rules + obligation math live server-side; the
 // client only declares, presses the overlap clock, sends the duel, and renders.
-const KAGE_CHALLENGE_SEAL_COST = 500;
+// MIRROR: api/village/_kage-challenge.ts KAGE_DECLARE_RYO_COST. Declaring
+// costs RYO, not Honor Seals — seals are the Vanguard's PvP earnings and fund
+// VILLAGE upgrades, so a civic act must not tax them (owner ruling 2026-08-17).
+const KAGE_CHALLENGE_RYO_COST = 250_000;
 const KAGE_CHALLENGE_MIN_LEVEL = 90;
 const KAGE_CHALLENGE_MIN_CONTRIBUTION = 250;
 // ServerKageChallenge/ServerKageState are imported from lib/kage-challenge-state,
@@ -87,7 +90,6 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
-    const upgrades = getVillageUpgrades(character);
 
     // Helper to get leader image: shows real player avatar if seated, falls back to admin image.
     // Priority: 1) current player's avatar, 2) shared images store, 3) roster character data, 4) admin NPC image
@@ -110,10 +112,16 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         }
         return fallbackImage ?? "";
     };
-    const totalUpgradeLevel = Object.values(upgrades).reduce((sum, level) => sum + level, 0);
     const [tab, setTab] = useState<(typeof TOWN_TABS)[number][0]>("status");
     const [mercBusy, setMercBusy] = useState<string | null>(null);
     const [state, setState] = useState<VillageState>(() => loadVillageState(character.village));
+    // Village upgrades are SHARED: the levels live on the village record and the
+    // copy on the character is a server-validated mirror. Read the village so a
+    // member sees the real village level immediately after the Kage buys one,
+    // without waiting for their own save to re-sync the mirror.
+    const upgrades = { ...getVillageUpgrades(character), ...(state.upgrades ?? {}) } as ReturnType<typeof getVillageUpgrades>;
+    const totalUpgradeLevel = Object.values(upgrades).reduce((sum, level) => sum + level, 0);
+
     const [donation, setDonation] = useState(1000);
     const [guardList, setGuardList] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [guardBusy, setGuardBusy] = useState(false);
@@ -280,12 +288,12 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         const currentLevel = upgrades[key];
         if (currentLevel >= VILLAGE_UPGRADE_MAX_LEVEL) return alert("This village upgrade is already maxed at level 50.");
         const cost = villageUpgradeCost(key, currentLevel);
-        if ((character.honorSeals ?? 0) < cost) return alert(`Not enough Honor Seals. You need ${cost.toLocaleString()} Honor Seals.`);
+        if ((state.treasury?.honorSeals ?? 0) < cost) return alert(`The village treasury needs ${cost.toLocaleString()} Honor Seals. Vanguards fund upgrades by donating seals to the treasury.`);
         const upgradeName = villageUpgradeDefinitions.find(def => def.key === key)?.name ?? key;
         townActionBusyRef.current = true;
         setTownActionBusy(key);
         const confirmed = await gameConfirm(
-            `Upgrade ${upgradeName} from level ${currentLevel} to ${currentLevel + 1} for ${cost.toLocaleString()} Honor Seals? This village upgrade is permanent and cannot be refunded.`,
+            `Upgrade ${upgradeName} from level ${currentLevel} to ${currentLevel + 1} for ${cost.toLocaleString()} Honor Seals from the village treasury? Every member of the village gains the bonus. This is permanent and cannot be refunded.`,
             { title: "Confirm Village Upgrade", confirmLabel: "Upgrade" },
         );
         if (!confirmed) {
@@ -295,10 +303,20 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         }
         try {
             const response = await fetch('/api/village/upgrade', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, key }) });
-            const data = await response.json().catch(() => null) as { character?: Character; cost?: number; level?: number; error?: string; _saveVersion?: number } | null;
-            if (!response.ok || !data?.character) return alert(data?.error || 'The village upgrade did not return an updated save. Refresh before retrying.');
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
-            updateVillageState(addNotice(`${character.name} spent ${(data.cost ?? cost).toLocaleString()} Honor Seals to upgrade ${upgradeName} to level ${data.level ?? currentLevel + 1}.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
+            // Village upgrades are SHARED now: the server spends the treasury
+            // pool and writes the level onto the village record, so the response
+            // carries village state rather than a character.
+            const data = await response.json().catch(() => null) as { upgrades?: Record<string, number>; treasuryHonorSeals?: number; cost?: number; level?: number; error?: string } | null;
+            if (!response.ok || !data?.upgrades) return alert(data?.error || 'The village upgrade did not return an updated village. Refresh before retrying.');
+            updateVillageState(addNotice(
+                `${character.name} spent ${(data.cost ?? cost).toLocaleString()} Honor Seals from the treasury to upgrade ${upgradeName} to level ${data.level ?? currentLevel + 1} — every villager benefits.`,
+                {
+                    ...state,
+                    upgrades: data.upgrades,
+                    treasury: { ...state.treasury, honorSeals: data.treasuryHonorSeals ?? state.treasury?.honorSeals },
+                    contributionPoints: state.contributionPoints + 10,
+                },
+            ));
         } catch {
             alert("The village upgrade response was lost. Refresh your save before retrying so you can confirm whether it committed.");
         } finally {
@@ -495,7 +513,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         const seatedKage = serverKage.seatedKage;
         if (!seatedKage) return alert("No seated Kage is available to challenge yet.");
         if (seatedKage.toLowerCase() === character.name.toLowerCase()) return alert("You are already the seated Kage.");
-        if (!(await gameConfirm(`Declare a Kage challenge against ${seatedKage}? This stakes ${KAGE_CHALLENGE_SEAL_COST} Honor Seals. You must beat them in a duel — and they must accept it or forfeit the seat.`))) return;
+        if (!(await gameConfirm(`Declare a Kage challenge against ${seatedKage}? This stakes ${KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo. You must beat them in a duel — and they must accept it or forfeit the seat.`))) return;
         const res = await fetch("/api/village/kage-challenge", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -791,7 +809,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 <div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small>+10% XP and jutsu speed</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "Training focus active" : "Select focus"}</button></div>
             </div></section>
             <section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1–3 are Kage-appointed; 4–10 rank by monthly PvP kills ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={index}><label>Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open seat"}</strong>{slot && ` · ${slot.rankTitle}`}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} kills` : "Vacant"}</span></div>)}</div><h4>Field authority</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Recon sectors</span><span>Reveal defenses</span></div><div className="clan-guard-row"><span>Guard sectors</span><span>Village-wide access</span></div><div className="clan-guard-row"><span>Support raids</span><span>Clan pressure</span></div></div></section>
-            <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Level {KAGE_CHALLENGE_MIN_LEVEL}+ · {KAGE_CHALLENGE_MIN_CONTRIBUTION}+ contribution · {KAGE_CHALLENGE_SEAL_COST} seals. Win the duel or exhaust the Kage’s accept clock.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_SEAL_COST} seals</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
+            <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Level {KAGE_CHALLENGE_MIN_LEVEL}+ · {KAGE_CHALLENGE_MIN_CONTRIBUTION}+ contribution · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo. Win the duel or exhaust the Kage’s accept clock.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
         </>}
     </div>;
 }

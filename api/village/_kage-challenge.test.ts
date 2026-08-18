@@ -6,13 +6,15 @@
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
     canDeclareChallenge, isChallengeExpired, newChallenge, applyPress,
     applySeatTransfer, applyDefense, applyExpiry, applyAdminReset,
     openReign, closeCurrentReign, incrementDefense, resolveDuelDecision, resolveAcceptDecision,
     KAGE_ACCEPT_OBLIGATION_MS, KAGE_CHALLENGE_EXPIRY_MS, KAGE_POST_DEFENSE_GRACE_MS,
     KAGE_LOSS_COOLDOWN_MS, KAGE_PRESS_MAX_STEP_MS, KAGE_MIN_CHALLENGER_LEVEL,
-    KAGE_MIN_MERIT, KAGE_DECLARE_SEAL_COST, KAGE_MIN_ACCOUNT_AGE_MS,
+    KAGE_MIN_MERIT, KAGE_DECLARE_RYO_COST, KAGE_MIN_ACCOUNT_AGE_MS,
     type DeclareInput, type KageStateLike, type KageChallenge,
 } from './_kage-challenge.js';
 
@@ -32,7 +34,7 @@ function declareInput(over: Partial<DeclareInput> = {}): DeclareInput {
         state: baseState(),
         challengerName: 'Rill',
         challengerLevel: 95,
-        challengerSeals: 1000,
+        challengerRyo: 5_000_000,
         challengerAccountCreatedAt: OLD_ENOUGH,
         challengerMerit: 300,
         isMember: true,
@@ -65,8 +67,11 @@ describe('canDeclareChallenge — eligibility gates', () => {
     it(`allows at exactly ${KAGE_MIN_MERIT} merit`, () => {
         assert.equal(canDeclareChallenge(declareInput({ challengerMerit: KAGE_MIN_MERIT })).ok, true);
     });
-    it(`blocks without the ${KAGE_DECLARE_SEAL_COST}-seal stake`, () => {
-        assert.equal(canDeclareChallenge(declareInput({ challengerSeals: KAGE_DECLARE_SEAL_COST - 1 })).ok, false);
+    it(`blocks without the ${KAGE_DECLARE_RYO_COST.toLocaleString()}-ryo stake`, () => {
+        assert.equal(canDeclareChallenge(declareInput({ challengerRyo: KAGE_DECLARE_RYO_COST - 1 })).ok, false);
+        // Honor Seals are the Vanguard's PvP earnings and fund VILLAGE upgrades —
+        // a civic act must not tax them (owner ruling 2026-08-17).
+        assert.equal(canDeclareChallenge(declareInput({ challengerRyo: KAGE_DECLARE_RYO_COST })).ok, true);
     });
     it('blocks when an active (non-expired) challenge already exists', () => {
         const state = { ...baseState(), challenge: chal('Someone', NOW) };
@@ -321,5 +326,38 @@ describe('resolveAcceptDecision — anti-stall accept guard (pure)', () => {
     it('rejects re-accepting a DIFFERENT duel once sealed', () => {
         const accepted = chal('Rill', NOW, { status: 'accepted', battleId: 'pvp-1' });
         assert.equal(resolveAcceptDecision({ ...base, challenge: accepted, battleId: 'pvp-2' }).kind, 'reject');
+    });
+});
+
+describe('Kage challenge cost — server/client parity', () => {
+    const read = (rel: string) => readFileSync(join(process.cwd(), ...rel.split('/')), 'utf8');
+
+    it('the declare cost is RYO, not Honor Seals, on every copy', () => {
+        // Seals are the Vanguard's PvP earnings and fund VILLAGE upgrades; a
+        // civic act must not tax them (owner ruling 2026-08-17). Three copies of
+        // this number exist (server core + two client modules), so pin them.
+        const server = read('api/village/_kage-challenge.ts');
+        const townHall = read('shinobij.client/src/screens/TownHall.tsx');
+        const stateLib = read('shinobij.client/src/lib/kage-challenge-state.ts');
+
+        assert.match(server, /export const KAGE_DECLARE_RYO_COST = 250_000;/);
+        assert.match(townHall, /const KAGE_CHALLENGE_RYO_COST = 250_000;/);
+        assert.match(stateLib, /export const KAGE_CHALLENGE_RYO_COST = 250_000;/);
+
+        // The old seal constant must be gone everywhere, or a player is told one
+        // price and charged another.
+        for (const [name, src] of [['server', server], ['TownHall', townHall], ['state lib', stateLib]] as const) {
+            assert.doesNotMatch(src, /KAGE_DECLARE_SEAL_COST|KAGE_CHALLENGE_SEAL_COST/, `${name} still references the seal cost`);
+        }
+        // …and the readiness checklist must measure ryo, not the seal balance.
+        assert.match(stateLib, /ok: ryo >= KAGE_CHALLENGE_RYO_COST/);
+    });
+
+    it('the handler debits and refunds ryo', () => {
+        const handler = read('api/village/kage-challenge.ts');
+        assert.match(handler, /ryo: num\(c\.ryo\) - KAGE_DECLARE_RYO_COST/);
+        assert.match(handler, /ryo: num\(c\.ryo\) \+ KAGE_DECLARE_RYO_COST/);
+        assert.match(handler, /resource: 'ryo'/);
+        assert.doesNotMatch(handler, /honorSeals/);
     });
 });

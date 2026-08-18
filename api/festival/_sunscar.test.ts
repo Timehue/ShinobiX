@@ -4,6 +4,7 @@ import {
     cleanMiraaBet,
     FATE_DICE_COST,
     FATE_DICE_DAILY_CAP,
+    FATE_DICE_SYMBOLS,
     MIRAA_WIN_CHANCE,
     resolveMiraaWager,
     rollFateDice,
@@ -11,7 +12,7 @@ import {
 
 describe('_sunscar', () => {
     it('keeps the dice cost and daily cap pinned', () => {
-        assert.equal(FATE_DICE_COST, 25);
+        assert.equal(FATE_DICE_COST, 250);
         assert.equal(FATE_DICE_DAILY_CAP, 5);
     });
 
@@ -25,18 +26,42 @@ describe('_sunscar', () => {
             statPoints: 0,
             stamina: 0,
             boneCharms: 10,
-            fateShards: 5,
+            fateShards: 3,
             auraStones: 5,
         });
     });
 
-    it('the dice pay tiny stat-pool points where they used to pay XP', () => {
-        // moon (no triple, no scorpion/coin/blade in the roll): +5 pool points.
-        const values = [0.7, 0.7, 0.9]; // moon, moon, star → includes moon
-        const result = rollFateDice(() => values.shift() ?? 0);
-        assert.equal(result.reward.xp, 0);
-        assert.equal(result.reward.statPoints, 5);
-        assert.equal(result.reward.ryo, 25);
+    it('NEVER pays stat points — progression is not purchasable with ryo', () => {
+        // Every branch of the table, walked by its own rand() sequence.
+        const rolls: Array<[string, number[]]> = [
+            ['triple eye', [0.4, 0.4, 0.4]],
+            ['other triple', [0.0, 0.0, 0.0, 0.5]],
+            ['scorpion', [0.0, 0.9, 0.9]],
+            ['coin', [0.2, 0.9, 0.9]],
+            ['blade', [0.6, 0.9, 0.5]],
+            ['moon', [0.7, 0.7, 0.9]],
+            ['star only', [0.9, 0.9, 0.9]],
+        ];
+        for (const [label, values] of rolls) {
+            const queue = [...values];
+            const result = rollFateDice(() => queue.shift() ?? 0);
+            assert.equal(result.reward.statPoints, 0, `${label} must pay no stat points`);
+            assert.equal(result.reward.xp, 0, `${label} must pay no xp`);
+        }
+    });
+
+    it('is a net ryo SINK at the current cost, not a faucet', () => {
+        // Expected ryo return across the 6^3 symbol space must sit below the
+        // pull cost — the dice are a gamble, and the old table was +EV.
+        const S = FATE_DICE_SYMBOLS.length;
+        let totalRyo = 0;
+        for (let a = 0; a < S; a++) for (let b = 0; b < S; b++) for (let c = 0; c < S; c++) {
+            const seq = [a / S + 1e-9, b / S + 1e-9, c / S + 1e-9, 0.5];
+            const queue = [...seq];
+            totalRyo += rollFateDice(() => queue.shift() ?? 0).reward.ryo;
+        }
+        const expectedRyo = totalRyo / (S * S * S);
+        assert.ok(expectedRyo < FATE_DICE_COST, `expected ryo ${expectedRyo.toFixed(1)} must be below the ${FATE_DICE_COST} cost`);
     });
 
     it('sanitizes Miraa wagers to the allowed bet ladder', () => {

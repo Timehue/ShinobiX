@@ -23,6 +23,7 @@ import { cleanTreasuryItems } from './_treasury-donate.js';
 // nested types here, just enough structure for the rule engine.
 type VillageStateBlob = {
     treasury?: Record<string, unknown>;
+    upgrades?: Record<string, unknown>;
     contributionPoints?: number;
     notices?: string[];
     noticePosts?: Array<Record<string, unknown>>;
@@ -185,6 +186,23 @@ export async function validateVillageStateWrite(
     // ── treasury ────────────────────────────────────────────────────
     // For each currency: positive deltas are bounded by per-call max;
     // negative deltas (withdrawals) require seatedKage.
+    // ── Village upgrades: SERVER-OWNED, never client-writable ───────
+    // Village upgrades are shared infrastructure bought from the treasury seal
+    // pool by /api/village/upgrade, which writes this key directly. The blob
+    // merge above is `{ ...prev, ...incoming }`, so without this line ANY
+    // villager could POST `upgrades: { training: 50, bank: 50, ... }` and the
+    // levels would land on the shared record — and from there onto every
+    // member's character mirror, paying real bank interest, mission rewards,
+    // shop discount and training rate. Stored always wins; admin bypasses.
+    if (!ctx.isAdmin) {
+        if (prev.upgrades !== undefined) next.upgrades = prev.upgrades;
+        else delete next.upgrades;
+        const inUpgrades = JSON.stringify((incoming as Record<string, unknown>).upgrades ?? null);
+        if (inUpgrades !== 'null' && inUpgrades !== JSON.stringify(prev.upgrades ?? null)) {
+            suppressed.push('upgrades change via save blob blocked — use /api/village/upgrade');
+        }
+    }
+
     if (incoming.treasury && typeof incoming.treasury === 'object') {
         const prevTreasury = (prev.treasury ?? {}) as Record<string, unknown>;
         const inTreasury = incoming.treasury as Record<string, unknown>;

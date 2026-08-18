@@ -5,6 +5,7 @@ import {
 } from '../_settlement-receipts.js';
 import type { SettlementCard, SettlementItem } from './_catalog.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
+import { effectiveItemLevelReq, meetsItemLevelReq } from '../../shared/item-level-gate.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 export type ShopCurrency = 'ryo' | 'fateShards';
@@ -168,6 +169,17 @@ export function applyItemPurchase(
     if (item.levelReq && level < item.levelReq) return { ok: false, status: 400, error: `Requires Level ${item.levelReq}.` };
     const items = storedItems(character);
     if (!items) return { ok: false, status: 409, error: 'Stored inventory is invalid. Contact support.' };
+
+    // Gear level ladder (shared/item-level-gate.ts). `levelReq` used to be read
+    // only by the crafting path, so the shop would happily sell mythic armour to
+    // a level-1 character. The gate belongs at every acquisition point, not one.
+    if (!meetsItemLevelReq(item, character.level)) {
+        return {
+            ok: false,
+            status: 400,
+            error: `${item.name} requires level ${effectiveItemLevelReq(item)}.`,
+        };
+    }
 
     const cap = holdCap(item);
     const quantity = cap === null ? 1 : Math.min(requested, Math.max(0, cap - itemCount(items, item.id)));
