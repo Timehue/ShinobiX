@@ -9,7 +9,17 @@
  * mutation — so the handler stays a simple currency read-modify-write.
  */
 
-export const BLACK_MARKET_COST = 50_000; // ryo per pull
+// Sunscar is PERMANENT (owner ruling 2026-08-17), so this is standing economy,
+// not event flavour, and its premium output has to be a number that was chosen
+// rather than one that emerged. At 50,000 a pull it produced ~0.69 Fate Shards
+// each — about 2,500 a year for someone pulling the daily cap — which made it
+// quietly the largest uncontrolled premium faucet in the game.
+//
+// Re-costed to 75,000 (still only ~0.4 days of a strong player's income, and
+// the deepest ryo sink available) with the premium tiers cut roughly 55%. It
+// stays a genuine ryo sink by construction: expected ryo return is well under
+// the cost, asserted by the colocated test.
+export const BLACK_MARKET_COST = 75_000; // ryo per pull
 export const BLACK_MARKET_DAILY_CAP = 10;
 
 export type BlackMarketReward = {
@@ -40,7 +50,7 @@ export function rollBlackMarket(rand: () => number): BlackMarketReward {
         return { ...EMPTY, tier: 'scraps', label: 'Scraps from the dust', ryo: randInt(rand, 8_000, 24_000) };
     }
     if (r < 0.72) {
-        return { ...EMPTY, tier: 'trinket', label: 'A smuggled trinket', fateShards: randInt(rand, 1, 3) };
+        return { ...EMPTY, tier: 'trinket', label: 'A smuggled trinket', fateShards: 1 };
     }
     if (r < 0.87) {
         return { ...EMPTY, tier: 'haul', label: 'A tidy haul', ryo: randInt(rand, 44_000, 76_000) };
@@ -51,5 +61,5 @@ export function rollBlackMarket(rand: () => number): BlackMarketReward {
     if (r < 0.99) {
         return { ...EMPTY, tier: 'fortune', label: 'A desert fortune', ryo: randInt(rand, 110_000, 170_000) };
     }
-    return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 100_000, fateShards: 25, boneCharms: 5, auraStones: 2 };
+    return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 150_000, fateShards: 10, boneCharms: 5, auraStones: 2 };
 }
