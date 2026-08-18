@@ -22,11 +22,14 @@ type LaunchControlRequest = {
 const ALLOWED: LaunchControlDecision = { allowed: true };
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // The /player-auth actions that let an EXISTING player back in: password
-// sign-in and credential recovery (`verify`, `change`, `adminreset`) plus guest
-// resume, which hands back an already-created guest character. Account creation
-// (`register`, `register-google`, `guest`) and `delete` are deliberately absent
-// — see the freeze rationale below.
-const PLAYER_AUTH_SIGN_IN_ACTIONS = new Set(['verify', 'change', 'adminreset', 'guest-resume']);
+// sign-in and credential recovery (`verify`, `change`, `adminreset`,
+// `recover`, `recovery-issue`, `admin-recovery`) plus guest resume, which hands
+// back an already-created guest character. Account creation (`register`,
+// `register-google`, `guest`) and `delete` are deliberately absent — see the
+// freeze rationale below.
+const PLAYER_AUTH_SIGN_IN_ACTIONS = new Set([
+    'verify', 'change', 'adminreset', 'guest-resume', 'recover', 'recovery-issue', 'admin-recovery',
+]);
 
 function enabled(env: NodeJS.ProcessEnv, name: string): boolean {
     return env[name] === '1';
@@ -134,6 +137,11 @@ export function evaluateLaunchControl(
     //
     //   - `verify` / `change` / `adminreset` — password sign-in and credential
     //     recovery. Already exempt.
+    //   - `recover` / `recovery-issue` / `admin-recovery` — the self-serve
+    //     recovery-code path. `recover` IS credential recovery, so freezing it
+    //     would mean the one incident an operator most wants players able to
+    //     work around is the one where nobody can get back in. It creates no
+    //     account and touches no economy state.
     //   - `guest-resume` — resumes an EXISTING guest character (it looks the
     //     owner up and hands back their record; it creates nothing). It is a
     //     sign-in, so exempting it is what keeps the policy coherent: without it

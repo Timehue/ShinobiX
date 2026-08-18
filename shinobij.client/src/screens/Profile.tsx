@@ -9,6 +9,7 @@ import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
 import { ANIMATED_MAX_MB, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
+import { RecoveryCodeCard } from "../components/RecoveryCodeCard";
 import { GoogleLinkCard } from "../components/GoogleLinkCard";
 import { PatreonLink } from "../components/PatreonLink";
 import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
@@ -738,6 +739,7 @@ export function Profile({
                     <h2>Account</h2>
                     <GoogleLinkCard playerName={character.name} />
                     <ChangePasswordCard playerName={character.name} />
+                    <RecoveryCodeCard playerName={character.name} />
                     <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>
                     <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
                 </section>

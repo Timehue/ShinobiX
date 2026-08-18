@@ -21,6 +21,7 @@ import { safeName } from './_utils.js';
 import { withKvLock } from './_lock.js';
 import { rotatePlayerSessionEpoch } from './_auth.js';
 import { authKey, googleIdentityKey, type AuthRecord } from './player-auth.js';
+import { recoveryCodeKey } from './_recovery-code.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
 
@@ -183,6 +184,10 @@ export async function deletePlayerAccount(rawName: string): Promise<DeletePlayer
                 const identityKey = googleIdentityKey(record.google.sub);
                 if (await kv.del(identityKey)) result.removed.push(identityKey);
             }
+            // The recovery code has to go with the account. Slugs are reusable,
+            // so a surviving `auth-recovery:<slug>` is a working credential to
+            // whoever registers this name next — see _recovery-code.ts.
+            if (await kv.del(recoveryCodeKey(slug))) result.removed.push(recoveryCodeKey(slug));
         }, { failClosed: true });
     } catch (err) {
         result.failures.push(`${authKey(slug)}: ${(err as Error).message}`);

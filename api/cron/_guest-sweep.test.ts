@@ -139,11 +139,15 @@ describe('guest sweep', () => {
 
     it('still deletes a guest holding half a credential', async () => {
         // Neither half alone can verify a password, so the account still has no
-        // way back in — it is abandoned, not committed.
+        // way back in — it is abandoned, not committed. Both directions, because
+        // `isPasswordlessRecord` treats a missing hash and a missing salt alike
+        // and the sweep must agree, or a corrupt row would become permanently
+        // unsweepable while still being unenterable.
         seed('halfway', { guest: true, hash: 'scrypt:x', createdAt: LONG_AGO }, { lastSeen: LONG_AGO });
+        seed('halfsalt', { guest: true, salt: 'deadbeef', createdAt: LONG_AGO }, { lastSeen: LONG_AGO });
 
         const result = await runGuestSweep(NOW);
-        assert.deepEqual(result.expired, ['halfway']);
+        assert.deepEqual(result.expired.sort(), ['halfsalt', 'halfway']);
     });
 
     it('never touches a password or Google account, however stale', async () => {
@@ -165,6 +169,14 @@ describe('guest sweep', () => {
 
         const result = await runGuestSweep(NOW);
         assert.deepEqual(result.expired, []);
+    });
+
+    it('takes the recovery code with the account, so a freed name cannot inherit it', async () => {
+        seed('wanderer', { guest: true, createdAt: LONG_AGO, sessionEpoch: 0 }, { lastSeen: LONG_AGO });
+        store.set('auth-recovery:wanderer', { hash: 'x', salt: 'y', issuedAt: LONG_AGO });
+
+        await runGuestSweep(NOW);
+        assert.equal(store.has('auth-recovery:wanderer'), false);
     });
 
     it('reports without deleting until the sweep is switched on', async () => {

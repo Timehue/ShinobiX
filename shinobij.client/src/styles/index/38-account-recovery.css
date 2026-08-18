@@ -1,0 +1,105 @@
+/* Account recovery — the recovery-code card (Profile → Account), the one-time
+   reveal, and the "forgotten your password?" form on the login gate.
+
+   Appended as a new numbered part rather than edited into an existing one: the
+   manifest in index.css is load-bearing in order, and everything here is new
+   surface with no override to sit above. */
+
+/* ── The card in Profile → Account ─────────────────────────────────────────── */
+.recovery-code-card {
+  margin-bottom: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+.recovery-code-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #e5e7eb;
+}
+.recovery-code-blurb {
+  max-width: 46ch;
+  margin: 0 0 10px;
+}
+.recovery-code-card input {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 8px;
+}
+.recovery-code-confirm {
+  max-width: 46ch;
+}
+.recovery-code-confirm .hint {
+  margin: 0 0 8px;
+}
+.recovery-code-confirm button + button,
+.recovery-code-actions button + button {
+  margin-left: 8px;
+}
+.recovery-code-dismiss {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--text-dim);
+}
+
+/* ── The one-time reveal ───────────────────────────────────────────────────── */
+.recovery-code-reveal {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.08);
+  max-width: 360px;
+}
+.recovery-code-warning {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yellow-300, #fde047);
+}
+
+/* The code itself. Monospace and generously tracked because this gets copied
+   by hand off a screen, and the whole point of the Crockford alphabet is that
+   no two glyphs should be confusable at a glance. `break-all` so a narrow
+   phone wraps it instead of clipping the last group out of view. */
+.recovery-code-value {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  color: #f8fafc;
+  word-break: break-all;
+  user-select: all;
+}
+.recovery-code-actions {
+  margin-top: 10px;
+}
+
+/* ── The login-gate recovery form ──────────────────────────────────────────── */
+.gate-recovery-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gate-recovery-form .recovery-code-value {
+  padding: 10px 0;
+}
+.gate-recovery-toggle {
+  margin-top: 4px;
+}
+
+/* Same monospace treatment on the input, so what is typed lines up visually
+   with what is written down. */
+.recovery-code-input {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 480px) {
+  .recovery-code-value {
+    font-size: 16px;
+    letter-spacing: 0.1em;
+  }
+}
