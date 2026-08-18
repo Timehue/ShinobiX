@@ -12,6 +12,15 @@
 .activity-focus-select select { min-height:34px;max-width:190px; }
 .activity-card-progress { color:var(--cyan);font-size:12px;font-weight:650; }
 .activity-spine-grid,.operation-world-context { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+/* The spine only ever renders inside the Daily Briefing card, which is capped
+   at 720px however wide the screen is — so its column count has to follow the
+   CARD's width, not the viewport's. A viewport breakpoint got this wrong in
+   both directions: single-column in a roomy 700px card on a 900px tablet, and
+   two cramped columns in a 340px card on a 1024px window beside a wide rail. */
+.activity-spine { container: activity-spine / inline-size; }
+@container activity-spine (max-width: 440px) {
+    .activity-spine-grid { grid-template-columns:1fr; }
+}
 .activity-horizon { min-width:0;border-left:2px solid #64748b;padding-left:9px; }
 .activity-horizon-now { border-color:#facc15; }
 .activity-horizon-this-week { border-color:#c084fc; }
@@ -59,7 +68,7 @@
 .operation-pings { margin-top:6px; }
 .operation-latest-ping { margin-top:5px; }
 @media (max-width: 979px) {
-    .activity-spine-grid,.operation-world-context { grid-template-columns:1fr; }
+    .operation-world-context { grid-template-columns:1fr; }
     .operation-member { align-items:flex-start;flex-wrap:wrap; }
     .operation-member-actions { flex:1 0 100%;margin-top:0; }
     .operation-primary-actions>button,.operation-create-actions>button { flex:1 1 180px; }
