@@ -86,6 +86,7 @@ See `.env.example` for the annotated list. Minimum to boot:
 | `GOOGLE_APP_RETURN_URL` | ○ | Where the callback bounces back to. Defaults to `/`. |
 | `DISABLE_GOOGLE_AUTH` | ✖ | Kill switch — `1` hides and refuses Google sign-in without unsetting the credentials. |
 | `DISABLE_GUEST_PLAY` | ✖ | Kill switch for guest characters. |
+| `DISABLE_GUEST_SOCIAL_LOCK` | ✖ | Kill switch for the guest chat lock. Ships **on**: a guest with no credential cannot open the tavern, send village / clan / battle / direct messages, or leave trail signs. Linking Google **or** setting a password lifts it (the same predicate keeps them out of the guest sweep). `1` reopens every one of those surfaces, and also unlocks the matching UI (`/api/player/account-status` reports the same switch). |
 | `GUEST_SWEEP_ENABLED` | ○ | `1` lets the daily cron actually delete guest characters idle for 14 days. Unset, it only logs what it would take — read a night of that first. |
 | `CRON_SECRET` | ▲ | Guards the daily snapshot job (set if you use Railway Cron). |
 | `RESTART_TOKEN` | ▲ | Guards `POST /restart`. |

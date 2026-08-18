@@ -84,6 +84,31 @@ export function isPasswordlessRecord(record: AuthRecord | null | undefined): boo
     return !!record && (!record.hash || !record.salt);
 }
 
+/**
+ * A guest who has not yet earned a way back in: still flagged `guest`, and with
+ * no password either. The one predicate for "this character belongs to nobody".
+ *
+ * Both halves are required, because the `guest` flag alone is not enough. Only
+ * the Google link clears it (`api/auth/google/callback.ts`); the `change` action
+ * below deliberately spreads the record when setting a FIRST password, so the
+ * flag survives on an account that now has a real, portable credential.
+ *
+ * Shared deliberately. Two very different consequences hang off this one line —
+ * the tavern/message lock in `api/_guest-gate.ts`, and account RECLAMATION in
+ * `api/cron/_guest-sweep.ts`. They were written with different predicates once,
+ * which meant a player who set a password could talk in the tavern and still
+ * have their character deleted for inactivity two weeks later. Keep it single.
+ *
+ * Returns a plain boolean, NOT a `record is AuthRecord` type predicate. A
+ * predicate would be unsound: it would narrow the FALSE branch to
+ * `null | undefined`, but the commonest record reaching that branch is a
+ * perfectly real password account. Callers that need non-null narrowing should
+ * test `record` themselves, as the sweep does.
+ */
+export function isCredentialLessGuest(record: AuthRecord | null | undefined): boolean {
+    return record?.guest === true && isPasswordlessRecord(record);
+}
+
 /** A guest account is swept after this long with no activity. */
 export const GUEST_INACTIVITY_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -684,6 +709,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Once the account has a real owner the resume key is dead weight —
             // and letting it keep minting tokens would leave the pre-claim
             // browser holding a credential to somebody's real account.
+            //
+            // ⚠ KNOWN GAP — deliberately still open, do not half-fix it.
+            // `record.guest` is cleared ONLY by the Google link, so an account
+            // claimed with a PASSWORD keeps this key live: a browser once used
+            // for guest play goes on minting 24h tokens indefinitely (the TTL
+            // refreshes below), and the password never locks it out. The epoch
+            // rotation in `change` does not help, because this path mints a
+            // FRESH token. Verified against the built handler: 200 + token for
+            // a record carrying both `guest: true` and a hash/salt.
+            //
+            // The correct predicate is `isCredentialLessGuest(record)` — the
+            // same one the tavern lock and the guest sweep share. It is not
+            // applied yet ON PURPOSE: revoking this door today would strand
+            // anyone who sets a password and later forgets it, because there is
+            // no self-serve password reset without Google. Ship that reset
+            // path FIRST, then flip this line and fix the message below, which
+            // also assumes Google. See docs/auth-and-anti-cheat-patterns.md.
             if (!record.guest) {
                 await kv.del(guestResumeKey(resume));
                 return res.status(409).json({ ok: false, error: 'This character now signs in with Google.' });

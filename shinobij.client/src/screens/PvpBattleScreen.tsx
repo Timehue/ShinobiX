@@ -75,6 +75,7 @@ import {
 } from "../lib/pvp-session-runtime";
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
+import { useSocialLock } from "../lib/account-status";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -1141,6 +1142,16 @@ export function PvpBattleScreen({
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
     const [battleChatMessages, setBattleChatMessages] = useState<BattleChatMsg[]>([]);
     const [battleChatInput, setBattleChatInput] = useState("");
+    // Battle chat is free text shown to an opponent and every spectator, so it
+    // carries the same guest lock as the tavern. The layout is deliberately
+    // untouched — the input row stays, disabled, rather than being swapped for
+    // a panel, because the combat layout matrix measures this row.
+    //
+    // `loading` counts as locked here: this sender appends optimistically, so
+    // sending before the answer is in would leave a ghost line in the log that
+    // the server rejected.
+    const { locked: guestChatLocked, loading: guestChatLockLoading } = useSocialLock(character.name);
+    const battleChatLocked = guestChatLocked || guestChatLockLoading;
     // Below lg (1180px) the chat renders as a fixed 220px overlay that covers
     // ~60% of a phone screen over the combat HUD, so start it COLLAPSED there;
     // on desktop (in-grid column) start it open. Players can still toggle it.
@@ -1175,6 +1186,9 @@ export function PvpBattleScreen({
     function sendBattleChat() {
         const text = battleChatInput.trim();
         if (!text || !battleId) return;
+        // Belt and braces: the input is disabled while locked, but this appends
+        // optimistically, so never let a rejected line reach the log.
+        if (battleChatLocked) return;
         setBattleChatInput("");
         const chatRole = amSpectator ? "spectator" : "fighter";
         // Optimistic local append so message shows immediately
@@ -2416,10 +2430,13 @@ export function PvpBattleScreen({
                                     type="text"
                                     value={battleChatInput}
                                     onChange={e => setBattleChatInput(e.target.value)}
-                                    placeholder={amSpectator ? "Chat as spectator…" : "Type a message…"}
+                                    placeholder={battleChatLocked
+                                        ? "Link a Google account to chat"
+                                        : amSpectator ? "Chat as spectator…" : "Type a message…"}
                                     maxLength={200}
+                                    disabled={battleChatLocked}
                                 />
-                                <button type="submit" disabled={!battleChatInput.trim()}>Send</button>
+                                <button type="submit" disabled={battleChatLocked || !battleChatInput.trim()}>Send</button>
                             </form>
                         </>
                     )}

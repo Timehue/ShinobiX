@@ -13,16 +13,20 @@
  *    particular nothing that would make the hottest endpoint in the game take
  *    the auth lock. A guest who registered but never saved falls back to their
  *    record's `createdAt`.
- *  - **`guest === true` is the only selector.** A password or Google account is
- *    unreachable from here no matter what else is wrong, because the flag is
- *    cleared the moment an account gains an owner.
+ *  - **Only a CREDENTIAL-LESS guest is reclaimable.** The selector is
+ *    `isCredentialLessGuest` (player-auth.ts), shared with the tavern lock so
+ *    "belongs to nobody" has one definition. The `guest` flag alone is NOT
+ *    enough: linking Google clears it, but setting a first password does not,
+ *    and deleting the character of someone who chose a password is the worst
+ *    thing this cron could do. A password or Google account is unreachable
+ *    from here no matter what else is wrong.
  *
  * Runs in dry-run mode unless GUEST_SWEEP_ENABLED=1, so the first cycles report
  * what they would have taken and take nothing.
  */
 import { kv } from './../_storage.js';
 import { safeName } from './../_utils.js';
-import { GUEST_INACTIVITY_MS, type AuthRecord } from './../player-auth.js';
+import { GUEST_INACTIVITY_MS, isCredentialLessGuest, type AuthRecord } from './../player-auth.js';
 import { deletePlayerAccount } from './../_delete-player-account.js';
 import { REGISTRY_KEY } from './../player/_public-index.js';
 
@@ -88,7 +92,16 @@ export async function runGuestSweep(now: number = Date.now()): Promise<GuestSwee
             result.failures.push(`${key}: ${(err as Error).message}`);
             continue;
         }
-        if (!record?.guest) continue;
+        // NOT `record.guest` alone. Setting a first password keeps that flag
+        // (player-auth `change` spreads the record), so the old check deleted
+        // characters belonging to players who had chosen a real password and
+        // could sign back in from any device — the single worst outcome this
+        // cron can produce. `isCredentialLessGuest` is shared with the tavern
+        // lock so "belongs to nobody" has exactly one definition.
+        // `record` is tested explicitly: isCredentialLessGuest returns a plain
+        // boolean on purpose (a type predicate there would be unsound), so this
+        // is what narrows away the null before `record.createdAt` below.
+        if (!record || !isCredentialLessGuest(record)) continue;
         result.guests += 1;
 
         const lastActive = Math.max(parseLastSeen(registry[slug]), Number(record.createdAt) || 0);
