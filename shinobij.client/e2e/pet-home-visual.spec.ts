@@ -196,11 +196,12 @@ async function installPetHomeApi(page: Page) {
         const request = route.request();
         const path = new URL(request.url()).pathname.toLowerCase();
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
-        // Live-capability admission fails CLOSED: an unresolved check leaves
-        // availability "unknown", which holds the player surface behind the
-        // "Checking live service availability" blocker and never lets the shell
-        // reach Pet Home. Grant the full public set so these tests measure the
-        // screen rather than the blocker.
+        // Live-capability ADMISSIONS fail closed: an unresolved check leaves
+        // availability "unknown", which holds boot restore and polling shut so
+        // the shell never reaches Pet Home. (It no longer raises a full-screen
+        // blocker — that is reserved for an explicit "unavailable" — but the
+        // stalled boot is just as fatal here.) Grant the full public set so
+        // these tests measure the screen.
         if (path === "/api/player/capabilities") {
             return json(route, {
                 ok: true,
