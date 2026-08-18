@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rollBlackMarket, BLACK_MARKET_COST } from './_black-market.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // A deterministic rng that yields a fixed first value (tier pick) then mid-range
 // values for the payout sizing calls.
@@ -34,12 +36,16 @@ test('payouts stay within their advertised ranges', () => {
     assert.ok(haul.ryo >= 44_000 && haul.ryo <= 76_000);
 
     const relic = rollBlackMarket(seeded(0.9, 0.999));
+    assert.equal(rollBlackMarket(seeded(0.6, 0.999)).fateShards, 1, 'trinket tier is a flat single shard');
     assert.ok(relic.boneCharms >= 4 && relic.boneCharms <= 8);
     assert.ok(relic.auraStones >= 2 && relic.auraStones <= 4);
 
     const jackpot = rollBlackMarket(seeded(0.999));
-    assert.equal(jackpot.ryo, 100_000);
-    assert.equal(jackpot.fateShards, 25);
+    assert.equal(jackpot.ryo, 150_000);
+    // Premium output cut ~55% on 2026-08-17: Sunscar is permanent, so the pull
+    // is standing economy and its Fate Shard yield had to be a chosen number
+    // rather than an emergent one (~2,518/yr at the daily cap -> ~1,168).
+    assert.equal(jackpot.fateShards, 10);
     assert.equal(jackpot.boneCharms, 5);
     assert.equal(jackpot.auraStones, 2);
     assert.equal(jackpot.mythicSeals, 0);
@@ -55,4 +61,14 @@ test('is a net ryo sink: expected ryo return is well under cost', () => {
     const avgRyo = ryoOut / N;
     // Expected ryo payout should be clearly below the 25k cost (it's a sink).
     assert.ok(avgRyo < BLACK_MARKET_COST * 0.7, `avg ryo ${avgRyo} should be < ${BLACK_MARKET_COST * 0.7}`);
+});
+
+test('the displayed price matches the charged price', () => {
+    // A client/server price split is silent and player-facing: the pull quotes
+    // one number and the server debits another. Same class of bug the Fate Dice
+    // and Kage-challenge costs each had.
+    const client = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'black-market.ts'), 'utf8');
+    const match = /export const BLACK_MARKET_COST = ([\d_]+);/.exec(client);
+    assert.ok(match, 'client BLACK_MARKET_COST not found');
+    assert.equal(Number(match![1].replace(/_/g, '')), BLACK_MARKET_COST);
 });
