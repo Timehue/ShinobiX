@@ -59,7 +59,7 @@ export async function cwListWars(): Promise<CwWar[]> {
             if (!r.ok) return [];
             const data = await r.json() as { wars?: CwWar[] };
             const wars = data.wars ?? [];
-            // Populate the shared cache so claimPendingWarCrates can scan
+            // Populate the shared cache so the war-reward sweep can scan
             // ended clan wars for unclaimed rewards on next render.
             for (const w of wars) sharedClanWarCache[w.id] = w;
             return wars;

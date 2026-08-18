@@ -827,43 +827,15 @@ export function gainXp(character: Character, _amount: number): Character {
     };
 }
 
-// Honor Seals are exclusively a Vanguard reward. Every grant site (PvP,
-// raids, village agenda, map control, Hollow Gate, etc.) wraps the would-be
-// gain in this helper so non-Vanguards always earn 0.
-export function vanguardOnlyHonorSeals(character: Character | null | undefined, amount: number): number {
-    if (!character || character.profession !== "vanguard") return 0;
-    return Math.max(0, Math.floor(amount));
-}
-
-// Companion grants for any site that pays Honor Seals. Honor Seals are
-// Vanguard-only, but the bone-charm and fate-shard bonuses apply to
-// EVERY profession: Honor Seals end up being used for everyone in some
-// way, so Vanguards also receive the same charm + shard payout. The
-// `character` parameter is kept for signature stability with older
-// call sites but no longer filters by profession.
-//   • Bone Charms: 8:1 with a minimum of 1 if any seals were earned,
-//     so even tiny grants (daily Village Agenda) leave something
-//     behind.
-//   • Fate Shards: 25:1 with NO minimum, so small grants don't mint
-//     shards and inflate the rare-currency pile; big payouts
-//     (war MVP at 50 seals, boss kills, full-village map control)
-//     actually feed it.
-export function bonusBoneCharmsForHonor(_character: Character | null | undefined, honorSealAmount: number): number {
-    const n = Math.max(0, Math.floor(honorSealAmount));
-    if (n === 0) return 0;
-    return Math.max(1, Math.floor(n / 8));
-}
-
-export function bonusFateShardsForHonor(_character: Character | null | undefined, honorSealAmount: number): number {
-    const n = Math.max(0, Math.floor(honorSealAmount));
-    if (n === 0) return 0;
-    return Math.floor(n / 25);
-}
-
-// Legacy aliases — preserved so prior call sites keep compiling while
-// the codebase migrates. New code should use the `bonus...` names.
-export const nonVanguardCharmSubstitute = bonusBoneCharmsForHonor;
-export const nonVanguardShardSubstitute = bonusFateShardsForHonor;
+// The Honor Seal grant helpers (vanguardOnlyHonorSeals, bonusBoneCharmsForHonor,
+// bonusFateShardsForHonor and their nonVanguard* aliases) were REMOVED here on
+// 2026-08-18 along with claimPendingWarCrates, their last consumer. Every site
+// that pays seals now settles server-side and recomputes the payout there:
+// api/war/_reward.ts applyCurrency (war MVP / consolation) and
+// api/_map-control-reward.ts (the daily map-control grant) each carry the same
+// arithmetic — seals to Vanguards only, charms at 8:1 with a floor of one, shards
+// at 25:1 with no floor. Do not reintroduce a client-side copy; a second
+// implementation of a payout is how these drift.
 
 // ── Profession combat bonuses ────────────────────────────────────────────
 // Pet Tamer PvE pet damage mult (+5% unlock, +1.5%/rank, +Savagery mastery); PvE only.
@@ -1755,7 +1727,7 @@ export default function App() {
     // for village wars).
     const [clanWarStateVersion, setClanWarStateVersion] = useState(0);
     // Village war crates — check whenever the shared world state refreshes.
-    // Also covers clan war crates now that claimPendingWarCrates scans
+    // Also covers clan war crates now that the reward sweep scans
     // sharedClanWarCache; ClanHall fires its own claim too once clanData
     // is loaded.
     useWarRewardClaims(gameplayMutationsOpen ? character : null, setCharacter, commitVersionedCharacter, worldStateVersion, clanWarStateVersion);
@@ -1766,7 +1738,7 @@ export default function App() {
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
     // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).
-    // Clan-less players are skipped: claimPendingWarCrates short-circuits on an
+    // Clan-less players are skipped: the reward sweep short-circuits on an
     // empty `clan`, so polling the uncached endpoint for them is pure waste.
     useEffect(() => {
         if (!gameplayViewOpen || !tabVisible) return;

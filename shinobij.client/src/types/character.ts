@@ -552,7 +552,7 @@ export type Character = {
     // 1 Fate Shard bounty so it can only be claimed once per day.
     warGroundBountyDate?: string;
     // Lifetime village war stats — incremented at war-end claim time
-    // by claimPendingWarCrates. Drive the Hall of Legends leaderboards.
+    // by the server war-reward claim. Drive the Hall of Legends leaderboards.
     warsWon?: number;             // wars where this player qualified for the winner crate
     warMvpCount?: number;         // wars where this player was MVP on either side
     lifetimeWarDamage?: number;   // sum of contribution damage across all wars touched
