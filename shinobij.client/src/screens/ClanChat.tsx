@@ -9,6 +9,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { fetchClanChat, sendClanChat, type ClanChatMessage } from "../lib/clan-chat-api";
 import { ReportControl } from "../components/ReportControl";
+import { GuestSocialLock } from "../components/GuestSocialLock";
+import { useSocialLock } from "../lib/account-status";
 
 const CHAT_KEEP = 50;
 
@@ -17,6 +19,8 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
     const [text, setText] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    // Reading the clan's chat stays open; only posting is gated.
+    const { locked: sendLocked, loading: lockLoading } = useSocialLock(playerName);
     const sinceRef = useRef(0);
     const logRef = useRef<HTMLDivElement | null>(null);
 
@@ -74,17 +78,22 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
                     ))}
             </div>
             {error && <p className="clan-chat-error">{error}</p>}
-            <div className="clan-chat-input">
-                <input
-                    value={text}
-                    maxLength={500}
-                    placeholder="Message your clan…"
-                    aria-label="Clan chat message"
-                    onChange={e => setText(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void send(); } }}
-                />
-                <button onClick={() => void send()} disabled={busy || !text.trim()}>{busy ? "…" : "Send"}</button>
-            </div>
+            {sendLocked ? (
+                <GuestSocialLock compact what="Guest characters can follow their clan's chat but cannot post to it." />
+            ) : (
+                <div className="clan-chat-input">
+                    <input
+                        value={text}
+                        maxLength={500}
+                        placeholder="Message your clan…"
+                        aria-label="Clan chat message"
+                        disabled={lockLoading}
+                        onChange={e => setText(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void send(); } }}
+                    />
+                    <button onClick={() => void send()} disabled={busy || lockLoading || !text.trim()}>{busy ? "…" : "Send"}</button>
+                </div>
+            )}
         </div>
     );
 }

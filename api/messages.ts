@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { rejectUnclaimedGuest } from './_guest-gate.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { getActiveSilence } from './admin/moderation.js';
 import { withKvLock } from './_lock.js';
@@ -102,6 +103,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const from = identity.name;
             const recipient = norm(to);
             if (recipient === from) return res.status(400).json({ error: 'Cannot message yourself.' });
+
+            // Unclaimed guests can read the mail they receive but cannot send —
+            // only GET is left open, so an existing thread stays legible.
+            if (await rejectUnclaimedGuest(res, identity)) return;
 
             // Silenced players can read but not send.
             const sil = await getActiveSilence(from);

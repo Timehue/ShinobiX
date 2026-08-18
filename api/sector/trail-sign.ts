@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
+import { rejectUnclaimedGuest } from '../_guest-gate.js';
 import {
     addSign,
     applySpark,
@@ -70,6 +71,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!out.ok) return res.status(200).json({ ok: false, reason: out.reason });
             return res.status(200).json({ ok: true, sparks: out.sparks });
         }
+
+        // A sign is name-attributed text left in the world for strangers to
+        // read, so it carries the same guest lock as the tavern. Only `leave`
+        // is gated: `spark` above is a wordless thumbs-up with nothing to
+        // moderate, and letting a guest cheer someone's sign is exactly the
+        // kind of thing a new player should be able to do on day one.
+        if (await rejectUnclaimedGuest(res, identity)) return;
 
         // Leave a sign — moderate exactly like village chat: reject blocked content
         // outright, then sanitize (PII/profanity mask + length cap) what's stored.

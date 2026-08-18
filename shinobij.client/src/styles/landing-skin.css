@@ -1992,6 +1992,16 @@
     cursor: default;
 }
 
+/* The trade-off note under "Play as a guest". Sits tight to the button it
+   qualifies, and stays quiet enough not to compete with the choice itself. */
+.login-gate .gate-guest-note {
+    margin: 6px 2px 0;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    text-align: center;
+    opacity: 0.78;
+}
+
 .login-gate .gate-password-toggle {
     margin-bottom: 10px;
 }

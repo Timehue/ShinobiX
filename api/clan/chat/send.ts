@@ -7,6 +7,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { clanChatKey, appendChatMessage, cleanChatText, CLAN_CHAT_TTL_SEC, type ClanChatMessage } from './_storage.js';
+import { rejectUnclaimedGuest } from '../../_guest-gate.js';
 
 /*
  * /api/clan/chat/send — POST only. Appends one text message to the clan's capped
@@ -35,6 +36,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'You can only post as yourself.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-chat', 20, 60_000, identity.name))) return;
+        // After the limiter, not before: the gate does its own KV read, and the
+        // other three chat handlers rate-limit at the top of the branch. Putting
+        // it first would let a rejected caller spend storage reads for free.
+        if (await rejectUnclaimedGuest(res, identity)) return;
 
         const slug = clanBareSlug(clan);
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });

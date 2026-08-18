@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { rejectUnclaimedGuest } from '../_guest-gate.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
@@ -75,6 +76,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && identity.name !== authorNorm) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
+
+            // Unclaimed guests can fight and spectate, but battle chat is still
+            // free text shown to strangers, so it sits behind the same lock.
+            if (await rejectUnclaimedGuest(res, identity)) return;
 
             // Silenced players can spectate / fight but not chat. Admin bypasses.
             if (!identity.admin) {

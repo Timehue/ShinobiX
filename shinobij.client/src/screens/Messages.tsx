@@ -11,6 +11,8 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ReportControl } from "../components/ReportControl";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
+import { GuestSocialLock } from "../components/GuestSocialLock";
+import { useSocialLock } from "../lib/account-status";
 
 type DmMessage = { from: string; text: string; ts: number };
 type InboxEntry = { with: string; lastTs: number; lastText: string; unread: number };
@@ -37,6 +39,10 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [blocked, setBlocked] = useState<Set<string>>(() => new Set());
+    // Guests can still READ the mail they were sent — only sending is shut, so
+    // the inbox and threads stay intact and only the composers go away.
+    const { locked: sendLocked, loading: lockLoading } = useSocialLock(character.name);
+    const composeDisabled = sendLocked || lockLoading;
     const threadRef = useRef<HTMLDivElement>(null);
 
     const loadInbox = useCallback(async () => {
@@ -156,21 +162,29 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                             );
                         })}
                     </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                        <input disabled={blocked.has(active)} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${active} is blocked` : `Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
-                        <button disabled={busy || blocked.has(active) || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
-                    </div>
+                    {sendLocked ? (
+                        <GuestSocialLock compact what="Guest characters can read the mail they are sent, but cannot reply." />
+                    ) : (
+                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                            <input disabled={blocked.has(active) || composeDisabled} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${active} is blocked` : `Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
+                            <button disabled={busy || blocked.has(active) || composeDisabled || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
+                        </div>
+                    )}
                     {error && <p className="hint" style={{ color: "var(--red-400)", marginTop: 6 }}>{error}</p>}
                 </div>
             ) : (
                 <>
                     <div className="summary-box" style={{ marginBottom: 10 }}>
                         <strong>New message</strong>
-                        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                            <input value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="Recipient name" style={{ width: 160 }} />
-                            <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: 1, minWidth: 160 }} />
-                            <button disabled={busy || !composeTo.trim() || !draft.trim()} onClick={() => void send(composeTo, draft)}>Send</button>
-                        </div>
+                        {sendLocked ? (
+                            <GuestSocialLock compact what="Guest characters cannot start a conversation." />
+                        ) : (
+                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                                <input value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="Recipient name" style={{ width: 160 }} />
+                                <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: 1, minWidth: 160 }} />
+                                <button disabled={busy || composeDisabled || !composeTo.trim() || !draft.trim()} onClick={() => void send(composeTo, draft)}>Send</button>
+                            </div>
+                        )}
                         {error && <p className="hint" style={{ color: "var(--red-400)", marginTop: 6 }}>{error}</p>}
                     </div>
                     <div className="summary-box">

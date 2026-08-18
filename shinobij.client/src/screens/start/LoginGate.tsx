@@ -199,7 +199,7 @@ export function LoginGate({
                                 <span>Sign in with Google</span>
                             </button>
                         )}
-                        {guestReady && (
+                        {guestReady && (<>
                             <button
                                 type="button"
                                 className="gate-guest-btn"
@@ -208,7 +208,15 @@ export function LoginGate({
                             >
                                 Play as a guest
                             </button>
-                        )}
+                            {/* Say what a guest cannot do BEFORE the choice. A
+                                player who finds the tavern shut after hours of
+                                play reads it as the game breaking; the same
+                                rule, known up front, reads as a fair trade. */}
+                            <p className="hint gate-guest-note">
+                                Jump straight in — the tavern and messages stay closed until you add
+                                a Google account or a password, which you can do any time from Profile.
+                            </p>
+                        </>)}
                     </div>
                 )}
 
