@@ -45,8 +45,13 @@ const sanitize = (incoming: Record<string, unknown>, existing: Record<string, un
  */
 describe('the relic slot survives a save write', () => {
     it('keeps a relic equipped alongside the Aura Sphere', () => {
-        const stored = baseChar({ inventory: ['aura-sphere', 'event-kesa-storm-seal'] });
+        // `event-kesa-storm-seal` authors levelReq 58, and the equip gate
+        // (shared/item-level-gate.ts) reads the STORED level — so this fixture
+        // carries a level that can legitimately wear it. The Aura Sphere needs
+        // no level: it is content-granted (cost 0) and therefore off the ladder.
+        const stored = baseChar({ level: 60, inventory: ['aura-sphere', 'event-kesa-storm-seal'] });
         const out = sanitize(baseChar({
+            level: 60,
             inventory: ['aura-sphere', 'event-kesa-storm-seal'],
             equipment: { aura: 'aura-sphere', relic: 'event-kesa-storm-seal' },
         }), stored);

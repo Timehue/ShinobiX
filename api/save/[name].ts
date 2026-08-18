@@ -64,6 +64,8 @@ import { captureServerProductEvent } from '../_product-analytics.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { preserveStatPointEntitlement } from './_stat-entitlement.js';
+import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
+import { readVillageUpgrades } from '../village/_upgrade.js';
 import { applyDerivedLevel, earnedForLevel, earnedStatPoints } from '../_xp-engine.js';
 import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 import { STAT_CAP_FIELDS, statCapForLevel } from '../combat-core/formulas.js';
@@ -553,6 +555,7 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
     const requestedEquipment = char.equipment && typeof char.equipment === 'object'
         ? char.equipment as Record<string, unknown>
         : {};
+    const equipLevel = Math.max(1, Math.floor(Number(stored.level) || 1));
     const equipment: Record<string, string> = {};
     const equippedIds = new Set<string>();
     const occupiedCanonicalSlots = new Set<string>();
@@ -572,6 +575,22 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
         const grandfathered = String(storedEquipment[slot] ?? '') === id;
         const builtin = ITEM_CATALOG[id];
         if (!grandfathered && builtin && !slotAcceptsItemKind(slot, builtin.slot)) continue;
+        // Gear level ladder (shared/item-level-gate.ts). Applied ONLY to a NEWLY
+        // equipped piece: anything already in that slot is grandfathered, so a
+        // ladder change can never strip a player's gear mid-session — it just
+        // stops them equipping above their rank from here on.
+        //
+        // The level read is `stored.level`, not `char.level`: this runs before
+        // applyDerivedLevel recomputes the level from the stat ledger, so the
+        // incoming value is still client-supplied and untrusted. Stored is
+        // server-owned and rise-only, so the gate is at most one save stale —
+        // a player who just levelled equips on their next autosave. Using the
+        // real level (rather than the ledger) also keeps the exam holds
+        // meaningful: being frozen at 20 by the Genin exam should gate gear too.
+        if (!grandfathered) {
+            const gated = builtin ?? (FORGED_ITEM_ID.test(id) ? { rarity: 'named' as const } : null);
+            if (gated && !meetsItemLevelReq(gated, equipLevel)) continue;
+        }
         equipment[slot] = id;
         equippedIds.add(id);
         occupiedCanonicalSlots.add(canonicalSlot);
@@ -2286,7 +2305,9 @@ async function recordMissingSaveVersion(playerName: string): Promise<void> {
     }
 }
 
-type MinimalClanRec = { name?: string; founderName?: string; members?: Array<{ name?: string }> };
+const villageStateSlug = (v: unknown) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+type MinimalClanRec = { name?: string; founderName?: string; members?: Array<{ name?: string }>; upgrades?: Record<string, unknown>; doctrine?: unknown };
 
 async function validateClanAndVillageIdentity(
     safeIncoming: Record<string, unknown>,
@@ -2349,6 +2370,74 @@ async function validateClanAndVillageIdentity(
             // Membership confirmed. Founder flag is authoritative from the
             // clan record, not the client.
             out.clanFounder = safeName(rec?.founderName ?? '') === slug;
+        }
+    }
+
+    // ── Clan upgrade snapshot + doctrine ────────────────────────────────
+    // `clanUpgradeLevels` and `clanDoctrine` ride on the character as a MIRROR
+    // of the canonical clan record, and the server reads them as real inputs:
+    // shop discount (shop/_settlement.ts), card-pack discount (card-clash/
+    // _pack.ts), hospital discount (player/heal.ts) and — the one that matters —
+    // the SEALED training stat gain (training/_session.ts trainingBonusPct).
+    // They had no ownership-manifest entry, so the sanitizer neither copied nor
+    // clamped them and a tampered client could self-grant up to +15% permanent
+    // training rate, i.e. mint progression.
+    //
+    // They cannot simply be frozen to stored: the Clan Hall legitimately syncs
+    // them after an upgrade purchase or a doctrine change. So stored wins by
+    // default, and when the incoming copy DIFFERS the canonical clan record is
+    // the arbiter. That keeps the ordinary autosave free of an extra KV read —
+    // the fetch happens only on the save that actually carries a change.
+    const finalClan = String(out.clan ?? '').trim();
+    if (!finalClan) {
+        delete out.clanUpgradeLevels;
+        delete out.clanDoctrine;
+    } else {
+        const sameUpgrades = JSON.stringify(out.clanUpgradeLevels ?? null) === JSON.stringify(exChar.clanUpgradeLevels ?? null);
+        const sameDoctrine = String(out.clanDoctrine ?? '') === String(exChar.clanDoctrine ?? '');
+        if (sameUpgrades && sameDoctrine) {
+            if (exChar.clanUpgradeLevels !== undefined) out.clanUpgradeLevels = exChar.clanUpgradeLevels;
+            else delete out.clanUpgradeLevels;
+            if (exChar.clanDoctrine !== undefined) out.clanDoctrine = exChar.clanDoctrine;
+            else delete out.clanDoctrine;
+        } else {
+            const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(finalClan)}`);
+            if (rec?.upgrades && typeof rec.upgrades === 'object' && !Array.isArray(rec.upgrades)) {
+                out.clanUpgradeLevels = rec.upgrades;
+            } else delete out.clanUpgradeLevels;
+            if (typeof rec?.doctrine === 'string' && rec.doctrine) out.clanDoctrine = rec.doctrine;
+            else delete out.clanDoctrine;
+        }
+    }
+
+    // ── Village upgrade mirror ──────────────────────────────────────────
+    // Village upgrades are SHARED infrastructure living on the village-state
+    // blob and paid for out of the treasury seal pool (api/village/_upgrade.ts).
+    // `character.villageUpgrades` is a server-owned MIRROR of that record so the
+    // ~21 existing read sites (bank interest, mission rewards, shop discount,
+    // training rate, hospital, jutsu speed, pet yard, town defense) keep reading
+    // a plain character field.
+    //
+    // The village record is read on EVERY save with a village, not only when the
+    // incoming copy differs. That costs one extra `kv.get` of a small key shared
+    // by the whole village (so it is cache-warm), and it buys the property that
+    // actually matters: when the Kage buys an upgrade, every member picks it up
+    // on their next save with no client cooperation at all. A change-triggered
+    // refresh cannot work here — the client has no reason to ever send a
+    // different value, so the mirror would never move and the upgrades would
+    // benefit nobody.
+    const finalVillage = String(out.village ?? '').trim();
+    if (!finalVillage) {
+        delete out.villageUpgrades;
+    } else {
+        try {
+            const villageState = await kv.get<Record<string, unknown>>(`game:village-state:${villageStateSlug(finalVillage)}`);
+            out.villageUpgrades = readVillageUpgrades(villageState);
+        } catch {
+            // A village-state read hiccup must never fail a save or silently
+            // zero a player's bonuses — keep whatever was already stored.
+            if (exChar.villageUpgrades !== undefined) out.villageUpgrades = exChar.villageUpgrades;
+            else delete out.villageUpgrades;
         }
     }
 

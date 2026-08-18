@@ -6,6 +6,7 @@ import "../styles/chronicle-duel.css";
 import { CloseButton } from "../components/ui/CloseButton";
 import { Modal } from "../components/ui/Modal";
 import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
+import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import {
     type Character,
     type EquipmentSlot,
@@ -252,6 +253,14 @@ export function Inventory({
     function equipItem(item: GameItem) {
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
             alert(`You need the ${item.weaponElement} element to equip ${item.name}.`);
+            return;
+        }
+        // Gear level ladder (shared/item-level-gate.ts). The save endpoint drops
+        // an over-level equip silently, so — same convention as the Aura-slot
+        // stop below — say it here rather than let the piece appear equipped and
+        // then pop back off on the next autosave.
+        if (!meetsItemLevelReq(item, character.level)) {
+            alert(`${item.name} requires Level ${effectiveItemLevelReq(item)}. You are Level ${character.level}.`);
             return;
         }
         // Combat items (Attack/Defense Pill, Smoke Bomb) route into one of the

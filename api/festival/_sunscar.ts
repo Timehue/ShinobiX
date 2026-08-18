@@ -1,4 +1,17 @@
-export const FATE_DICE_COST = 25;
+// Sunscar is a PERMANENT fixture, not a seasonal event, so both of its tables
+// are standing economy rather than event flavour and are priced that way.
+//
+// The dice used to cost 25 ryo and pay an expected 35.1 — a net FAUCET — plus
+// ~1.48 stat points per roll. At the 5/day cap that was ~7.4 stat points a day,
+// roughly 16% of the authored daily growth budget (DAILY_PVE_GROWTH_TARGET = 45
+// in api/missions/_mission-catalog.ts), arriving from outside the invariant that
+// guards it, and it made progression purchasable with ryo. Both are now closed:
+// statPoints is always 0 (see rollFateDice) and the cost carries a real edge.
+//
+// At 250 ryo the expected return is ~163 ryo, so the dice are a ~-35% gamble —
+// about -434 ryo/day at the cap. Small enough to stay a friendly daily, large
+// enough that it is a choice. TUNABLE: this is the dial if it reads as stingy.
+export const FATE_DICE_COST = 250;
 export const FATE_DICE_DAILY_CAP = 5;
 export const FATE_DICE_COUNT_TTL_SECONDS = 2 * 24 * 60 * 60;
 
@@ -8,7 +21,7 @@ export type FateDiceSymbol = typeof FATE_DICE_SYMBOLS[number];
 export type FateDiceReward = {
     ryo: number;
     xp: number; // retired (character XP removed) — always 0, kept for old-client shape
-    statPoints: number; // small stat-pool grants (bounded by FATE_DICE_DAILY_CAP + the ryo cost)
+    statPoints: number; // retired — ALWAYS 0; progression is not purchasable with ryo
     stamina: number;
     boneCharms: number;
     fateShards: number;
@@ -58,36 +71,34 @@ export function rollFateDice(rand: () => number = Math.random): FateDiceRoll {
     const same = roll[0] === roll[1] && roll[1] === roll[2];
     let message: string;
 
+    // Payout table for a 250-ryo pull. `statPoints` stays 0 on every branch:
+    // stat points are level progress, and level progress is not for sale.
+    // Fate Shards ride ONLY on the triple-eye jackpot (1/216) rather than every
+    // triple — a rare prize reads better than a drip, and it takes the dice's
+    // premium output from ~127 to ~25 shards a year at the daily cap.
     if (same && roll[0] === 'eye') {
         reward.boneCharms = 10;
-        reward.fateShards = 5;
+        reward.fateShards = 3;
         reward.auraStones = 5;
         message = 'LEGENDARY FATE! The Eye of the Dunes opens and rare currencies pour from the heavens.';
     } else if (same) {
-        reward.boneCharms = randInt(rand, 1, 5);
-        reward.fateShards = randInt(rand, 1, 3);
+        reward.boneCharms = randInt(rand, 2, 6);
         message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
     } else if (roll.includes('scorpion')) {
-        // Character XP is retired — the dice's old XP lines are now tiny
-        // stat-pool grants (seasonal flavor, bounded by the daily cap + cost).
-        reward.ryo = 10;
-        reward.statPoints = 1;
+        reward.ryo = 50;
         message = 'The scorpion strikes. A harsh lesson leaves you with scraps.';
     } else if (roll.includes('coin')) {
-        reward.ryo = 100;
-        reward.statPoints = 1;
+        reward.ryo = 400;
         message = 'Coins flash beneath the desert sun. Fortune smiles on you.';
     } else if (roll.includes('blade')) {
-        reward.stamina = 30;
-        reward.statPoints = 2;
+        reward.stamina = 60;
         message = 'Blade omen. Your body surges with fighting spirit.';
     } else if (roll.includes('moon')) {
-        reward.statPoints = 5;
-        reward.ryo = 25;
+        reward.ryo = 300;
+        reward.boneCharms = 1;
         message = 'Moon omen. A strange luck follows you through the night.';
     } else {
-        reward.ryo = 40;
-        reward.statPoints = 1;
+        reward.ryo = 200;
         message = 'Small fortune. The sands give a little back.';
     }
 

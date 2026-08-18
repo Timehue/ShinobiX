@@ -8,7 +8,7 @@ import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
 import { CardClashDuel } from "./CardClashDuel";
 import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
-import { FATE_DICE_GLYPHS, rollFateDice, startMiraaWager, reportMiraaWager } from "../lib/sunscar-festival";
+import { FATE_DICE_COST, FATE_DICE_GLYPHS, rollFateDice, startMiraaWager, reportMiraaWager } from "../lib/sunscar-festival";
 import { BlackMarketCrate } from "../components/BlackMarketCrate";
 import festBg from "../assets/festival/fest-bg.webp";
 import kaelArt from "../assets/festival/fest-kael.webp";
@@ -209,7 +209,7 @@ export function SunscarFestival({
                     <p>
                         "Fortune favors the bold… and buries the weak beneath the sands."
                     </p>
-                    <p><strong>Entry Cost:</strong> 25 ryo per roll</p>
+                    <p><strong>Entry Cost:</strong> {FATE_DICE_COST.toLocaleString()} ryo per roll</p>
                     <p><strong>Your Ryo:</strong> {character.ryo}</p>
                 </section>
 

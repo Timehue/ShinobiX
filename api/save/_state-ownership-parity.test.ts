@@ -189,7 +189,12 @@ const FROZEN = {
         'redeemedWandererQuests', 'redeemedWandererAmbushes',
         'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns',
         'storyReckoningRewardDate', 'storyReckoningRewardCount', 'redeemedStoryReckonings',
-        'villageUpgrades',
+        // `villageUpgrades` LEFT this list on 2026-08-17 (owner ruling): village
+        // upgrades became SHARED village infrastructure bought from the treasury
+        // seal pool, so the character field is now a cross-validated mirror of
+        // game:village-state:<slug>.upgrades rather than a per-character
+        // entitlement frozen to stored. Freezing it here would have blocked the
+        // mirror from ever refreshing. See api/village/_upgrade.ts.
     ],
     // The individual copy-if-array statements, unified into one loop.
     // redeemedCardClashAiSessions added in P0-2 (AI-match payout receipts) —

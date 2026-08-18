@@ -27,7 +27,7 @@ import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay
 import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
-import { formatStatName } from "../lib/stats";
+import { formatStatName, earnedStatPoints, levelForEarned } from "../lib/stats";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
@@ -38,7 +38,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { JUTSU_TRAINING_CAP } from "../constants/game";
 import { getAllJutsus, playerLensDiscipline } from "../App";
-import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
+import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 
@@ -86,6 +86,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
     const TIMER_ICONS: Record<string, React.ReactNode> = { "15m": <GiStopwatch />, "1h": <GiAlarmClock />, "4h": <GiSandsOfTime />, "8h": <GiNightSleep /> };
     const timers = TRAINING_TIERS.map((tier) => ({ ...tier, icon: TIMER_ICONS[tier.id] }));
     const trainingXpBonus = getTrainingXpBonus(character);
+    // The level the earned-points ledger supports, ignoring exam holds — this is
+    // what the server feeds the rookie multiplier, so the preview must use it too.
+    const ledgerLevel = levelForEarned(earnedStatPoints(character));
     const showAcademyTrainingHint = normalizeOnboardingStep(character.onboardingStep) === "training" && !activeTraining;
     const selectedStatLabel = STAT_LABELS[selectedStat]?.label ?? formatStatName(selectedStat);
     // Two-axis training: the server seals the reward, debits stamina, persists
@@ -123,12 +126,14 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
         try {
             if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}). Stamina already spent is not refunded.`))) return;
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token, cancel: true }) });
-            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; error?: string };
+            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; overflow?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be cancelled.'));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining ?? null);
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
-            alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}`);
+            const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
+            const pooled = overflow > 0 ? ` +${overflow} to your unspent pool.` : "";
+            alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}${pooled}`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be cancelled. Please retry.');
         } finally {
@@ -146,13 +151,18 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
         setTrainingBusy(true);
         try {
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token }) });
-            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; cap?: number; error?: string };
+            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; overflow?: number; cap?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be collected.'));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining ?? null);
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const cap = Math.max(0, Math.floor(Number(data.cap) || 0));
-            alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}). Rank up to train it higher.`}`);
+            // Points past the rank cap are NOT lost — applyTrainingGrant rolls
+            // them into the unspent pool. Say so: early-game sessions routinely
+            // out-earn the Academy cap, and silence reads as "my points vanished".
+            const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
+            const pooled = overflow > 0 ? ` +${overflow} to your unspent pool (${formatStatName(activeTraining.stat)} is at its rank cap of ${cap}) — spend it on any stat.` : "";
+            alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}).`}${pooled}`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be collected. Please retry.');
         } finally {
@@ -232,8 +242,14 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                 {timers.map((timer) => {
                     // XP retired — the growth bonus now boosts the STAT gain
                     // itself. Mirror the server seal exactly (trainingStatGain
-                    // with the save-derived bonus; no client-only multipliers).
-                    const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus)));
+                    // with the save-derived bonus, then the rookie multiplier as
+                    // its own factor, exactly as trustedTrainingRewards does; no
+                    // client-only multipliers). The multiplier reads the
+                    // LEDGER-derived level, not character.level — they diverge
+                    // under an exam hold, and the server seals from the ledger.
+                    const gain = Math.max(0, Math.round(
+                        trainingStatGain(timer, timer.ms, trainingXpBonus) * rookieStatMultiplier(ledgerLevel),
+                    ));
                     const disabledReason = trainingBusy
                         ? "Training action is being saved."
                         : activeTraining

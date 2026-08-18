@@ -1,5 +1,6 @@
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
 import { HUNTER_RANK_REQUIREMENTS } from '../hunter/_rank-up.js';
+import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 
 // Materials the Hunter Guild consumes to rank up. Derived from the rank-up table
 // so it can NEVER drift when those turn-ins change. consumeCraftPoints spares these
@@ -120,7 +121,10 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
     const valid = armor
         ? ['body', 'head', 'waist', 'legs', 'feet'].includes(item.slot) && item.rarity === 'rare' && Boolean(item.armorQuality)
         : item.slot === 'hand' && item.weaponEp != null && ['rare', 'epic', 'legendary'].includes(item.rarity);
-    if (!valid || count(character.level) < count(item.levelReq ?? 1)) return null;
+    // Use the shared ladder, not the raw `levelReq`: crafting is an acquisition
+    // path like buying, so it must agree with the shop and the equip gate.
+    // Reading the raw field would let a player craft a tier they cannot wear.
+    if (!valid || count(character.level) < effectiveItemLevelReq(item)) return null;
     const ryo = ryoFor(item); if (count(character.ryo) < ryo) return null;
     const paid = consumeCraftPoints(character, itemPoints(item, armor)); if (!paid) return null;
     return addOwned({ ...paid, ryo: count(paid.ryo) - ryo }, recipeId, 1, false);

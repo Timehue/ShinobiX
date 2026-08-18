@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
 import { serverNow } from "../lib/server-clock";
+import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import type { ReactElement } from "react";
 import "../styles/central-skin.css";
 // Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
@@ -225,6 +226,7 @@ export function CentralHub({
     ];
 
     async function rollNamedWeapon() {
+        if (namedForgeLocked) return alert(namedForgeLockMessage);
         if (!beginNamedForge()) return;
         try {
             const result = await rollNamedForgeServer<NamedWeaponRoll>(character.name, "weapon");
@@ -244,6 +246,12 @@ export function CentralHub({
         mythicSeals: 75,
     };
     const NW_COST = 1000; // total points needed
+    // Named gear is the level-90 tier (shared/item-level-gate.ts) and the SERVER
+    // refuses both the roll and the forge below it. Mirror that here so the
+    // panel explains the lock instead of handing back a 403 after a click — a
+    // named roll costs 1,000 forge points, so a silent failure is expensive.
+    const namedForgeLocked = Math.max(1, Math.floor(Number(character.level) || 1)) < NAMED_ITEM_LEVEL_REQ;
+    const namedForgeLockMessage = `Named forging unlocks at Level ${NAMED_ITEM_LEVEL_REQ}. You are Level ${character.level}.`;
 
     function namedWeaponCurrencyPts(): number {
         return (
@@ -322,6 +330,7 @@ export function CentralHub({
     ];
 
     async function rollNamedArmor() {
+        if (namedForgeLocked) return alert(namedForgeLockMessage);
         if (!beginNamedForge()) return;
         try {
             const result = await rollNamedForgeServer<NamedArmorRoll>(character.name, "armor", namedArmorSlot);
@@ -1432,7 +1441,7 @@ export function CentralHub({
                                     <div className="named-weapon-forge">
                                         <div className="named-weapon-forge-header">
                                             <span className="named-weapon-forge-title"><GiBreastplate style={HDR_ICON} />Named Armor</span>
-                                            <small>Roll a unique legendary armor piece. Costs {NW_COST} forge pts.</small>
+                                            <small>Forge a one-of-a-kind armor piece — the finest armor in the world, above mythic. Costs {NW_COST} forge pts.</small>
                                         </div>
 
                                         {/* Currency display — same pool as named weapons */}
@@ -1456,6 +1465,11 @@ export function CentralHub({
                                             <div className="named-weapon-currency-total">
                                                 Total forge pts: <strong>{naPts}</strong> / {NW_COST}
                                             </div>
+                                            {namedForgeLocked && (
+                                                <div className="named-weapon-currency-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
+                                                    🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="crafter-progress-bar" style={{ margin: "4px 0 8px" }}>
@@ -1513,7 +1527,7 @@ export function CentralHub({
                                         <button
                                             className="named-weapon-roll-btn"
                                             onClick={rollNamedArmor}
-                                            disabled={naPts < NW_COST}
+                                            disabled={naPts < NW_COST || namedForgeLocked}
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />Roll Named Armor
                                         </button>
@@ -1591,7 +1605,7 @@ export function CentralHub({
                                     <div className="named-weapon-forge">
                                         <div className="named-weapon-forge-header">
                                             <span className="named-weapon-forge-title"><GiCrossedSwords style={HDR_ICON} />Named Weapon</span>
-                                            <small>Roll a unique legendary hand weapon. Costs {NW_COST} forge pts.</small>
+                                            <small>Forge a one-of-a-kind hand weapon — the finest weapon in the world, above mythic. Costs {NW_COST} forge pts.</small>
                                         </div>
 
                                         {/* Currency display */}
@@ -1615,6 +1629,11 @@ export function CentralHub({
                                             <div className="named-weapon-currency-total">
                                                 Total forge pts: <strong>{nwPts}</strong> / {NW_COST}
                                             </div>
+                                            {namedForgeLocked && (
+                                                <div className="named-weapon-currency-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
+                                                    🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="crafter-progress-bar" style={{ margin: "4px 0 8px" }}>
@@ -1682,7 +1701,7 @@ export function CentralHub({
                                         <button
                                             className="named-weapon-roll-btn"
                                             onClick={rollNamedWeapon}
-                                            disabled={nwPts < NW_COST}
+                                            disabled={nwPts < NW_COST || namedForgeLocked}
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />Roll Named Weapon
                                         </button>

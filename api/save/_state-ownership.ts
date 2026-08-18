@@ -297,7 +297,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('storyReckoningRewardDate', 'character', 'server-payout-stamp', 'story', ['progression-entitlement-char']),
     f('storyReckoningRewardCount', 'character', 'server-payout-stamp', 'story', ['progression-entitlement-char']),
     f('redeemedStoryReckonings', 'character', 'server-payout-stamp', 'story', ['progression-entitlement-char']),
-    f('villageUpgrades', 'character', 'server-owned', 'village', ['progression-entitlement-char'], 'drives bank interest rate among others'),
+    f('villageUpgrades', 'character', 'server-clamped', 'village', [], 'MIRROR of the SHARED village-state .upgrades (village upgrades are village-wide infrastructure bought from the treasury seal pool, api/village/_upgrade.ts); cross-validated against game:village-state:<slug> whenever it changes. Drives bank interest, mission rewards, shop discount, training rate and more'),
 
     // ── Lifetime / leaderboard counters (client delta 0) ────────────────────
     f('totalPvpKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
@@ -331,6 +331,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('clanPointHistory', 'character', 'server-owned', 'clan', ['clan-points-char', 'combat-strip-char']),
     f('clanExchangePurchases', 'character', 'server-payout-stamp', 'clan', ['clan-points-char', 'combat-strip-char']),
     f('clan', 'character', 'server-clamped', 'clan', [], 'cross-validated against save:clan-<slug> (validateClanAndVillageIdentity)'),
+    f('clanUpgradeLevels', 'character', 'server-clamped', 'clan', [], 'mirror of the canonical clan record .upgrades; cross-validated against save:clan-<slug> whenever it changes (validateClanAndVillageIdentity). Server reads it for shop/card-pack/hospital discounts AND the sealed training stat gain, so a client-authored value would mint progression'),
+    f('clanDoctrine', 'character', 'server-clamped', 'clan', [], 'mirror of the canonical clan record .doctrine; same cross-validation and the same reason — it feeds trainingBonusPct'),
     f('clanFounder', 'character', 'server-clamped', 'clan', [], 'cross-validated; gates seal-pool distribution'),
     f('clanBattleContrib', 'character', 'server-clamped', 'clan', ['combat-strip-char'], 'monthly counter: absMax+delta caps (MONTHLY_CLAN_CONTRIB_CAPS)'),
     f('clanEventContrib', 'character', 'server-clamped', 'clan', ['combat-strip-char'], 'monthly counter caps'),
