@@ -7,6 +7,7 @@
  * are imported back from ../App.
  */
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 // Shop is a lazy screen-level chunk, so it owns the CSS for the pack-opening
 // cinematic (component modules must stay CSS-free for node tests). The
 // chronicle-duel styles render the revealed cards themselves.
@@ -120,7 +121,10 @@ function ShopBase({
     async function buy(item: GameItem, qty = 1) {
         if (!requireServerSettlement("shopPurchase")) return;
         const finalCost = getShopCost(item.cost);
-        if (item.levelReq && character.level < item.levelReq) return alert(`Requires Level ${item.levelReq}. You are Level ${character.level}.`);
+        // Use the shared ladder, not the raw levelReq — most high-rarity items
+        // author no requirement at all, so reading the field directly would show
+        // "no requirement" here and then be refused by the server.
+        if (!meetsItemLevelReq(item, character.level)) return alert(`Requires Level ${effectiveItemLevelReq(item)}. You are Level ${character.level}.`);
 
         // Consumables/throwables/potions buy in bulk up to a per-item hold cap
         // (single shared pool — what you own is the ammo battle spends). Other
@@ -202,7 +206,7 @@ function ShopBase({
                                 const owned = alreadyOwned(item);
                                 const finalCost = getShopCost(item.cost);
                                 const canAfford = wallet >= finalCost;
-                                const levelLocked = item.levelReq ? character.level < item.levelReq : false;
+                                const levelLocked = !meetsItemLevelReq(item, character.level);
 
                                 return (
                                     <button
@@ -232,7 +236,7 @@ function ShopBase({
                                         <small>{isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
-                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
+                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{effectiveItemLevelReq(item)} Required</small>
                                             : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
                                         }
 
@@ -294,7 +298,7 @@ function ShopBase({
                                     <p><strong>Method:</strong> single</p>
                                     <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedItem.slot) === "hand" ? "yes" : "none"}</p>
                                     <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
-                                    <p><strong>Required Level:</strong> {selectedItem.levelReq ?? 1}</p>
+                                    <p><strong>Required Level:</strong> {effectiveItemLevelReq(selectedItem)}</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
                                 </div>
 

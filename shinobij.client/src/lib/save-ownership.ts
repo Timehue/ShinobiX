@@ -89,7 +89,11 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'petGauntletEntryDate', 'petGauntletEntryCount', 'redeemedWandererQuests',
     'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount',
     'redeemedQuestbookRuns', 'storyReckoningRewardDate', 'storyReckoningRewardCount',
-    'redeemedStoryReckonings', 'villageUpgrades',
+    'redeemedStoryReckonings',
+    // `villageUpgrades` left this list on 2026-08-17: it became `server-clamped`
+    // (a cross-validated mirror of the shared village record) rather than
+    // `server-owned`, and server-clamped fields are deliberately NOT mirrored
+    // here — see the category note at the top.
     // Lifetime / leaderboard counters
     'totalPvpKills', 'totalAiKills', 'totalVillageRaids', 'warsWon', 'warMvpCount',
     'lifetimeWarDamage', 'monthlyPvpKills', 'dailyAiKills', 'totalPetWins',

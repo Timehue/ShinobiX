@@ -35,16 +35,51 @@ test('training rewards ignore forged client modifiers and only one live lease ca
     const prevMult = process.env.STAT_GAIN_MULTIPLIER;
     try {
         delete process.env.STAT_GAIN_MULTIPLIER;
-        // No character → no bonus; character XP is retired so sealedXp is 0.
-        assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 6, sealedXp: 0, bonusPct: 0 });
-        // Server-derived bonus: village Training 50 (×0.25 = 12.5%) + elder
-        // training focus (+10%) → ×1.225 on the 15m tier's base 6 → 7.
+        // No character → no bonus, and an absent level reads as level 1, so the
+        // rookie curve is at its peak (×5 on the 15m tier's base 3 → 15).
+        // Character XP is retired so sealedXp is 0.
+        assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 15, sealedXp: 0, bonusPct: 0, rookieMult: 5 });
+        // Server-derived bonus, isolated from the rookie curve by carrying the
+        // LEDGER for the taper end (earnedForLevel(35) = 7,550 points): village
+        // Training 50 (×0.25 = 12.5%) + elder training focus (+10%) → ×1.225 on
+        // the 15m tier's base 3 → 4.
         const boosted = trustedTrainingRewards(tier, {
-            villageUpgrades: { training: 50 }, elderFocus: 'training',
+            villageUpgrades: { training: 50 }, elderFocus: 'training', unspentStats: 7550,
         });
         assert.equal(boosted.bonusPct, 22.5);
-        assert.equal(boosted.sealedGain, 7);
+        assert.equal(boosted.rookieMult, 1);
+        assert.equal(boosted.sealedGain, 4);
         assert.equal(boosted.sealedXp, 0);
+        // The rookie multiplier is a SEPARATE factor from combinedStatBoost, so
+        // it still applies to a player who already carries a village bonus
+        // (folding it into bonusPct would let the 2.5 aggregate cap swallow it).
+        const rookieBoosted = trustedTrainingRewards(tier, {
+            villageUpgrades: { training: 50 }, elderFocus: 'training', unspentStats: 0,
+        });
+        assert.equal(rookieBoosted.rookieMult, 5);
+        assert.equal(rookieBoosted.sealedGain, 18); // 3 × 1.225 × 5 = 18.375
+        // The curve reads the SERVER-derived level off the locked character, and
+        // it only ever falls with level — so a forged higher level cannot buy a
+        // bigger grant, and a genuinely low level is the only way to a big one.
+        const forgedHigh = trustedTrainingRewards(tier, { level: 99, unspentStats: 27500 });
+        assert.equal(forgedHigh.rookieMult, 1);
+        assert.ok(forgedHigh.sealedGain < trustedTrainingRewards(tier, { level: 1 }).sealedGain);
+
+        // ⛔ EXAM-HOLD REGRESSION. examLevelCap freezes character.level at 20
+        // (Genin) / 39 (Chunin) until the exam is passed. If the multiplier read
+        // character.level, refusing the exam would farm the level-20 rate
+        // (2.76x) forever — measured at +146% lifetime stat points over 600
+        // days. It must read the earned-points LEDGER, which cannot be frozen.
+        const examBlocked = trustedTrainingRewards(tier, { level: 20, unspentStats: 27500, examsPassed: [] });
+        assert.equal(examBlocked.rookieMult, 1, 'an exam-held player must NOT keep the level-20 multiplier');
+        const genuinelyLow = trustedTrainingRewards(tier, { level: 20, unspentStats: 3933, examsPassed: [] });
+        assert.ok(genuinelyLow.rookieMult > 1, 'a player who genuinely has few points still gets the curve');
+        // Stored level is irrelevant; only the ledger decides.
+        assert.equal(
+            trustedTrainingRewards(tier, { level: 1, unspentStats: 27500 }).rookieMult,
+            trustedTrainingRewards(tier, { level: 100, unspentStats: 27500 }).rookieMult,
+            'the same ledger must yield the same multiplier regardless of stored level',
+        );
     } finally {
         if (prevMult === undefined) delete process.env.STAT_GAIN_MULTIPLIER;
         else process.env.STAT_GAIN_MULTIPLIER = prevMult;

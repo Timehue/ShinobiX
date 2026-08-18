@@ -9,7 +9,8 @@
  */
 import type { Character } from "../types/character";
 
-export const KAGE_CHALLENGE_SEAL_COST = 500;
+// MIRROR: api/village/_kage-challenge.ts KAGE_DECLARE_RYO_COST.
+export const KAGE_CHALLENGE_RYO_COST = 250_000;
 export const KAGE_CHALLENGE_MIN_LEVEL = 90;
 export const KAGE_CHALLENGE_MIN_MERIT = 250;
 export const KAGE_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -61,12 +62,12 @@ function lower(s: string | undefined): string {
 /** Personal-merit + baseline eligibility the client can check (server re-enforces). */
 export function kageEligibility(character: Character, now: number): KageEligibilityItem[] {
     const merit = Math.max(0, Math.floor(Number(character.villageMerit ?? 0)));
-    const seals = Math.max(0, Math.floor(Number(character.honorSeals ?? 0)));
+    const ryo = Math.max(0, Math.floor(Number(character.ryo ?? 0)));
     const accountAgeMs = now - Number(character.createdAt ?? now);
     return [
         { label: `Level ${KAGE_CHALLENGE_MIN_LEVEL}+`, ok: (character.level ?? 0) >= KAGE_CHALLENGE_MIN_LEVEL, detail: `Lv. ${character.level ?? 0}` },
         { label: "Account 7+ days old", ok: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS },
-        { label: `${KAGE_CHALLENGE_SEAL_COST} Honor Seals`, ok: seals >= KAGE_CHALLENGE_SEAL_COST, detail: `${seals.toLocaleString()}` },
+        { label: `${KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo`, ok: ryo >= KAGE_CHALLENGE_RYO_COST, detail: `${ryo.toLocaleString()}` },
         { label: `${KAGE_CHALLENGE_MIN_MERIT} Village Merit`, ok: merit >= KAGE_CHALLENGE_MIN_MERIT, detail: `${merit}/${KAGE_CHALLENGE_MIN_MERIT}` },
     ];
 }

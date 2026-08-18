@@ -35,7 +35,14 @@ export const KAGE_LOSS_COOLDOWN_MS = 3 * 24 * 60 * 60_000;   // 3 days wall-cloc
 export const KAGE_PRESS_MAX_STEP_MS = 60_000;                // cap one press can burn
 export const KAGE_MIN_CHALLENGER_LEVEL = 90;
 export const KAGE_MIN_MERIT = 250;                           // personal Village Merit gate
-export const KAGE_DECLARE_SEAL_COST = 500;
+// Declaring costs RYO, not Honor Seals (owner ruling 2026-08-17). Seals are the
+// Vanguard's PvP earnings and exist to fund VILLAGE upgrades; taxing a political
+// act with them punished the profession for a civic ambition unrelated to it.
+// Ryo is the universal currency, so every profession pays the same price, and
+// the endgame ryo economy gains a real sink. Sized at roughly a strong
+// level-90+ player's daily income: a genuine commitment, not a wall — the seat
+// is already gated by level 90, account age, 250 Village Merit and a cooldown.
+export const KAGE_DECLARE_RYO_COST = 250_000;
 export const KAGE_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60_000; // anti fresh-alt
 export const KAGE_HISTORY_MAX = 50;                          // bounded permanent record
 
@@ -106,7 +113,7 @@ export type DeclareInput = {
     state: KageStateLike;
     challengerName: string;     // display name
     challengerLevel: number;
-    challengerSeals: number;
+    challengerRyo: number;
     challengerAccountCreatedAt: number;
     challengerMerit: number;    // personal, server-owned Village Merit
     isMember: boolean;
@@ -120,14 +127,14 @@ export type DeclareResult = { ok: true } | { ok: false; reason: string };
  * first), so callers should pass already-expired challenges through unchanged.
  */
 export function canDeclareChallenge(input: DeclareInput): DeclareResult {
-    const { now, state, challengerName, challengerLevel, challengerSeals, challengerAccountCreatedAt, challengerMerit, isMember } = input;
+    const { now, state, challengerName, challengerLevel, challengerRyo, challengerAccountCreatedAt, challengerMerit, isMember } = input;
     if (!state.kageSystemUnlocked || !state.seatedKage) return { ok: false, reason: 'The Kage system is not active for this village.' };
     if (!isMember) return { ok: false, reason: 'You are not a member of this village.' };
     if (lower(state.seatedKage) === lower(challengerName)) return { ok: false, reason: 'You are already the seated Kage.' };
     if (challengerLevel < KAGE_MIN_CHALLENGER_LEVEL) return { ok: false, reason: `You must be level ${KAGE_MIN_CHALLENGER_LEVEL}+ to challenge for the Kage seat.` };
     if (now - challengerAccountCreatedAt < KAGE_MIN_ACCOUNT_AGE_MS) return { ok: false, reason: 'Your account is too new to challenge for the Kage seat.' };
     if (challengerMerit < KAGE_MIN_MERIT) return { ok: false, reason: `You need ${KAGE_MIN_MERIT}+ Village Merit to challenge for the Kage seat.` };
-    if (challengerSeals < KAGE_DECLARE_SEAL_COST) return { ok: false, reason: `Challenging costs ${KAGE_DECLARE_SEAL_COST} Honor Seals.` };
+    if (challengerRyo < KAGE_DECLARE_RYO_COST) return { ok: false, reason: `Challenging costs ${KAGE_DECLARE_RYO_COST.toLocaleString()} ryo.` };
     if (state.challenge && !isChallengeExpired(state.challenge, now)) return { ok: false, reason: 'There is already an active Kage challenge in this village.' };
     if (state.postDefenseGraceUntil && now < state.postDefenseGraceUntil) return { ok: false, reason: 'The Kage just took (or defended) the seat — challenges are on a brief cooldown.' };
     const cd = state.challengerCooldowns?.[lower(challengerName)] ?? 0;

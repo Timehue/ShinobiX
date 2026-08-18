@@ -14,7 +14,7 @@ import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-t
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
 import {
     canDeclareChallenge, isChallengeExpired, newChallenge, applyPress, applySeatTransfer,
-    applyExpiry, resolveAcceptDecision, KAGE_DECLARE_SEAL_COST, type KageStateLike,
+    applyExpiry, resolveAcceptDecision, KAGE_DECLARE_RYO_COST, type KageStateLike,
 } from './_kage-challenge.js';
 import {
     ensureKageDuelPointer,
@@ -116,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const elig = canDeclareChallenge({
                     now, state, challengerName,
                     challengerLevel: num(char.level),
-                    challengerSeals: num(char.honorSeals),
+                    challengerRyo: num(char.ryo),
                     challengerAccountCreatedAt: num(char.createdAt),
                     challengerMerit: num(char.villageMerit),
                     isMember: identity.admin || String(char.village ?? '').trim() === village,
@@ -129,26 +129,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     kind: 'kage-challenge-declare',
                     debitKey: `save:${playerName}`,
                     creditKey: key,
-                    resource: 'honorSeals',
-                    amount: KAGE_DECLARE_SEAL_COST,
+                    resource: 'ryo',
+                    amount: KAGE_DECLARE_RYO_COST,
                     meta: { playerName, village, challengerName },
                 });
 
-                // Stake the 500 seals (debit the challenger's save) BEFORE opening
+                // Stake the ryo (debit the challenger's save) BEFORE opening
                 // the challenge — committed first, like the treasury-donate pattern.
                 const debit = await withKvLock<{ ok: boolean; character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const c = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !c) return { ok: false };
-                    if (num(c.honorSeals) < KAGE_DECLARE_SEAL_COST) return { ok: false };
-                    const nextChar = { ...c, honorSeals: num(c.honorSeals) - KAGE_DECLARE_SEAL_COST };
+                    if (num(c.ryo) < KAGE_DECLARE_RYO_COST) return { ok: false };
+                    const nextChar = { ...c, ryo: num(c.ryo) - KAGE_DECLARE_RYO_COST };
                     const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
                     await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
                     return { ok: true, character: nextChar, _saveVersion: Number((nextRec as Record<string, unknown>)._saveVersion ?? 0) };
                 }, { failClosed: true });
                 if (!debit.ok) {
                     await completeEconomyTx(txId, { note: 'Declaration rejected before debit.' }).catch(() => undefined);
-                    return { status: 400, body: { error: `Challenging costs ${KAGE_DECLARE_SEAL_COST} Honor Seals.` } };
+                    return { status: 400, body: { error: `Challenging costs ${KAGE_DECLARE_RYO_COST.toLocaleString()} ryo.` } };
                 }
                 await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
 
@@ -161,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                             const c = (rec?.character ?? null) as Record<string, unknown> | null;
                             if (!rec || !c) throw new Error('Player save missing during Kage stake refund.');
-                            const nextChar = { ...c, honorSeals: num(c.honorSeals) + KAGE_DECLARE_SEAL_COST };
+                            const nextChar = { ...c, ryo: num(c.ryo) + KAGE_DECLARE_RYO_COST };
                             const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
                             await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
                             return nextChar;

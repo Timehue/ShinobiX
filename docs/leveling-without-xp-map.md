@@ -19,8 +19,12 @@ The two-axis redesign (live on main) already moved every stat point onto its own
 server-authoritative rails:
 
 - **Training** is direct-to-stat via sealed tokens (`api/training/start.ts` →
-  `api/training/complete.ts` → `api/training/_grant.ts:11-21`), 6/22/84/160 pts per
-  15m/1h/4h/8h session, 96 starts/day.
+  `api/training/complete.ts` → `api/training/_grant.ts:11-21`), 3/10/38/72 pts per
+  15m/1h/4h/8h session, 96 starts/day. Rates descend with tier length so chaining
+  short timers out-earns long ones (96× 15m = 288/day … 3× 8h = 216/day); the
+  reference 24h regimen (12× 1h + 4h + 8h = 230/day) caps a 12-stat build in ~89
+  days. Early sessions are additionally multiplied by `rookieStatMultiplier`
+  (×5 at L1 → 1.0 at L35, keyed off the earned-points ledger, not stored level).
 - **Combat growth** is serious non-ranked PvP only (`api/pvp/claim-rewards.ts:332-340`
   → `api/_stat-growth.ts:65-100`), 6 pts/win, 60/day cap, ranked pays 0.
 - **The ledger is already conserved and server-enforced.** The save sanitizer's
