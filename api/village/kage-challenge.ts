@@ -31,7 +31,7 @@ import {
  * real, async, online-only contest. See _kage-challenge.ts for the model + rules.
  *
  * Actions (body.action):
- *   - declare : a gated villager stakes 500 Honor Seals to open a challenge.
+ *   - declare : a gated villager stakes 250,000 ryo to open a challenge.
  *               Eligibility now requires PERSONAL Village Merit (char.villageMerit),
  *               not the shared village contribution pool.
  *   - press   : the challenger pings to burn the Kage's "accept obligation",
@@ -167,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             return nextChar;
                         }, { failClosed: true });
                         await completeEconomyTx(txId, { note: 'Challenge-state write failed; stake refunded.' }).catch(() => undefined);
-                        return { status: 503, body: { error: 'The challenge could not be opened, so your Honor Seals were refunded. Please retry.', character: refunded } };
+                        return { status: 503, body: { error: 'The challenge could not be opened, so your ryo was refunded. Please retry.', character: refunded } };
                     } catch (refundError) {
                         await failEconomyTx(txId, refundError, { note: 'Challenge-state write and automatic stake refund both failed.', meta: { playerName, village, challengerName, challengeError: String(challengeError) } }).catch(() => undefined);
                         return { status: 503, body: { error: 'The challenge could not be opened and the stake refund needs administrator reconciliation. Please do not retry.' } };
