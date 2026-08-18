@@ -44,6 +44,21 @@ import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const AGENDA_TREASURY = { honorSeals: 15, ryo: 1500, boneCharms: 2 } as const;
+// Vanguard village tithe (owner ruling 2026-08-17). Village upgrades are shared
+// infrastructure funded from this pool, and the Vanguard's whole purpose is to
+// be the best at PvP FOR THEIR VILLAGE — but the base agenda credit is
+// profession-agnostic, so a Vanguard capping 150 Honor Seals a day funded their
+// village exactly as much as someone who never fights. This is the seam that
+// makes the role's contribution real: a Vanguard's daily claim pays the
+// treasury 50 seals instead of 15.
+//
+// It lives HERE rather than at the PvP grant on purpose. This path already
+// takes the village-state lock, already writes the treasury, and is already
+// receipt-guarded one-claim-per-player-per-UTC-day — so the tithe inherits all
+// of that. Splitting the seal grant inside api/pvp/claim-rewards.ts would have
+// added a brand-new cross-key currency write to the most safety-critical path
+// in the game for the same effect.
+const AGENDA_TREASURY_VANGUARD_SEALS = 50;
 // Personal reward (audit #7 / Stage 3 Phase 2). VERBATIM port of the client
 // (App.tsx claimVillageAgenda): flat ryo + boneCharm for everyone; honorSeals
 // only for the Vanguard profession (vanguardOnlyHonorSeals). The client's
@@ -90,7 +105,7 @@ export function applyAgendaPersonalReward(char: Record<string, unknown>, date: s
     };
 }
 
-export function applyAgendaTreasuryReward(state: Record<string, unknown>, claimId: string) {
+export function applyAgendaTreasuryReward(state: Record<string, unknown>, claimId: string, isVanguard = false) {
     const claimDate = claimId.slice(0, 10);
     const receipts = Array.isArray(state.agendaClaimReceipts)
         ? (state.agendaClaimReceipts as unknown[]).filter((value): value is string =>
@@ -100,7 +115,7 @@ export function applyAgendaTreasuryReward(state: Record<string, unknown>, claimI
     if (receipts.includes(claimId)) return { state, treasury, alreadyClaimed: true };
     const nextTreasury = {
         ...treasury,
-        honorSeals: num(treasury.honorSeals) + AGENDA_TREASURY.honorSeals,
+        honorSeals: num(treasury.honorSeals) + (isVanguard ? AGENDA_TREASURY_VANGUARD_SEALS : AGENDA_TREASURY.honorSeals),
         ryo: num(treasury.ryo) + AGENDA_TREASURY.ryo,
         boneCharms: num(treasury.boneCharms) + AGENDA_TREASURY.boneCharms,
     };
@@ -174,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // cannot leave a partial personal payout. The client adds the returned
         // `granted` delta to its OWN balance (not the absolute — so concurrent ryo
         // gains elsewhere survive) and re-asserts via autosave; the two converge.
-        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; balances: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
+        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; isVanguard: boolean; balances: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
         try {
             const out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -187,6 +202,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return {
                     alreadyClaimed: applied.alreadyClaimed,
                     granted: applied.granted,
+                    // `profession` is server-owned (locked to stored by the save
+                    // sanitizer), so the tithe cannot be claimed by a forged save.
+                    isVanguard: char.profession === 'vanguard',
                     balances: { ryo: num(nextChar.ryo), boneCharms: num(nextChar.boneCharms), honorSeals: num(nextChar.honorSeals) },
                     saveVersion: applied.alreadyClaimed
                         ? Number(rec._saveVersion ?? 0)
@@ -205,9 +223,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // increase. If the personal write completed before an interruption, a
         // retry skips it and safely finishes this half.
         const claimId = `${date}:${playerName.toLowerCase()}`;
+        const isVanguardClaimer = personal.isVanguard;
         const treasuryOutcome = await withKvLock(villageStateKey, async () => {
             const state = (await kv.get<Record<string, unknown>>(villageStateKey)) ?? {};
-            const applied = applyAgendaTreasuryReward(state, claimId);
+            const applied = applyAgendaTreasuryReward(state, claimId, isVanguardClaimer);
             if (!applied.alreadyClaimed) await kv.set(villageStateKey, applied.state);
             return { alreadyClaimed: applied.alreadyClaimed, treasury: applied.treasury };
         }, { failClosed: true });
