@@ -18,6 +18,13 @@ import {
     type GoogleHandoffTicket,
 } from './_google-auth.js';
 import { withKvLock } from './_lock.js';
+import {
+    clearRecoveryCode,
+    issueRecoveryCode,
+    readRecoveryCode,
+    recoveryCodeMatches,
+    normalizeRecoveryCode,
+} from './_recovery-code.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import { recordBetaMetric } from './_beta-metrics.js';
 import { newRegistrationsDisabled } from './_launch-controls.js';
@@ -93,11 +100,13 @@ export function isPasswordlessRecord(record: AuthRecord | null | undefined): boo
  * below deliberately spreads the record when setting a FIRST password, so the
  * flag survives on an account that now has a real, portable credential.
  *
- * Shared deliberately. Two very different consequences hang off this one line —
- * the tavern/message lock in `api/_guest-gate.ts`, and account RECLAMATION in
- * `api/cron/_guest-sweep.ts`. They were written with different predicates once,
- * which meant a player who set a password could talk in the tavern and still
- * have their character deleted for inactivity two weeks later. Keep it single.
+ * Shared deliberately. Three very different consequences hang off this one line
+ * — the tavern/message lock in `api/_guest-gate.ts`, account RECLAMATION in
+ * `api/cron/_guest-sweep.ts`, and revoking the browser's resume credential in
+ * `guest-resume` below. They were written with different predicates once, which
+ * meant a player who set a password could talk in the tavern, still have their
+ * character deleted for inactivity two weeks later, and leave the computer they
+ * first played on holding a working key to the account. Keep it single.
  *
  * Returns a plain boolean, NOT a `record is AuthRecord` type predicate. A
  * predicate would be unsound: it would narrow the FALSE branch to
@@ -382,6 +391,12 @@ async function claimNewAccountSlug(
         if (!created) {
             return { error: { status: 409, body: { ok: false, error: 'Account already has a password.' } } };
         }
+        // Slugs are reusable, so a recovery record left behind by a previous
+        // holder of this name would be a working credential to the account
+        // just created. Clear it on the way in as well as on the way out —
+        // the deletion paths already do this, and this is the backstop for a
+        // deletion that half-failed.
+        await clearRecoveryCode(name);
         return { sessionEpoch };
     }, { failClosed: true });
 }
@@ -448,7 +463,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
         return res.status(400).json({ ok: false, error: 'Invalid request body.' });
     }
-    const { action, name, password, oldPassword, newPassword, signupTicket, nonce, guestResume } = body as {
+    const {
+        action, name, password, oldPassword, newPassword, signupTicket, nonce, guestResume, recoveryCode,
+    } = body as {
         action?: string;
         name?: string;
         password?: string;
@@ -457,6 +474,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         signupTicket?: string;
         nonce?: string;
         guestResume?: string;
+        recoveryCode?: string;
     };
 
     // Rate-limit auth by IP, KV-backed so an attacker can't hop instances to reset
@@ -477,6 +495,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // account with no cost to the caller at all, so it also carries a second,
     // fingerprint-keyed budget inside the action itself. `guest-resume` is
     // sized like `verify` — it is a returning player's login.
+    //
+    // `recover` is sized like a password reset rather than a login, because it
+    // is one: a real player runs it once, off a code they are reading, so a
+    // small budget costs them nothing while keeping the unauthenticated
+    // credential-setting path the least attractive door on the endpoint. It is
+    // deliberately NOT paired with a per-account attempt lockout — see the
+    // action itself for why that would be a griefing vector rather than a
+    // defence at this code length.
     const AUTH_BUDGETS: Record<string, number> = {
         verify: 40,
         register: 25,
@@ -485,6 +511,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'guest-resume': 40,
         change: 15,
         delete: 10,
+        recover: 10,
+        'recovery-issue': 10,
+        'admin-recovery': 20,
     };
     const authAction = typeof action === 'string' ? action : 'unknown';
     const authBudget = AUTH_BUDGETS[authAction] ?? 20;
@@ -710,25 +739,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // and letting it keep minting tokens would leave the pre-claim
             // browser holding a credential to somebody's real account.
             //
-            // ⚠ KNOWN GAP — deliberately still open, do not half-fix it.
-            // `record.guest` is cleared ONLY by the Google link, so an account
-            // claimed with a PASSWORD keeps this key live: a browser once used
-            // for guest play goes on minting 24h tokens indefinitely (the TTL
-            // refreshes below), and the password never locks it out. The epoch
-            // rotation in `change` does not help, because this path mints a
-            // FRESH token. Verified against the built handler: 200 + token for
-            // a record carrying both `guest: true` and a hash/salt.
+            // The predicate is `isCredentialLessGuest`, never the raw `guest`
+            // flag: setting a first password spreads the record and keeps that
+            // flag set, so selecting on it alone kept this door open for every
+            // account claimed with a password rather than with Google. That
+            // hole is now closed — the browser someone played a guest on in a
+            // library cannot go on minting 24h tokens for the account they
+            // later put a password on.
             //
-            // The correct predicate is `isCredentialLessGuest(record)` — the
-            // same one the tavern lock and the guest sweep share. It is not
-            // applied yet ON PURPOSE: revoking this door today would strand
-            // anyone who sets a password and later forgets it, because there is
-            // no self-serve password reset without Google. Ship that reset
-            // path FIRST, then flip this line and fix the message below, which
-            // also assumes Google. See docs/auth-and-anti-cheat-patterns.md.
-            if (!record.guest) {
+            // Closing it is only safe because there is now a self-serve way
+            // back in: `action: 'recover'` below, redeemed against the code
+            // from `recovery-issue`. Revoking a browser's last credential
+            // without that would have stranded anyone who set a password and
+            // forgot it. See docs/auth-and-anti-cheat-patterns.md §1.
+            if (!isCredentialLessGuest(record)) {
                 await kv.del(guestResumeKey(resume));
-                return res.status(409).json({ ok: false, error: 'This character now signs in with Google.' });
+                // Name the door that actually works for THIS record. The caller
+                // held a valid resume key for this exact slug, so telling them
+                // how to sign in reveals nothing they could not already reach —
+                // and the old hardcoded "signs in with Google" was simply wrong
+                // for the far more common password claim.
+                const doors = [
+                    isPasswordlessRecord(record) ? '' : 'its password',
+                    record.google ? 'Google' : '',
+                ].filter(Boolean);
+                return res.status(409).json({
+                    ok: false,
+                    error: doors.length
+                        ? `This character has an owner now — sign in with ${doors.join(' or ')}.`
+                        : 'This character has an owner now.',
+                });
             }
             await kv.set(
                 guestResumeKey(resume),
@@ -928,13 +968,181 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Spread the existing record: a password change must not drop the
                 // linked Google identity or the guest flag that lives beside it.
                 await kv.set(key, { ...record, hash: hashPw(newPassword, salt), salt, sessionEpoch });
+
+                // Gaining a password means gaining something you can forget, so
+                // this is the moment to hand over the way back — most of all for
+                // the guest claiming their character, whose resume key stops
+                // working the instant this write lands.
+                //
+                // Only when the account has no code yet. A player rotating a
+                // password they already had keeps the code they already wrote
+                // down: silently invalidating it would turn a routine password
+                // change into a lockout for anyone who did not read the response.
+                let freshRecoveryCode: string | undefined;
+                try {
+                    if (!(await readRecoveryCode(name))) freshRecoveryCode = await issueRecoveryCode(name);
+                } catch (err) {
+                    // Best effort. The password change itself has committed, and
+                    // the player can mint a code from their profile at any time;
+                    // failing the whole request here would be the worse outcome.
+                    console.error('[player-auth change recovery-code]', String(err));
+                }
+
                 return res.status(200).json({
                     ok: true,
                     token: issuePlayerToken(name, undefined, sessionEpoch) ?? undefined,
+                    ...(freshRecoveryCode ? { recoveryCode: freshRecoveryCode } : {}),
                 });
             }, { failClosed: true });
         } catch (err) {
             console.error('[player-auth change]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
+    }
+
+    // ─── Self-serve recovery ──────────────────────────────────────────────────
+    //
+    // Mint the code you will need if you forget your password. Requires proof
+    // that you are already inside the account, so this is never a way to obtain
+    // a credential for somebody else's shinobi — it is the authenticated act of
+    // writing down a spare key.
+    //
+    // Deliberately does NOT rotate the session epoch, even though it mints a
+    // credential. The rule that credential mutations rotate exists so a reset
+    // cannot leave a stale session alive; nothing is being reset or revoked
+    // here, and rotating would sign the player out of their other devices as
+    // the punishment for taking a safety measure. The epoch rotation lands on
+    // `recover` below, which is the half that actually changes the password.
+    if (action === 'recovery-issue') {
+        const suppliedToken = headerValue(req, 'x-player-token');
+        const tokenOwner = suppliedToken ? await verifyPlayerToken(suppliedToken) : null;
+        const tokenProvesOwnership = !!tokenOwner && tokenOwner === safeName(name);
+
+        if (!tokenProvesOwnership) {
+            // Fall back to the password, so this still works when
+            // SESSION_SECRET is unset and no token was ever issued.
+            const verificationError = playerPasswordVerificationError(password);
+            if (verificationError) return res.status(401).json({ ok: false, error: 'Authentication required.' });
+        }
+        try {
+            // Under the account lock, like every other credential mutation on
+            // this endpoint. Two concurrent issues would otherwise both report
+            // success while only the last write survived — and the player may
+            // well have written down the one that lost. It also orders this
+            // against `change`, which mints a code of its own when the account
+            // has none.
+            return await withKvLock(key, async () => {
+                const record = await kv.get<AuthRecord>(key);
+                if (!tokenProvesOwnership) {
+                    // Burn the same scrypt work whether or not the account
+                    // exists, exactly as `verify` does, so this cannot be used
+                    // to probe for names — then answer with one message for
+                    // every failure.
+                    const matched = verifyAgainst(record ?? DUMMY_AUTH_RECORD, password as string);
+                    if (!record || !matched) {
+                        return res.status(401).json({ ok: false, error: 'Authentication required.' });
+                    }
+                }
+                if (!record) return res.status(401).json({ ok: false, error: 'Authentication required.' });
+
+                const code = await issueRecoveryCode(name);
+                return res.status(200).json({ ok: true, recoveryCode: code });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[player-auth recovery-issue]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
+    }
+
+    // Redeem a recovery code for a new password. The one unauthenticated path
+    // that can set a credential, so every answer it gives is deliberate:
+    //
+    //  - **One failure message, status 200**, for a name that does not exist, a
+    //    name with no code, and a wrong code alike. `verify` answers 200 for a
+    //    passwordless account for the same reason — a recovery form that says
+    //    "no such shinobi" is an account-enumeration oracle aimed at the
+    //    leaderboard, which is a public list of every name worth trying.
+    //  - **No per-account attempt lockout.** The obvious hardening is wrong
+    //    here: the code carries ~100 bits of entropy, so guessing is hopeless
+    //    with or without one, while a name-keyed counter would let anyone lock
+    //    a specific player out of their own recovery by spending ten requests
+    //    on it. The IP budget above is the bound that costs no victim anything.
+    //  - **Single use.** The code is consumed inside the lock and a fresh one
+    //    is minted in the same breath, so a player is never left mid-recovery
+    //    holding nothing.
+    if (action === 'recover') {
+        const RECOVERY_FAILED = 'That recovery code is not valid for this shinobi.';
+
+        // Shape errors first, and only ones that depend on the caller's own
+        // input rather than on any stored state — those answer identically for
+        // every name and so cannot be used to probe.
+        const passwordPolicyError = playerPasswordPolicyError(newPassword);
+        if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
+        const normalizedCode = normalizeRecoveryCode(recoveryCode);
+        if (!normalizedCode) return res.status(200).json({ ok: false, error: RECOVERY_FAILED });
+
+        try {
+            return await withKvLock(key, async () => {
+                const [record, stored] = await Promise.all([
+                    kv.get<AuthRecord>(key),
+                    readRecoveryCode(name),
+                ]);
+                if (!recoveryCodeMatches(stored, normalizedCode)) {
+                    return res.status(200).json({ ok: false, error: RECOVERY_FAILED });
+                }
+                if (!record) {
+                    // A recovery row that outlived its account. It can never
+                    // authenticate anything, so drop it rather than leave it to
+                    // be inherited by the next holder of this slug.
+                    await clearRecoveryCode(name);
+                    return res.status(200).json({ ok: false, error: RECOVERY_FAILED });
+                }
+
+                // Gate on the ban here too. This branch walks out with a fresh
+                // token, so leaving it ungated would make recovery the way
+                // around the check `verify` performs.
+                const ban = await getActiveBan(name);
+                if (ban) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Account is banned.',
+                        ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+                    });
+                }
+
+                // Rotate first, for the reason `change` gives: if the write
+                // below fails, every previously issued token is already dead —
+                // which is the safe direction for a path whose whole premise is
+                // that the account may be in the wrong hands.
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
+                const salt = newSalt();
+                // Spread, so recovering a password neither unlinks Google nor
+                // disturbs anything else living on the record.
+                await kv.set(key, { ...record, hash: hashPw(newPassword as string, salt), salt, sessionEpoch });
+
+                let nextCode: string | undefined;
+                try {
+                    nextCode = await issueRecoveryCode(name);
+                } catch (err) {
+                    // The password is already changed and the old code is about
+                    // to be gone, so report success and let the player mint a
+                    // replacement from their profile.
+                    console.error('[player-auth recover reissue]', String(err));
+                    await clearRecoveryCode(name);
+                }
+
+                void recordClientIp(name, clientIpFrom(req));
+                const recoverFp = clientFpFrom(req);
+                if (recoverFp) void recordClientFingerprint(name, recoverFp);
+
+                return res.status(200).json({
+                    ok: true,
+                    token: issuePlayerToken(name, undefined, sessionEpoch) ?? undefined,
+                    ...(nextCode ? { recoveryCode: nextCode } : {}),
+                });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[player-auth recover]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
     }
@@ -952,6 +1160,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Release the Google link too, or the sub stays pointed at a
                     // deleted slug and that person can never sign in again.
                     if (existing?.google?.sub) await kv.del(googleIdentityKey(existing.google.sub));
+                    // And the recovery code, or it becomes a credential to
+                    // whoever registers this name next.
+                    await clearRecoveryCode(name);
                 }, { failClosed: true });
             } catch (err) {
                 console.error('[player-auth delete]', String(err));
@@ -985,6 +1196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await rotatePlayerSessionEpoch(name);
                 await kv.del(key);
                 if (record.google?.sub) await kv.del(googleIdentityKey(record.google.sub));
+                await clearRecoveryCode(name);
                 return res.status(200).json({ ok: true });
             }, { failClosed: true });
         } catch (err) {
@@ -993,8 +1205,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     }
 
+    // Operator-assisted recovery, and the one that should be reached for first.
+    //
+    // Mints a recovery code for a player and hands it to the ADMIN to relay —
+    // over Discord, or however they verified the person in the first place. The
+    // player then redeems it through `recover` and chooses their own password.
+    //
+    // This exists to keep an operator out of the credential. With `adminreset`
+    // below, the admin picks the password, which means they know a working
+    // credential for somebody else's shinobi, and it stays working until the
+    // player thinks to change it — and in practice the password travels through
+    // a chat log to reach them. Here the admin only ever holds a single-use
+    // code, and the password that ends up on the account is one they never see.
+    //
+    // It is NOT a new privilege. A full admin could already take an account with
+    // `adminreset`, so this adds no power — it removes the reason to use the
+    // blunter tool for the ordinary "I forgot my password" request.
+    //
+    // Rotating the session epoch here is deliberate, and the opposite of the
+    // choice `recovery-issue` makes. There the caller is the account's own owner
+    // taking a safety measure, and signing them out of their other devices would
+    // be a punishment for it. Here somebody ELSE is minting a credential onto
+    // the account, which is exactly the case the "credential mutations rotate"
+    // rule exists for: every token issued before this moment stops working, so
+    // an operator's action cannot be ridden by a session already in flight.
+    //
+    // The password is left alone on purpose. Clearing it would lock out an
+    // attacker who knows it, but it would also strand the player if the code
+    // never reaches them, and on a guest-flagged record it would re-open both
+    // doors this change just closed — the resume key and the 14-day sweep both
+    // key on "credential-less guest". An account that is actively compromised is
+    // what `adminreset` is still for.
+    if (action === 'admin-recovery') {
+        if (!isFullAdmin(req)) {
+            return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
+        }
+        try {
+            return await withKvLock(key, async () => {
+                const record = await kv.get<AuthRecord>(key);
+                if (!record) {
+                    return res.status(404).json({ ok: false, error: 'Account does not exist.' });
+                }
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
+                // Persist the rotated epoch onto the record, so a later token
+                // mint for this account does not read as stale — the same
+                // pairing every other rotation on this endpoint performs.
+                await kv.set(key, { ...record, sessionEpoch });
+                const code = await issueRecoveryCode(name);
+                return res.status(200).json({ ok: true, name: safeName(name), recoveryCode: code });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[player-auth admin-recovery]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
+    }
+
     if (action === 'adminreset') {
-        // Admin sets a player's password to a new value (e.g. for account recovery).
+        // Admin sets a player's password outright. Prefer `admin-recovery` above
+        // for an ordinary "I forgot my password" request — it hands the player a
+        // code and lets them choose a password the operator never sees. This one
+        // is the blunt instrument, and it is the right tool for a COMPROMISED
+        // account, where the point is to make the attacker's known password stop
+        // working this second rather than whenever the player gets round to it.
         // Full-admin gate — accepts the admin session token or the password.
         if (!isFullAdmin(req)) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
@@ -1010,6 +1282,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Spread the existing record so an admin reset restores password
                 // access without silently unlinking Google or clearing the guest flag.
                 await kv.set(key, { ...(existing ?? {}), hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                // Drop any recovery code. An admin reset is what a player asks
+                // for when they have lost control of the account, so the
+                // outstanding spare key is exactly the thing to invalidate —
+                // the player mints a fresh one from their profile once they are
+                // back in. Never returned to the admin: it is the player's
+                // credential, and an admin who wants in already has this action.
+                await clearRecoveryCode(name);
             }, { failClosed: true });
         } catch (err) {
             console.error('[player-auth adminreset]', String(err));

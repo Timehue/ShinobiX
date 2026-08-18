@@ -51,13 +51,16 @@ export const WIPE_PATTERNS = [
     'guard:*',
     'pvp:*',                        // active PvP sessions
     'auth:*',                       // player passwords — players re-register on next login
-    // The Google identity index and guest resume credentials point AT accounts
-    // rather than living under them, so `auth:*` does not match either (a LIKE
-    // 'auth:%' scan stops at the colon). Left behind, a Google sign-in would
-    // resolve to a slug that no longer exists, and a guest browser would keep a
-    // credential for a wiped save.
+    // The Google identity index, guest resume credentials and recovery codes
+    // point AT accounts rather than living under them, so `auth:*` does not
+    // match any of them (a LIKE 'auth:%' scan stops at the colon). Left behind,
+    // a Google sign-in would resolve to a slug that no longer exists, a guest
+    // browser would keep a credential for a wiped save, and a recovery code
+    // would become a live credential to whoever claims that name after the
+    // wipe — the same slug-reuse hazard `_recovery-code.ts` describes.
     'auth-google:*',
     'guest-resume:*',
+    'auth-recovery:*',
     'admin-lock:*',                 // short-lived admin locks (cleanup)
     'reset-signal:*',               // short-lived reset signals (cleanup)
     'lock:save:*',                  // per-save write locks (short TTL — cleanup)

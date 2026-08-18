@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { rememberedShinobi } from "../../lib/player-accounts";
 import { loadPublicCapabilities } from "../../lib/live-capabilities";
 import { startGoogleSignIn } from "../../lib/google-signin";
+import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
 
 /*
  * The gate: the screen a returning player actually meets.
@@ -89,6 +90,7 @@ export function LoginGate({
     const [showPasswordForm, setShowPasswordForm] = useState(Boolean(initialName));
     const [googleReady, setGoogleReady] = useState(false);
     const [guestReady, setGuestReady] = useState(false);
+    const [recovering, setRecovering] = useState(false);
 
     // Shinobi this browser can return to in one click, plus a guest character if
     // one lives here. The guest is flagged rather than hidden: it is a character
@@ -138,6 +140,22 @@ export function LoginGate({
         // On success the browser is already navigating away, so only a failure
         // ever gets back here.
         if (failure) { setError(failure); setStatus(""); }
+    }
+
+    if (recovering) {
+        return (
+            <div className="landing-auth-card landing-login-card start-card login-gate">
+                <AccountRecoveryForm
+                    initialName={loginName.trim() || initialName}
+                    helpUrl={DISCORD_URL}
+                    onCancel={() => setRecovering(false)}
+                    onRecovered={(name, password) => {
+                        setRecovering(false);
+                        return onLogin(name, password);
+                    }}
+                />
+            </div>
+        );
     }
 
     return (
@@ -284,14 +302,18 @@ export function LoginGate({
                     Create a New Shinobi
                 </button>
 
-                {/* Password recovery is still moderator-only for password accounts:
-                    they carry no email or other ownership signal. Google accounts
-                    do not need this at all, which is most of why it exists now. */}
-                <p className="start-hint landing-auth-help">
-                    Forgotten your password? Ask a moderator on{" "}
-                    <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Discord</a>{" "}
-                    to verify your character and reset it.
-                </p>
+                {/* Recovery is self-serve for anyone holding a recovery code, and
+                    still moderator-only for anyone who is not — accounts carry no
+                    email, so there is no ownership signal to check against. The
+                    form says so itself rather than letting people find out after
+                    filling it in. */}
+                <button
+                    type="button"
+                    className="landing-auth-secondary gate-recovery-toggle"
+                    onClick={() => { setError(""); setRecovering(true); }}
+                >
+                    Forgotten your password?
+                </button>
             </div>
         </div>
     );

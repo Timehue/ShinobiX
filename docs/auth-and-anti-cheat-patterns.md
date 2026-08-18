@@ -133,6 +133,89 @@ epoch rather than deleting `auth-session:<slug>`: a missing epoch reads as zero,
 so deleting it would let an old token authenticate as whoever registers the
 freed name next.
 
+### Self-serve recovery: `auth-recovery:<slug>`
+
+**Recovery is a code you were given and kept, not an email link — because there
+is no email.** Accounts are keyed by the `safeName` slug and nothing else.
+Registration never collects an address and guest play collects nothing, so the
+only accounts carrying one are the Google-linked ones, which already recover by
+signing in with Google. An email flow would therefore cover approximately none
+of the population that needs it while *looking* like the problem was solved. For
+an account whose only identifier is a public name, recovery can honestly mean
+one thing: present a secret you were issued. A player who kept nothing still
+ends at a moderator, and the UI says so on the form rather than after it.
+
+`api/_recovery-code.ts` owns the format and storage; `player-auth.ts` owns the
+two actions.
+
+- **`recovery-issue`** mints a code and returns the plaintext once, requiring a
+  session token for that name or the current password. It is the authenticated
+  act of writing down a spare key, so it deliberately does **not** rotate the
+  session epoch: nothing is revoked, and rotating would sign the player out of
+  their other devices as the price of taking a safety measure. The epoch
+  rotation lands on `recover`, which is the half that changes a password.
+- **`recover`** trades a code for a new password: rotates the epoch, sets the
+  hash under the account lock, consumes the code, and mints a replacement in the
+  same response so nobody finishes recovery holding nothing. Banned accounts are
+  refused here exactly as in `verify`, or recovery would be the way around it.
+- **`change` issues a code when the account has none yet**, which covers both a
+  guest claiming their character (the same response that starts the revocation
+  above) and accounts predating the feature. A routine password change on an
+  account that already has a code leaves it alone — silently invalidating a code
+  someone wrote down would turn a password change into a future lockout.
+- **`admin-recovery`** is the operator's tool, and the one to reach for first.
+  It mints a code and hands it to the ADMIN to relay, after they have verified
+  who they are talking to; the player then redeems it and picks a password the
+  operator never sees. It **rotates the session epoch** — the opposite of the
+  choice `recovery-issue` makes, and for a clear reason: there the account's own
+  owner is taking a safety measure and signing out their other devices would be
+  a punishment for it, whereas here somebody *else* is minting a credential onto
+  the account, which is exactly the case the rotation rule exists for.
+  It **leaves the password alone**, deliberately. Clearing it would lock out an
+  attacker who knows it, but it would also strand the player if the hand-off
+  never arrives, and on a guest-flagged record it would make the account
+  credential-less again — re-opening both the resume key and the 14-day sweep.
+- **`adminreset` still sets a password outright**, and stays for the case a code
+  cannot serve: an account somebody else is *already* in, where the attacker's
+  known password has to stop working this second rather than whenever the player
+  redeems. It **deletes the code**, and never returns one to the admin — an
+  admin reset is what you ask for when you have lost control of an account, so
+  the outstanding spare key is exactly the thing to invalidate.
+
+Neither admin action is a new privilege: a full admin could always take an
+account with `adminreset`. What changed is that the ordinary "I forgot my
+password" request no longer *requires* an operator to choose, know, and paste a
+working credential into a chat log.
+
+Three properties are load-bearing:
+
+- **No enumeration oracle.** `recover` answers a wrong code, an account with no
+  code, and a name nobody registered with one identical `200 {ok:false}` — the
+  same reasoning that makes `verify` answer 200 for a passwordless account. The
+  Hall of Legends is a public list of every name worth probing.
+- **No per-account attempt lockout, on purpose.** The obvious hardening is wrong
+  here: the code carries ~100 bits of entropy, so guessing is hopeless with or
+  without one, while a name-keyed counter would let anyone lock a specific player
+  out of their own recovery for ten requests. The IP budget is the bound that
+  costs no victim anything.
+- **The code dies with the account.** Slugs are reusable, so a surviving
+  `auth-recovery:<slug>` would be a working credential to whoever registers the
+  name next. Every delete path clears it, `claimNewAccountSlug` clears it again
+  on the way in as a backstop against a half-failed deletion, and the full
+  server reset wipes `auth-recovery:*` explicitly — it sits beside `auth:<slug>`
+  rather than under it, so the `auth:*` pattern never reaches it, exactly like
+  `auth-google:*` and `guest-resume:*`. `server-reset.test.ts` guards all four.
+- **All three actions are exempt from the maintenance freeze**
+  (`_launch-controls.ts`), like `verify` and `change`. Freezing recovery would
+  mean the one incident an operator most wants players able to work around is
+  the one where nobody can get back in.
+
+Stored as salted **SHA-256**, not scrypt, and the asymmetry is deliberate:
+passwords are low-entropy and human-chosen, so they need a slow KDF to make a
+leaked hash expensive; a 100-bit CSPRNG draw has no dictionary to search, so
+there is nothing for slowness to buy. A stolen KV dump still yields no usable
+codes, which is the whole job.
+
 **Guests are shut out of every player-visible text channel** until the account
 gains a real credential. An account created anonymously, three per hour per
 fingerprint, with no email and no owner is the cheapest possible spam and
@@ -151,19 +234,22 @@ flag outright, but setting a first password (`player-auth` action `change`)
 deliberately spreads the record and *keeps* it — so selecting on the flag alone
 catches someone who has a real, portable credential. Either door releases them.
 
-⚠ **One place still reads the raw flag, and it is a known hole.** The
-`guest-resume` branch of `player-auth` revokes the browser's resume credential
-with `if (!record.guest)`. Because only the Google link clears that flag, an
-account claimed with a **password** keeps its resume key live: a browser once
-used for guest play goes on minting fresh 24h tokens, TTL refreshing on each
-use, and the password never locks it out (the epoch rotation in `change` does
-not help — this path mints a new token). Confirmed against the built handler.
+**This closed a hole in `guest-resume`, and the ORDER it was closed in is the
+point.** That branch revoked the browser's resume credential with
+`if (!record.guest)`. Because only the Google link clears that flag, an account
+claimed with a **password** kept its resume key live: a browser once used for
+guest play went on minting fresh 24h tokens, TTL refreshing on each use, and the
+password never locked it out (the epoch rotation in `change` does not help —
+that path mints a new token). It now reads `isCredentialLessGuest`, deletes the
+key, and names the door that actually works for that record instead of assuming
+Google.
 
-It is **deliberately still open**. The fix is one word — `isCredentialLessGuest`
-— but applying it before there is a **self-serve password reset** would strand
-anyone who sets a password and forgets it, since recovery today needs an admin.
-Order of work: ship the reset path, then flip the predicate and fix the
-"signs in with Google" message that assumes the other claim route.
+It was left open deliberately until then. Revoking a browser's last credential
+before there was a **self-serve password reset** would have stranded anyone who
+set a password and forgot it, since recovery needed an admin. The reset path
+shipped first (§1, `auth-recovery:<slug>`), and only then did the predicate
+flip — the same response that retires the resume key now hands the player the
+recovery code that replaces it.
 
 ⚠ **Keep it single.** The tavern lock and account RECLAMATION
 (`api/cron/_guest-sweep.ts`) ask the same question — "does this character belong
