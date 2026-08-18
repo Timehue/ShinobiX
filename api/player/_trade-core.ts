@@ -49,7 +49,10 @@ export function planTrade(currency: unknown, amountRaw: unknown, senderBalance: 
     if (amount < TRADE_MINS[currency]) return { ok: false, reason: `Minimum transfer is ${TRADE_MINS[currency].toLocaleString()} ${currency}.` };
     if (amount > TRADE_CAPS[currency]) return { ok: false, reason: `Maximum per transfer is ${TRADE_CAPS[currency].toLocaleString()} ${currency}.` };
     if (n(senderBalance) < amount) return { ok: false, reason: `You don't have ${amount.toLocaleString()} ${currency}.` };
-    const credit = Math.floor(amount * (1 - TRADE_TAX_PCT));
+    // Floored, so the burn absorbs the rounding remainder — except at a single
+    // unit, where flooring would credit 0 and the trade would deliver nothing.
+    // TRADE_MINS allows a 1-shard/charm/stone trade, so that case is reachable.
+    const credit = Math.max(1, Math.floor(amount * (1 - TRADE_TAX_PCT)));
     const burned = amount - credit;
     return { ok: true, currency, debit: amount, credit, burned };
 }
