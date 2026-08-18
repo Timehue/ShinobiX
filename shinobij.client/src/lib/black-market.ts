@@ -6,7 +6,10 @@
  */
 import type { Character } from "../types/character";
 
-export const BLACK_MARKET_COST = 50_000;
+// MIRROR: api/festival/_black-market.ts BLACK_MARKET_COST — the server debits,
+// this is the displayed price. Keep in sync or the pull quotes one number and
+// charges another.
+export const BLACK_MARKET_COST = 75_000;
 export const BLACK_MARKET_DAILY_CAP = 10;
 
 export type BlackMarketReward = {
