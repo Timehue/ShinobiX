@@ -6,6 +6,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { purchaseVillageUpgrade } from './_upgrade.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/village/upgrade — POST { playerName, key }
@@ -65,6 +66,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         }, { failClosed: true });
 
+        // Economy telemetry — a village upgrade permanently destroys Honor Seals
+        // from the shared treasury. It is the single largest seal sink in the game
+        // and the whole reason Vanguard PvP earnings have somewhere to go, so it
+        // has to be measurable. Attributed to the buying Kage, since the treasury
+        // is not itself a telemetry actor.
+        if (out.status === 200 && Number((out.body as { cost?: number }).cost) > 0) {
+            await recordEconomyTxn({
+                txnId: `village-upgrade:${stateKey}:${String(body.key ?? '')}:${Date.now()}`,
+                player: playerName,
+                currency: 'honorSeals',
+                delta: -Number((out.body as { cost?: number }).cost),
+                source: 'village.upgrade',
+                balanceAfter: Number((out.body as { treasuryHonorSeals?: number }).treasuryHonorSeals),
+            });
+        }
         return res.status(out.status).json(out.body);
     } catch (error) {
         console.error('[village/upgrade]', safeLogValue(error));

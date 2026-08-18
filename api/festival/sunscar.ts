@@ -8,6 +8,7 @@ import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { kv } from '../_storage.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlement, getDurableSettlement, listDurableSettlements, settlementFingerprint, settlementTransactionId, updateDurableSettlement } from '../_durable-settlement.js';
+import { recordEconomyTxn } from '../_economy.js';
 import {
     cleanMiraaBet,
     FATE_DICE_COST,
@@ -130,6 +131,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { ok: true, character: nextCharacter, value: { ...result, dailyUsed: used + 1, dailyCap: FATE_DICE_DAILY_CAP, cost: FATE_DICE_COST } };
             });
             if (!out.ok) return res.status(out.status).json({ error: out.error });
+            // Economy telemetry — the dice stake is a flat ryo sink. Fate Shards
+            // only appear on the triple-eye branch, so they are logged from the
+            // sealed result rather than assumed.
+            await recordEconomyTxn({ txnId: `fate-dice:${playerName}:${Date.now()}`, player: playerName, currency: 'ryo', delta: -FATE_DICE_COST, source: 'sunscar.dice' });
+            const diceShards = Number((out.value as { reward?: { fateShards?: number } }).reward?.fateShards ?? 0);
+            if (diceShards > 0) {
+                await recordEconomyTxn({ txnId: `fate-dice-shards:${playerName}:${Date.now()}`, player: playerName, currency: 'fateShards', delta: diceShards, source: 'sunscar.dice' });
+            }
             return res.status(200).json({ ok: true, ...out.value, character: out.character, _saveVersion: out._saveVersion });
         }
 
