@@ -2270,7 +2270,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 292
+            "line": 312
           },
           {
             "source": "shinobij.client/src/styles/pet-chronicle-ceremony.css",
@@ -2298,6 +2298,10 @@
         "axis": "width",
         "valuePx": 430,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
+            "line": 305
+          },
           {
             "source": "shinobij.client/src/styles/pet-chronicle-progress.css",
             "line": 124
@@ -2467,7 +2471,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
-            "line": 67
+            "line": 76
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -2502,7 +2506,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 249
+            "line": 266
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -2608,6 +2612,10 @@
         "axis": "height",
         "valuePx": 620,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
+            "line": 326
+          },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
             "line": 176
@@ -3247,7 +3255,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
-            "line": 61
+            "line": 70
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
