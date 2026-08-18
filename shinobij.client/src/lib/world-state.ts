@@ -4,7 +4,7 @@
  *   • sector territory (cache + load/save/damage/supply + scroll items)
  *   • village wars (cache + declare/damage/outcome/raid/daily-mission helpers)
  *   • village state (cache + load/save/normalize + kage unlock)
- *   • war crates (claimPendingWarCrates)
+ *   • war rewards (claimServerWarRewards → /api/war/claim-reward)
  *   • arena spectator fights / tournament / pending clan pet battle /
  *     weekly-boss AI override (caches + hydrateSharedGameState)
  * The caches are reassigned by the hydrate functions, so cache + every
@@ -16,20 +16,16 @@ import type { Biome, WeatherType } from "../types/core";
 import { serverNow } from "./server-clock";
 import type { Character, PlayerRecord } from "../types/character";
 import type { NoticePost } from "../types/clan";
-import { CW_DAMAGE } from "../constants/clan";
 import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_DAILY_WAR_SUPPLY, TERRITORY_HP_MAX, TERRITORY_SUPPLY_INTERVAL_MS, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
-import { warCrateServerAuthEnabled } from "./war-crate-flag";
-import { isServerSettlementReady } from "./server-settlement-gate";
 import { biomeWeatherTables } from "../data/world";
 import { clampNumber, currentDateKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
 import { addItem, countItem, removeItem } from "./inventory";
-import { nonVanguardCharmSubstitute, nonVanguardShardSubstitute, vanguardOnlyHonorSeals } from "../App";
 import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";
 
@@ -561,7 +557,7 @@ function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: 
     const ended = nextHp <= 0;
     const winnerVillage = ended ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage;
     // Canonical crate ID format `war-crate-${war.id}` — matches what
-    // VillageWarScreen.claimVictory + claimPendingWarCrates check via
+    // VillageWarScreen.claimVictory + the server reward claim check via
     // claimedWarCrateIds. Previously this used `village-crate-${id}-${ts}`
     // which slipped past dedup, letting winners triple-claim.
     const next = normalizeVillageWar({
@@ -750,7 +746,7 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
         warCrate: Boolean(next.endedAt && next.winnerVillage === character.village),
         // Canonical crate ID the caller stamps into claimedWarCrateIds
         // alongside the inline inventory grant — without this, the
-        // claimPendingWarCrates sweep on next login would scan the cache,
+        // the post-poll reward sweep on next login would scan the cache,
         // see warCrateId is unclaimed, and grant a SECOND crate.
         warCrateId: next.warCrateId,
         bountyRyo: bountyAvailable ? 500 : 0,
@@ -775,7 +771,7 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
  *
  * The winner's Legendary War Crate is no longer granted inline either — the
  * sanitizer rejects the crate id (it is server-owned) and
- * `claimPendingWarCrates` already claims it through /api/village/claim-war-crate
+ * `claimServerWarCrates` already claims it through /api/village/claim-war-crate
  * on the next sweep, which is the only path that can actually deliver it.
  */
 export function applyVillageWarMissionDamage(character: Character, warMissionToken?: string): { ok: boolean; note: string } {
@@ -832,228 +828,21 @@ export function unlockVillageKageSystem(village: string, playerName: string): Vi
     return next;
 }
 
-export function claimPendingWarCrates(
-    character: Character,
-    clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
-): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
-    // The generic save route cannot settle payouts. Until every war-reward
-    // branch has a dedicated endpoint, never derive inventory/currency/latches
-    // from the browser's cached war state. Winner crates still flow through
-    // claimServerWarCrates, whose endpoint validates and writes the save.
-    if (!isServerSettlementReady("clientWarCrateGrant")) return { character, count: 0 };
-    const claimed = new Set(character.claimedWarCrateIds ?? []);
-    // P0.2c: when warCrateServerAuth.v1 is ON, WINNER crates (village + clan) defer to
-    // claimServerWarCrates (server-validated); the MVP / consolation / lifetime-stat
-    // branches below stay inline (currency-only, already sanitizer-capped).
-    const serverAuthCrates = warCrateServerAuthEnabled();
-    const cratesToAdd: string[] = [];   // LEGENDARY_WAR_CRATE_ID inventory pushes
-    const idsToAdd: string[] = [];      // claimedWarCrateIds bookkeeping
-    let ryoBonus = 0;
-    let honorBonus = 0;
-    let shardsBonus = 0;
-    let mvpAwarded = false;
-    let consolationAwarded = false;
-    // Lifetime stats — incremented per war, deduped via a `stats-${warId}`
-    // marker in claimedWarCrateIds so multiple claim paths (winner +
-    // MVP + consolation) all firing for the same war only count once
-    // toward the Hall of Legends leaderboards.
-    let warsWonDelta = 0;
-    let mvpCountDelta = 0;
-    let lifetimeDamageDelta = 0;
-    const now = Date.now();
-    const myName = character.name;
-    const myVillage = character.village;
-
-    // Clan war crates — check the last 3 history entries in case of back-to-back wars
-    for (const record of (clanData?.warHistory ?? []).slice(0, 3)) {
-        if (!record.warCrateId || record.result !== "Won") continue;
-        if (claimed.has(record.warCrateId)) continue;
-        if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        if (serverAuthCrates) continue;   // clan winner crate deferred to the server endpoint
-        cratesToAdd.push(record.warCrateId);
-        idsToAdd.push(record.warCrateId);
-    }
-
-    // Clan war crates — scan the shared in-memory cache. Independent
-    // of village wars: a player can be in both at once and earn from
-    // each.
-    for (const war of Object.values(sharedClanWarCache)) {
-        if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        const myClan = character.clan;
-        if (!myClan || !war.clans.includes(myClan)) continue;
-
-        // 1. Winner crate — every player in the winning clan gets one.
-        // Deferred to claimServerWarCrates when warCrateServerAuth.v1 is on.
-        if (!serverAuthCrates && war.winnerClan === myClan && war.warCrateId && !claimed.has(war.warCrateId)) {
-            cratesToAdd.push(war.warCrateId);
-            idsToAdd.push(war.warCrateId);
-            warsWonDelta += 1;
-        }
-
-        // 2. MVP bonus — top contributor on each side gets bonus
-        //    currency on top of the winner crate (if they're on the
-        //    winning side) or just the bonus (if on the losing side —
-        //    earned, but unrewarded by a crate).
-        const mvpName = war.mvpByClan?.[myClan];
-        const mvpId = `clan-war-mvp-${war.id}-${myClan.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
-        if (mvpName && mvpName.toLowerCase() === myName.toLowerCase() && !claimed.has(mvpId)) {
-            idsToAdd.push(mvpId);
-            ryoBonus += 10_000;
-            honorBonus += 50;
-            shardsBonus += 2;
-            mvpAwarded = true;
-            mvpCountDelta += 1;
-        }
-
-        // 3. Loss consolation — losing-side participants who actually
-        //    contributed (sum of mode damages ≥ 20) get a small ryo +
-        //    honor seal grant. Threshold filters out passive members
-        //    who never queued.
-        if (war.winnerClan && war.winnerClan !== myClan) {
-            const consolId = `clan-war-consol-${war.id}-${myName.toLowerCase()}`;
-            if (!claimed.has(consolId)) {
-                let myDamage = 0;
-                for (const ch of war.completedChallenges) {
-                    if (ch.status !== "completed" || !ch.result || ch.result === "draw") continue;
-                    const won = (ch.result === "from-wins" && ch.fromClan === myClan)
-                        || (ch.result === "to-wins" && ch.fromClan !== myClan);
-                    if (!won) continue;
-                    const winners = ch.fromClan === myClan
-                        ? [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[]
-                        : [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[];
-                    if (winners.some(p => p.toLowerCase() === myName.toLowerCase())) {
-                        myDamage += CW_DAMAGE[ch.mode] ?? 0;
-                    }
-                }
-                if (myDamage >= 20) {
-                    idsToAdd.push(consolId);
-                    ryoBonus += 2_500;
-                    honorBonus += 10;
-                    consolationAwarded = true;
-                }
-            }
-        }
-
-        // 4. Lifetime clan-war damage — credit each player's total
-        //    contribution once per war for the HoL leaderboard.
-        const statsId = `clan-war-stats-${war.id}-${myName.toLowerCase()}`;
-        if (!claimed.has(statsId)) {
-            let totalDamage = 0;
-            for (const ch of war.completedChallenges) {
-                if (ch.status !== "completed" || !ch.result || ch.result === "draw") continue;
-                const winners = ch.fromClan === myClan
-                    ? [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[]
-                    : [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[];
-                const won = (ch.result === "from-wins" && ch.fromClan === myClan)
-                    || (ch.result === "to-wins" && ch.fromClan !== myClan);
-                if (won && winners.some(p => p.toLowerCase() === myName.toLowerCase())) {
-                    totalDamage += CW_DAMAGE[ch.mode] ?? 0;
-                }
-            }
-            if (totalDamage > 0) {
-                lifetimeDamageDelta += totalDamage;
-                idsToAdd.push(statsId);
-            }
-        }
-    }
-
-    // Village war crates — scan the shared in-memory cache
-    for (const war of Object.values(sharedVillageWarCache)) {
-        // Skip wars older than expiry on either branch below.
-        if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-
-        // 1. Winner crate — every player in the winning village.
-        // When warCrateServerAuth.v1 is ON this branch DEFERS: the crate (and its
-        // warsWon lifetime bump) is instead granted through the server endpoint by
-        // claimServerVillageWarCrates below, validated against the authoritative war
-        // record. Flag OFF → unchanged inline grant (byte-identical).
-        if (!serverAuthCrates && war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
-            cratesToAdd.push(war.warCrateId);
-            idsToAdd.push(war.warCrateId);
-            warsWonDelta += 1;  // lifetime stat
-        }
-
-        // 2. MVP crate — top-contributor on EITHER side. Server stamps
-        //    mvpByVillage[village] = display name; if it matches the
-        //    current player and we haven't already claimed, grant an
-        //    extra Legendary Crate + bonus currency. Recognizes the
-        //    best raider per side even on the losing side.
-        const mvpName = war.mvpByVillage?.[myVillage];
-        const generationToken = villageWarGenerationToken(war);
-        const mvpId = `mvp-crate-${generationToken}`;
-        if (mvpName && mvpName === myName && !claimed.has(mvpId)) {
-            cratesToAdd.push(mvpId);
-            idsToAdd.push(mvpId);
-            ryoBonus += 10_000;
-            honorBonus += 50;
-            shardsBonus += 2;
-            mvpAwarded = true;
-            mvpCountDelta += 1;  // lifetime stat
-        }
-
-        // 3. Loss-consolation — losing-side players who contributed
-        //    ≥50 damage get a small inline grant (no inventory item).
-        //    Server only stamps loserCrateId when a real winner exists,
-        //    so draws skip this.
-        if (war.loserCrateId && war.winnerVillage && war.winnerVillage !== myVillage && war.villages.includes(myVillage)) {
-            if (!claimed.has(war.loserCrateId)) {
-                const myContrib = war.contributions?.[myName.toLowerCase()];
-                if (myContrib && myContrib.damage >= 50) {
-                    idsToAdd.push(war.loserCrateId);
-                    ryoBonus += 5_000;
-                    honorBonus += 25;
-                    shardsBonus += 1;
-                    consolationAwarded = true;
-                }
-            }
-        }
-
-        // 4. Lifetime damage — credit the player's total contribution
-        //    to this war ONCE (deduped via `stats-${warId}` marker).
-        //    Fires regardless of which side won, so even losing-side
-        //    raiders see their lifetime damage climb on the HoL
-        //    leaderboard.
-        const statsId = `stats-${generationToken}`;
-        if (!claimed.has(statsId) && war.villages.includes(myVillage)) {
-            const myContrib = war.contributions?.[myName.toLowerCase()];
-            if (myContrib && myContrib.damage > 0) {
-                lifetimeDamageDelta += myContrib.damage;
-                idsToAdd.push(statsId);
-            }
-        }
-    }
-
-    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0 && warsWonDelta === 0 && mvpCountDelta === 0 && lifetimeDamageDelta === 0) {
-        return { character, count: 0 };
-    }
-
-    // Honor Seals themselves stay Vanguard-only (vanguardOnlyHonorSeals). The
-    // charm (8:1, min 1) and shard (25:1, no min) companions are NOT a
-    // non-Vanguard consolation despite the legacy `nonVanguard*` alias names —
-    // they pay EVERY profession, Vanguards included. See the helper block in
-    // App.tsx before "restoring" a profession check here.
-    const honorSealGain = vanguardOnlyHonorSeals(character, honorBonus);
-    const charmSubstitute = nonVanguardCharmSubstitute(character, honorBonus);
-    const shardSubstitute = nonVanguardShardSubstitute(character, honorBonus);
-
-    return {
-        character: {
-            ...character,
-            ryo: (character.ryo ?? 0) + ryoBonus,
-            honorSeals: (character.honorSeals ?? 0) + honorSealGain,
-            boneCharms: (character.boneCharms ?? 0) + charmSubstitute,
-            fateShards: (character.fateShards ?? 0) + shardsBonus + shardSubstitute,
-            inventory: [...character.inventory, ...cratesToAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
-            claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...idsToAdd],
-            warsWon: (character.warsWon ?? 0) + warsWonDelta,
-            warMvpCount: (character.warMvpCount ?? 0) + mvpCountDelta,
-            lifetimeWarDamage: (character.lifetimeWarDamage ?? 0) + lifetimeDamageDelta,
-        },
-        count: cratesToAdd.length,
-        mvp: mvpAwarded,
-        consolation: consolationAwarded,
-    };
-}
+/*
+ * `claimPendingWarCrates` lived here and was REMOVED (2026-08-18). It derived
+ * crates, ryo, Honor Seals and Fate Shards from the browser's cached war state.
+ * It had no callers — every war reward settles through claimServerWarRewards
+ * below, which posts to /api/war/claim-reward and lets api/war/_reward.ts
+ * recompute the payout against the authoritative world:war / clan-war record.
+ *
+ * It was deleted rather than left dormant because it was a live double-pay
+ * waiting to be re-wired: the server already grants the MVP and consolation
+ * legs, so restoring the inline sweep would pay both. Its own guard no longer
+ * protected anything either — SERVER_SETTLEMENT_STATUS.clientWarCrateGrant is
+ * permanently `true`, so `if (!isServerSettlementReady(...)) return` had stopped
+ * short-circuiting. Several comments across the client still described it as the
+ * live sweep, which is how dead code gets resurrected on purpose.
+ */
 
 /**
  * P0.2c — claim WINNER war crates (village + clan) through the server
@@ -1122,7 +911,7 @@ export type ServerWarRewardClaim = {
 
 /**
  * Settle every non-history war reward against its authoritative server record.
- * Unlike claimPendingWarCrates, no cached winner/MVP/contribution value is trusted
+ * No cached winner/MVP/contribution value is trusted
  * for a durable mutation; the cache supplies only the canonical kind/id to claim.
  */
 export async function claimServerWarRewards(character: Character): Promise<ServerWarRewardClaim | null> {
@@ -1176,7 +965,7 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
  * Apply server-granted war crates (village + clan) to the character locally (mirror)
  * so the player's next save reflects them. Deduped against claimedWarCrateIds (the
  * poll may already have synced the server's write) and bumps warsWon per new crate,
- * matching the inline claimPendingWarCrates winner-crate behavior. Use with a
+ * matching the server winner-crate grant. Use with a
  * functional setCharacter so it composes on the LATEST character, never a stale snapshot.
  */
 export function applyWarCrateGrants(character: Character, warCrateIds: string[]): { character: Character; count: number } {
@@ -1258,8 +1047,9 @@ type SectorTerritory = {
 let sharedSectorTerritoryCache: Record<number, SectorTerritory> = {};
 let sharedVillageWarCache: Record<string, VillageWar> = {};
 // Clan war cache — populated by ClanWarsPanel/ClanBattlesTab refreshes.
-// Used by claimPendingWarCrates to grant unclaimed clan-war rewards
-// (winner crate, MVP bonus, loser consolation) on next render.
+// Read by claimServerWarRewards to decide which ended clan wars to ASK the
+// server about; the payout itself (winner crate, MVP, consolation) is computed
+// by api/war/_reward.ts from the authoritative record, never from this cache.
 
 function defaultSectorTerritory(sector: number): SectorTerritory {
     return { sector, controlScore: 0, hp: TERRITORY_HP_MAX, terrainBuffStat: "bukijutsuOffense", guards: [], warSupply: 0, updatedAt: Date.now() };
