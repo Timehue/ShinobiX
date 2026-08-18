@@ -63,7 +63,11 @@ function lower(s: string | undefined): string {
 export function kageEligibility(character: Character, now: number): KageEligibilityItem[] {
     const merit = Math.max(0, Math.floor(Number(character.villageMerit ?? 0)));
     const ryo = Math.max(0, Math.floor(Number(character.ryo ?? 0)));
-    const accountAgeMs = now - Number(character.createdAt ?? now);
+    // `?? 0`, NOT `?? now`. The server reads num(char.createdAt), which coerces a
+    // missing field to 0 and therefore ACCEPTS the challenge. Defaulting to `now`
+    // here made the same save read as too-new, so a save without createdAt saw a
+    // blocker the server would have waved through.
+    const accountAgeMs = now - Number(character.createdAt ?? 0);
     return [
         { label: `Level ${KAGE_CHALLENGE_MIN_LEVEL}+`, ok: (character.level ?? 0) >= KAGE_CHALLENGE_MIN_LEVEL, detail: `Lv. ${character.level ?? 0}` },
         { label: "Account 7+ days old", ok: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS },
