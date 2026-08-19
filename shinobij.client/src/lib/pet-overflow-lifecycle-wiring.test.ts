@@ -17,7 +17,7 @@ test("preserved overflow stays visible but cannot begin new reward lifecycles", 
     assert.match(yard, /Preserved overflow/);
     assert.match(barn, /activeCarriedPetIds\(character\)/);
     assert.match(barn, /Preserved overflow — move to carried first/);
-    assert.match(sanctuary, /Stored companions cannot enter PvE, Tactical Arena, Coliseum, training, expeditions, or breeding/);
+    assert.match(sanctuary, /Stored companions cannot enter PvE, Tactical Arena, Colosseum, training, expeditions, or breeding/);
 
     assert.match(training, /activeCarriedPetIds\(character, pets\)/);
     assert.match(training, /preserved companion[^\n]+before starting training/i);

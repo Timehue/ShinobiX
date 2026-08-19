@@ -734,10 +734,10 @@ export const CHRONICLE_LEGACY_SOURCES = [
     },
     {
         "id": "coliseum-tamer",
-        "name": "Legacy of the Coliseum Tamer",
+        "name": "Legacy of the Colosseum Tamer",
         "rarity": "rare",
         "category": "pets",
-        "title": "Coliseum Tamer",
+        "title": "Colosseum Tamer",
         "flavor": "The crowd chants the pet’s name. The tamer prefers it that way.",
         "badge": "coliseum-tamer"
     },

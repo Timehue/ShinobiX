@@ -116,7 +116,7 @@ const PUBLIC_LEADERBOARD_META: Record<PublicLeaderboardBoardId, Omit<PublicLeade
     // earned stat-point ledger — character XP is retired (leveling-without-xp map).
     xp: { id: 'xp', label: 'Total Stat Points Earned', valueLabel: 'Points', suffix: ' pts' },
     kills: { id: 'kills', label: 'Total PvP Kills', valueLabel: 'Kills', suffix: ' kills' },
-    pets: { id: 'pets', label: 'Pet Coliseum Wins', valueLabel: 'Wins', suffix: ' wins' },
+    pets: { id: 'pets', label: 'Pet Colosseum Wins', valueLabel: 'Wins', suffix: ' wins' },
     endless: { id: 'endless', label: 'Endless Tower Wins', valueLabel: 'Wins', suffix: ' wins' },
     villageWars: { id: 'villageWars', label: 'Village War Raids', valueLabel: 'Raids', suffix: ' raids' },
     professions: { id: 'professions', label: 'Profession XP', valueLabel: 'XP', suffix: ' XP' },

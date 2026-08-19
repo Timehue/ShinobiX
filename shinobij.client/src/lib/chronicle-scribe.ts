@@ -99,7 +99,7 @@ const SCRIBE_PAGES: ScribePage[] = [
         scene: "She unbuckles the satchel. Cards — hundreds of them, sorted with string.",
         dialogue: [
             "You've seen the cards around. Kids trade them in the tavern. Gamblers fleece each other with them on the roads.",
-            "Don't let that fool you. Every card points to something real. A tyrant that fell. A beast that took the coliseum sand. A shinobi worth remembering. We don't trap them in paper. We record what witnesses saw.",
+            "Don't let that fool you. Every card points to something real. A tyrant that fell. A beast that took the colosseum sand. A shinobi worth remembering. We don't trap them in paper. We record what witnesses saw.",
         ],
     },
     {

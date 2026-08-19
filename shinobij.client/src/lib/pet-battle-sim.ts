@@ -1756,8 +1756,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         else result = playerPct > enemyPct ? "win" : "loss";
     }
     const finalMessage =
-        result === "win" ? `${player.pet.name} wins the Pet Coliseum match.` :
-        result === "loss" ? `${enemy.pet.name} wins the Pet Coliseum match.` :
+        result === "win" ? `${player.pet.name} wins the Pet Colosseum match.` :
+        result === "loss" ? `${enemy.pet.name} wins the Pet Colosseum match.` :
         `Draw — neither pet could finish the fight.`;
     logs.push(finalMessage);
     pushFrame(21, finalMessage, "system", "result");

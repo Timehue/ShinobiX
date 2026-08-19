@@ -191,7 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // observed value so a concurrently published replacement wins.
                 if (await kv.delIfEqual(activeKey, activeToken)) return null;
                 if (retryChangedPointer) return readActiveWarfront(false);
-                throw new WarfrontStartBusyError('Another Pet Coliseum battle is being published.');
+                throw new WarfrontStartBusyError('Another Pet Colosseum battle is being published.');
             }
             // The initialization coordinator owns waiting for a live provisional
             // seal. A crashed provisional is retired with CAS so it cannot block
@@ -204,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return null;
                 }
                 if (retryChangedPointer) return readActiveWarfront(false);
-                throw new WarfrontStartBusyError('Another Pet Coliseum battle is being published.');
+                throw new WarfrontStartBusyError('Another Pet Colosseum battle is being published.');
             }
             return { token: activeToken, seal: active };
         };
@@ -241,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const existing = await readActiveWarfront();
         if (existing) {
             if (!isRecoverableWarfront(existing.seal)) {
-                return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
+                return res.status(409).json({ error: 'Finish or settle your active Pet Colosseum battle first.' });
             }
             if (!hasSafePlaybackWindow(existing.seal)) return rejectUnsafeReplay(existing);
             return sendWarfront(existing, true);
@@ -317,7 +317,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await kv.del(tokenKey).catch(() => undefined);
                         const raced = await readActiveWarfront();
                         if (raced) return raced;
-                        throw new WarfrontStartBusyError('Another Pet Coliseum battle is being published.');
+                        throw new WarfrontStartBusyError('Another Pet Colosseum battle is being published.');
                     }
 
                     const result = runWarfrontMatch(
@@ -389,7 +389,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This Warfront seal is still being initialized. Retry in a moment.' });
         }
         if (!isRecoverableWarfront(coordinated.value.seal)) {
-            return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
+            return res.status(409).json({ error: 'Finish or settle your active Pet Colosseum battle first.' });
         }
         if (!hasSafePlaybackWindow(coordinated.value.seal)) {
             return rejectUnsafeReplay(coordinated.value);
