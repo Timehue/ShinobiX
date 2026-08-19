@@ -341,7 +341,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Global Pet Ladders — climb by beating the player ranked above you. All-time standings; no season reset.</p>
-                        <p className="hol-board-label"><GiColiseum style={HOL_ICON} />Pet Coliseum Ladder — Top 10</p>
+                        <p className="hol-board-label"><GiColiseum style={HOL_ICON} />Pet Colosseum Ladder — Top 10</p>
                         {petLadders?.coliseum.length
                             ? petLadders.coliseum.map((e) => <Row key={`plc-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No challengers ranked yet.</p>}
@@ -400,7 +400,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                 )}
                 {tab === "pets" && (
                     <>
-                        <p className="hol-board-label">Pet Coliseum Wins</p>
+                        <p className="hol-board-label">Pet Colosseum Wins</p>
                         {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
                         ))}

@@ -1435,7 +1435,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             // would tell the player a purse was involved when none was.
             label: opponent.wanderer
                 ? "Natural wanderer pet duel"
-                : isParty ? "2v2 Pet Coliseum result" : "Pet Coliseum result",
+                : isParty ? "2v2 Pet Colosseum result" : "Pet Colosseum result",
             scope: battleScope,
             run: async () => {
                 const data = await postPetBattleSettlement(settlementBody);
@@ -1450,7 +1450,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     ? applyPetBattleSettlement(data, battleScope, [])
                     : applyPetBattleSettlement(data, battleScope, myPets.map((pet) => pet.id));
                 if (applied && data.capped) {
-                    setBattleLog(["Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
+                    setBattleLog(["Daily Pet Colosseum reward cap reached — wins still count, but no more ryo today."]);
                 }
                 return applied;
             },
@@ -1674,7 +1674,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         </>
                     ) : (
                         <>
-                            <h2>{arenaView === "tactical" ? "Hollow Warfront" : arenaView === "gauntlet" ? "Pet Gauntlet" : "Pet Coliseum"}</h2>
+                            <h2>{arenaView === "tactical" ? "Hollow Warfront" : arenaView === "gauntlet" ? "Pet Gauntlet" : "Pet Colosseum"}</h2>
                             <p className="hint">{
                                 pendingClanPetBattle
                                     ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.`
@@ -1693,7 +1693,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             {(
                 <div className="pet-arena-mode-toggle" style={{ maxWidth: 660, marginBottom: 14 }}>
                     <button type="button" className={arenaView === "battle" ? "active" : ""} aria-pressed={arenaView === "battle"} onClick={() => setArenaView("battle")}>
-                        ⚔️ Pet Coliseum
+                        ⚔️ Pet Colosseum
                     </button>
                     <button
                         type="button"
@@ -1732,7 +1732,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             <>
             {(
                 <div className="pet-arena-hero" style={{ backgroundImage: `url(${DUEL_HERO_BY_ELEMENT[selectedPet?.element ?? ""] ?? petDuelHero})` }}>
-                    <h3 className="hero-title">⚔️ Pet Coliseum</h3>
+                    <h3 className="hero-title">⚔️ Pet Colosseum</h3>
                     <p className="hero-sub">
                         Call the stance. Order the technique. Win the Clash. Every decision carries your pet through the arena.
                         {selectedPet?.element && selectedPet.element !== "None" ? ` Arena attuned to ${selectedPet.element}.` : ""}
@@ -1778,7 +1778,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         the only way to find that out is to fight one and notice
                         nothing was awarded. api/pet/coliseum-single-owner.test.ts
                         holds this line to the screen. */}
-                    <p className="hint">Social duels are live, unrated sparring. Paid Coliseum bouts use the server-owned Showdown below.</p>
+                    <p className="hint">Social duels are live, unrated sparring. Paid Colosseum bouts use the server-owned Showdown below.</p>
                     <label htmlFor="pet-arena-player-search">Search Player Name</label>
                     <input id="pet-arena-player-search" value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
                     {(
@@ -1817,7 +1817,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                     <div>⚔️ Win pet duels to earn ryo (daily cap).</div>
                                     <div>🐾🐾 Toggle 2v2 below to bring two pets into the challenge.</div>
                                     <div>🛡 Roles &amp; element edge decide close fights — check the matchup hint.</div>
-                                    <div>🏛 Want a fight right now? The Coliseum matches you against the arena.</div>
+                                    <div>🏛 Want a fight right now? The Colosseum matches you against the arena.</div>
                                 </div>
                                 {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                             </div>
@@ -1884,7 +1884,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 <button type="button" className="pet-coliseum-enter" data-door="arena" onClick={() => setScreen("petColiseum")}>
                     <span className="door-glyph" aria-hidden="true">🏟️</span>
                     <span className="door-eyebrow">The purse is real</span>
-                    <span className="door-title">Enter the Coliseum</span>
+                    <span className="door-title">Enter the Colosseum</span>
                     <span className="door-sub">The arena picks your challenger and scales it to the squad you bring. Cinematic turn-based combat, and a win pays.</span>
                     <span className="door-meta">
                         <em>1v1 · 2v2 · 3v3</em>
@@ -1967,7 +1967,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Pet Coliseum result"
+                    aria-label="Pet Colosseum result"
                     style={{
                         position: "fixed", inset: 0, zIndex: 1000000,
                         background: "rgba(4, 6, 12, 0.82)",

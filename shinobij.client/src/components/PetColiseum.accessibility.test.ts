@@ -7,7 +7,7 @@ const arena = readFileSync(new URL("../screens/PetArena.tsx", import.meta.url), 
 const witnessProgress = readFileSync(new URL("./PetChronicleProgress.tsx", import.meta.url), "utf8");
 
 test("Pet Coliseum result is a trapped modal boundary that restores the battle safely", () => {
-    assert.match(coliseum, /ref=\{resultDialogRef\} role="dialog" aria-modal="true" aria-label=\{`\$\{resultLabel\}: Pet Coliseum result`\} tabIndex=\{-1\}/);
+    assert.match(coliseum, /ref=\{resultDialogRef\} role="dialog" aria-modal="true" aria-label=\{`\$\{resultLabel\}: Pet Colosseum result`\} tabIndex=\{-1\}/);
     assert.match(coliseum, /dialog\?\.closest<HTMLElement>\("\[data-testid='pet-duel-root'\]"\)/);
     assert.match(coliseum, /snapshot\.element\.inert = true;[\s\S]*?snapshot\.element\.setAttribute\("aria-hidden", "true"\)/);
     assert.match(coliseum, /event\.key === "Escape"[\s\S]*?event\.preventDefault\(\)[\s\S]*?event\.stopImmediatePropagation\(\)/);

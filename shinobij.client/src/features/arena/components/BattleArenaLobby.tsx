@@ -135,12 +135,12 @@ export function BattleArenaLobby({
 
                     <section className="summary-box">
                         <h3><GiPawPrint style={ARENA_ICON} />Pet Spar</h3>
-                        <p className="hint">Head to the Casual Pet Coliseum for a friendly pet duel against AI or a challenged player — no ladder rating on the line.</p>
+                        <p className="hint">Head to the Casual Pet Colosseum for a friendly pet duel against AI or a challenged player — no ladder rating on the line.</p>
                         <button
                             disabled={availablePetCount < 1}
                             title={availablePetCount < 1 ? "You need one pet that is not on an expedition" : undefined}
                             onClick={onOpenPetArena}
-                        ><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
+                        ><GiColiseum style={ARENA_ICON} />Open Casual Pet Colosseum</button>
                         {availablePetCount < 1 && <p className="hint" style={{ color: "var(--gold-2)" }}>Locked: you need one available pet. Pets currently on expeditions cannot battle.</p>}
                         {incomingPetSpars.map((challenge) => (
                             <div className="summary-box" key={challenge.id}>
