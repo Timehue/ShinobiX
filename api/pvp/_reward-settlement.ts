@@ -45,7 +45,13 @@ const PVP_REWARD_RECEIPT_RETENTION_MS = 2 * 24 * 60 * 60 * 1_000;
 type DurablePvpRewardReceipt = { fingerprint: string; settledAt: number };
 type DurablePvpRewardReceipts = Record<string, DurablePvpRewardReceipt>;
 
-const PVP_FINGERPRINT_MAX = 256;
+// Must match _settlement-receipts.ts's parseReceipt bound (240), not just the
+// durable ledger's own 256 — a bounded fingerprint gets written into BOTH
+// stores (embedPvpSettlementReceipt appends to the shared legacy array too),
+// and once a durable entry ages out past PVP_REWARD_RECEIPT_RETENTION_MS,
+// reads fall back to the shared reader. A fingerprint the durable ledger
+// accepted but the shared reader rejects poisons that whole read as invalid.
+const PVP_FINGERPRINT_MAX = 240;
 
 /**
  * Bound a settlement fingerprint to what the durable ledger accepts.
@@ -54,7 +60,7 @@ const PVP_FINGERPRINT_MAX = 256;
  * parsed — so replacing an over-long one with a stable digest preserves its
  * meaning exactly. Producers build these from variable-length data (the Clan War
  * one serializes every point event with its metadata), so they can exceed the
- * ledger's 256-character limit. When that happened the writer stored a receipt
+ * ledger's 240-character limit. When that happened the writer stored a receipt
  * its own reader rejected: the credit landed, and every later pass threw
  * fail-closed, so the settlement could never finalize.
  *
@@ -100,7 +106,7 @@ function durableReceiptsOf(character: Record<string, unknown>): DurablePvpReward
             : typeof row.fingerprint !== 'string' ? `fingerprint-type(${typeof row.fingerprint})`
             : !row.fingerprint.trim() ? 'fingerprint-empty'
             : row.fingerprint !== row.fingerprint.trim() ? 'fingerprint-untrimmed'
-            : row.fingerprint.length > 256 ? 'fingerprint-too-long'
+            : row.fingerprint.length > PVP_FINGERPRINT_MAX ? 'fingerprint-too-long'
             : !Number.isSafeInteger(row.settledAt) ? `settledAt-type(${typeof row.settledAt})`
             : Number(row.settledAt) <= 0 ? 'settledAt-nonpositive'
             : '';

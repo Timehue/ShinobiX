@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { _makeMemoryKv } from '../_storage.js';
-import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
+import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt, boundedPvpFingerprint } from './_reward-settlement.js';
 
 // Regression for the PvP settlement two-write gap: a crash between the receipt
 // write and the save write used to permanently lose a reward/rating. The fix
@@ -189,6 +189,45 @@ describe('atomic in-save PvP settlement', () => {
         });
         assert.equal(await settleOnce(kv, 'save:winner', sid, 'base', addRyo(75)), 'skipped');
         assert.equal((await kv.get<{ character: { ryo: number } }>('save:winner'))!.character.ryo, 175);
+    });
+
+    it('bounds a fingerprint to what the shared legacy reader accepts, not just the durable ledger', () => {
+        // Regression: the durable ledger's own cap (256) used to exceed the shared
+        // serverSettlementReceipts reader's cap (240 in _settlement-receipts.ts's
+        // parseReceipt). A raw fingerprint in that 241-256 gap passed bounding
+        // unbounded, got written into the shared array too, and poisoned every
+        // later legacy read of that array as 'invalid'. Every producer's length
+        // must clear the tighter, shared bound.
+        for (const len of [239, 240, 241, 250, 256, 300]) {
+            const bounded = boundedPvpFingerprint('clan-war-points:' + 'z'.repeat(len));
+            assert.ok(bounded.length <= 240, `raw length ${len + 17} bounded to ${bounded.length}, must be <=240`);
+        }
+    });
+
+    it('replays a legacy shared-ring receipt built from a fingerprint that needed bounding', async () => {
+        const kv = _makeMemoryKv();
+        const sid = pvpSettlementId('base', BATTLE);
+        // 247 raw chars: inside the old 241-256 gap that a stale 256 cap would
+        // have let through unbounded, past the shared reader's 240-char accept limit.
+        const rawFingerprint = 'clan-war-points:' + 'z'.repeat(230);
+        const bounded = boundedPvpFingerprint(rawFingerprint);
+        await kv.set('save:winner', {
+            character: {
+                ryo: 175,
+                // Pre-cutover shape: only the shared array has the receipt, no
+                // durable pvpRewardSettlementReceipts entry (aged out or never backfilled).
+                serverSettlementReceipts: [{
+                    requestId: sid,
+                    fingerprint: bounded,
+                    value: { settled: 1 },
+                    settledAt: Date.now(),
+                }],
+            },
+        });
+        assert.equal(await settleOnce(kv, 'save:winner', sid, rawFingerprint, addRyo(75)), 'skipped', 'legacy replay recognized, not thrown as invalid');
+        const after = (await kv.get<{ character: Record<string, unknown> }>('save:winner'))!.character;
+        assert.equal(after.ryo, 175, 'no double credit');
+        assert.ok(after.pvpRewardSettlementReceipts, 'backfilled into the durable ledger');
     });
 
     it('two-sided rating: each fighter save tracks its own settlement independently', async () => {
