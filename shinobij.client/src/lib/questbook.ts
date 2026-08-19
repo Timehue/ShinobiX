@@ -97,10 +97,10 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         ],
     },
     "qb-gauntlet": {
-        id: "qb-gauntlet", title: "The Coliseum Gauntlet", giver: "Tamer Tomoe",
+        id: "qb-gauntlet", title: "The Colosseum Gauntlet", giver: "Tamer Tomoe",
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
         stages: [
-            { key: "gauntlet",   text: "Win three coliseum pet duels against Tomoe's wandering beasts.", metric: "totalPetWins", count: 3 },
+            { key: "gauntlet",   text: "Win three colosseum pet duels against Tomoe's wandering beasts.", metric: "totalPetWins", count: 3 },
             { key: "stormhound", text: "Face the finale — Raijū, the Storm-Hound — and win a pet duel.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
         ],
     },

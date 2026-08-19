@@ -449,7 +449,7 @@ const RARE: LegacyDef[] = [
       flavor: 'Speaks fluent growl, purr, and dramatic silence.', reqs: [r('petDuelWins', 50, 2), r('petExpeditions', 20)] },
     { id: 'wild-heart', name: 'Legacy of the Wild Heart', rarity: 'rare', category: 'pets', title: 'Wild Heart',
       flavor: 'Half the menagerie followed them home. The other half is en route.', reqs: [r('petExpeditions', 40, 2), r('huntCompletions', 30)] },
-    { id: 'coliseum-tamer', name: 'Legacy of the Coliseum Tamer', rarity: 'rare', category: 'pets', title: 'Coliseum Tamer',
+    { id: 'coliseum-tamer', name: 'Legacy of the Colosseum Tamer', rarity: 'rare', category: 'pets', title: 'Colosseum Tamer',
       flavor: 'The crowd chants the pet’s name. The tamer prefers it that way.', reqs: [r('petDuelWins', 75, 2), r('arenaTournaments', 8)] },
     // — cards (2) —
     { id: 'card-sharp', name: 'Legacy of the Card Sharp', rarity: 'rare', category: 'cards', title: 'Card Sharp',

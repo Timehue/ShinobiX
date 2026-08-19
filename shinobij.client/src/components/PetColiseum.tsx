@@ -8702,19 +8702,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {!ended && !cutIn && <div className="pet-duel-top-controls" style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={exitDuel} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
-                <button onClick={toggleAudio} style={{ ...duelBtn, borderColor: audioMuted ? "#475569" : "#fbbf24", color: audioMuted ? "#cbd5e1" : "#fde68a" }} title={audioMuted ? "Turn on Coliseum music and sound" : "Mute Coliseum audio"}>
+                <button onClick={toggleAudio} style={{ ...duelBtn, borderColor: audioMuted ? "#475569" : "#fbbf24", color: audioMuted ? "#cbd5e1" : "#fde68a" }} title={audioMuted ? "Turn on Colosseum music and sound" : "Mute Colosseum audio"}>
                     {audioMuted ? "🔇 Sound" : "🔊 Sound"}
                 </button>
                 {/* Replaying mid-fight would discard a live match, so the control is
                     offered only on the result screen there. */}
                 {!live && <button onClick={replay} style={duelBtn}>⟲ Replay</button>}
             </div>}
-            {!ended && !cutIn && <div className="pet-duel-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Coliseum" : "Pet Coliseum"}</div>}
+            {!ended && !cutIn && <div className="pet-duel-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Colosseum" : "Pet Colosseum"}</div>}
 
             {ended && !resultVisible && (
                 <div style={{ position: "absolute", inset: 0, zIndex: 30, pointerEvents: "none", background: "radial-gradient(circle at 50% 58%,transparent 0%,rgba(3,7,18,.18) 55%,rgba(3,7,18,.62) 100%)" }}>
                     <div style={{ position: "absolute", left: "50%", top: "32%", transform: "translate(-50%,-50%)", width: "min(760px,90vw)", textAlign: "center", animation: "petWinnerHold 2100ms cubic-bezier(.16,.84,.24,1) both" }}>
-                        <div style={{ color: "#fde68a", font: "900 11px/1 Inter,system-ui,sans-serif", letterSpacing: ".28em", textTransform: "uppercase", textShadow: "0 2px 8px #000" }}>The Coliseum has spoken</div>
+                        <div style={{ color: "#fde68a", font: "900 11px/1 Inter,system-ui,sans-serif", letterSpacing: ".28em", textTransform: "uppercase", textShadow: "0 2px 8px #000" }}>The Colosseum has spoken</div>
                         <div style={{ marginTop: 8, color: duel.result === "win" ? "#bbf7d0" : duel.result === "loss" ? "#fecaca" : "#fef3c7", font: `900 ${mobileQa ? 38 : 64}px/.9 var(--font-display),Inter,system-ui,sans-serif`, textTransform: "uppercase", textShadow: "0 0 28px currentColor,0 5px 18px #000" }}>
                             {battleWinnerName ? battleWinnerName : "No victor"}
                         </div>
@@ -8724,9 +8724,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             )}
 
             {resultVisible && (
-                <div ref={resultDialogRef} role="dialog" aria-modal="true" aria-label={`${resultLabel}: Pet Coliseum result`} tabIndex={-1} style={{ position: "absolute", inset: 0, zIndex: 40, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", overscrollBehavior: "contain", padding: "max(13px, env(safe-area-inset-top)) max(13px, env(safe-area-inset-right)) max(13px, env(safe-area-inset-bottom)) max(13px, env(safe-area-inset-left))", boxSizing: "border-box", background: "rgba(3,7,18,0.72)" }}>
+                <div ref={resultDialogRef} role="dialog" aria-modal="true" aria-label={`${resultLabel}: Pet Colosseum result`} tabIndex={-1} style={{ position: "absolute", inset: 0, zIndex: 40, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", overscrollBehavior: "contain", padding: "max(13px, env(safe-area-inset-top)) max(13px, env(safe-area-inset-right)) max(13px, env(safe-area-inset-bottom)) max(13px, env(safe-area-inset-left))", boxSizing: "border-box", background: "rgba(3,7,18,0.72)" }}>
                     <div style={{ width: "min(620px, 100%)", margin: "auto", padding: mobileQa ? "22px 16px" : "30px 34px", boxSizing: "border-box", textAlign: "center", border: "1px solid rgba(251,191,36,.35)", borderRadius: 22, background: "linear-gradient(180deg,rgba(8,11,22,.98),rgba(15,23,42,.96))", boxShadow: "0 24px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08)", animation: "petBattleResult 850ms cubic-bezier(.16,.84,.24,1) both" }}>
-                        <div style={{ color: "#cbd5e1", font: "900 12px/1 Inter, system-ui, sans-serif", letterSpacing: ".22em", textTransform: "uppercase", marginBottom: 8 }}>{resultLabel} · Pet Coliseum</div>
+                        <div style={{ color: "#cbd5e1", font: "900 12px/1 Inter, system-ui, sans-serif", letterSpacing: ".22em", textTransform: "uppercase", marginBottom: 8 }}>{resultLabel} · Pet Colosseum</div>
                         <div style={{ font: `900 ${mobileQa ? 42 : 58}px/.95 var(--font-display), Inter, system-ui, sans-serif`, color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 0 24px currentColor, 0 4px 16px #000", textTransform: "uppercase" }}>
                             {battleWinnerName ? `${battleWinnerName} wins!` : "Draw!"}
                         </div>
@@ -8771,7 +8771,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     </div>
                 </div>
             )}
-            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>Pet Coliseum</div>
+            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>Pet Colosseum</div>
         </div>
     ), document.body);
 }

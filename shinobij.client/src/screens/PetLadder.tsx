@@ -36,7 +36,7 @@ import "./PetLadder.css";
  * sealed result in the 2.5D/3D cinematic with PvP items applied.
  */
 
-const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Coliseum", tactical: "Pet Tactical" };
+const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Colosseum", tactical: "Pet Tactical" };
 const MODE_SUB: Record<Mode, string> = { coliseum: "1v1 duel · defend with one pet", tactical: "4v4 tactical · defend with a team of four" };
 const MODE_ICON: Record<Mode, string> = { coliseum: "🏆", tactical: "🛡" };
 const HERO: Record<Mode, string> = { coliseum: coliseumHero, tactical: tacticalHero };

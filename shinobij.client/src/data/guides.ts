@@ -463,16 +463,16 @@ const PETS: Guide = {
                 { type: "p", text: "Pet combat is rock-paper-scissors: Fire → Wind → Lightning → Earth → Water → Fire." },
                 { type: "list", items: [
                     "Pet Showdown (turn-based): hitting a weakness deals ×1.5 damage, hitting a resistance deals ×0.75.",
-                    "Pet Coliseum (the older auto-battle modes): +25% into a weakness, −20% into a resistance.",
+                    "Pet Colosseum (the older auto-battle modes): +25% into a weakness, −20% into a resistance.",
                 ] },
                 { type: "callout", tone: "tip", label: "Tip", text: "Element advantage is the single biggest lever in a pet fight. Match your pet — and the location — against what you expect to face." },
             ],
         },
         {
-            heading: "3 · The Pet Coliseum",
+            heading: "3 · The Pet Colosseum",
             blocks: [
                 { type: "p", text: "The arena is an auto-battler on a 14×7 obstacle grid: pick your pet and it moves and casts on its own with AI — element advantage and positioning decide it. You direct the draft, the pet fights the fight." },
-                { type: "p", text: "The coliseum is where the wild breeds of the sectors prove themselves — the same beasts you befriend on the world map, fighting in front of the same crowds. The Chronicle scribes watch the sand too: a beast that makes a name here ends up printed on a card sooner or later." },
+                { type: "p", text: "The colosseum is where the wild breeds of the sectors prove themselves — the same beasts you befriend on the world map, fighting in front of the same crowds. The Chronicle scribes watch the sand too: a beast that makes a name here ends up printed on a card sooner or later." },
                 { type: "p", text: "Where you can battle:" },
                 { type: "list", items: [
                     "Casual duels against other players' pets.",

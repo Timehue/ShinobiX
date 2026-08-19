@@ -139,7 +139,7 @@ test('new user-picked AI starts fail closed while an already-issued receipt can 
     const rejected = response();
     await startHandler(request(body), rejected.res);
     assert.equal(rejected.out.statusCode, 410);
-    assert.match(String(rejected.out.body?.error), /pick-your-opponent Pet Coliseum is retired/);
+    assert.match(String(rejected.out.body?.error), /pick-your-opponent Pet Colosseum is retired/);
     assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null, 'rejected admission must not publish a proof');
 
     const [{ createCasualPveBattleSeal }, { replayCasualPetDuel }, { SERVER_ARENA_PETS }] = await Promise.all([

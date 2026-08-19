@@ -133,7 +133,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         { tile: "Grand Marketplace", heading: "Grand Marketplace" },
         { tile: "Hunter Guild", heading: /Hunter Guild/ },
         { tile: "Hall of Legends", heading: "Hall of Legends" },
-        { tile: "Pet Coliseum", heading: /Pet Coliseum|Tactical Pet Arena/ },
+        { tile: "Pet Colosseum", heading: /Pet Colosseum|Tactical Pet Arena/ },
         { tile: "Weekly Boss", heading: "Weekly Boss" },
     ] as const;
 

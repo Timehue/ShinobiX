@@ -363,7 +363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
             return res.status(410).json({
-                error: 'The pick-your-opponent Pet Coliseum is retired. Enter the paid Showdown arena instead.',
+                error: 'The pick-your-opponent Pet Colosseum is retired. Enter the paid Showdown arena instead.',
             });
         }
         // No generic `opponentPets = opponentPetIds.map(SERVER_ARENA_PETS)` fallback
@@ -641,7 +641,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
             if (ownsPublishedSeal) await kv.del(tokenKey).catch(() => undefined);
-            return res.status(409).json({ error: 'Finish or settle your active Pet Coliseum battle first.' });
+            return res.status(409).json({ error: 'Finish or settle your active Pet Colosseum battle first.' });
         }
         // (No second `kv.set` of the battle token here. The seal is written once,
         // above, through `tokenData` — which carries the same pvpChallengeId /

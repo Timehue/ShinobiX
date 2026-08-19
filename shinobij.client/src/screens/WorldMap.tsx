@@ -2301,7 +2301,7 @@ export function WorldMap({
         if (!spec) return;
         // Foe-kill boss stages launch the sealed boss in Solo-PvE; pet-win stages
         // are fulfilled in the Pet Coliseum, then advanced from the journal.
-        if (stage.metric !== "totalAiKills") { setWandererDialog({ w, msg: "Face this one in the Pet Coliseum, then return to your journal." }); return; }
+        if (stage.metric !== "totalAiKills") { setWandererDialog({ w, msg: "Face this one in the Pet Colosseum, then return to your journal." }); return; }
         let lvl = Math.max(1, Math.min(100, character.level + spec.levelOffset));
         // A branch choice (e.g. carrying the cursed bell raw) can wake the boss harder.
         let bonus = spec.statBonus + bossStatBonusFromChoices(active.id, active.choices);
