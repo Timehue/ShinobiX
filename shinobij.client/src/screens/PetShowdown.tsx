@@ -290,7 +290,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     same engine, but arriving at a screen headed "Pet Showdown"
                     after pressing "Training Grounds" reads as having landed
                     somewhere else. */}
-                <h1>{bout === "arena" ? "The Coliseum" : "Training Grounds"}</h1>
+                <h1>{bout === "arena" ? "The Colosseum" : "Training Grounds"}</h1>
                 <p className="showdown-tagline">{bout === "arena"
                     ? "The arena has your challenger. Read the elements, ride the stamina, land the perfect strike — and finish with a signature."
                     : "Spar as long as you like. Read the elements, ride the stamina, land the perfect strike — and finish with a signature. Nothing here is paid or capped."}</p>

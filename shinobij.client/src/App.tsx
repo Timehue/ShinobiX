@@ -2872,7 +2872,7 @@ export default function App() {
             }
             setPendingPetBattleOpponent(opponentForResume);
             setScreen("petArena");
-            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Coliseum if they do not see the fight.`);
+            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Colosseum if they do not see the fight.`);
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
@@ -2991,7 +2991,7 @@ export default function App() {
         if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
             const match = buildAcceptedArenaMatch(accepted);
             if (match) setPendingArenaMatch(match);
-            else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge. Open the Pet Coliseum if it doesn't start.`);
+            else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge. Open the Pet Colosseum if it doesn't start.`);
             setScreen("petArena");
             return;
         }
@@ -3040,7 +3040,7 @@ export default function App() {
                 setPendingPetBattleOpponent(opponentForResume);
                 setScreen("petArena");
             } else {
-                alert(`${accepted.fromName} accepted your pet battle. Open the Pet Coliseum if it does not start automatically.`);
+                alert(`${accepted.fromName} accepted your pet battle. Open the Pet Colosseum if it does not start automatically.`);
                 setScreen("petArena");
             }
             return;
@@ -6083,7 +6083,7 @@ export default function App() {
         if (!opts.forceMode && petReady && activePet) {
             setHollowGateEvent({
                 title: houndPresentation.name,
-                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat uses the tactical Pet Coliseum and ${activePet.name}; a pet defeat deals 20% max HP recoil but does not clear this encounter.`,
+                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat uses the tactical Pet Colosseum and ${activePet.name}; a pet defeat deals 20% max HP recoil but does not clear this encounter.`,
                 kind: opts.isBoss ? "boss" : "pet_battle",
                 choices: [
                     {

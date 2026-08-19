@@ -111,7 +111,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "level": return "Highest Level";
             case "kills": return "Total PvP Kills";
             case "xp": return "Total Stat Points Earned";
-            case "pets": return "Pet Coliseum Wins";
+            case "pets": return "Pet Colosseum Wins";
             case "endless": return "Endless Tower - Waves Survived";
             case "villageWars": return "Village War Raids Completed";
             case "clans": return "Clan Power (Ranked Wins + PvP Kills)";

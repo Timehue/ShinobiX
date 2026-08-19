@@ -133,7 +133,7 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
         </div>
 
         <div className="pet-sanctuary-manager">
-            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Stored companions cannot enter PvE, Tactical Arena, Coliseum, training, expeditions, or breeding until returned to your carried roster.</p></div>
+            <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Stored companions cannot enter PvE, Tactical Arena, Colosseum, training, expeditions, or breeding until returned to your carried roster.</p></div>
             <label><span>Owned companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No owned companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)} · {eligibleCarriedIds.has(pet.id) ? "Carried" : "Preserved overflow"}</option>)}</select></label>
             <button type="button" className="pet-home-primary" disabled={!selectedDepositPetId || Boolean(busyPetId)} onClick={() => void moveToSanctuary()}>{busyPetId === selectedDepositPetId ? "Preparing habitat…" : "Move to Sanctuary"}</button>
         </div>

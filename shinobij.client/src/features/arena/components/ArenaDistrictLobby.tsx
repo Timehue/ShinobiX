@@ -127,7 +127,7 @@ export function ArenaDistrictLobby({
                                 <strong>{challenge.fromName}</strong>
                                 <p>{challenge.mode ?? "standard"} challenge to {challenge.toName} | {challenge.clanWarPoints} clan points</p>
                                 <div className="menu">
-                                    <button onClick={() => onAcceptDistrictChallenge(challenge)}>{challenge.mode === "clanWarPet" ? "Open Pet Coliseum" : "Accept Duel"}</button>
+                                    <button onClick={() => onAcceptDistrictChallenge(challenge)}>{challenge.mode === "clanWarPet" ? "Open Pet Colosseum" : "Accept Duel"}</button>
                                     <button className="danger-button" onClick={() => onDeclineChallenge(challenge)}>Decline</button>
                                 </div>
                             </div>
@@ -175,7 +175,7 @@ export function ArenaDistrictLobby({
                     {!playerRankedEnabled && <p className="hint">Ranked matchmaking is temporarily paused during the v2 authority rollout.</p>}
                     {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
                     <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
-                    <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Coliseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
+                    <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Colosseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
                 </section>
             )}
 
@@ -198,7 +198,7 @@ export function ArenaDistrictLobby({
                     <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you. Casual pet sparring lives in the Village Battle Arena.</p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                         {[
-                            { mode: "coliseum" as const, requirement: 1, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Coliseum", sub: "1v1 ranked ladder" },
+                            { mode: "coliseum" as const, requirement: 1, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Colosseum", sub: "1v1 ranked ladder" },
                             { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Tactical", sub: "4v4 ranked ladder" },
                         ].map((card) => {
                             const locked = availablePetCount < card.requirement;

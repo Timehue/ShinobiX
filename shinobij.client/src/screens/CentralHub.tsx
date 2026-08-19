@@ -608,7 +608,7 @@ export function CentralHub({
             action: () => { setShowAwakening(true); setAwakeningMsg(""); },
         },
         {
-            name: "Pet Coliseum",
+            name: "Pet Colosseum",
             icon: <GiColiseum size={34} />,
             text: "Pick a pet and watch a cinematic duel — it approaches, kites, dodges and unleashes ultimates on its own. Also hosts the Tactical Pet Arena.",
             action: () => setScreen("petArena"),

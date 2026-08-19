@@ -423,7 +423,7 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(startSource, /const bodyMode = body\.mode === '2v2' \? '2v2' : '1v1'/);
     assert.match(startSource, /const mode = pvpDuel \? pvpDuel\.format : bodyMode/,
       'a sealed challenge duel must impose its own format over the request body');
-    assert.match(startSource, /return res\.status\(410\)\.json\(\{[\s\S]{0,200}pick-your-opponent Pet Coliseum is retired/,
+    assert.match(startSource, /return res\.status\(410\)\.json\(\{[\s\S]{0,200}pick-your-opponent Pet Colosseum is retired/,
       'new context-free cinematic AI admission must fail closed with 410');
     assert.match(startSource, /active\.settlementPolicy === undefined/,
       'only a pre-cutover active proof may resume through the retired AI admission shape');
