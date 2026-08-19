@@ -17,10 +17,9 @@
  *     set a password has an account they can be held to and re-enter from
  *     anywhere, which is the whole point of the gate.
  *
- * Careful: this predicate deliberately does NOT match the 14-day guest sweep,
- * which still keys on the raw `guest` flag. A guest who sets a password
- * therefore talks freely but is still swept when idle. That is a pre-existing
- * inconsistency in the sweep, not something this gate should paper over.
+ * This predicate is shared with the 14-day guest sweep (`api/cron/_guest-sweep.ts`),
+ * both reading `isCredentialLessGuest` in `player-auth.ts` — a guest who sets a
+ * password is exempt from both the tavern lock and the sweep, never just one.
  */
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
