@@ -72,6 +72,7 @@ export type Screen =
     | "tilecardsDuel"
     | "sectorCard"
     | "sectorPet"
+    | "sectorGarrison"
     | "clanWarPet"
     | "cardClashFreePlay"
     | "guides"

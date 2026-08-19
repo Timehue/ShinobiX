@@ -17,6 +17,7 @@ import {
     listMercs,
     deployMerc,
     villageAccent,
+    garrisonAssaultable,
     WAR_STRUCTURES,
     WAR_TERRAINS,
     type WarMapResponse,
@@ -157,6 +158,14 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const launchPetBattle = useCallback((sectorWarId: string) => {
         try { sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
         setScreen("sectorPet");
+    }, [setScreen]);
+    // Combat's liveness fallback — assault the sector's ANBU garrison when no
+    // live defender has fought in ~2h. Resolved server-side as a real Solo PvE
+    // fight against the defending village's sealed ANBU; stash the sector and
+    // navigate, mirroring the card/pet battle launches above.
+    const launchGarrisonAssault = useCallback((sector: number) => {
+        try { sessionStorage.setItem("sectorWarGarrison.v1", JSON.stringify({ sector })); } catch { /* ignore */ }
+        setScreen("sectorGarrison");
     }, [setScreen]);
 
     return (
@@ -330,6 +339,16 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             )}
                                             {contest && contest.winCondition === "pet" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
                                                 <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}>🐾 Pet Battle</button>
+                                            )}
+                                            {contest && contest.winCondition === "combat" && contest.attackerVillage === myVillage && garrisonAssaultable(contest) && (
+                                                <button
+                                                    className="vwm-declare"
+                                                    disabled={!!busy}
+                                                    title="No defender has fought here for hours — assault the sector's ANBU garrison instead. A real Solo PvE fight against the defending village's sealed ANBU; worth less than beating a real defender."
+                                                    onClick={() => launchGarrisonAssault(sec.sector)}
+                                                >
+                                                    🛡 Assault Garrison
+                                                </button>
                                             )}
                                             {mine && (
                                                 <div className="vwm-config">

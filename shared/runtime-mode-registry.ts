@@ -539,11 +539,16 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'durable-pvp-history-plus-contest-receipt', status: 'match', migrationStatus: 'keep',
     }),
     defineMode({
-        id: 'sector-war-shinobi-garrison', label: 'Sector War shinobi garrison fallback', category: 'shinobi-pvp', authorityEngine: null,
-        intendedAuthorityEngine: E.PVP, orchestrationOwner: O.SECTOR_WAR, capabilityKey: 'villageWar',
-        clientEntries: [], routes: [],
-        participantModel: 'headless', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
-        statusDetail: 'The wrong-owner Tower fallback is retired fail-closed. No garrison combat lifecycle is mounted until the PvP domain supplies an authoritative headless design.',
+        id: 'sector-war-shinobi-garrison', label: 'Sector War shinobi garrison fallback', category: 'shinobi-pvp', authorityEngine: E.PVP,
+        orchestrationOwner: O.SECTOR_WAR, capabilityKey: 'villageWar',
+        clientEntries: ['lib/village-war-map.ts', 'lib/sector-war-garrison-api.ts', 'screens/VillageWarMap.tsx', 'screens/SectorWarGarrisonAssault.tsx', ...SOLO_CLIENT],
+        routes: [
+            mountedRoute('/village/sector-war', 'village/sector-war', ['start', 'state', 'settlement', 'lifecycle']),
+            mountedRoute('/solo-pve/action', 'solo-pve/action', ['action']),
+            mountedRoute('/solo-pve/state', 'solo-pve/state', ['state']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-solo-session-log-plus-contest-receipt', status: 'match',
+        statusDetail: 'The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village\'s real ANBU (api/_sector-war-garrison-encounter.ts, api/_anbu-infiltration-store.ts) — content, not a live second participant — same shape as Anbu Infiltration. Its OUTCOME still feeds the sector-war contest\'s own scored points under api/village/sector-war.ts\'s lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest\'s authority.',
     }),
     defineMode({
         id: 'village-war-mercenary', label: 'Village-War mercenary battle', category: 'tower', authorityEngine: E.TOWER,

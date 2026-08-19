@@ -1821,8 +1821,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 // All war reads + validation + write are serialized through a
                 // per-war lock so concurrent raids / claim attempts can't
-                // race-overwrite. Lock falls through to unlocked on contention
-                // (per _lock.ts) — better to race than to drop the write.
+                // race-overwrite. failClosed:true (see the options object on
+                // the closing line far below) — this is currency/war-critical,
+                // so a contended lock throws LockContendedError rather than
+                // racing unlocked; the outer catch turns that into a 500.
                 const warKey = `${VILLAGE_WAR_KEY_PREFIX}${war.id}`;
                 const result = await withKvLock(warKey, async () => {
                     let existing = await kv.get<VillageWar>(warKey);

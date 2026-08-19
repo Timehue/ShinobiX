@@ -42,9 +42,23 @@ export interface SectorWarContest {
     /** When the war's 72 hours end and the tallies are compared. */
     endsAt: number;
     flipped: boolean;
-    /** Retained contest liveness metadata for a future PvP-owned garrison surface. */
+    /** When a LIVE-player battle last resolved. Drives the garrison fallback
+     *  (garrisonAssaultable below) — mirrors api/_sector-war.ts lastLiveBattleAt. */
     lastLiveBattleAt?: number;
     startedAt?: number;
+}
+
+/** ~2h with no live-player battle unlocks the sector's ANBU garrison. MUST match
+ *  api/_sector-war.ts GARRISON_UNLOCK_IDLE_MS. */
+export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
+
+/** Mirror of api/_sector-war.ts isGarrisonAssaultable for the button's enabled
+ *  state. The server re-checks it — this only avoids offering a rejected click. */
+export function garrisonAssaultable(c: SectorWarContest, now: number = Date.now()): boolean {
+    if (c.winCondition !== "combat" || c.flipped) return false;
+    if (now >= (Number(c.endsAt) || 0)) return false; // the whistle has gone
+    const lastLive = Math.max(Number(c.lastLiveBattleAt ?? 0) || 0, Number(c.startedAt ?? 0) || 0);
+    return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
 }
 
 export interface WarMapResponse {

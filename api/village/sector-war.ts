@@ -1,5 +1,6 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -14,7 +15,7 @@ import {
     type WinCondition,
 } from '../_war-state.js';
 import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
-import { sealedSectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
+import { sealedSectorWarRoleOf, sectorControlSwing, sectorWarRoleOf, ROLE_VILLAGER } from '../_war-role.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import {
     sectorWarId,
@@ -29,6 +30,8 @@ import {
     newSectorWarBattleToken,
     sectorDeclareLockKey,
     isSectorWarActive,
+    isGarrisonAssaultable,
+    GARRISON_UNLOCK_IDLE_MS,
     MAX_ACTIVE_ATTACK_SIEGES,
     SECTOR_RESIEGE_COOLDOWN_SEC,
     abandonSectorWar,
@@ -51,6 +54,28 @@ import {
     activeSectorWarsForVillage,
 } from '../_sector-war-store.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
+import {
+    garrisonRunKey,
+    garrisonActiveRunKey,
+    readGarrisonRun,
+    writeGarrisonRun,
+    loadAnbuAppointees,
+    pickAnbuDefender,
+    getOrSealAnbuSnapshot,
+    settleGarrisonFight,
+    GARRISON_RUN_TTL,
+    type GarrisonRun,
+} from '../_sector-war-garrison-store.js';
+import {
+    buildGarrisonEncounter,
+    garrisonSessionMatches,
+    type GarrisonSessionBinding,
+} from '../_sector-war-garrison-encounter.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
+import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { villageHasActiveWar, seedHomeSectorOwnership } from '../world-state.js';
 import {
     WAR_DECLARATION_FUNDING_FIELD,
@@ -93,9 +118,20 @@ import { settlePvpSectorWarContinuation } from '../pvp/_sector-war-continuation.
  *   - resolve : reads the AUTHORITATIVE finished pvp:<battleId> (never a client claim),
  *               applies the win/loss to Control HP (War-Academy-boosted), and on
  *               capture flips world:territory:<sector>.ownerVillage to the attacker.
- *   - garrison: retired. Sector Combat belongs to the PvP runtime; until that
- *               owner provides a headless adapter, the former Tower-backed AI
- *               assault fails closed without touching contest or reward state.
+ *   - garrison-start   : the LIVENESS fallback — once a Combat contest has gone
+ *               GARRISON_UNLOCK_IDLE_MS without a live-player battle, an attacker may
+ *               assault the sector's ANBU garrison instead of being blocked by an
+ *               absent defence. The defender is a REAL sealed snapshot of the
+ *               defending village's appointed ANBU (their actual equipped jutsu,
+ *               gear, weapons, and items — api/_anbu-infiltration-store.ts), fought
+ *               through a genuine multi-turn Solo PvE session
+ *               (api/_sector-war-garrison-encounter.ts), never a client-reportable
+ *               instant roll.
+ *   - garrison-resolve : reads the AUTHORITATIVE finished solo-pve session (never a
+ *               client claim), applies the win/loss to the SAME scored contest a
+ *               live-defender fight would (half-weight, capped —
+ *               GARRISON_POINTS_CAP), and settles the attacker's own item usage +
+ *               surviving HP onto their save.
  *   - abandon : the attacking Kage calls off their own siege.
  *   - status  : read-only — the owner + active contest for a sector (or all contests).
  *   - seed    : admin — one-time idempotent seed of home-sector ownership (Phase 4d).
@@ -120,6 +156,13 @@ function kageKey(village: string): string {
 async function isSeatedKage(village: string, playerName: string): Promise<boolean> {
     const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
     return safeName(st?.seatedKage ?? '') === playerName;
+}
+/** The seated Kage of a village (a real appointed leader) — the garrison
+ *  defender fallback when a village hasn't appointed ANBU yet. Mirrors
+ *  api/village/anbu-infiltration.ts's own seatedKageOf. */
+async function seatedKage(village: string): Promise<string> {
+    const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
+    return safeName(st?.seatedKage ?? '');
 }
 async function villageOf(playerName: string): Promise<string> {
     const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
@@ -178,9 +221,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'declare': return await doDeclare(req, res, identity, playerName, body);
             case 'attack': return await doAttack(req, res, identity, playerName, body);
             case 'resolve': return await doResolve(req, res, identity, playerName, body);
-            case 'garrison': return res.status(410).json({
-                error: 'Sector garrison assaults are unavailable until the PvP runtime owns their resolution.',
-            });
+            case 'garrison-start': return await doGarrisonStart(req, res, identity, playerName, body);
+            case 'garrison-resolve': return await doGarrisonResolve(req, res, identity, playerName, body);
             case 'abandon': return await doAbandon(req, res, identity, playerName, body);
             case 'status': return await doStatus(req, res, body);
             case 'seed': return await doSeed(res, identity);
@@ -917,6 +959,258 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     }
     return sendSectorResolutionReceipt(res, durable);
     */
+}
+
+// ── garrison-start (assault the sector's ANBU when no defender turns up) ──────
+// The liveness fallback (§17.6). Every win-condition needs a live online enemy,
+// so at a small population a contested sector could sit unplayable — an attacker
+// pays the WR to declare and then has nobody to fight. A held sector is not empty
+// though: what remains when the defence stops showing up is its GARRISON — and
+// per owner ruling, that garrison IS the defending village's real appointed ANBU
+// (their actual equipped jutsu/gear/weapons/items, sealed once per UTC day —
+// api/_anbu-infiltration-store.ts, reused verbatim), not a generic bot.
+//
+// SERVER-AUTHORITATIVE: the fight is a genuine multi-turn Solo PvE session
+// (api/_sector-war-garrison-encounter.ts) resolved over /solo-pve/action, the
+// same engine every other AI encounter uses, so the client can neither report
+// nor influence the outcome. Unlocks only after GARRISON_UNLOCK_IDLE_MS with no
+// LIVE battle, and a single real defender turning up re-locks it — a village
+// that defends never meets the garrison at all.
+async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-war-garrison-start', 12, 60_000, identity.name))) return;
+    if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
+        return res.status(409).json(towerBattleActiveErrorBody());
+    }
+    const sector = Math.floor(Number(body.sector) || 0);
+    if (!sector) return res.status(400).json({ error: 'Missing sector.' });
+
+    const contest = await activeContestOnSector(sector);
+    if (!contest) return res.status(409).json({ error: 'No active sector war on that sector.' });
+    if (contest.winCondition !== 'combat') {
+        return res.status(409).json({ error: 'Only a Combat sector has a garrison to assault.' });
+    }
+    // Must be an attacker; the defence has no garrison to assault on its own sector.
+    if (!identity.admin && (await villageOf(playerName)) !== contest.attackerVillage) {
+        return res.status(403).json({ error: 'Only the attacking village can assault the garrison.' });
+    }
+
+    const now = Date.now();
+    if (!isGarrisonAssaultable(contest, now)) {
+        const lastLive = Math.max(contest.lastLiveBattleAt ?? 0, contest.startedAt);
+        const mins = Math.max(1, Math.ceil((GARRISON_UNLOCK_IDLE_MS - (now - lastLive)) / 60_000));
+        return res.status(409).json({
+            error: `The defence is still contesting this sector — the garrison can be assaulted in ${mins} min if no defender fights.`,
+        });
+    }
+
+    const rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+    const char = rec?.character as Record<string, unknown> | undefined;
+    if (!char) return res.status(404).json({ error: 'Your save was not found.' });
+
+    // Defenders: the village's appointed ANBU, or — if none are appointed yet —
+    // its seated Kage (also a real appointed leader). Mirrors Anbu Infiltration's
+    // own fallback so a village that hasn't appointed ANBU yet doesn't leave the
+    // garrison permanently unassaultable.
+    let appointees = await loadAnbuAppointees(contest.defenderVillage);
+    let defendedByKage = false;
+    if (appointees.length === 0) {
+        const kage = await seatedKage(contest.defenderVillage);
+        if (kage) { appointees = [kage]; defendedByKage = true; }
+    }
+    if (appointees.length === 0) {
+        return res.status(409).json({ error: 'That village has no ANBU or Kage to field a garrison yet.' });
+    }
+
+    const defRec = normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined);
+    const terrain = String(defRec.sectors[String(sector)]?.terrain ?? 'central');
+    const attackerCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
+
+    const activeKey = garrisonActiveRunKey(playerName, sector);
+    const started = await withKvLock(activeKey, async () => {
+        const activeRunId = await kv.get<string>(activeKey);
+        if (activeRunId) {
+            const activeRun = await readGarrisonRun(activeRunId);
+            const activeSession = await readSoloPveSession(activeRunId);
+            const resumable = Boolean(activeRun
+                && !activeRun.settlement
+                && activeRun.sector === sector
+                && activeRun.contestId === contest.id
+                && garrisonSessionMatches(activeRun, activeSession));
+            if (resumable && activeRun && activeSession) {
+                await kv.set(activeKey, activeRunId, { ex: GARRISON_RUN_TTL });
+                return { status: 200 as const, body: {
+                    ok: true,
+                    replayed: true,
+                    runId: activeRunId,
+                    sector,
+                    contestId: contest.id,
+                    defenderVillage: contest.defenderVillage,
+                    anbu: { name: activeRun.anbuName },
+                    session: activeSession,
+                } };
+            }
+            await kv.del(activeKey);
+        }
+
+        const anbuSlug = await pickAnbuDefender(contest.defenderVillage, appointees);
+        const snapshot = anbuSlug ? await getOrSealAnbuSnapshot(contest.defenderVillage, anbuSlug) : null;
+        if (!anbuSlug || !snapshot) {
+            return { status: 409 as const, body: { error: 'No defending ANBU could be prepared — try again shortly.' } };
+        }
+
+        const runId = `garrison-${randomUUID().replace(/-/g, '')}`;
+        const shortVillage = contest.defenderVillage.replace(/\s+Village$/i, '').trim() || 'Village';
+        // Masked, like Anbu Infiltration's own defender: the garrison represents
+        // the village's defence, not a callout of which specific player it is —
+        // but numbered by roster position (owner ruling) so a returning attacker
+        // can tell whether they're facing the same Anbu again or a rotation.
+        // loadAnbuAppointees is order-preserving, so the number is stable for as
+        // long as that Anbu stays appointed, regardless of defend-rotation order.
+        const anbuIndex = defendedByKage ? -1 : appointees.indexOf(anbuSlug);
+        const maskedAnbuName = defendedByKage
+            ? `The ${shortVillage} Kage`
+            : `${shortVillage} Anbu #${anbuIndex >= 0 ? anbuIndex + 1 : appointees.length}`;
+        const session = buildGarrisonEncounter({
+            runId, now,
+            attacker: { slug: playerName, name: String(char.name ?? playerName), character: attackerCharacter, itemCharges: sealItemCharges(attackerCharacter, char) },
+            anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
+            terrain, sector, contestId: contest.id,
+            attackerVillage: contest.attackerVillage, defenderVillage: contest.defenderVillage,
+        });
+        const run: GarrisonRun = {
+            runId, attackerName: playerName, attackerVillage: contest.attackerVillage,
+            sector, contestId: contest.id, defenderVillage: contest.defenderVillage,
+            anbuSlug: snapshot.slug, anbuName: maskedAnbuName, terrain,
+            createdAt: now,
+            startState: 'ready',
+        };
+        await writeSoloPveSession(session);
+        await writeGarrisonRun(run);
+        await kv.set(activeKey, runId, { ex: GARRISON_RUN_TTL });
+        return { status: 200 as const, body: {
+            ok: true, replayed: false, runId, sector, contestId: contest.id,
+            defenderVillage: contest.defenderVillage, anbu: { name: maskedAnbuName }, session,
+        } };
+    }, { failClosed: true, ttlSec: 30 });
+    return res.status(started.status).json(started.body);
+}
+
+// ── garrison-resolve (apply the authoritative solo-pve outcome to the contest) ─
+async function doGarrisonResolve(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-war-garrison-resolve', 20, 60_000, identity.name))) return;
+    const runId = String(body.runId ?? '').trim();
+    if (!runId) return res.status(400).json({ error: 'Missing runId.' });
+
+    return withKvLock(garrisonRunKey(runId), () => doGarrisonResolveLocked(res, identity, playerName, runId), { failClosed: true, ttlSec: 30 });
+}
+
+async function doGarrisonResolveLocked(res: VercelResponse, identity: Identity, playerName: string, runId: string) {
+    const run = await readGarrisonRun(runId);
+    if (!run) return res.status(404).json({ error: 'Assault not found or expired.' });
+    if (!identity.admin && run.attackerName !== playerName) return res.status(403).json({ error: 'Not your assault.' });
+    if (run.settlement) return res.status(200).json(run.settlement.response);
+
+    const session = await readSoloPveSession(runId);
+    const binding: GarrisonSessionBinding = {
+        runId, attackerName: run.attackerName, sector: run.sector, contestId: run.contestId,
+        attackerVillage: run.attackerVillage, defenderVillage: run.defenderVillage,
+        anbuSlug: run.anbuSlug, terrain: run.terrain,
+    };
+    if (!garrisonSessionMatches(binding, session)) {
+        return res.status(409).json({ error: 'The garrison combat binding is invalid.' });
+    }
+    if (session.status !== 'done' || !session.terminalEvidence) {
+        return res.status(409).json({ error: 'The assault is not finished.' });
+    }
+
+    // The attacker's own combat consequence (item usage + surviving HP/hospital)
+    // settles independent of whether the contest itself can still score — a real
+    // fight was fought either way. Never trusts the client outcome: reads it off
+    // the terminal session, same as every other AI fight settlement.
+    const physical = await settleGarrisonFight(run, session);
+    if (!physical.ok) {
+        return physical.error === 'no-save'
+            ? res.status(404).json({ error: 'Your save was not found.' })
+            : res.status(409).json({ error: 'The settlement receipt conflicts with this assault.' });
+    }
+
+    const now = Date.now();
+    const winner = session.winner;
+    // A genuine draw (round budget exhausted with both sides standing, etc.)
+    // scores nothing for either side of the contest — mirrors the old headless
+    // resolver's 'stall' outcome.
+    if (winner !== 'player' && winner !== 'enemy') {
+        const contest = await loadSectorWar(run.contestId);
+        const response = {
+            ok: true, outcome: 'stall' as const,
+            attackerPoints: contest?.attackerPoints ?? 0,
+            defenderPoints: contest?.defenderPoints ?? 0,
+            character: physical.character, _saveVersion: physical.saveVersion,
+        };
+        await writeGarrisonRun({ ...run, settlement: { settledAt: now, response } });
+        return res.status(200).json(response);
+    }
+    const attackerWon = winner === 'player';
+
+    // Score the contest exactly like a live-defender fight would
+    // (api/pvp/_sector-war-continuation.ts), just under the garrison's
+    // half-weight fraction + war-wide cap (both applied inside
+    // applySectorWarBattle via garrisonBattle/mercBattle). Keyed on the SOLO-PVE
+    // SESSION ID (== runId), not on `Date.now()` at resolve time — a retried
+    // resolve call after a lost response must be a true no-op replay of the same
+    // receipt, not mint a second one every retry.
+    const battleId = `garrison:${runId}`;
+    const scored = await withKvLock(sectorWarKey(run.contestId), async () => {
+        const fresh = await loadSectorWar(run.contestId);
+        if (!fresh || !isSectorWarActive(fresh, Date.now())) {
+            return { ok: false as const, contest: fresh };
+        }
+        const prior = findSectorWarBattleReceipt(fresh, battleId);
+        if (prior) return { ok: true as const, awarded: prior.points, session: fresh };
+
+        const attackerRole = await sectorWarRoleOf(run.attackerName, run.attackerVillage);
+        const [winnerRole, loserRole] = attackerWon ? [attackerRole, ROLE_VILLAGER] : [ROLE_VILLAGER, attackerRole];
+        const [atkRaw, defRaw] = await Promise.all([
+            kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage)),
+            kv.get<Record<string, unknown>>(villageWarKey(fresh.defenderVillage)),
+        ]);
+        const outcome = applySectorWarBattle(fresh, attackerWon, {
+            now: Date.now(),
+            roleSwing: sectorControlSwing(winnerRole, loserRole),
+            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
+            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
+            // Attacker win: the points are the PLAYER's (attribution for the
+            // capture credit). Garrison win: the AI scored.
+            by: attackerWon ? run.attackerName : '',
+            garrisonBattle: attackerWon,
+            mercBattle: !attackerWon,
+        });
+        const recorded = recordSectorWarBattleOutcome(outcome, {
+            battleId, attackerWon, by: attackerWon ? run.attackerName : '', garrison: attackerWon, at: Date.now(),
+        });
+        await saveSectorWar(recorded.session);
+        return { ok: true as const, awarded: outcome.awarded, session: recorded.session };
+    }, { failClosed: true });
+
+    const response = scored.ok
+        ? {
+            ok: true, outcome: attackerWon ? ('attacker' as const) : ('garrison' as const),
+            attackerWon, points: scored.awarded,
+            attackerPoints: scored.session.attackerPoints, defenderPoints: scored.session.defenderPoints,
+            endsAt: scored.session.endsAt,
+            character: physical.character, _saveVersion: physical.saveVersion,
+        }
+        : {
+            // The war ended (captured, defended, or abandoned) before this
+            // resolve arrived. The fight still happened and still settled onto
+            // the attacker's save above — it just no longer moves a dead contest.
+            ok: true, outcome: 'superseded' as const,
+            attackerPoints: scored.contest?.attackerPoints ?? 0,
+            defenderPoints: scored.contest?.defenderPoints ?? 0,
+            character: physical.character, _saveVersion: physical.saveVersion,
+        };
+    await writeGarrisonRun({ ...run, settlement: { settledAt: now, response } });
+    return res.status(200).json(response);
 }
 
 // ── abandon (the attacking Kage calls off their own siege) ────────────────────

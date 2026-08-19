@@ -119,6 +119,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   tilecardsDuel: combat,
   sectorCard: combat,
   sectorPet: companion,
+  sectorGarrison: combat,
   clanWarPet: companion,
   cardClashFreePlay: atFacility(combat, "card-hall"),
   guides: archive,

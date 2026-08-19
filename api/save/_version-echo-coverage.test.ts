@@ -33,6 +33,10 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  */
 const ECHOES_VERSION = new Set([
     '_anbu-infiltration-store.ts',
+    // Sector War garrison assault's personal settlement (item usage + HP). Its
+    // only caller, village/sector-war.ts's garrison-resolve, echoes the exact
+    // committed `_saveVersion` in every response branch (stall/superseded/scored).
+    '_sector-war-garrison-store.ts',
     // Daily village tax. The debit runs in this helper; its only caller,
     // village/tax.ts, re-reads the record and echoes `_saveVersion`, which the
     // client adopts along with the new balances — mandatory here, because ryo is

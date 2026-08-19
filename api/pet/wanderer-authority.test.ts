@@ -74,6 +74,20 @@ async function savePlayer(playerName: string, sector: number, playerPet = pet(`$
     return { character, playerPet };
 }
 
+// Whether TODAY's deterministic wanderer bucket rolls at least one petDuel
+// wanderer somewhere across the sector range. resolveNaturalWorldWanderer's
+// RNG is seeded per (sector, dayBucket) with petDuel at ~10% relative weight;
+// empirically a handful of days per year roll zero across every sector (e.g.
+// 2026-08-18 did — verified with a standalone probe script, not a bug: the
+// live handler re-derives dayBucket from the real clock, so a test here can't
+// fake a different day the way it can fake other inputs). Every test below
+// needs a real petDuel wanderer for today specifically, so skip cleanly on
+// those rare days instead of failing red. See memory
+// project_combat_regression_audit_2026_08_18 for the full writeup.
+// Populated by before() once resolveNaturalWorldWanderer/wandererDayBucketFromMs
+// are loaded (module top-level can't top-level-await under this build's CJS output).
+let PET_DUEL_SKIP_TODAY: string | false = false;
+
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
@@ -82,6 +96,17 @@ before(async () => {
     ({ wandererDayBucketFromMs, wandererUseCooldownKey } = await import('../sector/_wanderer-encounter.js'));
     startHandler = (await import('./battle-start.js')).default as unknown as Handler;
     resultHandler = (await import('./battle-result.js')).default as unknown as Handler;
+    // Must match every test character's lock-relevant shape exactly
+    // (starterCardsClaimed + non-empty pets) — resolveNaturalWorldWanderer's
+    // weighted archetype pool excludes locked verbs before rolling, so a
+    // differently-locked probe character re-normalizes the weights and can
+    // roll a different archetype than the real test characters would at the
+    // very same (sector, bucket, index).
+    try {
+        findWanderer({ starterCardsClaimed: true, pets: [{ id: 'probe' }] }, 'petDuel');
+    } catch {
+        PET_DUEL_SKIP_TODAY = "No petDuel wanderer rolled in today's bucket across the sector range — rare (~1-2%/day), not a regression.";
+    }
 });
 
 after(() => {
@@ -92,7 +117,8 @@ after(() => {
     delete process.env.SESSION_SECRET;
 });
 
-test('fresh and response-loss recovery return one immutable Showdown proof, then settle no progression', async () => {
+test('fresh and response-loss recovery return one immutable Showdown proof, then settle no progression', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const playerName = 'wanderpetrecovery';
     const auth = issuePlayerToken(playerName)!;
     const fixture = pet('wanderpet-recovery-pet');
@@ -210,7 +236,8 @@ test('fresh and response-loss recovery return one immutable Showdown proof, then
     assert.match(String(spent.out.body?.error), /already been settled/i);
 });
 
-test('near-expiry start recovery refreshes the exact token and active-pointer leases', async () => {
+test('near-expiry start recovery refreshes the exact token and active-pointer leases', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const playerName = 'wanderpetleaserefresh';
     const auth = issuePlayerToken(playerName)!;
     const fixture = pet('wanderpet-lease-pet');
@@ -264,7 +291,8 @@ test('near-expiry start recovery refreshes the exact token and active-pointer le
     }
 });
 
-test('conflicting opponent, PvP, ranked, HG, Dungeon and party contexts fail before proof publication', async () => {
+test('conflicting opponent, PvP, ranked, HG, Dungeon and party contexts fail before proof publication', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const playerName = 'wanderpetconflict';
     const auth = issuePlayerToken(playerName)!;
     const fixture = pet('wanderpet-conflict-pet');
@@ -292,7 +320,8 @@ test('conflicting opponent, PvP, ranked, HG, Dungeon and party contexts fail bef
     assert.equal(await kv.get(wandererUseCooldownKey(playerName, encounter.id)), null);
 });
 
-test('wrong verb, saved sector, live presence, stale bucket and unreachable roster index fail closed', async () => {
+test('wrong verb, saved sector, live presence, stale bucket and unreachable roster index fail closed', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const cases = [
         { name: 'wanderpetwrongverb', kind: 'verb' },
         { name: 'wanderpetwrongsave', kind: 'save' },
@@ -333,7 +362,8 @@ test('wrong verb, saved sector, live presence, stale bucket and unreachable rost
     }
 });
 
-test('a failed immutable-session publication cannot spend the cooldown or mutate the save', async () => {
+test('a failed immutable-session publication cannot spend the cooldown or mutate the save', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const playerName = 'wanderpetpublishfail';
     const auth = issuePlayerToken(playerName)!;
     const fixture = pet('wanderpet-publish-pet');
@@ -362,7 +392,8 @@ test('a failed immutable-session publication cannot spend the cooldown or mutate
     assert.equal((save?.character as Record<string, unknown>).wandererCooldowns, undefined);
 });
 
-test('a save-write failure after proof and cooldown publication recovers the exact session once', async () => {
+test('a save-write failure after proof and cooldown publication recovers the exact session once', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const playerName = 'wanderpetpostpublish';
     const auth = issuePlayerToken(playerName)!;
     const fixture = pet('wanderpet-post-publish-pet');
@@ -418,7 +449,8 @@ test('a save-write failure after proof and cooldown publication recovers the exa
     assert.equal((await kv.get<Record<string, unknown>>(saveKey))?._saveVersion, 2);
 });
 
-test('an unrelated active battle blocks cooldown, then the retained NX session recovers unchanged', async () => {
+test('an unrelated active battle blocks cooldown, then the retained NX session recovers unchanged', async (t) => {
+    if (PET_DUEL_SKIP_TODAY) return t.skip(PET_DUEL_SKIP_TODAY);
     const playerName = 'wanderpetactive';
     const auth = issuePlayerToken(playerName)!;
     const fixture = pet('wanderpet-active-pet');

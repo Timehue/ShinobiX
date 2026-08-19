@@ -8,9 +8,12 @@
  *   · CLAN_WAR_PET_DUEL — the client REPLAYS the server-resolved pet duel with
  *     these pinned engine params; drift makes the animated fight disagree with
  *     the recorded winner. Invisible to unit tests, very visible to players.
- *   · Sector garrison admission — the retired client surface must stay absent
- *     while the server fails the legacy action closed. Reintroducing only one
- *     side would recreate a wrong-owner Tower combat path.
+ *   · Sector garrison liveness window — the client shows/hides the "Assault
+ *     Garrison" button off its own GARRISON_UNLOCK_IDLE_MS copy; drift would
+ *     offer (or hide) it at the wrong time. The fight itself must keep
+ *     resolving on Solo PvE, never Tower's resolveMercBattle/sealTowerFighter
+ *     (that was the wrong-owner defect the 2026-08-15 retirement fixed;
+ *     rebuilding garrison on Tower again would reintroduce it).
  *   · The war-morale multipliers — the server applies them at the reward seal;
  *     the client's copies are the DISPLAY mirror. Drift means players are shown
  *     one number and given another.
@@ -36,6 +39,7 @@ import {
     WAR_BUFF_JUTSU_TIME_MULT as S_BUFF_TIME,
     resolveWarMorale as serverResolve,
 } from '../api/_war-morale.js';
+import { GARRISON_UNLOCK_IDLE_MS as SERVER_GARRISON_UNLOCK_IDLE_MS } from '../api/_sector-war.js';
 
 import { CLAN_WAR_PET_DUEL as CLIENT_PET_DUEL } from '../shinobij.client/src/lib/clan-war-pet-api.js';
 import {
@@ -45,18 +49,17 @@ import {
     WAR_BUFF_JUTSU_TIME_MULT as C_BUFF_TIME,
     resolveWarMorale as clientResolve,
 } from '../shinobij.client/src/lib/war-debuff.js';
+import { GARRISON_UNLOCK_IDLE_MS as CLIENT_GARRISON_UNLOCK_IDLE_MS } from '../shinobij.client/src/lib/village-war-map.js';
 
 test('clan-war pet duel params are identical on both sides of the replay', () => {
     assert.deepEqual({ ...CLIENT_PET_DUEL }, { ...SERVER_PET_DUEL });
 });
 
-test('the retired sector garrison surface stays absent and fails closed', () => {
+test('the sector garrison surface is live on Solo PvE, never on Tower', () => {
+    assert.equal(CLIENT_GARRISON_UNLOCK_IDLE_MS, SERVER_GARRISON_UNLOCK_IDLE_MS);
+
     const clientApi = readFileSync(
-        join(process.cwd(), 'shinobij.client', 'src', 'lib', 'village-war-map.ts'),
-        'utf8',
-    );
-    const clientScreen = readFileSync(
-        join(process.cwd(), 'shinobij.client', 'src', 'screens', 'VillageWarMap.tsx'),
+        join(process.cwd(), 'shinobij.client', 'src', 'lib', 'sector-war-garrison-api.ts'),
         'utf8',
     );
     const serverHandler = readFileSync(
@@ -64,9 +67,14 @@ test('the retired sector garrison surface stays absent and fails closed', () => 
         'utf8',
     );
 
-    assert.doesNotMatch(clientApi, /GARRISON_UNLOCK_IDLE_MS|action:\s*["']garrison["']/);
-    assert.doesNotMatch(clientScreen, /GARRISON_UNLOCK_IDLE_MS|action:\s*["']garrison["']/);
-    assert.match(serverHandler, /case 'garrison': return res\.status\(410\)/);
+    // The rebuilt garrison action names, actually wired both sides.
+    assert.match(clientApi, /action:\s*["']garrison-start["']/);
+    assert.match(clientApi, /action:\s*["']garrison-resolve["']/);
+    assert.match(serverHandler, /case 'garrison-start': return await doGarrisonStart\(/);
+    assert.match(serverHandler, /case 'garrison-resolve': return await doGarrisonResolve\(/);
+    // The wrong-owner Tower resolver the 2026-08-15 retirement removed must
+    // stay gone even though the surface itself is live again.
+    assert.doesNotMatch(serverHandler, /resolveMercBattle|sealTowerFighter/);
 });
 
 test('war-morale multipliers shown match the ones applied at the seal', () => {
