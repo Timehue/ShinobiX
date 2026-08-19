@@ -210,7 +210,7 @@ export function hydrateSharedGameState(data: {
 
 export type VillageTreasury = { ryo: number; honorSeals: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; items: TreasuryItemStack[]; };
 export type VillageTreasuryCurrencyKey = Exclude<keyof VillageTreasury, "items">;
-type DetailedVillageWarRecord = { opponent: string; winner: string; finalScore: string; topDefender: string; topAttacker: string; mvpClan: string; rewards: string; date: string; };
+export type DetailedVillageWarRecord = { opponent: string; winner: string; finalScore: string; topDefender: string; topAttacker: string; mvpClan: string; rewards: string; date: string; };
 // Mirrors the server-owned reign record (api/village/_kage-challenge.ts
 // KageHistoryEntry). The Kage system now writes this on every seat change; the
 // Council Hall reads it from /api/village/kage (authoritative), not from any
@@ -458,6 +458,40 @@ export function activeVillageWarsGlobal(): VillageWar[] {
     return Object.values(sharedVillageWarCache).filter(war => !war.endedAt);
 }
 
+// Town Hall's "War records" panel. Derived straight from the server-hydrated
+// war cache (endedAt/winnerVillage/hp/mvpByVillage are all stamped by
+// api/world-state.ts) rather than a client-appended list — the only producer
+// that ever appended to VillageState.warRecords was recordWarOutcomeToVillages,
+// reached via applyVillageWarDamage, whose PvP caller (recordVillageWarPvp) and
+// raid caller (recordVillageWarRaid) are both dead code with zero callers now
+// that ordinary PvP war damage settles server-side
+// (settlePvpVillageWarContinuation) and raids go through startPvpRaid. So most
+// wars ended by regular PvP never grew the client-side list at all.
+export function endedVillageWarRecordsFor(village: string, limit = 24): DetailedVillageWarRecord[] {
+    return Object.values(sharedVillageWarCache)
+        .filter((war): war is VillageWar & { endedAt: number } => Boolean(war.endedAt) && war.villages.includes(village))
+        .sort((a, b) => b.endedAt - a.endedAt)
+        .slice(0, limit)
+        .map(war => {
+            const opponent = war.villages.find(candidate => candidate !== village) ?? war.villages[0];
+            const mvp = war.mvpByVillage?.[village] ?? "—";
+            return {
+                opponent,
+                winner: war.winnerVillage ?? "Draw",
+                finalScore: `${war.hp[village] ?? 0} – ${war.hp[opponent] ?? 0}`,
+                topDefender: mvp,
+                topAttacker: mvp,
+                mvpClan: "—",
+                rewards: !war.winnerVillage
+                    ? "No decisive victor — no crate awarded."
+                    : war.winnerVillage === village
+                        ? "Legendary War Crate (MVP: +1 extra crate, +10k ryo, +50 Honor Seals, +2 Fate Shards)"
+                        : "Loss consolation: +5k ryo, +25 Honor Seals, +1 Fate Shard (contributors only)",
+                date: new Date(war.endedAt).toLocaleDateString(),
+            };
+        });
+}
+
 function activeVillageWarBetween(villageA?: string, villageB?: string) {
     if (!villageA || !villageB || villageA === villageB) return null;
     const war = loadVillageWar(villageA, villageB);
@@ -543,15 +577,6 @@ function villageWarRoleValue(character: Character, clanMemberCount = 0) {
     return 5;
 }
 
-function villageWarLossPenalty(character: Character, clanMemberCount = 0) {
-    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
-    const state = loadVillageState(character.village);
-    if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 50;
-    if (isVillageElderTitle(character)) return 20;
-    if (isClanLeaderTitle(character) && clanMemberCount >= VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS) return 20;
-    return 0;
-}
-
 function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number, battleId?: string | null, warMissionToken?: string) {
     const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
     const ended = nextHp <= 0;
@@ -615,43 +640,6 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
             ]),
         }));
     }
-}
-
-export function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = [], battleId?: string | null) {
-    const war = activeVillageWarBetween(winner.village, loser.village);
-    if (!war) return "";
-    // No war damage during the pre-war pending window — the server
-    // would reject the write anyway, but skipping client-side keeps
-    // the UI quiet and saves a round-trip.
-    if (war.pendingUntil && war.pendingUntil > serverNow()) {
-        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - serverNow()) / 60_000));
-        return ` Village War starts in ${minsLeft} min — fight didn't count yet.`;
-    }
-    // Clan-size gate: clan-leadership titles only get the +20 tier
-    // when the clan has ≥8 total members. Computed from the roster
-    // for both winner and loser; small-clan leaders fall back to +5/+0.
-    const winnerClanSize = countClanMembers(winner.clan, winner.name, roster);
-    const loserClanSize = countClanMembers(loser.clan, loser.name, roster);
-    let damage = villageWarRoleValue(winner, winnerClanSize) + villageWarLossPenalty(loser, loserClanSize);
-    // Home-defender bonus: when the WINNER is fighting in a sector
-    // owned by their own village, scale war-credit damage 1.15×.
-    // Notes: this ONLY affects the war HP ledger, not the actual PvP
-    // combat — defenders and attackers fight identically. The bonus
-    // gives organized defense a real-but-not-crushing edge (1-3 extra
-    // war HP per regular fight, ~12 extra on a Kage v Kage). At +50%
-    // this was big enough to swing wars on its own; +15% is a
-    // noticeable advantage without being decisive.
-    let homeBonus = false;
-    if (sector !== undefined) {
-        const territory = sharedSectorTerritoryCache[sector];
-        if (territory?.ownerVillage === winner.village) {
-            damage = Math.floor(damage * 1.15);
-            homeBonus = true;
-        }
-    }
-    const updated = applyVillageWarDamage(war, loser.village, damage, battleId);
-    const tag = homeBonus ? " [Home Defender +15%]" : "";
-    return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
 export function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = [], battleId?: string | null) {

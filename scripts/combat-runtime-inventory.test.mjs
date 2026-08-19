@@ -565,12 +565,24 @@ describe('executable multi-engine runtime registry', () => {
     }
 
     const garrison = runtimeModeById('sector-war-shinobi-garrison');
-    assert.equal(garrison.status, 'surface-gap');
-    assert.equal(garrison.authorityEngine, null);
-    assert.equal(garrison.intendedAuthorityEngine, E.PVP);
-    assert.deepEqual(garrison.routes, []);
+    assert.equal(garrison.status, 'match');
+    assert.equal(garrison.authorityEngine, E.PVP);
+    assert.equal(garrison.intendedAuthorityEngine, undefined);
+    assert.deepEqual(
+      garrison.routes.map((route) => route.path).sort(),
+      ['/solo-pve/action', '/solo-pve/state', '/village/sector-war'],
+    );
+    // The wrong-owner Tower resolver stays gone; the rebuilt garrison is a Solo
+    // PvE session over a sealed real-ANBU snapshot, scored into the contest by
+    // api/village/sector-war.ts under the SAME lock/receipt machinery a
+    // live-defender fight uses.
     assert.doesNotMatch(sectorWarSource, /resolveMercBattle|sealTowerFighter/);
-    assert.match(sectorWarSource, /case 'garrison': return res\.status\(410\)/);
+    assert.match(sectorWarSource, /case 'garrison-start': return await doGarrisonStart\(/);
+    assert.match(sectorWarSource, /case 'garrison-resolve': return await doGarrisonResolve\(/);
+    assert.match(sectorWarSource, /buildGarrisonEncounter/);
+    assert.match(sectorWarSource, /garrisonSessionMatches/);
+    assert.match(sectorWarSource, /garrisonBattle: attackerWon/);
+    assert.match(sectorWarSource, /mercBattle: !attackerWon/);
 
     const dungeonPet = runtimeModeById('dungeon-pet-cinematic');
     assert.equal(dungeonPet.status, 'match');
@@ -697,14 +709,18 @@ describe('executable multi-engine runtime registry', () => {
     );
     assert.deepEqual(
       new Set(sectorModes.map((mode) => mode.authorityEngine)),
-      new Set([null, RUNTIME_AUTHORITY_ENGINES.PVP, RUNTIME_AUTHORITY_ENGINES.TOWER, RUNTIME_AUTHORITY_ENGINES.CHRONICLE, RUNTIME_AUTHORITY_ENGINES.PET_SHOWDOWN]),
+      new Set([RUNTIME_AUTHORITY_ENGINES.PVP, RUNTIME_AUTHORITY_ENGINES.TOWER, RUNTIME_AUTHORITY_ENGINES.CHRONICLE, RUNTIME_AUTHORITY_ENGINES.PET_SHOWDOWN]),
     );
 
-    const retiredGarrison = runtimeModeById('sector-war-shinobi-garrison');
-    assert.equal(retiredGarrison.status, 'surface-gap');
-    assert.equal(retiredGarrison.authorityEngine, null);
-    assert.equal(retiredGarrison.intendedAuthorityEngine, RUNTIME_AUTHORITY_ENGINES.PVP);
-    assert.deepEqual(retiredGarrison.routes, []);
+    // The garrison is 'pvp'-labeled because sector-war ORCHESTRATES its scoring
+    // (this file's own lock/receipt machinery), not because its combat engine is
+    // PvP's — it runs on Solo PvE, same as Anbu Infiltration. That is exactly
+    // the "orchestration, never a gameplay engine" boundary this test asserts.
+    const garrisonMode = runtimeModeById('sector-war-shinobi-garrison');
+    assert.equal(garrisonMode.status, 'match');
+    assert.equal(garrisonMode.authorityEngine, RUNTIME_AUTHORITY_ENGINES.PVP);
+    assert.equal(garrisonMode.intendedAuthorityEngine, undefined);
+    assert.ok(garrisonMode.routes.length > 0);
   });
 });
 

@@ -41,6 +41,7 @@ client resolver, not a server combat session.
 | Endless | `endless/run` + `endless/wave-start` / `solo-pve/action` / `solo-pve/state` | Endless action hook + runtime-neutral `Arena` | Durable Endless run + wave binding + Solo session | Solo session owns opponent/actions/outcome/vitals/items; wave settle advances and rewards once | solo-PvE | Migrated; terminal settlement is retryable and the sealed opponent is never rerolled. |
 | Hollow Gate shinobi | `hollow-gate/combat-start` / `solo-pve/action` / `solo-pve/state` / `combat-settle` | Hollow Gate screen + normal `Arena` | Durable HG run/manifest/ledger + combat binding + Solo session | Solo session owns combat; HG owns movement, encounter identity, exact reward credits, extraction/death reconciliation, and recovery markers | solo-PvE | Migrated; no rewarding tokenless or client-haul path remains. |
 | Anbu infiltration | `village/anbu-infiltration` start/state/settle plus `solo-pve/action` | `AnbuVaultRaid` using the normal Arena shell | Solo session + durable infiltration binding/recovery record | One human and an optional sealed companion fight one defender; Solo owns actions/outcome/vitals/items and infiltration settlement consumes terminal evidence once | solo-PvE | Migrated. The retired custom `act` operation returns 410; support is the same server-owned companion model as normal Arena, not an independent party slot. |
+| Sector War garrison fallback | `village/sector-war` `garrison-start`/`garrison-resolve` plus `solo-pve/action` | `SectorWarGarrisonAssault` using the normal Arena shell | Solo session + durable `sector-war-garrison:<runId>` binding/recovery record | One attacker fights a sealed snapshot of the defending village's real ANBU; Solo owns actions/outcome/vitals/items, and `garrison-resolve` settles the attacker's own combat costs AND — under the sector-war contest's own lock — the SAME scored contest points a live-defender fight would (half-weight, capped) | solo-PvE (`pvp`-orchestrated) | Rebuilt 2026-08-18 after the wrong-owner Tower-backed version (`d37aa4d62`) was retired. Same encounter shape as Anbu infiltration (a real appointed defender's sealed snapshot, not a generic bot), but the outcome feeds Sector War's contest instead of a standalone reward — see `api/_sector-war-garrison-encounter.ts` / `api/_sector-war-garrison-store.ts`. |
 
 The rows above preserve the Solo-PvE cutover evidence and its adjacent PvP
 reference rows. Current non-Solo mode rows are not duplicated in another
@@ -51,7 +52,11 @@ boundary distinctions are mandatory:
 - Tower covers Battle Towers (solo or party), Tower party admission, Endless
   Spire, Clan Boss, and Tower PvP. Village-war mercenary combat is an explicitly
   declared headless Tower use. Sector War's former Tower-backed garrison fallback
-  is retired fail-closed and remains an explicit PvP surface gap.
+  stays retired for good; the rebuilt garrison (`garrison-start`/`garrison-resolve`
+  on `api/village/sector-war.ts`) runs on solo-PvE against a sealed real-ANBU
+  snapshot instead, with its outcome scored into the sector-war contest under
+  `pvp`-labeled orchestration (see the row above and
+  `docs/architecture/combat-runtime-boundaries.md`).
 - PvP owns Clan War shinobi 1v1. Clan War shinobi 2v2 remains a distinct
   intended-PvP surface gap: new send/join/accept progression returns `410`, and
   retained queue records are cleanup-only until one four-player authority can

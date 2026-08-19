@@ -26,7 +26,7 @@ test("new admissions fail closed until public capability truth is available", ()
 });
 
 test("only dedicated Sector campaign screens are blocked by village-war truth", () => {
-    for (const screen of ["villageWarMap", "sectorCard", "sectorPet"] as const) {
+    for (const screen of ["villageWarMap", "sectorCard", "sectorPet", "sectorGarrison"] as const) {
         assert.equal(isVillageWarDedicatedScreen(screen), true);
         assert.equal(villageWarScreenMountAllowed(screen, "unknown"), false);
         assert.equal(villageWarScreenMountAllowed(screen, "unavailable"), false);

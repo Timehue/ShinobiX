@@ -5,6 +5,7 @@ const VILLAGE_WAR_DEDICATED_SCREENS: ReadonlySet<Screen> = new Set([
     "villageWarMap",
     "sectorCard",
     "sectorPet",
+    "sectorGarrison",
 ]);
 export type PlayerSurfaceBlockerMode = "maintenance";
 
