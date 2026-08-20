@@ -351,7 +351,8 @@ export function DungeonRareBeastBattle({
                 {eligiblePets.length > 1 && <div className="menu" style={{ marginBottom: "0.75rem" }}><label style={{ fontWeight: 600, marginRight: "0.5rem" }}>Choose your pet:</label><select value={chosenPetId} onChange={(event) => setChosenPetId(event.target.value)}><option value="">Choose…</option>{eligiblePets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} (Lv {pet.level} · {pet.rarity})</option>)}</select></div>}
                 <div className="pet-arena-grid"><PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} /><div className="pet-arena-card"><p className="act-label">SERVER-SEALED OPPONENT</p><h3>Dungeon Rare Beast</h3><p className="hint">Species, stats, seed, and outcome are revealed only by the combat authority.</p></div></div>
                 {error && <p role="alert" className="hint">{error}</p>}
-                <div className="menu"><button className="admin-button" disabled={startBusy} onClick={() => { void startBattle(); }}>{startBusy ? "Sealing…" : "Start Pet Battle"}</button><button className="danger-button" disabled={startBusy} onClick={onLeave}>Leave Dungeon</button></div>
+                {/* Leave stays enabled while sealing: it is the escape hatch if the start request stalls. */}
+                <div className="menu"><button className="admin-button" disabled={startBusy} onClick={() => { void startBattle(); }}>{startBusy ? "Sealing…" : "Start Pet Battle"}</button><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>
             </div>
         );
     }
