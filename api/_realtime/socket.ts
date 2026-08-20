@@ -38,8 +38,8 @@ import { kv } from '../_storage.js';
 import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
-import { setOnSweep, setOnDuelDrop } from './game-loop.js';
-import { wirePetDuel, notifyPeerGone } from './pet-duel-socket.js';
+import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
+import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt, type TravelLease } from './travel-lease.js';
@@ -167,6 +167,10 @@ function wireRealtime(io: IOServer): void {
     setOnDuelDrop((session, dropped) => {
         for (const side of dropped) notifyPeerGone(io, session, side);
     });
+
+    // A challenge nobody answered lapses on the server — tell the challenger, or
+    // their "waiting to accept" panel sits there forever over a dead invite.
+    setOnDuelExpire((session) => notifyInviteExpired(io, session));
 
     // ── Handshake auth: reuse the EXACT HTTP auth (token → password → ban). ──
     io.use(async (socket, next) => {

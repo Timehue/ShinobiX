@@ -17,6 +17,7 @@ import { sweepSessions, type PetDuelSession, type DuelSide } from './pet-duel-se
 let _timer: ReturnType<typeof setInterval> | null = null;
 let _onSweep: ((removedPlayers: OnlinePlayer[]) => void) | null = null;
 let _onDuelDrop: ((session: PetDuelSession, dropped: DuelSide[]) => void) | null = null;
+let _onDuelExpire: ((session: PetDuelSession) => void) | null = null;
 
 /**
  * Register a callback for players who go silent mid-duel. The socket layer uses
@@ -26,6 +27,15 @@ let _onDuelDrop: ((session: PetDuelSession, dropped: DuelSide[]) => void) | null
  */
 export function setOnDuelDrop(cb: ((session: PetDuelSession, dropped: DuelSide[]) => void) | null): void {
     _onDuelDrop = cb;
+}
+
+/**
+ * Register a callback for challenges that lapse unanswered. The socket layer
+ * uses it to tell the challenger — the server otherwise expires the invite
+ * silently, leaving that player's "waiting to accept" panel up forever.
+ */
+export function setOnDuelExpire(cb: ((session: PetDuelSession) => void) | null): void {
+    _onDuelExpire = cb;
 }
 
 /**
@@ -58,7 +68,11 @@ export function startGameLoop(): void {
             // Live PvP pet duels: lapse unaccepted invites and drop players who
             // stopped reporting, so a survivor's watermark starts moving again.
             try {
-                sweepSessions(Date.now(), (session, dropped) => _onDuelDrop?.(session, dropped));
+                sweepSessions(
+                    Date.now(),
+                    (session, dropped) => _onDuelDrop?.(session, dropped),
+                    (session) => _onDuelExpire?.(session),
+                );
             } catch (err) {
                 console.error('[game-loop] pet-duel sweep error:', (err as Error).message);
             }

@@ -258,13 +258,23 @@ export function endSession(id: string, status: 'finished' | 'abandoned'): void {
 }
 /** Expire lapsed invites and abandoned fights. Called from the 1 s game loop.
  *  `onDrop` fires for a session where someone went silent but the fight lives on,
- *  so the transport can tell the survivor and push the unblocked watermark. */
+ *  so the transport can tell the survivor and push the unblocked watermark.
+ *  `onExpire` fires for an invite that lapsed unanswered, so the transport can
+ *  tell the challenger — without it their "waiting to accept" state never clears
+ *  and they stay duel-busy against a session that no longer exists. */
 export function sweepSessions(
     now: number,
     onDrop?: (session: PetDuelSession, dropped: DuelSide[]) => void,
+    onExpire?: (session: PetDuelSession) => void,
 ): void {
     for (const s of [...sessions.values()]) {
-        if (inviteExpired(s, now)) { endSession(s.id, 'abandoned'); continue; }
+        if (inviteExpired(s, now)) {
+            if (onExpire) {
+                try { onExpire(s); } catch { /* a listener must never break the sweep */ }
+            }
+            endSession(s.id, 'abandoned');
+            continue;
+        }
         const dropped = sweepStalled(s, now);
         if (s.status === 'abandoned') { endSession(s.id, 'abandoned'); continue; }
         if (dropped.length && onDrop) {

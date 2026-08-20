@@ -18,6 +18,12 @@
  *   input     {id,tick,cmd}   sync     {id,safeTick,inputs}    (to both)
  *   progress  {id,tick}       peerGone {id,side}               (to the survivor)
  *   resign    {id}            over     {id,winner,reason}      (to both)
+ *   result    {id}            sync / over / nothing            (to the asker)
+ *
+ * `result` is the reconnect path: a client whose socket dropped mid-fight asks
+ * what actually happened. A live session answers with a fresh `sync`; a fight
+ * the server already settled answers by re-emitting its `over`; an unknown id
+ * answers with nothing, and the client falls back to its local view.
  *
  * `sync` is cumulative and idempotent on the client, so a dropped frame costs a
  * round trip and nothing else — which is why there is no per-message ack.
@@ -106,11 +112,42 @@ function pushSync(io: IOServer, s: PetDuelSession): void {
     io.to(duelRoom(s.id)).emit('petduel:sync', { id: s.id, ...syncPayload(s) });
 }
 
+/** Settled fights, kept briefly so a player whose socket was down when the
+ *  `over` broadcast went out can still ask what happened (`petduel:result`)
+ *  instead of having to record a guess. Names are kept so only a participant
+ *  can read a verdict. */
+interface RecentResult { winner: DuelSide | null; reason: string; p1: string; p2: string; at: number }
+const RECENT_RESULT_TTL_MS = 5 * 60_000;
+const RECENT_RESULT_CAP = 500;
+const recentResults = new Map<string, RecentResult>();
+function rememberResult(s: PetDuelSession, winner: DuelSide | null, reason: string, now: number): void {
+    for (const [id, r] of recentResults) {
+        if (now - r.at >= RECENT_RESULT_TTL_MS) recentResults.delete(id);
+    }
+    // Insertion order is age order, so trimming the head is trimming the oldest.
+    while (recentResults.size >= RECENT_RESULT_CAP) {
+        const oldest = recentResults.keys().next().value;
+        if (oldest === undefined) break;
+        recentResults.delete(oldest);
+    }
+    recentResults.set(s.id, { winner, reason, p1: s.p1.name, p2: s.p2.name, at: now });
+}
+
 /** Tear a session down and tell whoever is still listening. */
 export function finishDuel(io: IOServer, s: PetDuelSession, winner: DuelSide | null, reason: 'ko' | 'resign' | 'abandoned'): void {
+    rememberResult(s, winner, reason, Date.now());
     io.to(duelRoom(s.id)).emit('petduel:over', { id: s.id, winner, reason });
     rosters.delete(s.id);
     endSession(s.id, reason === 'abandoned' ? 'abandoned' : 'finished');
+}
+
+/** Called by the game-loop sweep when a challenge lapses unanswered. Mirrors the
+ *  explicit-decline path so the challenger's "waiting to accept" panel clears the
+ *  same way whether the opponent said no or simply never answered — without this
+ *  the invite expires SILENTLY and that player stays duel-busy forever. */
+export function notifyInviteExpired(io: IOServer, s: PetDuelSession): void {
+    io.to(userRoom(s.p1.name)).emit('petduel:declined', { id: s.id, by: '' });
+    rosters.delete(s.id);
 }
 
 /** Fighter ids belonging to a side, for the mode this session is running. */
@@ -132,18 +169,23 @@ function autonomyOf(s: PetDuelSession): LockstepAutonomy[] {
     return out;
 }
 
-/** Called by the game-loop sweep when a player goes silent mid-fight. */
-export function notifyPeerGone(io: IOServer, s: PetDuelSession, gone: DuelSide): void {
+/** The hand-over notice for a side on standing orders. The tick is
+ *  SERVER-computed and sent to both clients, so they put the pet on standing
+ *  orders at the identical tick. Deriving it locally on each side would be a
+ *  desync waiting to happen. */
+function peerGonePayload(s: PetDuelSession, gone: DuelSide): Record<string, unknown> {
     const seat = rosters.get(s.id);
-    // The hand-over tick is SERVER-computed and sent to both clients, so they put
-    // the pet on standing orders at the identical tick. Deriving it locally on
-    // each side would be a desync waiting to happen.
-    io.to(duelRoom(s.id)).emit('petduel:peerGone', {
+    return {
         id: s.id, side: gone,
         fromTick: (gone === 'p1' ? s.p1 : s.p2).autonomousFrom,
         actorIds: actorIdsFor(s, gone),
         doctrine: seat ? seat[gone].doctrine : undefined,
-    });
+    };
+}
+
+/** Called by the game-loop sweep when a player goes silent mid-fight. */
+export function notifyPeerGone(io: IOServer, s: PetDuelSession, gone: DuelSide): void {
+    io.to(duelRoom(s.id)).emit('petduel:peerGone', peerGonePayload(s, gone));
     // The watermark is no longer gated by the dropped player, so the survivor can
     // immediately keep simulating — push the new one rather than making them wait
     // for their next progress report.
@@ -158,6 +200,42 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
         const s = id ? getSession(id) : null;
         return s && sideOf(s, name) ? s : null;
     };
+
+    /** Put THIS socket back into its duel's room and replay what it missed.
+     *  Room membership is per-socket, so a reconnect lands on a socket that was
+     *  never joined — without this, no further `sync` (or the final `over`) can
+     *  reach the player and their fight freezes at "waiting for opponent". */
+    const catchUp = (s: PetDuelSession): void => {
+        socket.join(duelRoom(s.id));
+        if (s.status !== 'running') return;
+        // Hand-overs broadcast while this socket was away must be replayed, or
+        // the two clients simulate different fights from that tick on.
+        for (const side of ['p1', 'p2'] as const) {
+            if ((side === 'p1' ? s.p1 : s.p2).autonomousFrom != null) {
+                socket.emit('petduel:peerGone', peerGonePayload(s, side));
+            }
+        }
+        socket.emit('petduel:sync', { id: s.id, ...syncPayload(s) });
+    };
+
+    // A fresh connection may be a RECONNECT mid-duel: rejoin immediately rather
+    // than waiting for the client to ask.
+    const existing = sessionForPlayer(name);
+    if (existing && sideOf(existing, name)) catchUp(existing);
+
+    // The reconnect fallback: a client that suspects it missed the ending asks
+    // outright. Answered only for a participant; an unknown id gets silence and
+    // the client settles from its local view.
+    socket.on('petduel:result', (payload: unknown) => {
+        const p = (payload ?? {}) as { id?: unknown };
+        const s = sessionFor(p.id);
+        if (s) { catchUp(s); return; }
+        const id = typeof p.id === 'string' ? p.id : '';
+        const r = id ? recentResults.get(id) : undefined;
+        if (r && (r.p1 === name || r.p2 === name) && Date.now() - r.at < RECENT_RESULT_TTL_MS) {
+            socket.emit('petduel:over', { id, winner: r.winner, reason: r.reason });
+        }
+    });
 
     socket.on('petduel:challenge', async (payload: unknown) => {
         const p = (payload ?? {}) as { to?: unknown; mode?: unknown; pets?: unknown };
