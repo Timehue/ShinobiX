@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { accountKey, loadPlayerAccounts, savePlayerAccounts } from "./player-accounts";
+import { accountKey, forgetAccountToken, loadPlayerAccounts, rememberedShinobi, savePlayerAccounts } from "./player-accounts";
 import { PLAYER_ACCOUNTS_STORAGE } from "../constants/game";
 
 // These helpers were drained out of App.tsx. The reason they get tests now: they
@@ -93,4 +93,76 @@ test("a round-trip keeps the token and drops the password", () => {
     savePlayerAccounts({ kaida: { token: "abc" } });
     const back = loadPlayerAccounts();
     assert.deepEqual(back, { kaida: { token: "abc" } });
+});
+
+// ── "Continue as" chips ─────────────────────────────────────────────────────
+// The gate offers a one-press return for every account holding a token. A token
+// that has already expired is not a way back in: pressing its chip re-installed
+// the dead credential, the save GET came back 401, and App reported that as
+// "No save found for that name" — which reads as the character being deleted.
+// These pin the two halves of the fix: never offer a dead token, and forget one
+// the moment the server proves it dead.
+
+/** A token shaped like the real thing: `v2.<name>.<expMs>.<epoch>.<sig>`. */
+function tokenExpiring(atMs: number) {
+    return `v2.kaida.${atMs}.1.sig`;
+}
+
+test("rememberedShinobi offers a live token and hides an expired one", () => {
+    installLocalStorage({
+        [PLAYER_ACCOUNTS_STORAGE]: JSON.stringify({
+            kaida: { token: tokenExpiring(Date.now() + 60_000) },
+            rill: { token: tokenExpiring(Date.now() - 60_000) },
+        }),
+    });
+
+    assert.deepEqual(rememberedShinobi(), [{ name: "kaida", guest: false }]);
+});
+
+test("rememberedShinobi still offers a guest whose token lapsed", () => {
+    // A guest's resume credential outlives the 24h token by two weeks, so their
+    // chip stays pressable long after the token behind it dies.
+    installLocalStorage({
+        "shinobix:guestName": "rill",
+        [PLAYER_ACCOUNTS_STORAGE]: JSON.stringify({
+            rill: { token: tokenExpiring(Date.now() - 60_000) },
+        }),
+    });
+
+    assert.deepEqual(rememberedShinobi(), [{ name: "rill", guest: true }]);
+});
+
+test("rememberedShinobi keeps a token it cannot read an expiry from", () => {
+    // Unrecognised shape means "unknown", not "dead". Guessing dead would strip
+    // a working credential and force a password the account may not even have.
+    installLocalStorage({
+        [PLAYER_ACCOUNTS_STORAGE]: JSON.stringify({ kaida: { token: "opaque" } }),
+    });
+
+    assert.deepEqual(rememberedShinobi(), [{ name: "kaida", guest: false }]);
+});
+
+test("forgetAccountToken drops only that account's token", () => {
+    installLocalStorage({
+        [PLAYER_ACCOUNTS_STORAGE]: JSON.stringify({ kaida: { token: "t1" }, rill: { token: "t2" } }),
+    });
+
+    forgetAccountToken("  KAIDA  ");
+
+    const accounts = loadPlayerAccounts();
+    assert.equal(accounts.kaida.token, undefined, "the dead token must be gone");
+    assert.ok("kaida" in accounts, "the account entry itself survives");
+    assert.equal(accounts.rill.token, "t2", "other accounts are untouched");
+});
+
+test("forgetAccountToken is a no-op for an unknown or empty name", () => {
+    const store = installLocalStorage({
+        [PLAYER_ACCOUNTS_STORAGE]: JSON.stringify({ kaida: { token: "t1" } }),
+    });
+    const before = store.get(PLAYER_ACCOUNTS_STORAGE);
+
+    forgetAccountToken("nobody");
+    forgetAccountToken("   ");
+
+    assert.equal(store.get(PLAYER_ACCOUNTS_STORAGE), before);
 });
