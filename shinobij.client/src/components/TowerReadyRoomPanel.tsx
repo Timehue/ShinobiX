@@ -36,6 +36,12 @@ const READY_ROOM_OBJECTIVE_LABEL: Record<string, string> = {
 };
 type ReadyRoomSyncState = "checking" | "live" | "reconnecting";
 
+// How long a party may sit in "launching"/"active" (without this client being
+// pulled into the run) before the Leave button unlocks as an escape hatch. The
+// transition normally lands in seconds; past this window the launch is wedged
+// and the server adjudicates the leave like any other mutation.
+const LAUNCH_TRANSITION_ESCAPE_MS = 60_000;
+
 function setRoomIfChanged(setRoom: Dispatch<SetStateAction<TowerPartyEnvelope>>, next: TowerPartyEnvelope, resultMode: TowerRoomResultMode = "adopt") {
     setRoom(current => reconcileTowerRoomEnvelope(current, next, resultMode));
 }
@@ -278,6 +284,23 @@ export function TowerReadyRoomPanel({
         setRealtimeConnected(isRealtimeConnected());
         return onStatus(setRealtimeConnected);
     }, []);
+
+    // Escape hatch for a wedged launch: while status is "launching"/"active"
+    // edits lock below, and if the server never completes the transition (or
+    // the run entry is lost) the player would have no way out of the room.
+    // Track how long the status has sat, and unlock Leave past the window.
+    const stuckStatusAnchor = room.party && (room.party.status === "launching" || room.party.status === "active")
+        ? (room.party.launch?.preparedAt ?? room.party.updatedAt)
+        : null;
+    const [escapeNow, setEscapeNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (stuckStatusAnchor == null) return;
+        setEscapeNow(Date.now());
+        const id = window.setInterval(() => setEscapeNow(Date.now()), 10_000);
+        return () => window.clearInterval(id);
+    }, [stuckStatusAnchor]);
+    const leaveEscapeOpen = stuckStatusAnchor != null
+        && escapeNow - stuckStatusAnchor > LAUNCH_TRANSITION_ESCAPE_MS;
 
     const enterActiveRoom = useCallback(async (party: TowerPartyView) => {
         const runId = party.status === "active" ? party.launch?.runId : null;
@@ -815,7 +838,7 @@ export function TowerReadyRoomPanel({
                             {isHost && <button type="button" className="tower-ready-launch" disabled={Boolean(busy || !party.canLaunch)} onClick={() => void launchRoom()}>
                                 {busy === "launch" || party.status === "launching" ? "Launching…" : "Launch squad"}
                             </button>}
-                            <button type="button" className="tower-ready-leave" disabled={editsLocked}
+                            <button type="button" className="tower-ready-leave" disabled={Boolean(busy) || (editsLocked && !leaveEscapeOpen)}
                                 onClick={() => { void (async () => {
                                     const confirmed = await gameConfirm(leaveRoomPrompt(party, isHost));
                                     if (!confirmed) return;
