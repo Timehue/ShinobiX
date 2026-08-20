@@ -7336,11 +7336,23 @@ export type PetColiseumDuelProps = {
     /** Optional server-settled reward ceremony, mounted only with the result. */
     resultSupplement?: ReactNode;
     onExit: () => void;
+    /** Lockstep only: offered when a stall has lasted long past the server's own
+     *  drop window, i.e. THIS client's connection is the dead one. Unlike onExit
+     *  it must not forfeit — the server may have settled the fight already, so
+     *  the handler asks it for the authoritative result before settling. */
+    onConnectionLost?: () => void;
 };
 
 /** A lockstep session reports when it is waiting on its opponent. Single-player
  *  duels never stall, so the absence of the field reads as "not waiting". */
 const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).stalled === true;
+
+/** A stall that outlives this is no longer "the opponent is slow": the SERVER
+ *  drops a silent peer at 15s and immediately unblocks the watermark, so any
+ *  stall an intact connection can experience clears well inside that window.
+ *  One that does not means the missing syncs are ours — this client's own
+ *  connection is dead — and the banner escalates to say so. */
+const CONNECTION_LOST_AFTER_MS = 20_000;
 
 /** True for a LOCKSTEP (two-human) duel. Only a lockstep session carries a
  *  watermark, so its presence is the honest structural test — the controlled ids
@@ -7348,7 +7360,7 @@ const isStalledDuel = (d: LiveDuel): boolean => (d as { stalled?: boolean }).sta
 const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
     !!d && typeof (d as { safeTick?: number }).safeTick === "number";
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
     const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
@@ -7392,6 +7404,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // on the opponent. Surfaced rather than hidden — a silent freeze reads as a
     // crash, and the player needs to know it is the connection, not the game.
     const [waitingOnPeer, setWaitingOnPeer] = useState(false);
+    // …and for how long, continuously. A stall that outlasts the server's own
+    // 15s drop-and-unblock window means the missing syncs are OURS — the banner
+    // escalates from "waiting" to "connection lost" with a non-forfeit exit.
+    const stallStartedAt = useRef<number | null>(null);
+    const [connectionLost, setConnectionLost] = useState(false);
     // The tick a Bond Break was spent on — the meter counts events after it.
     const [bondSpentAt, setBondSpentAt] = useState(-1);
     // Optimistic echo of the most recent command, so a tap lights its button on the
@@ -8122,7 +8139,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             // shared watermark is min(both players' progress), so a client that
             // stops reporting freezes its opponent as well as itself.
             if (onProgress) onProgress(tick);
-            setWaitingOnPeer(isStalledDuel(live));
+            const stalled = isStalledDuel(live);
+            if (!stalled) stallStartedAt.current = null;
+            else if (stallStartedAt.current === null) stallStartedAt.current = Date.now();
+            setWaitingOnPeer(stalled);
+            setConnectionLost(stalled && Date.now() - (stallStartedAt.current ?? Date.now()) >= CONNECTION_LOST_AFTER_MS);
         }, 66);
         return () => window.clearInterval(timer);
     }, [live, onProgress]);
@@ -8652,16 +8673,35 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 rather than swallowed: an unexplained freeze mid-fight reads as a
                 crash, and this tells the player it is the connection. */}
             {waitingOnPeer && !ended && !cutIn && (
-                <div style={{
+                <div data-testid="pet-duel-stall-banner" style={{
                     position: "absolute", left: "50%", top: "34%", transform: "translateX(-50%)",
-                    zIndex: 15, pointerEvents: "none", textAlign: "center",
+                    zIndex: 15, pointerEvents: connectionLost ? "auto" : "none", textAlign: "center",
                     padding: "8px 18px", borderRadius: 999,
                     background: "rgba(8,11,22,0.82)", border: "1px solid rgba(148,163,184,0.5)",
                     color: "#cbd5e1", font: "800 13px/1.2 var(--font-display), Inter, system-ui, sans-serif",
                     letterSpacing: "0.06em", textTransform: "uppercase",
                     boxShadow: "0 6px 22px rgba(0,0,0,0.5)",
                 }}>
-                    Waiting for opponent…
+                    {connectionLost ? (
+                        <>
+                            <div style={{ color: "#fde68a" }}>Connection lost — the duel can’t continue here</div>
+                            {onConnectionLost && (
+                                // NOT the forfeit exit: the handler asks the server for
+                                // the authoritative result — which may be a win the
+                                // server settled while this client was unreachable.
+                                <button
+                                    data-testid="pet-duel-connection-lost-exit"
+                                    onClick={onConnectionLost}
+                                    style={{
+                                        marginTop: 8, padding: "6px 14px", borderRadius: 999, cursor: "pointer",
+                                        background: "rgba(245,158,11,0.16)", border: "1px solid #f59e0b",
+                                        color: "#fde68a", font: "800 12px/1.2 var(--font-display), Inter, system-ui, sans-serif",
+                                        letterSpacing: "0.06em", textTransform: "uppercase",
+                                    }}
+                                >Fetch result &amp; leave</button>
+                            )}
+                        </>
+                    ) : "Waiting for opponent…"}
                 </div>
             )}
 

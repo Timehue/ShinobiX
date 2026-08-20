@@ -208,6 +208,29 @@ test('the sweep clears lapsed invites and dead fights', () => {
     assert.equal(getSession('dead'), null, 'both sides went silent');
 });
 
+test('the sweep reports a lapsed invite so the challenger can be told', () => {
+    // Without the callback the invite expires SILENTLY: the challenger's
+    // "waiting to accept" panel never clears and they stay duel-busy forever.
+    const invite = makeSession({ id: 'inv', mode: '1v1', seed: 1, challenger: 'A', opponent: 'B', now: NOW });
+    putSession(invite);
+    const running = fresh();
+    // Keep the running fight's players fresh, or the same sweep stall-drops them.
+    reportProgress(running, 'p1', 10, NOW + DUEL_INVITE_TTL_MS);
+    reportProgress(running, 'p2', 10, NOW + DUEL_INVITE_TTL_MS);
+    const expired: string[] = [];
+    sweepSessions(NOW + DUEL_INVITE_TTL_MS + 1, undefined, (s) => expired.push(s.id));
+    assert.deepEqual(expired, ['inv'], 'only the lapsed invite is reported — never a running fight');
+    assert.equal(getSession('inv'), null, 'the invite is still cleared');
+    assert.equal(getSession(running.id)?.status, 'running');
+
+    // A callback that throws must not break the sweep or leak the session.
+    const invite2 = makeSession({ id: 'inv2', mode: '1v1', seed: 1, challenger: 'A', opponent: 'B', now: NOW });
+    putSession(invite2);
+    sweepSessions(NOW + DUEL_INVITE_TTL_MS + 1, undefined, () => { throw new Error('boom'); });
+    assert.equal(getSession('inv2'), null);
+    assert.equal(sessionForPlayer('A'), null, 'the challenger is released to duel again');
+});
+
 test('the sync payload carries the watermark and every command so far', () => {
     const s = fresh();
     reportProgress(s, 'p1', 20, NOW);

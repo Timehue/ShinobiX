@@ -75,6 +75,12 @@ export const acceptDuel = (id: string, pets: Pet[]): boolean =>
     emitRealtime("petduel:accept", { id, pets });
 export const declineDuel = (id: string): boolean => emitRealtime("petduel:decline", { id });
 
+/** Ask the server what actually happened to a duel — the reconnect path. A live
+ *  session answers with a fresh `sync`, a settled one re-emits its `over` (which
+ *  lands in the bound duel's `onOver` hook), an unknown id answers with nothing.
+ *  Returns false when realtime is down and there is nobody to ask. */
+export const requestDuelResult = (id: string): boolean => emitRealtime("petduel:result", { id });
+
 /** Subscribe to incoming challenges. */
 export function onDuelInvite(fn: (invite: DuelInvite) => void): () => void {
     return onRealtime("petduel:invite", (payload) => {
@@ -149,7 +155,10 @@ export function bindDuel(start: DuelStart, hooks: {
             if (actorIds.length && fromTick != null) {
                 duel.handOverToDoctrine({ actorIds, doctrine: parseDoctrine(p.doctrine) }, fromTick);
             }
-            hooks.onPeerGone?.();
+            // A reconnecting client is replayed the hand-overs it missed — which
+            // can include its OWN side's. The simulation hand-over above applies
+            // either way; the "opponent disconnected" notice only fits the peer.
+            if (p.side !== start.side) hooks.onPeerGone?.();
         }),
         onRealtime("petduel:over", (payload) => {
             const p = (payload ?? {}) as Record<string, unknown>;
