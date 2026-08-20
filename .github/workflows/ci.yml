@@ -19,6 +19,26 @@ env:
   VITE_SENTRY_RELEASE: ci
   VITE_BUILD_COMMIT: ${{ github.sha }}
 
+# Every step in this workflow pipes its command to `tee` so the evidence bundle
+# gets a log. The DEFAULT run shell is `bash -e {0}`, which has NO pipefail — so
+# each of those 34 pipelines reported tee's exit code, not the command's, and the
+# gate could print its own failure and still be recorded as a pass. Naming the
+# shell here gets `-eo pipefail` for every job at once.
+#
+# This was not theoretical. Two live failures were sitting behind it:
+#   * the build-size gate, printing `initial JS/CSS graph is 376.0 KB gzip;
+#     threshold is 376.0 KB` on green main runs while the Railway image build —
+#     `npm run build`, unpiped — was the thing that would actually have stopped;
+#   * `check:tooling-handoffs`, hard-crashing on an import of a constant that
+#     `_kage-challenge.ts` no longer exports, which in turn hid stale economy
+#     rows (the kage stake documented as 500 honorSeals when the code charges
+#     250,000 ryo, and two festival sinks off by 25k ryo and 10x fate shards).
+# Both are fixed in the same commit as this line; do not add a step here that is
+# meant to gate without confirming it actually passes.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   server_contracts:
     name: CI / server-contracts
@@ -156,15 +176,8 @@ jobs:
       - name: Story-content, TypeScript, and production client build
         run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-build.log
       - name: Build-size gate
-        # `shell: bash` is not redundant: the DEFAULT run shell is `bash -e {0}`,
-        # which has no `pipefail`, so `| tee` returned tee's exit code and this
-        # gate reported success while printing its own failure. Naming the shell
-        # gets `-eo pipefail`. It mattered — an over-budget initial graph reached
-        # main under a green check, and the next thing to notice was the Railway
-        # image build, which runs `npm run build` (sizecheck included) unpiped and
-        # simply stops deploying. Every other step in this job pipes to tee the
-        # same way; fix them the same way if they are meant to gate anything.
-        shell: bash
+        # Exit code survives the `| tee` via the workflow-level `defaults.run.shell`
+        # above. This is the step that proved the masking was real.
         run: npm run sizecheck 2>&1 | tee .ci-evidence/client-quality/build-size.log
       - name: Visual-baseline size gate
         run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
