@@ -106,10 +106,14 @@ export async function settleHollowGateRun(
 ): Promise<HollowGateSettleResult | null> {
     if (!playerName || !token) return null;
     try {
+        // Hard 12s deadline (same as the PvP move submit): a hung settle used to
+        // hold `exitPending` forever, blocking both Leave and Emergency Forfeit.
+        // The abort falls into the catch below — the flow's normal error path.
         const r = await fetch("/api/hollow-gate/settle", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, token, action: outcome === "death" ? "abandon" : "extract" }),
+            signal: AbortSignal.timeout(12_000),
         });
         const data = await r.json().catch(() => ({})) as HollowGateSettleResult;
         if (!r.ok || !data.ok) {

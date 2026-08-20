@@ -52,7 +52,6 @@ export function HollowGateBossCinematic({
                         <button
                             className="danger-button"
                             type="button"
-                            disabled={exitPending}
                             onClick={onEmergencyForfeit}
                             title="Ends the run as a defeat if the encounter cannot continue."
                         >

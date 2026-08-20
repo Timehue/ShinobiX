@@ -256,17 +256,29 @@ export async function submitSoloPveAction(params: {
     moveToken: string;
     action: SoloPveActionInput;
 }): Promise<SoloPveActionResponse> {
-    const response = await fetch('/api/solo-pve/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            sessionId: params.sessionId,
-            playerName: params.playerName,
-            expectedVersion: params.expectedVersion,
-            moveToken: params.moveToken,
-            ...params.action,
-        }),
-    });
+    // Hard 12s deadline (same as the PvP move submit): without it a hung fetch
+    // holds the caller's in-flight latch and freezes all combat input until the
+    // server's AFK path. The throw lands on the caller's normal error path.
+    let response: Response;
+    try {
+        response = await fetch('/api/solo-pve/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: params.sessionId,
+                playerName: params.playerName,
+                expectedVersion: params.expectedVersion,
+                moveToken: params.moveToken,
+                ...params.action,
+            }),
+            signal: AbortSignal.timeout(12_000),
+        });
+    } catch (cause) {
+        if (cause instanceof DOMException && (cause.name === 'TimeoutError' || cause.name === 'AbortError')) {
+            throw new Error('The combat server did not respond in time. Try the action again.', { cause });
+        }
+        throw cause;
+    }
     const body = await json<SoloPveActionResponse>(response);
     if (!response.ok && !body.session) throw new Error(body.error ?? `Request failed (${response.status})`);
     return body;
