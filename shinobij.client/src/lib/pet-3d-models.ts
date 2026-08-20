@@ -1,6 +1,8 @@
 import { petVisualId } from "../data/pet-evolutions";
 import type { Pet } from "../types/pet";
 import { approvedRosterCombatModel } from "./pet-3d-roster";
+import { petShowdownAnimationModelUrl } from "./pet-showdown-animation-assets";
+import { PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
 
 export type PetCombatModelProfile = "quadruped" | "biped" | "avian" | "serpentine" | "heavy";
 
@@ -24,7 +26,7 @@ const CLOSEUP_MODEL_FALLBACKS: ReadonlySet<string> = new Set([
 ]);
 
 /** Cache revision shared by all 15 starter production GLBs. */
-export const STARTER_MODEL_ASSET_REVISION = "20260728-grounded-meshopt-v2";
+export const STARTER_MODEL_ASSET_REVISION = PROPER_PET_ANIMATION_ASSET_REVISION;
 
 const MODEL_URL_OVERRIDES: Readonly<Record<string, string>> = {
     // Rebuilt from a seal-specific three-quarter reference. The first rare-water
@@ -121,12 +123,13 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
         return approvedRosterCombatModel({ id: requestedVisualId, name: canonicalPet.name ?? requestedVisualId });
     }
     const profile = MODEL_PROFILES[visualId];
+    const showdownAnimationUrl = petShowdownAnimationModelUrl(visualId);
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
     const isRareWaterSelkie = visualId === "starter-water-r";
     const targetHeight = MODEL_TARGET_HEIGHTS[visualId];
     return {
         visualId,
-        url: `${overrideUrl ?? `/pet-models/${visualId}.glb`}?v=${STARTER_MODEL_ASSET_REVISION}`,
+        url: showdownAnimationUrl ?? `${overrideUrl ?? `/pet-models/${visualId}.glb`}?v=${STARTER_MODEL_ASSET_REVISION}`,
         profile,
         targetHeight: targetHeight ?? (isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35),
         fit: MODEL_FIT_OVERRIDES[visualId] ?? (isRareWaterSelkie ? "height" : profile === "serpentine" ? "longest" : "height"),

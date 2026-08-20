@@ -9,6 +9,7 @@ import {
     petVictoryArcHeight,
 } from "./pet-3d-models.ts";
 import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, ROSTER_MODEL_PROFILES } from "./pet-3d-roster.ts";
+import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "./pet-showdown-animation-assets.ts";
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
 
@@ -38,7 +39,10 @@ test("all ten evolved starter forms have a combat model", () => {
     for (const element of ["fire", "water", "wind", "lightning", "earth"]) {
         const rare = petCombatModel(pet(`starter-${element}`, 1, "rare"));
         const legendary = petCombatModel(pet(`starter-${element}`, 2, "legendary"));
-        if (element === "water") {
+        if (element === "fire" || element === "lightning") {
+            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(legendary?.url, `/pet-models/showdown-v2/starter-${element}-l.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`);
+        } else if (element === "water") {
             assert.equal(rare?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
             assert.equal(legendary?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
         } else {
@@ -47,6 +51,17 @@ test("all ten evolved starter forms have a combat model", () => {
         }
         assert.ok((legendary?.targetHeight ?? 0) > (rare?.targetHeight ?? 0));
     }
+});
+
+test("the four-pet Showdown lineup resolves to its species-authored animation assets", () => {
+    assert.equal(
+        petCombatModel({ ...pet("rare-1", undefined, "rare"), name: "Frost Hare" })?.url,
+        `/pet-models/showdown-v2/rare-1.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
+    );
+    assert.equal(
+        petCombatModel({ ...pet("standard-7"), name: "Ashen Crow" })?.url,
+        `/pet-models/showdown-v2/standard-7.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
+    );
 });
 
 test("unrelated unmodeled pets keep the safe standee fallback", () => {
