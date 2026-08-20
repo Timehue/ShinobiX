@@ -13,8 +13,10 @@ export function beginSessionLoad(generationRef: MutableNumberRef, accountName: s
 }
 
 export async function sessionLoadFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 15_000): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-    try { return await fetch(input, { ...init, signal: controller.signal }); }
-    finally { window.clearTimeout(timeoutId); }
+    // AbortSignal.timeout (not a self-cleared controller): the old shape
+    // disarmed its timer the moment HEADERS arrived, leaving the body read —
+    // the largest thing the entry path streams — unbounded. This signal stays
+    // armed through body consumption, so `await res.json()` at the call sites
+    // inherits the same deadline instead of hanging a login gate forever.
+    return await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 }

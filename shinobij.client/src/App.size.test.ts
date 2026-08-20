@@ -251,7 +251,13 @@ import { readFileSync } from "node:fs";
 //
 // Still the exact achieved count with NO buffer, and the paydown note above
 // still stands.
-const MAX_LINES = 7_670;
+//
+// → 7,661 LOWERED (−9) by the 2026-08-20 stuck-state sweep: the session-expiry
+// re-auth modal drained to components/SessionExpiredModal.tsx and the new boot
+// watchdog born directly in lib/boot-gate-watchdog.ts, which together paid for
+// the sweep's in-App additions (Google-return backstop, reauth hardening,
+// avatar-publish timebox) with room left over.
+const MAX_LINES = 7_661;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
