@@ -13,6 +13,17 @@ describe("session-load response authority", () => {
         assert.match(boot, /const restoreLoad = beginSessionLoad\(sessionLoadGenerationRef, localAccountName\)/);
         assert.match(boot, /if \(!restoreLoad\.isCurrent\(\)\) return;[\s\S]*?saveConflictAccountKey\(snap\.character\.name\) === restoreLoad\.accountKey[\s\S]*?applySnapshot/);
         assert.match(boot, /const revertRestoreToLogin = \(\) => \{[\s\S]*?restoreLoad\.retire\(\)/);
+        // Deadlock regression (2026-08-19): retire() bumps the generation, so the
+        // .finally()'s isCurrent() guard skips its own setRestoringSession(false)
+        // — and the 12s backstop timer is already cleared by then. Unless the
+        // revert drops the gate itself, a failed pull (expired 24h token → 401 on
+        // /api/save/<name>) pins every returning player on the "Restoring…"
+        // screen forever instead of the pre-filled login form.
+        assert.match(
+            boot,
+            /const revertRestoreToLogin = \(\) => \{[\s\S]*?restoreLoad\.retire\(\);[\s\S]*?setRestoringSession\(false\);[\s\S]*?setRestoreFailed\(true\);/,
+            "revertRestoreToLogin must drop the restoring gate itself — after retire(), the finally's generation guard will not",
+        );
         assert.match(boot, /return \(\) => \{\s*sessionLoadGenerationRef\.current \+= 1;\s*if \(!restoreCompleted\) bootRestoreStartedRef\.current = false;\s*\};/,
             "cleanup must retire stale continuations and let an interrupted capability-gated restore retry");
     });
