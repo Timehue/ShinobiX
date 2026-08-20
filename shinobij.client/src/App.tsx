@@ -3630,6 +3630,12 @@ export default function App() {
             const revertRestoreToLogin = () => {
                 if (!restoreLoad.isCurrent()) return;
                 restoreLoad.retire();
+                // retire() makes the .finally() below see a stale generation and
+                // skip its setRestoringSession(false) — so the gate MUST drop
+                // here, or a failed pull (expired 24h token → 401) strands the
+                // player on the "Restoring…" screen forever with the 12s
+                // backstop already cleared.
+                setRestoringSession(false);
                 setRestoreFailed(true);
                 if (didOptimisticPaint) {
                     setScreen("start");
