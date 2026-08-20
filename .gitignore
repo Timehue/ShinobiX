@@ -405,6 +405,8 @@ shinobij.client/public/pet-models/
 shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/roster/
 !shinobij.client/public/pet-models/roster/*.glb
+!shinobij.client/public/pet-models/showdown-v2/
+!shinobij.client/public/pet-models/showdown-v2/*.glb
 # Stage-0 starters — the model every new player fights with before evolving.
 !shinobij.client/public/pet-models/starter-earth.glb
 !shinobij.client/public/pet-models/starter-fire.glb
@@ -444,6 +446,7 @@ scripts/vfx-sources/
 shinobij.client/playwright-report/
 shinobij.client/test-results/
 shinobij.client/.playwright-dist-*/
+shinobij.client/dist-perf/
 qa-*.jpeg
 qa-*.png
 

@@ -167,6 +167,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
     const prevDown = useRef(false);
     const prevState = useRef("");
     const strikeAt = useRef(-10);
+    const deadAt = useRef<number | null>(null);
     const flash = useRef(0);
     const prevHp = useRef(Number.POSITIVE_INFINITY);
     const faceSm = useRef<[number, number]>([id.startsWith("blue") ? 1 : -1, 0]);
@@ -191,7 +192,8 @@ function Fighter3D({ result, clock, id, pet, config }: {
         const teleport = tdx * tdx + tdz * tdz > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
         const px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
-        const justBack = prevDown.current && !down;
+        const wasDown = prevDown.current;
+        const justBack = wasDown && !down;
         if (smX.current === null || smZ.current === null || teleport || down || justBack) { smX.current = px; smZ.current = pz; }
         else { smX.current += (px - smX.current) * 0.38; smZ.current += (pz - smZ.current) * 0.38; }
         const dx = smX.current - lastPos.current[0], dz = smZ.current - lastPos.current[1];
@@ -200,13 +202,16 @@ function Fighter3D({ result, clock, id, pet, config }: {
         // Hysteresis so a pet at the movement threshold commits to idle OR run.
         const moving = !down && (wasMoving.current ? spd > 0.005 : spd > 0.014);
         wasMoving.current = moving;
+        const now = state.clock.elapsedTime;
+        if (down && !wasDown) deadAt.current = now;
+        if (justBack) deadAt.current = null;
+        const showingDeath = down && deadAt.current !== null && now - deadAt.current < 1.25;
         prevDown.current = down;
         g.position.set(smX.current, 0, smZ.current);
-        if (body.current) body.current.visible = !down;
+        if (body.current) body.current.visible = !down || showingDeath;
 
         // Strike pulse: the sim's "attack" state spans the whole swing cooldown,
         // so the skeletal strike fires from the state ENTRY edge and self-times.
-        const now = state.clock.elapsedTime;
         if (a0.state === "attack" && prevState.current !== "attack") strikeAt.current = now;
         prevState.current = a0.state;
         const striking = now - strikeAt.current < 0.3;
@@ -225,7 +230,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
         const frac = a0.hp / Math.max(1, a0.maxHp);
 
         const mf = modelFrame.current;
-        mf.motion = arenaModelMotion(a0.state, moving, striking);
+        mf.motion = showingDeath ? "dead" : arenaModelMotion(a0.state, moving, striking);
         mf.moving = moving;
         smSpd.current = lerp(smSpd.current, spd, 0.3);
         mf.speed = smSpd.current;
@@ -248,7 +253,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
             auraMat.current.opacity = a0.carrying ? 0.5 : 0.3;
         }
         if (shadow.current && shadowMat.current) {
-            shadow.current.visible = !down;
+            shadow.current.visible = !down || showingDeath;
             shadow.current.position.set(smX.current, 0.045, smZ.current);
             shadowMat.current.opacity = 0.36;
         }

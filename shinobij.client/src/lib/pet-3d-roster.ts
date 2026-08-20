@@ -4,6 +4,8 @@ import {
     HOLLOW_HOUND_MODEL_SOURCE_ID,
     isHollowHoundEncounterId,
 } from "../../../shared/hollow-gate-contract";
+import { petShowdownAnimationModelUrl } from "./pet-showdown-animation-assets";
+import { PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
 
 /** Models only enter this list after generation, mesh-budget validation,
  * multi-angle review, and an in-battle pass. Keeping approval in source makes a
@@ -28,10 +30,11 @@ export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set(APPROVED_R
  * early untextured or untrimmed candidate alive for the rest of the browser
  * session. Bump this revision whenever the approved production GLBs change.
  */
-export const ROSTER_MODEL_ASSET_REVISION = "20260803-breeding-mythics-v10";
+export const ROSTER_MODEL_ASSET_REVISION = PROPER_PET_ANIMATION_ASSET_REVISION;
 
 function rosterModelUrl(id: string): string {
-    return `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`;
+    return petShowdownAnimationModelUrl(id)
+        ?? `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`;
 }
 
 // The three built-in Coliseum opponents predate the canonical pet roster, so

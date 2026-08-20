@@ -2051,7 +2051,7 @@
       "system": "festival",
       "id": "black-market-pull",
       "currency": "ryo",
-      "amount": 50000,
+      "amount": 75000,
       "cadence": "per pull",
       "authority": "api/festival/_black-market.ts",
       "notes": ""
@@ -2060,7 +2060,7 @@
       "system": "festival",
       "id": "sunscar-fate-die",
       "currency": "fateShards",
-      "amount": 25,
+      "amount": 250,
       "cadence": "per roll",
       "authority": "api/festival/_sunscar.ts",
       "notes": ""
@@ -2077,8 +2077,8 @@
     {
       "system": "kage",
       "id": "declare-challenge",
-      "currency": "honorSeals",
-      "amount": 500,
+      "currency": "ryo",
+      "amount": 250000,
       "cadence": "per challenge",
       "authority": "api/village/_kage-challenge.ts",
       "notes": ""
