@@ -579,38 +579,6 @@
     filter: brightness(1.05);
 }
 
-.landing-auth-tabs {
-    display: flex;
-    gap: 6px;
-    margin: 2px 0 16px;
-    padding: 5px;
-    border-radius: 8px;
-    background: rgba(2, 6, 23, 0.55);
-    border: 1px solid rgba(202, 138, 4, 0.3);
-}
-
-.landing-auth-tab {
-    flex: 1;
-    appearance: none;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    border-radius: 7px;
-    color: #978257;
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 13px;
-    padding: 10px 8px;
-    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
-    white-space: nowrap;
-}
-
-.landing-auth-tab:hover {
-    color: #e7d8a8;
-}
-
 .landing-auth-tab.is-active {
     color: var(--gold-300);
     background: linear-gradient(180deg, rgba(146, 64, 14, 0.78), rgba(69, 26, 3, 0.82));
@@ -1488,11 +1456,6 @@
         border-color: rgba(250, 204, 21, 0.52);
         background: linear-gradient(180deg, rgba(250, 204, 21, 0.12), rgba(6, 9, 18, 0.5));
         box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.08), 0 4px 12px rgba(0, 0, 0, 0.26);
-    }
-    .landing-auth-tab {
-        font-size: 12px;
-        letter-spacing: 0.05em;
-        padding: 10px 6px;
     }
     .landing-hero-actions {
         flex-direction: column;

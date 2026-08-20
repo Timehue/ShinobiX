@@ -317,17 +317,28 @@ const TOTAL_JS_CSS_FAIL_BYTES = 7_700_000;
 // The drained entry measured 571,995 B, so the gate was lowered to 640,000.
 const ENTRY_JS_FAIL_BYTES = 640_000;
 const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
-// 2026-08-20: TEMPORARY, and it must come back down. public/boot-watchdog.js
-// (1,859 B gz) is a pre-React recovery script that has to load BEFORE the
-// module graph to catch a boot that never finishes, so it cannot be made lazy
-// or deferred. It put the initial graph at 385,047 B gz — 47 B over the old
-// 385,000 gate — which failed the Docker build and blocked every production
-// deploy while CI stayed green (CI sizechecks the CLIENT build; Railway builds
-// via scripts/build-client.mjs, so the two do not measure the same bundle).
-// Raised to 390,000 to unblock, following the same raise-then-lower path
-// ENTRY_JS_FAIL_BYTES took in 2026-07-22. LOWER THIS after the next drain:
-// pet-presentation (5,871 B gz), pet-config (4,583 B) and jutsu-visuals
-// (2,273 B) are all still on the initial graph and are the obvious candidates.
+// 2026-08-20: raised to 390,000 as a TEMPORARY re-baseline when
+// public/boot-watchdog.js (1,859 B gz) put the initial graph 47 B over the old
+// 385,000 gate and blocked every production deploy. That watchdog is a pre-React
+// recovery script that must load BEFORE the module graph to catch a boot that
+// never finishes, so it cannot be lazied or deferred — the budget had to move.
+//
+// One correction to that entry, because it matters for trusting this gate: CI
+// did not stay green because it measures a different bundle. Both paths build
+// into shinobij.client/dist and sizecheck reads that same directory. CI stayed
+// green because every step in ci.yml pipes to `tee` under the default `bash -e`
+// shell, which has no pipefail — so sizecheck PRINTED
+// `initial JS/CSS graph is 376.0 KB gzip; threshold is 376.0 KB` and the job was
+// still recorded as a pass. The unpiped `npm run build` in the Docker image is
+// what actually stopped. That is fixed separately with a workflow-level
+// `defaults.run.shell: bash`.
+//
+// LOWERED HERE after a dead-rule sweep of the eager manifest: 64 rules /
+// 11,588 B of source CSS whose classes appear nowhere outside the stylesheets
+// (.start-nav-*, .hol-bounty-*, .ui-pill*, .profile-info-grid,
+// .sector-road-marker and friends). Deleting rules reorders nothing, so the
+// load-bearing cascade order inside each manifest part is untouched; every
+// surviving rule was verified byte-identical and in place.
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 390_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;

@@ -5,6 +5,9 @@ import {
     attachAdminSessionCredential,
     buildSaveVersionEventDetail,
     clearRecoveryAdminSession,
+    getSocketAuth,
+    setActivePlayer,
+    setActiveToken,
     setAdminSession,
     setRecoveryAdminSession,
 } from "./authFetch";
@@ -28,6 +31,38 @@ import {
  */
 
 const source = readFileSync(new URL("./authFetch.ts", import.meta.url), "utf8");
+const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+
+/**
+ * Run `body` against fresh in-memory sessionStorage AND localStorage. The player
+ * identity helpers write to both (sessionStorage is tab-scoped; the localStorage
+ * copy is what survives a tab restore), so stubbing only one silently exercises
+ * the storage-unavailable path instead of the one under test.
+ */
+function withStorage(body: () => void): void {
+    const previous = (["sessionStorage", "localStorage"] as const)
+        .map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
+    for (const [key] of previous) {
+        const values = new Map<string, string>();
+        const storage: Storage = {
+            get length() { return values.size; },
+            clear: () => values.clear(),
+            getItem: (k) => values.get(k) ?? null,
+            key: (index) => [...values.keys()][index] ?? null,
+            removeItem: (k) => { values.delete(k); },
+            setItem: (k, value) => { values.set(k, String(value)); },
+        };
+        Object.defineProperty(globalThis, key, { configurable: true, value: storage });
+    }
+    try {
+        body();
+    } finally {
+        for (const [key, descriptor] of previous) {
+            if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+            else Reflect.deleteProperty(globalThis, key);
+        }
+    }
+}
 
 describe("transient 401 tolerance", () => {
     it("clears a tokenless admin fallback before player requests resume", () => {
@@ -219,6 +254,61 @@ describe("transient 401 tolerance", () => {
 
         // …and the realtime handshake must mirror it, or presence can never connect.
         assert.match(source, /return \{ token: getActiveToken\(\), name: getActivePlayer\(\), password: _memPassword \};/);
+    });
+
+    it("an identity-only sync leaves the armed password alone; an explicit null clears it", () => {
+        // App.tsx mirrors the active player name into storage from an effect that
+        // re-runs on every character change, calling setActivePlayer(name) with no
+        // password. That is an identity sync, not a credential change — when it
+        // cleared _memPassword it disarmed the fallback moments after a token-less
+        // login landed the save, and every request from there on 401'd.
+        withStorage(() => {
+            setActivePlayer("kaze", "correct-horse");
+            assert.equal(getSocketAuth().password, "correct-horse");
+
+            setActivePlayer("kaze");
+            assert.equal(getSocketAuth().password, "correct-horse", "the identity mirror must not disarm the fallback");
+            setActivePlayer("Kaze");
+            assert.equal(getSocketAuth().password, "correct-horse", "…nor must the canonical-casing sync after applyServerSnapshot");
+
+            // A caller that holds a token says so explicitly, and that still clears.
+            setActivePlayer("kaze", null);
+            assert.equal(getSocketAuth().password, null);
+        });
+    });
+
+    it("a minted token still supersedes the password, and logout clears both", () => {
+        withStorage(() => {
+            setActivePlayer("kaze", "correct-horse");
+            setActiveToken("session-token");
+            assert.equal(getSocketAuth().password, null, "a token must drop the password, so an expiry prompts re-auth");
+            assert.equal(getSocketAuth().token, "session-token");
+
+            setActivePlayer("kaze", "correct-horse");
+            setActivePlayer(null);
+            assert.equal(getSocketAuth().password, null);
+            assert.equal(getSocketAuth().token, null);
+            assert.equal(getSocketAuth().name, null);
+        });
+    });
+
+    it("arms the fallback on a token-less login and only on a token-less login", () => {
+        // The two halves have to agree: loginPlayerAccount decides from the verdict,
+        // enterGameAsPlayer is what actually primes the interceptor. Threading the
+        // flag but calling setActivePlayer(name) — or arming unconditionally — each
+        // reintroduces one of the two bugs this pairing exists to prevent.
+        assert.match(
+            appSource,
+            /await enterGameAsPlayer\(name, loginLoad, password, !verdict\.token\);/,
+            "the login must tell enterGameAsPlayer whether the server minted a token",
+        );
+        assert.match(
+            appSource,
+            /async function enterGameAsPlayer\([^)]*armPasswordFallback = false\) \{[\s\S]{0,400}?setActivePlayer\(name, armPasswordFallback \? password : null\);/,
+            "enterGameAsPlayer must arm the password fallback only when no token was minted",
+        );
+        // Registration is the other token-less door into the same account.
+        assert.match(appSource, /setActivePlayer\(newCharacter\.name, regToken \? null : password \?\? null\);/);
     });
 
     it("never writes the password to durable storage", () => {

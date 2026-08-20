@@ -67,43 +67,9 @@
         gap: 12px !important;
     }
 
-    .profile-big-avatar {
-        width: 88px !important;
-        height: 88px !important;
-        flex-shrink: 0 !important;
-        border-radius: 12px !important;
-    }
-
     .avatar-upload-button {
         padding: 10px 14px !important;
         font-size: 0.82rem !important;
-    }
-
-    /* ── Info grid: compact single column ── */
-    .profile-info-grid {
-        grid-template-columns: 1fr !important;
-        gap: 8px !important;
-    }
-
-    .profile-info-grid > div {
-        background: rgba(2, 6, 23, 0.45);
-        border: 1px solid rgba(100, 116, 139, 0.28);
-        border-radius: 8px;
-        padding: 10px 12px;
-    }
-
-    .profile-info-grid h3 {
-        margin: 0 0 6px !important;
-        font-size: 0.78rem !important;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--gold) !important;
-    }
-
-    .profile-info-grid p {
-        margin: 3px 0 !important;
-        font-size: 0.82rem !important;
-        line-height: 1.4;
     }
 
     /* ── Stat cards: 2-col grid with big touch Add button ── */
