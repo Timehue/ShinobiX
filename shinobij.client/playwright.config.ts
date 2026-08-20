@@ -1,8 +1,9 @@
 import { defineConfig } from '@playwright/test';
+import { previewRootFor, smokeE2ePort } from './e2e-ports';
 
-const port = process.env.PLAYWRIGHT_PORT ?? '4173';
+const port = smokeE2ePort();
 const baseURL = `http://127.0.0.1:${port}`;
-const previewRoot = `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;
+const previewRoot = previewRootFor(port);
 
 export default defineConfig({
     testDir: './e2e',

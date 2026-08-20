@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { previewRootFor, smokeE2ePort } from '../e2e-ports';
 
 let sentryBundlePresent = false;
 let sentryBundleEnabled = false;
@@ -10,8 +11,7 @@ let sentryBundleEnabled = false;
 // without VITE_SENTRY_DSN. Only an enabled build should run the network smoke;
 // otherwise a normal local build would fail while correctly omitting capture.
 test.beforeAll(() => {
-    const port = process.env.PLAYWRIGHT_PORT ?? '4173';
-    const previewRoot = `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;
+    const previewRoot = previewRootFor(smokeE2ePort());
     const assetsDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', previewRoot, 'assets');
     if (!existsSync(assetsDirectory)) return;
     const assets = readdirSync(assetsDirectory);

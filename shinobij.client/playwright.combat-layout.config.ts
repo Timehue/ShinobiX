@@ -1,10 +1,12 @@
 import { defineConfig } from '@playwright/test';
+import { combatLayoutE2ePort } from './e2e-ports';
 
-// Overridable so parallel worktree sessions stop fighting over one port: two
-// simultaneous runs on 4183 kill each other's webServer mid-run (reuse is
-// false, and the documented port-cleanup recipe kills whichever PID holds the
-// port — including a sibling's live server). CI and solo runs keep 4183.
-const port = process.env.COMBAT_LAYOUT_PORT ?? '4183';
+// Per-worktree so parallel sessions stop fighting over one port: two
+// simultaneous runs on a shared port kill each other's webServer mid-run
+// (reuse is false, and the documented port-cleanup recipe kills whichever PID
+// holds the port — including a sibling's live server). COMBAT_LAYOUT_PORT
+// still overrides, and CI keeps 4183; see ./e2e-ports.ts.
+const port = combatLayoutE2ePort();
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
