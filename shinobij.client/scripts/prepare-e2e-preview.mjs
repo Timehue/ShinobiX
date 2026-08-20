@@ -4,8 +4,14 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const clientRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const sourceRoot = join(clientRoot, 'dist');
 const requestedName = process.argv[2] ?? '.playwright-dist-4173';
+const requestedSourceName = process.argv[3] ?? 'dist';
+
+if (!['dist', 'dist-perf'].includes(requestedSourceName)) {
+    throw new Error(`Unsafe Playwright preview source directory: ${requestedSourceName}`);
+}
+
+const sourceRoot = join(clientRoot, requestedSourceName);
 
 if (!/^\.playwright-dist-[a-z0-9_-]+$/i.test(requestedName)) {
     throw new Error(`Unsafe Playwright preview directory: ${requestedName}`);

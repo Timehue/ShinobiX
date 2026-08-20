@@ -1,9 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
 const baseURL = "http://127.0.0.1:4174";
-const releasePreviewRoot = ".playwright-warfront-dist";
+const releasePreviewRoot = ".playwright-dist-warfront-4174";
 const webServerCommand = process.env.CI
-    ? `node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} && npm run preview -- --host 127.0.0.1 --port 4174 --outDir ${releasePreviewRoot}`
+    ? `npm run build:warfront-e2e && node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} dist-perf && npm run preview -- --host 127.0.0.1 --port 4174 --outDir ${releasePreviewRoot}`
     : "npm run dev -- --host 127.0.0.1 --port 4174";
 
 export default defineConfig({

@@ -24,7 +24,7 @@ import type {
     PetBattleAnimationEvent,
     PetBattleAnimationEventType,
 } from "../types/pet-battle";
-import { firstSharedImage, variantImageKeys } from "./pet-visual-variant";
+import { firstSharedImage, petPaletteVariant, variantImageKeys } from "./pet-visual-variant";
 
 // Shared-image key prefixes. `pet:` is the existing circular portrait the
 // admin pipeline already publishes; `petbody:` is the new namespace for a
@@ -56,6 +56,13 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
     "mythic-14": "/pet-portraits/breeding-mythics/mythic-14.webp",
 };
 
+// Curated replacements for shipped pets whose legacy inline/shared portraits
+// have known anatomy/composition problems. A deliberately published palette-
+// specific variant can still override the base replacement.
+const CURATED_CARD_PORTRAITS: Readonly<Record<string, string>> = {
+    "standard-17": "/pet-portraits/standard-17-card-v2.webp",
+};
+
 const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
     "mythic-10": "mythic-5",
     "mythic-11": "mythic-6",
@@ -82,6 +89,10 @@ function petArtIds(pet: Pet): string[] {
 
 function breedingMythicPortrait(artIds: readonly string[]): string {
     return artIds.map((id) => BREEDING_MYTHIC_PORTRAITS[id]).find(Boolean) ?? "";
+}
+
+function curatedCardPortrait(artIds: readonly string[]): string {
+    return artIds.map((id) => CURATED_CARD_PORTRAITS[id]).find(Boolean) ?? "";
 }
 
 // Cache-busting tag for the static idle-pose files. The poses live at fixed
@@ -174,6 +185,20 @@ export function petCardImage(
     sharedImages: Record<string, string> = {},
 ): string {
     const artIds = petArtIds(pet);
+    const curated = curatedCardPortrait(artIds);
+    if (curated) {
+        const paletteVariant = petPaletteVariant(pet);
+        const variantSuffix = paletteVariant ? `:variant:${paletteVariant}` : "";
+        const variantBody = variantSuffix
+            ? firstSharedImage(sharedImages, artIds.map((id) => `${PET_BODY_PREFIX}${id}${variantSuffix}`))
+            : "";
+        const variantPortrait = variantSuffix
+            ? firstSharedImage(sharedImages, artIds.map((id) => `${PET_IMG_PREFIX}${id}${variantSuffix}`))
+            : "";
+        return variantBody
+            || variantPortrait
+            || curated;
+    }
     const direct = firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds))
         || pet.bodyImage
         || firstSharedImage(sharedImages, variantImageKeys(PET_IMG_PREFIX, pet, artIds))
