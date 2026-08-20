@@ -177,7 +177,10 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
         "server/local snapshots must discard pre-cutover opponent ids");
     assert.doesNotMatch(app, /setPendingAiProfileId\(ctx\.aiId\)|setPendingArenaStoryBattle\(restoredStoryBattle\)/,
         "dead rolling-upgrade branches must not retain a latent local-Arena reactivation write");
-    const payload = app.slice(app.indexOf("function buildPlayerSavePayload"), app.indexOf("function saveAccountProgress"));
+    // Ends at the next function, so this stays the payload BUILDER and nothing
+    // else. (It used to end at saveAccountProgress, which has since been deleted —
+    // a missing marker silently widens the slice to the rest of the file.)
+    const payload = app.slice(app.indexOf("function buildPlayerSavePayload"), app.indexOf("async function pushSaveToServer"));
     assert.doesNotMatch(payload, /pendingAiProfileId/,
         "new saves must stop reproducing the retired browser authority");
     assert.doesNotMatch(arena, /pendingAiProfileId|startPrefight|setEnemyHp|setBattleStarted|ArenaBattlePersister/);

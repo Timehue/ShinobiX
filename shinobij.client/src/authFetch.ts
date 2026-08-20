@@ -281,7 +281,7 @@ function tokenExpiryMs(token: string): number | null {
 }
 
 /** True only when the token's own expiry has demonstrably passed. */
-function isTokenExpired(token: string): boolean {
+export function isTokenExpired(token: string): boolean {
     const expMs = tokenExpiryMs(token);
     return expMs !== null && expMs <= Date.now();
 }

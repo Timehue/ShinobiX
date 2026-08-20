@@ -2,7 +2,7 @@ import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
-import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from "./authFetch";
+import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm, gamePasswordPrompt } from "./components/GameAlert";
 import { GameToastHost, gameToast } from "./components/GameToast";
@@ -41,7 +41,7 @@ import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notif
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
-import { accountKey, loadPlayerAccounts, savePlayerAccounts } from "./lib/player-accounts";
+import { accountKey, forgetAccountToken, loadPlayerAccounts, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
 import type { PendingTravelSave } from "./lib/player-accounts";
 import {
     resolveHollowGateTile as resolveHollowGateTileImpl,
@@ -60,7 +60,7 @@ import {
     saveConflictAccountKey,
     type SaveConflictDraft,
 } from "./lib/save-conflict";
-import { fetchPlayerSave, verifyPlayerCredentials } from "./lib/player-login";
+import { fetchPlayerSave, saveLoadFailure, verifyPlayerCredentials, SAVE_UNREACHABLE_MESSAGE, SESSION_ENDED_MESSAGE, type SaveLoadFailure } from "./lib/player-login";
 import { finishGoogleRedirect, forgetGoogleNonce, readGoogleRedirect } from "./lib/google-signin";
 import { clearGuestSessionFor, rememberGuestSession, resumeGuestFor, signupRequestBody, type SignupCredential } from "./lib/guest-play";
 import { preloadScreen } from "./lib/screen-preload";
@@ -2591,12 +2591,7 @@ export default function App() {
                             delete accounts[lsKey];
                             savePlayerAccounts(accounts);
                         }
-                        currentAccountNameRef.current = "";
-                        resetSaveAuthorityScope();
-                        setSaveConflictDraft(null);
-                        setCharacter(null);
-                        setCurrentAccountName("");
-                        setScreen("start");
+                        unwindToLoginForm();
                         await ack;
                     }
                     return;
@@ -3639,15 +3634,7 @@ export default function App() {
                 // backstop already cleared.
                 setRestoringSession(false);
                 setRestoreFailed(true);
-                if (didOptimisticPaint) {
-                    setScreen("start");
-                    currentAccountNameRef.current = "";
-                    resetSaveAuthorityScope();
-                    setSaveConflictDraft(null);
-                    setCharacter(null);
-                    setCurrentAccountName("");
-                    setOptimisticRestore(false);
-                }
+                if (didOptimisticPaint) { unwindToLoginForm(); setOptimisticRestore(false); }
             };
 
             // Safety backstop: pullSaveFromServer has no request timeout, so a
@@ -3992,29 +3979,6 @@ export default function App() {
         // loader. Pulling shared metadata must not invalidate every image bucket.
         loadScreenImageCategories(screenRef.current);
     }
-
-    function saveAccountProgress(characterToSave: Character, accountName = currentAccountName) {
-        const key = accountKey(accountName || characterToSave.name);
-        if (!key) return;
-        const accounts = loadPlayerAccounts();
-        accounts[key] = accounts[key] ?? {};
-        savePlayerAccounts(accounts);
-    }
-
-    useEffect(() => {
-        if (!character || !currentAccountName) return;
-        saveAccountProgress(character, currentAccountName);
-    }, [
-        character,
-        currentAccountName,
-        currentBiome,
-        activeTraining,
-        activeJutsuTraining,
-        acceptedMissionIds,
-        missionProgress,
-        triggeredEvents,
-        currentSector,
-    ]);
 
     useEffect(() => {
         if (!character) return;
@@ -4616,6 +4580,16 @@ export default function App() {
         }
         return saveSessionEpochRef.current;
     }
+    /** Drop a half-entered session and put the login form back in front. */
+    function unwindToLoginForm(): void {
+        currentAccountNameRef.current = "";
+        resetSaveAuthorityScope();
+        setSaveConflictDraft(null);
+        setCharacter(null);
+        setCurrentAccountName("");
+        setScreen("start");
+    }
+
     function resetSaveAuthorityScope(): void {
         pvpCreateScopeAbortRef.current.abort();
         pvpCreateScopeAbortRef.current = new AbortController();
@@ -5093,30 +5067,32 @@ export default function App() {
         return true;
     }
 
-    /** Keep the per-account token blob in step after any successful sign-in. */
-    function rememberAccountToken(name: string, token: string) {
-        const key = accountKey(name);
-        if (!key) return;
-        const accounts = loadPlayerAccounts();
-        accounts[key] = { ...(accounts[key] ?? {}), token };
-        savePlayerAccounts(accounts);
-    }
-
     /** Sign in with a token already in hand — Google, guest resume, or a remembered shinobi. */
-    async function enterWithToken(name: string, token?: string) {
+    async function enterWithToken(name: string, token?: string, opts: { silentExpiry?: boolean } = {}) {
         if (token) { setActiveToken(token); rememberAccountToken(name, token); }
-        await enterGameAsPlayer(name, beginSessionLoad(sessionLoadGenerationRef, name));
+        return enterGameAsPlayer(name, beginSessionLoad(sessionLoadGenerationRef, name), undefined, opts);
     }
 
     /** One-click return for a shinobi this browser still holds a credential for. */
-    async function continueRememberedAccount(name: string) {
+    async function continueRememberedAccount(name: string): Promise<void> {
         const stored = loadPlayerAccounts()[accountKey(name)]?.token;
-        if (stored) return enterWithToken(name, stored);
+        // A token past its own expiry can only ever 401. Re-installing it would
+        // make the save pull fail and — before this guard — report itself as
+        // "No save found for that name", which reads as the account being gone.
+        // Treat a dead token as no credential at all and fall through.
+        if (stored && isTokenExpired(stored)) forgetAccountToken(name);
+        else if (stored) {
+            // The server is the only authority on a token that still LOOKS
+            // alive (a session-epoch rotation revokes one without touching its
+            // expiry), so a 401 here is silenced and handled like a dead one.
+            const outcome = await enterWithToken(name, stored, { silentExpiry: true });
+            if (outcome !== "expired") return;
+        }
         // A guest's token lapses after a day, but their resume credential is
         // good for two weeks — so this is still a one-click return for them.
         const guest = await resumeGuestFor(name, (a, b) => accountKey(a) === accountKey(b));
-        if (guest) return enterWithToken(guest.name, guest.token);
-        alert("That shinobi's session has ended on this device. Sign in again, or create a new character.");
+        if (guest) { await enterWithToken(guest.name, guest.token); return; }
+        alert(SESSION_ENDED_MESSAGE);
     }
 
     async function loginPlayerAccount(name: string, password: string) {
@@ -5146,10 +5122,16 @@ export default function App() {
     // The second half of signing in: load the save and paint the game. Shared by
     // the password login, Google sign-in, guest resume, and picking a remembered
     // shinobi — all four are "we know who you are, now bring them in".
-    async function enterGameAsPlayer(name: string, loginLoad: ReturnType<typeof beginSessionLoad>, password?: string) {
+    async function enterGameAsPlayer(
+        name: string,
+        loginLoad: ReturnType<typeof beginSessionLoad>,
+        password?: string,
+        opts: { silentExpiry?: boolean } = {},
+    ): Promise<SaveLoadFailure | "ok" | "superseded"> {
         // Prime the authFetch interceptor *before* the save GET fires.
         // Without this, the interceptor has no credentials and the backend
-        // returns 401, which the UI mistranslates as "no save found".
+        // returns 401 — which this function used to mistranslate as "no save
+        // found" (see the 401 branch below, which now says what really happened).
         setActivePlayer(name);
 
         // Instant-paint from localStorage while the save fetch is in flight.
@@ -5168,17 +5150,29 @@ export default function App() {
         // Always pull the full server save — this is where the real character
         // state lives. Retries once past a transient Supabase cold start.
         const saveRes = await fetchPlayerSave(name, loginLoad.isCurrent);
-        if (!loginLoad.isCurrent()) return;
+        if (!loginLoad.isCurrent()) return "superseded";
         if (!saveRes) {
-            alert("Could not load your save from the server. Try again in a moment.");
-            return;
+            alert(SAVE_UNREACHABLE_MESSAGE);
+            return "unreachable";
         }
         if (saveRes.ok) {
             const serverSnapshot = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
-            if (!loginLoad.isCurrent() || saveConflictAccountKey(serverSnapshot.character.name) !== loginLoad.accountKey) return;
+            if (!loginLoad.isCurrent() || saveConflictAccountKey(serverSnapshot.character.name) !== loginLoad.accountKey) return "superseded";
             applyServerSnapshot(serverSnapshot);
             void pullSharedAdminContent();
-        } else if (saveRes.status === 404) {
+            return "ok";
+        }
+        const failure = saveLoadFailure(saveRes.status);
+        if (failure === "expired") {
+            // Drop the dead token — it can only keep 401-ing — and hand back a
+            // login form that can actually let them in. Silent when the caller
+            // still has a credential left to try: the remembered-shinobi chip
+            // falls through to the guest resume after this.
+            forgetAccountToken(name);
+            setActivePlayer(null);
+            unwindToLoginForm();
+            if (!opts.silentExpiry) alert(SESSION_ENDED_MESSAGE);
+        } else if (failure === "no-save") {
             // Save is missing but auth passed — clear the stale localStorage snapshot and
             // also delete the auth record (password already verified above) so the player
             // can immediately re-register and create a fresh character without getting
@@ -5195,16 +5189,12 @@ export default function App() {
             // that has no password to send (Google sign-in, guest).
             const clearBody = { action: 'delete', name: name.trim().toLowerCase(), ...(password ? { password } : {}) };
             void fetch('/api/player-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clearBody) });
-            currentAccountNameRef.current = "";
-            resetSaveAuthorityScope();
-            setSaveConflictDraft(null);
-            setCharacter(null);
-            setCurrentAccountName("");
-            setScreen("start");
+            unwindToLoginForm();
             alert(`No save data was found for "${name}". Your login lock has been cleared — please create a new character with the same name and password.`);
         } else {
-            alert("No save found for that name. Check spelling or create a new character.");
+            alert(SAVE_UNREACHABLE_MESSAGE);
         }
+        return failure;
     }
 
     async function deleteCharacter() {
@@ -5264,7 +5254,6 @@ export default function App() {
     // progress. On save failure, offer to stay logged in.
     async function logoutPlayer() {
         if (character) {
-            saveAccountProgress(character);
             try {
                 const accountName = currentAccountName || character.name;
                 await pushSaveToServer(character, accountName, undefined, { useLatestAtExecution: true });

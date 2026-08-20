@@ -48,6 +48,33 @@ export async function fetchPlayerSave(name: string, isCurrent: () => boolean): P
 }
 
 /**
+ * What a failed save pull actually said.
+ *
+ * 401/403 is the CREDENTIAL dying, not the save going missing. They are
+ * different failures with different fixes, and reporting the second when it was
+ * really the first is how a player concludes the game ate their character.
+ */
+export type SaveLoadFailure = "expired" | "no-save" | "unreachable";
+
+export function saveLoadFailure(status: number): SaveLoadFailure {
+    if (status === 401 || status === 403) return "expired";
+    if (status === 404) return "no-save";
+    // 5xx / storage unavailable. Say nothing about the save — it is fine.
+    return "unreachable";
+}
+
+/**
+ * Said whenever a stored credential turns out to be dead — the same sentence
+ * whether the gate could tell locally or only found out from a 401, because to
+ * the player it is one situation with one fix. The last clause is the whole
+ * point: this message replaced one that told them their save was missing.
+ */
+export const SESSION_ENDED_MESSAGE =
+    "That shinobi's session has ended on this device. Sign in again — no progress is lost.";
+
+export const SAVE_UNREACHABLE_MESSAGE = "Could not load your save from the server. Try again in a moment.";
+
+/**
  * Verify a name + password against the server.
  *
  * Retries once, because a cold Supabase connection routinely makes the first

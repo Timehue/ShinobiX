@@ -11,6 +11,7 @@ import type { Character } from "../types/character";
 import type { Biome } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { PLAYER_ACCOUNTS_STORAGE } from "../constants/game";
+import { isTokenExpired } from "../authFetch";
 
 export type PendingTravelSave = { destinationSector: number; arrivalAt: number };
 
@@ -51,12 +52,39 @@ export function rememberedShinobi(): { name: string; guest: boolean }[] {
     let guestName = "";
     try { guestName = (localStorage.getItem("shinobix:guestName") ?? "").toLowerCase(); } catch { /* private mode */ }
 
+    // A token whose own expiry has passed is not a way back in: pressing its
+    // chip would re-install a dead credential, every call would 401, and the
+    // player would be told their save could not be found. Drop those here so
+    // the gate only ever offers a press that can actually work. A guest whose
+    // token lapsed is still offered below — their resume credential outlives it.
     const named = Object.entries(accounts)
-        .filter(([, account]) => Boolean(account?.token))
+        .filter(([, account]) => Boolean(account?.token) && !isTokenExpired(account.token!))
         .map(([key]) => key);
     const all = guestName && !named.includes(guestName) ? [...named, guestName] : named;
     return all.slice(0, 4).map((name) => ({ name, guest: name === guestName }));
 }
+
+/**
+ * Store (`token`) or drop (`null`) one account's session token, leaving the rest
+ * of its blob alone. Dropping is what a proven-dead token needs: left in place,
+ * it keeps the account's "Continue as" chip on the gate, and every press of it
+ * re-installs a credential that can only 401.
+ */
+function writeAccountToken(name: string, token: string | null) {
+    const key = accountKey(name);
+    if (!key) return;
+    const accounts = loadPlayerAccounts();
+    if (token) accounts[key] = { ...(accounts[key] ?? {}), token };
+    else if (accounts[key]?.token) delete accounts[key].token;
+    else return;
+    savePlayerAccounts(accounts);
+}
+
+/** Keep the per-account token blob in step after any successful sign-in. */
+export const rememberAccountToken = (name: string, token: string) => writeAccountToken(name, token);
+
+/** Forget a token the server has proved dead (a 401 on the save pull). */
+export const forgetAccountToken = (name: string) => writeAccountToken(name, null);
 
 export function loadPlayerAccounts(): PlayerAccounts {
     try {

@@ -46,12 +46,14 @@ describe("session-load response authority", () => {
         // whenever an await is extracted — the guard is what must not move.
         assert.match(
             login,
-            /const saveRes = await fetchPlayerSave\(name, loginLoad\.isCurrent\);\s*\n\s*if \(!loginLoad\.isCurrent\(\)\) return;/,
+            // The bail may carry an outcome back to the caller ("superseded") — what
+            // must not move is the check itself sitting between the await and any use.
+            /const saveRes = await fetchPlayerSave\(name, loginLoad\.isCurrent\);\s*\n\s*if \(!loginLoad\.isCurrent\(\)\) return[^;]*;/,
             "the save fetch must be followed by a generation check before its result is used",
         );
         assert.match(
             login,
-            /await saveRes\.json\(\)[\s\S]{0,200}?if \(!loginLoad\.isCurrent\(\) \|\| saveConflictAccountKey\(serverSnapshot\.character\.name\) !== loginLoad\.accountKey\) return;/,
+            /await saveRes\.json\(\)[\s\S]{0,200}?if \(!loginLoad\.isCurrent\(\) \|\| saveConflictAccountKey\(serverSnapshot\.character\.name\) !== loginLoad\.accountKey\) return[^;]*;/,
             "a decoded snapshot must be bound to both the generation and the account before it paints",
         );
 
@@ -59,7 +61,7 @@ describe("session-load response authority", () => {
         // none of them can skip the binding.
         assert.match(
             source,
-            /async function enterWithToken\(name: string, token\?: string\) \{[\s\S]*?await enterGameAsPlayer\(name, beginSessionLoad\(sessionLoadGenerationRef, name\)\)/,
+            /async function enterWithToken\(name: string, token\?: string[^)]*\) \{[\s\S]*?enterGameAsPlayer\(name, beginSessionLoad\(sessionLoadGenerationRef, name\)/,
             "token sign-in must open its own session load rather than reuse a stale one",
         );
 
