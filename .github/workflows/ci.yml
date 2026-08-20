@@ -28,6 +28,16 @@ env:
   VITE_SENTRY_RELEASE: ci
   VITE_BUILD_COMMIT: ${{ github.sha }}
 
+# Every gate below pipes into tee so the evidence bundle keeps a copy of its
+# output. GitHub's default shell is `bash -e`, which takes a pipeline's exit
+# status from the LAST command -- so `npm run sizecheck 2>&1 | tee ...` reported
+# tee's success and a genuinely failing gate went green. Naming `shell: bash`
+# runs `bash --noprofile --norc -eo pipefail {0}`, handing the status back to
+# the command that actually did the work.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   server_contracts:
     name: CI / server-contracts
