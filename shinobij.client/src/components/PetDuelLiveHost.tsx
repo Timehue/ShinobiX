@@ -15,11 +15,21 @@ import { Suspense, lazy, useCallback, useEffect, useImperativeHandle, useRef, us
 import type { Pet } from "../types/pet";
 import type { DuelResult } from "../lib/pet-duel-sim";
 import {
-    bindDuel, canDuelLive, challengeToDuel, acceptDuel, declineDuel,
+    bindDuel, canDuelLive, challengeToDuel, acceptDuel, declineDuel, requestDuelResult,
     onDuelInvite, onDuelStart, onDuelDeclined, onDuelError,
     type BoundDuel, type DuelInvite, type DuelSide,
 } from "../lib/pet-duel-transport";
 import { liveDuelRosterIssue, selectLiveDuelRoster } from "../lib/pet-duel-live-roster";
+
+/** The server lapses an unanswered challenge at its 30s invite TTL and (now)
+ *  says so — this timer is the belt-and-braces for the emit itself getting lost,
+ *  so "Waiting for X to accept" can never outlive the invite it describes.
+ *  Slightly past the server TTL so the server's word arrives first. */
+const CHALLENGE_LAPSE_MS = 35_000;
+
+/** How long to give the server to answer a `petduel:result` query before the
+ *  connection-lost exit settles from the local view instead. */
+const RESULT_QUERY_GRACE_MS = 2_000;
 
 const PetColiseumDuel = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
@@ -107,6 +117,18 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
         onError(by ? `${by} declined the duel.` : "The duel was called off.");
     }), [onError]);
 
+    // The server's invite TTL is authoritative, but its expiry emit can be lost
+    // to the same flaky connection that made the opponent miss the invite. Lapse
+    // locally too, or `busy()` reports this player duel-busy forever.
+    useEffect(() => {
+        if (!awaiting) return;
+        const timer = window.setTimeout(() => {
+            setAwaiting(null);
+            onErrorRef.current(`${awaiting} didn't answer in time.`);
+        }, CHALLENGE_LAPSE_MS);
+        return () => window.clearTimeout(timer);
+    }, [awaiting]);
+
     useEffect(() => onDuelError((message) => {
         setAwaiting(null);
         onError(message);
@@ -146,6 +168,27 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
         setBound(null);
     }, [onOutcome]);
 
+    // The connection-lost exit. NOT a forfeit: no resign is sent — if the server
+    // already settled the fight (possibly in this player's favour), the result
+    // query re-delivers its `over` into serverWinner and `finish` prefers it;
+    // if the fight is somehow still live, the query re-syncs it instead and this
+    // settles from the local view only after the grace period.
+    const resultQueryTimer = useRef<number | null>(null);
+    useEffect(() => () => {
+        if (resultQueryTimer.current !== null) window.clearTimeout(resultQueryTimer.current);
+    }, []);
+    const exitConnectionLost = useCallback(() => {
+        const b = boundRef.current;
+        if (!b || settled.current || resultQueryTimer.current !== null) return;
+        const asked = requestDuelResult(b.start.id);
+        resultQueryTimer.current = window.setTimeout(() => {
+            resultQueryTimer.current = null;
+            const current = boundRef.current;
+            if (!current || settled.current) return;
+            finish(current.duel.outcome());
+        }, asked ? RESULT_QUERY_GRACE_MS : 0);
+    }, [finish]);
+
     if (bound) {
         // The engine seats the challenger as "player"; a p2 client is watching its
         // own pet on the right, so the labels follow `side` rather than the team.
@@ -170,6 +213,7 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
                     onOutcome={finish}
                     sharedImages={sharedImages}
                     onExit={() => { bound.resign(); finish({ result: "loss" } as DuelResult); }}
+                    onConnectionLost={exitConnectionLost}
                 />
                 {/* Rendered for the a11y tree / tests; the duel itself portals out. */}
                 <span hidden data-testid="pet-duel-live-sides">{mine.length}v{theirs.length}</span>
