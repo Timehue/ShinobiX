@@ -1,9 +1,3 @@
-/*
- * Pre-React boot recovery. This intentionally stays dependency-free and is
- * loaded as a same-origin classic script before Vite's module/preload graph.
- * Production CSP therefore needs no unsafe-inline exception, and a broken app
- * bundle can still leave the player with an explicit, keyboard-safe recovery.
- */
 (function installBootWatchdog(window, document) {
     'use strict';
 
@@ -43,10 +37,6 @@
             return String(target.rel || '').toLowerCase() === 'modulepreload' && Boolean(sameOriginUrl(target.href));
         }
 
-        // A module graph can fail during evaluation after the script element's
-        // resource event. While boot is still pending, a same-origin built-file
-        // ErrorEvent is equally definitive; ordinary app errors arrive only
-        // after __shinobiBootReady removes this listener.
         return Boolean(event && sameOriginUrl(event.filename)) &&
             /\/assets\/[^/?]+\.m?js(?:[?#]|$)/i.test(String(event.filename || ''));
     }
@@ -111,9 +101,6 @@
         var status = byId('boot-network-status');
         if (reload) reload.disabled = true;
         if (status) status.textContent = 'Reloading the latest game files...';
-        // The server sends index.html with Cache-Control: no-cache, so this
-        // explicit navigation revalidates the current chunk map. Never retry
-        // automatically: a persistent outage must not strand players in a loop.
         window.location.reload();
     }
 
