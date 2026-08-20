@@ -1,6 +1,8 @@
 import { defineConfig } from '@playwright/test';
+import { visualE2ePort } from './e2e-ports';
 
-const baseURL = 'http://127.0.0.1:4174';
+const port = visualE2ePort();
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
     testDir: './e2e-visual',
@@ -33,7 +35,7 @@ export default defineConfig({
         screenshot: 'only-on-failure',
     },
     webServer: {
-        command: 'npm run preview -- --host 127.0.0.1 --port 4174',
+        command: `npm run preview -- --host 127.0.0.1 --port ${port}`,
         url: baseURL,
         env: { VITE_SKIP_HTTPS: '1' },
         reuseExistingServer: false,
