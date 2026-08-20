@@ -2134,7 +2134,25 @@ export function AdminPanel({
         if (readyImage) newJutsu.image = readyImage;
         if (newJutsu.image) void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image);
 
-        setCreatorJutsus([...creatorJutsus, newJutsu]);
+        const nextCreatorJutsus = [...creatorJutsus, newJutsu];
+        setCreatorJutsus(nextCreatorJutsus);
+
+        // Publish through the guarded endpoint (same as the master Save button) —
+        // NOT just onSaveRef below. Skipping this is exactly the bug that let two
+        // admin tabs silently clobber each other's jutsu: onSaveRef alone writes
+        // straight to this admin's save slot with no lock and no version check,
+        // so a stale tab can overwrite (or be overwritten by) a genuinely
+        // different concurrent edit to the SAME jutsu id with no warning.
+        try {
+            await publishAuthoredContent({
+                creatorJutsus: nextCreatorJutsus, creatorItems, creatorAis, creatorEvents,
+                creatorMissions, creatorRaids, creatorCards,
+                editablePets, petEncounterVn, ancientChestVn, hollowGateEventConfig,
+            });
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "Publish failed — reload the admin panel and retry.");
+            return;
+        }
 
         alert(`${newJutsu.name} created and imported to the game. Train it before equipping it.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
@@ -2150,7 +2168,11 @@ export function AdminPanel({
         // Skip the publish when there's no image — an empty string is rejected (400).
         if (updatedJutsu.image) void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image);
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
+        let nextCreatorJutsus = creatorJutsus;
         if (sourceBloodline) {
+            // Per-character bloodline jutsu are NOT shared/publishable content —
+            // each player sees only their own bloodlines, so this path is
+            // exempt from the publish step below.
             setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
                 ...bloodline,
                 jutsus: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu),
@@ -2158,10 +2180,29 @@ export function AdminPanel({
             } : bloodline));
         } else if (creatorJutsus.some((jutsu) => jutsu.id === editingJutsuId)) {
             // Save exactly what the admin set — no rebalance override
-            setCreatorJutsus(creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu));
+            nextCreatorJutsus = creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu);
+            setCreatorJutsus(nextCreatorJutsus);
         } else {
             // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
-            setCreatorJutsus([...creatorJutsus, updatedJutsu]);
+            nextCreatorJutsus = [...creatorJutsus, updatedJutsu];
+            setCreatorJutsus(nextCreatorJutsus);
+        }
+        if (!sourceBloodline) {
+            // Publish through the guarded endpoint — see createAdminJutsu for why
+            // onSaveRef alone is not enough. This is the path that turned an
+            // existing "Blitz" jutsu into an unrelated "Overload" on one admin
+            // slot while the other still had the original: an unguarded save let
+            // that edit silently win by recency instead of being version-checked.
+            try {
+                await publishAuthoredContent({
+                    creatorJutsus: nextCreatorJutsus, creatorItems, creatorAis, creatorEvents,
+                    creatorMissions, creatorRaids, creatorCards,
+                    editablePets, petEncounterVn, ancientChestVn, hollowGateEventConfig,
+                });
+            } catch (err) {
+                alert(err instanceof Error ? err.message : "Publish failed — reload the admin panel and retry.");
+                return;
+            }
         }
         alert(`${updatedJutsu.name} saved.`);
         // Auto-persist: wait for React to re-render with the new state, then save
@@ -2184,10 +2225,24 @@ export function AdminPanel({
             // Replace with a tombstone rather than dropping the entry: the two
             // admin slots are UNIONED by every reader, so a plain removal is
             // resurrected by the other slot's copy and the jutsu comes back.
-            setCreatorJutsus([
+            const nextCreatorJutsus = [
                 ...creatorJutsus.filter((jutsu) => jutsu.id !== jutsuId),
                 deletedJutsuEntry(jutsuId, Date.now()) as unknown as Jutsu,
-            ]);
+            ];
+            setCreatorJutsus(nextCreatorJutsus);
+            // Publish through the guarded endpoint — see createAdminJutsu for why
+            // onSaveRef alone is not enough; a delete is exactly as capable of
+            // racing a concurrent edit on the other admin tab as a create/save is.
+            try {
+                await publishAuthoredContent({
+                    creatorJutsus: nextCreatorJutsus, creatorItems, creatorAis, creatorEvents,
+                    creatorMissions, creatorRaids, creatorCards,
+                    editablePets, petEncounterVn, ancientChestVn, hollowGateEventConfig,
+                });
+            } catch (err) {
+                alert(err instanceof Error ? err.message : "Publish failed — reload the admin panel and retry.");
+                return;
+            }
         } else {
             return alert("That's a built-in starter jutsu — it can't be deleted, only overridden via Save Loaded Jutsu.");
         }
