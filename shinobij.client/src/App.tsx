@@ -14,6 +14,8 @@ import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBou
 // protection stayed, only the surface went. lib/save-conflict.test.ts forbids
 // naming it in this file at all, comments included.)
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
+import { SessionExpiredModal } from "./components/SessionExpiredModal";
+import { startBootGateWatchdog } from "./lib/boot-gate-watchdog";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
@@ -3711,6 +3713,19 @@ export default function App() {
     useEffect(() => {
         if (!googleRedirect) return;
         let cancelled = false;
+        // Backstop mirroring the boot restore's 12s timer: this chain holds the
+        // same "Restoring…" gate up (restoringSession initializes true on a
+        // pending redirect), and its .finally only fires when the claim chain
+        // SETTLES — a stalled connection on the redirect return would pin the
+        // gate with no other way down. Dropping the gate does not cancel the
+        // chain: a late success still signs in via the generation-guarded
+        // enterGameAsPlayer, so the worst case is the login form appearing
+        // before the game does.
+        const googleRestoreBackstop = window.setTimeout(() => {
+            if (cancelled) return;
+            setGoogleNotice("Google sign-in is taking longer than expected. You can log in below — or try Google again.");
+            setRestoringSession(false);
+        }, 20_000);
         void finishGoogleRedirect(googleRedirect, {
             needsSignup: (handoff) => { if (!cancelled) setGoogleSignup(handoff); },
             failed: (message) => { if (!cancelled) setGoogleNotice(message); },
@@ -3724,10 +3739,22 @@ export default function App() {
                 }
                 await enterWithToken(name, token);
             },
-        }).finally(() => { if (!cancelled) setRestoringSession(false); });
-        return () => { cancelled = true; };
+        }).finally(() => { window.clearTimeout(googleRestoreBackstop); if (!cancelled) setRestoringSession(false); });
+        return () => { cancelled = true; window.clearTimeout(googleRestoreBackstop); };
         // Runs once, for the redirect captured before the first render.
     }, []);
+
+    // Boot watchdog (rationale in lib/boot-gate-watchdog.ts): while the gate
+    // is up and no restore is running — capabilities unreachable, or a
+    // mid-restore orphan — fall through to the pre-filled login form.
+    useEffect(() => {
+        if (!restoringSession || !bootAccountName || googleRedirect) return;
+        return startBootGateWatchdog({
+            restoreStarted: bootRestoreStartedRef,
+            fallThrough: () => { setRestoreFailed(true); setRestoringSession(false); },
+        });
+        // bootAccountName/googleRedirect are init-once state; only the gate varies.
+    }, [restoringSession]);
 
     useEffect(() => {
         // Preserve the account marker until capability-delayed restore resolves.
@@ -3810,12 +3837,19 @@ export default function App() {
         setReauthError("");
         setReauthBusy(true);
         try {
-            const res = await fetch('/api/player-auth', {
+            // sessionLoadFetch, not plain fetch: a stalled verify used to hold
+            // reauthBusy forever, and the modal disables its buttons on busy —
+            // the exact trap this modal exists to prevent. The 15s deadline
+            // lands in the catch below as a normal connection error.
+            const res = await sessionLoadFetch('/api/player-auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'verify', name: name.toLowerCase(), password: reauthPw }),
             });
             const data = await res.json().catch(() => null) as { ok?: boolean; token?: string } | null;
+            // "Log out instead" is clickable while this was in flight; if the
+            // player took it, the session is gone — don't resurrect credentials.
+            if (!characterRef.current) return;
             if (res.ok && data?.ok) {
                 if (data.token) {
                     // Fresh token → future requests authenticate again, and
@@ -4944,7 +4978,16 @@ export default function App() {
         savePlayerAccounts(accounts);
         setActivePlayer(newCharacter.name, regToken ? undefined : password ?? undefined);
 
-        const characterToCreate = await import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; });
+        // Race the avatar publish against 12s: registration has ALREADY
+        // committed (name taken, credentials stored), so a stalled upload here
+        // used to strand the creator on "Creating..." with an account the
+        // player never got to enter. On timeout we enter without the portrait
+        // — the publish keeps running and lands whenever it finishes, same as
+        // the existing rejection fallback.
+        const characterToCreate = await Promise.race([
+            import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; }),
+            new Promise<typeof newCharacter>((resolve) => window.setTimeout(() => resolve(newCharacter), 12_000)),
+        ]);
         if (!createLoad.isCurrent()) return;
         scopeSaveAuthorityToAccount(characterToCreate.name);
         currentAccountNameRef.current = characterToCreate.name;
@@ -6418,65 +6461,14 @@ export default function App() {
             <SaveErrorBanner visible={saveBlocked} />
 
             {sessionExpired && (
-                <div
-                    style={{
-                        position: "fixed", inset: 0, zIndex: 100000,
-                        display: "grid", placeItems: "center",
-                        background: "rgba(2, 6, 23, 0.82)", padding: "1rem",
-                    }}
-                >
-                    <div
-                        style={{
-                            background: "#0f172a", border: "1px solid #475569",
-                            borderRadius: 12, padding: "1.5rem", maxWidth: 380, width: "100%",
-                            boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
-                        }}
-                    >
-                        <h3 style={{ marginTop: 0, color: "#e2e8f0" }}>Session timed out</h3>
-                        <p style={{ color: "#cbd5e1", fontSize: "0.95rem" }}>
-                            Your login session expired. Enter your password to keep playing —{" "}
-                            <strong>your progress is safe and will be saved.</strong>
-                        </p>
-                        <input
-                            type="password"
-                            value={reauthPw}
-                            onChange={(e) => setReauthPw(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter" && !reauthBusy) void reauthKeepState(); }}
-                            placeholder="Password"
-                            autoFocus
-                            style={{
-                                width: "100%", padding: "0.55rem 0.7rem", marginBottom: "0.5rem",
-                                borderRadius: 8, border: "1px solid #475569",
-                                background: "#1e293b", color: "#e2e8f0", boxSizing: "border-box",
-                            }}
-                        />
-                        {reauthError && (
-                            <p style={{ color: "#f87171", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>{reauthError}</p>
-                        )}
-                        <button
-                            onClick={() => { if (!reauthBusy) void reauthKeepState(); }}
-                            disabled={reauthBusy}
-                            style={{
-                                width: "100%", padding: "0.6rem", borderRadius: 8, border: "none",
-                                background: reauthBusy ? "#334155" : "linear-gradient(#15803d,#0a4019)",
-                                color: "#fff", cursor: reauthBusy ? "default" : "pointer", fontWeight: 600,
-                            }}
-                        >
-                            {reauthBusy ? "Signing in…" : "Continue playing"}
-                        </button>
-                        <button
-                            onClick={logoutFromExpiry}
-                            disabled={reauthBusy}
-                            style={{
-                                width: "100%", padding: "0.5rem", marginTop: "0.5rem",
-                                borderRadius: 8, border: "1px solid #475569",
-                                background: "transparent", color: "#94a3b8", cursor: "pointer",
-                            }}
-                        >
-                            Log out instead
-                        </button>
-                    </div>
-                </div>
+                <SessionExpiredModal
+                    password={reauthPw}
+                    error={reauthError}
+                    busy={reauthBusy}
+                    onPasswordChange={setReauthPw}
+                    onContinue={() => void reauthKeepState()}
+                    onLogout={logoutFromExpiry}
+                />
             )}
             {character &&
                 screen !== "start" &&

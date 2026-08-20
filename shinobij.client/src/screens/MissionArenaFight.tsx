@@ -461,7 +461,15 @@ export function MissionArenaFight({
         setSettleState("pending");
         for (let attempt = 0; attempt < 4; attempt++) {
             try {
-                const result = await settleFn(runId, me);
+                // Race each attempt against 12s: every host's settleFn is a
+                // plain fetch with no deadline, and the exit button is
+                // disabled while "pending" — so a single stalled connection
+                // here used to lock the victory screen forever. A timed-out
+                // attempt falls into the normal retry/backoff instead.
+                const result = await Promise.race([
+                    settleFn(runId, me),
+                    new Promise<never>((_resolve, reject) => setTimeout(() => reject(new Error("settle attempt timed out")), 12_000)),
+                ]);
                 setSettleResult(result);
                 setSettleState("settled");
                 onBattleResolved?.();
@@ -1278,7 +1286,16 @@ export function MissionArenaFight({
                                             : `${missionName ?? "Mission"} cleared. Registering your reward…`}
                             </p>
                             {won && settleState === "failed"
-                                ? <button className="start-primary-btn" onClick={() => { void runSettle(); }}>Retry</button>
+                                ? (
+                                    // Retry stays primary, but never as the ONLY control: a
+                                    // persistently failing settle (spent run token, dead
+                                    // server) must not trap the player on this overlay. The
+                                    // copy above already warns the reward isn't registered.
+                                    <>
+                                        <button className="start-primary-btn" onClick={() => { void runSettle(); }}>Retry</button>
+                                        <button className="start-primary-btn" onClick={onExit}>Return to Mission Hall</button>
+                                    </>
+                                )
                                 : <button className="start-primary-btn" disabled={won && settleState === "pending"} onClick={onExit}>Return to Mission Hall</button>}
                         </div>
                     </div>

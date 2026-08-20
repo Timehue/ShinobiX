@@ -68,6 +68,12 @@ export function CardClashDuelScreen({
   const [waiting, setWaiting] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Bumped by every poll tick so the poll effect re-arms itself. Without it
+  // the effect armed exactly ONE timer per dep change — and a "still
+  // waiting for the opponent" response (or a failed poll) changes no dep,
+  // so polling died after a single tick and the first-arriving player sat
+  // on the waiting panel forever while their opponent had already joined.
+  const [pollNonce, setPollNonce] = useState(0);
   const [pageVisible, setPageVisible] = useState(
     () =>
       typeof document === "undefined" ||
@@ -181,10 +187,14 @@ export function CardClashDuelScreen({
     const delay = chronicleNextStateRefreshMs(view, waiting);
     if (delay === null) return;
     const timer = window.setTimeout(() => {
+      // Re-arm before the request: the nonce bump re-runs this effect and
+      // schedules the NEXT tick no matter what the response says, so the
+      // chain survives no-op "awaiting-p2" responses and transient failures.
+      setPollNonce((nonce) => nonce + 1);
       void post("state").catch(() => undefined);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [busy, pageVisible, post, stash, view, waiting]);
+  }, [busy, pageVisible, pollNonce, post, stash, view, waiting]);
 
   useEffect(() => {
     if (view?.status !== "complete") return;

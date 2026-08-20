@@ -324,7 +324,12 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         if (battle) { onBattle(event, battle); return; }
         advanceAfterChoice(nextPage);
     }
-    function cancelScene() { if (beginAction()) onCancel(); }
+    // Deliberately NOT gated on the action lock: Skip/Leave is the escape
+    // hatch, and an escape hatch a held lock can disable is no hatch at all
+    // (the lock is held legitimately for a moment after Enter Battle, and was
+    // held forever by the pre-expiry wedge). onCancel is idempotent in every
+    // host — a double-fire just clears an already-cleared event.
+    function cancelScene() { onCancel(); }
     function completeScene() { if (beginAction()) onComplete(); }
     function startBattle(battle?: VnChoice["battle"]) { if (beginAction()) onBattle(event, battle); }
     function replayScene() {
