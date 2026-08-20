@@ -70,16 +70,27 @@ export async function startDungeonPetBattle(input: {
     playerPetId: string;
     dungeonRunToken: string;
 }): Promise<DungeonPetBattleSeal> {
-    const response = await fetch("/api/pet/battle-start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            playerName: input.playerName,
-            mode: "1v1",
-            playerPetIds: [input.playerPetId],
-            dungeon: { token: input.dungeonRunToken },
-        }),
-    });
+    // Hard 12s deadline (same as the PvP move submit): a hung start fetch used
+    // to hold `startBusy` forever. The throw lands on the screen's error path.
+    let response: Response;
+    try {
+        response = await fetch("/api/pet/battle-start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                playerName: input.playerName,
+                mode: "1v1",
+                playerPetIds: [input.playerPetId],
+                dungeon: { token: input.dungeonRunToken },
+            }),
+            signal: AbortSignal.timeout(12_000),
+        });
+    } catch (cause) {
+        if (cause instanceof DOMException && (cause.name === "TimeoutError" || cause.name === "AbortError")) {
+            throw new Error("The Dungeon pet authority did not respond in time. Try again.", { cause });
+        }
+        throw cause;
+    }
     const body = await responseBody(response);
     const seed = Number(body.seed);
     const token = typeof body.token === "string" ? body.token : "";

@@ -786,10 +786,11 @@ export function HollowGateShrineView({
                                     <button aria-label="Move down" onClick={() => moveHollowGatePlayer(0, 1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▼</button>
                                     <div />
                                 </div>
+                                {/* Never disabled: this must stay clickable even while an
+                                    ordinary leave is settling, or a stalled request traps the run. */}
                                 <button
                                     className="danger-button"
                                     type="button"
-                                    disabled={exitPending}
                                     onClick={onEmergencyForfeit}
                                     title="Ends the run as a defeat. Use this if the run or an encounter is stuck."
                                 >
@@ -854,7 +855,6 @@ export function HollowGateShrineView({
                                                 <button
                                                     className="danger-button"
                                                     type="button"
-                                                    disabled={exitPending}
                                                     onClick={onEmergencyForfeit}
                                                     title="Ends the run as a defeat if this encounter cannot continue."
                                                 >
@@ -887,7 +887,7 @@ export function HollowGateShrineView({
                                             <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={() => { playGameSfx("paper", { gain: 0.72 }); onSearchHiddenChamber(); }}>🔍 Search Chamber</button>
                                             <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => { playGameSfx("mythic", { gain: 0.62 }); onTakeHiddenChamberRelic(); }}>🏺 Take Relic</button>
                                             <button autoFocus={hollowGateHiddenChamber.searched} onClick={onCloseHiddenChamber} className="danger-button">Return to Shrine</button>
-                                            <button disabled={exitPending} onClick={onEmergencyForfeit} className="danger-button">
+                                            <button onClick={onEmergencyForfeit} className="danger-button">
                                                 {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
                                             </button>
                                         </div>

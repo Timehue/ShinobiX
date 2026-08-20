@@ -32,11 +32,23 @@ type PublicLobby = {
 };
 
 async function lobbyApi(name: string, action: string, extra: Record<string, unknown> = {}): Promise<{ lobby?: PublicLobby; ok?: boolean }> {
-    const res = await fetch("/api/arena/lobby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, action, ...extra }),
-    });
+    // Hard 12s deadline (same as the PvP move submit): this component is a
+    // full-screen portal, so a hung request must resolve into the error line
+    // rather than hold `busy` forever. The throw is the flow's normal error path.
+    let res: Response;
+    try {
+        res = await fetch("/api/arena/lobby", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, action, ...extra }),
+            signal: AbortSignal.timeout(12_000),
+        });
+    } catch (cause) {
+        if (cause instanceof DOMException && (cause.name === "TimeoutError" || cause.name === "AbortError")) {
+            throw new Error("The lobby server did not respond in time. Try again.", { cause });
+        }
+        throw cause;
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Request failed.");
     return data;
@@ -110,7 +122,9 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
             <div style={{ width: "min(560px, 94vw)", maxHeight: "90vh", overflowY: "auto", ...PANEL, background: "#0b1120" }}>
                 <div style={{ position: "relative", height: 108, borderRadius: 10, overflow: "hidden", marginBottom: "0.7rem", border: "1px solid var(--slate-800)", backgroundImage: `url(${coopHero})`, backgroundSize: "cover", backgroundPosition: "center 32%" }}>
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,12,22,0.2) 0%, rgba(8,12,22,0.55) 55%, rgba(8,12,22,0.9) 100%)" }} />
-                    <button onClick={leave} disabled={busy} style={{ position: "absolute", top: 8, right: 8, zIndex: 1, background: "rgba(15,23,42,0.85)" }}>✕ Close</button>
+                    {/* Never disabled: Close is the only way out of this full-screen
+                        portal, so it must work even while a request is in flight. */}
+                    <button onClick={leave} style={{ position: "absolute", top: 8, right: 8, zIndex: 1, background: "rgba(15,23,42,0.85)" }}>✕ Close</button>
                     <strong style={{ position: "absolute", left: 14, bottom: 10, zIndex: 1, fontSize: "1.2rem", letterSpacing: "0.04em", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🤝 Co-op Arena</strong>
                 </div>
 
@@ -200,7 +214,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                             {iAmHost && (
                                 <button onClick={startMatch} disabled={busy} style={{ background: "#0e7490", flex: 1 }}>▶ Start match</button>
                             )}
-                            <button onClick={leave} disabled={busy} style={{ background: "#7f1d1d" }}>Leave lobby</button>
+                            <button onClick={leave} style={{ background: "#7f1d1d" }}>Leave lobby</button>
                         </div>
                         {!iAmHost && <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.75rem", textAlign: "center" }}>Waiting for the host to start…</p>}
                     </div>

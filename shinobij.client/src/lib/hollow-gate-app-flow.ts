@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { gameConfirm } from "../components/GameAlert";
 import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
 import type { Character, HollowGateShrineRun, HollowGateTile } from "../types/character";
@@ -57,6 +57,9 @@ export function useHollowGateAppFlow(params: {
         buildRunSummary,
     } = params;
     const [exitPending, setExitPending] = useState(false);
+    // Tracks a forfeit specifically, so abandon() can't double-fire while its
+    // own forced leave is settling — without re-blocking it behind exitPending.
+    const forfeitInFlight = useRef(false);
 
     const clearRunUi = () => {
         setRun(null);
@@ -65,8 +68,10 @@ export function useHollowGateAppFlow(params: {
         clearLog();
     };
 
-    async function leave(opts?: { death?: boolean }) {
-        if (exitPending || !run || !character) return;
+    async function leave(opts?: { death?: boolean; force?: boolean }) {
+        // `force` lets the Emergency Forfeit escape past an in-flight ordinary
+        // leave; both settles hit the same run token, so the server decides.
+        if ((exitPending && !opts?.force) || !run || !character) return;
         setExitPending(true);
         try {
             if (!run.runToken) {
@@ -92,12 +97,18 @@ export function useHollowGateAppFlow(params: {
     }
 
     async function abandon() {
-        if (!run || exitPending) return;
+        if (!run || forfeitInFlight.current) return;
         const confirmed = await gameConfirm(
             "Forfeit this Hollow Gate run?\n\nThis emergency exit works even if an encounter is broken. The run ends as a defeat, unbanked loot takes the normal death penalty, and you are sent to the hospital.",
             { title: "Emergency Forfeit", confirmLabel: "Forfeit Run" },
         );
-        if (confirmed) await leave({ death: true });
+        if (!confirmed) return;
+        forfeitInFlight.current = true;
+        try {
+            await leave({ death: true, force: true });
+        } finally {
+            forfeitInFlight.current = false;
+        }
     }
 
     /*
