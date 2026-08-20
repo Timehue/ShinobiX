@@ -299,12 +299,12 @@ describe("transient 401 tolerance", () => {
         // reintroduces one of the two bugs this pairing exists to prevent.
         assert.match(
             appSource,
-            /await enterGameAsPlayer\(name, loginLoad, password, !verdict\.token\);/,
+            /await enterGameAsPlayer\(name, loginLoad, password, \{ armPasswordFallback: !verdict\.token \}\);/,
             "the login must tell enterGameAsPlayer whether the server minted a token",
         );
         assert.match(
             appSource,
-            /async function enterGameAsPlayer\([^)]*armPasswordFallback = false\) \{[\s\S]{0,400}?setActivePlayer\(name, armPasswordFallback \? password : null\);/,
+            /armPasswordFallback\?: boolean[\s\S]{0,1200}?setActivePlayer\(name, opts\.armPasswordFallback \? password : null\);/,
             "enterGameAsPlayer must arm the password fallback only when no token was minted",
         );
         // Registration is the other token-less door into the same account.

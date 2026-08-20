@@ -333,13 +333,30 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // what actually stopped. That is fixed separately with a workflow-level
 // `defaults.run.shell: bash`.
 //
-// LOWERED HERE after a dead-rule sweep of the eager manifest: 64 rules /
-// 11,588 B of source CSS whose classes appear nowhere outside the stylesheets
-// (.start-nav-*, .hol-bounty-*, .ui-pill*, .profile-info-grid,
-// .sector-road-marker and friends). Deleting rules reorders nothing, so the
-// load-bearing cascade order inside each manifest part is untouched; every
-// surviving rule was verified byte-identical and in place.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 390_000;
+// 390,000 -> 387,000, taking the raise-then-lower path that entry asked for. The
+// drain is a dead-rule sweep of the eager manifest: 64 rules / 11,588 B of source
+// CSS whose classes appear nowhere outside the stylesheets (.start-nav-*,
+// .hol-bounty-*, .ui-pill*, .profile-info-grid, .sector-road-marker and friends).
+// Deleting rules reorders nothing, so the load-bearing cascade order inside each
+// manifest part is untouched; every surviving rule was verified byte-identical
+// and in place.
+//
+// Measured on top of the boot-watchdog trim and the animation overhaul:
+// 1,442,344 B raw / 383,260 B gzip on a CI-equivalent build (VITE_SENTRY_DSN /
+// RELEASE / BUILD_COMMIT set). That leaves ~3.7 KB of headroom, and the margin is
+// the point: this gate has now blocked production twice inside one week, both
+// times because it sat within a few hundred bytes of the measurement. Do not
+// re-tighten it to the measured value. Lower it only behind a drain that buys
+// back more than it costs — the entry chunk's own sourcemap attribution says the
+// Hollow Gate runtime is ~47 KB of it and is reachable eagerly from App.tsx
+// despite being a lazy feature, which is the next real one.
+//
+// A NOTE ON DEAD CSS, if the sweep is ever repeated: .atlas-central and
+// .atlas-hollowGate look dead to any "class name absent from source" search and
+// are NOT. WorldMap builds them from `"atlas-landmark atlas-" + location.type`,
+// a construction site that does not begin at the string literal's first
+// character. Match prefixes mid-literal or the sweep deletes live styles.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 387_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
