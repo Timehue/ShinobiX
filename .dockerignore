@@ -36,6 +36,8 @@ Shinobi Journey/
 shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/roster/
 !shinobij.client/public/pet-models/roster/*.glb
+!shinobij.client/public/pet-models/showdown-v2/
+!shinobij.client/public/pet-models/showdown-v2/*.glb
 # Stage-0 starters. These are the model EVERY new player fights with until they
 # evolve, so leaving them out 404s the Coliseum for exactly the accounts that
 # have never seen it. Ship them alongside their -r/-l evolutions.

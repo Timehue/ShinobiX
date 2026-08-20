@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { PET_COMBAT_MODEL_IDS } from "../shinobij.client/src/lib/pet-3d-models";
 import { APPROVED_ROSTER_MODEL_IDS, approvedRosterCombatModel } from "../shinobij.client/src/lib/pet-3d-roster";
+import { PET_SHOWDOWN_ANIMATION_MODEL_IDS } from "../shinobij.client/src/lib/pet-showdown-animation-assets";
 import { HOLLOW_HOUND_MODEL_SOURCE_ID } from "../shared/hollow-gate-contract";
 
 /*
@@ -88,6 +89,21 @@ test("the approved roster models are allowlisted and present", () => {
     const manifest = JSON.parse(readFileSync(join(modelsDir, "roster-manifest.json"), "utf8")) as Record<string, unknown>;
     const entries = Array.isArray(manifest) ? manifest : Object.values(manifest);
     assert.ok(entries.length > 0, "roster-manifest.json is empty");
+});
+
+test("the individually authored Showdown models are allowlisted and present", () => {
+    const docker = allowedPaths(".dockerignore");
+    const git = allowedPaths(".gitignore");
+    const directory = "shinobij.client/public/pet-models/showdown-v2/";
+    const wildcard = `${directory}*.glb`;
+    assert.ok(docker.has(directory), "showdown-v2 directory missing from .dockerignore");
+    assert.ok(docker.has(wildcard), "showdown-v2 GLB wildcard missing from .dockerignore");
+    assert.ok(git.has(directory), "showdown-v2 directory missing from .gitignore");
+    assert.ok(git.has(wildcard), "showdown-v2 GLB wildcard missing from .gitignore");
+    for (const id of PET_SHOWDOWN_ANIMATION_MODEL_IDS) {
+        const path = `${directory}${id}.glb`;
+        assert.ok(existsSync(join(repoRoot, path)), `missing individually authored model: ${path}`);
+    }
 });
 
 test("the Coliseum model aliases resolve to a model that exists", () => {
