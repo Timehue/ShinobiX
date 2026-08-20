@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { previewRootFor, smokeE2ePort } from "../e2e-ports";
 
 let productionCss = "";
 
@@ -10,8 +11,7 @@ test.beforeAll(() => {
     // Test files are discovered before Playwright starts its preview server.
     // Load built CSS only after that lifecycle boundary so a concurrent build
     // cannot leave worker startup looking at a temporarily empty dist folder.
-    const port = process.env.PLAYWRIGHT_PORT ?? "4173";
-    const previewRoot = `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, "_")}`;
+    const previewRoot = previewRootFor(smokeE2ePort());
     const assetsDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", previewRoot, "assets");
     const assets = readdirSync(assetsDirectory);
     const names = [

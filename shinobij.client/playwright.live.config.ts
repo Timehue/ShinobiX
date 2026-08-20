@@ -1,6 +1,8 @@
 import { defineConfig } from '@playwright/test';
+import { liveE2ePort } from './e2e-ports';
 
-const baseURL = 'http://127.0.0.1:4183';
+const port = liveE2ePort();
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
     testDir: './e2e-live',
@@ -27,7 +29,7 @@ export default defineConfig({
         env: {
             NODE_ENV: 'test',
             SHINOBIX_QA_MEMORY_KV: '1',
-            PORT: '4183',
+            PORT: port,
             SESSION_SECRET: 'live-express-e2e-session-secret-32-bytes-minimum',
             ADMIN_PASSWORD: 'live-express-e2e-admin',
             DISABLE_SCHEDULED_JOBS: '1',
