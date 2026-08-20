@@ -8,8 +8,8 @@
  * bfcache restore announces itself via `pageshow` with `persisted: true`;
  * this hook runs the given reset there.
  *
- * The login gate needs the identical reset for its status line; fold it onto
- * this hook rather than writing a third copy of the listener.
+ * Used by the login gate, the Google link card, and the guest social lock —
+ * every surface that hands the browser to Google and can be returned to.
  */
 import { useEffect, useRef } from "react";
 
