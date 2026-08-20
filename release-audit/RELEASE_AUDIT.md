@@ -4,6 +4,21 @@ Audit date: 2026-07-11 (America/Chicago)
 Repository state audited: current dirty worktree at base commit `d32ae563`
 Verdict: **APPROVED — LIMITED BETA GO**
 
+> **Addendum (2026-08-19): owner-approved concurrency cap raised to 100-200
+> invited concurrent players, one replica.** The 25-player figure below was
+> never a discovered limit — it was set because the concurrent-load test
+> hadn't been run yet (see SX-007/SX-011). On 2026-08-19, `npm run soak` was
+> run locally at 200 and 300 concurrent players, including the specific
+> dense-sector hub-crush case SX-007 called unverified (`--sectors=1`): all
+> three runs passed with 0 errors and 30-50× margin against the harness gate.
+> Full results in `docs/runbooks/launch-capacity.md`. Real Postgres/staging
+> load remains untested (no staging host is configured in this repo) — the
+> owner has reviewed that gap and accepted it as a launch-scale risk, the same
+> way SX-011's staging gap was accepted for the original 25-player beta. See
+> the updated Release Blockers section and `RELEASE_FINDINGS.md` (SX-007,
+> SX-011) for the current operative status. The rest of this document is kept
+> as the original historical record and is not retroactively edited.
+
 ## Executive Summary
 
 ShinobiX is approved for a controlled limited beta of up to 25 invited concurrent players on one monitored replica. The codebase has a strong and unusually broad automated suite, deterministic combat tests, route-parity checks, tokenized/idempotent reward paths, save-version conflict protection, security headers, narrow Supabase RLS reads, audit/economy receipts, and an active production build that succeeds cleanly. This is not approval for an unrestricted public launch or horizontal scaling.
@@ -220,6 +235,8 @@ Code blockers SX-001 and SX-002 are closed. Production deep health, fresh indepe
 
 Owner decision (2026-07-12): additional staging spend was declined because the owner judged the residual risk too low to justify the cost. SX-011 is therefore an explicitly accepted, unverified exception. It may support only a limited-launch decision after the remaining no-cost production controls are confirmed; it is not represented as test evidence.
 
+Concurrency-cap evidence and owner decision (2026-08-19): `npm run soak` was run locally (in-memory storage backend, not Postgres) at 200 players spread across 40 sectors, 300 players spread across 40 sectors, and 200 players forced into a single sector (`--sectors=1`, the dense-sector hub-crush case SX-007 identified as unverified). All three: 0 errors, server health p99 4-7ms, worst gameplay endpoint p99 11ms, against a harness gate of 250ms/2s — roughly 30-50× margin, and no measurable degradation in the single-sector case versus the spread case. This closes the server-code/presence-broadcast portion of SX-007's open question. Real Postgres connection-pool behavior, Railway↔Supabase network latency, and actual Railway container CPU/RSS remain unmeasured — no staging host is configured in this repo to run `npm run soak -- --url=<staging>` against real Postgres. The owner reviewed this evidence and the remaining gap, and approved raising the concurrency cap to 100-200 invited concurrent players on one replica, accepting the untested-Postgres/staging risk the same way SX-011 accepted it for the original 25-player figure. See the Addendum at the top of this document and `docs/runbooks/launch-capacity.md`.
+
 Supabase retention evidence (2026-07-12): the production dashboard listed seven daily restore points from 2026-07-06 through 2026-07-12. Point-in-time recovery was shown as an available paid add-on, not enabled. The owner declined additional spend and accepts daily-backup recovery granularity for the limited launch.
 
 Railway dashboard evidence (2026-07-12) confirmed production is pinned by `railway.json` to exactly one US East replica, satisfying the accepted single-instance presence constraint.
@@ -242,4 +259,6 @@ Code-scanning evidence (2026-07-12/13): GitHub CodeQL default setup with the ext
 
 Release-toolchain evidence (2026-07-12): commit `3d6c9c8b` pins both Docker stages to Node 22.23.1 Bookworm Slim (official bundled npm 10.9.8). Root `package-lock.json` is lockfile version 3 with recorded SHA-256 `34DBC2A62C9A62A0521767269C78D6D6A8EDF840DFEDE328F647C79FC6E733E4`.
 
-**Final verdict: APPROVED — LIMITED BETA GO (maximum 25 invited concurrent players, one replica).**
+**Original 2026-07-11 verdict: APPROVED — LIMITED BETA GO (maximum 25 invited concurrent players, one replica).**
+
+**Current operative verdict (2026-08-19 addendum): APPROVED — BETA GO (100-200 invited concurrent players, one replica).** See the Addendum at the top of this document.
