@@ -49,7 +49,9 @@ describe("heartbeat force-reload account authority", () => {
         const deleteGuard = heartbeat.indexOf("if (!heartbeatIsCurrent()) return", deletedBranch);
         const deleteAck = heartbeat.indexOf("const ack = fetch", deleteGuard);
         const localDelete = heartbeat.indexOf("delete accounts[lsKey]", deleteAck);
-        const logout = heartbeat.indexOf('currentAccountNameRef.current = ""', localDelete);
+        // The six teardown setters are unwindToLoginForm() now; what this pins is
+        // unchanged — the local cache must be dropped BEFORE the session is torn down.
+        const logout = heartbeat.indexOf("unwindToLoginForm()", localDelete);
         assert.ok(deletedBranch < deleteGuard && deleteGuard < deleteAck && deleteAck < localDelete && localDelete < logout,
             "a deleted-save reply must be current before acknowledgement, cache deletion, or logout");
     });
