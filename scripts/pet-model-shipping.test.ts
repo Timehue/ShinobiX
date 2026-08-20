@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { PET_COMBAT_MODEL_IDS } from "../shinobij.client/src/lib/pet-3d-models";
 import { APPROVED_ROSTER_MODEL_IDS, approvedRosterCombatModel } from "../shinobij.client/src/lib/pet-3d-roster";
 import { HOLLOW_HOUND_MODEL_SOURCE_ID } from "../shared/hollow-gate-contract";
+import { PET_SHOWDOWN_ANIMATION_MODEL_IDS, petShowdownAnimationModelUrl } from "../shinobij.client/src/lib/pet-showdown-animation-assets";
 
 /*
  * Pet-model SHIPPING contract.
@@ -117,5 +118,30 @@ test("Hollow Warfront prop and boss models are allowlisted and present", () => {
         assert.ok(existsSync(join(repoRoot, path)), `missing Warfront model: ${file}`);
         assert.ok(docker.has(path), `${file} is excluded from the Docker build context — it will 404 in production`);
         assert.ok(git.has(path), `${file} is not re-included in .gitignore`);
+    }
+});
+
+test("the Showdown four-pet camera models are allowlisted and present", () => {
+    // These live in their own subdirectory, so BOTH ignore files need the
+    // directory re-included before the wildcard can match. They shipped
+    // allowlisted in .gitignore but not .dockerignore, which is invisible to CI
+    // (it builds from source, not from the image) and 404s only in production.
+    const docker = allowedPaths(".dockerignore");
+    const git = allowedPaths(".gitignore");
+    const dir = "shinobij.client/public/pet-models/showdown-v2/";
+    const wildcard = `${dir}*.glb`;
+    for (const [label, allowed] of [[".dockerignore", docker], [".gitignore", git]] as const) {
+        assert.ok(allowed.has(dir), `the showdown-v2 directory is not re-included in ${label} — the wildcard below cannot match inside an excluded directory`);
+        assert.ok(allowed.has(wildcard), `the showdown-v2 GLB wildcard is missing from ${label}`);
+    }
+
+    assert.equal(PET_SHOWDOWN_ANIMATION_MODEL_IDS.size, 4);
+    for (const id of PET_SHOWDOWN_ANIMATION_MODEL_IDS) {
+        const url = petShowdownAnimationModelUrl(id);
+        assert.ok(url, `${id} no longer resolves to a Showdown model URL`);
+        assert.ok(
+            existsSync(join(repoRoot, "shinobij.client", "public", url!.split("?")[0])),
+            `Showdown model ${id} resolves to a missing file: ${url}`,
+        );
     }
 });
