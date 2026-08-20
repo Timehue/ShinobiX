@@ -2205,8 +2205,7 @@ export default function App() {
     // acceptedPlayer→p2. Pet modes stash the shared seed in
     // sessionStorage for the PetArena screen to pick up. Tile cards
     // currently route to the tavern for manual play; cross-confirmation
-    // on report still keeps the result honest.
-    // onLaunchFailed fires only on failures worth retrying — not on the permanent 2v2 block, which would re-alert every poll tick.
+    // on report still keeps the result honest. onLaunchFailed fires only on retryable failures, never the permanent 2v2 block.
     const launchClanWarBattle = useCallback((ch: CwChallenge, warId?: string, onLaunchFailed?: () => void) => {
         if (!character) return;
         const me = character.name.toLowerCase();
