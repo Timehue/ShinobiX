@@ -48,6 +48,48 @@ substantial headroom at 500 players.
 Save-version conflicts ran at **0.1%** (13 of 11,752) — the optimistic-
 concurrency guard firing only on genuine races, which is exactly right.
 
+## 2026-08-19 local measurement — 200/300 players, incl. worst-case single-sector
+
+Run with the corrected (post-2026-08-05) harness: `npm run soak -- --players=N
+--seconds=90 [--sectors=1]`. Same in-memory-storage caveat as above applies —
+this measures the server process (handlers, auth, lock contention, presence
+broadcast), not Postgres or the Railway container.
+
+| run | accounts | calls | errors | health p99 | worst endpoint p99 |
+|---|---|---|---|---|---|
+| 200 players, spread across 40 sectors | 200/200 | 10,763 | 0 | 5ms | 7ms (heartbeat) |
+| 300 players, spread across 40 sectors (1.5×) | 300/300 | 16,497 | 0 | 7ms | 11ms (heartbeat/save read) |
+| 200 players, **all in one sector** (`--sectors=1`, the hub-crush case) | 200/200 | 10,751 | 0 | 4ms | 9ms (heartbeat/save read) |
+
+All three passed the harness's own gate (health p99 > 250ms or gameplay p99 >
+2s fails) with roughly 30-50× margin. The single-sector run — the specific
+"dense-sector broadcast" scenario SX-007 called unverified — showed **no
+degradation** versus the spread-out run; full-roster broadcast fan-out to 200
+sector-mates did not measurably cost more than normal.
+
+**What this changes:** the server-side code (handlers, presence, locking) is
+no longer the open question at 100-200 concurrent — it held with large margin,
+including the specific worst case that was previously flagged as unknown.
+
+**What this does NOT change:** this is still a local, in-memory run. Real
+Postgres connection-pool behavior, Railway↔Supabase network latency, and
+actual Railway container CPU/RSS remain unmeasured. The 15-connection pool
+(`PG_POOL_MAX`, `api/_storage.ts`) has not been load-tested against real
+traffic. Back-of-envelope math (simple indexed KV point reads/writes, pool of
+15, even a pessimistic 50ms/query) suggests ~300 qps of headroom against a
+real 100-200-player traffic rate far below the 96-141 req/s already cleared
+locally with an accelerated test cadence — but that is an estimate, not a
+measurement. Re-run `npm run soak -- --url=https://your-staging-host
+--players=200` against a real staging Postgres before treating 100-200 as
+certified; no staging host currently exists in this repo's configuration.
+
+The formal `release-audit/RELEASE_AUDIT.md` verdict (25 invited concurrent
+players, one replica) predates this measurement and was set because this
+exact test hadn't been run yet, not because a problem was found. This section
+does not itself re-certify a higher number — that requires the staging run
+above plus an owner decision — but the server-code portion of the open
+question is now answered with evidence.
+
 ## Corrected automated local gate
 
 `npm run soak:smoke` now runs in CI after the built-server certification. The

@@ -14,6 +14,7 @@ import { ModerationPanel } from "./ModerationPanel";
 import { AdminLegacyPanel } from "./AdminLegacyPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AdminVillageLeadersPanel } from "./AdminVillageLeadersPanel";
+import { makeAdminJutsuActions } from "./admin-jutsu-actions";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
@@ -23,7 +24,7 @@ import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { VnCinematicDirectionEditor } from "../components/VnCinematicDirectionEditor";
 import { VnDialogueEditor } from "../components/VnDialogueEditor";
 import { biomeForWorldSector, villages, worldSectorOptions } from "../data/sectors";
-import { jutsuElements, jutsuMethods, jutsuTargets, rebalanceNonBloodlineJutsu, specialties, starterJutsus, starterSavedBloodlines } from "../data/jutsu";
+import { jutsuElements, jutsuMethods, jutsuTargets, specialties, starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import { auraSphereLv9VnEvent, awakeningLv2VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "../data/vn-events";
 import { getAllTileCards, shinobiTileCards, type TileCard } from "../data/tile-cards";
 import { mergeBuiltinMissions, missionRaidRequirement } from "../data/missions";
@@ -47,7 +48,6 @@ import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { analyzeVnFlow, splitDialogueLine } from "../lib/vn";
 import { compactVnDirection, validateVnCinematicEvent, VN_CUES } from "../lib/vn-cinematic-authoring";
 import { firstCurrencyReward, rewardCurrencyOptions, rewardSummary, singleCurrencyReward } from "../lib/currency";
-import { jutsuPoints } from "../lib/jutsu-points";
 import { clampNumber, makeId } from "../lib/utils";
 import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeJutsuTags, percentageTags } from "../lib/tags";
@@ -76,7 +76,6 @@ import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import type { VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
-import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
 import {
     createAdminWeeklyBossOperationFence,
@@ -294,6 +293,9 @@ export function AdminPanel({
     // Cleared the moment the upload settles, so a deliberate (already-previewed)
     // save stays fully synchronous.
     const jutsuImagePendingRef = useRef<Promise<string> | null>(null);
+    // Hoisted above the jutsu-editor actions (which take it as a render-time
+    // dep); handleAdminSave far below shares this same publisher instance.
+    const publishAuthoredContent = useAdminContentPublisher(adminPw);
     const [itemName, setItemName] = useState("Iron Katana");
     const [itemSlot, setItemSlot] = useState<EquipmentSlot>("hand");
     const [itemRarity, setItemRarity] = useState<GameItem["rarity"]>("common");
@@ -2123,79 +2125,24 @@ export function AdminPanel({
         setTag4Percent(normalized.tags[3]?.percent ?? 30);
     }
 
-    async function createAdminJutsu() {
-        // If an image upload is still compressing, wait for it so we don't create
-        // + publish with a half-ready (empty) image. No-op (stays synchronous) once
-        // the preview has appeared, since the upload clears the pending marker.
-        const readyImage = jutsuImagePendingRef.current ? await jutsuImagePendingRef.current.catch(() => "") : null;
-        const newJutsu = rebalanceNonBloodlineJutsu(jutsuFromForm());
-        // jutsuFromForm read the form state (stale across the await); prefer the
-        // freshly-finished upload when one was in flight.
-        if (readyImage) newJutsu.image = readyImage;
-        if (newJutsu.image) void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image);
-
-        setCreatorJutsus([...creatorJutsus, newJutsu]);
-
-        alert(`${newJutsu.name} created and imported to the game. Train it before equipping it.`);
-        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
-    }
-
-    async function saveAdminJutsuEdit() {
-        if (!editingJutsuId) return alert("Load an existing admin jutsu first.");
-        // Wait for an in-flight image upload (no-op once the preview has appeared)
-        // so a save made mid-upload still persists the picture.
-        const readyImage = jutsuImagePendingRef.current ? await jutsuImagePendingRef.current.catch(() => "") : null;
-        const updatedJutsu = jutsuFromForm(editingJutsuId);
-        if (readyImage) updatedJutsu.image = readyImage;
-        // Skip the publish when there's no image — an empty string is rejected (400).
-        if (updatedJutsu.image) void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image);
-        const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
-        if (sourceBloodline) {
-            setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
-                ...bloodline,
-                jutsus: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu),
-                totalPoints: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu).reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
-            } : bloodline));
-        } else if (creatorJutsus.some((jutsu) => jutsu.id === editingJutsuId)) {
-            // Save exactly what the admin set — no rebalance override
-            setCreatorJutsus(creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu));
-        } else {
-            // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
-            setCreatorJutsus([...creatorJutsus, updatedJutsu]);
-        }
-        alert(`${updatedJutsu.name} saved.`);
-        // Auto-persist: wait for React to re-render with the new state, then save
-        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
-    }
-
-    async function deleteAdminJutsu(jutsuId = editingJutsuId) {
-        if (!jutsuId) return alert("Load an existing admin jutsu first.");
-        const label = allGameJutsus.find((jutsu) => jutsu.id === jutsuId)?.name ?? jutsuId;
-        if (!(await gameConfirm(`Permanently delete "${label}"? This cannot be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
-        const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === jutsuId));
-        if (sourceBloodline) {
-            const remaining = sourceBloodline.jutsus.filter((jutsu) => jutsu.id !== jutsuId);
-            setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
-                ...bloodline,
-                jutsus: remaining,
-                totalPoints: remaining.reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
-            } : bloodline));
-        } else if (creatorJutsus.some((jutsu) => jutsu.id === jutsuId)) {
-            // Replace with a tombstone rather than dropping the entry: the two
-            // admin slots are UNIONED by every reader, so a plain removal is
-            // resurrected by the other slot's copy and the jutsu comes back.
-            setCreatorJutsus([
-                ...creatorJutsus.filter((jutsu) => jutsu.id !== jutsuId),
-                deletedJutsuEntry(jutsuId, Date.now()) as unknown as Jutsu,
-            ]);
-        } else {
-            return alert("That's a built-in starter jutsu — it can't be deleted, only overridden via Save Loaded Jutsu.");
-        }
-        if (jutsuId === editingJutsuId) setEditingJutsuId("");
-        alert(`${label} deleted.`);
-        // Auto-persist: wait for React to re-render with the new state, then save
-        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
-    }
+    // Create / save-edit / delete for admin-authored jutsu, extracted to
+    // admin-jutsu-actions.ts (line-budget drain). Every mutation publishes
+    // through the guarded content endpoint before the deferred save — the fix
+    // for the "Blitz" silently becoming "Overload" clobber; rationale lives
+    // with the module.
+    const { createAdminJutsu, saveAdminJutsuEdit, deleteAdminJutsu } = makeAdminJutsuActions({
+        jutsuImagePendingRef, jutsuFromForm,
+        creatorJutsus, setCreatorJutsus,
+        savedBloodlines, setSavedBloodlines,
+        editingJutsuId, setEditingJutsuId,
+        allGameJutsus, publishAuthoredContent,
+        authoredContent: {
+            creatorItems, creatorAis, creatorEvents, creatorMissions, creatorRaids,
+            creatorCards, editablePets, petEncounterVn, ancientChestVn, hollowGateEventConfig,
+        },
+        // Auto-persist: wait for React to re-render with the new state, then save.
+        scheduleAutoSave: () => { setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150); },
+    });
 
     function eventFromForm(id = `event-${makeId()}`): CreatorEvent {
         const existingEvent = allEditableEvents.find((event) => event.id === id);
@@ -2734,7 +2681,6 @@ export function AdminPanel({
 
     const [adminSaving, setAdminSaving] = useState(false);
     const [adminSaveMsg, setAdminSaveMsg] = useState("");
-    const publishAuthoredContent = useAdminContentPublisher(adminPw);
     async function handleAdminSave() {
         setAdminSaving(true); setAdminSaveMsg("");
         try {
