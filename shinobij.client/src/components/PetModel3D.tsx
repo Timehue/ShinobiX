@@ -8,7 +8,7 @@ import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
 import { bindPetAtlasTexture, copyPetAtlasSampling, lockPetAtlas } from "../lib/pet-atlas-material";
 import { readPetGlbAtlas } from "../lib/pet-glb-atlas";
-import { attackClipWindow, motionOwnsLocomotion, resolveCombatBodyFacing } from "../lib/pet-combat-performance";
+import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing } from "../lib/pet-combat-performance";
 import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
@@ -708,6 +708,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     const lastVictorious = useRef(false);
     const victoryStart = useRef(0);
     const lastTimeline = useRef<number | null>(null);
+    const facingInitialized = useRef(false);
     const lightColor = surfaceTreatment?.emissive ?? ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd";
     const avianWingBones = useMemo(() => {
         const bones: Array<{ bone: THREE.Bone; side: number; reach: number }> = [];
@@ -774,6 +775,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             outlineMixer?.stopAllAction();
             lastVictorious.current = false;
             victoryStart.current = timeline;
+            facingInitialized.current = false;
         }
         const motionChanged = f.motion !== lastMotion.current;
         if (motionChanged) {
@@ -985,6 +987,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             attackPulse,
             casting: f.casting,
         });
+        const deathPose = petDeathChoreography(motionAge, config.targetHeight, config.profile);
 
         // Four-legged pets cannot convincingly strafe while their planted-foot
         // cycle points at the opponent. Face along travel during ordinary running,
@@ -1010,13 +1013,20 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             // target. Large discontinuities are corrected during anticipation;
             // smaller turns remain smoothly animated so ordinary movement never
             // snaps or jitters between competing travel/target headings.
-            if (committedFacing && Math.abs(yawError) > Math.PI * 0.56) r.rotation.y = wantedYaw;
+            if (!facingInitialized.current) {
+                // Spawn already looking at the supplied opponent vector. Smoothing
+                // from Three's zero-yaw default exposed backs/sides for the first
+                // visible frames, especially in the four-pet Coliseum layout.
+                r.rotation.y = wantedYaw;
+                facingInitialized.current = true;
+            } else if (committedFacing && Math.abs(yawError) > Math.PI * 0.56) r.rotation.y = wantedYaw;
             else {
                 const turnRate = committedFacing ? 24 : authoredCombatRig ? (faceTravel ? 11 : 13) : (faceTravel ? 15 : 12);
                 r.rotation.y = smoothAngle(r.rotation.y, wantedYaw, Math.min(1, delta * turnRate));
             }
         }
-        r.position.y = THREE.MathUtils.lerp(r.position.y, Math.max(0, bob + dodgeHeight + avianDiveArc + victoryArc + heroPose.lift), Math.min(1, delta * (avianDive || dodge ? 18 : 12)));
+        const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + heroPose.lift + (dead ? deathPose.lift - deathPose.sink : 0);
+        r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), Math.min(1, delta * (avianDive || dodge || dead ? 18 : 12)));
         // The generated roster takes provide leg/head motion but their attack clip
         // has almost no centre-of-mass commitment. Layer one smooth, restrained
         // anime pose over state edges so the pet coils, drives through contact and
@@ -1024,9 +1034,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const baseAuthoredPitch = avianDive
             ? -0.06 - Math.sin(Math.PI * avianDiveP) * 0.12 + avianDiveP * 0.15
             : authoredCombatRig
-            ? dead ? -0.72 : f.victorious ? -0.11 - victoryLift * 0.11 : dodge ? -0.1 * dodgeArc : windup ? -0.14 : strike ? 0.075 + 0.17 * attackPulse : f.motion === "recover" ? 0.045 : stagger ? -0.16
+            ? dead ? -0.72 * deathPose.fall : f.victorious ? -0.11 - victoryLift * 0.11 : dodge ? -0.1 * dodgeArc : windup ? -0.14 : strike ? 0.075 + 0.17 * attackPulse : f.motion === "recover" ? 0.045 : stagger ? -0.16
                 : running ? (groundedAuthoredQuadruped ? 0.018 + strideWave * 0.022 : Math.min(0.09, 0.024 + f.speed * 0.007) + strideWave * 0.012) : 0
-            : dead ? -1.42
+            : dead ? -1.42 * deathPose.fall
                 : f.victorious ? (aquaticSeal ? -0.2 - victoryLift * 0.12 : -0.1)
                     : dodge ? (aquaticSeal ? -0.1 : -0.08) * dodgeArc
                         : windup ? (aquaticSeal ? -0.14 : -0.16)
@@ -1036,9 +1046,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const baseAuthoredRoll = avianDive
             ? turnBank * 1.25 + Math.sin(avianDiveP * Math.PI * 2) * 0.025
             : authoredCombatRig
-            ? dead ? 0.36 : f.victorious ? 0 : dodge ? 0.15 * dodgeArc : stagger ? 0.07
+            ? dead ? 0.36 * deathPose.fall : f.victorious ? 0 : dodge ? 0.15 * dodgeArc : stagger ? 0.07
                 : running ? (groundedAuthoredQuadruped ? turnBank * 0.55 + strideWave * 0.012 : turnBank + strideWave * 0.018) : strike ? -0.035 * attackPulse : 0
-            : dead ? 0.58
+            : dead ? 0.58 * deathPose.fall
                 : f.victorious ? (aquaticSeal ? Math.sin(Math.PI * victoryP) * 0.055 : 0)
                     : dodge ? (aquaticSeal ? 0.22 : 0.17) * dodgeArc
                     : aquaticSeal && stagger ? -0.16
@@ -1056,14 +1066,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw, Math.min(1, delta * 13));
         b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, authoredRoll, Math.min(1, delta * 11));
         const sx = authoredCombatRig
-            ? dead ? 1.06 : f.victorious ? 1.025 + victoryLift * 0.012 : strike ? 1 - 0.04 * attackPulse : stagger ? 1.035 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.012) : 1 + breath * 0.12
-            : f.victorious ? (aquaticSeal ? 1.055 : 1.035) : dead ? 1.08 : stagger ? 1.07 : strike ? (aquaticSeal ? 0.965 : 0.94) : aquaticSeal && running ? 1 + breath * 0.45 + sealCompression * 0.025 : 1 + breath;
+            ? dead ? 1 + 0.06 * deathPose.fall + 0.045 * deathPose.impact : f.victorious ? 1.025 + victoryLift * 0.012 : strike ? 1 - 0.04 * attackPulse : stagger ? 1.035 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.012) : 1 + breath * 0.12
+            : f.victorious ? (aquaticSeal ? 1.055 : 1.035) : dead ? 1 + 0.08 * deathPose.fall + 0.055 * deathPose.impact : stagger ? 1.07 : strike ? (aquaticSeal ? 0.965 : 0.94) : aquaticSeal && running ? 1 + breath * 0.45 + sealCompression * 0.025 : 1 + breath;
         const sy = authoredCombatRig
-            ? dead ? 0.82 : f.victorious ? 1.045 + victoryLift * 0.025 : strike ? 1 + 0.04 * attackPulse : windup ? 0.97 : stagger ? 0.965 : running ? (groundedAuthoredQuadruped ? 1 : 1 - authoredRunWave * 0.018) : 1 - breath * 0.06
-            : f.victorious ? (aquaticSeal ? 1.085 + victoryLift * 0.035 : 1.045) : dead ? 0.72 : stagger ? 0.88 : strike ? (aquaticSeal ? 1.12 : 1.08) : aquaticSeal && running ? 1 - breath * 0.2 - sealCompression * 0.035 : 1 - breath * 0.5;
+            ? dead ? 1 - 0.18 * deathPose.fall - 0.09 * deathPose.impact : f.victorious ? 1.045 + victoryLift * 0.025 : strike ? 1 + 0.04 * attackPulse : windup ? 0.97 : stagger ? 0.965 : running ? (groundedAuthoredQuadruped ? 1 : 1 - authoredRunWave * 0.018) : 1 - breath * 0.06
+            : f.victorious ? (aquaticSeal ? 1.085 + victoryLift * 0.035 : 1.045) : dead ? 1 - 0.28 * deathPose.fall - 0.1 * deathPose.impact : stagger ? 0.88 : strike ? (aquaticSeal ? 1.12 : 1.08) : aquaticSeal && running ? 1 - breath * 0.2 - sealCompression * 0.035 : 1 - breath * 0.5;
         const sz = authoredCombatRig
-            ? dead ? 1.08 : f.victorious ? 1.035 : strike ? 1 + 0.11 * attackPulse : windup ? 0.94 : f.motion === "recover" ? 1.025 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.014) : 1 + breath * 0.12
-            : f.victorious ? (aquaticSeal ? 1.075 : 1.035) : dead ? 1.05 : windup ? (aquaticSeal ? 0.93 : 0.9) : strike ? (aquaticSeal ? 1.18 : 1.13) : aquaticSeal && running ? 1 + breath * 0.4 + sealCompression * 0.055 : 1 + breath;
+            ? dead ? 1 + 0.08 * deathPose.fall + 0.04 * deathPose.impact : f.victorious ? 1.035 : strike ? 1 + 0.11 * attackPulse : windup ? 0.94 : f.motion === "recover" ? 1.025 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.014) : 1 + breath * 0.12
+            : f.victorious ? (aquaticSeal ? 1.075 : 1.035) : dead ? 1 + 0.05 * deathPose.fall + 0.045 * deathPose.impact : windup ? (aquaticSeal ? 0.93 : 0.9) : strike ? (aquaticSeal ? 1.18 : 1.13) : aquaticSeal && running ? 1 + breath * 0.4 + sealCompression * 0.055 : 1 + breath;
         const dashScaleX = 1 - dashDrive * 0.025 + contactPunch * 0.03 + recoilWeight * 0.035;
         const dashScaleY = 1 - dashDrive * (config.profile === "heavy" ? 0.045 : 0.075) - contactPunch * 0.075 + recoilWeight * 0.065;
         const dashScaleZ = 1 + dashDrive * (config.profile === "heavy" ? 0.085 : 0.13) - dashBrake * 0.035 + contactPunch * 0.14 - recoilWeight * 0.085;

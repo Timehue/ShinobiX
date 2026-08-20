@@ -2,6 +2,17 @@ export type PetCombatMotion = "idle" | "run" | "dash" | "windup" | "strike" | "r
 
 export type AttackClipWindow = Readonly<{ start: number; end: number }>;
 
+export type PetDeathChoreography = Readonly<{
+    /** 0 -> 1 eased collapse progress. */
+    fall: number;
+    /** Brief upward recoil before gravity takes over, in world units. */
+    lift: number;
+    /** Downward root compensation that keeps a tilted body in floor contact. */
+    sink: number;
+    /** Short 0 -> 1 -> 0 landing compression pulse. */
+    impact: number;
+}>;
+
 const ATTACK_WINDOWS: Readonly<Partial<Record<PetCombatMotion, AttackClipWindow>>> = Object.freeze({
     windup: Object.freeze({ start: 0, end: 0.34 }),
     strike: Object.freeze({ start: 0.34, end: 0.74 }),
@@ -30,6 +41,29 @@ export function attackClipWindow(motion: PetCombatMotion): AttackClipWindow | nu
  * layer a run/bob over a planted cast, hit reaction, or attack recovery. */
 export function motionOwnsLocomotion(motion: PetCombatMotion, moving: boolean): boolean {
     return motion === "dash" || motion === "run" || (motion === "idle" && moving);
+}
+
+/** Shared KO phrase used by every 3D pet. Authored death clips still animate
+ * the skeleton; this supplies the readable whole-body recoil, fall and landing
+ * beat that otherwise varies wildly between imported rigs. */
+export function petDeathChoreography(
+    motionAge: number,
+    targetHeight: number,
+    profile: "quadruped" | "biped" | "avian" | "serpentine" | "heavy" = "quadruped",
+): PetDeathChoreography {
+    const age = Math.max(0, motionAge);
+    const recoilWindow = profile === "heavy" ? 0.2 : 0.16;
+    const fallDuration = profile === "heavy" ? 0.82 : profile === "avian" ? 0.62 : 0.7;
+    const fall = smoothstep((age - recoilWindow * 0.5) / fallDuration);
+    const recoilP = clamp(age / recoilWindow, 0, 1);
+    const recoilScale = profile === "avian" ? 0.09 : profile === "heavy" ? 0.035 : 0.055;
+    const lift = Math.sin(Math.PI * recoilP) * Math.max(0.5, targetHeight) * recoilScale * (1 - fall);
+    const sinkScale = profile === "biped" ? 0.2 : profile === "avian" ? 0.15 : profile === "heavy" ? 0.12 : profile === "serpentine" ? 0.08 : 0.13;
+    const sink = fall * Math.max(0.5, targetHeight) * sinkScale;
+    const landingAt = recoilWindow * 0.5 + fallDuration;
+    const impactP = clamp((age - landingAt) / 0.28, 0, 1);
+    const impact = age >= landingAt ? Math.sin(Math.PI * impactP) * (1 - impactP * 0.35) : 0;
+    return { fall, lift, sink, impact };
 }
 
 export function resolveCombatBodyFacing({

@@ -3625,7 +3625,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // production build always keeps the frame governor active; without this QA
     // seam, software WebGL correctly sheds DPR before a matrix runner can record
     // the requested device scale factor.
-    const qaPerfMode = import.meta.env.DEV && typeof window !== "undefined"
+    const qaPerfMode = (import.meta.env.DEV || import.meta.env.MODE === "warfront-qa") && typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("wfperf")
         : null;
     const fixedQaDpr = qaPerfMode === "fixed" || qaPerfMode === "geometry";

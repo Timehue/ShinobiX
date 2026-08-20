@@ -623,33 +623,47 @@ async function certify() {
             const beforeClaimRyo = Number(winnerBeforeClaim.body.character?.ryo ?? 0);
             const winnerClaim = await api('/api/pvp/claim-rewards', {
                 method: 'POST', token: winner.token, asName: winner.name,
-                body: { playerName: winner.name, battleId, outcome: 'win' },
+                body: { playerName: winner.name, battleId, outcome: 'win', completionVersion: 1 },
             });
             check(winnerClaim.status === 200 && winnerClaim.body.ok === true && winnerClaim.body.alreadyClaimed === false,
                 `the recorded winner settles exactly once → ${winnerClaim.status}`);
             check(winnerClaim.body.rewardAuthorized === true,
                 'the claim confirms the single-use challenge authority and mutual join');
+            check(winnerClaim.body.completionPending === true,
+                'the winner claim retains its durable completion obligation until ACK');
+            const winnerAck = await api('/api/pvp/claim-rewards', {
+                method: 'POST', token: winner.token, asName: winner.name,
+                body: { playerName: winner.name, battleId, outcome: 'win', completionVersion: 1, completionAck: true },
+            });
+            check(winnerAck.status === 200 && winnerAck.body.ok === true && winnerAck.body.completionPending === false,
+                `the winner completion ACK clears the durable obligation → ${winnerAck.status}`);
             const afterWinnerClaim = await api(`/api/save/${winner.name}`, { token: winner.token });
             const afterClaimRyo = Number(afterWinnerClaim.body.character?.ryo ?? 0);
             check(afterClaimRyo === beforeClaimRyo, `the no-reward spar cannot mint Ryo (${beforeClaimRyo} → ${afterClaimRyo})`);
 
             const forgedLoserWin = await api('/api/pvp/claim-rewards', {
                 method: 'POST', token: loser.token, asName: loser.name,
-                body: { playerName: loser.name, battleId, outcome: 'win' },
+                body: { playerName: loser.name, battleId, outcome: 'win', completionVersion: 1 },
             });
             check(forgedLoserWin.status === 403,
                 `a loser cannot claim the winner outcome → ${forgedLoserWin.status}`);
 
             const loserClaim = await api('/api/pvp/claim-rewards', {
                 method: 'POST', token: loser.token, asName: loser.name,
-                body: { playerName: loser.name, battleId, outcome: 'loss' },
+                body: { playerName: loser.name, battleId, outcome: 'loss', completionVersion: 1 },
             });
             check(loserClaim.status === 200 && loserClaim.body.ok === true && loserClaim.body.alreadyClaimed === false,
                 `the recorded loser can settle their side → ${loserClaim.status}`);
+            const loserAck = await api('/api/pvp/claim-rewards', {
+                method: 'POST', token: loser.token, asName: loser.name,
+                body: { playerName: loser.name, battleId, outcome: 'loss', completionVersion: 1, completionAck: true },
+            });
+            check(loserAck.status === 200 && loserAck.body.ok === true && loserAck.body.completionPending === false,
+                `the loser completion ACK clears the durable obligation → ${loserAck.status}`);
 
             const duplicateClaim = await api('/api/pvp/claim-rewards', {
                 method: 'POST', token: winner.token, asName: winner.name,
-                body: { playerName: winner.name, battleId, outcome: 'win' },
+                body: { playerName: winner.name, battleId, outcome: 'win', completionVersion: 1 },
             });
             const afterDuplicate = await api(`/api/save/${winner.name}`, { token: winner.token });
             check(duplicateClaim.status === 200 && duplicateClaim.body.alreadyClaimed === true,

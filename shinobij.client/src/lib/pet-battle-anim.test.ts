@@ -68,6 +68,30 @@ test("petCardImage: a published shared image wins over everything", () => {
     assert.equal(petCardImage(mkPet({ id: "starter-fire" }), { "pet:starter-fire": "shared.png" }), "shared.png");
 });
 
+test("petCardImage: Storm Gull uses its curated anatomy-safe portrait over stale inline art", () => {
+    const stormGull = mkPet({
+        id: "standard-17:550e8400-e29b-41d4-a716-446655440000",
+        templateId: "standard-17",
+        image: "legacy-three-foot-gull.png",
+        bodyImage: "legacy-three-foot-gull-body.png",
+    });
+    assert.equal(petCardImage(stormGull), "/pet-portraits/standard-17-card-v2.webp");
+});
+
+test("petCardImage: Storm Gull also replaces the known-bad generic shared portrait", () => {
+    const stormGull = mkPet({ id: "standard-17" });
+    assert.equal(petCardImage(stormGull, {
+        "pet:standard-17": "legacy-shared-three-foot-gull.png",
+    }), "/pet-portraits/standard-17-card-v2.webp");
+});
+
+test("petCardImage: a deliberately published Storm Gull variant still overrides the curated portrait", () => {
+    const stormGull = mkPet({ id: "standard-17", paletteVariantId: "chromatic-v1" });
+    assert.equal(petCardImage(stormGull, {
+        "pet:standard-17:variant:chromatic-v1": "published-storm-gull.png",
+    }), "published-storm-gull.png");
+});
+
 test("petBattleSprite: a UUID-owned pet resolves shared art by stable template id", () => {
     const owned = mkPet({ id: "rare-26:550e8400-e29b-41d4-a716-446655440000", templateId: "rare-26" });
     const { mode, src } = petBattleSprite(owned, { "petbody:rare-26": "owned-body.png" });
