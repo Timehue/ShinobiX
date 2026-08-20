@@ -36,6 +36,12 @@ Shinobi Journey/
 shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/roster/
 !shinobij.client/public/pet-models/roster/*.glb
+# Showdown four-pet camera models. Same rule as the roster: the directory has
+# to be re-included before the GLBs inside it can be, and this MUST mirror
+# .gitignore — a model committed but absent from the image 404s in production
+# only, inside the r3f Suspense boundary, taking the whole screen down.
+!shinobij.client/public/pet-models/showdown-v2/
+!shinobij.client/public/pet-models/showdown-v2/*.glb
 # Stage-0 starters. These are the model EVERY new player fights with until they
 # evolve, so leaving them out 404s the Coliseum for exactly the accounts that
 # have never seen it. Ship them alongside their -r/-l evolutions.
