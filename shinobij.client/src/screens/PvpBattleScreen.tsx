@@ -1021,6 +1021,12 @@ export function PvpBattleScreen({
         const iLostNow = isParticipant && !!session.winner && session.winner !== "draw" && !iWonNow;
         const isDrawNow = session.winner === "draw" && isParticipant;
         if (!iWonNow && !iLostNow && !isDrawNow) {
+            // No attributable outcome (spectator, or a defensive-gap "done"
+            // session with no winner). There is nothing to claim, so mark the
+            // claim confirmed — the done-overlay's exit buttons are disabled
+            // for participants until it is, and leaving it "idle" here made
+            // them permanently dead for a winner-less session.
+            setPvpRewardClaimState("confirmed");
             onCompletionConfirmed?.();
             return;
         }

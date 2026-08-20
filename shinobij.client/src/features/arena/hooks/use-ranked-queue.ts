@@ -235,6 +235,31 @@ export function useRankedQueue({
         return () => window.clearTimeout(timeout);
     }, [duelChallenges, rankedQueueLifecycle, trackedRankedChallenge]);
 
+    // Backstop for a "launching" session with NO tracked challenge to settle:
+    // the responder never sends one (the initiator's challenge arrives — or
+    // doesn't), and an initiator whose send came back transport-unknown
+    // without a challengeId can't be tracked either. The tracked path above
+    // gets the 180s settlement expiry; without this twin, those sessions sat
+    // in "launching" forever and Queue Up refused ("already launching") until
+    // the Arena screen unmounted. Same expiry, same release semantics. While
+    // the initiator's send is in flight the timer arms briefly and is cleared
+    // the moment tracking lands — the overlap is harmless because retire()
+    // no-ops on anything but the exact live generation.
+    useEffect(() => {
+        const session = rankedQueueSession;
+        if (!session || session.phase !== "launching" || trackedRankedChallenge) return;
+        const timeout = window.setTimeout(() => {
+            const retired = rankedQueueLifecycle.retire(session);
+            if (!retired) return;
+            setRankedQueueSession((current) => current?.ownerKey === session.ownerKey
+                && current.generation === session.generation ? null : current);
+            setRankedQueueActive(false);
+            setRankedQueueSize(0);
+            void leaveRankedQueueOnServer(retired, true);
+        }, RANKED_CHALLENGE_SETTLEMENT_TIMEOUT_MS);
+        return () => window.clearTimeout(timeout);
+    }, [rankedQueueLifecycle, rankedQueueSession, trackedRankedChallenge]);
+
     useEffect(() => {
         if (!rankedMutationsAvailable) return;
         let active = true;

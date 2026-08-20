@@ -4,6 +4,13 @@
 //
 // There is no Google SDK here on purpose — the site's CSP blocks Google-hosted
 // scripts and iframes, and a plain redirect needs neither.
+//
+// Both network calls ride sessionLoadFetch's deadline. A plain fetch here let a
+// stalled connection pin the boot "Restoring…" gate (claim) or the login-gate
+// controls (start) forever — and the redirect return is the most stall-prone
+// moment in the app: a fresh page load on a renegotiating mobile radio.
+
+import { sessionLoadFetch } from "./session-load-authority";
 
 /**
  * The nonce ties a completed sign-in back to the browser that started it.
@@ -48,7 +55,7 @@ export async function startGoogleSignIn(mode: "login" | "link" = "login"): Promi
     const nonce = randomNonce();
     rememberNonce(nonce);
     try {
-        const response = await fetch("/api/auth/google/start", {
+        const response = await sessionLoadFetch("/api/auth/google/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ nonce, mode }),
@@ -142,7 +149,7 @@ export async function claimGoogleSignIn(
     }
 
     try {
-        const response = await fetch("/api/auth/google/claim", {
+        const response = await sessionLoadFetch("/api/auth/google/claim", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ticket, nonce }),

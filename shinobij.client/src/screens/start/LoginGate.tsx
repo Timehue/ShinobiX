@@ -111,6 +111,20 @@ export function LoginGate({
         return () => { cancelled = true; };
     }, []);
 
+    // beginGoogle deliberately leaves status="Opening Google…" while the
+    // browser navigates away — but pressing Back from Google's consent page
+    // can restore this page FROM BFCACHE with that state intact, disabling
+    // every control with nothing in flight. A bfcache restore announces
+    // itself via pageshow with persisted=true; reset the transient status so
+    // the gate is immediately usable again.
+    useEffect(() => {
+        const onPageShow = (event: PageTransitionEvent) => {
+            if (event.persisted) setStatus("");
+        };
+        window.addEventListener("pageshow", onPageShow);
+        return () => window.removeEventListener("pageshow", onPageShow);
+    }, []);
+
     // Only "Admin 2" / "admin2" auto-routes to the admin login from the player
     // form. Admin 1 is intentionally NOT detected here — it flows through
     // logging in as Rill then the in-game Admin button, gating Admin 1 behind

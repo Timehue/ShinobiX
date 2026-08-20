@@ -1,6 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = 'http://127.0.0.1:4183';
+// Overridable so parallel worktree sessions stop fighting over one port: two
+// simultaneous runs on 4183 kill each other's webServer mid-run (reuse is
+// false, and the documented port-cleanup recipe kills whichever PID holds the
+// port — including a sibling's live server). CI and solo runs keep 4183.
+const port = process.env.COMBAT_LAYOUT_PORT ?? '4183';
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
     testDir: './e2e-live',
@@ -29,7 +34,7 @@ export default defineConfig({
         env: {
             NODE_ENV: 'test',
             SHINOBIX_QA_MEMORY_KV: '1',
-            PORT: '4183',
+            PORT: port,
             SESSION_SECRET: 'combat-layout-e2e-session-secret-32-bytes-minimum',
             ADMIN_PASSWORD: 'live-express-e2e-admin',
             DISABLE_SCHEDULED_JOBS: '1',
