@@ -54,7 +54,9 @@ export function WeeklyBossArena({
     const [fight, setFight] = useState<{ runId: string; session: SoloPveSession } | null>(null);
 
     const refresh = useCallback(async () => {
-        if (!capabilityAdmissionAllowed(viewAvailability())) return;
+        // This return sits before the try/finally below, so it must settle the
+        // spinner itself or a closed capability gate leaves "loading" stuck on.
+        if (!capabilityAdmissionAllowed(viewAvailability())) { setLoading(false); return; }
         try {
             const r = await fetch("/api/weekly-boss", { method: "GET" });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);

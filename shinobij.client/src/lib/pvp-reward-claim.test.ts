@@ -188,7 +188,7 @@ describe("pvp-reward-claim", () => {
         const screen = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
         const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
         const serverClaim = readFileSync(new URL("../../../api/pvp/claim-rewards.ts", import.meta.url), "utf8");
-        const adopt = screen.indexOf("await onRewardClaim?.(result, continuationContext)");
+        const adopt = screen.indexOf("await bounded(onRewardClaim?.(result, continuationContext))");
         const complete = screen.indexOf("completePvpRewardCompletion(completionStorage, claimRequest)", adopt);
         assert.ok(adopt >= 0 && complete > adopt,
             "lost-ACK replay must adopt the authoritative snapshot before sealing callback completion");

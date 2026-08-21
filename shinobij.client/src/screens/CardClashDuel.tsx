@@ -96,21 +96,29 @@ export function CardClashDuel({
     useEffect(() => {
         if (started.current) return;
         started.current = true;
-        void startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true, dungeonRunToken).then(async (result) => {
-            if (!result.ok || !result.matchId || !result.session) { setBusy(false); setError(result.error ?? "Could not prepare the sealed showdown."); return; }
-            setMatchId(result.matchId);
-            let authoritative = result;
-            if (dungeonRunToken && result.session.status === "complete" && (!result.character || !result._saveVersion)) {
-                authoritative = await chronicleAiAction(result.matchId, { action: "state" });
-                if (!authoritative.ok || !authoritative.session) {
-                    setBusy(false);
-                    setError(authoritative.error ?? "The Dungeon Card proof could not be reconciled.");
-                    return;
+        // try/catch/finally so a throw from a parent callback (e.g.
+        // onVersionedCharacter inside presentSession) can never strand
+        // busy=true with the encounter unfinishable.
+        void (async () => {
+            try {
+                const result = await startChronicleAi(character.name, deck, ENCOUNTER_AI_DIFFICULTY[tileDifficulty], true, dungeonRunToken);
+                if (!result.ok || !result.matchId || !result.session) { setError(result.error ?? "Could not prepare the sealed showdown."); return; }
+                setMatchId(result.matchId);
+                let authoritative = result;
+                if (dungeonRunToken && result.session.status === "complete" && (!result.character || !result._saveVersion)) {
+                    authoritative = await chronicleAiAction(result.matchId, { action: "state" });
+                    if (!authoritative.ok || !authoritative.session) {
+                        setError(authoritative.error ?? "The Dungeon Card proof could not be reconciled.");
+                        return;
+                    }
                 }
+                await presentSession(authoritative);
+            } catch {
+                setError("Could not prepare the sealed showdown.");
+            } finally {
+                setBusy(false);
             }
-            await presentSession(authoritative);
-            setBusy(false);
-        });
+        })();
         // presentSession is stable for the one-shot start effect
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.name, deck, tileDifficulty]);
@@ -118,10 +126,15 @@ export function CardClashDuel({
     async function act(intent: Parameters<typeof chronicleAiAction>[1]) {
         if (!matchId || busy) return;
         setBusy(true); setError("");
-        const result = await chronicleAiAction(matchId, intent);
-        if (!result.ok || !result.session) { setBusy(false); setError(result.error ?? "That action was not legal."); return; }
-        await presentSession(result);
-        setBusy(false);
+        try {
+            const result = await chronicleAiAction(matchId, intent);
+            if (!result.ok || !result.session) { setError(result.error ?? "That action was not legal."); return; }
+            await presentSession(result);
+        } catch {
+            setError("That action could not be resolved. Try again.");
+        } finally {
+            setBusy(false);
+        }
     }
 
     function resolve() {
@@ -143,7 +156,9 @@ export function CardClashDuel({
 
     return <main className={`chronicle-shell chronicle-encounter ${duel?.status === "active" ? "chronicle-shell--duel-active" : ""}`} style={sceneStyle}>
         <header className="chronicle-header">
-            <button onClick={onDungeonLeave} disabled={busy}>Leave Showdown</button>
+            {/* Never disabled: this is the only exit, and the server owns the
+                match state — abandoning mid-request is always safe. */}
+            <button onClick={onDungeonLeave}>Leave Showdown</button>
             <h1>Shinobi Chronicle Showdown<small>{tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium"}</small></h1>
         </header>
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}

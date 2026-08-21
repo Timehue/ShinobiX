@@ -2205,8 +2205,8 @@ export default function App() {
     // acceptedPlayer→p2. Pet modes stash the shared seed in
     // sessionStorage for the PetArena screen to pick up. Tile cards
     // currently route to the tavern for manual play; cross-confirmation
-    // on report still keeps the result honest.
-    const launchClanWarBattle = useCallback((ch: CwChallenge, warId?: string) => {
+    // on report still keeps the result honest. onLaunchFailed fires only on retryable failures, never the permanent 2v2 block.
+    const launchClanWarBattle = useCallback((ch: CwChallenge, warId?: string, onLaunchFailed?: () => void) => {
         if (!character) return;
         const me = character.name.toLowerCase();
         const onFromSide = (ch.fromPlayer ?? "").toLowerCase() === me
@@ -2245,7 +2245,7 @@ export default function App() {
                 const p2Name = ch.acceptedPlayer ?? "";
                 if (!inferredWarId || !p1Name || !p2Name) {
                     alert("This accepted Clan War duel is missing its server match details. Refresh and try again.");
-                    return;
+                    onLaunchFailed?.(); return;
                 }
                 const ownerName = character.name;
                 void (async () => {
@@ -2268,7 +2268,7 @@ export default function App() {
                             setScreen("pvpBattle");
                             return;
                         }
-                        if (result.kind === "rejected") return void alert(result.error);
+                        if (result.kind === "rejected") { alert(result.error); onLaunchFailed?.(); return; }
                         const battleId = result.kind === "created" ? result.battleId : result.battleId;
                         try {
                             const raw = sessionStorage.getItem("clanWarChallenge.v1");
@@ -2283,7 +2283,7 @@ export default function App() {
                         if (result.kind === "ambiguous") alert("The battle response was interrupted. Reconnecting to the authoritative session…");
                     } catch (error) {
                         if (createScope.isCurrent() && !(error instanceof DOMException && error.name === "AbortError")) {
-                            alert("Could not create the authoritative Clan War battle.");
+                            alert("Could not create the authoritative Clan War battle."); onLaunchFailed?.();
                         }
                     }
                 })();
@@ -2341,7 +2341,7 @@ export default function App() {
                     || (ch.acceptedPlayer2 ?? "").toLowerCase() === me;
                 if (!iAmParticipant) continue;
                 autoLaunchedClanWarChallenges.current.add(launchKey);
-                launchClanWarBattle(ch, war.id);
+                launchClanWarBattle(ch, war.id, () => autoLaunchedClanWarChallenges.current.delete(launchKey));
                 return; // launch one at a time
             }
         }
