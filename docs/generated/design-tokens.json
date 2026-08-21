@@ -2260,6 +2260,10 @@
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
             "line": 772
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1723
           }
         ]
       },
@@ -2372,7 +2376,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 797
+            "line": 821
           },
           {
             "source": "shinobij.client/src/styles/index/38-account-recovery.css",
@@ -2456,7 +2460,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1521
+            "line": 1528
           }
         ]
       },
@@ -2542,7 +2546,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1385
+            "line": 1388
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -2653,11 +2657,15 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 263
+            "line": 265
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 348
+            "line": 350
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1595
           }
         ]
       },
@@ -2672,7 +2680,7 @@
           },
           {
             "source": "shinobij.client/src/styles/guides-skin.css",
-            "line": 243
+            "line": 256
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -2941,7 +2949,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 207
+            "line": 151
+          },
+          {
+            "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
+            "line": 286
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2949,7 +2961,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 784
+            "line": 808
           },
           {
             "source": "shinobij.client/src/styles/index/25-mobile-profile-tabs.css",
@@ -3005,11 +3017,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1652
+            "line": 1742
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1712
+            "line": 1802
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3055,7 +3067,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1778
+            "line": 1868
           }
         ]
       },
@@ -3093,7 +3105,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1670
+            "line": 1677
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3127,7 +3139,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 663
+            "line": 665
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -3143,7 +3155,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1295
+            "line": 1298
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -3151,7 +3163,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 250
+            "line": 252
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -3170,7 +3182,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1712
+            "line": 1719
           }
         ]
       },
@@ -3243,11 +3255,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 429
+            "line": 453
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 906
+            "line": 930
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -3295,7 +3307,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1636
+            "line": 1711
           }
         ]
       },
@@ -3552,7 +3564,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1712
+            "line": 1719
           }
         ]
       },
@@ -3641,7 +3653,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1646
+            "line": 1736
           }
         ]
       }

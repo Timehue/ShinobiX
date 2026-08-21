@@ -3,10 +3,11 @@ import { Modal } from "./ui/Modal";
 
 /*
  * Minimal in-app abuse/content report control (EU DSA notice-and-action + UK
- * Online Safety Act in-service reporting). Renders ONE small, muted flag icon;
+ * Online Safety Act in-service reporting). Renders ONE compact, muted flag icon;
  * clicking it opens a compact dialog (reason + optional note) that POSTs to
  * /api/report. Deliberately unobtrusive — a tiny trigger, not another prominent
- * action button — so it adds a report path without cluttering the UI.
+ * action button — so it adds a report path without cluttering the UI while
+ * retaining a reliable touch target.
  *
  * Auth is attached automatically by the global fetch interceptor (authFetch.ts)
  * for /api/ calls, so this just calls plain fetch. The server (api/report.ts)
@@ -31,14 +32,19 @@ const CATEGORIES: ReadonlyArray<{ value: string; label: string }> = [
 const NOTE_MAX = 1000;
 
 const triggerBase: CSSProperties = {
+    display: "inline-grid",
+    placeItems: "center",
+    width: 32,
+    height: 32,
     background: "transparent",
     border: "none",
     color: "#8b98ad",
     cursor: "pointer",
     fontSize: 13,
     lineHeight: 1,
-    padding: 4,
+    padding: 0,
     opacity: 0.65,
+    flexShrink: 0,
 };
 const fieldLabel: CSSProperties = {
     display: "flex", flexDirection: "column", gap: 5,

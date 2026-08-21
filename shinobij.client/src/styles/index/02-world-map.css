@@ -293,19 +293,21 @@ html.wm-zoom .world-map-scroll .generated-world-map {
     will-change: transform;
     touch-action: none;
 }
-/* Markers ride the map transform, so keep their BASE (un-inflated) size — the
-   54px mobile blow-up was what piled them into an overlapping blob. */
+/* Markers ride the map transform, so keep their BASE size compact while making
+   the real button box (not only a pseudo-element hit ring) meet the 24px target
+   minimum in every engine. 26px preserves atlas separation without returning to
+   the old 54px mobile pile-up. */
 html.wm-zoom .world-map-scroll .atlas-sector {
-    width: 22px !important;
-    height: 22px !important;
-    min-width: 22px !important;
-    min-height: 22px !important;
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
     font-size: 12px !important;
     line-height: 1 !important;
 }
 html.wm-zoom .world-map-scroll .atlas-sector-deaths-gate {
-    width: 26px !important;
-    height: 26px !important;
+    width: 30px !important;
+    height: 30px !important;
     font-size: 13px !important;
 }
 /* A transparent hit-ring so small overview markers still catch taps. */

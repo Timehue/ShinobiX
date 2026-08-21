@@ -78,8 +78,8 @@
 .pet-collection-card.rarity-rare { border-color: rgba(104, 197, 225, .48); }
 .pet-collection-card.rarity-legendary { border-color: rgba(230, 189, 112, .62); }
 .pet-collection-card.rarity-mythic { border-color: rgba(200, 121, 255, .62); }
-.pet-collection-portrait { position: relative; display: grid; place-items: center; height: 176px; overflow: hidden; border-radius: 13px; background: radial-gradient(circle, rgba(112, 193, 181, .2), rgba(3, 8, 18, .7) 70%); }
-.pet-collection-portrait img { width: 100%; height: 100%; object-fit: contain; }
+.pet-collection-portrait { position: relative; isolation: isolate; display: grid; place-items: center; height: 176px; overflow: hidden; border-radius: 13px; background: radial-gradient(circle, rgba(112, 193, 181, .2), rgba(3, 8, 18, .7) 70%); }
+.pet-collection-portrait img { display: block; width: 100%; max-width: 100%; height: 100%; max-height: 100%; object-fit: contain; object-position: center; }
 .pet-collection-portrait > span { font: 800 2rem Georgia, serif; color: #7993a2; }
 .pet-collection-portrait em { position: absolute; right: .5rem; bottom: .45rem; border: 1px solid var(--home-line); border-radius: 999px; background: rgba(3, 8, 18, .8); padding: .22rem .55rem; color: #bcd2db; font-size: .68rem; font-style: normal; }
 .pet-collection-copy h3 { margin: .7rem 0 .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -139,6 +139,8 @@
 .pet-yard-screen .pet-trait-display--apex { border-color: rgba(246,211,123,.5); background: linear-gradient(145deg,rgba(68,31,91,.32),rgba(14,22,36,.88)); box-shadow: inset 0 0 28px rgba(209,135,255,.08); }
 .pet-yard-screen .pet-trait-display--apex strong { color: #ffe29a; }
 .pet-home-empty { display: grid; place-items: center; gap: .35rem; min-height: 250px; color: #8fa7b5; }
+.pet-empty-emblem { position: relative; isolation: isolate; width: 86px; height: 86px; display: grid; place-items: center; margin-bottom: .45rem; border: 1px solid rgba(230,189,112,.45); border-radius: 50%; color: #e6bd70; background: radial-gradient(circle,rgba(117,217,190,.2),rgba(6,13,24,.92) 68%); box-shadow: inset 0 0 0 7px rgba(4,10,19,.62), 0 0 34px rgba(117,217,190,.13); }
+.pet-empty-emblem::after { content: ""; position: absolute; inset: 8px; z-index: -1; border: 1px solid rgba(117,217,190,.22); border-radius: 50%; }
 
 .pet-home-modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; background: rgba(1,5,12,.84); padding: 1rem; backdrop-filter: blur(8px); }
 .pet-home-modal { width: min(520px, 100%); border: 1px solid rgba(230,189,112,.4); border-radius: 20px; color: #edf6f7; background: linear-gradient(150deg,#142337,#07101d); padding: clamp(1.1rem,4vw,2rem); box-shadow: 0 30px 90px #000; text-align: center; }
