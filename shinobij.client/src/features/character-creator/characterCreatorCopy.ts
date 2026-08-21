@@ -75,8 +75,8 @@ export const BLOODLINE_PRESENTATION: Record<string, BloodlinePresentation> = {
         flavor: "A fire-and-earth lineage that plays loud: ignition, raw damage, wounds, and lava techniques that feel heavy from the first fight.",
     },
     "Shadow Lotus": {
-        image: "/bloodline-shadow-lotus.webp",
-        alt: "Black lotus chakra blooming around blades under moonlight",
+        image: "/bloodline-shadow-lotus-v2.webp",
+        alt: "Masked Shadow Lotus shinobi crouched before luminous violet chakra petals",
         tagline: "Bukijutsu pressure through Shadow element weapon arts.",
         flavor: "A weapon bloodline with poison, protection, and absorb pressure wrapped in moonlit blades and wire.",
     },

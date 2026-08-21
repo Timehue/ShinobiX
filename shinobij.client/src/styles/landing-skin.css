@@ -1052,6 +1052,9 @@
 .landing-footer-links a,
 .landing-footer-links button {
     appearance: none;
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
     background: none;
     border: none;
     cursor: pointer;
@@ -1062,7 +1065,7 @@
     text-transform: uppercase;
     font-size: 12.5px;
     text-decoration: none;
-    padding: 4px 2px;
+    padding: 4px 6px;
     transition: color 0.15s;
 }
 
@@ -1435,11 +1438,12 @@
     }
     .landing-topnav {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 5px;
         width: 100%;
     }
     .landing-topnav .landing-navlink {
+        grid-column: span 2;
         width: 100%;
         min-height: 32px;
         font-size: 10px;
@@ -1450,6 +1454,9 @@
         background: linear-gradient(180deg, rgba(255, 247, 214, 0.055), rgba(6, 9, 18, 0.42));
         box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.05), 0 3px 10px rgba(0, 0, 0, 0.2);
         text-align: center;
+    }
+    .landing-topnav .landing-navlink:nth-last-child(-n + 2) {
+        grid-column: span 3;
     }
     .landing-topnav .landing-navlink:hover {
         color: #fff7d6;
