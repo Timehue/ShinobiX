@@ -218,28 +218,19 @@ describe("pending PvP browser recovery", () => {
                 return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
             }
             createCalls += 1;
-            // The module under test times out via `AbortSignal.timeout()`, whose timer is
-            // UNREF'd and so cannot hold the event loop open by itself. This promise settles
-            // ONLY on that abort, so without a ref'd timer the loop can drain first and the
-            // promise never settles — node:test then reports "Promise resolution is still
-            // pending but the event loop has already resolved" and cancels the rest of the
-            // suite. That is a race, not a rule: it passed on Node 24 and cancelled 7 tests
-            // on CI's Node 22. The interval only keeps the loop alive; the abort still comes
-            // from the real timeout, so what this test asserts is unchanged.
-            const keepLoopAlive = setInterval(() => {}, 1_000);
             return await new Promise<Response>((_resolve, reject) => {
-                init?.signal?.addEventListener("abort", () => {
-                    clearInterval(keepLoopAlive);
-                    reject(new DOMException("timed out", "AbortError"));
-                }, { once: true });
+                init?.signal?.addEventListener("abort", () => reject(new DOMException("timed out", "AbortError")), { once: true });
             });
         }) as typeof fetch;
-        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
-        // loop open. This request settles only when that abort fires, so without
-        // a ref'd handle the loop can drain first and the whole FILE reports
-        // 'Promise resolution is still pending' — which is how this suite has been
-        // cancelling tests in CI while the job still reported green. Same pattern as
-        // save-conflict-restore.test.ts; the interval is what the abort races.
+        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event loop
+        // open. This request settles ONLY when that abort fires, so if the loop drains
+        // first the promise never settles and node:test reports 'Promise resolution is
+        // still pending but the event loop has already resolved', cancelling this test
+        // and the rest of the file. It is a race, not a rule — it passed on Node 24 and
+        // cancelled 7 tests on CI's Node 22, which is why it never reproduced locally.
+        // Held here rather than inside the mock so `finally` releases it even if the
+        // abort never arrives; clearing it only on abort would leak the interval and
+        // hang the run instead. Same trap as save-conflict-restore.test.ts.
         const keepLoopAlive = setInterval(() => {}, 1_000);
         let result;
         try {
@@ -332,25 +323,21 @@ describe("pending PvP browser recovery", () => {
         const fetchFn = (async (_input, init) => {
             calls += 1;
             if (calls === 1) {
-                // Ref'd keepalive for the same reason as the create-timeout test above:
-                // `AbortSignal.timeout()` is UNREF'd and cannot hold the loop open, and this
-                // promise settles only on its abort.
-                const keepLoopAlive = setInterval(() => {}, 1_000);
                 return await new Promise<Response>((_resolve, reject) => {
-                    init?.signal?.addEventListener("abort", () => {
-                        clearInterval(keepLoopAlive);
-                        reject(new DOMException("timed out", "AbortError"));
-                    }, { once: true });
+                    init?.signal?.addEventListener("abort", () => reject(new DOMException("timed out", "AbortError")), { once: true });
                 });
             }
             return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
         }) as typeof fetch;
-        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
-        // loop open. This request settles only when that abort fires, so without
-        // a ref'd handle the loop can drain first and the whole FILE reports
-        // 'Promise resolution is still pending' — which is how this suite has been
-        // cancelling tests in CI while the job still reported green. Same pattern as
-        // save-conflict-restore.test.ts; the interval is what the abort races.
+        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event loop
+        // open. This request settles ONLY when that abort fires, so if the loop drains
+        // first the promise never settles and node:test reports 'Promise resolution is
+        // still pending but the event loop has already resolved', cancelling this test
+        // and the rest of the file. It is a race, not a rule — it passed on Node 24 and
+        // cancelled 7 tests on CI's Node 22, which is why it never reproduced locally.
+        // Held here rather than inside the mock so `finally` releases it even if the
+        // abort never arrives; clearing it only on abort would leak the interval and
+        // hang the run instead. Same trap as save-conflict-restore.test.ts.
         const keepLoopAlive = setInterval(() => {}, 1_000);
         let recovered;
         try {
