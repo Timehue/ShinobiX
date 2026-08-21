@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing } from "./pet-combat-performance";
+import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveOpponentFacing } from "./pet-combat-performance";
 
 test("attack clip windows preserve anticipation, contact, and recovery order", () => {
     const windup = attackClipWindow("windup")!;
@@ -31,6 +31,31 @@ test("ordinary quadruped travel can turn without ever facing away from combat", 
     const facing = resolveCombatBodyFacing({ faceX: 1, faceZ: 0, moveX: -1, moveZ: 0, motion: "run", motionAge: 1, allowTravelFacing: true });
     const alignment = facing[0];
     assert.ok(alignment > 0.7, `body alignment ${alignment} should keep the opponent in its forward cone`);
+});
+
+test("opposing pets receive reciprocal headings that point directly at each other", () => {
+    const player = resolveOpponentFacing(-3.4, 2.6, 1.2, -1.5);
+    const enemy = resolveOpponentFacing(1.2, -1.5, -3.4, 2.6);
+    const playerToEnemy = [4.6, -4.1] as const;
+    const enemyToPlayer = [-4.6, 4.1] as const;
+    assert.ok(player[0] * playerToEnemy[0] + player[1] * playerToEnemy[1] > Math.hypot(...playerToEnemy) * 0.999);
+    assert.ok(enemy[0] * enemyToPlayer[0] + enemy[1] * enemyToPlayer[1] > Math.hypot(...enemyToPlayer) * 0.999);
+    assert.ok(Math.abs(player[0] + enemy[0]) < 1e-9);
+    assert.ok(Math.abs(player[1] + enemy[1]) < 1e-9);
+});
+
+test("locked duel locomotion preserves the opponent heading instead of the travel tangent", () => {
+    const opponent = resolveOpponentFacing(-3.4, 2.6, 1.2, -1.5);
+    const body = resolveCombatBodyFacing({
+        faceX: opponent[0],
+        faceZ: opponent[1],
+        moveX: -1,
+        moveZ: 0,
+        motion: "run",
+        motionAge: 1,
+        allowTravelFacing: false,
+    });
+    assert.ok(body[0] * opponent[0] + body[1] * opponent[1] > 0.999999);
 });
 
 test("death choreography recoils, falls once, impacts, and settles", () => {
