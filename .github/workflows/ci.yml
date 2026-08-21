@@ -29,22 +29,67 @@ env:
   VITE_BUILD_COMMIT: ${{ github.sha }}
 
 jobs:
+  server_contracts_matrix:
+    name: CI / server-contracts / ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    # The suite is sharded because the single job kept reaching the ceiling the
+    # comment below warned about: `Root tests and executable contracts` alone ran
+    # 17m of an 18m job on a fast runner and 29m05s on a slow one, where it was
+    # CANCELLED -- red on timing, with the trailing contract steps never executed.
+    # Every other step in the old job measured 0m, so the suite was the whole cost.
+    # Splitting it three ways follows that instruction instead of raising 29 again;
+    # the aggregator below keeps `CI / server-contracts` as the required check.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/server-contracts-${{ matrix.shard }}
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/server-contracts-${{ matrix.shard }}/provenance.txt
+      - name: Install root dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/server-contracts-${{ matrix.shard }}/root-install.log
+      - name: Install client dependencies for shared tests
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/server-contracts-${{ matrix.shard }}/client-install.log
+      - name: Root tests and executable contracts
+        env:
+          TEST_SHARD_INDEX: ${{ matrix.shard }}
+          TEST_SHARD_TOTAL: 3
+        run: npm run test:ci 2>&1 | tee .ci-evidence/server-contracts-${{ matrix.shard }}/root-tests.log
+      - name: Retain server contract shard evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-server-contracts-shard${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/server-contracts-${{ matrix.shard }}/
+          if-no-files-found: warn
+          retention-days: 14
+
   server_contracts:
     name: CI / server-contracts
+    needs: server_contracts_matrix
+    if: ${{ always() }}
     runs-on: ubuntu-latest
-    # 29, not the 75 the old single-job workflow needed. That job kept outgrowing
-    # its ceiling (30m17s → raised to 45, then run 31863101952 at 45m18s → 75)
-    # because ONE job carried the full suite, two builds, the Playwright browser
-    # install and the cross-browser smoke. Its own comment prescribed the fix:
-    # "split the Playwright steps into their own parallel job instead of raising
-    # this again." That split is this file, so each job is sized to its own work
-    # rather than to the sum of everything.
+    # Keeps the required check name stable while the suite itself runs in the
+    # matrix above. The executable contracts stay here: each measured 0m, so they
+    # cost nothing once, and running them per-shard would triple them for nothing.
     #
-    # The reasoning behind it still stands: a timeout cancel is WORSE than a slow
-    # run, because the trailing steps silently never execute and gate nothing
-    # while main shows red. If a job here approaches its ceiling, split it again
-    # rather than raising the number.
-    timeout-minutes: 29
+    # The reasoning from the original split still stands: a timeout cancel is WORSE
+    # than a slow run, because the trailing steps silently never execute and gate
+    # nothing while main shows red. If a job here approaches its ceiling, split it
+    # again rather than raising the number.
+    timeout-minutes: 15
     # (No job-level Sentry env block: the split hoisted VITE_SENTRY_DSN /
     # VITE_SENTRY_RELEASE / VITE_BUILD_COMMIT to the workflow `env:` above, so
     # every job exercises the same Sentry-enabled bundle path Railway builds
@@ -65,10 +110,6 @@ jobs:
           printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/server-contracts/provenance.txt
       - name: Install root dependencies
         run: npm ci 2>&1 | tee .ci-evidence/server-contracts/root-install.log
-      - name: Install client dependencies for shared tests
-        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/server-contracts/client-install.log
-      - name: Root tests and executable contracts
-        run: npm run test:ci 2>&1 | tee .ci-evidence/server-contracts/root-tests.log
       - name: Deployment topology contract
         run: npm run check:deployment 2>&1 | tee .ci-evidence/server-contracts/deployment.log
       - name: Rollback compatibility contract
@@ -81,6 +122,12 @@ jobs:
         run: npm run test:pet-breeding-odds 2>&1 | tee .ci-evidence/server-contracts/pet-breeding-odds.log
       - name: Tooling handoff drift
         run: npm run check:tooling-handoffs 2>&1 | tee .ci-evidence/server-contracts/tooling-handoffs.log
+      - name: Require every test shard
+        env:
+          SHARDS: ${{ needs.server_contracts_matrix.result }}
+        run: |
+          printf 'server-contracts-shards=%s\n' "$SHARDS" | tee .ci-evidence/server-contracts/shards.log
+          test "$SHARDS" = success
       - name: Retain server contract evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -90,7 +137,6 @@ jobs:
           path: .ci-evidence/server-contracts/
           if-no-files-found: warn
           retention-days: 14
-
   server_build_security:
     name: CI / server-build-security
     runs-on: ubuntu-latest
