@@ -475,11 +475,6 @@
         linear-gradient(180deg, #18110b 0%, #0d0906 100%);
     box-shadow: 0 10px 34px rgba(0,0,0,0.5), inset 0 1px 0 rgba(240,161,90,0.08);
 }
-.spire-panel-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-    padding: 12px 16px 11px; border-bottom: 1px solid rgba(240,161,90,0.14);
-    background: linear-gradient(180deg, rgba(240,161,90,0.06), transparent);
-}
 /* Cinematic banner header (bespoke Endless Spire key art). */
 .spire-banner {
     position: relative; min-height: 108px; display: flex; align-items: flex-end;
