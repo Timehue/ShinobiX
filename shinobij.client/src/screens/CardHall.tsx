@@ -295,25 +295,32 @@ function CardHallInner({
     setBusy(true);
     setError("");
     setReward(undefined);
-    const result = await chronicleAiAction(resumableMatchId, {
-      action: "state",
-    });
-    if (chronicleResponseAuthority({
-      mounted: cardHallMountedRef.current,
-      activePlayerName: activeProgressionPlayerRef.current,
-      originatingPlayerName,
-      responsePlayerName: result.character?.name,
-      carriesAuthoritativeSnapshot: false,
-    }) === "discard") return;
-    if (!result.ok || !result.session) {
-      setBusy(false);
-      syncResumableMatch(null);
-      setError(result.error ?? "That showdown has expired.");
-      return;
+    // busy belongs to this mounted component, not to one account: an in-place
+    // account switch must still release "Preparing showdown…". The authority
+    // check already discards the stale response's data.
+    try {
+      const result = await chronicleAiAction(resumableMatchId, {
+        action: "state",
+      });
+      if (chronicleResponseAuthority({
+        mounted: cardHallMountedRef.current,
+        activePlayerName: activeProgressionPlayerRef.current,
+        originatingPlayerName,
+        responsePlayerName: result.character?.name,
+        carriesAuthoritativeSnapshot: false,
+      }) === "discard") return;
+      if (!result.ok || !result.session) {
+        syncResumableMatch(null);
+        setError(result.error ?? "That showdown has expired.");
+        return;
+      }
+      setMatchId(resumableMatchId);
+      await presentSession(result, originatingPlayerName);
+    } catch {
+      if (cardHallMountedRef.current) setError("The showdown could not be resumed. Try again.");
+    } finally {
+      if (cardHallMountedRef.current) setBusy(false);
     }
-    setMatchId(resumableMatchId);
-    await presentSession(result, originatingPlayerName);
-    if (activeProgressionPlayerRef.current === originatingPlayerName.trim().toLowerCase()) setBusy(false);
   }
   const deckDirty = JSON.stringify(deck) !== JSON.stringify(savedDeck);
   const deckCheck = useMemo(
@@ -330,27 +337,31 @@ function CardHallInner({
     setBusy(true);
     setError("");
     setReward(undefined);
-    const result = await startChronicleAi(
-      originatingPlayerName,
-      deckIds,
-      difficulty,
-    );
-    if (chronicleResponseAuthority({
-      mounted: cardHallMountedRef.current,
-      activePlayerName: activeProgressionPlayerRef.current,
-      originatingPlayerName,
-      responsePlayerName: result.character?.name,
-      carriesAuthoritativeSnapshot: false,
-    }) === "discard") return;
-    if (!result.ok || !result.matchId || !result.session) {
-      setBusy(false);
-      setError(result.error ?? "Could not start the showdown.");
-      return;
+    try {
+      const result = await startChronicleAi(
+        originatingPlayerName,
+        deckIds,
+        difficulty,
+      );
+      if (chronicleResponseAuthority({
+        mounted: cardHallMountedRef.current,
+        activePlayerName: activeProgressionPlayerRef.current,
+        originatingPlayerName,
+        responsePlayerName: result.character?.name,
+        carriesAuthoritativeSnapshot: false,
+      }) === "discard") return;
+      if (!result.ok || !result.matchId || !result.session) {
+        setError(result.error ?? "Could not start the showdown.");
+        return;
+      }
+      setMatchId(result.matchId);
+      setTab("play");
+      await presentSession(result, originatingPlayerName);
+    } catch {
+      if (cardHallMountedRef.current) setError("Could not start the showdown.");
+    } finally {
+      if (cardHallMountedRef.current) setBusy(false);
     }
-    setMatchId(result.matchId);
-    setTab("play");
-    await presentSession(result, originatingPlayerName);
-    if (activeProgressionPlayerRef.current === originatingPlayerName.trim().toLowerCase()) setBusy(false);
   }
 
   useEffect(() => {
@@ -366,21 +377,25 @@ function CardHallInner({
     const originatingPlayerName = character.name;
     setBusy(true);
     setError("");
-    const result = await chronicleAiAction(matchId, intent);
-    if (chronicleResponseAuthority({
-      mounted: cardHallMountedRef.current,
-      activePlayerName: activeProgressionPlayerRef.current,
-      originatingPlayerName,
-      responsePlayerName: result.character?.name,
-      carriesAuthoritativeSnapshot: false,
-    }) === "discard") return;
-    if (!result.ok || !result.session) {
-      setBusy(false);
-      setError(result.error ?? "That action was not legal.");
-      return;
+    try {
+      const result = await chronicleAiAction(matchId, intent);
+      if (chronicleResponseAuthority({
+        mounted: cardHallMountedRef.current,
+        activePlayerName: activeProgressionPlayerRef.current,
+        originatingPlayerName,
+        responsePlayerName: result.character?.name,
+        carriesAuthoritativeSnapshot: false,
+      }) === "discard") return;
+      if (!result.ok || !result.session) {
+        setError(result.error ?? "That action was not legal.");
+        return;
+      }
+      await presentSession(result, originatingPlayerName);
+    } catch {
+      if (cardHallMountedRef.current) setError("That action could not be resolved. Try again.");
+    } finally {
+      if (cardHallMountedRef.current) setBusy(false);
     }
-    await presentSession(result, originatingPlayerName);
-    if (activeProgressionPlayerRef.current === originatingPlayerName.trim().toLowerCase()) setBusy(false);
   }
 
   function closeTutorial() {

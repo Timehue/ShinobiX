@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { startGoogleSignIn } from "../lib/google-signin";
 import { SOCIAL_LOCK_BODY, SOCIAL_LOCK_TITLE } from "../lib/account-status";
 import { loadPublicCapabilities } from "../lib/live-capabilities";
+import { useBfcacheRestore } from "../lib/use-bfcache-restore";
 import { GiPadlock } from "react-icons/gi";
 
 export function GuestSocialLock({ what, compact = false }: { what: string; compact?: boolean }) {
@@ -31,6 +32,10 @@ export function GuestSocialLock({ what, compact = false }: { what: string; compa
         });
         return () => { cancelled = true; };
     }, []);
+
+    // Back from Google's consent page can restore this page from bfcache with
+    // "Opening Google…" still stuck on; release the button on that restore.
+    useBfcacheRestore(() => setBusy(false));
 
     async function link() {
         if (busy) return;

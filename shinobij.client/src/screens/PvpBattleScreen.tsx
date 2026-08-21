@@ -947,10 +947,23 @@ export function PvpBattleScreen({
             signal: completionAbort.signal,
             isCurrentScope,
         };
+        // The parent settlement callbacks receive the abort signal but are not
+        // guaranteed to honor it, and a hung one would pin "claiming" — with
+        // exit disabled — forever. Race each awaited callback against the same
+        // completion abort so the timeout above always lands in the catch and
+        // re-enables the visible Retry path.
+        const abortBarrier = new Promise<never>((_, reject) => {
+            const failSettlement = () => reject(new Error("settlement-timeout"));
+            if (completionAbort.signal.aborted) failSettlement();
+            else completionAbort.signal.addEventListener("abort", failSettlement, { once: true });
+        });
+        abortBarrier.catch(() => { /* observed through the races below */ });
+        const bounded = <T,>(callback: T | Promise<T> | undefined): Promise<T | undefined> =>
+            Promise.race([Promise.resolve(callback), abortBarrier]);
         try {
             // Always adopt an authoritative replay snapshot. Outcome callbacks
             // are awaited before completion ACK, including lost-ACK repair.
-            await onRewardClaim?.(result, continuationContext);
+            await bounded(onRewardClaim?.(result, continuationContext));
             if (!isCurrentScope()) return;
             if (runCompletion) {
                 const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
@@ -958,14 +971,14 @@ export function PvpBattleScreen({
                 // Unsanctioned sessions confirm with no reward authority. Do not
                 // let their callbacks mutate missions, bounties, wars, or ranking.
                 if (result.rewardAuthorized || effectiveIsSpar) {
-                    if (iWonNow) await onWin?.(oppFighter.name, opponent, result.rating, result.base, result, continuationContext);
-                    else if (iLostNow) await onLoss?.(opponent, result.rating, result, continuationContext);
+                    if (iWonNow) await bounded(onWin?.(oppFighter.name, opponent, result.rating, result.base, result, continuationContext));
+                    else if (iLostNow) await bounded(onLoss?.(opponent, result.rating, result, continuationContext));
                 }
                 if (!isCurrentScope()) return;
                 if (!effectiveIsSpar && onRecordBattle) {
                     const meFighter = role === "p1" ? resolvedSession.p1 : resolvedSession.p2;
                     const { actions, rounds } = buildActionsFromPvpLog(resolvedSession.log ?? [], meFighter.name, oppFighter.name);
-                    await onRecordBattle(makeBattleEntry({
+                    await bounded(onRecordBattle(makeBattleEntry({
                         id: `pvp-${battleId}`,
                         ts: Number(resolvedSession.endedAt ?? Date.now()),
                         mode: effectiveBattleMode === "ranked" ? "Ranked" : "PvP",
@@ -974,7 +987,7 @@ export function PvpBattleScreen({
                         rounds,
                         self: meFighter.name,
                         actions,
-                    }), continuationContext);
+                    }), continuationContext));
                 }
                 if (!isCurrentScope()) return;
                 completePvpRewardCompletion(completionStorage, claimRequest);
