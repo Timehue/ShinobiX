@@ -8,6 +8,7 @@ import { titleStyleColor, useLegacyAvailability } from "../lib/legacy";
 import { tavernGossipLine } from "../lib/legacy-rumors";
 import { GameIcon } from "../components/icons/GameIcon";
 import { GuestSocialLock } from "../components/GuestSocialLock";
+import { ReportControl } from "../components/ReportControl";
 import { useSocialLock } from "../lib/account-status";
 import { GiCrown, GiLaurelCrown, GiTalk } from "react-icons/gi";
 
@@ -290,6 +291,11 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                         onClick={() => startReply(m)}
                                         aria-label={`Reply to ${m.author}`}
                                     >↩ Reply</button>
+                                    {/* Same in-app report path as clan chat / DMs / profiles
+                                        (api/report.ts). Own and World Herald lines are exempt. */}
+                                    {m.author !== character.name && !m.system && (
+                                        <ReportControl targetType="message" targetName={m.author} targetId={`${m.ts}`} context="village-chat" />
+                                    )}
                                 </div>
                                 {m.replyTo && (
                                     <div className="tavern-quote">
