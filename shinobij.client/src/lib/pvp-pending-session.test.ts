@@ -218,20 +218,10 @@ describe("pending PvP browser recovery", () => {
                 return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
             }
             createCalls += 1;
-            // The module under test times out via `AbortSignal.timeout()`, whose timer is
-            // UNREF'd and so cannot hold the event loop open by itself. This promise settles
-            // ONLY on that abort, so without a ref'd timer the loop can drain first and the
-            // promise never settles — node:test then reports "Promise resolution is still
-            // pending but the event loop has already resolved" and cancels the rest of the
-            // suite. That is a race, not a rule: it passed on Node 24 and cancelled 7 tests
-            // on CI's Node 22. The interval only keeps the loop alive; the abort still comes
-            // from the real timeout, so what this test asserts is unchanged.
-            const keepLoopAlive = setInterval(() => {}, 1_000);
+            // Settles only when the caller's AbortSignal fires; the ref'd keepalive
+            // that lets it fire at all is on the awaited call below.
             return await new Promise<Response>((_resolve, reject) => {
-                init?.signal?.addEventListener("abort", () => {
-                    clearInterval(keepLoopAlive);
-                    reject(new DOMException("timed out", "AbortError"));
-                }, { once: true });
+                init?.signal?.addEventListener("abort", () => reject(new DOMException("timed out", "AbortError")), { once: true });
             });
         }) as typeof fetch;
         // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
@@ -332,15 +322,10 @@ describe("pending PvP browser recovery", () => {
         const fetchFn = (async (_input, init) => {
             calls += 1;
             if (calls === 1) {
-                // Ref'd keepalive for the same reason as the create-timeout test above:
-                // `AbortSignal.timeout()` is UNREF'd and cannot hold the loop open, and this
-                // promise settles only on its abort.
-                const keepLoopAlive = setInterval(() => {}, 1_000);
+                // Settles only when the caller's AbortSignal fires; the ref'd keepalive
+                // that lets it fire at all is on the awaited call below.
                 return await new Promise<Response>((_resolve, reject) => {
-                    init?.signal?.addEventListener("abort", () => {
-                        clearInterval(keepLoopAlive);
-                        reject(new DOMException("timed out", "AbortError"));
-                    }, { once: true });
+                    init?.signal?.addEventListener("abort", () => reject(new DOMException("timed out", "AbortError")), { once: true });
                 });
             }
             return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
