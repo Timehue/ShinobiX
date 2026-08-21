@@ -122,7 +122,7 @@ export type DeclareResult = { ok: true } | { ok: false; reason: string };
 
 /**
  * Can `challengerName` declare a challenge right now? Pure — the endpoint feeds
- * it the authoritative save/village values and applies the 500-seal debit
+ * it the authoritative save/village values and applies the 250,000-ryo debit
  * itself. An expired existing challenge does NOT block (the endpoint clears it
  * first), so callers should pass already-expired challenges through unchanged.
  */

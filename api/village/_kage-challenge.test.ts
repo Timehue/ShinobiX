@@ -359,8 +359,13 @@ describe('Kage challenge cost — server/client parity', () => {
         );
 
         // The old seal constant must be gone everywhere, or a player is told one
-        // price and charged another.
-        for (const [name, src] of [['server', server], ['TownHall', townHall], ['state lib', stateLib]] as const) {
+        // price and charged another. The Machinations/Figma handoff exporter is
+        // in that list because it imports this constant BY NAME: it is a CI-only
+        // gate (npm run check:tooling-handoffs), so when the seal constant was
+        // renamed the exporter went on importing the dead symbol and crashed on
+        // every run while `npm test` stayed green.
+        const handoffs = read('scripts/export-tooling-handoffs.mjs');
+        for (const [name, src] of [['server', server], ['TownHall', townHall], ['state lib', stateLib], ['handoff exporter', handoffs]] as const) {
             assert.doesNotMatch(src, /KAGE_DECLARE_SEAL_COST|KAGE_CHALLENGE_SEAL_COST/, `${name} still references the seal cost`);
         }
         // Player-facing STRINGS drift separately from the constants. The refund
