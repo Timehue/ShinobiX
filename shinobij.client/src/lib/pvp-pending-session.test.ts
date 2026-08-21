@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
     PVP_BROWSER_RECOVERY_TTL_MS,
@@ -34,6 +34,18 @@ function session(overrides: Partial<PvpSessionState> = {}): PvpSessionState {
 }
 
 describe("pending PvP browser recovery", () => {
+    // AbortSignal.timeout()'s timer is unref'd, so a request whose only pending
+    // work is that deadline does NOT keep Node's event loop alive: the file's
+    // process exits mid-test and node:test reports every remaining test in the
+    // file as `cancelled`. That is what intermittently reddened CI here --
+    // sometimes one test, sometimes the last seven, always starting at a
+    // requestTimeoutMs case. Browsers have no exit-when-idle rule, so this is an
+    // artifact of exercising client code under Node, not a defect in the code
+    // under test. One ref'd handle for the suite's lifetime removes it.
+    let keepEventLoopAlive: ReturnType<typeof setInterval>;
+    before(() => { keepEventLoopAlive = setInterval(() => {}, 60_000); });
+    after(() => { clearInterval(keepEventLoopAlive); });
+
     it("keeps lost create responses routed and adopts a published pending pointer", () => {
         const pending = {
             battleId: "pvp-published",

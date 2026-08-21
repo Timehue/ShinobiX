@@ -10,8 +10,16 @@ const webServerCommand = process.env.CI
 
 export default defineConfig({
     testDir: "./e2e-warfront",
-    timeout: 80_000,
-    expect: { timeout: 12_000 },
+    // CI renders this 3D scene through software WebGL (SwiftShader, no GPU on
+    // the runner), which is far slower than any developer machine: the same
+    // four specs pass locally in 2.7 min against a real GPU. The tell was that
+    // every assertion carrying an explicit 30s wait passed on CI while the ones
+    // falling back to the 12s default failed -- first-load waits had already
+    // been bumped to 30s by whoever hit this before. Adopt that proven number as
+    // the default instead of leaving the rest of the suite on a GPU-speed
+    // budget, and give the whole test room for the slower frames.
+    timeout: 120_000,
+    expect: { timeout: 30_000 },
     workers: 1,
     reporter: "line",
     use: {
