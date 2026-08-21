@@ -222,12 +222,24 @@ describe("pending PvP browser recovery", () => {
                 init?.signal?.addEventListener("abort", () => reject(new DOMException("timed out", "AbortError")), { once: true });
             });
         }) as typeof fetch;
-        const result = await createPvpSessionWithRecovery(
-            fetchFn,
-            "Alice",
-            JSON.stringify({ battleId: sealed.battleId }),
-            { attempts: 1, requestTimeoutMs: 10 },
-        );
+        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
+        // loop open. This request settles only when that abort fires, so without
+        // a ref'd handle the loop can drain first and the whole FILE reports
+        // 'Promise resolution is still pending' — which is how this suite has been
+        // cancelling tests in CI while the job still reported green. Same pattern as
+        // save-conflict-restore.test.ts; the interval is what the abort races.
+        const keepLoopAlive = setInterval(() => {}, 1_000);
+        let result;
+        try {
+            result = await createPvpSessionWithRecovery(
+                fetchFn,
+                "Alice",
+                JSON.stringify({ battleId: sealed.battleId }),
+                { attempts: 1, requestTimeoutMs: 10 },
+            );
+        } finally {
+            clearInterval(keepLoopAlive);
+        }
         assert.equal(result.kind, "created");
         assert.equal(createCalls, 1);
     });
@@ -314,9 +326,21 @@ describe("pending PvP browser recovery", () => {
             }
             return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
         }) as typeof fetch;
-        const recovered = await fetchPendingPvpRecoveryWithRetry(fetchFn, "Alice", {
-            wait: async () => {}, requestTimeoutMs: 10,
-        });
+        // AbortSignal.timeout() timers are UNREF'D: they do not hold the event
+        // loop open. This request settles only when that abort fires, so without
+        // a ref'd handle the loop can drain first and the whole FILE reports
+        // 'Promise resolution is still pending' — which is how this suite has been
+        // cancelling tests in CI while the job still reported green. Same pattern as
+        // save-conflict-restore.test.ts; the interval is what the abort races.
+        const keepLoopAlive = setInterval(() => {}, 1_000);
+        let recovered;
+        try {
+            recovered = await fetchPendingPvpRecoveryWithRetry(fetchFn, "Alice", {
+                wait: async () => {}, requestTimeoutMs: 10,
+            });
+        } finally {
+            clearInterval(keepLoopAlive);
+        }
         assert.equal(recovered?.battleId, sealed.battleId);
         assert.equal(calls, 2);
     });
