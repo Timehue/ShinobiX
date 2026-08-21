@@ -1,15 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { starterItems } from "../src/data/starter-items";
 import { expectUiAuditBoot, installUiAuditRuntime } from "./helpers/ui-audit-runtime";
+
+const canonicalItemArtwork = starterItems.map(({ id, image }) => ({ id, image }));
 
 test("every canonical item and the Shadow Lotus bloodline ship decodable artwork", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    const audit = await page.evaluate(async () => {
-        const { starterItems } = await import("/src/data/starter-items.ts");
-        const missing = starterItems.filter((item) => !item.image).map((item) => item.id);
+    const audit = await page.evaluate(async (items) => {
+        const missing = items.filter((item) => !item.image).map((item) => item.id);
         const broken: Array<{ id: string; image: string; reason: string }> = [];
 
-        await Promise.all(starterItems.map(async (item) => {
+        await Promise.all(items.map(async (item) => {
             if (!item.image) return;
             try {
                 const image = new Image();
@@ -32,7 +34,7 @@ test("every canonical item and the Shadow Lotus bloodline ship decodable artwork
         await shadowLotus.decode();
 
         return {
-            total: starterItems.length,
+            total: items.length,
             missing,
             broken,
             shadowLotus: {
@@ -40,7 +42,7 @@ test("every canonical item and the Shadow Lotus bloodline ship decodable artwork
                 height: shadowLotus.naturalHeight,
             },
         };
-    });
+    }, canonicalItemArtwork);
 
     expect(audit.total).toBeGreaterThanOrEqual(155);
     expect(audit.missing).toEqual([]);
