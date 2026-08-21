@@ -2786,7 +2786,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
-            "line": 698
+            "line": 712
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -2891,6 +2891,17 @@
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
             "line": 860
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 800,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/character-creator/character-creator.css",
+            "line": 680
           }
         ]
       },
@@ -3322,7 +3333,7 @@
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
-            "line": 680
+            "line": 694
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
@@ -3358,6 +3369,10 @@
         "axis": "width",
         "valuePx": 981,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/features/character-creator/character-creator.css",
+            "line": 680
+          },
           {
             "source": "shinobij.client/src/styles/index/05-pet-yard.css",
             "line": 14

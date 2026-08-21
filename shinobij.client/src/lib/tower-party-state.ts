@@ -12,12 +12,19 @@ export function canStartTowerRoomPoll(alive: boolean, pollInFlight: boolean, mut
 }
 
 function normalizeTowerRoomEnvelope(envelope: TowerPartyEnvelope): TowerPartyEnvelope {
-    return envelope.party?.status === "closed" ? { ...envelope, party: null } : envelope;
+    const invitationsValid = Array.isArray(envelope.invitations);
+    const roomClosed = envelope.party?.status === "closed";
+    if (invitationsValid && !roomClosed) return envelope;
+    return {
+        ...envelope,
+        ...(roomClosed ? { party: null } : {}),
+        invitations: invitationsValid ? envelope.invitations : [],
+    };
 }
 
 function towerRoomEnvelopeSnapshot(envelope: TowerPartyEnvelope): string {
     const party = envelope.party;
-    const invitations = envelope.invitations.map(invitation => [
+    const invitations = (Array.isArray(envelope.invitations) ? envelope.invitations : []).map(invitation => [
         invitation.partyId,
         invitation.hostDisplayName ?? invitation.hostSlug,
         invitation.hostSlug,
@@ -33,12 +40,13 @@ export function reconcileTowerRoomEnvelope(
     incoming: TowerPartyEnvelope,
     resultMode: TowerRoomResultMode = "adopt",
 ): TowerPartyEnvelope {
+    const normalizedCurrent = normalizeTowerRoomEnvelope(current);
     const normalized = normalizeTowerRoomEnvelope(incoming);
     const party = resultMode === "drop" ? null
-        : resultMode === "preserve" ? current.party
-        : !normalized.party || !current.party || normalized.party.id !== current.party.id || normalized.party.version >= current.party.version
+        : resultMode === "preserve" ? normalizedCurrent.party
+        : !normalized.party || !normalizedCurrent.party || normalized.party.id !== normalizedCurrent.party.id || normalized.party.version >= normalizedCurrent.party.version
             ? normalized.party
-            : current.party;
+            : normalizedCurrent.party;
     const next = { ...normalized, party };
-    return towerRoomEnvelopeSnapshot(current) === towerRoomEnvelopeSnapshot(next) ? current : next;
+    return towerRoomEnvelopeSnapshot(normalizedCurrent) === towerRoomEnvelopeSnapshot(next) ? normalizedCurrent : next;
 }
