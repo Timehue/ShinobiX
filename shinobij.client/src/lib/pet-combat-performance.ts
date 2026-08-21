@@ -30,6 +30,25 @@ const normalize = (x: number, z: number): [number, number] => {
 };
 const wrappedAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 
+/** Exact world-space heading from one combatant to another. Keep this as the
+ * single target-facing source; PetModel3D already owns the visual turn easing,
+ * so smoothing the vector before it reaches the model can leave a planted pet
+ * frozen on a stale intermediate heading. */
+export function resolveOpponentFacing(
+    fromX: number,
+    fromZ: number,
+    opponentX: number,
+    opponentZ: number,
+    fallbackX = 0,
+    fallbackZ = 1,
+): [number, number] {
+    const dx = opponentX - fromX;
+    const dz = opponentZ - fromZ;
+    return Math.hypot(dx, dz) > 1e-5
+        ? normalize(dx, dz)
+        : normalize(fallbackX, fallbackZ);
+}
+
 /** The generated attack take is one clip, but combat presents it as three
  * authored phases. Holding each phase at its boundary prevents anticipation
  * from reaching the clip's final raised-paw pose before contact occurs. */
