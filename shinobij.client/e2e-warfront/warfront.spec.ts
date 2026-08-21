@@ -6,22 +6,38 @@ import { expectViewportSafe } from "../e2e/helpers/adaptive-assertions";
 const warfrontUrl = "/petvfx.html?warfront=1&autobuy=balanced&theme=central";
 const acceleratedWarfrontUrl = `${warfrontUrl}&wfspeed=30&petQuality=low`;
 
+// Waiting for the boot overlay to clear is a PRECONDITION of every spec here, not
+// the thing any of them asserts. A cold Warfront load measures under 12s locally
+// (real GPU) but lands between 12s and 30s on CI's software WebGL, so the
+// config-wide 12s expect timeout is not enough there. Three specs already passed
+// 30_000 explicitly and three inherited the 12s default — the three that inherited
+// it were the three failing on CI, inside a job whose `| tee` hid the failure.
+// Every load wait reads this one constant so the two can never drift apart again;
+// each spec's real assertions keep their own timeouts.
+const SCENE_LOAD_TIMEOUT_MS = 30_000;
+
 test("Warfront loads, remembers quality, restarts, and reseeds", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium-dpr1", "functional lifecycle runs once; DPR coverage has its own test");
+    // The only spec that boots the scene TWICE (goto + reload) and then reseeds it
+    // twice more via Restart and New match. At the CI load cost above, the config's
+    // 80s cap is spent before the reseeds, and Playwright reports that as the NEXT
+    // action failing — "locator.click: Test timeout of 80000ms exceeded" on a button
+    // it had already resolved, which reads like a broken button and is not one.
+    test.setTimeout(150_000);
     const pageErrors: string[] = [];
     const reactKeyWarnings: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => { if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text()); });
 
     await page.goto(warfrontUrl);
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     await expect(page.locator("canvas").first()).toBeVisible({ timeout: 30_000 });
 
     const quality = page.getByLabel("Warfront visual quality");
     await quality.selectOption("low");
     await expect(quality).toHaveValue("low");
     await page.reload();
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     await expect(page.getByLabel("Warfront visual quality")).toHaveValue("low");
 
     await page.getByRole("button", { name: /Restart/ }).first().click();
@@ -40,7 +56,7 @@ test("an accelerated QA match reaches a complete post-match result", async ({ pa
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => { if ((message.type() === "warning" || message.type() === "error") && /duplicate key|unique "key"/i.test(message.text())) reactKeyWarnings.push(message.text()); });
     await page.goto(acceleratedWarfrontUrl);
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 12_000 });
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     await expect(page.getByText(/Shatters the Ward Seal|Wins the Judgment|Stalemate/).first()).toBeVisible({ timeout: 55_000 });
     await expect(page.getByText(/MVP/).first()).toBeVisible();
     expect(pageErrors).toEqual([]);
@@ -57,7 +73,7 @@ test("a missing hound rig falls back without crashing the match", async ({ page 
         route.fulfill({ status: 404, contentType: "application/octet-stream", body: "" }));
 
     await page.goto(`${acceleratedWarfrontUrl}`);
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 12_000 });
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     await expect(page.locator("canvas").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Restart/ }).first()).toBeEnabled();
     expect(pageErrors).toEqual([]);
@@ -67,7 +83,7 @@ test("a missing hound rig falls back without crashing the match", async ({ page 
 test("the WebGL canvas survives a recoverable context-loss cycle", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "chromium-dpr1", "functional lifecycle runs once; DPR coverage has its own test");
     await page.goto(`${acceleratedWarfrontUrl}`);
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 12_000 });
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     const canvas = page.locator("canvas").first();
     await expect(canvas).toBeVisible();
 
@@ -97,7 +113,7 @@ test("Warfront preserves renderer and overlay alignment across device scale fact
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${warfrontUrl}&petQuality=high&wfperf=geometry`);
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByRole("status")).toBeHidden({ timeout: SCENE_LOAD_TIMEOUT_MS });
     const stage = page.locator(".pet-warfront-canvas-stage");
     const canvas = stage.locator("canvas").first();
     await expect(canvas).toBeVisible({ timeout: 30_000 });
