@@ -402,6 +402,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         name: "Ashen Eyes",
         rank: "A Rank" as Rank,
         specialElement: "Blood",
+        image: "/bloodline-ashen-eyes.webp",
         lore: "A cursed kekkei genkai born from a clan that broke a forbidden pact with blood spirits. Those awakened by the Ashen Eyes see the world through a veil of crimson — perceiving every living being as a tapestry of veins and chakra pathways. The afflicted can shatter hallucinations directly into their opponent's bloodstream, weaponizing the very sight of life itself. Ancient texts warn that prolonged use slowly turns the user's own eyes the color of ash and bone.",
         jutsus: [
             makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 30 }, "Ashen Eyes rupture %target's chakra veins."),
@@ -416,6 +417,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         name: "Inferno Cataclysm",
         rank: "A Rank" as Rank,
         specialElement: "Lava",
+        image: "/bloodline-inferno-cataclysm.webp",
         lore: "Forged in the volcanic rifts of the Ember Wastes, the Inferno Cataclysm lineage merges fire and earth chakra at the cellular level. The wielder's body temperature runs far above human limits — surface veins glow faintly orange in darkness. In battle, they can compress molten rock and superheated gas into devastating projectiles or coffin-like formations that entomb the enemy in cooling lava. Survivors of their attacks are found encased in obsidian, preserved like dark statues.",
         jutsus: [
             makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava", { name: "Ignition", percent: 30 }, "Molten stone entombs %target."),
@@ -430,6 +432,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         name: "Shadow Lotus",
         rank: "A Rank" as Rank,
         specialElement: "Shadow",
+        image: "/bloodline-shadow-lotus-v2.webp",
         lore: "Descended from a sect of bukijutsu assassins who trained in perpetual darkness for generations, the Shadow Lotus bloodline channels shadow-natured chakra through weapons and thrown implements. Their techniques bloom like deadly flowers from the dark — blades that trail shadow-ribbons, senbon that multiply in dim light, and wires that vanish entirely in low visibility. Their clan temple has no lanterns. They say the darkness learned to fear them first.",
         jutsus: [
             makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow", { name: "Poison", percent: 30 }, "Shadow senbon poison %target."),
@@ -444,6 +447,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         name: "Iron Fang",
         rank: "A Rank" as Rank,
         specialElement: "Iron",
+        image: "/bloodline-iron-fang.webp",
         lore: "A taijutsu bloodline born from miners who fused raw metallic chakra into their fighting style over ten generations. Iron Fang users can coat their limbs in magnetized iron-dense chakra, turning every punch and kick into a shattering impact that tears armor and breaks weapons. Their fists leave cracked stone. Some high-level users develop iron-grey patches on their knuckles, shins, and forearms — natural battle plating grown from within. The clan motto: 'The mountain doesn't dodge. It endures. Then it falls on you.'",
         jutsus: [
             makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron", { name: "Wound", percent: 30 }, "An iron fist shatters %target's stance."),

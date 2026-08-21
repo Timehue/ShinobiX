@@ -18,7 +18,7 @@ import { countItem } from "../lib/inventory";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
-import { GameIcon } from "./icons/GameIcon";
+import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { BackToVillageButton } from "./BackToVillageButton";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
@@ -32,6 +32,45 @@ import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { Modal } from "./ui/Modal";
+
+function shopArtworkIcon(item: GameItem): GameIconName {
+    switch (normalizeEquipmentSlot(item.slot)) {
+        case "head":
+        case "body":
+        case "waist":
+        case "legs":
+        case "feet":
+            return "shield";
+        case "hand":
+        case "weapon":
+        case "thrown":
+            return "sword";
+        case "potion":
+            return "hp";
+        case "aura":
+            return "chakra";
+        case "accessory":
+            return "sigil";
+        default:
+            return "bag";
+    }
+}
+
+function ShopItemArtwork({ item }: { item: GameItem }) {
+    return (
+        <span className={`shop-item-visual rarity-${item.rarity}`} aria-hidden="true">
+            <GameIcon name={shopArtworkIcon(item)} size={36} className="shop-item-glyph" />
+            {item.image && (
+                <img
+                    src={item.image}
+                    alt=""
+                    className="shop-item-thumb"
+                    onError={(event) => { event.currentTarget.style.display = "none"; }}
+                />
+            )}
+        </span>
+    );
+}
 
 function ShopBase({
     character, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel, onVersionedCharacter,
@@ -216,14 +255,7 @@ function ShopBase({
                                         onClick={() => openItem(item)}
                                         style={{ opacity: owned || !canAfford || levelLocked ? 0.75 : 1 }}
                                     >
-                                        {item.image && (
-                                            <img
-                                                src={item.image}
-                                                alt={item.name}
-                                                className="shop-item-thumb"
-                                                onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                            />
-                                        )}
+                                        <ShopItemArtwork item={item} />
 
                                         <span>{rarityIcon[item.rarity]} {item.name}</span>
 
@@ -267,11 +299,7 @@ function ShopBase({
 
                         <div className="item-popup-top">
                             <div className="item-popup-art-box">
-                                {selectedItem.image ? (
-                                    <img src={selectedItem.image} alt={selectedItem.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                                ) : (
-                                    <span>{rarityIcon[selectedItem.rarity]}</span>
-                                )}
+                                <ShopItemArtwork item={selectedItem} />
                             </div>
 
                             <div className="item-popup-main">
