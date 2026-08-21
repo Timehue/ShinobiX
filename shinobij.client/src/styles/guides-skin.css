@@ -113,8 +113,21 @@
     color: #9c9377;
     font-size: 13px;
 }
-.guides-foot a { color: #fbbf24; font-weight: 700; text-decoration: none; }
+.guides-foot a {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: #fbbf24;
+    font-weight: 700;
+    text-decoration: none;
+}
 .guides-foot a:hover { text-decoration: underline; }
+.guides-foot a:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+}
 
 /* --------- Single-guide reader --------- */
 
