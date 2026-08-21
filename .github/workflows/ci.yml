@@ -165,15 +165,15 @@ jobs:
       - name: Story-content, TypeScript, and production client build
         run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-build.log
       - name: Build-size gate
-        # `shell: bash` is not redundant: the DEFAULT run shell is `bash -e {0}`,
-        # which has no `pipefail`, so `| tee` returned tee's exit code and this
-        # gate reported success while printing its own failure. Naming the shell
-        # gets `-eo pipefail`. It mattered — an over-budget initial graph reached
-        # main under a green check, and the next thing to notice was the Railway
-        # image build, which runs `npm run build` (sizecheck included) unpiped and
-        # simply stops deploying. Every other step in this job pipes to tee the
-        # same way; fix them the same way if they are meant to gate anything.
-        shell: bash
+        # This step once carried its own `shell: bash`, because `| tee` under the
+        # default pipefail-less shell reported success while the gate printed its
+        # own failure. It mattered — an over-budget initial graph reached main
+        # under a green check, and the next thing to notice was the Railway image
+        # build, which runs `npm run build` (sizecheck included) unpiped and simply
+        # stops deploying. That per-step override was the right call when it was
+        # the only one; the workflow-level `defaults.run.shell` above now does the
+        # same for all 42 piped steps, so keeping it here would only imply the
+        # other steps lack the protection. The history is the point of this note.
         run: npm run sizecheck 2>&1 | tee .ci-evidence/client-quality/build-size.log
       - name: Visual-baseline size gate
         run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
