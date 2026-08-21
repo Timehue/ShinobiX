@@ -695,21 +695,6 @@
     line-height: 1.4;
 }
 
-/* ── Celestial Tower panel ── */
-.celestial-panel-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.72);
-    /* Allow scrolling when the inner panel is taller than the viewport
-       (phones). align-items:center + no overflow = scroll trap. */
-    overflow-y: auto;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 16px;
-    z-index: 2000;
-}
-
 .celestial-panel {
     background: linear-gradient(160deg, var(--slate-900), #1e1b4b 60%, var(--slate-900));
     border: 2px solid rgba(250, 204, 21, 0.6);
@@ -787,20 +772,6 @@
     .celestial-endless-btn strong {
         color: #c4b5fd !important;
     }
-
-/* ── Ancient Archives overlay ── */
-.archives-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    z-index: 200;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 20px 12px;
-    overflow-y: auto;
-}
 
 .archives-panel {
     background: linear-gradient(160deg, #0d1321 0%, var(--slate-900) 60%, #1a0a2e 100%);

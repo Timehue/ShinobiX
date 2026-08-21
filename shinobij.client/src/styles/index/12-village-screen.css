@@ -182,7 +182,6 @@
     border: 1px solid transparent;
 }
 .mh-tag-req  { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.4); color: #a5b4fc; }
-.mh-tag-sta  { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color: var(--red-300); }
 
 .mh-combat-rewards {
     display: flex;

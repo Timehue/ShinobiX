@@ -448,23 +448,6 @@
     filter: saturate(1.3) brightness(1.12);
 }
 
-.combat-item-effect-box {
-    margin-top: 10px !important;
-    padding: 10px !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(52, 211, 153, 0.24) !important;
-    background: rgba(6, 78, 59, 0.16) !important;
-}
-
-.combat-item-effect-box strong {
-    color: #bbf7d0 !important;
-}
-
-.combat-item-effect-box p {
-    margin: 6px 0 0 !important;
-    color: #d1fae5 !important;
-}
-
 /* Keep each jutsu card compact enough for 3 rows */
 .combat-jutsu-button {
     min-height: 92px !important;
