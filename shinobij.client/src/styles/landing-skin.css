@@ -265,6 +265,9 @@
     text-transform: uppercase;
     text-decoration: none;
     padding: 8px 8px;
+    /* 44px minimum touch target (SX-009): grows the hit box only — the
+       13px label and 8px visual padding are unchanged. */
+    min-height: 44px;
     border-radius: 8px;
     box-shadow: none;
     filter: none;
@@ -1053,7 +1056,8 @@
 .landing-footer-links button {
     appearance: none;
     display: inline-flex;
-    min-height: 32px;
+    /* 44px minimum touch target (SX-009): hit box only, text unchanged. */
+    min-height: 44px;
     align-items: center;
     background: none;
     border: none;
@@ -1104,7 +1108,8 @@
     display: inline-flex;
     align-items: center;
     box-sizing: border-box;
-    min-height: 24px;
+    /* 44px minimum touch target (SX-009), up from 24px. */
+    min-height: 44px;
     color: #8f9bb0;
     text-decoration: none;
     border-left: 1px solid #525d70;

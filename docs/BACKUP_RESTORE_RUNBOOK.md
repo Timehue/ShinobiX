@@ -2,6 +2,24 @@
 
 The production Supabase project must have platform backups or PITR enabled with retention recorded in the release evidence. Repository snapshots are not substitutes for that control.
 
+## Launch-wipe day checklist (run IMMEDIATELY before the reset)
+
+The wipe is the single most dangerous operation on the launch calendar. In
+order, on the day, before touching any data:
+
+1. **Supabase dashboard** → Database → Backups: confirm today's daily restore
+   point exists. (Seven daily points were confirmed 2026-07-12; re-verify — do
+   not trust that snapshot of evidence on wipe day.)
+2. **Nightly in-DB snapshots are healthy**: the deep health probe
+   (`GET /health/db` with `HEALTH_DEEP_TOKEN`) must report `backupFresh: true`,
+   or query `backup:save-snapshots:last-success` directly — `completedAt` must
+   be within 24h and `skipped: 0`. (Verified green 2026-08-21: 113/113 saves,
+   0 skipped.)
+3. **Take the independent offsite export** with the command below, using
+   `DATABASE_URL` from Railway's environment variables. Record the SHA-256 and
+   store the gzip outside the repository BEFORE the wipe begins.
+4. Only after all three: proceed with the reset.
+
 Before launch, also create an independent application-data export:
 
 ```powershell

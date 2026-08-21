@@ -2460,7 +2460,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1528
+            "line": 1533
           }
         ]
       },
@@ -2546,7 +2546,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1388
+            "line": 1393
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -3105,7 +3105,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1677
+            "line": 1682
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3155,7 +3155,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1298
+            "line": 1303
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -3182,7 +3182,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1719
+            "line": 1724
           }
         ]
       },
@@ -3564,7 +3564,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1719
+            "line": 1724
           }
         ]
       },
