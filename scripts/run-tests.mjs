@@ -22,7 +22,34 @@ function collect(dir) {
 
 for (const dir of scanRoots) collect(join(root, dir));
 const uniqueFiles = [...new Set(files)].sort();
-const tests = run({ cwd: root, files: uniqueFiles, concurrency: true });
+
+// Optional sharding for CI. The whole suite is a single ~17 minute step, which
+// on a slow runner reached the job's 29 minute ceiling and was cancelled --
+// reported as `0 failed, N cancelled` or simply a red job, on timing alone.
+// TEST_SHARD_INDEX is 1-based. Files are dealt round-robin off the sorted list,
+// so every file lands in exactly one shard, the split is stable across runs, and
+// no shard inherits a whole directory's worth of slow neighbours. Unset (or a
+// total of 1) runs everything, which is what a local `npm test` still does.
+const shardTotal = Number.parseInt(process.env.TEST_SHARD_TOTAL ?? '', 10);
+const shardIndex = Number.parseInt(process.env.TEST_SHARD_INDEX ?? '', 10);
+const sharded = Number.isInteger(shardTotal) && shardTotal > 1;
+if (sharded && (!Number.isInteger(shardIndex) || shardIndex < 1 || shardIndex > shardTotal)) {
+    console.error(`✖ TEST_SHARD_INDEX must be 1..${shardTotal}; got ${process.env.TEST_SHARD_INDEX}`);
+    process.exit(1);
+}
+const shardFiles = sharded
+    ? uniqueFiles.filter((_file, position) => position % shardTotal === shardIndex - 1)
+    : uniqueFiles;
+if (sharded) {
+    console.error(`[run-tests] shard ${shardIndex}/${shardTotal}: ${shardFiles.length} of ${uniqueFiles.length} files`);
+    // A shard that matches nothing means the split is broken, not that there is
+    // nothing to do. Fail loudly rather than reporting a green empty run.
+    if (shardFiles.length === 0) {
+        console.error('✖ TEST RUN FAILED — this shard matched no test files');
+        process.exit(1);
+    }
+}
+const tests = run({ cwd: root, files: shardFiles, concurrency: true });
 
 // Do NOT rely on `test:fail` alone to decide the exit code. It misses failure
 // modes that never surface as a discrete failing test — a worker that crashes,
