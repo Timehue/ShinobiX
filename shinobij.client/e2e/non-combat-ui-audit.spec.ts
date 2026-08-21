@@ -157,10 +157,11 @@ for (const screen of NON_COMBAT_SCREENS) {
 test("user directory routes into a production-safe public profile", async ({ page }, testInfo) => {
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "village");
-    let users = page.getByRole("button", { name: "Users", exact: true }).filter({ visible: true });
-    if (await users.count() === 0) {
-        await page.getByRole("button", { name: "Menu", exact: true }).click();
-        users = page.getByRole("button", { name: "Users", exact: true }).filter({ visible: true });
+    const users = page.getByRole("button", { name: "Users", exact: true }).filter({ visible: true });
+    const menu = page.getByRole("button", { name: "Menu", exact: true });
+    await expect(users.or(menu)).toBeVisible();
+    if (await menu.isVisible()) {
+        await menu.click();
     }
     await users.click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userHub");
