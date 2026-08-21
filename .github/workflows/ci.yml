@@ -125,7 +125,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: server-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: server-dist-${{ github.sha }}-${{ github.run_id }}
+          overwrite: true
           path: .ci-artifacts/server/
           if-no-files-found: error
           retention-days: 14
@@ -190,7 +191,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: client-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: client-dist-${{ github.sha }}-${{ github.run_id }}
+          overwrite: true
           path: .ci-artifacts/client/
           if-no-files-found: error
           retention-days: 14
@@ -230,12 +232,12 @@ jobs:
       - name: Download server artifact
         uses: actions/download-artifact@v8
         with:
-          name: server-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: server-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/server
       - name: Download client artifact
         uses: actions/download-artifact@v8
         with:
-          name: client-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: client-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/client
       - name: Verify and assemble exact build outputs
         run: |
@@ -264,7 +266,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
+          overwrite: true
           path: .ci-artifacts/release/
           if-no-files-found: error
           retention-days: 14
@@ -305,7 +308,7 @@ jobs:
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
-          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/release
       - name: Verify exact release artifact
         run: |
@@ -356,7 +359,7 @@ jobs:
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
-          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/release
       - name: Verify exact release artifact
         run: |
@@ -407,7 +410,7 @@ jobs:
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
-          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/release
       - name: Verify and extract exact release artifact
         run: |
@@ -479,7 +482,7 @@ jobs:
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
-          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/release
       - name: Verify and extract exact release artifact
         run: |
@@ -564,7 +567,7 @@ jobs:
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
-          name: release-dist-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
           path: .ci-artifacts/release
       - name: Verify and extract exact release artifact
         run: |
