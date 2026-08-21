@@ -1570,8 +1570,8 @@ export default function App() {
         return () => document.removeEventListener("visibilitychange", handler);
     }, []);
     // Mirror the active player into sessionStorage so the global authFetch
-    // interceptor (installed at module load) can pick up the correct
-    // x-player-name / x-player-password headers for every /api/ request.
+    // interceptor (installed at module load) can pick up the correct x-player-name
+    // header. Identity only — the omitted password argument must NOT clear one.
     useEffect(() => {
         setActivePlayer(character?.name ?? currentAccountName ?? null);
     }, [character?.name, currentAccountName]);
@@ -4950,7 +4950,7 @@ export default function App() {
         // reauthKeepState does. (To require tokens, enforce on the SERVER first.)
         accounts[key] = { ...(accounts[key] ?? {}), ...(regToken ? { token: regToken } : {}) };
         savePlayerAccounts(accounts);
-        setActivePlayer(newCharacter.name, regToken ? undefined : password ?? undefined);
+        setActivePlayer(newCharacter.name, regToken ? null : password ?? null);
 
         // Race the avatar publish against 12s: registration has ALREADY
         // committed (name taken, credentials stored), so a stalled upload here
@@ -5116,7 +5116,7 @@ export default function App() {
             setActiveToken(verdict.token);
             rememberAccountToken(name, verdict.token);
         }
-        await enterGameAsPlayer(name, loginLoad, password);
+        await enterGameAsPlayer(name, loginLoad, password, { armPasswordFallback: !verdict.token });
     }
 
     // The second half of signing in: load the save and paint the game. Shared by
@@ -5126,13 +5126,16 @@ export default function App() {
         name: string,
         loginLoad: ReturnType<typeof beginSessionLoad>,
         password?: string,
-        opts: { silentExpiry?: boolean } = {},
+        opts: { silentExpiry?: boolean; armPasswordFallback?: boolean } = {},
     ): Promise<SaveLoadFailure | "ok" | "superseded"> {
         // Prime the authFetch interceptor *before* the save GET fires.
         // Without this, the interceptor has no credentials and the backend
         // returns 401 — which this function used to mistranslate as "no save
         // found" (see the 401 branch below, which now says what really happened).
-        setActivePlayer(name);
+        // Arm the password ONLY when the server minted no token (SESSION_SECRET
+        // unset); behind a live token setActiveToken drops it on purpose, so an
+        // expiry surfaces the re-auth modal instead of reusing a stale password.
+        setActivePlayer(name, opts.armPasswordFallback ? password : null);
 
         // Instant-paint from localStorage while the save fetch is in flight.
         // The cached preview is written on every successful server save (both

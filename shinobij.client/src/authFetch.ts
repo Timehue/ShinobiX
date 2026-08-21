@@ -421,12 +421,21 @@ function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL):
  *
  * `password` is retained IN MEMORY only (see `_memPassword`) and is used solely as
  * the credential when the server issues no session token. Callers that already hold
- * a token should pass `undefined`. Pass `null` for name to clear the identity.
+ * a token should pass `null`. Pass `null` for name to clear the identity.
+ *
+ * OMITTING `password` is an identity-only sync that leaves the stored credential
+ * untouched, which is not the same as passing `null`. App.tsx mirrors the active
+ * name into storage from an effect on every character change; when that effect ran
+ * after a token-less login it cleared the password the login had just armed, and
+ * every request from that point on 401'd — the exact failure the fallback exists
+ * to prevent. A `null` name still clears, so logout is unaffected.
  */
 export function setActivePlayer(name: string | null, password?: string | null): void {
     // Outside the try: storage being unavailable must not stop the in-memory
     // credential from being set, or private-mode browsers lose the fallback too.
-    _memPassword = name !== null && typeof password === 'string' && password.length > 0 ? password : null;
+    if (name === null || password !== undefined) {
+        _memPassword = name !== null && typeof password === 'string' && password.length > 0 ? password : null;
+    }
     try {
         clearPersistedPassword();
         if (name === null) {

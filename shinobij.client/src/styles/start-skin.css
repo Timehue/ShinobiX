@@ -49,86 +49,6 @@
     text-transform: uppercase;
 }
 
-/* --------- Top nav row (Discord / Guides / Leaderboard) --------- */
-
-.start-nav-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 26px;
-    flex-wrap: wrap;
-    margin: 6px 0 12px;
-}
-
-.start-nav-divider {
-    color: #a16207;
-    font-size: 18px;
-    filter: drop-shadow(0 0 6px rgba(250,204,21,0.4));
-    user-select: none;
-}
-
-.start-nav-btn {
-    appearance: none;
-    background: linear-gradient(180deg, rgba(13, 16, 28, 0.92), rgba(6, 8, 18, 0.96)) !important;
-    color: var(--gold-300);
-    border: 1px solid rgba(202, 138, 4, 0.55);
-    border-radius: 10px;
-    padding: 12px 36px;
-    min-width: 200px;
-    font-family: var(--font-display);
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    cursor: pointer;
-    position: relative;
-    box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.12) inset,
-        0 6px 22px rgba(0, 0, 0, 0.55),
-        0 0 18px rgba(202, 138, 4, 0.10);
-    transition: transform 0.12s ease, box-shadow 0.18s ease, color 0.15s, border-color 0.15s;
-    overflow: hidden;
-}
-
-.start-nav-btn::before,
-.start-nav-btn::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    width: 10px;
-    height: 10px;
-    transform: translateY(-50%) rotate(45deg);
-    background: linear-gradient(135deg, #fbbf24, #92400e);
-    border: 1px solid rgba(202, 138, 4, 0.7);
-    box-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
-}
-.start-nav-btn::before { left: 10px; }
-.start-nav-btn::after  { right: 10px; }
-
-.start-nav-btn:hover {
-    color: #fff7d6;
-    border-color: rgba(250, 204, 21, 0.85);
-    box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.22) inset,
-        0 8px 28px rgba(0, 0, 0, 0.6),
-        0 0 28px rgba(250, 204, 21, 0.22);
-    transform: translateY(-1px);
-}
-
-.start-nav-btn:active {
-    transform: translateY(0);
-}
-
-/* --------- Two-card grid --------- */
-
-.start-grid-ornate {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 22px;
-    margin: 6px auto 0;
-    width: 100%;
-    max-width: 1080px;
-}
-
 .start-card {
     position: relative;
     background:
@@ -616,24 +536,6 @@
         font-size: clamp(24px, 7.2vw, 44px);
     }
     .start-subtitle { letter-spacing: 0.28em; font-size: 12px; }
-    .start-nav-row {
-        gap: 6px;
-    }
-    .start-nav-divider { display: none; }
-    .start-nav-btn {
-        min-width: 0;
-        padding: 9px 8px;
-        font-size: 12px;
-        letter-spacing: 0.04em;
-        flex: 1 1 28%;
-    }
-    .start-nav-btn::before,
-    .start-nav-btn::after { display: none; }
-    .start-grid-ornate {
-        grid-template-columns: 1fr;
-        gap: 14px;
-        padding: 0 6px;
-    }
     .start-leaderboard {
         padding: 18px 14px 22px !important;
     }

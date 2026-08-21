@@ -521,25 +521,6 @@ textarea {
     transition: width 0.4s ease;
 }
 
-.left-levelup-btn {
-    width: 100%;
-    padding: 6px 0;
-    border-radius: 8px;
-    border: 1px solid rgba(250, 204, 21, 0.6);
-    background: rgba(250, 204, 21, 0.18);
-    color: #fde047;
-    font-size: 0.82rem;
-    font-weight: 700;
-    cursor: pointer;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-    animation: levelup-pulse 1.2s ease-in-out infinite;
-    margin-top: 2px;
-}
-
-    .left-levelup-btn:hover {
-        background: rgba(250, 204, 21, 0.32);
-    }
-
 @keyframes levelup-pulse {
     0%, 100% {
         box-shadow: 0 0 6px rgba(250, 204, 21, 0.3);
