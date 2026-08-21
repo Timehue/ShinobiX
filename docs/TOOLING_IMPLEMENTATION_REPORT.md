@@ -113,7 +113,7 @@ All production variables below are optional and default to disabled/empty. Sentr
 | `VITE_PRODUCT_ANALYTICS_PROVIDER` | Client build | No | Exact `posthog` | Unknown/missing provider disables |
 | `VITE_POSTHOG_KEY` | Client build | Public ingestion token; embedded | Required only when client pilot is enabled | Missing key disables |
 | `VITE_POSTHOG_HOST` | Client build | No | Exact HTTPS project-region origin | Invalid host disables; send failure is bounded/fail-open |
-| `PLAYWRIGHT_PORT` | Test runtime | No | `4173` | An invalid/occupied override makes Playwright fail without disturbing another process |
+| `PLAYWRIGHT_PORT`, `COMBAT_LAYOUT_PORT`, `LIVE_E2E_PORT` | Test runtime | No | Unset: `4173`/`4183`/`4183` under CI, otherwise a per-worktree port derived in `shinobij.client/e2e-ports.ts` | An invalid/occupied override makes Playwright fail without disturbing another process |
 
 The staging harness uses QA-only variables; none belong in production service configuration.
 

@@ -16,7 +16,7 @@
 import type { Pet } from "../types/pet";
 import type { JutsuElement } from "../types/core";
 import { petVisualId } from "../data/pet-evolutions";
-import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
+import { hasPetPose } from "./pet-pose-availability";
 import type {
     PetSpriteMode,
     PetVfxKey,
@@ -56,12 +56,7 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
     "mythic-14": "/pet-portraits/breeding-mythics/mythic-14.webp",
 };
 
-// Curated replacements for shipped pets whose legacy inline/shared portraits
-// have known anatomy/composition problems. A deliberately published palette-
-// specific variant can still override the base replacement.
-const CURATED_CARD_PORTRAITS: Readonly<Record<string, string>> = {
-    "standard-17": "/pet-portraits/standard-17-card-v2.webp",
-};
+const STORM_GULL_CARD_PORTRAIT = "/pet-portraits/standard-17-card-v2.webp";
 
 const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
     "mythic-10": "mythic-5",
@@ -89,10 +84,6 @@ function petArtIds(pet: Pet): string[] {
 
 function breedingMythicPortrait(artIds: readonly string[]): string {
     return artIds.map((id) => BREEDING_MYTHIC_PORTRAITS[id]).find(Boolean) ?? "";
-}
-
-function curatedCardPortrait(artIds: readonly string[]): string {
-    return artIds.map((id) => CURATED_CARD_PORTRAITS[id]).find(Boolean) ?? "";
 }
 
 // Cache-busting tag for the static idle-pose files. The poses live at fixed
@@ -185,19 +176,12 @@ export function petCardImage(
     sharedImages: Record<string, string> = {},
 ): string {
     const artIds = petArtIds(pet);
-    const curated = curatedCardPortrait(artIds);
-    if (curated) {
-        const paletteVariant = petPaletteVariant(pet);
-        const variantSuffix = paletteVariant ? `:variant:${paletteVariant}` : "";
-        const variantBody = variantSuffix
-            ? firstSharedImage(sharedImages, artIds.map((id) => `${PET_BODY_PREFIX}${id}${variantSuffix}`))
-            : "";
-        const variantPortrait = variantSuffix
-            ? firstSharedImage(sharedImages, artIds.map((id) => `${PET_IMG_PREFIX}${id}${variantSuffix}`))
-            : "";
-        return variantBody
-            || variantPortrait
-            || curated;
+    if (artIds.includes("standard-17")) {
+        const variant = petPaletteVariant(pet);
+        return (variant && firstSharedImage(sharedImages, artIds.flatMap((id) => [
+            `${PET_BODY_PREFIX}${id}:variant:${variant}`,
+            `${PET_IMG_PREFIX}${id}:variant:${variant}`,
+        ]))) || STORM_GULL_CARD_PORTRAIT;
     }
     const direct = firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds))
         || pet.bodyImage
@@ -206,7 +190,7 @@ export function petCardImage(
         || breedingMythicPortrait(artIds)
         || "";
     if (direct) return direct;
-    const posedId = artIds.find((id) => POSED_PET_IDS.has(id));
+    const posedId = artIds.find(hasPetPose);
     if (posedId) return idlePoseUrl(posedId);
     return "";
 }
@@ -220,7 +204,7 @@ export function petCardImage(
  * petCardImage only when a pet has no generated pose. Pure.
  */
 export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
-    const posedId = petArtIds(pet).find((id) => POSED_PET_IDS.has(id));
+    const posedId = petArtIds(pet).find(hasPetPose);
     if (posedId) return idlePoseUrl(posedId);
     return petCardImage(pet, sharedImages);
 }

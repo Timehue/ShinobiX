@@ -2561,7 +2561,7 @@ Do not:
 - Rewrite all storage
 - Reintroduce retired character XP
 - Duplicate existing friends, messages, or chat
-- Copy TheNinjaRPG code
+- Copy another repository's code wholesale
 - Make decisions because another repository claims it is better
 - Treat file existence as proof of live functionality
 - Claim production scalability from in-memory local results
