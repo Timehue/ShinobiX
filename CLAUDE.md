@@ -202,7 +202,8 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
     spec executes — which reads exactly like a catastrophic browser regression.
     Since 2026-08-20 the local ports are **per-worktree** (derived in
     `shinobij.client/e2e-ports.ts`; the runner prints `[e2e] ... server port
-    NNNN for this worktree` at startup — CI keeps the fixed 4173/4183), so a
+    NNNN for this worktree` at startup — CI keeps the fixed
+    4173/4183/4174/4176), so a
     sibling session's run can no longer hold your port. A held port therefore
     means a process from **this** worktree. Before killing it, check its start
     time — a process that started minutes ago is probably a live run (yours or
@@ -214,7 +215,8 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
     ```
     Stop-Process only if it predates every run you know about; otherwise wait
     for the live run to finish (or override with `COMBAT_LAYOUT_PORT` /
-    `PLAYWRIGHT_PORT` / `LIVE_E2E_PORT`).
+    `PLAYWRIGHT_PORT` / `LIVE_E2E_PORT` / `VISUAL_E2E_PORT` /
+    `WARFRONT_E2E_PORT` / `ADAPTIVE_DPR_E2E_PORT`).
 
   **These are flaky under load.** A single red e2e is not yet a regression: check
   whether the same spec passes on the other browser projects in that run, and

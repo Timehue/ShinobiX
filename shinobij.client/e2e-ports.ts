@@ -32,12 +32,17 @@ function resolvePort(envVar: string, ciPort: number, localBase: number, label: s
     return port;
 }
 
-// The local bases keep each suite's 1000-port window disjoint from the other
-// suites' windows and from the fixed ports of the remaining configs
-// (4174 visual/warfront, 4176 adaptive-dpr), so no two suites in any pair of
-// worktrees can land on the same port.
+// The local bases keep each suite's 1000-port window disjoint from every other
+// suite's window, so no two suites in any pair of worktrees can land on the
+// same port. Visual starts at 18174 rather than the 17174 its fixed port would
+// suggest because 17174 still falls inside the live window (16183-17182).
 export const smokeE2ePort = () => resolvePort('PLAYWRIGHT_PORT', 4173, 14173, 'smoke preview');
 export const combatLayoutE2ePort = () => resolvePort('COMBAT_LAYOUT_PORT', 4183, 15183, 'combat-layout');
 export const liveE2ePort = () => resolvePort('LIVE_E2E_PORT', 4183, 16183, 'live express');
+// Visual and warfront both used the fixed 4174, so even a single session
+// running the two at once collided; their local windows are separate.
+export const visualE2ePort = () => resolvePort('VISUAL_E2E_PORT', 4174, 18174, 'visual preview');
+export const warfrontE2ePort = () => resolvePort('WARFRONT_E2E_PORT', 4174, 19174, 'warfront');
+export const adaptiveDprE2ePort = () => resolvePort('ADAPTIVE_DPR_E2E_PORT', 4176, 20176, 'adaptive-dpr');
 
 export const previewRootFor = (port: string) => `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;

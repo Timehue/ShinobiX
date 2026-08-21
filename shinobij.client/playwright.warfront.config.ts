@@ -1,10 +1,12 @@
 import { defineConfig } from "@playwright/test";
+import { warfrontE2ePort } from "./e2e-ports";
 
-const baseURL = "http://127.0.0.1:4174";
-const releasePreviewRoot = ".playwright-dist-warfront-4174";
+const port = warfrontE2ePort();
+const baseURL = `http://127.0.0.1:${port}`;
+const releasePreviewRoot = `.playwright-dist-warfront-${port}`;
 const webServerCommand = process.env.CI
-    ? `npm run build:warfront-e2e && node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} dist-perf && npm run preview -- --host 127.0.0.1 --port 4174 --outDir ${releasePreviewRoot}`
-    : "npm run dev -- --host 127.0.0.1 --port 4174";
+    ? `npm run build:warfront-e2e && node scripts/prepare-e2e-preview.mjs ${releasePreviewRoot} dist-perf && npm run preview -- --host 127.0.0.1 --port ${port} --outDir ${releasePreviewRoot}`
+    : `npm run dev -- --host 127.0.0.1 --port ${port}`;
 
 export default defineConfig({
     testDir: "./e2e-warfront",

@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
+import { adaptiveDprE2ePort } from "./e2e-ports";
 
-const baseURL = "http://127.0.0.1:4176";
+const port = adaptiveDprE2ePort();
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
     testDir: "./e2e",
@@ -20,7 +22,7 @@ export default defineConfig({
         screenshot: "only-on-failure",
     },
     webServer: {
-        command: "npm run dev -- --host 127.0.0.1 --port 4176 --strictPort",
+        command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
         url: baseURL,
         env: { VITE_SKIP_HTTPS: "1" },
         reuseExistingServer: false,
