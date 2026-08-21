@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { rememberedShinobi } from "../../lib/player-accounts";
 import { loadPublicCapabilities } from "../../lib/live-capabilities";
 import { startGoogleSignIn } from "../../lib/google-signin";
+import { useBfcacheRestore } from "../../lib/use-bfcache-restore";
 import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
 
 /*
@@ -117,13 +118,7 @@ export function LoginGate({
     // every control with nothing in flight. A bfcache restore announces
     // itself via pageshow with persisted=true; reset the transient status so
     // the gate is immediately usable again.
-    useEffect(() => {
-        const onPageShow = (event: PageTransitionEvent) => {
-            if (event.persisted) setStatus("");
-        };
-        window.addEventListener("pageshow", onPageShow);
-        return () => window.removeEventListener("pageshow", onPageShow);
-    }, []);
+    useBfcacheRestore(() => setStatus(""));
 
     // Only "Admin 2" / "admin2" auto-routes to the admin login from the player
     // form. Admin 1 is intentionally NOT detected here — it flows through

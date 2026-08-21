@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { startGoogleSignIn } from "../lib/google-signin";
 import { loadGuestSession } from "../lib/guest-play";
 import { loadPublicCapabilities } from "../lib/live-capabilities";
+import { useBfcacheRestore } from "../lib/use-bfcache-restore";
 
 export function GoogleLinkCard({ playerName }: { playerName: string }) {
     const [available, setAvailable] = useState(false);
@@ -27,6 +28,10 @@ export function GoogleLinkCard({ playerName }: { playerName: string }) {
         });
         return () => { cancelled = true; };
     }, []);
+
+    // Back from Google's consent page can restore this page from bfcache with
+    // "Opening Google…" still stuck on; release the button on that restore.
+    useBfcacheRestore(() => setBusy(false));
 
     if (!available) return null;
 
