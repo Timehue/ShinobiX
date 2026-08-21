@@ -39,7 +39,20 @@ jobs:
     # Every other step in the old job measured 0m, so the suite was the whole cost.
     # Splitting it three ways follows that instruction instead of raising 29 again;
     # the aggregator below keeps `CI / server-contracts` as the required check.
-    timeout-minutes: 20
+    # 29, matching the rest of the workflow, because the SHARD is what shrank --
+    # not the ceiling. Measured on run 32454050576: shards 2 and 3 take 3.1m and
+    # 3.6m, shard 1 takes 15.9m. Runner speed varies by ~1.7x here (the old job
+    # measured 17m and 29m for identical work), and 15.9 x 1.7 is 27m, which a
+    # 20m shard ceiling would cancel. The headroom is real now regardless: 16m of
+    # work under a 29m ceiling, where the old job carried 29m of work under it.
+    #
+    # Shard 1 is heavy because ONE test is 9.6 minutes -- `streamed render path
+    # === full-auto server path (autobuy, all policies + stances)` -- with the
+    # other Warfront parity sims adding ~5m around it. node:test runs a file's
+    # tests sequentially, so no file-level split can go below that; rebalancing
+    # the deal would move the cost, not remove it. Making that suite cheaper is
+    # its owner's call, not this split's.
+    timeout-minutes: 29
     strategy:
       fail-fast: false
       matrix:
