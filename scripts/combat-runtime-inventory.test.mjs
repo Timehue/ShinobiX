@@ -96,7 +96,7 @@ describe('executable multi-engine runtime registry', () => {
     const rendered = renderRuntimeModeDocs();
     assert.equal(rendered, renderRuntimeModeDocs(), 'renderer must be deterministic');
     assert.equal(
-      readFileSync(join(ROOT, 'docs', 'generated', 'runtime-mode-registry.md'), 'utf8'),
+      readFileSync(join(ROOT, 'docs', 'generated', 'runtime-mode-registry.md'), 'utf8').replace(/\r\n/g, '\n'),
       rendered,
       'generated registry doc is stale; run npm run generate:runtime-mode-docs',
     );

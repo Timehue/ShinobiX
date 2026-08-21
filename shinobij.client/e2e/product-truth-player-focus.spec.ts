@@ -155,6 +155,7 @@ async function installRuntime(page: Page) {
         if (path === "/api/ranked-season") return json(route, { current: null, lastSeason: null });
         if (path === "/api/legacy/status") return json(route, { enabled: true });
         if (path === "/api/towers/floors") return json(route, { floors: [] });
+        if (path === "/api/towers/party") return json(route, { party: null, invitations: [] });
         return json(route, { ok: true, images: {}, categories: {}, players: [], leaderboard: [], announcements: [], entries: [], eras: [], wars: [], territories: [], standings: [], villageStates: {}, arenaActiveFights: [] });
     });
     return {
@@ -208,6 +209,12 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     // to fit inside the test's remaining time, not just its own assertion.
     test.setTimeout(120_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "single Chromium visual evidence run");
+    const pageErrors: string[] = [];
+    const fatalConsoleErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => {
+        if (message.type() === "error") fatalConsoleErrors.push(message.text());
+    });
     const runtime = await installRuntime(page);
 
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -292,6 +299,7 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await expect(page.locator("h1", { hasText: "Battle Towers" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByLabel("Live service status")).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/desktop-first|soft-launch|staffed beta/i);
+    await expect(page.getByText("This screen hit a snag")).toHaveCount(0);
     await capture(page, testInfo, "11-live-towers-no-stale-warning.png");
 
     await loadScreen(page, "townHall");
@@ -311,4 +319,6 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
     await page.waitForTimeout(500);
     expect(runtime.sectorCampaignRequests()).toBe(sectorRequestsBeforeRestore);
+    expect(pageErrors, "the product-truth route matrix emitted uncaught page errors").toEqual([]);
+    expect(fatalConsoleErrors, "the product-truth route matrix emitted console errors").toEqual([]);
 });

@@ -1,6 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.UI_AUDIT_BASE_URL ?? "http://127.0.0.1:5173";
+const externalBaseURL = process.env.UI_AUDIT_BASE_URL;
+const port = process.env.UI_AUDIT_PORT ?? "43320";
+const baseURL = externalBaseURL ?? `http://127.0.0.1:${port}`;
+const previewRoot = `.playwright-dist-ui-${port}-${process.pid}`;
 
 export default defineConfig({
     testDir: "./e2e",
@@ -21,6 +24,13 @@ export default defineConfig({
         serviceWorkers: "block",
         trace: "retain-on-failure",
         screenshot: "only-on-failure",
+    },
+    webServer: externalBaseURL ? undefined : {
+        command: `node scripts/prepare-e2e-preview.mjs ${previewRoot} && npm run preview -- --host 127.0.0.1 --port ${port} --outDir ${previewRoot}`,
+        url: baseURL,
+        env: { VITE_SKIP_HTTPS: "1" },
+        reuseExistingServer: false,
+        timeout: 120_000,
     },
     projects: [
         { name: "chromium-desktop", use: { viewport: { width: 1440, height: 900 } } },
