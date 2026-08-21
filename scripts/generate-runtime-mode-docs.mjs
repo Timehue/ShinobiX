@@ -150,7 +150,9 @@ async function writeOrCheck({ checkOnly }) {
     const relativeOutput = path.relative(repoRoot, outputPath).replaceAll('\\', '/');
 
     if (checkOnly) {
-        const current = await readFile(outputPath, 'utf8').catch(() => null);
+        const current = await readFile(outputPath, 'utf8')
+            .then((value) => value.replace(/\r\n/g, '\n'))
+            .catch(() => null);
         if (current !== content) {
             throw new Error(`${relativeOutput} is stale or missing; run npm run generate:runtime-mode-docs`);
         }

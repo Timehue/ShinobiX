@@ -10,7 +10,7 @@ import { villages } from "../../data/sectors";
 import { BLOODLINE_PRESENTATION, CREATOR_STEPS, STARTER_AVATARS, getVillageTheme } from "./characterCreatorCopy";
 import type { CreatorStep, IdentityErrors, StarterAvatarId } from "./characterCreatorTypes";
 import { hasIdentityErrors, validateIdentity } from "./characterCreatorUtils";
-import { PLAYER_PASSWORD_MAX_LENGTH, PLAYER_NAME_MAX_LENGTH } from "../../lib/player-auth-policy";
+import { PLAYER_PASSWORD_MAX_LENGTH, PLAYER_PASSWORD_MIN_LENGTH, PLAYER_NAME_MAX_LENGTH } from "../../lib/player-auth-policy";
 import type { SignupCredential } from "../../lib/guest-play";
 import "./character-creator.css";
 
@@ -221,12 +221,17 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                                         placeholder="Create a login password"
                                         autoComplete="new-password"
                                         aria-invalid={Boolean(identityErrorFor("password"))}
-                                        aria-describedby={identityErrorFor("password") ? "cc-password-error" : undefined}
+                                        aria-describedby={identityErrorFor("password")
+                                            ? "cc-password-requirements cc-password-error"
+                                            : "cc-password-requirements"}
                                     />
                                     <button type="button" onClick={() => setShowPassword((show) => !show)}>
                                         {showPassword ? "Hide" : "Show"}
                                     </button>
                                 </span>
+                                <small id="cc-password-requirements">
+                                    Use {PLAYER_PASSWORD_MIN_LENGTH} to {PLAYER_PASSWORD_MAX_LENGTH} characters with at least one letter and one number.
+                                </small>
                                 {identityErrorFor("password") && <em id="cc-password-error">{identityErrorFor("password")}</em>}
                             </label>
 
