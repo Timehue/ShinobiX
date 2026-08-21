@@ -12,20 +12,6 @@
 import type { GameItem } from "../types/combat";
 import { AURA_SPHERE_ITEM_ID } from "../constants/game";
 import { petCollars, petPvpGear, petPveGear, petConsumables } from "./pet-config";
-import huntAncientBeastCore from "../assets/hunter/materials/hunt-ancient-beast-core.webp";
-import huntAshScale from "../assets/hunter/materials/hunt-ash-scale.webp";
-import huntBeastMeat from "../assets/hunter/materials/hunt-beast-meat.webp";
-import huntCrackedHorn from "../assets/hunter/materials/hunt-cracked-horn.webp";
-import huntEmberScale from "../assets/hunter/materials/hunt-ember-scale.webp";
-import huntFrostPelt from "../assets/hunter/materials/hunt-frost-pelt.webp";
-import huntLegendaryMaterial from "../assets/hunter/materials/hunt-legendary-material.webp";
-import huntShadowClaw from "../assets/hunter/materials/hunt-shadow-claw.webp";
-import huntShadowPelt from "../assets/hunter/materials/hunt-shadow-pelt.webp";
-import huntSmallFang from "../assets/hunter/materials/hunt-small-fang.webp";
-import huntTitanBone from "../assets/hunter/materials/hunt-titan-bone.webp";
-import huntTornHide from "../assets/hunter/materials/hunt-torn-hide.webp";
-import huntWildFeather from "../assets/hunter/materials/hunt-wild-feather.webp";
-import huntWolfFang from "../assets/hunter/materials/hunt-wolf-fang.webp";
 
 type LegendarySetEffect = "damagePercent" | "absorbPercent" | "lifeStealPercent" | "shield" | "reflectPercent";
 
@@ -324,20 +310,20 @@ export const starterItems: GameItem[] = [
         bonuses: {},
     })),
     // -- Hunting materials ----------------------------------------------------
-    { id: "hunt-beast-meat", name: "Beast Meat", slot: "item", rarity: "common", cost: 0, image: huntBeastMeat, description: "Coarse meat carved from a wild beast. Used in the Crafter to make pet treats.", bonuses: {} },
-    { id: "hunt-torn-hide", name: "Torn Hide", slot: "item", rarity: "common", cost: 0, image: huntTornHide, description: "Ragged hide stripped from a forest creature. Crafting material.", bonuses: {} },
-    { id: "hunt-small-fang", name: "Small Fang", slot: "item", rarity: "common", cost: 0, image: huntSmallFang, description: "A sharp fang from a minor beast. Crafting material.", bonuses: {} },
-    { id: "hunt-cracked-horn", name: "Cracked Horn", slot: "item", rarity: "common", cost: 0, image: huntCrackedHorn, description: "A broken horn from a wild animal. Crafting material.", bonuses: {} },
-    { id: "hunt-wild-feather", name: "Wild Feather", slot: "item", rarity: "common", cost: 0, image: huntWildFeather, description: "A large feather from a forest bird of prey. Crafting material.", bonuses: {} },
-    { id: "hunt-wolf-fang", name: "Wolf Fang", slot: "item", rarity: "rare", cost: 0, image: huntWolfFang, description: "A serrated fang from a Frost Wolf. Worth 10 craft points in the Crafter.", bonuses: {} },
-    { id: "hunt-frost-pelt", name: "Frost Pelt", slot: "item", rarity: "rare", cost: 0, image: huntFrostPelt, description: "Ice-laced pelt from a snow-region beast. Crafting material.", bonuses: {} },
-    { id: "hunt-ash-scale", name: "Ash Scale", slot: "item", rarity: "rare", cost: 0, image: huntAshScale, description: "A heat-blackened scale from a volcanic lizard. Worth 15 craft points in the Crafter.", bonuses: {} },
-    { id: "hunt-shadow-claw", name: "Shadow Claw", slot: "item", rarity: "rare", cost: 0, image: huntShadowClaw, description: "A razor-sharp claw from a shadow-region predator. Crafting material.", bonuses: {} },
-    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, image: huntShadowPelt, description: "Dark, chakra-absorbing pelt from the Shadow Panther. Worth 25 craft points in the Crafter.", bonuses: {} },
-    { id: "hunt-ember-scale", name: "Ember Scale", slot: "item", rarity: "epic", cost: 0, image: huntEmberScale, description: "A glowing scale from the Ember Drake, still warm to the touch. Crafting material.", bonuses: {} },
-    { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, image: huntAncientBeastCore, description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
-    { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, image: huntTitanBone, description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
-    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: huntLegendaryMaterial, description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
+    { id: "hunt-beast-meat", name: "Beast Meat", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Coarse meat carved from a wild beast. Used in the Crafter to make pet treats.", bonuses: {} },
+    { id: "hunt-torn-hide", name: "Torn Hide", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-torn-hide-v1.webp", description: "Ragged hide stripped from a forest creature. Crafting material.", bonuses: {} },
+    { id: "hunt-small-fang", name: "Small Fang", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-small-fang-v1.webp", description: "A sharp fang from a minor beast. Crafting material.", bonuses: {} },
+    { id: "hunt-cracked-horn", name: "Cracked Horn", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-cracked-horn-v1.webp", description: "A broken horn from a wild animal. Crafting material.", bonuses: {} },
+    { id: "hunt-wild-feather", name: "Wild Feather", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-wild-feather-v1.webp", description: "A large feather from a forest bird of prey. Crafting material.", bonuses: {} },
+    { id: "hunt-wolf-fang", name: "Wolf Fang", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-wolf-fang-v1.webp", description: "A serrated fang from a Frost Wolf. Worth 10 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-frost-pelt", name: "Frost Pelt", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-frost-pelt-v1.webp", description: "Ice-laced pelt from a snow-region beast. Crafting material.", bonuses: {} },
+    { id: "hunt-ash-scale", name: "Ash Scale", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-ash-scale-v1.webp", description: "A heat-blackened scale from a volcanic lizard. Worth 15 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-shadow-claw", name: "Shadow Claw", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-shadow-claw-v1.webp", description: "A razor-sharp claw from a shadow-region predator. Crafting material.", bonuses: {} },
+    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-shadow-pelt-v1.webp", description: "Dark, chakra-absorbing pelt from the Shadow Panther. Worth 25 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-ember-scale", name: "Ember Scale", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ember-scale-v1.webp", description: "A glowing scale from the Ember Drake, still warm to the touch. Crafting material.", bonuses: {} },
+    { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ancient-beast-core-v1.webp", description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
+    { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-titan-bone-v1.webp", description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
+    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: "/items/hunt-legendary-material-v1.webp", description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
     // -- Anbu Vault Infiltration war caches (anbuInfiltration.v1) ---------------
     // Server-minted ONLY (raid settle; the save sanitizer blocks client mints).
     // Ids KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
