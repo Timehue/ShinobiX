@@ -147,7 +147,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             return;
         }
 
-        if (path === "/api/battle-lock") return json(route, { lock: null });
+        if (path === "/api/battle-lock" || path === "/api/battle/lock") return json(route, { lock: null });
         if (path === "/api/player/capabilities") {
             return json(route, {
                 ok: true,
