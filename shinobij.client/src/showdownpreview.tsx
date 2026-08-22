@@ -73,7 +73,11 @@ function mockCost(power: number, kind: string): number {
    drains at the rate the real ladder is priced against. */
 const MOCK_MAX_STAMINA = Math.round(SHOWDOWN_STAMINA_REFERENCE * SHOWDOWN_STAMINA_POOL_SCALE);
 
-const FORMAT: ShowdownFormat = "2v2";
+const PREVIEW_PARAMS = new URLSearchParams(window.location.search);
+// ?facingqa renders the exact live regression pair from the owner report on the
+// real PetShowdownBattle path: Raijin Hound (player) vs Crystal Bear (enemy).
+const FACING_QA = PREVIEW_PARAMS.has("facingqa");
+const FORMAT: ShowdownFormat = FACING_QA ? "1v1" : "2v2";
 const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
 
 /** The engine derives an action's presentation weight server-side; mirror it
@@ -190,8 +194,21 @@ const LINEUP = (() => {
     const picked = (raw ?? "").split(",").map((n) => Number(n.trim())).filter((n) => Number.isInteger(n) && n >= 0 && n < rawPetPool.length);
     return picked.length === 5 ? picked : [0, 4, 16, 8, 12];
 })();
-const playerPets = [poolPet(LINEUP[0]), poolPet(LINEUP[1]), poolPet(LINEUP[2])];
-const enemyPets = [poolPet(LINEUP[3]), poolPet(LINEUP[4])];
+const crystalBear = rawPetPool.find((pet) => pet.id === "legendary-9");
+if (FACING_QA && !crystalBear) throw new Error("facing QA requires legendary-9 Crystal Bear");
+const playerPets = FACING_QA
+    ? [{
+        ...poolPet(LINEUP[0]),
+        id: "starter-lightning",
+        name: "Raijin Hound",
+        element: "Lightning" as const,
+        evolutionStage: 2 as const,
+        rarity: "legendary" as const,
+    }]
+    : [poolPet(LINEUP[0]), poolPet(LINEUP[1]), poolPet(LINEUP[2])];
+const enemyPets = FACING_QA
+    ? [balanceBuiltInPetTemplate({ ...crystalBear! }) as Pet]
+    : [poolPet(LINEUP[3]), poolPet(LINEUP[4])];
 
 // ?elements=Wind,Earth,None,Lightning,Fire — review switch: remap the lineup's
 // elements in order (player0, player1, player2-bench, enemy0, enemy1) so every
@@ -252,7 +269,7 @@ const world = {
     // Standing arena weather, mirroring the engine's session.weather.
     weather: null as { element: string; until: number } | null,
 };
-world.benched.add(playerPets[2].id);
+if (playerPets[2]) world.benched.add(playerPets[2].id);
 // ?glass — review switch: enemies open at 30% health so one signature is
 // lethal and the KO ceremony (impact frame, crowd eruption, scar, extended
 // fall beat) is reachable in a single order instead of a five-round grind.

@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveOpponentFacing } from "./pet-combat-performance";
+import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
+
+const rotateLocalForward = (x: number, z: number, yaw: number): [number, number] => [
+    x * Math.cos(yaw) + z * Math.sin(yaw),
+    -x * Math.sin(yaw) + z * Math.cos(yaw),
+];
 
 test("attack clip windows preserve anticipation, contact, and recovery order", () => {
     const windup = attackClipWindow("windup")!;
@@ -42,6 +47,14 @@ test("opposing pets receive reciprocal headings that point directly at each othe
     assert.ok(enemy[0] * enemyToPlayer[0] + enemy[1] * enemyToPlayer[1] > Math.hypot(...enemyToPlayer) * 0.999);
     assert.ok(Math.abs(player[0] + enemy[0]) < 1e-9);
     assert.ok(Math.abs(player[1] + enemy[1]) < 1e-9);
+});
+
+test("the final model yaw points both +Z and Raijin's +X mesh axis at the opponent", () => {
+    const target = resolveOpponentFacing(-3.4, 2.6, 1.2, -1.5);
+    const ordinaryForward = rotateLocalForward(0, 1, resolveCombatBodyYaw(target[0], target[1], 0));
+    const raijinForward = rotateLocalForward(1, 0, resolveCombatBodyYaw(target[0], target[1], -Math.PI / 2));
+    assert.ok(ordinaryForward[0] * target[0] + ordinaryForward[1] * target[1] > 0.999999);
+    assert.ok(raijinForward[0] * target[0] + raijinForward[1] * target[1] > 0.999999);
 });
 
 test("locked duel locomotion preserves the opponent heading instead of the travel tangent", () => {
