@@ -77,7 +77,7 @@ export function ArenaDistrictLobby({
     onOpenPetLadder,
 }: ArenaDistrictLobbyProps) {
     return (
-        <div className="card arena-lobby arena-district-lobby">
+        <div className="card arena-lobby" data-central-district="true">
             <CentralDestinationHeader
                 backLabel="Central"
                 eyebrow="The Thousand Gates · Competitive Command"
