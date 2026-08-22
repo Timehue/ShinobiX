@@ -61,10 +61,15 @@ VN dialogue portrait (341×512 WebP, auto-resolved by speaker name via
 
 ## 2. Legacy badges (100 — all generated)
 
-256×256 opaque PNG at `shinobij.client/public/badges/legacy-<slug>.png` —
+256×256 opaque WebP at `shinobij.client/public/badges/legacy-<slug>.webp` —
 deliberately the same folder/format as achievement badges so the existing
-`/badges/${id}.png` render sites (Profile, UserView) work unchanged for
+`/badges/${id}.webp` render sites (Profile, UserView) work unchanged for
 Legacy badges.
+
+(Both families shipped as PNG until the set was re-encoded to WebP at the same
+256×256 resolution: 165 files, 19.6 MB → 2.0 MB, no resolution or quality
+change. `scripts/slice-badges.mjs` emits `.webp`, and
+`catalog-artwork-budget.test.ts` fails if a `.png` reappears here.)
 
 **All 100 are generated and live** (one per legacy; slug = legacy id, i.e.
 `badge: d.badge ?? d.id` in `api/_legacy-defs.ts` `LEGACY_DEFS` — that is the

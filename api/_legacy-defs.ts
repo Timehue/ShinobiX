@@ -110,7 +110,7 @@ export type LegacyDef = {
     flavor: string;
     /** ALL requirements must pass for eligibility. */
     reqs: ReadonlyArray<LegacyReq>;
-    /** Badge art at /badges/legacy-<badge>.png (all 100 generated). */
+    /** Badge art at /badges/legacy-<badge>.webp (all 100 generated). */
     badge?: string;
     /**
      * The Legacy's signature jutsu id — derived at construction from the
@@ -504,7 +504,7 @@ const BASIC: LegacyDef[] = [
       flavor: 'The village remembers who answered the bell without asking whose fire it was.', reqs: [r('sectorDefenses', 4)] },
 ];
 
-// Every legacy has badge art at /badges/legacy-<id>.png (full 100-badge set,
+// Every legacy has badge art at /badges/legacy-<id>.webp (full 100-badge set,
 // docs/legacy-assets.md §2), so `badge` is simply the id. Kept as a field
 // (rather than derived at render sites) because the client LegacyDefView
 // consumes it and a future legacy could still override the art.

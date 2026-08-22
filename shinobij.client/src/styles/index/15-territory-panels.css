@@ -350,11 +350,6 @@
     box-shadow: inset 0 0 0 2px rgba(253, 224, 71, 0.82), 0 0 16px rgba(245, 158, 11, 0.62) !important;
 }
 
-.sector-road-marker.is-north { top: 1px; }
-.sector-road-marker.is-south { bottom: 1px; }
-.sector-road-marker.is-west { left: 1px; }
-.sector-road-marker.is-east { right: 1px; }
-
 @keyframes sector-road-ready {
     50% { filter: brightness(1.28); }
 }

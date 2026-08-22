@@ -2233,7 +2233,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 745
+            "line": 721
           }
         ]
       },
@@ -2323,7 +2323,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3037
+            "line": 2988
           }
         ]
       },
@@ -2392,7 +2392,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1816
+            "line": 1767
           }
         ]
       },
@@ -2464,7 +2464,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1533
+            "line": 1527
           }
         ]
       },
@@ -2530,7 +2530,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 820
+            "line": 815
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2550,7 +2550,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1393
+            "line": 1387
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -2745,7 +2745,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2982
+            "line": 2933
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -2779,11 +2779,11 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1140
+            "line": 1091
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1627
+            "line": 1578
           }
         ]
       },
@@ -2968,11 +2968,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 151
+            "line": 175
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 286
+            "line": 310
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -3012,7 +3012,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1177
+            "line": 1128
           },
           {
             "source": "shinobij.client/src/styles/start-skin.css",
@@ -3124,7 +3124,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1682
+            "line": 1676
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3132,7 +3132,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2959
+            "line": 2910
           }
         ]
       },
@@ -3174,7 +3174,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1303
+            "line": 1297
           },
           {
             "source": "shinobij.client/src/styles/living-chronicle-spine.css",
@@ -3186,7 +3186,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 857
+            "line": 808
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
@@ -3201,7 +3201,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1724
+            "line": 1717
           }
         ]
       },
@@ -3519,7 +3519,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2945
+            "line": 2896
           }
         ]
       },
@@ -3587,7 +3587,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
-            "line": 1724
+            "line": 1717
           }
         ]
       },
@@ -3624,7 +3624,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1130
+            "line": 1081
           }
         ]
       },
@@ -3635,7 +3635,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
-            "line": 807
+            "line": 802
           }
         ]
       },

@@ -188,7 +188,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                                 onClick={() => { setSelected(o.legacyId); document.getElementById(`offer-card-${o.legacyId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
                                 style={{ flex: 1, minWidth: 0, textAlign: "center", cursor: "pointer", border: `1px solid ${selected === o.legacyId ? "var(--purple-400)" : "rgba(148,163,184,.25)"}`, background: selected === o.legacyId ? "rgba(192,132,252,.12)" : "transparent", borderRadius: 10, padding: "8px 6px" }}
                             >
-                                {o.badge && <img src={`/badges/legacy-${o.badge}.png`} alt="" style={{ width: 30, height: 30, borderRadius: 6, display: "block", margin: "0 auto 4px" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
+                                {o.badge && <img src={`/badges/legacy-${o.badge}.webp`} alt="" style={{ width: 30, height: 30, borderRadius: 6, display: "block", margin: "0 auto 4px" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
                                 <div style={{ fontSize: ".68rem", fontWeight: 700, color: "#e9d5ff", lineHeight: 1.15 }}>{o.name.replace(/^Legacy of the /, "")}</div>
                                 <div style={{ fontSize: ".6rem", color: "var(--text-dim)", textTransform: "capitalize", marginTop: 2 }}>{o.category}{o.villageAffinity ? ` · ${o.villageAffinity}` : ""}</div>
                                 {o.signature?.name && <div style={{ fontSize: ".6rem", color: "#c4b5fd", marginTop: 2 }}>◆ {o.signature.name}</div>}
@@ -218,7 +218,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                                 <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                                     {o.badge && (
                                         <img
-                                            src={`/badges/legacy-${o.badge}.png`} alt=""
+                                            src={`/badges/legacy-${o.badge}.webp`} alt=""
                                             style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0 }}
                                             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                                         />

@@ -133,7 +133,7 @@ export function LegacyMoment({
                                 style={{ width: 88, height: 88, borderRadius: 12, display: "inline-block", margin: "6px auto" }}
                             >
                                 <img
-                                    src={`/badges/legacy-${moment.badge}.png`} alt=""
+                                    src={`/badges/legacy-${moment.badge}.webp`} alt=""
                                     style={{ width: "100%", height: "100%", borderRadius: 12, display: "block" }}
                                     onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
                                 />

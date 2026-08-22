@@ -1293,7 +1293,7 @@ export function MissionArenaFight({
                                     // copy above already warns the reward isn't registered.
                                     <>
                                         <button className="start-primary-btn" onClick={() => { void runSettle(); }}>Retry</button>
-                                        <button className="start-primary-btn" onClick={onExit}>Return to Mission Hall</button>
+                                        <button className="start-primary-btn start-primary-btn--muted" onClick={onExit}>Return to Mission Hall</button>
                                     </>
                                 )
                                 : <button className="start-primary-btn" disabled={won && settleState === "pending"} onClick={onExit}>Return to Mission Hall</button>}

@@ -64,6 +64,7 @@ import {
     type PvpRewardCompletionStorage,
     type PvpRewardContinuationContext,
 } from "../lib/pvp-reward-claim";
+import { settlementDeadlineMs } from "../lib/pvp-settlement-deadline";
 import {
     abortableDelay,
     createPvpContinuationFence,
@@ -86,6 +87,16 @@ const PATH_STEP_MS = 130;
 const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
 const PVP_MAX_ACTIONS = 5;
 const PVP_REWARD_CLAIM_TIMEOUT_MS = 12_000;
+/**
+ * Ceiling on the whole completion phase (settlement callbacks + the ACK).
+ *
+ * Each stage gets its own PVP_REWARD_CLAIM_TIMEOUT_MS so a slow-but-progressing
+ * settle is not punished for the sum of its parts — but four stages at 12s each
+ * would leave a genuinely wedged completion sitting on "claiming" for ~48s with
+ * exit disabled. Whichever limit is hit first wins, so healthy slow settles pass
+ * and a hung one still surfaces Retry inside half a minute.
+ */
+const PVP_REWARD_COMPLETION_CEILING_MS = 30_000;
 
 // XP retired: the HUD "power" dossier stat is total earned stat points
 // (allocated above base + any unspent pool the combat snapshot carries).
@@ -939,10 +950,28 @@ export function PvpBattleScreen({
         const completionAbort = new AbortController();
         rewardClaimAbortRef.current?.abort();
         rewardClaimAbortRef.current = completionAbort;
-        const completionTimeout = window.setTimeout(
+        // PER-STAGE deadline, not one budget shared by the whole phase. The
+        // completion runs up to three settlement callbacks and then the ACK, each
+        // its own round trip; a single 12s wall across all four turned a slow but
+        // healthy mobile settle into a spurious "settlement failed". Re-arming
+        // between stages keeps the liveness guarantee (nothing may hang longer
+        // than PVP_REWARD_CLAIM_TIMEOUT_MS) without punishing progress.
+        const completionStartedAt = Date.now();
+        const armDeadline = () => window.setTimeout(
             () => completionAbort.abort(),
-            PVP_REWARD_CLAIM_TIMEOUT_MS,
+            settlementDeadlineMs({
+                startedAt: completionStartedAt,
+                now: Date.now(),
+                perStageMs: PVP_REWARD_CLAIM_TIMEOUT_MS,
+                ceilingMs: PVP_REWARD_COMPLETION_CEILING_MS,
+            }),
         );
+        let completionTimeout = armDeadline();
+        const renewDeadline = () => {
+            if (completionAbort.signal.aborted) return;
+            window.clearTimeout(completionTimeout);
+            completionTimeout = armDeadline();
+        };
         const continuationContext: PvpRewardContinuationContext = {
             signal: completionAbort.signal,
             isCurrentScope,
@@ -959,7 +988,10 @@ export function PvpBattleScreen({
         });
         abortBarrier.catch(() => { /* observed through the races below */ });
         const bounded = <T,>(callback: T | Promise<T> | undefined): Promise<T | undefined> =>
-            Promise.race([Promise.resolve(callback), abortBarrier]);
+            Promise.race([Promise.resolve(callback), abortBarrier]).then((value) => {
+                renewDeadline();
+                return value;
+            });
         try {
             // Always adopt an authoritative replay snapshot. Outcome callbacks
             // are awaited before completion ACK, including lost-ACK repair.
