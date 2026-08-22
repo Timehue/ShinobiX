@@ -8,7 +8,7 @@ import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
 import { bindPetAtlasTexture, copyPetAtlasSampling, lockPetAtlas } from "../lib/pet-atlas-material";
 import { readPetGlbAtlas } from "../lib/pet-glb-atlas";
-import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing } from "../lib/pet-combat-performance";
+import { attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw } from "../lib/pet-combat-performance";
 import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
@@ -32,6 +32,10 @@ export type PetModelFrame = {
     moveZ: number;
     faceX: number;
     faceZ: number;
+    /** Keep the model's corrected visible-forward axis on faceX/faceZ even while
+     * locomotion is active. Duel fighters use this to circle without turning
+     * their backs on one another; open-arena actors may still face travel. */
+    lockTargetFacing?: boolean;
     hit: number;
     /** Damage-aware reaction weight. Coliseum supplies roughly 0.48–1.25;
      * other callers may omit it and receive the restrained default. */
@@ -62,6 +66,7 @@ export const DEFAULT_PET_MODEL_FRAME: PetModelFrame = {
     moveZ: 0,
     faceX: 1,
     faceZ: 0,
+    lockTargetFacing: false,
     hit: 0,
     impactPower: 0.55,
     casting: false,
@@ -992,7 +997,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // Four-legged pets cannot convincingly strafe while their planted-foot
         // cycle points at the opponent. Face along travel during ordinary running,
         // then return to opponent-facing for dodge, windup, strike and reactions.
-        const faceTravel = (authoredCombatRig || config.profile === "avian") && running;
+        const faceTravel = !f.lockTargetFacing && (authoredCombatRig || config.profile === "avian") && running;
         const [lookX, lookZ] = resolveCombatBodyFacing({
             faceX: f.faceX,
             faceZ: f.faceZ,
@@ -1005,7 +1010,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const faceLength = Math.hypot(lookX, lookZ);
         let turnBank = 0;
         if (faceLength > 0.01) {
-            const wantedYaw = Math.atan2(lookX, lookZ) + config.yawOffset;
+            const wantedYaw = resolveCombatBodyYaw(lookX, lookZ, config.yawOffset);
             const yawError = Math.atan2(Math.sin(wantedYaw - r.rotation.y), Math.cos(wantedYaw - r.rotation.y));
             turnBank = authoredCombatRig && running ? THREE.MathUtils.clamp(-yawError * 0.1, -0.075, 0.075) : 0;
             const committedFacing = f.motion === "windup" || f.motion === "strike" || f.motion === "recover";

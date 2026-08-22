@@ -64,6 +64,17 @@ test("the four-pet Showdown lineup resolves to its species-authored animation as
     );
 });
 
+test("Showdown models carry their visually certified forward-axis correction", () => {
+    const frostHare = petCombatModel({ ...pet("rare-1", undefined, "rare"), name: "Frost Hare" });
+    const ashenCrow = petCombatModel({ ...pet("standard-7"), name: "Ashen Crow" });
+    const infernoFenrir = petCombatModel({ ...pet("starter-fire", 2, "legendary"), name: "Inferno Fenrir" });
+    const raijinHound = petCombatModel({ ...pet("starter-lightning", 2, "legendary"), name: "Raijin Hound" });
+    assert.equal(frostHare?.yawOffset, 0);
+    assert.equal(ashenCrow?.yawOffset, 0);
+    assert.equal(infernoFenrir?.yawOffset, 0);
+    assert.equal(raijinHound?.yawOffset, -Math.PI / 2, "Raijin's local +X nose needs a quarter-turn into +Z combat space");
+});
+
 test("unrelated unmodeled pets keep the safe standee fallback", () => {
     assert.equal(hasPetCombatModel(pet("unmodeled-event-pet")), false);
 });

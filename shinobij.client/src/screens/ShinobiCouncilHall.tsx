@@ -13,6 +13,7 @@ import { VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageWar } from "
 import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABEL } from "../lib/kage-challenge-state";
 import { visiblePoll } from "../lib/poll";
 import { CW_DAMAGE } from "../constants/clan";
+import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
 
 export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle, onBack }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void; onBack: () => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
@@ -157,13 +158,17 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
 
     return (
         <div className="card council-screen">
-            <div className="council-header">
-                <button className="back-button" onClick={onBack}>← Back</button>
-                <div>
-                    <h2><GiGreekTemple style={SCH_ICON} />Shinobi Council Hall</h2>
-                    <p className="council-subtitle">Live war status and the eternal record of village leaders.</p>
-                </div>
-            </div>
+            <CentralDestinationHeader
+                backLabel="Central"
+                eyebrow="The Thousand Gates · War Council"
+                icon={<GiGreekTemple />}
+                onBack={onBack}
+                statusLabel="Active conflicts"
+                statusValue={activeVillageWars.length + clanWars.length}
+                subtitle="Live village and clan-war intelligence, command records, and the lineage of the Kage."
+                title="Shinobi Council Hall"
+                tone="violet"
+            />
 
             <div className="council-tabs">
                 <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}><GiCrossedSwords style={SCH_ICON} />Active Wars</button>

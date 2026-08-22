@@ -21,6 +21,7 @@ import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from ".
 import { WORLD_STATE_API } from "../constants/game";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
+import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
 import { fetchHallOfLegends, fetchAnnouncements, fetchEras, useLegacyAvailability, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
 
 type WeeklyBossLb = {
@@ -295,13 +296,17 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
 
     return (
         <div className="card hol-screen">
-            <div className="hol-header">
-                <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
-                <div>
-                    <h2><GiTrophy style={HOL_ICON} />Hall of Legends</h2>
-                    <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
-                </div>
-            </div>
+            <CentralDestinationHeader
+                backLabel="Central"
+                eyebrow="The Thousand Gates · Living Record"
+                icon={<GiTrophy />}
+                onBack={() => setScreen("centralHub")}
+                statusLabel="Known contenders"
+                statusValue={playerRoster.length}
+                subtitle="Rankings, champions, war records, and the names shaping the current era."
+                title="Hall of Legends"
+                tone="gold"
+            />
 
             <div className="hol-tabs">
                 {tabs.map(t => (

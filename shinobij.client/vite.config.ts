@@ -1235,6 +1235,14 @@ export default defineConfig({
                     if (normalizedId.endsWith('/src/lib/pet-battle-anim.ts')) {
                         return 'pet-presentation';
                     }
+                    // World-state reconciliation is large, stable authority code
+                    // shared by the shell and several lazy strategy screens. Keep
+                    // it cacheable apart from the fast-changing application entry;
+                    // it remains in the initial graph, so the aggregate startup
+                    // budgets still measure every byte a new player downloads.
+                    if (normalizedId.endsWith('/src/lib/world-state.ts')) {
+                        return 'world-authority';
+                    }
                     // Group the heavy 3D stack (three.js + three-stdlib + the
                     // @react-three/* renderer + postprocessing) into ONE cacheable
                     // vendor chunk. It's imported only by lazy 3D screens, so it
