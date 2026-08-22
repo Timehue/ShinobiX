@@ -35,6 +35,8 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { gameConfirm } from "../components/GameAlert";
 import { playerSlug } from "../lib/utils";
+import { GiDragonHead } from "react-icons/gi";
+import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
 
 export function HunterBoard({
     character,
@@ -348,16 +350,17 @@ export function HunterBoard({
             backgroundPosition: "center top",
             backgroundAttachment: "fixed",
         }}>
-            <div className="hunter-board-header">
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>← Central</button>
-                <h2>🎯 Hunter Guild — Contract Board</h2>
-                <span
-                    className="hunter-daily-chip"
-                    style={{ marginLeft: "auto", fontWeight: 600, color: dailyHuntsCompleted(character) >= huntCap ? "#ef4444" : "#fcd34d" }}
-                >
-                    🎯 Hunts today: {dailyHuntsCompleted(character)}/{huntCap}
-                </span>
-            </div>
+            <CentralDestinationHeader
+                backLabel="Central"
+                eyebrow="The Thousand Gates · Tracker Command"
+                icon={<GiDragonHead />}
+                onBack={() => setScreen("centralHub")}
+                statusLabel="Daily contracts"
+                statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
+                subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
+                title="Hunter Guild"
+                tone="azure"
+            />
 
             <div className="hunter-rank-banner">
                 <img src={hunterRankBadge(hunterRank)} alt={HUNTER_RANK_LABELS[hunterRank]} className="hunter-rank-emblem" style={{ width: 64, height: 64, flexShrink: 0, filter: "drop-shadow(0 2px 6px rgba(0,0,0,.45))" }} />
