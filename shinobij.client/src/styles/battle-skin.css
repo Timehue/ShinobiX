@@ -1163,6 +1163,35 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     padding: 4px 18px 22px 72px;
     border-top: 1px solid rgba(216, 181, 112, .1);
 }
+.story-archive-replay-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 16px;
+}
+.story-archive-replay-actions button {
+    min-height: 44px;
+    padding: 9px 14px;
+    border-color: rgba(216, 181, 112, .45);
+    background: linear-gradient(145deg, rgba(216, 181, 112, .16), rgba(12, 19, 29, .9));
+    color: #f4dfae;
+    font-weight: 850;
+}
+.story-archive-replay-actions button > span { margin-right: 5px; }
+.story-archive-replay-actions > span {
+    color: rgba(226, 228, 233, .52);
+    font-size: .7rem;
+    font-weight: 750;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+@media (max-width: 680px) {
+    .story-archive-replay-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
 .story-archive-page {
     display: grid;
     grid-template-columns: minmax(160px, 30%) minmax(0, 1fr);
@@ -1217,6 +1246,18 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     margin: 3px 0 0;
     color: rgba(226, 228, 233, .7);
     line-height: 1.5;
+}
+.story-archive-decisions {
+    display: grid;
+    gap: 12px;
+}
+.story-archive-decisions > div {
+    display: grid;
+    gap: 3px;
+}
+.story-archive-decisions > div + div {
+    padding-top: 12px;
+    border-top: 1px solid rgba(216, 181, 112, .12);
 }
 @media (max-width: 680px) {
     .story-archive { margin-top: 14px; padding: 18px 12px; }

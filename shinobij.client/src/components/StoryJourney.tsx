@@ -1,16 +1,18 @@
 /*
  * Story Hall archive. This deliberately returns completed story beats only:
  * no future chapter names, level gates, waiting interludes, or live choices are
- * put in the DOM. Replays are transcripts, so opening one cannot grant rewards,
- * change a lane, or start another boss encounter.
+ * put in the DOM. Replays use a branch-resolved, reward-free event plus an
+ * accessible transcript, so revisiting one cannot grant rewards, change a lane,
+ * or start another boss encounter.
  */
 
 import { useId, useMemo, useState } from "react";
 import type { Character } from "../types/character";
 import { applyVnTextVars, vnTextVarsFor } from "../lib/vn";
-import { buildCompletedStoryArchive, storyArchiveGuidance } from "../lib/story-archive";
+import { buildCompletedStoryArchive, storyArchiveGuidance, type CompletedStoryArchiveEntry } from "../lib/story-archive";
 import { isStoryContentVillage } from "../lib/story-content-contract";
 import { readStoryContent } from "../lib/story-content-loader";
+import { TriggeredVisualNovel } from "./TriggeredVisualNovel";
 import "../styles/story-archive-guidance.css";
 
 export function StoryJourney({ character, onReturnToVillage }: { character: Character; onReturnToVillage?: () => void }) {
@@ -18,11 +20,41 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
     if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
     const content = readStoryContent(village);
     const [openId, setOpenId] = useState<string | null>(null);
+    const [replayEntry, setReplayEntry] = useState<CompletedStoryArchiveEntry | null>(null);
+    const [replayPage, setReplayPage] = useState(0);
+    const [replayLine, setReplayLine] = useState(0);
     const archiveHeadingId = useId();
     const guidanceHeadingId = useId();
     const textVars = useMemo(() => vnTextVarsFor(character), [character]);
     const archive = useMemo(() => buildCompletedStoryArchive(character, content), [character, content]);
     const guidance = storyArchiveGuidance(character, content);
+
+    function openCinematicReplay(entry: CompletedStoryArchiveEntry) {
+        setReplayPage(0);
+        setReplayLine(0);
+        setReplayEntry(entry);
+    }
+
+    function closeCinematicReplay() {
+        setReplayEntry(null);
+        setReplayPage(0);
+        setReplayLine(0);
+    }
+
+    const cinematicReplay = replayEntry ? (
+        <TriggeredVisualNovel
+            event={replayEntry.replayEvent}
+            character={character}
+            pageIndex={replayPage}
+            lineIndex={replayLine}
+            setPageIndex={setReplayPage}
+            setLineIndex={setReplayLine}
+            onCancel={closeCinematicReplay}
+            onComplete={closeCinematicReplay}
+            onBattle={closeCinematicReplay}
+            readOnlyReplay
+        />
+    ) : null;
 
     const guidancePanel = (
         <aside className={`story-archive-guidance is-${guidance.state}`} aria-labelledby={guidanceHeadingId}>
@@ -44,21 +76,26 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
 
     if (archive.length === 0) {
         return (
-            <section className="story-archive story-archive-empty" aria-labelledby={archiveHeadingId}>
-                <div className="story-archive-heading">
-                    <div>
-                        <p className="act-label">VILLAGE CHRONICLE</p>
-                        <h2 id={archiveHeadingId}>Completed stories</h2>
+            <>
+                {cinematicReplay}
+                <section className="story-archive story-archive-empty" aria-labelledby={archiveHeadingId}>
+                    <div className="story-archive-heading">
+                        <div>
+                            <p className="act-label">VILLAGE CHRONICLE</p>
+                            <h2 id={archiveHeadingId}>Completed stories</h2>
+                        </div>
+                        <span className="story-archive-count">0 archived</span>
                     </div>
-                    <span className="story-archive-count">0 archived</span>
-                </div>
-                {guidancePanel}
-                <p>Your first completed chapter will be preserved here. Unfinished and future storylines remain off the shelf.</p>
-            </section>
+                    {guidancePanel}
+                    <p>Your first completed chapter will be preserved here. Unfinished and future storylines remain off the shelf.</p>
+                </section>
+            </>
         );
     }
 
     return (
+        <>
+        {cinematicReplay}
         <section className="story-archive" aria-labelledby={archiveHeadingId}>
             <div className="story-archive-heading">
                 <div>
@@ -93,6 +130,12 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
                             </button>
                             {open && (
                                 <div id={panelId} className="story-archive-replay">
+                                    <div className="story-archive-replay-actions">
+                                        <button type="button" onClick={() => openCinematicReplay(entry)}>
+                                            <span aria-hidden="true">▶</span> Watch cinematic replay
+                                        </button>
+                                        <span>Read-only · follows your recorded path</span>
+                                    </div>
                                     {entry.pages.map((page, pageIndex) => (
                                         <section key={`${entry.id}-${pageIndex}`} className="story-archive-page">
                                             {page.image && (
@@ -118,11 +161,17 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
                                             </div>
                                         </section>
                                     ))}
-                                    {entry.chosen && (
+                                    {entry.decisions.length > 0 && (
                                         <div className="story-archive-choice">
-                                            <small>Your recorded choice</small>
-                                            <strong>{applyVnTextVars(entry.chosen.text, textVars)}</strong>
-                                            {entry.chosen.conclusion && <p>{applyVnTextVars(entry.chosen.conclusion, textVars)}</p>}
+                                            <small>Your recorded {entry.decisions.length === 1 ? "decision" : "decisions"}</small>
+                                            <div className="story-archive-decisions">
+                                                {entry.decisions.map((decision, decisionIndex) => (
+                                                    <div key={`${entry.id}-decision-${decisionIndex}`}>
+                                                        <strong>{applyVnTextVars(decision.text, textVars)}</strong>
+                                                        {decision.conclusion && <p>{applyVnTextVars(decision.conclusion, textVars)}</p>}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -132,5 +181,6 @@ export function StoryJourney({ character, onReturnToVillage }: { character: Char
                 })}
             </div>
         </section>
+        </>
     );
 }
