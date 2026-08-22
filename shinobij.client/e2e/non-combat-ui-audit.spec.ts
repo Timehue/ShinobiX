@@ -144,7 +144,7 @@ const CENTRAL_MODAL_CARDS = [
 ] as const;
 
 const CENTRAL_ROUTE_CARDS = [
-    { card: "Arena District", screen: "arenaDistrict", capture: "central-arena-district", ready: ".arena-district-lobby", readyText: "Arena District" },
+    { card: "Arena District", screen: "arenaDistrict", capture: "central-arena-district", ready: '[data-central-district="true"]', readyText: "Arena District" },
     { card: "Weekly Boss", screen: "weeklyBoss", capture: "central-weekly-boss", ready: ".weekly-boss-screen", readyText: "Weekly Boss" },
 ] as const;
 
