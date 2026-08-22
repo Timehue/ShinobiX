@@ -160,8 +160,10 @@ function StoryFloorCard({
             >
                 <span className="tower-story-floor-stripe" aria-hidden="true" />
                 <span className={`tower-story-floor-icon${floorArt.kind === "authored" ? " has-art" : ""}`} aria-hidden="true">
+                    {/* Icon-sized art only: the 1536x1024 masters stay reserved for the
+                        chapter header and the selected-floor briefing hero. */}
                     {floorArt.kind === "authored"
-                        ? <><img src={floorArt.src} alt="" loading="lazy" /><span className="tower-story-floor-art-fallback">{floor.isBoss ? "👑" : biome.icon}</span></>
+                        ? <><img src={floorArt.thumb} alt="" width={240} height={160} loading="lazy" decoding="async" /><span className="tower-story-floor-art-fallback">{floor.isBoss ? "👑" : biome.icon}</span></>
                         : floor.isBoss ? "👑" : biome.icon}
                 </span>
                 <span className="tower-story-floor-copy">
