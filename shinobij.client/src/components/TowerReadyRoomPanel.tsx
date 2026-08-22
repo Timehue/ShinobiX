@@ -21,6 +21,10 @@ import {
 import type { Character } from "../types/character";
 import { canStartTowerRoomPoll, isTowerRoomResponseCurrent, reconcileTowerRoomEnvelope, type TowerRoomResultMode } from "../lib/tower-party-state";
 import { gameConfirm } from "./GameAlert";
+// Escape hatch for a wedged launch: while a party sits in "launching"/"active"
+// the room locks its edits, so Leave unlocks once the status outlives the
+// window. Clock/storage handling is unit-tested in lib/tower-launch-escape.ts.
+import { launchEscapeOpen, resolveLaunchStuckSince, type EscapeClockStore } from "../lib/tower-launch-escape";
 
 const EMPTY_ROOM: TowerPartyEnvelope = { party: null, invitations: [] };
 const READY_ROOM_OBJECTIVE_LABEL: Record<string, string> = {
@@ -35,12 +39,6 @@ const READY_ROOM_OBJECTIVE_LABEL: Record<string, string> = {
     "kill-adds-first": "Eliminate adds before boss",
 };
 type ReadyRoomSyncState = "checking" | "live" | "reconnecting";
-
-// How long a party may sit in "launching"/"active" (without this client being
-// pulled into the run) before the Leave button unlocks as an escape hatch. The
-// transition normally lands in seconds; past this window the launch is wedged
-// and the server adjudicates the leave like any other mutation.
-const LAUNCH_TRANSITION_ESCAPE_MS = 60_000;
 
 function setRoomIfChanged(setRoom: Dispatch<SetStateAction<TowerPartyEnvelope>>, next: TowerPartyEnvelope, resultMode: TowerRoomResultMode = "adopt") {
     setRoom(current => reconcileTowerRoomEnvelope(current, next, resultMode));
@@ -289,18 +287,31 @@ export function TowerReadyRoomPanel({
     // edits lock below, and if the server never completes the transition (or
     // the run entry is lost) the player would have no way out of the room.
     // Track how long the status has sat, and unlock Leave past the window.
-    const stuckStatusAnchor = room.party && (room.party.status === "launching" || room.party.status === "active")
-        ? (room.party.launch?.preparedAt ?? room.party.updatedAt)
+    // Anchored on WHICH stuck status this is (party + status), not on a server
+    // timestamp. Elapsed time is then measured entirely on this client's clock:
+    // comparing Date.now() against the server's `updatedAt` put an unrelated
+    // clock on each side of the subtraction, so a player minutes fast unlocked
+    // Leave during a perfectly normal launch and a player minutes slow never
+    // unlocked it at all. Keying on the status (rather than `updatedAt`) also
+    // stops an unrelated party update from restarting the window.
+    const stuckStatusKey = room.party && (room.party.status === "launching" || room.party.status === "active")
+        ? `${room.party.id}:${room.party.status}`
         : null;
+    // Anchor resolution lives in lib/tower-launch-escape.ts so the clock and
+    // storage edge cases (reload mid-wait, status re-entry, a stamp from the
+    // future, storage disabled) are unit-tested rather than eyeballed here.
+    const escapeArmedAt = useRef<number | null>(null);
     const [escapeNow, setEscapeNow] = useState(() => Date.now());
     useEffect(() => {
-        if (stuckStatusAnchor == null) return;
+        let store: EscapeClockStore | null = null;
+        try { store = window.sessionStorage; } catch { /* private mode */ }
+        escapeArmedAt.current = resolveLaunchStuckSince(stuckStatusKey, Date.now(), store);
+        if (stuckStatusKey == null) return;
         setEscapeNow(Date.now());
         const id = window.setInterval(() => setEscapeNow(Date.now()), 10_000);
         return () => window.clearInterval(id);
-    }, [stuckStatusAnchor]);
-    const leaveEscapeOpen = stuckStatusAnchor != null
-        && escapeNow - stuckStatusAnchor > LAUNCH_TRANSITION_ESCAPE_MS;
+    }, [stuckStatusKey]);
+    const leaveEscapeOpen = launchEscapeOpen(escapeArmedAt.current, escapeNow);
 
     const enterActiveRoom = useCallback(async (party: TowerPartyView) => {
         const runId = party.status === "active" ? party.launch?.runId : null;

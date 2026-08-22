@@ -3,6 +3,17 @@
  * engine (api/_pet-showdown/) and the client presentation layer
  * (shinobij.client/src/screens/PetShowdown.tsx + components/PetShowdownBattle.tsx).
  *
+ *
+ * TERMINOLOGY — "the reference model" / "the reference battler": the modern
+ * stamina-based monster battler this economy was calibrated against (low passive
+ * regen, a Rest beat that buys stamina and heals nothing, overexertion that
+ * chips HP, hold rounds and ally-element synergy instead of cooldowns), and
+ * "the classic monster battler" for the older cooldown-free genre standard.
+ * The concrete figures quoted throughout are that calibration target. The
+ * products are deliberately not named: this repository is public, and design
+ * notes that read as derivation from a named competitor are a liability the
+ * prose does not need — the mechanics below stand on their own.
+ *
  * ARCHITECTURE (docs/pet-showdown-design.md): Showdown is a turn-based command
  * battle. The ENGINE LIVES ONLY ON THE SERVER — each round is one POST to
  * /api/pet/showdown and the server returns a TURN SCRIPT (an ordered list of
@@ -46,17 +57,17 @@ export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.5;
 export const SHOWDOWN_ELEMENT_DISADVANTAGE = 0.75;
 
 /*
- * Per-pet stamina economy — the FULL Temtem model:
+ * Per-pet stamina economy — the FULL reference stamina model:
  *  - The POOL IS A STAT: each pet's max stamina derives from its bulk
  *    (hp/defense), so a war tortoise casts longer than a glass kitsune.
  *    Range ~85-120 around the 100 reference.
- *  - Regen is LOW (Temtem: 5% + 1/turn): passive income sits an order of
+ *  - Regen is LOW (the reference model: 5% + 1/turn): passive income sits an order of
  *    magnitude below nuke cost, so "spam your best move" is arithmetically
  *    self-terminating within 2-3 uses and Rest is a real rotation beat.
- *  - Rest recovers ~22% + 2 in total (Temtem: 20% + 1) and heals NOTHING.
+ *  - Rest recovers ~22% + 2 in total (the reference model: 20% + 1) and heals NOTHING.
  *  - OVERDRAFT (using a move costing more than remaining stamina): the move
  *    still fires, the pet takes HP damage proportional to the deficit, and
- *    it is winded (forced skip) next round — Temtem's overexertion, HP chip
+ *    it is winded (forced skip) next round — the reference model's overexertion, HP chip
  *    included.
  */
 export const SHOWDOWN_STAMINA_REFERENCE = 100;
@@ -71,14 +82,14 @@ export const SHOWDOWN_STAMINA_POOL_SCALE = 0.74;
 export const SHOWDOWN_STAMINA_REGEN_PCT = 0.07;
 export const SHOWDOWN_STAMINA_REGEN_FLAT = 2;
 /** Rest's BONUS stamina, on top of the end-of-round passive regen a resting pet
- *  still collects. Temtem's exact figure: passive is 5%+1 and Rest adds 15% for
+ *  still collects. The reference figure: passive is 5%+1 and Rest adds 15% for
  *  a 20%+1 total; ours is a slightly kinder 7%+2 passive for a 22%+2 total.
  *
- *  Rest grants NO HEALING. It used to restore 4% of max HP, which Temtem never
+ *  Rest grants NO HEALING. It used to restore 4% of max HP, which the reference model never
  *  does — HP does not regenerate in combat there at all. That invented heal was
  *  also the thing that made mutual Rest a self-sustaining fixed point, and it
  *  quietly made stalling the strongest defensive line in the game. Rest is now
- *  what it is in Temtem: you give up your turn to buy stamina back. */
+ *  what it is in the reference model: you give up your turn to buy stamina back. */
 export const SHOWDOWN_REST_PCT = 0.15;
 export const SHOWDOWN_REST_FLAT = 0;
 /** HP damage per point of stamina deficit on an overdraft. */
@@ -88,7 +99,7 @@ export const SHOWDOWN_GUARD_COST = 8;
 export const SHOWDOWN_GUARD_MULT = 0.5;
 
 /*
- * Move stamina cost — PROPORTIONAL TO POWER, the Temtem shape.
+ * Move stamina cost — PROPORTIONAL TO POWER, the reference shape.
  *
  * This replaced three coarse bands (18 / 32 / 52 at power <=120 / <=220 / >220)
  * that were calibrated for a power range the content never reaches. Measured
@@ -99,18 +110,18 @@ export const SHOWDOWN_GUARD_MULT = 0.5;
  * default option, every round, which is the textbook way to make a resource
  * decorative.
  *
- * Temtem prices techniques at a near-FLAT damage-per-stamina (Scratch 20/4,
+ * The reference model prices techniques at a near-FLAT damage-per-stamina (Scratch 20/4,
  * Jaw Strike 60/9, Base Jump 100/22, Frond Whip 153/33 — all ~4.2-5.2 dmg per
  * point), which means an expensive technique is never more efficient, only
  * more IMMEDIATE. What you buy with the cost is tempo, and what you pay is the
  * next few rounds. That is the trade we want, so cost is now linear in power.
  *
- * Calibration against a ~105 pool with 7%+2 regen (Temtem runs 5%+1, so ours
+ * Calibration against a ~105 pool with 7%+2 regen (the reference model runs 5%+1, so ours
  * is the more forgiving side of the same curve):
  *   jab   power  55 ->  10 EN  (10% of pool; net +1/round, sustainable forever)
  *   mid   power  90 ->  27 EN  (26%; ~3 casts before it bites)
  *   big   power 142 ->  43 EN  (41%)
- *   heavy power 200 ->  60 EN  (57%; roughly Temtem's 33/50 haymaker)
+ *   heavy power 200 ->  60 EN  (57%; roughly the reference model's 33/50 haymaker)
  */
 export const SHOWDOWN_COST_PER_POWER = 0.36;
 /** Nothing costs less than this, so a 0-power utility move is never free. */
@@ -144,7 +155,7 @@ export const SHOWDOWN_HEAVY_PROMOTE_MULT = 1.35;
  *  kit that is LESS efficient than the alternatives, which is what stops it
  *  becoming the default. You are paying for the whole hit landing in ONE
  *  round instead of two, and the bill lands at ~55% of a typical pool —
- *  Temtem's own haymaker sits at 33 STA out of a ~50 pool. */
+ *  The reference haymaker sits at 33 STA out of a ~50 pool. */
 export const SHOWDOWN_HEAVY_COST_PREMIUM = 1.3;
 
 /** Super meter: fills from combat, spent whole on the signature move. */
@@ -157,11 +168,11 @@ export const SHOWDOWN_SUPER_POWER_MULT = 1.6;
 /** In 2v2/3v3 a signature also SPLASHES every other living foe at this rate —
  *  the ultimate is a screen-wide moment, not a single-target nuke. */
 export const SHOWDOWN_SUPER_SPLASH_SCALE = 0.72;
-/** Temtem-style ally synergy: in team formats, an offensive move gains this
+/** reference-style ally synergy: in team formats, an offensive move gains this
  *  multiplier when a LIVING ally's element beats the target's element. */
 export const SHOWDOWN_SYNERGY_MULT = 1.1;
 
-/** Temtem-style MULTIPLICATIVE move priority (order = pet speed × priority of
+/** reference-style MULTIPLICATIVE move priority (order = pet speed × priority of
  *  the chosen action). Multiplicative — not absolute brackets — so a slow
  *  pet's quick jab still doesn't outrun a fast pet's. Guard is the defensive
  *  quick-action; heavy nukes and signatures swing LAST. */
@@ -173,7 +184,7 @@ export const SHOWDOWN_PRIORITY_HEAVY = 0.8;    // power > 220 haymakers
 export const SHOWDOWN_PRIORITY_SUPER = 0.75;   // signatures swing last
 
 /** Heavy techniques HOLD: unusable until the pet has been in battle this many
- *  rounds (counts everywhere, field or bench — the Temtem rule). */
+ *  rounds (counts everywhere, field or bench — the reference rule). */
 export const SHOWDOWN_HOLD_HEAVY = 1;   // power > 220
 export const SHOWDOWN_HOLD_SUPER = 2;   // signatures
 
@@ -251,7 +262,7 @@ export const SHOWDOWN_MAX_TEAM_ANY = Math.max(
 );
 
 /** PvP command timer: seconds each side gets to lock a round's orders (owner
- *  ruling — Temtem runs 30s + a reserve bank; ours is a flat 45). Applies ONLY
+ *  ruling — the reference model runs 30s + a reserve bank; ours is a flat 45). Applies ONLY
  *  to PvP sessions: practice against a hand-picked AI has no clock, because a
  *  timer there punishes reading your own kit. The endpoint stamps the deadline
  *  onto the state view (`turnDeadline`); a lapsed deadline resolves the round
@@ -259,7 +270,7 @@ export const SHOWDOWN_MAX_TEAM_ANY = Math.max(
 export const SHOWDOWN_PVP_TURN_SECONDS = 45;
 
 /*
- * Full-Temtem parity block (owner: "we are doing them all").
+ * Full reference parity block (owner: "we are doing them all").
  */
 
 /** Technique class — the physical/special split. Derived at SEAL from the
@@ -272,12 +283,12 @@ export type ShowdownMoveClass = "physical" | "special" | "status";
 /** Same-type attack bonus. Kit and signature techniques carry the pet's own
  *  element and earn this; the universal basic strike is sealed NEUTRAL — it
  *  skips STAB and the wheel both ways, which is exactly its job: the safe jab
- *  you keep for a bad matchup. Temtem's figure is 1.5, but our wheel already
+ *  you keep for a bad matchup. The reference figure is 1.5, but our wheel already
  *  swings 1.5/0.75 and stacking both at full strength would decide fights on
  *  typing alone — 1.2 measured well. */
 export const SHOWDOWN_STAB_MULT = 1.15;
 
-/** Temtem's two-condition rule: a pet holds at most this many CONDITIONS at
+/** the reference two-condition rule: a pet holds at most this many CONDITIONS at
  *  once; applying a third evicts the oldest. The shield absorb pool is not a
  *  condition and sits outside the cap. */
 export const SHOWDOWN_MAX_STATUSES = 2;
@@ -286,10 +297,10 @@ export const SHOWDOWN_MAX_STATUSES = 2;
  * Champions/VGC weather is a damage multiplier that PERSISTS between turns and
  * is overwritten by the next setter — the one board state both trainers fight
  * over. Ours keys off our own five-element wheel: a weather boosts its own
- * element and dampens the element that COUNTERS it (Pokémon's sun/rain pair:
+ * element and dampens the element that COUNTERS it (the classic monster battler's sun/rain pair:
  * sun boosts Fire, weakens Water).
  *
- * Numbers are deliberately below Pokémon's ±50%: our wheel already swings
+ * Numbers are deliberately below the classic monster battler's ±50%: our wheel already swings
  * 1.5/0.75 and STAB adds 1.15 on top, so a half-strength weather would let a
  * matched attacker triple-dip. Measured at 1.18/0.88 the setter's lost turn is
  * paid back over the window without deciding the fight on setup alone. */
@@ -305,7 +316,7 @@ export interface ShowdownWeather {
 
 /** Protect, Champions rule: a full block of the round, but leaning on it
  *  fails — the second consecutive use is a wasted turn. Ours is binary rather
- *  than Pokémon's 1/3-chance ladder because a turn-based pet duel with a
+ *  than the classic monster battler's 1/3-chance ladder because a turn-based pet duel with a
  *  25-round cap can't absorb a coin-flip on a defensive commitment. */
 export const SHOWDOWN_PROTECT_ROUNDS = 1;
 
@@ -344,7 +355,7 @@ export const SHOWDOWN_UTILITY_POWER_FLOOR = 70;
  *  into (Eclipse Kitsune: pool 66, haymaker 78, measured 3.7%). */
 export const SHOWDOWN_COST_POOL_FRACTION = 0.82;
 
-/** Status interactions, Temtem-style: applying the key removes the listed
+/** Status interactions, reference-style: applying the key removes the listed
  *  kinds outright (fire thaws, frost smothers, a burst of speed shakes off the
  *  slow). The interaction runs BEFORE the two-slot cap, so a thaw never evicts
  *  an unrelated condition. */
@@ -357,8 +368,8 @@ export const SHOWDOWN_STATUS_CANCELS: Readonly<Record<string, readonly string[]>
 });
 
 /** The competitive turn cap, back by owner ruling (it replaced "no round
- *  limit" when full Temtem parity was ordered). A fight that reaches the end
- *  of this round is judged on Temtem's ladder: surviving pets, then combined
+ *  limit" when full reference parity was ordered). A fight that reaches the end
+ *  of this round is judged on the reference ladder: surviving pets, then combined
  *  HP%, then combined stamina%, then the speed arrow (a seeded coin). Attrition
  *  still bleeds from SHOWDOWN_ATTRITION_START, so the last stretch before the
  *  judge is a closing fight, not a stall. */
@@ -424,7 +435,7 @@ export type ShowdownCommand =
     | { kind: "guard"; petId: string }
     | { kind: "rest"; petId: string }
     /** Swap the field pet out for a living bench pet. Switches resolve BEFORE
-     *  all attacks (Pokémon priority), and both pets forfeit their action. */
+     *  all attacks (the classic monster battler priority), and both pets forfeit their action. */
     | { kind: "switch"; petId: string; benchPetId: string };
 
 /** Public per-pet combat state, mirrored to the client after every round. */
@@ -475,12 +486,12 @@ export interface ShowdownPetView {
          *  per round for 2 rounds"). NEVER computed on the client — a client
          *  table drifts the moment a kind is retuned. */
         effect: string;
-        /** Temtem-style turn-order multiplier for the round this move is
+        /** reference-style turn-order multiplier for the round this move is
          *  chosen: >1 resolves early, <1 swings late. */
         priority: number;
-        /** Rounds the pet must have been in battle before this fires (Temtem
+        /** Rounds the pet must have been in battle before this fires (the reference model
          *  Hold). 0 = always ready. NO COOLDOWNS — stamina and hold are the
-         *  only gates, exactly the Temtem model. */
+         *  only gates, exactly the reference stamina model. */
         hold: number;
         /** The technique's OWN element. Kit and signature moves carry the
          *  pet's element (STAB + the wheel apply); the universal basic strike
@@ -489,13 +500,13 @@ export interface ShowdownPetView {
         /** Physical hits roll ATK vs DEF, special rolls the role-derived
          *  special axis, status deals no direct hit. */
         cls: ShowdownMoveClass;
-        /** Partner element that empowers this technique (Temtem Synergy) —
+        /** Partner element that empowers this technique (ally synergy) —
          *  thematically the element this move's element BEATS (wind fans the
          *  fire). Absent on status moves and the neutral basic. */
         synergyElement?: string;
     }[];
     /** Rounds this pet has been in the battle (holds count down everywhere,
-     *  field or bench — the Temtem rule). */
+     *  field or bench — the reference rule). */
     readiness: number;
 }
 
@@ -507,7 +518,7 @@ export interface ShowdownStateView {
     /** The round attrition begins — the fight's pressure cue, not a limit. */
     attritionAt: number;
     /** The judged turn cap (SHOWDOWN_TURN_CAP) — the round readout's
-     *  denominator, restored by the full-Temtem ruling. */
+     *  denominator, restored by the full-the reference model ruling. */
     turnCap: number;
     finished: boolean;
     outcome: ShowdownOutcome | null;
@@ -576,7 +587,7 @@ export type ShowdownEvent =
         meterAfter: number;
         /** Set when the actor overexerted and will be winded next round. */
         overexerted: boolean;
-        /** HP the actor paid for the overdraft (Temtem's overexertion chip). */
+        /** HP the actor paid for the overdraft (the reference overexertion chip). */
         overexertDamage?: number;
     }
     | { t: "skip"; actorId: string; actorSide: "player" | "enemy"; reason: "winded" | "stun" | "freeze" | "ko" }
