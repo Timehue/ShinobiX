@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from "react";
-import { GiBroadsword, GiCrossedSwords, GiMoneyStack, GiPagoda, GiShield, GiTreasureMap } from "react-icons/gi";
+import { GiBroadsword, GiCrossedSwords, GiMoneyStack, GiPagoda, GiShield, GiTreasureMap } from "../components/icons/LightweightGameIcons";
 import { visiblePoll } from "../lib/poll";
 import {
     KAGE_CHALLENGE_RYO_COST,

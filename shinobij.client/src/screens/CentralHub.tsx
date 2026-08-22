@@ -4,7 +4,7 @@ import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import type { CSSProperties, ReactElement } from "react";
 import "../styles/central-skin.css";
-// Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
+// Compact local location and material glyphs shared with the rest of the game.
 import {
     GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
     GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
@@ -13,8 +13,8 @@ import {
     GiSwapBag, GiAnimalHide, GiFeather, GiFangs, GiHornInternal, GiMeat, GiSnowflake1,
     GiClawSlashes, GiWolfHead, GiFishScales, GiSpikedDragonHead, GiCrystalGrowth,
     GiSpinalCoil, GiGems, GiCrystalCluster, GiHood,
-} from "react-icons/gi";
-import type { IconType } from "react-icons";
+} from "../components/icons/LightweightGameIcons";
+import type { IconType } from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import centralCommandHero from "../assets/central-command-v2.webp";

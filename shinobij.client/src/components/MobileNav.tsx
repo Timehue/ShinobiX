@@ -25,13 +25,12 @@ import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { MobileProfileSheet } from "./MobileProfileSheet";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
-// Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — they match
-// the shinobi theme far better than thin outline icons. Attribution rendered in the
-// menu footer below. Game-specific emblems (ryō, chakra, …) still use GameIcon.
+// Compact local game glyphs keep the navigation consistent with the HUD emblems
+// without loading a second icon library.
 import {
     GiBeerStein, GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
     GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiTreasureMap,
-} from "react-icons/gi";
+} from "./icons/LightweightGameIcons";
 
 // Memo'd — the bottom nav depends on immutable character snapshots, the
 // (stable) navigate/logout callbacks, and the active-training timers that feed

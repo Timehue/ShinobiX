@@ -4,6 +4,7 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { clientPetBreedingBlocker } from "../lib/pet-breeding";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { ultraPetTraits } from "../data/pet-config";
+import { GameIcon } from "./icons/GameIcon";
 import type { Character } from "../types/character";
 import type { PetOrigin, PetRarity } from "../types/pet";
 
@@ -62,7 +63,7 @@ export function PetCollectionGallery({ character, sharedImages }: { character: C
                         <span className={`pet-eligibility ${blocker ? "blocked" : "ready"}`}>{blocker ?? "Barn ready"}</span>
                     </article>;
                 })}
-            </div> : <div className="pet-home-empty"><strong>No companions match these seals.</strong><span>Clear a filter to reveal the rest of your collection.</span></div>}
+            </div> : <div className="pet-home-empty"><span className="pet-empty-emblem" aria-hidden="true"><GameIcon name="paw" size={44} /></span><strong>No companions match these seals.</strong><span>Clear a filter to reveal the rest of your collection.</span></div>}
         </section>
     );
 }

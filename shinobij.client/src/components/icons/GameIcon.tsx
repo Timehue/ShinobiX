@@ -16,7 +16,7 @@
  * Add a new glyph: extend GameIconName + add a PATHS entry (24×24 viewBox).
  * Keep the filled style + `currentColor` so the set stays visually coherent.
  */
-import type { CSSProperties, ReactElement } from "react";
+import React, { type CSSProperties, type ReactElement } from "react";
 import type { GameIconName } from "./icon-names";
 
 export type { GameIconName } from "./icon-names";
@@ -221,8 +221,8 @@ export function GameIcon({
     style,
 }: {
     name: GameIconName;
-    /** Square px size (width = height). Defaults to 18. */
-    size?: number;
+    /** Square CSS size (width = height). Defaults to 18px. */
+    size?: number | string;
     /** Accessible label. Omit for purely decorative icons (then aria-hidden). */
     title?: string;
     className?: string;
