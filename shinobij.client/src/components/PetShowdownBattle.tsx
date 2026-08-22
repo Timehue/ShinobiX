@@ -59,7 +59,7 @@ import type { Biome, WeatherType } from "../types/core";
 import { ELEMENT_ICON } from "../lib/element-icons";
 import { fitDistance, framedExtent, showdownFov, shotWeight, type ShotWeight } from "../lib/showdown-camera";
 import { resolveOpponentFacing } from "../lib/pet-combat-performance";
-import { pairedShowdownOpponentId, showdownLaneFacing } from "../lib/pet-showdown-facing";
+import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing";
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
@@ -358,7 +358,7 @@ interface FighterSlotInfo {
 function slotPositions(count: number, side: "player" | "enemy"): [number, number, number][] {
     const z = side === "player" ? PLAYER_Z : ENEMY_Z;
     return Array.from({ length: count }, (_, i) => {
-        const x = (i - (count - 1) / 2) * SLOT_SPACING * (side === "player" ? 1 : -1);
+        const x = showdownSlotLane(i, count, side) * SLOT_SPACING;
         // Alternate slots step off the baseline: a staggered line has depth
         // and silhouette, a flat rank reads as a queue.
         const depth = (i % 2 === 0 ? 0 : 0.9) * (side === "player" ? 1 : -1);
@@ -3216,6 +3216,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             info.view.id,
                             info.side === "player" ? lineup.playerField : lineup.enemyField,
                             info.side === "player" ? lineup.enemyField : lineup.playerField,
+                            info.side,
                         )}
                         popups={popups}
                         highlight={commander?.id === info.view.id ? "commander"

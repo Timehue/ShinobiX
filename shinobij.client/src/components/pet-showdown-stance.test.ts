@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { pairedShowdownOpponentId, showdownLaneFacing } from "../lib/pet-showdown-facing.ts";
+import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, "PetShowdownBattle.tsx"), "utf8");
@@ -13,19 +13,37 @@ test("Showdown lane fallbacks are reciprocal rather than camera-biased", () => {
     assert.deepEqual(showdownLaneFacing("enemy"), [0, 1]);
 });
 
-test("resting Showdown fighters are paired with the opposing field slot", () => {
+test("mirrored Showdown formations expose their physical horizontal lanes", () => {
+    assert.deepEqual(
+        [showdownSlotLane(0, 2, "player"), showdownSlotLane(1, 2, "player")],
+        [-0.5, 0.5],
+    );
+    assert.deepEqual(
+        [showdownSlotLane(0, 2, "enemy"), showdownSlotLane(1, 2, "enemy")],
+        [0.5, -0.5],
+    );
+});
+
+test("resting Showdown fighters pair by physical lane instead of crossing sightlines", () => {
     const players = ["player-0", "player-1", "player-2"];
     const enemies = ["enemy-0", "enemy-1"];
-    assert.equal(pairedShowdownOpponentId("player-0", players, enemies), "enemy-0");
-    assert.equal(pairedShowdownOpponentId("player-1", players, enemies), "enemy-1");
-    assert.equal(pairedShowdownOpponentId("player-2", players, enemies), "enemy-1");
-    assert.equal(pairedShowdownOpponentId("enemy-0", enemies, players), "player-0");
-    assert.equal(pairedShowdownOpponentId("enemy-1", enemies, players), "player-1");
-    assert.equal(pairedShowdownOpponentId("player-0", players, []), null);
+    assert.equal(pairedShowdownOpponentId("player-0", players, enemies, "player"), "enemy-1");
+    assert.equal(pairedShowdownOpponentId("player-1", players, enemies, "player"), "enemy-0");
+    assert.equal(pairedShowdownOpponentId("player-2", players, enemies, "player"), "enemy-0");
+    assert.equal(pairedShowdownOpponentId("enemy-0", enemies, players, "enemy"), "player-2");
+    assert.equal(pairedShowdownOpponentId("enemy-1", enemies, players, "enemy"), "player-0");
+    assert.equal(pairedShowdownOpponentId("player-0", players, [], "player"), null);
+
+    const twoPlayers = players.slice(0, 2);
+    assert.equal(pairedShowdownOpponentId("player-0", twoPlayers, enemies, "player"), "enemy-1");
+    assert.equal(pairedShowdownOpponentId("player-1", twoPlayers, enemies, "player"), "enemy-0");
+    assert.equal(pairedShowdownOpponentId("enemy-0", enemies, twoPlayers, "enemy"), "player-1");
+    assert.equal(pairedShowdownOpponentId("enemy-1", enemies, twoPlayers, "enemy"), "player-0");
 });
 
 test("the live Showdown renderer wires the paired target through the final model frame", () => {
     assert.doesNotMatch(source, /RESTING_TURN/, "camera-biased idle facing must not return");
+    assert.match(source, /showdownSlotLane\(i, count, side\) \* SLOT_SPACING/);
     assert.match(source, /restingTargetId=\{pairedShowdownOpponentId\(/);
     assert.match(source, /resolveOpponentFacing\(stand\[0\], stand\[2\], restingTarget\[0\], restingTarget\[2\]/);
     assert.match(source, /lockTargetFacing: true/);
