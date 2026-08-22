@@ -458,7 +458,6 @@
     text-transform: uppercase;
 }
 .mission-hall .mh-tag-req { border-left: 2px solid var(--bsv2-enemy); }
-.mission-hall .mh-tag-sta { border-left: 2px solid #6fd47a; }
 .mission-hall .mh-fetch-grid,
 .mission-hall .mh-combat-grid {
     display: grid !important;

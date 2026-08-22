@@ -148,7 +148,7 @@ test('overexertion fires the move but winds the pet for the next round', () => {
     assert.ok(skip, 'the wind costs the next-round action');
 });
 
-test('overdrafting pays HP for the deficit (the Temtem chip) and the pool is a bulk-derived stat', () => {
+test('overdrafting pays HP for the deficit (the reference chip) and the pool is a bulk-derived stat', () => {
     const session = makeSession([makePet('a', { speed: 200 })], [makePet('b', { speed: 10, attack: 1, hp: 6000 })]);
     const pet = session.player[0];
     assert.ok(pet.maxStamina >= 80 && pet.maxStamina <= 125, `pool is a stat (${pet.maxStamina})`);
@@ -258,7 +258,7 @@ test('rest buys stamina back and NOTHING else — it never heals', () => {
     const action = events.find((e): e is Extract<ShowdownEvent, { t: 'action' }> => e.t === 'action' && e.actorId === 'a');
     assert.equal(action?.moveKind, 'rest');
     assert.ok(session.player[0].stamina > 5, 'stamina came back');
-    // Temtem's rule, and the one this used to break: HP does not regenerate in
+    // The reference rule, and the one this used to break: HP does not regenerate in
     // combat. A resting pet on 400 HP is still on 400 HP.
     assert.equal(action?.targets[0].heal ?? 0, 0, 'rest reports no heal');
     assert.equal(session.player[0].hp, 400, 'rest restored no HP');
@@ -533,7 +533,7 @@ test('status interactions: fire thaws, frost smothers', () => {
     assert.deepEqual(victim.statuses.map((s) => s.kind), ['freeze'], 'freeze smothered the burn');
 });
 
-test('the turn-cap judge decides a standing fight on the Temtem ladder', () => {
+test('the turn-cap judge decides a standing fight on the reference model ladder', () => {
     const session = makeSession(
         [makePet('a', { hp: 4000 }), makePet('a2', { hp: 4000 })],
         [makePet('b', { hp: 4000 }), makePet('b2', { hp: 4000 })],
@@ -1135,7 +1135,7 @@ test('every sealed pet fields a derived utility technique', () => {
         // It used to take a buff (or a mark at high rarity), which did nothing
         // for the problem the role actually has: in a three-pet format the
         // glass cannon kills one thing and dies, and it measured 37.9% against
-        // a tracker's 62.4%. The pivot is the Pokemon/Temtem answer, and it is
+        // a tracker's 62.4%. The pivot is the genre-standard answer, and it is
         // what closed that gap.
         ['assassin', 'pivot'],
         ['tracker', 'debuff'],
@@ -1162,7 +1162,7 @@ test('weather boosts its own element, dampens its counter, and leaves the neutra
     assert.equal(weatherDamageMult(undefined, 'Fire'), 1, 'no weather, no change');
     const heat = { element: 'Fire', until: 99 };
     assert.ok(weatherDamageMult(heat, 'Fire') > 1, 'its own element is favoured');
-    // Water counters Fire on our wheel, exactly as rain/sun pair in Pokémon.
+    // Water counters Fire on our wheel, exactly as rain/sun pair in the classic monster battler.
     assert.equal(elementCounteredBy('Fire'), 'Water');
     assert.ok(weatherDamageMult(heat, 'Water') < 1, 'the counter-element is dampened');
     assert.equal(weatherDamageMult(heat, 'Earth'), 1, 'an unrelated element is untouched');

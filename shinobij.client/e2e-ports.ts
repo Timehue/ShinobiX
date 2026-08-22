@@ -44,5 +44,6 @@ export const liveE2ePort = () => resolvePort('LIVE_E2E_PORT', 4183, 16183, 'live
 export const visualE2ePort = () => resolvePort('VISUAL_E2E_PORT', 4174, 18174, 'visual preview');
 export const warfrontE2ePort = () => resolvePort('WARFRONT_E2E_PORT', 4174, 19174, 'warfront');
 export const adaptiveDprE2ePort = () => resolvePort('ADAPTIVE_DPR_E2E_PORT', 4176, 20176, 'adaptive-dpr');
+export const uiAuditE2ePort = () => resolvePort('UI_AUDIT_PORT', 4177, 21177, 'ui-audit');
 
 export const previewRootFor = (port: string) => `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;

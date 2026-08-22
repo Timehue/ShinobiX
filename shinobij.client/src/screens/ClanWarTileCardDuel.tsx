@@ -187,11 +187,16 @@ export function CardClashDuelScreen({
     const delay = chronicleNextStateRefreshMs(view, waiting);
     if (delay === null) return;
     const timer = window.setTimeout(() => {
-      // Re-arm before the request: the nonce bump re-runs this effect and
-      // schedules the NEXT tick no matter what the response says, so the
-      // chain survives no-op "awaiting-p2" responses and transient failures.
-      setPollNonce((nonce) => nonce + 1);
-      void post("state").catch(() => undefined);
+      // Re-arm AFTER the request settles, not before it starts. `finally` still
+      // runs on a no-op "awaiting-p2" response or a transient failure, so the
+      // chain survives exactly as it was meant to — but the next tick can no
+      // longer be scheduled while this one is still in flight. That mattered:
+      // chronicleNextStateRefreshMs floors at 100ms once a turn deadline has
+      // passed, so a bump-first re-arm let requests stack up on every client
+      // sitting on an un-advanced turn.
+      void post("state")
+        .catch(() => undefined)
+        .finally(() => setPollNonce((nonce) => nonce + 1));
     }, delay);
     return () => window.clearTimeout(timer);
   }, [busy, pageVisible, pollNonce, post, stash, view, waiting]);

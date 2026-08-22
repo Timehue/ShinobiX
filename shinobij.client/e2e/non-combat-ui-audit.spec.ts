@@ -87,7 +87,21 @@ async function auditVisibleScreen(page: Page): Promise<AuditMetrics> {
         return {
             brokenBackgrounds,
             brokenImages: Array.from(main.querySelectorAll("img"))
-                .filter((image) => visible(image) && (!(image as HTMLImageElement).complete || (image as HTMLImageElement).naturalWidth === 0))
+                .filter((image) => {
+                    // `visible` is box-based, not viewport-based, so a
+                    // loading="lazy" thumbnail below the fold has a real box and
+                    // complete === false. That is deferred, not broken — the
+                    // shop and backpack grids defer their catalog art on purpose.
+                    // Only hold an image to the decode check once the browser has
+                    // actually been asked to fetch it.
+                    if (!visible(image)) return false;
+                    const img = image as HTMLImageElement;
+                    const rect = img.getBoundingClientRect();
+                    const deferred = img.loading === "lazy"
+                        && (rect.bottom < 0 || rect.top > window.innerHeight);
+                    if (deferred) return false;
+                    return !img.complete || img.naturalWidth === 0;
+                })
                 .map((image) => (image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src),
             clippedControls: controls
                 .filter((control) => {

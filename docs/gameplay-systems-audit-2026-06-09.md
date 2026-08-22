@@ -431,7 +431,7 @@ a live-service shooter (elemental triangles), a sibling shinobi RPG (bloodline-a
 3/4 elite affixes, a deep action RPG map modifiers, a leading idle RPG King's Tower, New World
 phased bosses, Terraria/a leading action RPG Immortal bestiaries. Missions/dispatch: Torn Duke
 missions & Jobs, a rival shinobi browser game's mission ranks, a leading idle RPG Bounty/Abyssal dispatch.
-Pets: Temtem/Coromon (IV/EV & Potential), Cassette Beasts & SMT (fusion),
+Pets: the reference model/Coromon (IV/EV & Potential), Cassette Beasts & SMT (fusion),
 a leading gacha RPG/a leading gacha RPG (ascension), IdleOn (collection passives). Economy:
 a deep action RPG (currency-as-crafting, affixes), a sandbox MMO (sink design), a leading action RPG/a live-service shooter
 (paragon/prestige). Guild/territory: a major MMO guild halls, a browser strategy game build trees, a classic MMO
