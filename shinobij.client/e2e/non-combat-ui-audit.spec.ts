@@ -278,6 +278,36 @@ for (const screen of NON_COMBAT_SCREENS) {
     });
 }
 
+test("Mission Hall Field board is alphabetized and sector-artwork backed", async ({ page }, testInfo) => {
+    const runtimeErrors = collectRuntimeErrors(page);
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "missions");
+    await page.locator('button[data-tab="field"]').click();
+
+    const fieldCards = page.locator(".mh-field-card");
+    await expect(fieldCards.first()).toBeVisible();
+    expect(await fieldCards.count()).toBeGreaterThan(0);
+
+    const renderedOrder = await fieldCards.evaluateAll((cards) => cards.map((card) => ({
+        rank: card.querySelector(".mh-field-rank")?.textContent?.trim() ?? "",
+        name: card.querySelector(".mh-field-title-row h4")?.textContent?.trim() ?? "",
+    })));
+    const expectedOrder = [...renderedOrder].sort((left, right) =>
+        left.rank.localeCompare(right.rank) || left.name.localeCompare(right.name));
+    expect(renderedOrder, "field missions are not ordered by rank, then name").toEqual(expectedOrder);
+
+    await fieldCards.last().scrollIntoViewIfNeeded();
+    const artwork = fieldCards.locator(".mh-field-art img");
+    await expect.poll(() => artwork.evaluateAll((images) => images.every((image) => {
+        const source = (image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src;
+        return source.includes("/sector-map/s") && (image as HTMLImageElement).naturalWidth > 0;
+    }))).toBe(true);
+
+    await expectViewportSafe(page, { horizontalScrollers: [".expanded-tabs"] });
+    expect(runtimeErrors, "the Field board emitted runtime errors").toEqual([]);
+    await capture(page, testInfo, "missions-field");
+});
+
 test("user directory routes into a production-safe public profile", async ({ page }, testInfo) => {
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "village");

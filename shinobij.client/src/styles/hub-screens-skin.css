@@ -542,3 +542,535 @@
     break-inside: avoid;
     page-break-inside: avoid;
 }
+
+/* =========================================================================
+   Mission Hall v3 — cinematic operations board
+   ========================================================================= */
+.mission-hall.card {
+    position: relative;
+    overflow: hidden;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    background:
+        radial-gradient(circle at 78% 12%, rgba(69, 141, 179, 0.09), transparent 31%),
+        linear-gradient(180deg, rgba(5, 10, 20, 0.98), rgba(3, 7, 15, 0.99)) !important;
+}
+
+.mission-hall > .village-back-button {
+    position: absolute;
+    z-index: 4;
+    top: 16px;
+    left: 18px;
+    min-width: 88px;
+    margin: 0 !important;
+    border-color: rgba(233, 214, 160, 0.36) !important;
+    background: rgba(3, 8, 17, 0.72) !important;
+    color: #f5e7bc !important;
+    backdrop-filter: blur(10px);
+}
+
+.mission-hall .mh-header {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: flex-end;
+    min-height: 245px;
+    padding: 72px clamp(22px, 4vw, 54px) 30px !important;
+    overflow: hidden;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(221, 185, 103, 0.3) !important;
+    background:
+        linear-gradient(90deg, rgba(2, 7, 16, 0.98) 0%, rgba(2, 7, 16, 0.91) 38%, rgba(2, 7, 16, 0.4) 67%, rgba(2, 7, 16, 0.72) 100%),
+        linear-gradient(180deg, rgba(2, 7, 16, 0.06), rgba(2, 7, 16, 0.86)),
+        var(--mh-header-art) 70% 58% / cover no-repeat !important;
+    box-shadow: inset 0 -38px 70px rgba(2, 7, 16, 0.72);
+}
+
+.mission-hall .mh-header::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(90deg, #000, transparent 70%);
+    pointer-events: none;
+}
+
+.mission-hall .mh-header-copy {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    max-width: 620px;
+    gap: 7px;
+}
+
+.mission-hall .mh-header-eyebrow,
+.mission-hall .mh-field-eyebrow {
+    color: #70cbff;
+    font: 800 9px/1.2 Inter, sans-serif;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-header h2 {
+    width: fit-content;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    color: #fff2c8 !important;
+    font: 760 clamp(31px, 4vw, 48px)/0.98 var(--font-display) !important;
+    letter-spacing: 0.12em !important;
+    text-align: left !important;
+    text-shadow: 0 8px 28px rgba(0, 0, 0, 0.85), 0 0 36px rgba(221, 185, 103, 0.14);
+}
+
+.mission-hall .mh-header .mh-sub {
+    max-width: 570px;
+    margin: 2px 0 0 !important;
+    color: #c6d1de !important;
+    font: 500 12px/1.55 Inter, sans-serif !important;
+    text-align: left !important;
+}
+
+.mission-hall .mh-reward-signal {
+    width: fit-content;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(221, 185, 103, 0.3);
+    color: #9dadbf;
+    font: 750 9px/1.2 Inter, sans-serif;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-reward-signal strong { color: #ffe7a5; }
+
+.mission-hall .mh-header .mh-stats {
+    position: relative;
+    z-index: 1;
+    align-self: flex-start;
+    margin-left: auto;
+}
+
+.mission-hall .mh-header .mh-stat-chip {
+    min-width: 92px;
+    padding: 11px 14px !important;
+    border: 1px solid rgba(221, 185, 103, 0.42) !important;
+    border-radius: 9px !important;
+    background: rgba(2, 7, 16, 0.7) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 30px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(10px);
+}
+
+.mission-hall .clan-tabs.expanded-tabs {
+    position: relative;
+    z-index: 2;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 7px !important;
+    margin: 0 !important;
+    padding: 11px clamp(14px, 2vw, 24px) !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(221, 185, 103, 0.2) !important;
+    background: linear-gradient(180deg, rgba(8, 15, 28, 0.98), rgba(4, 10, 20, 0.98)) !important;
+}
+
+.mission-hall .clan-tabs.expanded-tabs > button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 46px;
+    padding: 9px 14px !important;
+    border: 1px solid rgba(134, 157, 184, 0.18) !important;
+    border-radius: 8px !important;
+    color: #aebccc !important;
+    background: rgba(8, 16, 30, 0.68) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+    font: 760 10px/1.2 Inter, sans-serif !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.mission-hall .clan-tabs.expanded-tabs > button > span {
+    color: #5d7188;
+    font: 800 8px/1 Inter, sans-serif;
+    letter-spacing: 0.08em;
+}
+
+.mission-hall .clan-tabs.expanded-tabs > button:hover,
+.mission-hall .clan-tabs.expanded-tabs > button.active {
+    border-color: rgba(87, 193, 255, 0.66) !important;
+    color: #edf8ff !important;
+    background: linear-gradient(180deg, rgba(26, 70, 99, 0.7), rgba(9, 25, 43, 0.92)) !important;
+    box-shadow: inset 0 -2px 0 #57c1ff, 0 0 20px rgba(87, 193, 255, 0.08) !important;
+}
+
+.mission-hall .clan-tabs.expanded-tabs > button.active > span { color: #76ceff; }
+
+.mission-hall .mh-section {
+    margin: 0 !important;
+    padding: 24px clamp(16px, 2.5vw, 30px) 30px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(221, 185, 103, 0.13) !important;
+    background: transparent !important;
+}
+
+.mission-hall .mh-section > .mh-section-title {
+    color: #f6e7b7 !important;
+}
+
+.mission-hall .mh-combat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
+    gap: 14px !important;
+}
+
+.mission-hall .mh-combat-card,
+.mission-hall .mh-fetch-card {
+    overflow: hidden;
+    border: 1px solid rgba(221, 185, 103, 0.24) !important;
+    border-radius: 11px !important;
+    background: linear-gradient(180deg, rgba(15, 25, 43, 0.96), rgba(5, 11, 22, 0.99)) !important;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.mission-hall .mh-combat-avatar { height: 118px; }
+.mission-hall .mh-combat-avatar img { width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: center 26%; }
+
+.mission-hall .mh-field-section { padding-top: 22px !important; }
+
+.mission-hall .mh-field-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 17px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(221, 185, 103, 0.18);
+}
+
+.mission-hall .mh-field-heading > div { display: grid; gap: 5px; }
+
+.mission-hall .mh-field-heading .mh-section-title {
+    margin: 0 !important;
+    color: #f8e9ba !important;
+    font: 740 20px/1.1 var(--font-display) !important;
+    letter-spacing: 0.13em !important;
+    text-align: left !important;
+}
+
+.mission-hall .mh-field-heading .mh-section-title::before,
+.mission-hall .mh-field-heading .mh-section-title::after { display: none; }
+
+.mission-hall .mh-field-heading p {
+    max-width: 660px;
+    margin: 0;
+    color: #91a1b5;
+    font: 500 11px/1.5 Inter, sans-serif;
+}
+
+.mission-hall .mh-field-sort {
+    flex: 0 0 auto;
+    padding: 7px 9px;
+    border: 1px solid rgba(112, 203, 255, 0.24);
+    border-radius: 6px;
+    color: #77cfff;
+    background: rgba(20, 74, 105, 0.12);
+    font: 800 8px/1.2 Inter, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.mission-hall .mh-field-card {
+    --mission-rank-color: #70cbff;
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 438px;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--mission-rank-color) 40%, rgba(131, 151, 178, 0.22)) !important;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(13, 23, 40, 0.98), rgba(5, 11, 22, 0.99));
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.mission-hall .mh-field-card::before {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--mission-rank-color);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--mission-rank-color) 38%, transparent);
+}
+
+.mission-hall .mh-field-card:hover {
+    border-color: color-mix(in srgb, var(--mission-rank-color) 72%, white 8%) !important;
+    box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42), 0 0 24px color-mix(in srgb, var(--mission-rank-color) 10%, transparent);
+    transform: translateY(-3px);
+}
+
+.mission-hall .mh-field-art {
+    position: relative;
+    min-height: 164px;
+    overflow: hidden;
+    border-bottom: 1px solid color-mix(in srgb, var(--mission-rank-color) 28%, transparent);
+    background: #050b16;
+}
+
+.mission-hall .mh-field-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(3, 8, 17, 0.02) 28%, rgba(3, 8, 17, 0.88) 100%);
+    pointer-events: none;
+}
+
+.mission-hall .mh-field-art img {
+    width: 100%;
+    height: 164px;
+    display: block;
+    object-fit: cover;
+    filter: saturate(0.84) contrast(1.06) brightness(0.78);
+    transform: scale(1.015);
+    transition: filter 180ms ease, transform 260ms ease;
+}
+
+.mission-hall .mh-field-card:hover .mh-field-art img {
+    filter: saturate(1.02) contrast(1.06) brightness(0.94);
+    transform: scale(1.055);
+}
+
+.mission-hall .mh-field-rank {
+    position: absolute;
+    z-index: 2;
+    top: 12px;
+    left: 13px;
+    padding: 5px 8px;
+    border: 1px solid color-mix(in srgb, var(--mission-rank-color) 64%, transparent);
+    border-radius: 5px;
+    color: #fff;
+    background: color-mix(in srgb, var(--mission-rank-color) 26%, rgba(3, 8, 17, 0.86));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+    font: 850 8px/1 Inter, sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    backdrop-filter: blur(7px);
+}
+
+.mission-hall .mh-field-sector {
+    position: absolute;
+    z-index: 2;
+    right: 14px;
+    bottom: 13px;
+    left: 14px;
+    display: grid;
+    gap: 3px;
+    color: white;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+.mission-hall .mh-field-sector small {
+    color: #b9c8d8 !important;
+    font: 750 8px/1.2 Inter, sans-serif !important;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-sector strong {
+    color: #fff1c5;
+    font: 720 15px/1.15 var(--font-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 15px 15px 17px;
+}
+
+.mission-hall .mh-field-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.mission-hall .mh-field-title-row > div { display: grid; gap: 4px; min-width: 0; }
+.mission-hall .mh-field-title-row > div > span {
+    color: var(--mission-rank-color);
+    font: 800 8px/1.2 Inter, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-title-row h4 {
+    margin: 0;
+    color: #f4f7fb;
+    font: 760 14px/1.24 Inter, sans-serif;
+}
+
+.mission-hall .mh-field-status {
+    flex: 0 0 auto;
+    padding: 4px 6px;
+    border: 1px solid rgba(98, 210, 157, 0.32);
+    border-radius: 999px;
+    color: #80e5b3;
+    background: rgba(25, 109, 70, 0.14);
+    font: 750 7px/1.2 Inter, sans-serif;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-description {
+    min-height: 49px;
+    margin: 0;
+    color: #aab6c6;
+    font: 500 10px/1.55 Inter, sans-serif;
+}
+
+.mission-hall .mh-field-objectives {
+    display: flex;
+    gap: 7px;
+}
+
+.mission-hall .mh-field-objectives > span {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 74px;
+    padding: 7px 8px;
+    border: 1px solid rgba(129, 151, 177, 0.16);
+    border-radius: 6px;
+    background: rgba(2, 8, 17, 0.46);
+}
+
+.mission-hall .mh-field-objectives small {
+    color: #71849a !important;
+    font: 750 8px/1 Inter, sans-serif !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-objectives strong { color: #dce8f4; font: 800 11px/1 Inter, sans-serif; }
+
+.mission-hall .mh-field-card .mh-fetch-rewards {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 7px 12px !important;
+    margin: 0;
+    padding: 8px 9px !important;
+    border: 1px solid rgba(221, 185, 103, 0.16) !important;
+    border-radius: 6px !important;
+    color: #dfc987 !important;
+    background: rgba(64, 47, 17, 0.12) !important;
+}
+
+.mission-hall .mh-field-card .mh-fetch-progress-wrap {
+    padding: 8px !important;
+    border-radius: 6px !important;
+    background: rgba(2, 8, 17, 0.5) !important;
+}
+
+.mission-hall .mh-field-card .mh-fetch-progress-label {
+    margin-bottom: 5px;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.mission-hall .mh-field-card .mh-fetch-actions {
+    display: flex;
+    gap: 7px;
+    margin-top: auto;
+}
+
+.mission-hall .mh-field-card .mh-fetch-actions button {
+    min-height: 38px;
+    padding: 9px 11px !important;
+    border: 1px solid color-mix(in srgb, var(--mission-rank-color) 48%, rgba(121, 143, 170, 0.34)) !important;
+    border-radius: 6px !important;
+    color: #eff7ff !important;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--mission-rank-color) 34%, #102039), rgba(7, 17, 31, 0.96)) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    font: 800 9px/1.2 Inter, sans-serif !important;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.mission-hall .mh-field-card .mh-fetch-actions .danger-button {
+    flex: 0 0 auto;
+    border-color: rgba(225, 86, 79, 0.34) !important;
+    color: #f0aaa5 !important;
+    background: rgba(92, 24, 24, 0.28) !important;
+}
+
+.mission-hall .mh-field-card.mh-fetch-complete {
+    border-color: rgba(78, 220, 149, 0.56) !important;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32), 0 0 24px rgba(78, 220, 149, 0.08) !important;
+}
+
+.mission-hall .mh-field-locked { opacity: 0.64; }
+.mission-hall .mh-field-locked .mh-field-art img { filter: grayscale(0.45) brightness(0.62); }
+
+@media (max-width: 1080px) {
+    .mission-hall .mh-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .mission-hall .mh-header {
+        min-height: 270px;
+        align-items: flex-end;
+        padding: 68px 18px 20px !important;
+        background-position: 68% center !important;
+    }
+
+    .mission-hall .mh-header .mh-stats {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+    }
+
+    .mission-hall .mh-header .mh-stat-chip { min-width: 72px; padding: 8px 10px !important; }
+    .mission-hall .mh-header-copy { padding-right: 0; }
+
+    .mission-hall .clan-tabs.expanded-tabs {
+        display: flex !important;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .mission-hall .clan-tabs.expanded-tabs > button { flex: 0 0 125px; }
+    .mission-hall .mh-field-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .mission-hall .mh-field-grid { grid-template-columns: minmax(0, 1fr); }
+    .mission-hall .mh-field-card { min-height: 0; }
+}
+
+@media (max-width: 440px) {
+    .mission-hall .mh-header h2 { font-size: 29px !important; }
+    .mission-hall .mh-header .mh-sub { font-size: 10.5px !important; }
+    .mission-hall .mh-section { padding-inline: 12px !important; }
+    .mission-hall .mh-field-art,
+    .mission-hall .mh-field-art img { height: 150px; min-height: 150px; }
+    .mission-hall .mh-field-title-row { flex-direction: column; }
+    .mission-hall .mh-field-description { min-height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mission-hall .mh-field-card,
+    .mission-hall .mh-field-art img { transition: none; }
+}
