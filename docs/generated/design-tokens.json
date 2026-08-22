@@ -2640,6 +2640,10 @@
         "valuePx": 620,
         "occurrences": [
           {
+            "source": "shinobij.client/src/styles/central-skin.css",
+            "line": 58
+          },
+          {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
             "line": 249
           },
@@ -2940,7 +2944,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 234
+            "line": 57
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
