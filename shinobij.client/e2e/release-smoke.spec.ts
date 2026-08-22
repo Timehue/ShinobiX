@@ -87,7 +87,14 @@ test('landing and creator journey render without runtime, image, or responsive f
 
     await startCreateButton(page).click();
     await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
-    await page.getByRole('button', { name: 'Choose Village' }).click();
+    const chooseVillage = page.getByRole('button', { name: 'Choose Village' });
+    const chooseVillageBox = await chooseVillage.boundingBox();
+    const viewport = page.viewportSize();
+    expect(chooseVillageBox, 'the creator primary action must render').not.toBeNull();
+    expect(viewport, 'the release-smoke project must define a viewport').not.toBeNull();
+    expect(chooseVillageBox!.y + chooseVillageBox!.height, 'the first creator action must be visible without scrolling')
+        .toBeLessThanOrEqual(viewport!.height + 1);
+    await chooseVillage.click();
     await page.locator('.cc-village-card').first().click();
     await page.getByRole('button', { name: 'Choose Bloodline' }).click();
     await page.locator('.cc-bloodline-card').first().click();
@@ -98,6 +105,9 @@ test('landing and creator journey render without runtime, image, or responsive f
     await expect(page.getByLabel('Name')).toBeVisible();
     await expect(page.locator('#cc-password')).toBeVisible();
     await expect(page.locator('#cc-confirm-password')).toBeVisible();
+    await expect(page.locator('#cc-password-requirements')).toHaveText(
+        'Use 8 to 128 characters with at least one letter and one number.',
+    );
     await expectNoHorizontalOverflow(page);
     expect(runtimeFailures).toEqual([]);
 });

@@ -7,6 +7,7 @@ import type { Character, PlayerRecord } from "../../../types/character";
 import type { EnhancedClanData } from "../../../types/clan";
 import type { ArenaSpectatorFight, ArenaTournament } from "../../../lib/world-state";
 import type { ArenaDistrictTab } from "../types";
+import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
@@ -76,12 +77,18 @@ export function ArenaDistrictLobby({
     onOpenPetLadder,
 }: ArenaDistrictLobbyProps) {
     return (
-        <div className="card arena-lobby">
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                <button className="back-to-hub-btn" onClick={onBack}>← Central Hub</button>
-                <h2 style={{ margin: 0 }}>Arena District</h2>
-            </div>
-            <p>Clan battles, ranked mode, tournaments, spectator view, and pet battles are handled here.</p>
+        <div className="card arena-lobby arena-district-lobby">
+            <CentralDestinationHeader
+                backLabel="Central"
+                eyebrow="The Thousand Gates · Competitive Command"
+                icon={<GiCrossedSwords />}
+                onBack={onBack}
+                statusLabel="District access"
+                statusValue="Open"
+                subtitle="Ranked combat, clan-war challenges, live tournaments, spectator boards, and companion competition."
+                title="Arena District"
+                tone="crimson"
+            />
 
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
                 <button className={activeTab === "clanWar" ? "active" : ""} onClick={() => onTabChange("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
