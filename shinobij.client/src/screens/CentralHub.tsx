@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
-import type { ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import "../styles/central-skin.css";
 // Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
 import {
@@ -16,7 +16,8 @@ import {
 } from "react-icons/gi";
 import type { IconType } from "react-icons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
-import { GameIcon } from "../components/icons/GameIcon";
+import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import centralCommandHero from "../assets/central-command-v2.webp";
 // Inline glyph style for section headers — sized to the heading text, nudged onto the baseline.
 const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 // Small inline glyph for currency/cost lines.
@@ -82,6 +83,14 @@ const MATERIAL_ICON: Record<string, IconType> = {
     [DUNGEON_LEGENDARY_RELIC_ID]: GiDragonHead,
     [WARFORGED_RELIC_ID]: GiCrossedSwords,
     [VEIL_OF_THE_HOLLOW_ID]: GiHood,
+};
+
+const DUNGEON_BIOME_ICON: Record<string, GameIconName> = {
+    forest: "leaf",
+    snow: "snow",
+    volcano: "bolt",
+    shadow: "moon",
+    central: "gate",
 };
 
 // Material rarity band from its craft-point value → chip accent colour.
@@ -731,7 +740,10 @@ export function CentralHub({
             <SceneAmbience biome="central" />
             <DayNightSky />
             <SceneCritters biome="central" density={0.7} />
-            <header className="central-hero">
+            <header
+                className="central-hero"
+                style={{ "--central-hero-art": `url(${centralCommandHero})` } as CSSProperties}
+            >
                 <div className="central-hero-copy">
                     <div className="central-hero-eyebrow">
                         <GiTempleGate aria-hidden="true" />
@@ -755,6 +767,10 @@ export function CentralHub({
                         <span>Arrival status</span>
                         <strong>{character.village ? `${character.village} envoy` : "Independent shinobi"}</strong>
                         <small>{awakenedElements.length ? awakenedElements.join(" · ") : "Element not yet awakened"}</small>
+                    </div>
+                    <div className="central-passport-signals" aria-label="Central resources">
+                        <span><small>Relic keys</small><strong>{dungeonKeyCount}</strong></span>
+                        <span><small>Chakra natures</small><strong>{awakenedElements.length}</strong></span>
                     </div>
                 </aside>
             </header>
@@ -871,29 +887,46 @@ export function CentralHub({
             </div>
 
             {showDungeonPanel && (
-                <Modal open={showDungeonPanel} onClose={() => setShowDungeonPanel(false)} bare ariaLabel="Relic Dungeons" size="lg" className="central-dialog-shell">
-                    <div className="celestial-panel">
-                        <h2>Relic Dungeons</h2>
-                        <p className="celestial-panel-sub">All five dungeons use the same strength curve and reward a Dungeon Legendary Relic on full clear.</p>
-                        <p className="hint">Dungeon Keys: <strong>{countInventory(DUNGEON_KEY_ID)}</strong></p>
-                        <div className="celestial-panel-options">
+                <Modal open={showDungeonPanel} onClose={() => setShowDungeonPanel(false)} bare ariaLabel="Relic Dungeons" size="lg" className="central-dialog-shell central-dialog-shell--relic">
+                    <div className="relic-command-panel">
+                        <header className="relic-command-header" style={{ "--relic-header-art": `url(${centralCommandHero})` } as CSSProperties}>
+                            <button type="button" className="relic-command-close" onClick={() => setShowDungeonPanel(false)} aria-label="Return to Central">← <span>Central</span></button>
+                            <div className="relic-command-title">
+                                <span><GiDungeonGate /> Frontier district · sealed vault network</span>
+                                <h2>Relic Dungeons</h2>
+                                <p>Choose a biome vault. Every breach follows the same three-seal strength curve and awards a Dungeon Legendary Relic on full clear.</p>
+                            </div>
+                            <div className="relic-key-balance" aria-label={`${dungeonKeyCount} Dungeon Keys available`}>
+                                <GameIcon name="gate" size={22} />
+                                <span>Dungeon keys<strong>{dungeonKeyCount}</strong></span>
+                            </div>
+                        </header>
+                        <div className="relic-command-grid">
                             {craftDungeonEvents.map((event) => (
                                 <button
                                     key={event.id}
-                                    className="celestial-option-btn"
+                                    className="relic-command-card"
+                                    data-biome={event.biome}
                                     onClick={() => {
                                         setShowDungeonPanel(false);
                                         onStartDungeon(event);
                                     }}
-                                    disabled={countInventory(DUNGEON_KEY_ID) <= 0 || character.level < event.levelReq}
+                                    disabled={dungeonKeyCount <= 0 || character.level < event.levelReq}
                                 >
-                                    <span className="celestial-option-icon">{event.icon}</span>
-                                    <strong>{event.name}</strong>
-                                    <small>Lv {event.levelReq} | {biomeLabel(event.biome)} | drops Dungeon Legendary Relic</small>
+                                    <span className="relic-command-card-glow" aria-hidden="true" />
+                                    <span className="relic-command-card-icon"><GameIcon name={DUNGEON_BIOME_ICON[event.biome] ?? "sigil"} size={30} /></span>
+                                    <span className="relic-command-card-copy">
+                                        <small>{biomeLabel(event.biome)} vault</small>
+                                        <strong>{event.name}</strong>
+                                        <span>{event.vnScene}</span>
+                                    </span>
+                                    <span className="relic-command-card-footer">
+                                        <span>Required level {event.levelReq}</span>
+                                        <b>{dungeonKeyCount <= 0 ? "No key" : character.level < event.levelReq ? "Locked" : "Breach vault →"}</b>
+                                    </span>
                                 </button>
                             ))}
                         </div>
-                        <button className="danger-button" onClick={() => setShowDungeonPanel(false)}>Close</button>
                     </div>
                 </Modal>
             )}
@@ -997,12 +1030,17 @@ export function CentralHub({
             })()}
 
             {showAwakening && (
-                <Modal open={showAwakening} onClose={() => setShowAwakening(false)} bare ariaLabel="Awakening Stone" size="lg" className="central-dialog-shell">
-                    <div className="awakening-panel">
-                        <div className="archives-header">
-                            <h2><GiCrystalBall style={HDR_ICON} />Awakening Stone</h2>
-                            <button className="danger-button" onClick={() => setShowAwakening(false)}>× Close</button>
-                        </div>
+                <Modal open={showAwakening} onClose={() => setShowAwakening(false)} bare ariaLabel="Awakening Stone" size="lg" className="central-dialog-shell central-dialog-shell--awakening">
+                    <div className="awakening-panel awakening-command-panel">
+                        <header className="awakening-command-header">
+                            <button type="button" className="awakening-command-close" onClick={() => setShowAwakening(false)} aria-label="Return to Central">← <span>Central</span></button>
+                            <div className="awakening-command-title">
+                                <span><GiCrystalBall /> Legacy district · elemental sanctum</span>
+                                <h2>Awakening Stone</h2>
+                                <p>Reveal your chakra nature, inventory ancient materials, and forge a bloodline worthy of the Thousand Gates.</p>
+                            </div>
+                            <div className="awakening-command-seal" aria-hidden="true"><GiCrystalBall /></div>
+                        </header>
 
                         {/* Current element status */}
                         <div className="awakening-element-display">
@@ -1031,8 +1069,9 @@ export function CentralHub({
                             </div>
                         )}
 
+                        <div className="awakening-command-grid">
                         {/* Element roll section */}
-                        <div className="awakening-section">
+                        <div className="awakening-section awakening-section--element">
                             <h3><GiSparkles style={HDR_ICON} />Elemental Awakening</h3>
                             <p className="awakening-hint">The stone randomly reveals one of five elements: 💧 Water · 💨 Wind · 🌍 Earth · ⚡ Lightning · 🔥 Fire</p>
                             <div className="awakening-roll-row">
@@ -1056,7 +1095,7 @@ export function CentralHub({
                         </div>
 
                         {/* Material balances */}
-                        <div className="awakening-section">
+                        <div className="awakening-section awakening-section--materials">
                             <h3><GiStoneStack style={HDR_ICON} />Ancient Materials</h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
@@ -1078,7 +1117,7 @@ export function CentralHub({
                         </div>
 
                         {/* Bloodline forge section */}
-                        <div className="awakening-section">
+                        <div className="awakening-section awakening-section--forge">
                             <h3><GiFlame style={HDR_ICON} />Bloodline Forge</h3>
                             <p className="awakening-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
                             <div className="awakening-forge-grid">
@@ -1119,6 +1158,7 @@ export function CentralHub({
                                     </button>
                                 </div>
                             </div>
+                        </div>
                         </div>
                     </div>
                 </Modal>

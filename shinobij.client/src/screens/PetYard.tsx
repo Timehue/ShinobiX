@@ -27,8 +27,9 @@ import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { authoritativePetExpeditionGains } from "../lib/pet-expedition-result";
 import "../styles/pet-home.css";
+import { GameIcon } from "../components/icons/GameIcon";
 
-export function PetYard({ character, updateCharacter, onVersionedCharacter, onServerVersion, setScreen, onBack, onImmediateSave: _onImmediateSave, sharedImages = {} }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onServerVersion: (version: unknown) => boolean; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void; sharedImages?: Record<string, string> }) {
+export function PetYard({ character, updateCharacter, onVersionedCharacter, onServerVersion, setScreen, onBack, backLabel = "Village", onImmediateSave: _onImmediateSave, sharedImages = {} }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onServerVersion: (version: unknown) => boolean; setScreen: (s: Screen) => void; onBack: () => void; backLabel?: string; onImmediateSave?: (c: Character) => void; sharedImages?: Record<string, string> }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const combatEligiblePetIds = new Set(activeCarriedPetIds(character));
     const preservedOverflowCount = Math.max(0, character.pets.length - combatEligiblePets.length);
@@ -683,17 +684,16 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
             <div className="pet-yard-overlay">
                 <div className="pet-yard-header">
-                    <button className="back-btn" onClick={onBack}>← Back</button>
-                    <div>
+                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}><span aria-hidden="true">←</span><span><small>Return to</small><strong>{backLabel}</strong></span></button>
+                    <div className="pet-yard-title">
+                        <span className="pet-yard-kicker">Companion command</span>
                         <h2>Pet Yard</h2>
                         <p className="hint">{combatEligiblePets.length}/{maxPets(character)} combat-carried · {character.pets.length} owned · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
                     </div>
-                    {character.activePetId && (
-                        <p className="hint">Active: {character.pets.find((p) => p.id === character.activePetId)?.name ?? "—"}</p>
-                    )}
-                    {character.activePetId2v2 && (
-                        <p className="hint">2v2 Partner: {character.pets.find((p) => p.id === character.activePetId2v2)?.name ?? "—"}</p>
-                    )}
+                    <div className="pet-yard-active-roster" aria-label="Active companion roster">
+                        <span><small>Field lead</small><strong>{character.pets.find((p) => p.id === character.activePetId)?.name ?? "Unassigned"}</strong></span>
+                        <span><small>2v2 partner</small><strong>{character.pets.find((p) => p.id === character.activePetId2v2)?.name ?? "Unassigned"}</strong></span>
+                    </div>
                 </div>
 
                 {preservedOverflowCount > 0 ? (
@@ -1263,6 +1263,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                     </div>
                 ) : (
                     <div className="pet-empty-state">
+                        <span className="pet-empty-emblem" aria-hidden="true"><GameIcon name="paw" size={44} /></span>
                         <p>You haven't captured any pets yet.</p>
                         <p>Explore the World Map to encounter and befriend pets!</p>
                         <button onClick={() => setScreen("worldMap")}>Go to World Map</button>

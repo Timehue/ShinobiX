@@ -241,6 +241,7 @@ import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
+import { isPetHomeScreen, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
@@ -1390,6 +1391,16 @@ export default function App() {
     const villageWarAvailability = useCapabilityViewAvailability("villageWar");
     const gameplayViewOpen = capabilityAdmissionAllowed(gameplayViewAvailability);
     const gameplayMutationsOpen = capabilityAdmissionAllowed(gameplayMutationAvailability);
+    const [petHomeReturnScreen, setPetHomeReturnScreen] = useState<Screen>("village");
+    const previousPetHomeScreenRef = useRef<Screen>("start");
+    useLayoutEffect(() => {
+        const previousScreen = previousPetHomeScreenRef.current;
+        if (isPetHomeScreen(screen) && !isPetHomeScreen(previousScreen) && previousScreen !== "start") {
+            setPetHomeReturnScreen(previousScreen);
+        }
+        previousPetHomeScreenRef.current = screen;
+    }, [screen]);
+    const leavePetHome = useCallback(() => setScreen(petHomeReturnScreen), [petHomeReturnScreen]);
     // Which durable battle record the "battleLog" screen is showing. Set by the
     // Profile battle list; the screen itself fetches from the server by id.
     const [viewedBattleId, setViewedBattleId] = useState<string | null>(null);
@@ -7171,9 +7182,9 @@ export default function App() {
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} />}
-                {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={goBack} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
+                {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} returnScreen={petHomeReturnScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}

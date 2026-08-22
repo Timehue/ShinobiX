@@ -27,7 +27,7 @@
  * one at a time, and the rule should be deleted from this list as it does.
  */
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import type { Character, ServerPlayerSummary } from "../types/character";
@@ -36,6 +36,7 @@ import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { PetHomeTabs } from "../components/PetHomeTabs";
+import { GameIcon } from "../components/icons/GameIcon";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
@@ -57,6 +58,7 @@ import { ELEMENT_ICON } from "../lib/element-icons";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { petArenaBackLabel, petArenaReturnScreen, petArenaStartIssue } from "../lib/pet-arena-entry";
+import { petHomeReturnLabel } from "../lib/pet-home-navigation";
 import {
     petChronicleCeremonyFromSettlement,
     petChronicleProgressFromSettlement,
@@ -89,6 +91,8 @@ import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import { wfThemeForVillage } from "../lib/pet-warfront-map";
 import { WF_STANCES, WF_DOCTRINES, type WfBuyPolicy, type WfStance, type WfDoctrine } from "../lib/pet-warfront-sim";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
+import petArenaCommandHero from "../assets/coliseum/pet-arena-command-v2.webp";
+import petArenaCommandMobileHero from "../assets/coliseum/pet-arena-command-mobile-v2.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
 import duelFire from "../assets/coliseum/duel-fire.webp";
 import duelWater from "../assets/coliseum/duel-water.webp";
@@ -96,6 +100,7 @@ import duelWind from "../assets/coliseum/duel-wind.webp";
 import duelLightning from "../assets/coliseum/duel-lightning.webp";
 import duelEarth from "../assets/coliseum/duel-earth.webp";
 import "../styles/pet-home.css";
+import "../styles/pet-arena-lobby.css";
 
 // Cinematic-duel hero banner matched to the selected pet's element. Falls back
 // to the generic blue-vs-red showdown for None / unknown elements.
@@ -328,7 +333,7 @@ function settlementErrorMessage(error: unknown): string {
         : "The arena could not record this result. Your battle seal is safe to retry.";
 }
 
-export function PetArena({ character, updateCharacter, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
+export function PetArena({ character, updateCharacter, allServerPlayers, setScreen, returnScreen: petHomeReturnScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange, onFullscreenActiveChange, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; returnScreen?: Screen; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void; onServerVersion?: (version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult; onVersionedCharacter?: (character: Character, version: number | undefined, originatingPlayerName: string) => PetArenaServerVersionResult }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
     const preservedPetOverflow = Math.max(0, character.pets.length - combatEligiblePets.length);
     const mountedRef = useRef(true);
@@ -1309,7 +1314,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 beginPetSettlement({
                     id: `ranked:${matchToken}:${reportKey}`,
                     kind: "ranked",
-                    label: "Ranked Pet Coliseum result",
+                    label: "Ranked Pet Colosseum result",
                     scope: battleScope,
                     run: async () => {
                         const data = await postPetBattleSettlement(settlementBody);
@@ -1431,7 +1436,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             kind: isParty ? "party" : "casual",
             // A wanderer duel is named for what it is. It settles through the
             // same endpoint, but it pays nothing — its token is sealed
-            // casual-no-progression — so calling it a "Pet Coliseum result"
+            // casual-no-progression — so calling it a "Pet Colosseum result"
             // would tell the player a purse was involved when none was.
             label: opponent.wanderer
                 ? "Natural wanderer pet duel"
@@ -1507,7 +1512,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     }, [arenaCountdown]);
 
     const pendingClanPetBattle = loadPendingClanPetBattle();
-    const returnScreen = petArenaReturnScreen(pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen);
+    // Hollow Gate (and other forced duels) skip the view tabs — those land
+    // straight in a battle and shouldn't expose the Warfront switch.
+    const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
+    const forcedReturnScreen = pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen;
+    const returnScreen = petArenaReturnScreen(forcedReturnScreen || petHomeReturnScreen);
+    const returnLabel = forcedReturnScreen
+        ? petArenaBackLabel(returnScreen).replace("Back to ", "")
+        : petHomeReturnLabel(returnScreen);
     const showPetHomeTabs = !pendingPetBattleOpponent
         && !pendingArenaMatch
         && !pendingArenaResponse
@@ -1613,8 +1625,43 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         </div>
     );
 
+    const forcedDuelHero = DUEL_HERO_BY_ELEMENT[selectedPet?.element ?? ""] ?? petDuelHero;
+    const arenaHeroImage = isHollowGate
+        ? forcedDuelHero
+        : arenaView === "tactical"
+            ? tacticalArenaHero
+            : petArenaCommandHero;
+    const arenaHeroMobileImage = isHollowGate || arenaView === "tactical"
+        ? arenaHeroImage
+        : petArenaCommandMobileHero;
+    const arenaHeroStyle = {
+        "--arena-hero": `url(${arenaHeroImage})`,
+        "--arena-hero-mobile": `url(${arenaHeroMobileImage})`,
+    } as CSSProperties;
+    const arenaHeroTitle = isHollowGate
+        ? "Hollow Hound Duel"
+        : arenaView === "tactical"
+            ? "Hollow Warfront"
+            : arenaView === "gauntlet"
+                ? "Pet Gauntlet"
+                : "Pet Colosseum";
+    const arenaHeroEyebrow = isHollowGate
+        ? "The Hollow Gate · sealed encounter"
+        : arenaView === "tactical"
+            ? "Squad command · 4v4 lane war"
+            : arenaView === "gauntlet"
+                ? "Endurance command · escalating run"
+                : "Companion combat command";
+    const arenaHeroCopy = isHollowGate
+        ? "Face the corrupted guardian and seal the result before returning to the shrine."
+        : arenaView === "tactical"
+            ? "Build a role-complete squad, seal its doctrine, and break the enemy Ward Seal before Judgment."
+            : arenaView === "gauntlet"
+                ? "Draft once, read every counter, and carry your squad through an escalating chain of fights."
+                : "Choose the contender, read the matchup, then call every stance and technique from ringside.";
+
     return (
-        <div className="card pet-arena-screen">
+        <div className="card pet-arena-screen pet-arena-lobby" data-arena-view={arenaView}>
             {activeSettlementPresentation && typeof document !== "undefined" && createPortal(
                 <aside
                     className="pet-settlement-notice"
@@ -1657,64 +1704,56 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 document.body,
             )}
             {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
-            <div className="pet-arena-header">
-                {/* Back button label adapts to context — Hollow Gate pet
-                    duels route back to the shrine, not the central hub. */}
-                <button
-                    className="back-btn"
-                    onClick={leaveCurrentPetBattle}
-                >
-                    {petArenaBackLabel(returnScreen)}
-                </button>
-                <div>
-                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate") ? (
-                        <>
-                            <h2 style={{ color: "var(--purple-500)" }}>⛩ Hollow Gate — Hollow Hound Duel</h2>
-                            <p className="hint" style={{ color: "#c4b5fd" }}>Your pet faces a corrupted Hollow Hound. Win to claim victory and continue the run; lose to take 20% HP damage and return to the shrine.</p>
-                        </>
-                    ) : (
-                        <>
-                            <h2>{arenaView === "tactical" ? "Hollow Warfront" : arenaView === "gauntlet" ? "Pet Gauntlet" : "Pet Colosseum"}</h2>
-                            <p className="hint">{
-                                pendingClanPetBattle
-                                    ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.`
-                                    : arenaView === "tactical"
-                                        ? "Command a 4v4 lane war: defend your Guardian Totems, spend bounty at the War Council, and break the enemy Ward Seal before Judgment."
-                                        : arenaView === "gauntlet"
-                                            ? "Roguelike run — draft a one-time squad, chase element & role synergies, and survive escalating rounds. Clear rounds to earn ryo and rare materials."
-                                            : "Cinematic 1v1 & 2v2 duels — your pet approaches, kites, dodges, trades elemental strikes and unleashes ultimates on its own. You build the pet; it fights the duel."
-                            }</p>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Top-level view tabs — the cinematic duel vs the Hollow Warfront mode. */}
-            {(
-                <div className="pet-arena-mode-toggle" style={{ maxWidth: 660, marginBottom: 14 }}>
-                    <button type="button" className={arenaView === "battle" ? "active" : ""} aria-pressed={arenaView === "battle"} onClick={() => setArenaView("battle")}>
-                        ⚔️ Pet Colosseum
-                    </button>
+            <header className={`pet-arena-command${isHollowGate ? " is-forced" : ""}`} style={arenaHeroStyle}>
+                <div className="pet-arena-command-topline">
                     <button
                         type="button"
-                        className={arenaView === "tactical" ? "active" : ""}
-                        aria-pressed={arenaView === "tactical"}
-                        disabled={!tacticalArenaUnlocked}
-                        title={!tacticalArenaUnlocked ? `Locked: ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
-                        onClick={() => setArenaView("tactical")}
+                        className="pet-arena-return"
+                        data-return-screen={returnScreen}
+                        onClick={leaveCurrentPetBattle}
                     >
-                        🏟️ Hollow Warfront
+                        <span className="pet-arena-return-arrow" aria-hidden="true">←</span>
+                        <span><small>Exit arena</small><strong>{returnLabel}</strong></span>
                     </button>
-                    {!tacticalArenaUnlocked && (
-                        <span className="hint" style={{ alignSelf: "center", color: "var(--gold-2)", fontSize: "0.75rem" }}>
-                            Locked: {availableArenaPetCount}/{TACTICAL_ARENA_PET_REQUIREMENT} pets
-                        </span>
-                    )}
-                    <button type="button" className={arenaView === "gauntlet" ? "active" : ""} aria-pressed={arenaView === "gauntlet"} onClick={() => setArenaView("gauntlet")}>
-                        🗡️ Pet Gauntlet
-                    </button>
+                    <span className="pet-arena-season"><i aria-hidden="true" /> Arena command online</span>
                 </div>
-            )}
+                <div className="pet-arena-command-copy">
+                    <span className="pet-arena-eyebrow">{arenaHeroEyebrow}</span>
+                    <h1>{arenaHeroTitle}</h1>
+                    <p>{pendingClanPetBattle
+                        ? `Clan battle orders: defeat ${pendingClanPetBattle.opponentName} to secure ${pendingClanPetBattle.points} clan points.`
+                        : arenaHeroCopy}</p>
+                    <div className="pet-arena-readiness" aria-label="Arena readiness">
+                        <div><GameIcon name="paw" size={20} /><span><small>Battle ready</small><strong>{availableArenaPetCount} companions</strong></span></div>
+                        <div><GameIcon name="target" size={20} /><span><small>Contender</small><strong>{selectedPet ? petDisplayName(selectedPet) : "Not selected"}</strong></span></div>
+                        <div><GameIcon name="medal" size={20} /><span><small>Paid wins today</small><strong>{character.dailyPetWins ?? 0} / {SHOWDOWN_DAILY_WIN_CAP}</strong></span></div>
+                    </div>
+                </div>
+
+                {!isHollowGate ? (
+                    <nav className="pet-arena-activity-nav" aria-label="Pet Arena activities">
+                        <button type="button" className={arenaView === "battle" ? "active" : ""} aria-current={arenaView === "battle" ? "page" : undefined} onClick={() => setArenaView("battle")}>
+                            <span className="pet-arena-activity-icon"><GameIcon name="sword" size={22} /></span>
+                            <span><strong>Pet Colosseum</strong><small>Cinematic 1v1 · 2v2</small></span>
+                        </button>
+                        <button
+                            type="button"
+                            className={arenaView === "tactical" ? "active" : ""}
+                            aria-current={arenaView === "tactical" ? "page" : undefined}
+                            disabled={!tacticalArenaUnlocked}
+                            title={!tacticalArenaUnlocked ? `Locked: ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
+                            onClick={() => setArenaView("tactical")}
+                        >
+                            <span className="pet-arena-activity-icon"><GameIcon name="shield" size={22} /></span>
+                            <span><strong>Hollow Warfront</strong><small>{tacticalArenaUnlocked ? "4v4 tactical command" : `Locked · ${availableArenaPetCount}/${TACTICAL_ARENA_PET_REQUIREMENT} pets`}</small></span>
+                        </button>
+                        <button type="button" className={arenaView === "gauntlet" ? "active" : ""} aria-current={arenaView === "gauntlet" ? "page" : undefined} onClick={() => setArenaView("gauntlet")}>
+                            <span className="pet-arena-activity-icon"><GameIcon name="bolt" size={22} /></span>
+                            <span><strong>Pet Gauntlet</strong><small>Escalating endurance run</small></span>
+                        </button>
+                    </nav>
+                ) : null}
+            </header>
 
             {/* The async "accept a pet challenge" banner is GONE with the sender that fed
                 it: PvP pet duels are live-only now (plan §10), so an invite arrives over
@@ -1730,18 +1769,13 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             {arenaView === "battle" && (
             <>
-            {(
-                <div className="pet-arena-hero" style={{ backgroundImage: `url(${DUEL_HERO_BY_ELEMENT[selectedPet?.element ?? ""] ?? petDuelHero})` }}>
-                    <h3 className="hero-title">⚔️ Pet Colosseum</h3>
-                    <p className="hero-sub">
-                        Call the stance. Order the technique. Win the Clash. Every decision carries your pet through the arena.
-                        {selectedPet?.element && selectedPet.element !== "None" ? ` Arena attuned to ${selectedPet.element}.` : ""}
-                    </p>
-                </div>
-            )}
             <div className="pet-arena-grid">
-                <section className="summary-box pet-arena-selector">
-                    <h3>Your Pet</h3>
+                <section className="summary-box pet-arena-selector" data-side="player">
+                    <div className="pet-arena-panel-heading">
+                        <span className="pet-arena-step">01</span>
+                        <span><small>Lock contender</small><h2>Your companion</h2></span>
+                        <strong>{combatEligiblePets.length} rostered</strong>
+                    </div>
                     {combatEligiblePets.length === 0 ? (
                         <p className="hint">You need a pet before entering the arena.</p>
                     ) : (
@@ -1762,25 +1796,20 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     {selectedPet && <MatchupHint element={selectedPet.element} />}
                 </section>
 
-                <section className="summary-box pet-arena-selector">
-                    <h3>Challenge a Player</h3>
-                    {/* The built-in AI opponent list is gone from this screen.
-                        A practice fight against the arena's own pets is what the
-                        Coliseum entry does — one engine, arena-matched, with the
-                        daily faucet checked before you walk in — so offering a
-                        second, differently-resolved version of the same fight
-                        here was the split this port exists to close. What is
-                        left is what only this screen does: challenging a person. */}
-                    {/* Says out loud which of the two things this is. With the AI
-                        list gone, a player landing here needs to know that what
-                        they start from this box is unrated sparring and that the
-                        paid, capped bouts live behind the Coliseum door — otherwise
-                        the only way to find that out is to fight one and notice
-                        nothing was awarded. api/pet/coliseum-single-owner.test.ts
-                        holds this line to the screen. */}
+                <section className="summary-box pet-arena-selector" data-side="opponent">
+                    <div className="pet-arena-panel-heading">
+                        <span className="pet-arena-step">02</span>
+                        <span><small>Set opposition</small><h2>Challenge a shinobi</h2></span>
+                        <strong>Live duel</strong>
+                    </div>
                     <p className="hint">Social duels are live, unrated sparring. Paid Colosseum bouts use the server-owned Showdown below.</p>
-                    <label htmlFor="pet-arena-player-search">Search Player Name</label>
-                    <input id="pet-arena-player-search" value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
+                    <div className="pet-player-search">
+                        <label htmlFor="pet-arena-player-search">Search player name</label>
+                        <div className="pet-player-search-field">
+                            <GameIcon name="target" size={19} />
+                            <input type="search" autoComplete="off" id="pet-arena-player-search" value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Enter a shinobi name…" />
+                        </div>
+                    </div>
                     {(
                         opponentSearch.trim() ? (
                             <div>
@@ -1791,10 +1820,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         return (
                                             <>
                                                 {matches.map(p => (
-                                                    <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                                                        <strong>{p.name}</strong>
-                                                        <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "🟢 Online" : "⚫ Offline"}</span>
-                                                        <button onClick={() => sendDirectPetChallenge(p.name)}>⚔️ Challenge</button>
+                                                    <div className="pet-challenge-row" key={p.name}>
+                                                        <span className={`pet-online-dot ${p.online ? "on" : "off"}`} aria-label={p.online ? "Online" : "Offline"} />
+                                                        <span><strong>{p.name}</strong><small>Level {p.level} · {p.village || "Unknown"}</small></span>
+                                                        <button type="button" onClick={() => sendDirectPetChallenge(p.name)}><GameIcon name="sword" size={15} /> Challenge</button>
                                                     </div>
                                                 ))}
                                                 {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
@@ -1804,7 +1833,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                     return (
                                         <>
                                             <p className="hint">No account found for "{opponentSearch.trim()}".</p>
-                                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim())}>⚔️ Challenge "{opponentSearch.trim()}"</button>
+                                            <button type="button" onClick={() => sendDirectPetChallenge(opponentSearch.trim())}><GameIcon name="sword" size={15} /> Challenge "{opponentSearch.trim()}"</button>
                                             {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
@@ -1827,28 +1856,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             </div>
 
             {combatEligiblePets.length >= 2 && (
-                <div className="summary-box pet-arena-party" data-on={partyMode ? "true" : "false"}>
-                    <label className="pet-arena-party-toggle">
-                        <input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} />
-                        <span className="pet-arena-party-box" aria-hidden="true" />
-                        <span className="pet-arena-party-copy">
-                            <strong>🐾🐾 2v2 Party Battle</strong>
-                            {/* Says what actually happens now. A short roster used
-                                to be silently truncated to a 1v1; the duel is
-                                sealed against both teams at accept, so a 2v2 with
-                                only one available pet is REFUSED rather than
-                                quietly turned into a different fight. Promising a
-                                fallback here would make that refusal unreadable.
-                                PetDuelLiveHost.roster-contract.test.ts bars the
-                                old wording from returning. */}
-                            <span className="hint">
-                                Challenges the target to a 2v2. Both of you need 2 available pets — if either side is short, the challenge is declined rather than resized.
-                            </span>
-                        </span>
+                <section className="summary-box pet-party-config">
+                    <label className="pet-party-toggle">
+                        <span className="pet-party-switch"><input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} /><i aria-hidden="true" /></span>
+                        <GameIcon name="paw" size={22} />
+                        <span><strong>2v2 party battle</strong><small>Both players need 2 available pets; if either side is short, the challenge is declined rather than resized.</small></span>
+                        <em>{partyMode ? "Enabled" : "Optional"}</em>
                     </label>
                     {partyMode && (
-                        <div style={{ marginTop: "0.5rem" }}>
-                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Reserve pet (faces their reserve in match 2)</label>
+                        <div className="pet-party-reserve">
+                            <label>Reserve pet <small>Faces their reserve in match two</small></label>
                             <div className="pet-pick-panel" style={{ marginTop: 6 }}>
                                 <div className="pet-pick-grid">
                                     <button type="button"
@@ -1866,11 +1883,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             </div>
                         </div>
                     )}
-                </div>
+                </section>
             )}
 
             {/* THE COLISEUM. One mode, two doors:
-                  • the Coliseum bout — the arena matches you, the daily win cap
+                  • the Colosseum bout — the arena matches you, the daily win cap
                     applies, and a win pays. This is the reward loop.
                   • Training Grounds — sparring, and unlimited. By default the
                     arena draws a RANDOM team levelled pet-for-pet against the
@@ -1880,33 +1897,26 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     counters either way.
                 Both run the same turn-based engine; the difference is who
                 chooses the fight and whether it pays. */}
-            <div className="pet-coliseum-entry">
-                <button type="button" className="pet-coliseum-enter" data-door="arena" onClick={() => setScreen("petColiseum")}>
-                    <span className="door-glyph" aria-hidden="true">🏟️</span>
-                    <span className="door-eyebrow">The purse is real</span>
-                    <span className="door-title">Enter the Colosseum</span>
-                    <span className="door-sub">The arena picks your challenger and scales it to the squad you bring. Cinematic turn-based combat, and a win pays.</span>
-                    <span className="door-meta">
-                        <em>1v1 · 2v2 · 3v3</em>
-                        <em>{SHOWDOWN_DAILY_WIN_CAP} paid wins a day</em>
-                    </span>
-                </button>
-                <button type="button" className="pet-coliseum-enter" data-door="training" onClick={() => setScreen("petShowdown")}>
-                    <span className="door-glyph" aria-hidden="true">🥋</span>
-                    <span className="door-eyebrow">Free sparring</span>
-                    <span className="door-title">Training Grounds</span>
-                    <span className="door-sub">Spar a random AI team drawn fresh each bout and stood at your own pets' levels, pet for pet — or name a tier and drill it.</span>
-                    <span className="door-meta">
-                        <em>Level-matched</em>
-                        <em>No purse, no limit</em>
-                    </span>
-                </button>
-            </div>
+            <section className="pet-arena-destinations" aria-labelledby="pet-arena-circuits-title">
+                <div className="pet-arena-section-title">
+                    <span>Official circuits</span>
+                    <h2 id="pet-arena-circuits-title">Choose a fight contract</h2>
+                    <p>Matchmade rewards or consequence-free drills—both use the full command combat system.</p>
+                </div>
+                <div className="pet-arena-destination-grid">
+                    <button type="button" className="pet-arena-destination is-paid" onClick={() => setScreen("petColiseum")}>
+                        <span className="pet-arena-destination-icon"><GameIcon name="medal" size={30} /></span>
+                        <span className="pet-arena-destination-copy"><small>Paid circuit · daily purse</small><strong>Enter the Colosseum</strong><span>Matchmade 1v1 · 2v2 · 3v3, with up to {SHOWDOWN_DAILY_WIN_CAP} paid wins per day.</span></span>
+                        <span className="pet-arena-destination-action">Find a bout <b aria-hidden="true">→</b></span>
+                    </button>
+                    <button type="button" className="pet-arena-destination is-training" onClick={() => setScreen("petShowdown")}>
+                        <span className="pet-arena-destination-icon"><GameIcon name="dumbbell" size={30} /></span>
+                        <span className="pet-arena-destination-copy"><small>Free sparring · no limit</small><strong>Training Grounds</strong><span>Choose the opposition and drill tactics without risking counters or rewards.</span></span>
+                        <span className="pet-arena-destination-action">Open drills <b aria-hidden="true">→</b></span>
+                    </button>
+                </div>
+            </section>
 
-            {/* The fight card that used to live here started an AI exhibition
-                from this screen's own picker. Both doors above start one on the
-                shared engine instead, so there is nothing left to pick: a duel
-                arrives when a player accepts your challenge. */}
             {battleReady && result && (
                 <div className="menu pet-arena-verdict">
                     <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>
@@ -1986,9 +1996,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 document.body,
             )}
 
-            <section className="summary-box pet-arena-log" role="log" aria-label="Pet battle log" aria-live="polite" aria-relevant="additions text">
-                <h3>Battle Log</h3>
-                {visibleLog.length === 0 ? <p className="hint">Start a match to watch the pets fight.</p> : visibleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+            <section className={`summary-box pet-arena-log${visibleLog.length === 0 ? " is-idle" : ""}`} role="log" aria-label="Pet battle log" aria-live="polite" aria-relevant="additions text">
+                <div className="pet-arena-log-heading"><GameIcon name="scroll" size={18} /><span><small>Arena feed</small><strong>Battle record</strong></span><em>{visibleLog.length ? `${visibleLog.length} events` : "Awaiting bell"}</em></div>
+                {visibleLog.length === 0 ? <p className="hint">Your live combat calls and decisive moments will appear here after the bell.</p> : visibleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
             </section>
             </>
             )}
@@ -1999,14 +2009,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 responder picker. The match plays via the arenaMatch overlay
                 below (after the countdown). */}
             {arenaView === "tactical" && (
-                <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
-                    <div className="pet-arena-hero" style={{ backgroundImage: `url(${tacticalArenaHero})`, marginBottom: 0 }}>
-                        <h3 className="hero-title">⛩ Hollow Warfront</h3>
-                        <p className="hero-sub">
-                            A lane war on a huge 3D battlefield: hollow-spawn pour from the central Hollow Gate breach, two Guardian Totems ward each village outpost, and shattering the enemy WARD SEAL wins. Every kill pays bounty coins — spend them at the 90-second War Council, where you can also switch your team's formation. Ten minutes; Ward Seal or Judgment. Beat the AI team to earn pet-arena ryo (daily cap applies).
-                        </p>
-                    </div>
-
+                <section className="summary-box pet-warfront-lobby" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
                     {(() => {
                         const available = combatEligiblePets.filter((p) => !isPetOnExpedition(p));
                         const availableById = new Map(available.map((pet) => [pet.id, pet]));

@@ -10,6 +10,7 @@ import { startBattleMusic } from "../lib/pet-music";
 import { defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
+import { GameIcon } from "../components/icons/GameIcon";
 import { activeCarriedPets } from "../lib/entitlements";
 import { isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 // The Rare Beast Seal still RENDERS its bout locally (cinematic, or live when the
@@ -36,6 +37,7 @@ import {
     type ShowdownStateView,
 } from "../lib/pet-showdown-api";
 import { type CreatorEvent } from "../App";
+import "../styles/relic-dungeons.css";
 
 // The turn-based battle. Lazy so three/r3f only load when a fight actually
 // mounts — the same deal the continuous-duel renderer had before it.
@@ -121,8 +123,23 @@ export function DungeonEncounter({
         return <DungeonRareBeastBattle key={dungeonRunToken} character={character} dungeonRunToken={dungeonRunToken} onVersionedCharacter={onVersionedCharacter} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
     }
     return (
-        <div className="card cinematic-card">
-            <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
+        <div className="card cinematic-card relic-dungeon-screen" data-biome={event.biome}>
+            <header
+                className="relic-dungeon-command"
+                style={pageImage ? { backgroundImage: `linear-gradient(90deg, rgba(3,7,16,.97), rgba(3,7,16,.72) 58%, rgba(3,7,16,.34)), url(${pageImage})` } : undefined}
+            >
+                <button type="button" className="relic-dungeon-leave" onClick={onLeave}>← Leave dungeon</button>
+                <div className="relic-dungeon-identity">
+                    <span className="relic-dungeon-eyebrow"><GameIcon name="sigil" size={16} /> Hidden relic vault · {event.biome}</span>
+                    <h2>{page.title || event.vnTitle || event.name}</h2>
+                    <p>{page.scene || event.vnScene || "A hidden dungeon opens underfoot."}</p>
+                </div>
+                <div className="relic-dungeon-status" aria-label={`Seal ${stagePage + 1} of 3, line ${lineIndex + 1} of ${Math.max(1, pageDialogue.length)}`}>
+                    <span>Current seal</span>
+                    <strong>{stagePage + 1}<small>/ 3</small></strong>
+                    <em>Line {lineIndex + 1} / {Math.max(1, pageDialogue.length)}</em>
+                </div>
+            </header>
             <div className="visual-novel admin-vn-play">
                 <div className="vn-header">
                     <div>

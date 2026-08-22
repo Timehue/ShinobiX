@@ -15,6 +15,11 @@
 
 .pet-home-hero {
     position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(310px, 420px);
+    align-items: end;
+    gap: clamp(1.5rem, 4vw, 4rem);
     min-height: 270px;
     padding: clamp(4rem, 8vw, 7rem) clamp(1.25rem, 5vw, 5rem) 2.5rem;
     background-position: center;
@@ -23,10 +28,21 @@
     box-shadow: inset 0 -80px 70px rgba(4, 9, 19, .72);
 }
 
+.pet-home-hero::after { content: ""; position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 72% 28%,rgba(120,217,189,.16),transparent 30%); pointer-events: none; }
+.pet-home-hero-copy { max-width: 650px; }
 .pet-home-hero h1 { margin: .1rem 0; font: 700 clamp(3rem, 7vw, 6.5rem)/.9 Georgia, serif; letter-spacing: -.04em; }
 .pet-home-hero p { max-width: 34rem; margin: .8rem 0 0; color: #c4d3dc; font-size: clamp(1rem, 2vw, 1.2rem); }
 .pet-home-kicker { color: var(--home-gold); font-size: .72rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
-.pet-home-back { position: absolute; top: 1rem; left: 1rem; border: 1px solid var(--home-line); border-radius: 999px; color: white; background: rgba(3, 8, 18, .7); padding: .65rem 1rem; }
+.pet-home-back { position: absolute; top: 1rem; left: 1rem; display: inline-flex; align-items: center; gap: .7rem; min-height: 48px; border: 1px solid rgba(230,189,112,.38); border-radius: 12px; color: white; background: rgba(3, 8, 18, .78); padding: .55rem .85rem; box-shadow: 0 12px 30px rgba(0,0,0,.28); backdrop-filter: blur(10px); }
+.pet-home-back > span:first-child { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #08111e; background: #e6bd70; font-weight: 900; }
+.pet-home-back > span:last-child { display: grid; gap: .08rem; text-align: left; }
+.pet-home-back small { color: #8297a3; font-size: .55rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.pet-home-back strong { max-width: 240px; overflow: hidden; color: #edf6f7; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.pet-home-hero-ledger { display: grid; grid-template-columns: .75fr 1.35fr 1fr; gap: 1px; overflow: hidden; border: 1px solid rgba(230,189,112,.3); border-radius: 18px; background: rgba(230,189,112,.22); box-shadow: 0 22px 55px rgba(0,0,0,.34); backdrop-filter: blur(14px); }
+.pet-home-hero-ledger > div { display: grid; align-content: center; min-width: 0; min-height: 104px; background: rgba(4,11,21,.86); padding: .85rem .9rem; }
+.pet-home-hero-ledger span { color: #7f98a4; font-size: .58rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.pet-home-hero-ledger strong { margin-top: .25rem; overflow: hidden; color: #fff1c8; font: 700 clamp(.9rem,1.7vw,1.35rem)/1.08 Georgia,serif; text-overflow: ellipsis; white-space: nowrap; }
+.pet-home-hero-ledger small { margin-top: .25rem; color: #8fa7b5; font-size: .62rem; }
 
 .pet-home-tabs {
     position: sticky;
@@ -35,11 +51,11 @@
     display: flex;
     justify-content: center;
     gap: .35rem;
-    width: min(760px, calc(100% - 2rem));
+    width: min(920px, calc(100% - 2rem));
     margin: -1.35rem auto 1.5rem;
     padding: .4rem;
     border: 1px solid rgba(230, 189, 112, .3);
-    border-radius: 999px;
+    border-radius: 18px;
     background: rgba(5, 12, 23, .94);
     box-shadow: 0 16px 45px rgba(0, 0, 0, .35);
     backdrop-filter: blur(14px);
@@ -47,8 +63,24 @@
 
 .pet-yard-screen > .pet-home-tabs { margin: .65rem auto 1rem; }
 .pet-arena-screen > .pet-home-tabs { position: relative; top: auto; margin: 0 auto 1rem; }
-.pet-home-tabs button { flex: 1; min-height: 44px; border: 0; border-radius: 999px; color: #aebfca; background: transparent; font-weight: 800; }
-.pet-home-tabs button[aria-current="page"] { color: #08111e; background: linear-gradient(135deg, #f0ce86, #75d9be); box-shadow: 0 4px 18px rgba(120, 217, 189, .22); }
+.pet-home-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .48rem; min-height: 48px; border: 1px solid transparent; border-radius: 13px; color: #aebfca; background: transparent; font-weight: 800; transition: color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease; }
+.pet-home-tabs button svg { flex: 0 0 auto; color: #687f8d; }
+.pet-home-tabs button:hover { color: #f4e2b5; background: rgba(255,255,255,.045); transform: translateY(-1px); }
+.pet-home-tabs button[aria-current="page"] { border-color: rgba(255,255,255,.26); color: #08111e; background: linear-gradient(135deg, #f0ce86, #75d9be); box-shadow: 0 6px 22px rgba(120, 217, 189, .22); }
+.pet-home-tabs button[aria-current="page"] svg { color: #0a2730; }
+.pet-home-tab-label-short { display: none; }
+
+.pet-yard-screen .pet-yard-header .pet-yard-return { display: inline-flex; align-items: center; gap: .65rem; min-height: 52px; border-radius: 12px !important; padding: .48rem .75rem !important; }
+.pet-yard-return > span:first-child { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: #06101b; background: #e8d496; font-size: 1rem; font-weight: 900; }
+.pet-yard-return > span:last-child { display: grid; gap: .08rem; text-align: left; }
+.pet-yard-return small,.pet-yard-active-roster small { color: #778d9a; font-size: .54rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.pet-yard-return strong { max-width: 180px; overflow: hidden; color: #f4e2b5; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.pet-yard-screen .pet-yard-header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; }
+.pet-yard-title { min-width: 0; }
+.pet-yard-kicker { display: block; margin-bottom: .3rem; color: #78d9bd; font-size: .58rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+.pet-yard-active-roster { display: grid; grid-template-columns: repeat(2,minmax(118px,1fr)); gap: 1px; overflow: hidden; border: 1px solid rgba(196,162,90,.25); border-radius: 11px; background: rgba(196,162,90,.2); }
+.pet-yard-active-roster > span { display: grid; min-width: 0; gap: .2rem; background: rgba(5,10,24,.82); padding: .65rem .75rem; }
+.pet-yard-active-roster strong { overflow: hidden; color: #e8edf5; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .pet-collection, .breeding-barn { width: min(1260px, calc(100% - 2rem)); margin: 0 auto; }
 .pet-home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin: 1.5rem 0 1rem; }
@@ -250,6 +282,10 @@
 @keyframes sanctuary-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 900px) {
+    .pet-home-hero { grid-template-columns: 1fr; }
+    .pet-home-hero-ledger { width: min(620px,100%); }
+    .pet-yard-screen .pet-yard-header { grid-template-columns: auto minmax(0,1fr); }
+    .pet-yard-active-roster { grid-column: 1 / -1; width: 100%; }
     .pet-collection-filters { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .pet-search { grid-column: 1 / -1; }
     .breeding-odds { grid-template-columns: repeat(2,1fr); }
@@ -263,10 +299,21 @@
 }
 
 @media (max-width: 620px) {
-    .pet-home-hero { min-height: 220px; }
-    .pet-home-tabs { position: relative; top: auto; justify-content: flex-start; overflow-x: auto; border-radius: 16px; scrollbar-width: none; }
-    .pet-home-tabs::-webkit-scrollbar { display: none; }
-    .pet-home-tabs button { flex: 0 0 auto; padding: 0 .75rem; font-size: .72rem; white-space: nowrap; }
+    .pet-home-hero { min-height: 410px; gap: 1.1rem; padding: 5rem .85rem 1rem; background-position: 56% center; }
+    .pet-home-back { left: .75rem; top: .75rem; max-width: calc(100% - 1.5rem); }
+    .pet-home-back strong { max-width: 230px; }
+    .pet-home-hero-ledger { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .pet-home-hero-ledger > div { min-height: 76px; padding: .65rem .7rem; }
+    .pet-home-hero-ledger > div:last-child { grid-column: 1 / -1; }
+    .pet-home-tabs { position: relative; top: auto; display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: .2rem; overflow: visible; width: calc(100% - 1rem); padding: .3rem; border-radius: 15px; }
+    .pet-home-tabs button { flex: none; flex-direction: column; gap: .2rem; min-width: 0; min-height: 52px; padding: .35rem .08rem; font-size: .58rem; line-height: 1; white-space: nowrap; }
+    .pet-home-tabs button svg { width: 17px; height: 17px; }
+    .pet-home-tab-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .pet-home-tab-label-full { display: none; }
+    .pet-home-tab-label-short { display: inline; }
+    .pet-yard-screen .pet-yard-header { grid-template-columns: 1fr; align-items: stretch; }
+    .pet-yard-screen .pet-yard-header .pet-yard-return { justify-self: start; }
+    .pet-yard-active-roster { grid-column: auto; grid-template-columns: 1fr 1fr; }
     .pet-collection, .breeding-barn { width: min(100% - 1rem, 1260px); }
     .pet-collection-filters { grid-template-columns: 1fr 1fr; padding: .7rem; }
     .pet-collection-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: .55rem; }
