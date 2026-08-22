@@ -30,7 +30,7 @@ function initialClassicReader(): boolean {
     }
 }
 
-export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, sharedImages, surface = "immersive" }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic" }) {
+export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
     // The local character object can drift out of sync with the freshly-
     // uploaded avatar (server saves strip images and re-hydrate from the
     // shared image store). Resolve once via the same path the Tavern uses:
@@ -79,7 +79,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // has earned it; forbidTrait hides it once earned. Choices without either
     // field (i.e. every existing VN) are always shown — no behavior change.
     const playerTraits = character.storyTraits ?? [];
-    const pageChoices = page.choices?.filter((c) => !!c.text && isChoiceAvailable(c, playerTraits));
+    const pageChoices = readOnlyReplay
+        ? []
+        : page.choices?.filter((c) => !!c.text && isChoiceAvailable(c, playerTraits));
     const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
     const choicePointKey = isAtChoicePoint ? `${event.id}:${pageIndex}:${lineIndex}` : "";
     const [armedChoiceKey, setArmedChoiceKey] = useState("");
@@ -138,7 +140,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // so the free-battle affordances are hidden and the finale copy changes.
     // 2026-07 pass widens the family to reckonings, the scribe, and any other
     // zero-reward VN so no pure conversation ever grows the generic footer.
-    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || isRiftEvent || isStoryReckoningEvent || isScribeEvent || isZeroRewardVn;
+    const isStoryInterlude = readOnlyReplay || event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || isRiftEvent || isStoryReckoningEvent || isScribeEvent || isZeroRewardVn;
     // Post-finale ending epilogues ("story-epilogue-*", lib/story-epilogue.ts):
     // pure goodbye scenes — no battle, no reward, never re-offered.
     const isStoryEpilogue = event.id.startsWith("story-epilogue-");
@@ -146,15 +148,17 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
     const isSageEvent = event.id === "legacy-sage-offer";
-    const eventLabel = event.id.startsWith("story-road-")
-        ? "Road Story"
-        : isStoryEpilogue
-            ? "Epilogue"
-            : isStoryInterlude
-                ? "Story Interlude"
-                : isStoryChapterEvent
-                    ? "Village Chronicle"
-                    : "Story Event";
+    const eventLabel = readOnlyReplay
+        ? "Story Replay"
+        : event.id.startsWith("story-road-")
+            ? "Road Story"
+            : isStoryEpilogue
+                ? "Epilogue"
+                : isStoryInterlude
+                    ? "Story Interlude"
+                    : isStoryChapterEvent
+                        ? "Village Chronicle"
+                        : "Story Event";
     const spokenText = applyVnTextVars(spoken, textVars);
     const presentation = resolveVnPresentation({
         event,
@@ -289,7 +293,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     function previousLine() { if (!canBack || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
     function nextLine() { if (isAtChoicePoint || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
     function chooseOption(choice: VnChoice) {
-        if (!choicesArmed || !beginAction()) return;
+        if (readOnlyReplay || !choicesArmed || !beginAction()) return;
         // Record the trait this choice grants (additive, deduped) before doing
         // anything else, so it persists even when the choice leads to a battle.
         onChoice?.(choice);
@@ -331,7 +335,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // host — a double-fire just clears an already-cleared event.
     function cancelScene() { onCancel(); }
     function completeScene() { if (beginAction()) onComplete(); }
-    function startBattle(battle?: VnChoice["battle"]) { if (beginAction()) onBattle(event, battle); }
+    function startBattle(battle?: VnChoice["battle"]) { if (!readOnlyReplay && beginAction()) onBattle(event, battle); }
     function replayScene() {
         if (pageIndex === 0 && lineIndex === 0 && !pendingChoice) return;
         if (!beginAction()) return;
@@ -340,17 +344,19 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         setPendingChoice(null);
         setShowFinale(false);
     }
-    const finaleText = isAuraSphereEvent
-        ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
-        : isSageEvent
-            ? "The Sage falls silent, watching you. The paths he named still hang in the air, and only one of them can ever be yours."
-            : isStoryEpilogue
-                ? "The last page of this village's story turns. What the village becomes next, it becomes with you in it."
-                : isStoryInterlude
-                    ? "The road moves on. What you chose here is written down somewhere that matters."
-                    : isStoryChapterEvent
-                        ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
-                        : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
+    const finaleText = readOnlyReplay
+        ? "The preserved scene reaches its end. Nothing has been changed or claimed; this is the road exactly as the Chronicle remembers it."
+        : isAuraSphereEvent
+            ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
+            : isSageEvent
+                ? "The Sage falls silent, watching you. The paths he named still hang in the air, and only one of them can ever be yours."
+                : isStoryEpilogue
+                    ? "The last page of this village's story turns. What the village becomes next, it becomes with you in it."
+                    : isStoryInterlude
+                        ? "The road moves on. What you chose here is written down somewhere that matters."
+                        : isStoryChapterEvent
+                            ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
+                            : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
     if (showFinale && !readerUsesClassic && presentation.mode === "cinematic") return (
         <CinematicVisualNovelStage
             eventId={event.id}
@@ -401,7 +407,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             </div>
             <div className="vn-finale-body">
                 <p className="vn-scene-card">
-                    {isAuraSphereEvent
+                    {readOnlyReplay
+                        ? "The preserved scene reaches its end. Nothing has been changed or claimed; this is the road exactly as the Chronicle remembers it."
+                        : isAuraSphereEvent
                         ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
                         : isSageEvent
                             ? "The Sage falls silent, watching you. The paths he named still hang in the air — and only one of them can ever be yours."
@@ -435,7 +443,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             </div>
             <div className="vn-reward-strip">
                 <span>
-                    {isAuraSphereEvent
+                    {readOnlyReplay
+                        ? "Read-only Story Hall replay · no rewards or decisions can be changed"
+                        : isAuraSphereEvent
                         ? "Reward: Aura Sphere item"
                         : isSageEvent
                             ? "One Legacy, forever. Turning him down is always free."

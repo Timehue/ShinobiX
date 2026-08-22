@@ -58,15 +58,9 @@ test("Card Hall section navigation exposes button state rather than incomplete t
   assert.doesNotMatch(duelCss, /\.chronicle-tabs button\[aria-selected="true"\]/);
 });
 
-test("Card Hall explains the complete story-companion-Chronicle-Legacy loop", () => {
-  assert.match(source, /aria-labelledby="living-chronicle-spine-title"/);
-  assert.match(source, /The Ancients were people of the Sunken Court's age/);
-  assert.match(source, /The Withheld refused to surrender their defining choices/);
-  assert.match(source, /Your eligible active companion can answer your call in story combat/);
-  assert.match(source, /After ten arena victories, that companion earns a Living Witness record/);
-  assert.match(source, /Chronicle victories are part of your path/);
-  assert.match(source, /pattern you chose, never a bloodline/);
-  const spine = source.slice(source.indexOf('<section className="living-chronicle-spine"'), source.indexOf("{progressionReceipt.length"));
-  assert.doesNotMatch(spine, /server-recorded|authoritative|client-side|duplicate reward/i);
-  assert.doesNotMatch(source, /The authoritative result is final|The server can deal|remain server-private|server-enforced|The server did not confirm/);
+test("Card Hall keeps record receipts without owning the Living Chronicle explainer", () => {
+  assert.doesNotMatch(source, /className="living-chronicle-spine"/);
+  assert.doesNotMatch(source, /ONE JOURNEY · FOUR FORMS OF PROOF/);
+  assert.match(source, /Living Chronicle updated/);
+  assert.match(source, /View new cards/);
 });
