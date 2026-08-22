@@ -1,7 +1,8 @@
 import type { Character } from "../types/character";
-import type { StoryStep } from "../types/vn";
+import type { CreatorEvent, StoryStep } from "../types/vn";
 import type { StoryInterlude } from "../data/story-interludes";
 import type { StoryContentPayload } from "./story-content-contract";
+import { interludeToCreatorEvent, storyToCreatorEvent } from "./story-trigger";
 import { splitDialogueLine } from "./vn";
 
 export type StoryArchivePage = {
@@ -19,7 +20,8 @@ export type CompletedStoryArchiveEntry = {
     eyebrow: string;
     icon: string;
     pages: StoryArchivePage[];
-    chosen?: { text: string; conclusion: string };
+    decisions: { text: string; conclusion: string }[];
+    replayEvent: CreatorEvent;
 };
 
 export type StoryArchiveGuidance = {
@@ -78,16 +80,71 @@ export function storyArchiveGuidance(character: Character, content: StoryContent
     };
 }
 
-function chapterPages(step: StoryStep): StoryArchivePage[] {
-    const pages = step.pages?.length
-        ? step.pages
-        : [{
-            title: step.cinematicTitle,
-            scene: step.scene,
-            speaker: "Narrator",
-            dialogue: step.dialogue,
-        }];
-    return pages.map((page) => ({
+type StoryPage = NonNullable<StoryStep["pages"]>[number];
+
+function choiceIsAvailable(choice: NonNullable<StoryPage["choices"]>[number], traits: Set<string>): boolean {
+    if (choice.requireTrait && !traits.has(choice.requireTrait)) return false;
+    if (choice.forbidTrait && traits.has(choice.forbidTrait)) return false;
+    return true;
+}
+
+function selectedChoice(page: StoryPage, traits: Set<string>) {
+    const available = (page.choices ?? []).filter((choice) => choiceIsAvailable(choice, traits));
+    return available.find((choice) => choice.trait && traits.has(choice.trait))
+        ?? (available.length === 1 ? available[0] : undefined);
+}
+
+function selectedPath(pages: StoryPage[], traits: Set<string>): StoryPage[] {
+    const selected: StoryPage[] = [];
+    const visited = new Set<number>();
+    let pageIndex = 0;
+    while (pageIndex >= 0 && pageIndex < pages.length && !visited.has(pageIndex)) {
+        visited.add(pageIndex);
+        const page = pages[pageIndex];
+        selected.push(page);
+        const choices = page.choices ?? [];
+        if (choices.length === 0) {
+            pageIndex += 1;
+            continue;
+        }
+        const choice = selectedChoice(page, traits);
+        if (!choice || choice.nextPage === pageIndex) break;
+        pageIndex = choice.nextPage;
+    }
+    return selected;
+}
+
+function recordedDecisions(pages: StoryPage[], traits: Set<string>): { text: string; conclusion: string }[] {
+    const seen = new Set<string>();
+    return pages.flatMap((page) => (page.choices ?? []).flatMap((choice) => {
+        if (!choice.trait || !traits.has(choice.trait) || seen.has(choice.trait)) return [];
+        seen.add(choice.trait);
+        return [{ text: choice.text, conclusion: choice.conclusion ?? "" }];
+    }));
+}
+
+function readOnlyReplayEvent(event: CreatorEvent, traits: Set<string>): CreatorEvent {
+    const pages = selectedPath(event.vnPages ?? [], traits).map((page) => ({
+        ...page,
+        // The archive has already resolved the durable choice. Removing the live
+        // controls makes replay incapable of granting a trait or launching the
+        // battle/reward path a second time while preserving the chosen branch.
+        choices: undefined,
+    }));
+    return {
+        ...event,
+        eventKind: "visualNovel",
+        vnPages: pages,
+        xpReward: 0,
+        ryoReward: 0,
+        staminaReward: 0,
+        currencyRewards: undefined,
+        aiProfileId: undefined,
+    };
+}
+
+function archivePages(pages: StoryPage[], traits: Set<string>): StoryArchivePage[] {
+    return selectedPath(pages, traits).map((page) => ({
         title: page.title,
         scene: page.scene,
         image: page.image,
@@ -98,35 +155,48 @@ function chapterPages(step: StoryStep): StoryArchivePage[] {
     }));
 }
 
-function interludePages(interlude: StoryInterlude): StoryArchivePage[] {
-    return interlude.pages.map((page, pageIndex) => ({
-        title: page.title,
-        scene: page.scene,
-        image: pageIndex === 0 ? `/scenes/story/${interlude.id}.webp` : undefined,
-        lines: page.dialogue
-            .map((line) => splitDialogueLine(line, page.speaker || "Narrator"))
-            .map((line) => ({ speaker: line.speaker, text: line.text })),
+function chapterPages(step: StoryStep, traits: Set<string>): StoryArchivePage[] {
+    const pages = step.pages?.length
+        ? step.pages
+        : [{
+            title: step.cinematicTitle,
+            scene: step.scene,
+            speaker: "Narrator",
+            dialogue: step.dialogue,
+        }];
+    return archivePages(pages, traits);
+}
+
+function interludePages(interlude: StoryInterlude, traits: Set<string>): StoryArchivePage[] {
+    return archivePages(interlude.pages, traits).map((page, pageIndex) => ({
+        ...page,
+        image: page.image ?? (pageIndex === 0 ? `/scenes/story/${interlude.id}.webp` : undefined),
     }));
 }
 
 export function buildCompletedStoryArchive(character: Character, content: StoryContentPayload): CompletedStoryArchiveEntry[] {
     const village = character.storyVillage || character.village;
-    const traits = character.storyTraits ?? [];
+    const traits = new Set(character.storyTraits ?? []);
     const completedChapterCount = Math.max(0, character.storyProgress ?? 0);
     const chapters = (content.village === village ? content.chapters : [])
         .slice(0, completedChapterCount)
-        .map((step, index): CompletedStoryArchiveEntry => ({
-            id: `chapter-${step.levelReq}-${index}`,
-            kind: "chapter",
-            level: step.levelReq,
-            title: step.title,
-            eyebrow: `Chapter ${index + 1} · ${step.bossName} defeated`,
-            icon: step.bossIcon,
-            pages: chapterPages(step),
-        }));
+        .map((step, index): CompletedStoryArchiveEntry => {
+            const id = `chapter-${step.levelReq}-${index}`;
+            return {
+                id,
+                kind: "chapter",
+                level: step.levelReq,
+                title: step.title,
+                eyebrow: `Chapter ${index + 1} · ${step.bossName} defeated`,
+                icon: step.bossIcon,
+                pages: chapterPages(step, traits),
+                decisions: recordedDecisions(step.pages ?? [], traits),
+                replayEvent: readOnlyReplayEvent(storyToCreatorEvent(step, village, index), traits),
+            };
+        });
     const interludes = (content.village === village ? content.interludes : []).flatMap((interlude): CompletedStoryArchiveEntry[] => {
         const finalChoices = interlude.pages.at(-1)?.choices ?? [];
-        const picked = finalChoices.find((choice) => choice.trait && traits.includes(choice.trait));
+        const picked = finalChoices.find((choice) => choice.trait && traits.has(choice.trait));
         if (!picked) return [];
         return [{
             id: interlude.id,
@@ -135,8 +205,9 @@ export function buildCompletedStoryArchive(character: Character, content: StoryC
             title: interlude.title,
             eyebrow: `Interlude · level ${interlude.levelReq}`,
             icon: "📜",
-            pages: interludePages(interlude),
-            chosen: { text: picked.text, conclusion: picked.conclusion ?? "" },
+            pages: interludePages(interlude, traits),
+            decisions: recordedDecisions(interlude.pages, traits),
+            replayEvent: readOnlyReplayEvent(interludeToCreatorEvent(interlude), traits),
         }];
     });
     return [...chapters, ...interludes].sort((a, b) => a.level - b.level || a.kind.localeCompare(b.kind));

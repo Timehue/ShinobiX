@@ -24,6 +24,7 @@ import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "../lib/story-fight-theme";
 import { StoryJourney } from "../components/StoryJourney";
+import { LivingChronicle } from "../components/LivingChronicle";
 import { StoryContentBoundary } from "../components/StoryContentBoundary";
 import {
     type CreatorEvent,
@@ -38,13 +39,31 @@ export function StoryArchiveHall({
     setScreen: (screen: Screen) => void;
 }) {
     const village = character.storyVillage || character.village;
+    const [section, setSection] = useState<"stories" | "chronicle">("stories");
     if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
     return (
         <div className="card cinematic-card story-hall-archive">
             <BackToVillageButton onClick={() => setScreen("village")} />
-            <StoryContentBoundary village={village} onReturn={() => setScreen("village")}>
-                <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} />
-            </StoryContentBoundary>
+            <header className="story-hall-heading">
+                <p className="act-label">VILLAGE MEMORY · LIVING RECORD</p>
+                <h1>Story Hall</h1>
+                <p>Revisit the road you chose, then see the deeds your world has preserved around it.</p>
+            </header>
+            <nav className="story-hall-tabs" aria-label="Story Hall sections">
+                <button type="button" aria-pressed={section === "stories"} onClick={() => setSection("stories")}>
+                    Completed Stories
+                </button>
+                <button type="button" aria-pressed={section === "chronicle"} onClick={() => setSection("chronicle")}>
+                    Living Chronicle
+                </button>
+            </nav>
+            {section === "stories" ? (
+                <StoryContentBoundary village={village} onReturn={() => setScreen("village")}>
+                    <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} />
+                </StoryContentBoundary>
+            ) : (
+                <LivingChronicle key={`${character.name}:${character.clan ?? ""}`} character={character} />
+            )}
         </div>
     );
 }
