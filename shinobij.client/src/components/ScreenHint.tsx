@@ -61,7 +61,7 @@ export function ScreenHint({
     return createPortal(
         <>
             <div
-                className="onboarding-coach-banner screen-hint-banner"
+                className={`onboarding-coach-banner screen-hint-banner screen-hint-${screen}`}
                 style={bannerStyle}
                 role="note"
                 aria-label={`${subject} contextual tip`}
