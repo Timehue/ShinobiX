@@ -56,6 +56,9 @@ import { gameToast } from "../components/GameToast";
 import { Modal } from "../components/ui/Modal";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
+import { CentralAwakeningCinematic } from "../components/CentralAwakeningCinematic";
+import { primeGameAudio } from "../lib/game-audio";
+import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
 
 // Fantasy glyph per craft material — gives the forge's material list real
 // imagery instead of plain rows. Tiered by point value (see craftTier) for
@@ -137,6 +140,10 @@ export function CentralHub({
     const [showArchives, setShowArchives] = useState(false);
     const [showAwakening, setShowAwakening] = useState(false);
     const [awakeningMsg, setAwakeningMsg] = useState("");
+    const [awakeningCinematic, setAwakeningCinematic] = useState<{
+        elements: string[];
+        mode: "awakening" | "reroll";
+    } | null>(null);
     const [showCelestialPanel, setShowCelestialPanel] = useState(false);
     const [showDungeonPanel, setShowDungeonPanel] = useState(false);
     const [showCrafter, setShowCrafter] = useState(false);
@@ -389,6 +396,10 @@ export function CentralHub({
             ])));
             const next = getCharacterElements(result.character);
             const revealed = next.find(element => !previous.includes(element));
+            setAwakeningCinematic({
+                elements: kind === "paid" ? next : revealed ? [revealed] : next,
+                mode: kind === "paid" ? "reroll" : "awakening",
+            });
             setAwakeningMsg(kind === "paid"
                 ? `✨ The stone swirls and reveals: ${next.join(" / ")}! Your elements were rerolled (-10 Fate Shards).`
                 : `✨ The stone pulses${revealed ? ` with ${revealed} chakra` : ""}! Your awakened elements: ${next.join(" / ")}.`);
@@ -435,10 +446,9 @@ export function CentralHub({
 
     const hasFreeRoll = freeAwakeningKind !== null;
     const weeklyBossOverrideAi = sharedWeeklyBossAiIdCache ? playableAis.find(ai => ai.id === sharedWeeklyBossAiIdCache) ?? null : null;
-    // Schedule is consumed locally inside claimWeeklyBoss (fresh per-click compute);
-    // the top-level binding is kept for potential future hub UI use.
-    const _weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
-    void _weeklyBoss;
+    // Surface the current server-wide hunt in the hub so players can tell whether
+    // the destination is live before committing to the route.
+    const weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
     const allHubItems = getAllItems(creatorItems);
 
     function countInventory(itemId: string) {
@@ -562,97 +572,192 @@ export function CentralHub({
         .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && item.rarity === "rare")
         .sort((a, b) => a.name.localeCompare(b.name));
 
-    const centralOptions = [
+    const awakenedElements = getCharacterElements(character);
+    const dungeonKeyCount = countInventory(DUNGEON_KEY_ID);
+    const weeklyBossBadge = weeklyBoss.status === "active"
+        ? `${weeklyBoss.bossIcon} Live now`
+        : weeklyBoss.status === "defeated"
+            ? "Cleared this week"
+            : weeklyBoss.status === "escaped"
+                ? "Returns next week"
+                : "Approaching";
+    const centralDistricts = [
         {
-            name: "Arena District",
-            icon: <GiCrossedSwords size={34} />,
-            text: "Clan battles, ranked mode, tournaments, spectator boards, and pet battle challenges.",
-            action: () => setScreen("arenaDistrict"),
+            id: "city",
+            eyebrow: "Navigate the capital",
+            title: "City Districts",
+            description: "Competition, governance, trade, and contracts—the essential services of Central.",
+            tone: "azure",
+            options: [
+                {
+                    name: "Arena District",
+                    kicker: "Compete",
+                    badge: "Ranked & clan",
+                    icon: <GiCrossedSwords size={34} />,
+                    text: "Enter tournaments, ranked ladders, spectator boards, and challenge halls.",
+                    action: () => setScreen("arenaDistrict"),
+                },
+                {
+                    name: "Shinobi Council Hall",
+                    kicker: "Govern",
+                    badge: "War command",
+                    icon: <GiGreekTemple size={34} />,
+                    text: "Review active village and clan wars, side strength, and leading contributors.",
+                    action: () => setScreen("shinobiCouncil"),
+                },
+                {
+                    name: "Grand Marketplace",
+                    kicker: "Trade",
+                    badge: "Elite stock",
+                    icon: <GiShop size={34} />,
+                    text: "Browse legendary gear, companion equipment, and premium card packs.",
+                    action: () => setScreen("grandMarketplace"),
+                },
+                {
+                    name: "Hunter Guild",
+                    kicker: "Track",
+                    badge: "Contracts",
+                    icon: <GiDragonHead size={34} />,
+                    text: "Take beast contracts, track sectors, gather materials, and build hunter rank.",
+                    action: () => setScreen("hunting"),
+                },
+            ],
         },
         {
-            name: "Shinobi Council Hall",
-            icon: <GiGreekTemple size={34} />,
-            text: "Active village wars, clan wars, HP of each side, and top contributors.",
-            action: () => setScreen("shinobiCouncil"),
+            id: "legacy",
+            eyebrow: "Shape your legend",
+            title: "Legacy & Craft",
+            description: "Study the world, awaken your nature, and turn hard-won materials into power.",
+            tone: "gold",
+            options: [
+                {
+                    name: "Hall of Legends",
+                    kicker: "Compare",
+                    badge: "Leaderboards",
+                    icon: <GiTrophy size={34} />,
+                    text: "See the shinobi, clans, pets, streaks, and villages defining the current era.",
+                    action: () => setScreen("hallOfLegends"),
+                },
+                {
+                    name: "Ancient Archives",
+                    kicker: "Study",
+                    badge: "Bloodline codex",
+                    icon: <GiBookshelf size={34} />,
+                    text: "Explore bloodline lore, techniques, ranks, elements, and player records.",
+                    action: () => setShowArchives(true),
+                },
+                {
+                    name: "Awakening Stone",
+                    kicker: "Awaken",
+                    badge: hasFreeRoll ? "Free awakening ready" : awakenedElements.length ? awakenedElements.join(" · ") : "Elemental path",
+                    icon: <GiCrystalBall size={34} />,
+                    text: awakenedElements.length
+                        ? "Reroll your elemental nature or begin forging a bloodline from ancient materials."
+                        : "Reveal your elemental nature and open the path to bloodline forging.",
+                    action: () => {
+                        primeCentralAwakeningArtwork();
+                        primeGameAudio(["omen", "reveal", "mythic"]);
+                        setShowAwakening(true);
+                        setAwakeningMsg("");
+                    },
+                    featured: hasFreeRoll,
+                },
+                {
+                    name: "Crafter",
+                    kicker: "Forge",
+                    badge: "Weapons & supplies",
+                    icon: <GiBlacksmith size={34} />,
+                    text: "Convert hunting, boss, dungeon, and war materials into proven equipment.",
+                    action: () => setShowCrafter(true),
+                },
+            ],
         },
         {
-            name: "Grand Marketplace",
-            icon: <GiShop size={34} />,
-            text: "Legendary and mythic Fate-Shard gear, companion equipment, and premium card packs.",
-            action: () => setScreen("grandMarketplace"),
+            id: "frontier",
+            eyebrow: "Push beyond the gates",
+            title: "Trials & Expeditions",
+            description: "High-stakes destinations for companions, relic hunters, and veteran shinobi.",
+            tone: "crimson",
+            options: [
+                {
+                    name: "Pet Colosseum",
+                    kicker: "Command",
+                    badge: "Companion trials",
+                    icon: <GiColiseum size={34} />,
+                    text: "Choose a companion for cinematic showdowns or enter the tactical pet arena.",
+                    action: () => setScreen("petArena"),
+                },
+                {
+                    name: "Relic Dungeons",
+                    kicker: "Explore",
+                    badge: `${dungeonKeyCount} ${dungeonKeyCount === 1 ? "key" : "keys"}`,
+                    icon: <GiDungeonGate size={34} />,
+                    text: "Spend a Dungeon Key to breach one of five relic vaults with equal strength curves.",
+                    action: () => setShowDungeonPanel(true),
+                },
+                {
+                    name: "Weekly Boss",
+                    kicker: "Rally",
+                    badge: weeklyBossBadge,
+                    icon: <GiOgre size={34} />,
+                    text: `${weeklyBoss.bossName} anchors this week's server-wide 72-hour hunt and contribution ladder.`,
+                    action: () => setScreen("weeklyBoss"),
+                    featured: weeklyBoss.status === "active",
+                },
+                {
+                    name: "Celestial Tower",
+                    kicker: "Ascend",
+                    badge: "Endless climb",
+                    icon: <GiStoneTower size={34} />,
+                    text: "Climb scaling floors, protect your banked ryo, and claim permanent milestones.",
+                    action: () => setShowCelestialPanel(true),
+                },
+            ],
         },
-        {
-            name: "Hunter Guild",
-            icon: <GiDragonHead size={34} />,
-            text: "Beast hunt contracts, sector tracking, material drops, and hunter rank progression.",
-            action: () => setScreen("hunting"),
-        },
-        {
-            name: "Hall of Legends",
-            icon: <GiTrophy size={34} />,
-            text: "Ranked leaderboards, top clans, kill streaks, pet arena, endless waves, and village war records.",
-            action: () => setScreen("hallOfLegends"),
-        },
-        {
-            name: "Ancient Archives",
-            icon: <GiBookshelf size={34} />,
-            text: "Bloodline lore, techniques, ranks, elements, and player-created bloodline records.",
-            action: () => setShowArchives(true),
-        },
-        {
-            name: "Awakening Stone",
-            icon: <GiCrystalBall size={34} />,
-            text: getCharacterElements(character).length
-                ? `Your elements: ${getCharacterElements(character).join(" / ")}. Reroll, or forge a bloodline using ancient materials.`
-                : "Discover your elemental nature. Free at level 2 and level 20.",
-            action: () => { setShowAwakening(true); setAwakeningMsg(""); },
-        },
-        {
-            name: "Pet Colosseum",
-            icon: <GiColiseum size={34} />,
-            text: "Pick a pet and watch a cinematic duel — it approaches, kites, dodges and unleashes ultimates on its own. Also hosts the Tactical Pet Arena.",
-            action: () => setScreen("petArena"),
-        },
-        {
-            name: "Crafter",
-            icon: <GiBlacksmith size={34} />,
-            text: "Convert hunting, boss, dungeon, and war materials into supplies and existing balanced weapons.",
-            action: () => setShowCrafter(true),
-        },
-        {
-            name: "Relic Dungeons",
-            icon: <GiDungeonGate size={34} />,
-            text: `Use Dungeon Keys to enter one of five same-strength relic dungeons. Keys: ${countInventory(DUNGEON_KEY_ID)}.`,
-            action: () => setShowDungeonPanel(true),
-        },
-        {
-            name: "Weekly Boss",
-            icon: <GiOgre size={34} />,
-            text: "Server-wide 72-hour rampage. Top 10 by damage earn a Weekly Boss Core, top 25 earn a Dungeon Key, MVP gets 2× ryo; every contributor banks stat points.",
-            action: () => setScreen("weeklyBoss"),
-        },
-        {
-            name: "Celestial Tower",
-            icon: <GiStoneTower size={34} />,
-            text: "Endless PvE climb — fight scaling AI until you fall. Banked ryo lost on death, but kill milestones (Bone Charms / Fate Shards) and 10-kill rest stops are yours to keep.",
-            action: () => setShowCelestialPanel(true),
-        },
-    ];
+    ] as const;
     return (
         <div className="central-hub">
+            {awakeningCinematic && (
+                <CentralAwakeningCinematic
+                    elements={awakeningCinematic.elements}
+                    mode={awakeningCinematic.mode}
+                    playerName={character.name}
+                    onFinished={() => setAwakeningCinematic(null)}
+                />
+            )}
             {/* Drifting golden motes + god-ray sweep + time-of-day wash + a few
                 doves/fireflies over the citadel backdrop (all sit behind the cards
                 via z-index in central-skin.css). */}
             <SceneAmbience biome="central" />
             <DayNightSky />
             <SceneCritters biome="central" density={0.7} />
-            <div className="central-hero">
-                <h1><GiTempleGate style={HDR_ICON} />Central — The Thousand Gates</h1>
-                <p>
-                    A neutral fortress city where every village, clan, rogue, merchant,
-                    hunter, and legend crosses paths.
-                </p>
-            </div>
+            <header className="central-hero">
+                <div className="central-hero-copy">
+                    <div className="central-hero-eyebrow">
+                        <GiTempleGate aria-hidden="true" />
+                        <span>World capital · Neutral territory</span>
+                    </div>
+                    <h1>
+                        <span className="central-hero-title">Central</span>
+                        <span className="central-hero-subtitle">The Thousand Gates</span>
+                    </h1>
+                    <p>
+                        Choose your district, follow the live signals, and move through the
+                        shinobi world from one clear command center.
+                    </p>
+                </div>
+                <aside className="central-passport" aria-label="Central arrival status">
+                    <div className="central-level-seal" aria-label={`Level ${character.level}`}>
+                        <span>Level</span>
+                        <strong>{character.level}</strong>
+                    </div>
+                    <div className="central-passport-copy">
+                        <span>Arrival status</span>
+                        <strong>{character.village ? `${character.village} envoy` : "Independent shinobi"}</strong>
+                        <small>{awakenedElements.length ? awakenedElements.join(" · ") : "Element not yet awakened"}</small>
+                    </div>
+                </aside>
+            </header>
 
             <NextGoalPin
                 character={character}
@@ -663,8 +768,12 @@ export function CentralHub({
                 }}
             />
 
-            <div className="central-log">
-                {centralLog}
+            <div className="central-log" role="status" aria-live="polite">
+                <span className="central-log-icon" aria-hidden="true"><GiSparkles /></span>
+                <span className="central-log-copy">
+                    <strong>Central dispatch</strong>
+                    <span>{centralLog}</span>
+                </span>
             </div>
 
             {/* Active-war alert: only renders when the player's village
@@ -681,37 +790,19 @@ export function CentralHub({
                 const minsToWar = isPending ? Math.max(1, Math.ceil((activeWarBanner.pendingUntil! - serverNow()) / 60_000)) : 0;
                 const ageDays = Math.floor((serverNow() - (activeWarBanner.pendingUntil ?? activeWarBanner.startedAt)) / (24 * 60 * 60 * 1000));
                 return (
-                    <div
-                        style={{
-                            background: isPending
-                                ? "linear-gradient(90deg, #3b2a05, #1a1a2e, #3b2a05)"
-                                : "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
-                            border: `2px solid ${isPending ? "#fbbf24" : "var(--red-400)"}`,
-                            borderRadius: 8,
-                            padding: "0.8rem 1rem",
-                            margin: "0 0 1rem",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            gap: 12,
-                            boxShadow: isPending
-                                ? "0 0 14px rgba(251, 191, 36, 0.25)"
-                                : "0 0 14px rgba(248, 113, 113, 0.25)",
-                            animation: "pulse 2.5s infinite",
-                        }}
-                    >
-                        <div style={{ flex: 1, minWidth: 0 }}>
+                    <section className={`central-war-alert ${isPending ? "is-pending" : "is-active"}`} aria-label="Active village war">
+                        <div className="central-war-copy">
                             {isPending ? (
                                 <>
-                                    <strong style={{ color: "#fde047", fontSize: "1.05rem" }}>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
-                                    <div style={{ fontSize: "0.82rem", color: "var(--gold-400)", marginTop: 4 }}>
+                                    <strong>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
+                                    <div className="central-war-summary">
                                         Pre-war window. Rally your village, queue guards, gather pre-fight buffs. No HP can drop until the timer expires.
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <strong style={{ color: "var(--red-300)", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
-                                    <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                    <strong>⚔ {character.village} is at War with {enemy}</strong>
+                                    <div className="central-war-metrics">
                                         <span>Day {ageDays + 1}</span>
                                         <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
                                         <span>{enemy}: <strong>{enemyHp.toLocaleString()}</strong> HP</span>
@@ -720,32 +811,62 @@ export function CentralHub({
                                 </>
                             )}
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div className="central-war-actions">
                             <button
+                                className="central-war-primary"
                                 onClick={() => setScreen("townHall")}
-                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
                             >
-                                Join the Fight →
+                                Open war room →
                             </button>
                             <button
+                                className="central-war-dismiss"
                                 onClick={() => dismissWarBanner(activeWarBanner.id)}
-                                style={{ background: "transparent", border: "1px solid var(--slate-600)", color: "var(--text-dim)", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
                                 title="Hide this banner for this war (a new war will surface a fresh one)"
                             >
                                 Dismiss
                             </button>
                         </div>
-                    </div>
+                    </section>
                 );
             })()}
 
-            <div className="central-grid">
-                {centralOptions.map((option) => (
-                    <button className="central-card" key={option.name} onClick={option.action}>
-                        <span className="central-icon">{option.icon}</span>
-                        <strong>{option.name}</strong>
-                        <small>{option.text}</small>
-                    </button>
+            <div className="central-directory" aria-label="Central destinations">
+                {centralDistricts.map((district, districtIndex) => (
+                    <section
+                        className="central-district"
+                        data-tone={district.tone}
+                        key={district.id}
+                        aria-labelledby={`central-district-${district.id}`}
+                    >
+                        <div className="central-district-heading">
+                            <div className="central-district-index" aria-hidden="true">0{districtIndex + 1}</div>
+                            <div className="central-district-title">
+                                <span>{district.eyebrow}</span>
+                                <h2 id={`central-district-${district.id}`}>{district.title}</h2>
+                            </div>
+                            <p>{district.description}</p>
+                        </div>
+                        <div className="central-grid">
+                            {district.options.map((option) => (
+                                <button
+                                    className={`central-card ${"featured" in option && option.featured ? "is-featured" : ""}`}
+                                    key={option.name}
+                                    onClick={option.action}
+                                >
+                                    <span className="central-icon" aria-hidden="true">{option.icon}</span>
+                                    <span className="central-card-content">
+                                        <span className="central-card-meta">
+                                            <span className="central-card-kicker">{option.kicker}</span>
+                                            <span className="central-card-badge">{option.badge}</span>
+                                        </span>
+                                        <strong>{option.name}</strong>
+                                        <small>{option.text}</small>
+                                    </span>
+                                    <span className="central-card-arrow" aria-hidden="true">→</span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
                 ))}
             </div>
 

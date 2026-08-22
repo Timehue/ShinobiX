@@ -8,6 +8,7 @@ import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
+import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
 import { WeeklyBossFight } from "./WeeklyBossFight";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import {
@@ -216,10 +217,25 @@ export function WeeklyBossArena({
 
     if (!bossState || !bossState.aiId) {
         return (
-            <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>
-                <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
-                <p style={{ color: "var(--text-dim)" }}>No boss has been summoned this week. Ask an admin to set the weekly boss AI.</p>
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back to Central</button>
+            <div className="card weekly-boss-screen weekly-boss-screen-empty">
+                <CentralDestinationHeader
+                    eyebrow="The Thousand Gates · World Threat"
+                    title="Weekly Boss"
+                    subtitle="Track the realm's shared target, contribution window, attempts, and reward tiers."
+                    icon={<GiOgre />}
+                    tone="crimson"
+                    statusLabel="Ritual status"
+                    statusValue="Dormant"
+                    onBack={() => setScreen("centralHub")}
+                />
+                <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
+                    <span aria-hidden="true"><GiTombstone /></span>
+                    <div>
+                        <p className="weekly-boss-kicker">No active incursion</p>
+                        <h2>The arena is quiet—for now.</h2>
+                        <p>No boss has been summoned this week. Return when the next world threat is announced.</p>
+                    </div>
+                </section>
             </div>
         );
     }
@@ -272,9 +288,17 @@ export function WeeklyBossArena({
     const roam = roaming ? weeklyBossRoamState(bossState, nowMs) : null;
 
     return (
-        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
-            <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
-            <p style={{ color: "var(--text-dim)", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
+        <div className="card weekly-boss-screen">
+            <CentralDestinationHeader
+                eyebrow="The Thousand Gates · World Threat"
+                title="Weekly Boss"
+                subtitle={`Incursion ${bossState.weekKey} · every verified strike advances the shared leaderboard.`}
+                icon={<GiOgre />}
+                tone="crimson"
+                statusLabel={expired ? "Incursion" : "Time remaining"}
+                statusValue={countdown}
+                onBack={() => setScreen("centralHub")}
+            />
             {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             {guardCycleAvailability !== "available" && (
                 <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
