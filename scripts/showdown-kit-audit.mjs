@@ -10,7 +10,7 @@
  *
  * Run:  node --import tsx scripts/showdown-kit-audit.mjs [--flag noLiveDamage]
  *
- * Every flag is a TEMTEM/CHAMPIONS design invariant, not an opinion:
+ * Every flag is a reference-battler design invariant, not an opinion:
  *   noLiveDamage  — a pet must be able to threaten damage on round one.
  *                   Both games open with a live attacking option; a kit whose
  *                   damage is entirely on hold spends round one poking with
@@ -22,7 +22,7 @@
  *                   legendary assassin deriving `mark` while also carrying an
  *                   authored mark) — the round-45 finding.
  *   freeControl   — a control/utility technique priced at the stamina floor is
- *                   spammable disruption; Temtem prices control at real
+ *                   spammable disruption; the reference model prices control at real
  *                   stamina and hold. This was the original HIGH-four engine.
  *   thinKit       — fewer than three real options is not a moveset.
  *   noStab        — no technique carrying the pet's own element wastes STAB

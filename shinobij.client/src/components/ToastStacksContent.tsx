@@ -14,7 +14,7 @@ export function ToastStacksContent({ achievementToasts, missionToasts, onDismiss
                         >
                             <div className="achievement-toast-icon">
                                 <img
-                                    src={`/badges/${a.id}.png`}
+                                    src={`/badges/${a.id}.webp`}
                                     alt=""
                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                 />

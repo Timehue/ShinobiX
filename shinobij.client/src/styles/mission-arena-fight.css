@@ -329,3 +329,26 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     background: rgba(15, 23, 42, 0.35);
     border-radius: 0 4px 4px 0;
 }
+
+/* De-emphasized sibling of the primary CTA, for an alternative that must stay
+   reachable but must not read as the recommended action: the "Return to Mission
+   Hall" escape beside "Retry" on a failed settle, where a misclick walks away
+   from a reward that never got registered. Same box and hit target, quieter
+   paint, no ✦ flourishes.
+
+   Lives here, not beside .start-primary-btn in start-skin.css: that file is
+   pulled in eagerly by the index.css manifest, and the initial-graph gate has
+   ~1.6 KB of headroom. This screen's stylesheet is lazy, so the rule costs the
+   boot graph nothing. Doubled class so it outranks the base rule's !important
+   declarations on specificity rather than on chunk order. */
+.start-primary-btn.start-primary-btn--muted {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.94)) !important;
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.45) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.start-primary-btn.start-primary-btn--muted::before,
+.start-primary-btn.start-primary-btn--muted::after {
+    content: none;
+}

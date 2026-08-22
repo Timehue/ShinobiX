@@ -7,7 +7,8 @@
  *
  * Model (online-only, async, no wall-clock window):
  *   - A villager DECLARES a challenge against the seated Kage (gated on personal
- *     Village Merit + a 500-seal stake). One active challenge per village. Every
+ *     Village Merit + a 250,000-ryo stake, KAGE_DECLARE_RYO_COST below). One
+ *     active challenge per village. Every
  *     challenge carries a unique challengeId so a superseded challenge's old
  *     battleId can never settle a newer one.
  *   - The Kage MUST ACCEPT or they lose the seat. Enforcement is an "obligation"

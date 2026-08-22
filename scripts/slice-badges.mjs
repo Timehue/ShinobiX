@@ -1,4 +1,4 @@
-// Slice the 8 composite badge sheets into 60 individual /badges/<id>.png files.
+// Slice the 8 composite badge sheets into 60 individual /badges/<id>.webp files.
 //
 // Setup:
 //   1. npm install --save-dev sharp
@@ -129,12 +129,17 @@ async function sliceSheet(sheet) {
             const iconX = Math.round(cellX + (cellW - iconSize) / 2);
             const iconY = Math.round(cellY + cellH * ratios.iconTopInsetRatio);
             const size = Math.round(iconSize);
+            // WebP, not PNG: the badge set previously shipped as 256px PNGs
+            // averaging 121 KB (19.6 MB total, 1.16 MB of it pulled just to open
+            // Profile). Same resolution, same q82/effort-6 settings as
+            // scripts/gen-asset.mjs — 90% smaller for identical pixels. Emitting
+            // .png here again would silently undo that and 404 every render site.
             await sharp(src)
                 .extract({ left: iconX, top: iconY, width: size, height: size })
                 .resize(OUTPUT_SIZE, OUTPUT_SIZE, { fit: "cover" })
-                .png()
-                .toFile(path.join(OUTPUT_DIR, `${id}.png`));
-            console.log(`  + ${id}.png`);
+                .webp({ quality: 82, effort: 6 })
+                .toFile(path.join(OUTPUT_DIR, `${id}.webp`));
+            console.log(`  + ${id}.webp`);
             count++;
         }
     }
