@@ -21,6 +21,7 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     for (const name of requiredNames) {
         assert.equal(occurrences(`name: ${name}\n`), 1, `${name} must remain a unique stable check context`);
     }
+    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-2/);
     assert.match(workflow, /name: CI \/ e2e-combat \/ \$\{\{ matrix\.shard \}\}/);
     const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map((match) => Number(match[1]));
     assert.ok(timeouts.length >= requiredNames.length, 'every job must declare a timeout');
@@ -51,6 +52,7 @@ test('split CI preserves every release gate and builds each artifact once', () =
     for (const command of commands) assert.ok(workflow.includes(command), `missing CI gate: ${command}`);
     assert.equal(occurrences('npm run build:server'), 1, 'server release artifact must be built exactly once');
     assert.equal(occurrences('npm run build --prefix shinobij.client'), 1, 'client release artifact must be built exactly once');
+    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2'), 'responsive certification must run both Playwright shards');
     assert.match(workflow, /NODE_VERSION:\s*22\.23\.1/);
 });
 

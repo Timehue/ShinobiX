@@ -442,16 +442,20 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  e2e_responsive:
-    name: CI / e2e-responsive
+  e2e_responsive_matrix:
+    name: CI / e2e-responsive / ${{ matrix.shard }}-of-2
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
     # The Central Gates production audit expanded this cross-browser suite with
-    # destination, modal, artwork, and Awakening reveal coverage. Keep the job
-    # below the repository-wide 29m ceiling while allowing the real suite to
-    # finish instead of cancelling at the former 20m boundary.
+    # destination, modal, artwork, and Awakening reveal coverage. Split its 525
+    # checks across two complete Playwright shards so every check runs while
+    # each ordinary job remains below the repository-wide 29m ceiling.
     timeout-minutes: 29
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -461,15 +465,15 @@ jobs:
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
         run: |
-          mkdir -p .ci-evidence/e2e-responsive
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-responsive/provenance.txt
+          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-2\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/provenance.txt
       - name: Require successful release artifact
         if: ${{ needs.release_artifact.result != 'success' }}
         run: |
-          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive/upstream-results.log
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/upstream-results.log
           exit 1
       - name: Install client dependencies
-        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive/client-install.log
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/client-install.log
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
@@ -485,19 +489,44 @@ jobs:
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install release browsers
-        run: npx --prefix shinobij.client playwright install --with-deps chromium firefox webkit 2>&1 | tee .ci-evidence/e2e-responsive/browser-install.log
+        run: npx --prefix shinobij.client playwright install --with-deps chromium firefox webkit 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/browser-install.log
       - name: Cross-browser responsive and accessibility smoke
-        run: npm run test:e2e --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive/playwright.log
+        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/playwright.log
       - name: Retain responsive browser evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: evidence-e2e-responsive-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: evidence-e2e-responsive-${{ matrix.shard }}-of-2-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .ci-evidence/e2e-responsive/
+            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_responsive:
+    name: CI / e2e-responsive
+    if: ${{ always() }}
+    needs: e2e_responsive_matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every responsive browser shard
+        env:
+          RESPONSIVE_MATRIX: ${{ needs.e2e_responsive_matrix.result }}
+        run: |
+          mkdir -p .ci-evidence/e2e-responsive
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-responsive/provenance.txt
+          printf 'e2e-responsive-matrix=%s\n' "$RESPONSIVE_MATRIX" | tee .ci-evidence/e2e-responsive/results.log
+          test "$RESPONSIVE_MATRIX" = success
+      - name: Retain responsive aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-responsive-aggregate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/e2e-responsive/
           if-no-files-found: warn
           retention-days: 14
 
