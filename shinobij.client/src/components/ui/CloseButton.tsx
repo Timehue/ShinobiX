@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
-import { FiX } from "react-icons/fi";
+import { FiX } from "../icons/LightweightGameIcons";
 
 export interface CloseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;

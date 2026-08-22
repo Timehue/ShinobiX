@@ -11,11 +11,11 @@ import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { EmptyState } from "../components/ui/EmptyState";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0) + the game's own currency emblems.
+// Compact local chrome glyphs plus the game's own currency emblems.
 import {
     GiGraduateCap, GiScrollUnfurled, GiCrossedSwords, GiPositionMarker,
     GiCalendar, GiCompass, GiTreasureMap, GiOpenBook,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 import { GameIcon } from "../components/icons/GameIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";

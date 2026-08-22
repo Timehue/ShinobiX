@@ -1,4 +1,4 @@
-import { GiBoxingGlove, GiColiseum, GiCrossedSwords, GiPawPrint, GiRollingDices, GiTwoCoins } from "react-icons/gi";
+import { GiBoxingGlove, GiColiseum, GiCrossedSwords, GiPawPrint, GiRollingDices, GiTwoCoins } from "../../../components/icons/LightweightGameIcons";
 import { BackToVillageButton } from "../../../components/BackToVillageButton";
 import { BountyBoardPanel } from "../../../components/BountyBoardPanel";
 import { MAX_LEVEL } from "../../../constants/game";
