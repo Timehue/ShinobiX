@@ -6,7 +6,7 @@ const hint = readFileSync(new URL("./ScreenHint.tsx", import.meta.url), "utf8");
 const combatCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 
 test("ambient screen hints collapse to an operable combat-safe help control", () => {
-    assert.match(hint, /className="onboarding-coach-banner screen-hint-banner"/);
+    assert.match(hint, /className=\{`onboarding-coach-banner screen-hint-banner screen-hint-\$\{screen\}`\}/);
     assert.match(hint, /className="screen-hint-battle-trigger"[\s\S]*?aria-label=\{`Review \$\{subject\} tip`\}[\s\S]*?aria-haspopup="dialog"[\s\S]*?aria-expanded=\{detailsOpen\}/);
     assert.match(hint, /<Modal[\s\S]*?backdropClassName="screen-hint-modal-backdrop"[\s\S]*?<p className="screen-hint-dialog-copy">\{text\}<\/p>/);
     assert.match(hint, /className="start-primary-btn" onClick=\{dismiss\}>Got it<\/button>/);

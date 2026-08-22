@@ -19,7 +19,7 @@ import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, c
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
-import { BackToVillageButton } from "./BackToVillageButton";
+import { CentralDestinationHeader } from "./CentralDestinationHeader";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
@@ -224,18 +224,22 @@ function ShopBase({
     }
 
     return (
-        <div className="card">
-            <BackToVillageButton onClick={onBack} label={backLabel} />
-            <h2>{title}</h2>
+        <div className={`card shop-screen${currency === "fateShards" ? " grand-marketplace-screen" : ""}`}>
+            <CentralDestinationHeader
+                backLabel={backLabel?.replace(/^←\s*/, "") ?? (currency === "fateShards" ? "Central" : "Village")}
+                eyebrow={currency === "fateShards" ? "The Thousand Gates · Merchant Quarter" : "Village Quartermaster · Approved Stock"}
+                icon={<GameIcon name={currency === "fateShards" ? "crystal" : "bag"} size={30} />}
+                onBack={onBack}
+                statusLabel={currency === "fateShards" ? "Fate Shards" : "Ryo wallet"}
+                statusValue={wallet.toLocaleString()}
+                subtitle={subtitle}
+                title={title}
+                tone={currency === "fateShards" ? "violet" : "gold"}
+            />
 
-            <p style={{ marginBottom: "0.25rem", color: "#aaa" }}>{subtitle}</p>
-
-            <p style={{ marginBottom: "1rem" }}>
-                {currency === "fateShards"
-                    ? <><span style={{ color: "#ce93d8" }}>{currencyIcon} Fate Shards:</span> <strong style={{ color: "#ce93d8" }}>{character.fateShards}</strong></>
-                    : <>Wallet: <strong>{character.ryo} ryo</strong> · Town Hall Shop Discount: <strong>{shopDiscountPercent.toFixed(2)}%</strong></>
-                }
-            </p>
+            {currency === "ryo" && (
+                <p className="shop-discount-note">Town Hall discount <strong>{shopDiscountPercent.toFixed(2)}%</strong></p>
+            )}
 
             {slotGroups.map((group) => {
                 const groupItems = shopItems.filter((item) =>
