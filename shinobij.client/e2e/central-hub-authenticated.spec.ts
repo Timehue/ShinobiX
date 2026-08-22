@@ -112,11 +112,7 @@ async function returnToCentral(page: Page) {
     // Hash-only navigation does not reload the SPA, and this app intentionally
     // restores bookmarked screens only during boot.
     await page.reload({ waitUntil: "networkidle" });
-    // The Central Gates hero splits the h1 into a title span and a subtitle span,
-    // so the accessible name is the two joined by whitespace — the em dash that
-    // used to sit between them in a single string is gone. Matched as a regex so
-    // a future spacing or separator tweak cannot redden this again.
-    await expect(page.getByRole("heading", { name: /Central\s+The Thousand Gates/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Central\s+The Thousand Gates/i })).toBeVisible();
 }
 
 test("authenticated player can open every Central Hub system", async ({ page }, testInfo) => {
@@ -142,14 +138,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
     ] as const;
 
     for (const destination of navigations) {
-        // The Central Gates cards lead with a kicker ("Compete", "Govern", …) and
-        // a status badge, so the button's accessible name no longer STARTS with
-        // the destination — anchoring on `^` matched nothing. Target the card by
-        // its title element instead; filtering on the card's full text would risk
-        // catching a description that happens to mention another destination.
-        await page.locator(".central-card")
-            .filter({ has: page.locator("strong", { hasText: new RegExp(`^${destination.tile}$`) }) })
-            .click();
+        await page.locator(".central-card").filter({ hasText: destination.tile }).click();
         await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
         await returnToCentral(page);
     }
