@@ -178,7 +178,6 @@ const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker"
 const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
 const loadIntroCinematic = () => import("./features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic }));
 const IntroCinematic = lazyWithRetry(loadIntroCinematic);
-
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
@@ -271,9 +270,7 @@ import {
     type AdminAccount,
     type AdminRole,
 } from "./types/core";
-import {
-    type Pet,
-} from "./types/pet";
+import { type Pet } from "./types/pet";
 import {
     type Stats,
     type Jutsu,

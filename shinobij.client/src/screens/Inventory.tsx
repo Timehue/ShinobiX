@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FiGrid, FiPackage } from "react-icons/fi";
+import { FiGrid, FiPackage } from "../components/icons/LightweightGameIcons";
 import "../styles/profile-skin.css";
 // The Chronicle card reader opened from the card tab lives in that stylesheet.
 import "../styles/chronicle-duel.css";

@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useRef } from "react";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0) + the game's currency emblems.
+// Compact local chrome glyphs plus the game's currency emblems.
 import {
     GiThreeFriends, GiUpgrade, GiCrossedSwords, GiTreasureMap, GiScrollUnfurled,
     GiBlackBelt, GiShield, GiNotebook, GiBrickWall, GiMegaphone, GiCastle, GiLaurelsTrophy, GiDragonHead, GiChatBubble,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 import { GameIcon } from "../components/icons/GameIcon";
 const CH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
