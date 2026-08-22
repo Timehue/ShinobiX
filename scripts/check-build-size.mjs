@@ -319,7 +319,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Exact product graph 7,760,620 B, leaving ~38 KB of headroom. The scheduled
 // drain remains the legacy coliseum-stack deletion; the Central/Pet-Home CSS
 // is the next-best candidate if this needs paying down before that lands.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_800_000;
+//
+// 2026-08-22 (same day): RAISE WITHDRAWN, back to 7.34 MB. The icon-bundle
+// replacement in #77 (ca993bf73) cut 175,244 B of JS — more than paying back
+// the Central/Pet-Home CSS that forced the raise hours earlier. Exact product
+// graph is now 7,585,376 B, i.e. 114,624 B UNDER the original cap, so the
+// budget goes back to where it was rather than banking someone else's win as
+// permanent slack. Deliberately restored to the pre-regression value and not
+// ratcheted tighter: the ~112 KB of headroom belongs to the next feature, not
+// to this note. The scheduled drain remains the legacy coliseum-stack deletion.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_700_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
