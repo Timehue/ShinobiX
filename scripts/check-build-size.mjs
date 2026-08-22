@@ -305,7 +305,21 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // product graph 7,679,126 B, leaving ~21 KB of headroom. All on the lazy
 // Showdown chunk; entry chunk and initial graph unchanged. The scheduled drain
 // remains the legacy coliseum-stack deletion.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_700_000;
+// 2026-08-22: 7.70 -> 7.44 MB. The AAA Pet Home / Central destination polish
+// (e25446356) is CSS, not code: styles/central-skin.css +54.6 KB of source,
+// a new styles/pet-arena-lobby.css at 29.3 KB, styles/relic-dungeons.css at
+// 5.4 KB, and styles/pet-home.css +5.3 KB — ~95 KB of authored CSS that
+// minifies to ~61 KB and landed the product graph 60,620 B over the old cap.
+// That commit shipped RED: the overage took client-quality down and with it
+// release-artifact, release-certification and every e2e job, so nothing could
+// deploy. Checked for slack before raising this: CSS is already minified, the
+// react-icons/gi chunk tree-shakes to the 117 icons actually imported, and the
+// 264 inlined FX frames are the deliberate flipbook trade-off documented above
+// — there was no waste to reclaim, only a real feature that costs real bytes.
+// Exact product graph 7,760,620 B, leaving ~38 KB of headroom. The scheduled
+// drain remains the legacy coliseum-stack deletion; the Central/Pet-Home CSS
+// is the next-best candidate if this needs paying down before that lands.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_800_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -37,10 +37,23 @@ export interface ModalProps {
  */
 const openModals: string[] = [];
 const inertSnapshots = new Map<HTMLElement, { inert: boolean; ariaHidden: string | null }>();
+/*
+ * Backdrops whose Modal has already torn down but whose portal node React has
+ * not detached yet. Closing a modal by navigating away (`setShowPanel(false)`
+ * plus `setScreen(...)` in one handler) unmounts the modal's owner, and the
+ * layout-effect cleanup below then runs while the backdrop is STILL in the DOM.
+ * Without this set the deferred re-sync sees that dying backdrop, decides a
+ * modal is open, re-applies inert to #root — and no later sync ever runs to
+ * take it back off, leaving the whole app scrollable but click-dead.
+ */
+const closingBackdrops = new Set<HTMLElement>();
 
 function syncModalBackgroundInert() {
+  // Self-pruning: a dying backdrop stays excluded until React detaches it.
+  for (const element of closingBackdrops) if (!element.isConnected) closingBackdrops.delete(element);
   const bodyChildren = Array.from(document.body.children) as HTMLElement[];
-  const backdrops = bodyChildren.filter((element) => element.classList.contains("ui-modal-backdrop"));
+  const backdrops = bodyChildren.filter((element) =>
+    element.classList.contains("ui-modal-backdrop") && !closingBackdrops.has(element));
   const topmostBackdrop = backdrops.at(-1);
 
   if (!topmostBackdrop) {
@@ -119,7 +132,10 @@ export function Modal({
   useLayoutEffect(() => {
     if (!open) return;
     syncModalBackgroundInert();
+    // Captured while still mounted: React may have detached the ref by cleanup.
+    const backdrop = cardRef.current?.closest<HTMLElement>(".ui-modal-backdrop") ?? null;
     return () => {
+      if (backdrop) closingBackdrops.add(backdrop);
       queueMicrotask(syncModalBackgroundInert);
     };
   }, [open]);

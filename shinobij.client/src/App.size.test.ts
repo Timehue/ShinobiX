@@ -257,7 +257,14 @@ import { readFileSync } from "node:fs";
 // watchdog born directly in lib/boot-gate-watchdog.ts, which together paid for
 // the sweep's in-App additions (Google-return backstop, reauth hardening,
 // avatar-publish timebox) with room left over.
-const MAX_LINES = 7_661;
+//
+// → 7,636 LOWERED (−25) by the 2026-08-22 modal-inert freeze fix. main had drifted
+// to 7,664 — three lines OVER the 7,661 ratchet, so this test was already failing
+// on main. Paid down by draining the shared-image cache plumbing (IMG_CACHE_TTL,
+// imgCacheKey, clearImgCache, URL_MODE_CATEGORIES) plus the new bounded
+// category-retry into lib/shared-image-cache.ts — a verbatim move, values and
+// behaviour unchanged. Exact achieved count, no buffer.
+const MAX_LINES = 7_636;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
