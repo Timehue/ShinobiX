@@ -18,7 +18,7 @@ import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
+import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 import { gainXp } from "../App";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
@@ -376,9 +376,7 @@ export function Missions({
             return alert(claimReasonMessage(result.reason, result));
         }
     }
-    const sortedFieldMissions = mergeBuiltinMissions(creatorMissions).sort((left, right) =>
-        left.rank.localeCompare(right.rank) || left.name.localeCompare(right.name)
-    );
+    const sortedFieldMissions = sortFieldMissions(mergeBuiltinMissions(creatorMissions));
     const rankColor: Record<string, string> = { "E Rank": "#14b8a6", "D Rank": "var(--success)", "C Rank": "#3b82f6", "B Rank": "var(--purple-500)", "A Rank": "#f97316", "S Rank": "var(--danger)", "Daily": "var(--gold)" };
     const todayMissions = dailyMissionsCompleted(character);
     // Tab state: default to Profession for players who have one, Combat otherwise.
@@ -562,7 +560,7 @@ export function Missions({
                         <h3 className="mh-section-title">Field Missions</h3>
                         <p>Each contract now shows the exact territory you will enter before you accept it.</p>
                     </div>
-                    <span className="mh-field-sort">Alphabetical · Rank A–S</span>
+                    <span className="mh-field-sort">Rank order · D → C → B → A → S</span>
                 </div>
                 {sortedFieldMissions.length === 0
                     ? <EmptyState icon={<span aria-hidden="true">—</span>}>No field missions posted yet.</EmptyState>

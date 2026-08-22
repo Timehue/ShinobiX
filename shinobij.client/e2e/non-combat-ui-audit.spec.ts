@@ -278,7 +278,7 @@ for (const screen of NON_COMBAT_SCREENS) {
     });
 }
 
-test("Mission Hall Field board is alphabetized and sector-artwork backed", async ({ page }, testInfo) => {
+test("Mission Hall Field board follows D-to-S progression and is alphabetized within rank", async ({ page }, testInfo) => {
     const runtimeErrors = collectRuntimeErrors(page);
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "missions");
@@ -292,9 +292,17 @@ test("Mission Hall Field board is alphabetized and sector-artwork backed", async
         rank: card.querySelector(".mh-field-rank")?.textContent?.trim() ?? "",
         name: card.querySelector(".mh-field-title-row h4")?.textContent?.trim() ?? "",
     })));
+    const rankOrder = new Map([
+        ["D Rank", 0],
+        ["C Rank", 1],
+        ["B Rank", 2],
+        ["A Rank", 3],
+        ["S Rank", 4],
+    ]);
     const expectedOrder = [...renderedOrder].sort((left, right) =>
-        left.rank.localeCompare(right.rank) || left.name.localeCompare(right.name));
-    expect(renderedOrder, "field missions are not ordered by rank, then name").toEqual(expectedOrder);
+        (rankOrder.get(left.rank) ?? Number.MAX_SAFE_INTEGER) - (rankOrder.get(right.rank) ?? Number.MAX_SAFE_INTEGER)
+        || left.name.localeCompare(right.name));
+    expect(renderedOrder, "field missions are not ordered D, C, B, A, S and then alphabetically by name").toEqual(expectedOrder);
 
     await fieldCards.last().scrollIntoViewIfNeeded();
     const artwork = fieldCards.locator(".mh-field-art img");

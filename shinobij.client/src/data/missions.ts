@@ -3,7 +3,16 @@
  * overlay creator-defined missions on top of them. Extracted verbatim from
  * App.tsx.
  */
-import type { CreatorMission } from "../types/missions";
+import type { CreatorMission, MissionRank } from "../types/missions";
+
+const FIELD_MISSION_RANK_ORDER: Record<MissionRank, number> = {
+    "D Rank": 0,
+    "C Rank": 1,
+    "B Rank": 2,
+    "A Rank": 3,
+    "S Rank": 4,
+    Daily: 5,
+};
 
 export const builtinHuntMissions: CreatorMission[] = [
     { id: "hunt-wild-boar", name: "Hunt the Wild Boar", rank: "D Rank", description: "A large wild boar has been spotted trampling the forest undergrowth near Sector 25. Track it down and eliminate it.", type: "fetchExplore", targetSector: 25, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-wild-boar", itemRewards: ["hunt-beast-meat", "hunt-beast-meat", "hunt-torn-hide"] },
@@ -40,6 +49,13 @@ export function mergeBuiltinMissions(customMissions: CreatorMission[]) {
         ...builtinFetchMissions.map((mission) => customById.get(mission.id) ?? mission),
         ...customMissions.filter((mission) => !builtinFetchMissions.some((builtin) => builtin.id === mission.id)),
     ];
+}
+
+export function sortFieldMissions(missions: CreatorMission[]) {
+    return [...missions].sort((left, right) =>
+        FIELD_MISSION_RANK_ORDER[left.rank] - FIELD_MISSION_RANK_ORDER[right.rank]
+        || left.name.localeCompare(right.name)
+    );
 }
 
 export function allProgressMissions(customMissions: CreatorMission[]) {
