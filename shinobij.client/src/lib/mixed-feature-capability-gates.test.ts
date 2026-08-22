@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const source = (relative: string) => readFileSync(new URL(relative, import.meta.url), "utf8");
+const source = (relative: string) => readFileSync(new URL(relative, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
 function between(text: string, start: string, end: string): string {
     const from = text.indexOf(start);

@@ -58,6 +58,8 @@ import { SceneAmbience } from "./SceneAmbience";
 import type { Biome, WeatherType } from "../types/core";
 import { ELEMENT_ICON } from "../lib/element-icons";
 import { fitDistance, framedExtent, showdownFov, shotWeight, type ShotWeight } from "../lib/showdown-camera";
+import { resolveOpponentFacing } from "../lib/pet-combat-performance";
+import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing";
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
@@ -84,28 +86,6 @@ import type {
 const PLAYER_Z = 4.1;
 const ENEMY_Z = -4.1;
 
-/** How far a resting pet on the PLAYER's line turns off the lane axis, toward
- *  the camera side, while it idles.
- *
- *  Facing square down the lane is geometrically correct — your pet faces the
- *  enemy — but the lens sits behind your line, so it put your pet's back to the
- *  camera for an ENTIRE fight: the enemy showed you a face, yours showed you a
- *  tail. The wide shot already slides off-centre to stop the board reading as
- *  flat backs (see WIDE_POS); this finishes that job by giving the near line a
- *  three-quarter stance, the standard way fighting games keep both fighters
- *  legible. Only the player's line turns — the enemy already reads face-on.
- *
- *  This shapes the RESTING facing only. Any pet taking an action re-aims at its
- *  real target below, so attacks, dashes and travel are untouched. */
-const RESTING_TURN = (32 * Math.PI) / 180;
-
-/** The resting facing for a side: down the lane at the opposing line, turned by
- *  RESTING_TURN toward the camera on the player's side only. */
-function restingFacing(side: "player" | "enemy"): [number, number] {
-    return side === "player"
-        ? [Math.sin(RESTING_TURN), -Math.cos(RESTING_TURN)]
-        : [0, 1];
-}
 const SLOT_SPACING = 3.6;
 const FLOOR_Y = 0;
 /** KO withdrawal: how long a fallen body may lie in its slot before it leaves
@@ -378,7 +358,7 @@ interface FighterSlotInfo {
 function slotPositions(count: number, side: "player" | "enemy"): [number, number, number][] {
     const z = side === "player" ? PLAYER_Z : ENEMY_Z;
     return Array.from({ length: count }, (_, i) => {
-        const x = (i - (count - 1) / 2) * SLOT_SPACING * (side === "player" ? 1 : -1);
+        const x = showdownSlotLane(i, count, side) * SLOT_SPACING;
         // Alternate slots step off the baseline: a staggered line has depth
         // and silhouette, a flat rank reads as a queue.
         const depth = (i % 2 === 0 ? 0 : 0.9) * (side === "player" ? 1 : -1);
@@ -1027,7 +1007,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, benchedRef, popups, highlight, targetable, onPick, onHover }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, beatRef, fxRef, posRef, benchedRef, restingTargetId, popups, highlight, targetable, onPick, onHover }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
@@ -1042,6 +1022,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     /** ids currently on the bench — a reserve AT its off-stage park is not
      *  drawn at all; it pops in the moment a switch starts it walking. */
     benchedRef: React.MutableRefObject<ReadonlySet<string>>;
+    /** Slot-paired live opponent. Resting fighters track this exact world point. */
+    restingTargetId: string | null;
     popups: PopupEntry[];
     highlight: "none" | "commander" | "targeted";
     /** You pick your target by clicking the CREATURE, not a name card. */
@@ -1082,8 +1064,9 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const actionStyle = useRef<{ index: number; style: PetHeroMoveStyle }>({ index: -1, style: "generic" });
     const frame = useRef<PetModelFrame>({
         ...DEFAULT_PET_MODEL_FRAME,
-        faceX: restingFacing(info.side)[0],
-        faceZ: restingFacing(info.side)[1],
+        faceX: showdownLaneFacing(info.side)[0],
+        faceZ: showdownLaneFacing(info.side)[1],
+        lockTargetFacing: true,
         statuses: [],
     });
     const fallbackTexture = useMemo(() => {
@@ -1121,7 +1104,11 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         }
         let px = stand[0], pz = stand[2];
         const py = home[1];
-        let [faceX, faceZ] = restingFacing(info.side);
+        const laneFacing = showdownLaneFacing(info.side);
+        const restingTarget = restingTargetId ? posRef.current.get(restingTargetId) : undefined;
+        let [faceX, faceZ] = restingTarget
+            ? resolveOpponentFacing(stand[0], stand[2], restingTarget[0], restingTarget[2], laneFacing[0], laneFacing[1])
+            : laneFacing;
         f.moving = false;
         f.speed = 0;
         f.casting = false;
@@ -3225,6 +3212,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         fxRef={fxRef}
                         posRef={posRef}
                         benchedRef={benchedRef}
+                        restingTargetId={pairedShowdownOpponentId(
+                            info.view.id,
+                            info.side === "player" ? lineup.playerField : lineup.enemyField,
+                            info.side === "player" ? lineup.enemyField : lineup.playerField,
+                            info.side,
+                        )}
                         popups={popups}
                         highlight={commander?.id === info.view.id ? "commander"
                             : pendingMove && ((info.side === "enemy" && !targetingAllies) || (info.side === "player" && targetingAllies)) && !(display[info.view.id]?.ko) ? "targeted"

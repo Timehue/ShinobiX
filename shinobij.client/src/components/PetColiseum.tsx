@@ -92,6 +92,7 @@ import { petDisplayName } from "../lib/pet";
 import { petDuelBroadcastRead, petDuelRecap } from "../lib/pet-duel-broadcast";
 import { HOLLOW_HOUND_SURFACE } from "../lib/pet-model-surface";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
+import { resolveOpponentFacing } from "../lib/pet-combat-performance";
 import { isHollowHoundEncounterPet } from "../../../shared/hollow-gate-contract";
 
 type Vec3 = [number, number, number];
@@ -1896,7 +1897,15 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
     const [failedModelUrl, setFailedModelUrl] = useState<string | null>(null);
     const combatModel = approvedModel && approvedModel.url === failedModelUrl ? null : approvedModel;
     const heroMoveWindows = useMemo(() => petHeroMoveWindows(duel.events, id, { ...pet, profile: combatModel?.profile }), [combatModel?.profile, duel.events, id, pet]);
-    const modelFrame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
+    const modelFrame = useRef<PetModelFrame>({
+        ...DEFAULT_PET_MODEL_FRAME,
+        // Child frame callbacks can run before this standee's first update. Seed
+        // the correct side immediately so neither model ever initializes from the
+        // shared +X default and spends its opening frames turning around.
+        faceX: mirror ? -1 : 1,
+        faceZ: 0,
+        lockTargetFacing: true,
+    });
     const group = useRef<THREE.Group>(null);     // floor position + lunge offset
     const poseG = useRef<THREE.Group>(null);      // squash/stretch + topple, pivots at the feet
     // Deform "rig": a meshBasicMaterial whose vertex shader is patched
@@ -1939,7 +1948,6 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
     const dashRouteId = useRef<number | null>(null);
     const dashEntryOffset = useRef<[number, number]>([0, 0]);
     const travelFacing = useRef<[number, number]>([mirror ? -1 : 1, 0]);
-    const combatFacing = useRef<[number, number]>([mirror ? -1 : 1, 0]);
     const runClock = useRef(0);
     const terminalTimeline = useRef<{ wall: number; base: number } | null>(null);
     // Anime strike choreography (render-only): eased offsets + phase clocks. The LONG sim
@@ -2242,18 +2250,17 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
             desiredFaceX = faceTargetWX - wx;
             desiredFaceZ = faceTargetWZ - wz;
         }
-        const desiredFaceLength = Math.hypot(desiredFaceX, desiredFaceZ) || 1;
-        const targetFaceX = freeRoam3d ? desiredFaceX / desiredFaceLength : (myEnemy ? -1 : 1);
-        const targetFaceZ = freeRoam3d ? desiredFaceZ / desiredFaceLength : 0;
-        const faceResponse = a0.state === "windup" || a0.state === "strike" || a0.state === "recover" ? 18 : 10;
-        const faceAlpha = 1 - Math.exp(-faceResponse * Math.min(delta, 1 / 15));
-        const blendedFaceX = lerp(combatFacing.current[0], targetFaceX, faceAlpha);
-        const blendedFaceZ = lerp(combatFacing.current[1], targetFaceZ, faceAlpha);
-        const blendedFaceLength = Math.hypot(blendedFaceX, blendedFaceZ) || 1;
-        combatFacing.current[0] = blendedFaceX / blendedFaceLength;
-        combatFacing.current[1] = blendedFaceZ / blendedFaceLength;
-        const faceWX = combatFacing.current[0];
-        const faceWZ = combatFacing.current[1];
+        // Pass the exact eye-line into the model. PetModel3D owns angular easing;
+        // easing this vector here as well made command holds preserve a stale
+        // diagonal and left both pets looking past one another.
+        const [faceWX, faceWZ] = resolveOpponentFacing(
+            0,
+            0,
+            freeRoam3d ? desiredFaceX : (myEnemy ? -1 : 1),
+            freeRoam3d ? desiredFaceZ : 0,
+            myEnemy ? -1 : 1,
+            0,
+        );
         const facing = faceWX < 0 ? -1 : 1;
 
         // ── Anime strike choreography (render-only — never touches the sim) ──────
@@ -2526,6 +2533,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d, d
         mf.moveZ = travelFacing.current[1];
         mf.faceX = faceWX;
         mf.faceZ = faceWZ;
+        // Duel locomotion is authored as circling/pressure movement. Preserve the
+        // exact opponent eye-line above instead of letting PetModel3D replace it
+        // with the last travel tangent (the source of both pets facing away).
+        mf.lockTargetFacing = true;
         mf.hit = flash.current;
         mf.impactPower = recoilPow.current;
         const atTerminal = clock.current.t >= snaps.length - 1 - 0.001;

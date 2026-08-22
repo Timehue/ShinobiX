@@ -4,7 +4,7 @@ import {
     HOLLOW_HOUND_MODEL_SOURCE_ID,
     isHollowHoundEncounterId,
 } from "../../../shared/hollow-gate-contract";
-import { petShowdownAnimationModelUrl } from "./pet-showdown-animation-assets";
+import { petShowdownAnimationModelUrl, petShowdownAnimationYawOffset } from "./pet-showdown-animation-assets";
 import { PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
 
 /** Models only enter this list after generation, mesh-budget validation,
@@ -129,7 +129,7 @@ export function qaRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatMod
         profile,
         targetHeight: profile === "heavy" ? 2.65 : profile === "serpentine" ? 2.5 : profile === "avian" ? 2.4 : 2.35,
         fit: profile === "serpentine" ? "longest" : "height",
-        yawOffset: ROSTER_YAW_CORRECTIONS[pet.id] ?? 0,
+        yawOffset: (ROSTER_YAW_CORRECTIONS[pet.id] ?? 0) + petShowdownAnimationYawOffset(pet.id),
         // Smart-UV roster meshes can split vertices at every atlas seam. A
         // scaled backface hull then leaks through those seams as a triangular
         // wireframe, so identity-painted roster art uses its authored ink/rim.
