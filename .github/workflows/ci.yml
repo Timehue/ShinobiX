@@ -447,7 +447,11 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The Central Gates production audit expanded this cross-browser suite with
+    # destination, modal, artwork, and Awakening reveal coverage. Keep the job
+    # below the repository-wide 29m ceiling while allowing the real suite to
+    # finish instead of cancelling at the former 20m boundary.
+    timeout-minutes: 29
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
