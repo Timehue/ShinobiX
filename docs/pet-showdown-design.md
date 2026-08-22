@@ -17,7 +17,7 @@ never attribute a result to a decision.
 
 ## The design
 
-A **turn-based command battle** with **Pokémon-Stadium-style presentation**:
+A **turn-based command battle** with **the classic monster battler-Stadium-style presentation**:
 one action at a time, each sold by a camera cut, a windup→strike→recover clip,
 projectile/impact VFX, a damage number, and an effectiveness banner. Formats
 1v1 / 2v2 (flagship) / 3v3 — same engine, different slot counts, all pets
@@ -28,7 +28,7 @@ Core mechanics:
 - **Four-move kits from real pet data.** A pet's existing `jutsus` (23 kinds:
   burn/stun/taunt/mark/…) become its moves, plus a universal cheap
   `Swift Strike`. The kit's `signature` jutsu is reserved as the super.
-- **Per-pet stamina (Temtem-style push-your-luck).** Moves cost 30/45/60 by
+- **Per-pet stamina (reference-style push-your-luck).** Moves cost 30/45/60 by
   power band; +25 regen per round; `Rest` (stamina only, no heal) and `Guard` (halve
   damage, +meter) are always-legal actions. **Overexertion is allowed**: cast
   without the stamina and the move still fires, but the pet is *winded* and
@@ -143,7 +143,7 @@ element tables from measurement after Rest stopped healing, and round 21 raised
 budget damping to 0.78, extended the CI slice to all four rarities and added the
 per-species band. The current measured spread is in Follow-ups.
 
-## Round 3 — Temtem depth + painted VFX (2026-08-07)
+## Round 3 — the reference model depth + painted VFX (2026-08-07)
 
 System: signatures now SPLASH every other living foe at 0.72x in team formats;
 **ally element synergy** (+10% with a "Synergy!" callout when a living
@@ -164,13 +164,13 @@ glow). All presentation-only; every number still arrives in a server event.
 ## Round 4 — the bench, the switch, and the AAA shell (2026-08-07)
 
 **Bench + switching** (the prediction layer that replaces board movement —
-grounded in a competitive-design research pass over Pokémon/Smogon/Temtem):
+grounded in a competitive-design research pass over the classic monster battler/Smogon/the reference model):
 every format now picks up to 3 pets (field size 1/2/3 + reserves). `switch` is
-a command that resolves BEFORE all attacks (Pokémon priority) — the incoming
+a command that resolves BEFORE all attacks (the classic monster battler priority) — the incoming
 pet eats anything aimed at the slot, and both pets forfeit the action (the
 minimum friction floor so switch-spam isn't free). Benched pets regen stamina
 and tick cooldowns but their statuses are FROZEN (you can't wait out a burn) —
-the Temtem "switching as stamina rotation" identity. KO'd field pets are
+The reference model "switching as stamina rotation" identity. KO'd field pets are
 auto-replaced from the bench at round end (reinforcements); a side loses only
 when the whole TEAM falls; the judge scores team-wide HP%. Warrior/champion AI
 makes matchup-driven switches. On screen, pets physically gallop between the
@@ -195,7 +195,7 @@ BENCH badges; the Switch action with a bench-pick flow.
 **Element wheel 1.16/0.9 → 1.5/0.75** (swing 2.0), grounded in a dedicated
 research pass (WoW pet battles' proven 1.5/0.66 flat chart in a switch-centric
 format; the fan-Naruto ±25% standard; licensed Naruto games either skip the
-wheel or use ~±25%; Pokémon/Temtem's 2x/0.5x only works with dual-type
+wheel or use ~±25%; the classic monster battler/the reference model's 2x/0.5x only works with dual-type
 ambiguity/doubles damping). The switch-economics math: at 1.5/0.75 a
 half-flip switch pays back in ~2.7 rounds, a full flip in ~1.3 — switching is
 now the central decision the bench was built for. Cycle symmetry keeps
@@ -247,17 +247,17 @@ needing kit re-authoring in the shared catalog (not engine distortion):
 Abyssal Oni Hound, Stormgod Raijin (mythic assassins with under-powered
 authored kits).
 
-## Round 7 — the Temtem technique engine, kit surgery, Colosseum cameras (2026-08-10)
+## Round 7 — the reference model technique engine, kit surgery, Colosseum cameras (2026-08-10)
 
-**Temtem-style technique mechanics** (the two we lacked):
+**reference-style technique mechanics** (the two we lacked):
 - **Per-move PRIORITY, multiplicative** (order = pet speed × chosen move's
-  priority — Temtem's model, gentler than Pokémon's absolute brackets): Guard
+  priority — the reference model's model, gentler than the classic monster battler's absolute brackets): Guard
   1.5x, quick jabs (≤80 power) 1.15x, normal 1.0, haymakers (>220) 0.8x,
   signatures 0.75x, Rest 0.9x. The round's order is now a CONSEQUENCE of the
   commands — a guard raises before the fast attacker lands; the nuke swings
   last. Deck buttons show ▲/▼ pace arrows.
 - **HOLD**: haymakers are unusable until round 2 in battle, signatures until
-  round 3 (readiness ticks everywhere, field or bench — the Temtem rule).
+  round 3 (readiness ticks everywhere, field or bench — the reference rule).
   Kills the alpha-strike opener; deck shows "Charging — round N".
 
 **Kit surgery** (owner-authorized moveset changes, done as SHOWDOWN-SIDE
@@ -268,29 +268,29 @@ proper mythic burst kits with mark setups and lifesteal sustain. Overridden
 kits skip kit-power normalization (they're authored at correct tier power).
 Result: worst species now 21.4% (was 5.6%); elements 46.7-53.3%.
 
-**Pokémon Colosseum camera grammar**: non-super actions now CUT instead of
+**the classic monster battler Colosseum camera grammar**: non-super actions now CUT instead of
 lerp — a low behind-the-shoulder shot frames the windup, then a HARD CUT to a
 side-on shot of the victim for the strike; supers keep their continuous
 letterboxed swoop. Every action opens with the classic declaration banner
 ("Red Fox used Flame Bolt!").
 
-## Round 8 — the full Temtem stamina economy (2026-08-10)
+## Round 8 — the full the reference model stamina economy (2026-08-10)
 
-The stamina system was half-Temtem (overexertion, Rest, bench regen existed);
+The stamina system was half-the reference model (overexertion, Rest, bench regen existed);
 this round completes the model with the three missing pieces:
 
 - **The pool is a STAT**: max stamina derives from bulk at seal time
   (`55 + maxHp/16 + defense/6`, clamped 80-125) — a war tortoise casts
   longer than a glass kitsune. HUD stamina bars are now fractions of the
   pet's own pool.
-- **Low regen** (Temtem: 5%+1; ours: 7%+2 per round, field or bench):
+- **Low regen** (the reference model: 5%+1; ours: 7%+2 per round, field or bench):
   passive income sits far below nuke cost, so "spam your best move" is
   arithmetically self-terminating within a few uses and Rest (~22%+2) is a
   real rotation beat. Costs rebalanced for the tighter economy: basic 14,
   light 18, medium 32, heavy 52.
 - **Overdraft draws blood**: using a move beyond remaining stamina still
   fires it, but the pet pays 2 HP per point of deficit (it CAN self-KO) on
-  top of being winded next round — Temtem's overexertion chip, shown as a
+  top of being winded next round — the reference overexertion chip, shown as a
   damage popup on the actor.
 
 Bands re-verified unchanged (pace 8.2, judge 11.1%, elements 46.9-53.1%,
@@ -313,7 +313,7 @@ last-stand reduction, Bloodthirster lifesteal. The gear name rides the view
 for the HUD.
 
 **Cooldowns are GONE** — stamina and hold are the only gates, exactly the
-Temtem model. The removal surfaced two degenerate metas the sim caught and
+The reference stamina model. The removal surfaced two degenerate metas the sim caught and
 the round fixed:
 - Control spam (stun/freeze chains → 45% judge decisions): control kinds now
   cost like haymakers (44+), carry Hold 1, and a pet that pays a stolen turn
@@ -321,7 +321,7 @@ the round fixed:
   Clause.
 - Heal spam (18-stamina heals every round = unbreakable sustain): heals cost
   40+ and carry Hold 1.
-Plus two throughput fixes: DAMAGE_SCALE 2.35 → 3.3 (Temtem pairs low regen
+Plus two throughput fixes: DAMAGE_SCALE 2.35 → 3.3 (the reference model pairs low regen
 with hard-hitting techniques) and the AI no longer rests while a jab is still
 affordable. Role multipliers retuned for the no-cooldown meta (defender 1.22,
 tracker 0.84). Final bands: roles 42.4-54.1%, elements 42.2-56.9%, pace 8.7
@@ -329,7 +329,7 @@ rounds, judge 24%, species outliers 8 (best yet). 35 tests green.
 
 ## Round 10 — training made meaningful, ratio formula, logic audit (2026-08-10)
 
-**The damage formula changed shape**: atk²/(atk+def) → Pokémon's pure-ratio
+**The damage formula changed shape**: atk²/(atk+def) → the classic monster battler's pure-ratio
 `DAMAGE_SCALE × (power/100) × REF_DEF × atk/def`. Under the old shape an
 attack point carried ~3x a defense point's value, making defense TRAINING a
 trap buy. Under the ratio shape attack, defense, and hp all carry equal
@@ -574,8 +574,8 @@ predates this round.
 
 ## Round 14 — the art pass (2026-08-11)
 
-Research-led: Pokémon Colosseum / XD for the material logic, Pokémon Champions
-for the geometry, Temtem for the two-bar readout, then one spec applied across
+Research-led: the classic monster battler Colosseum / XD for the material logic, the classic monster battler Champions
+for the geometry, the reference model for the two-bar readout, then one spec applied across
 the mode.
 
 **The direction.** The HUD is lacquered shrine hardware bolted over a live
@@ -647,7 +647,7 @@ were cut at power ≤120 / ≤220 / >220 while authored kit power tops out at 17
 - Nothing ever reached the heavy band, so **no kit move ever got a hold or
   "swings last"** either. Pace and hold were as inert as price.
 
-**What Temtem actually does.** Its technique costs track damage at a near-flat
+**What the reference model actually does.** Its technique costs track damage at a near-flat
 rate — Scratch 20/4, Jaw Strike 60/9, Base Jump 100/22, Frond Whip 153/33, all
 ≈4.2–5.2 damage per point — across an ~8× cost range, against a pool where the
 haymaker is roughly two thirds of everything you have, refilling at 5%+1 per
@@ -761,7 +761,7 @@ tuned; only the absolute size moves. What that buys, measured:
 | technique | 28 | 36% | **3** |
 | haymaker | 51 | **65%** | **1** |
 
-The haymaker landing at 65% of the pool puts it exactly on Temtem's own
+The haymaker landing at 65% of the pool puts it exactly on the reference model's own
 reference (33 STA against a ~50 pool). Simulated over 260 real fights, rounds
 where a pet has **nothing** affordable went 2.5% → 10.3%: overspend and you pay
 with an idle round. Balance held — pace 7.1, elements 44–55%, roles 40–59%.
@@ -824,11 +824,11 @@ without moving assassins). That deserves its own pass.
 
 ## Round 19 — Rest stops healing, and the tables are re-fitted (2026-08-11)
 
-**Rest heals nothing now.** It restored 4% of max HP, which Temtem never does —
-checked against the wiki again: Rest recovers *stamina only*, and in Temtem HP
+**Rest heals nothing now.** It restored 4% of max HP, which the reference model never does —
+checked against the wiki again: Rest recovers *stamina only*, and in the reference model HP
 does not regenerate in combat at all. Ours was also doubly generous, granting
-+22%+2 *and* still collecting the end-of-round +7%+2, for 29%+4 against Temtem's
-20%+1 total. Rest is now Temtem's exact bonus — **+15% on top of the passive
++22%+2 *and* still collecting the end-of-round +7%+2, for 29%+4 against the reference model's
+20%+1 total. Rest is now the reference model's exact bonus — **+15% on top of the passive
 regen**, for a 22%+2 total — and it buys stamina and nothing else. That invented
 heal was also what made mutual Rest a self-sustaining fixed point, so removing
 it makes the stall strictly more terminal (mutual Rest and mutual Guard still
@@ -1204,7 +1204,7 @@ animation system — the staging IS the animation.
 ### Turn order, verified against the ask
 
 The owner asked to "make sure the speed stat dictates turns." It does, and it
-is exactly Temtem's shipped model: the engine sorts every round by
+is exactly the reference model's shipped model: the engine sorts every round by
 `effectiveSpeed × movePriority` (a low-priority move halves you, a high one
 multiplies you up) with a hair of seeded rng as the tiebreak — highest
 effective speed acts first, every pet acts once, next round. The EST. ORDER
@@ -1224,7 +1224,7 @@ PvP lands, its start path seals `pvp: true` and the turn handler must also
 resolve a lapsed round with defaults for the absent side (one deadline check;
 noted at `armTurnDeadline`).
 
-## Round 27 — full Temtem parity: the split, STAB, real Synergy, two conditions, and the judge returns (2026-08-12)
+## Round 27 — full reference parity: the split, STAB, real Synergy, two conditions, and the judge returns (2026-08-12)
 
 Owner ruling: "we are doing them all." Every mechanic derives at SEAL time from
 existing data — zero catalog or storage changes, so nothing outside Showdown
@@ -1239,7 +1239,7 @@ moves.
   pet's element and earn the same-type bonus; **Swift Strike seals Neutral** —
   no STAB, wheel-neutral both ways, making the basic the safe jab into a
   resisted matchup (the wheel and the effectiveness label now key off the
-  MOVE, not the pet). STAB at Temtem's 1.5 over our 1.5/0.75 wheel would decide
+  MOVE, not the pet). STAB at the reference model's 1.5 over our 1.5/0.75 wheel would decide
   fights on typing alone; 1.15 measured well.
 - **Synergy is a technique property.** Each elemental technique seals a
   partner element (the one it beats — wind fans the fire); a FIELDED ally of
@@ -1248,9 +1248,9 @@ moves.
   inspector ("Synergy: a fielded Wind ally empowers it") and the SYNERGY banner.
 - **Two conditions + interactions.** A third condition evicts the oldest;
   burn↔freeze cancel, haste shakes off slow/movelock. Shields/barriers/taunt
-  bookkeeping sit outside the cap (Temtem keeps barriers outside statuses too).
+  bookkeeping sit outside the cap (the reference model keeps barriers outside statuses too).
 - **The judge returns at round 25** (`SHOWDOWN_TURN_CAP`), overriding round
-  18's no-limit ruling by explicit owner decision. Temtem's ladder verbatim:
+  18's no-limit ruling by explicit owner decision. The reference ladder verbatim:
   pets left → total HP% → total stamina% → speed arrow (the session's seeded
   coin, so replays judge identically). Attrition still bleeds from round 14, so
   rounds 14-25 are a closing fight, not a stall into the ledger. The round
@@ -1267,8 +1267,8 @@ with 6 comfort outliers against a budget of 14.
 
 ## Round 34 — the art round (2026-08-13)
 
-Owner call: "we need epic vfx like pokemon champions" (Vaporeon Surf reference —
-the element takes over the FRAME, floor included), then mid-round: "make a whole
+Owner call: "we need epic vfx like the big monster battlers" (the reference is a
+signature water attack where the element takes over the FRAME, floor included), then mid-round: "make a whole
 new arena with a crowd, we can't take shortcuts" and "there are 2 different vfx
 firing — one cheap on the pet, one better but mid-screen — do better."
 
@@ -1360,7 +1360,7 @@ signature beat was 3300ms but its piece runs strike(0.55×beat)+2100ms — the
 next actor wound up 600ms before the tsunami landed. Now super 5400ms
 (strike 2970 + piece 2100 + ~330ms settle of stillness), heavy 3400ms
 (1870 + 1150 + ~380ms). The camera hold extends with the beat, and the
-arena goes quiet before the next windup — the Pokémon rhythm.
+arena goes quiet before the next windup — the classic monster battler rhythm.
 
 **The pick — a review-bench lie, not an engine bug.** The REAL path was
 verified correct end-to-end (client sends the picked targetId → endpoint
@@ -1452,7 +1452,7 @@ can verify REAL pacing.
 
 ## Round 39 — the Champions grammar (2026-08-13)
 
-Owner supplied eight Pokémon Champions reference stills + ruling: NO crowd
+Owner supplied eight the classic monster battler Champions reference stills + ruling: NO crowd
 audio ("unnecessary clutter") — focus movesets, VFX, gameplay. Champions
 released 2026-04-08; research: we beat it on spread simultaneity and arena
 variety; its edge was per-move identity + weather-as-state + full-frame
@@ -1569,14 +1569,14 @@ rig instead of mutating a baked domain.
 
 ## Round 44 — the variety pass: weather, Protect, and a kit for every pet (2026-08-14)
 
-Owner: research Temtem and Champions movepools, then rebalance every pet with
+Owner: research the reference model and Champions movepools, then rebalance every pet with
 more variety — buffs/debuffs, Protect, weather that actually boosts its
 element.
 
-**Research** ([Champions weather guides], [Temtem technique wiki]): Champions
+**Research** ([Champions weather guides], [the reference model technique wiki]): Champions
 runs full VGC weather — sun boosts Fire and weakens Water, rain the mirror,
 each set by a move, fixed duration, *the newest setter overwrites*; Protect
-blocks the turn and gets less reliable when chained. Temtem contributes the
+blocks the turn and gets less reliable when chained. The reference model contributes the
 class split (status techniques that only change board state) and the
 two-condition rule, both of which we already run.
 
@@ -1603,7 +1603,7 @@ debuff 65 / mark 27 / slow 25 / buff 31 / heal 31 / barrier 28.
 
 **Weather** (`SHOWDOWN_WEATHER_*`): a setter turns the arena to the caster's
 element for 4 rounds, boosting that element ×1.18 and dampening the element
-that counters it ×0.88 — deliberately under Pokémon's ±50% because our wheel
+that counters it ×0.88 — deliberately under the classic monster battler's ±50% because our wheel
 already swings 1.5/0.75 and STAB adds 1.15 on top. The neutral basic is
 weather-proof, the newest setter overwrites, and the standing weather drives
 the HUD chip *and* the arena's visual climate — the system built in round 39
@@ -1664,7 +1664,7 @@ the species being edited, not just the top and bottom ten.
 ## Round 46 — the structural audit: every kit, every kind, every effect (2026-08-14)
 
 Owner: fix the outliers, then check the balance AND the moveset of every pet
-so they're properly done like Temtem/Champions, make sure every move has a
+so they're properly done like the reference model/Champions, make sure every move has a
 real visual effect, and use Blender again.
 
 **The audit tool** (`scripts/showdown-kit-audit.mjs`). The win-rate analyzer
@@ -1737,7 +1737,7 @@ re-learned on a different layer).
 ## THE LIST (owner + Claude, 2026-08-12) — where the mode stands
 
 ### Shipped and verified
-- Server-only turn engine, full Temtem ruleset: shared stamina + overdraft,
+- Server-only turn engine, full the reference model ruleset: shared stamina + overdraft,
   Rest (stamina only), Hold, priority×speed order, 2v2 bench/switch, traits +
   gear (AI wears them by tier), phys/special split, per-move elements + STAB
   (neutral basic), synergy-as-technique-property, two-condition rule with
@@ -1745,7 +1745,7 @@ re-learned on a different layer).
 - Coherence, measured: training foci 81.7–96.7% vs untrained twin (real-AI
   driver); elements 48.6–51.2 aggregate with 93% advantaged-matchup wins;
   roles 47.9–52.8; rarity ladder 90/87.5%; pace 7.5; species hard band holds.
-- Presentation: Temtem command grid + Champions plate skin, pulled-back board,
+- Presentation: the reference model command grid + Champions plate skin, pulled-back board,
   full backdrop ring + sky cap, bench off-stage with gallop-in staging, layered
   impacts (flash → burst → heavy shell), elemental set-pieces (tsunami /
   tornado / fire wash / eruption / storm bolts — smooth-filtered, reduced-
@@ -1792,15 +1792,15 @@ re-learned on a different layer).
 ## Older follow-ups
 
 - Ghost-team async PvP (snapshot real rosters as opponents, ladder placement).
-- The Pokémon-Champions skin pass on the new Temtem-shaped HUD: angled
+- The classic monster-battler skin pass on the new reference-shaped HUD: angled
   full-bleed name plates (portrait crest, big HP numerals), round FIGHT-style
   action medallions, crowd-and-lightrig stage dressing.
-- Deeper Temtem parity, each item needing an owner call because it moves
+- Deeper the reference model parity, each item needing an owner call because it moves
   balance or data: partner SYNERGY as a first-class technique property (a
   synergy banner exists; the bonus today is flat), the two-status limit with
   status interactions, STAB, and a physical/special split (that last one
   re-prices the entire catalog and every table — a foundational rework, not a
-  patch). Temtem's 25-turn cap conflicts with the standing no-round-limit
+  patch). The reference model's 25-turn cap conflicts with the standing no-round-limit
   ruling and is NOT planned; attrition remains the closer.
 - When the first world-initiated (reward-eligible) mode lands on this engine:
   wire `showdownConsumableSpends` into its start path under the save lock, set
@@ -1814,7 +1814,7 @@ re-learned on a different layer).
 - Activity-spine `resume` card for a live Showdown session (the spine already
   offers "return to" cards for Hollow Gate and tower runs).
 - Reserve balance levers from the research pass, deliberately unshipped:
-  U-turn-style pivot moves, entry-hazard analogues, priority-bracket moves,
+  attack-then-switch pivot moves, entry-hazard analogues, priority-bracket moves,
   trick-room analogues for slow archetypes.
 - Kit-level (kind-value) tuning for the species still outside the comfort band.
   Re-measured 2026-08-11 against the shipped tables: the CI ratchet slice

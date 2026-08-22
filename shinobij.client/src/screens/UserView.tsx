@@ -321,7 +321,7 @@ export function UserView({
                                         >
                                             <div className="achievement-icon">
                                                 <img
-                                                    src={`/badges/${a.id}.png`}
+                                                    src={`/badges/${a.id}.webp`}
                                                     alt=""
                                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                                 />
@@ -355,7 +355,7 @@ export function UserView({
                         >×</button>
                         <div className="achievement-detail-badge">
                             <img
-                                src={`/badges/${selectedAchievement.id}.png`}
+                                src={`/badges/${selectedAchievement.id}.webp`}
                                 alt=""
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                             />

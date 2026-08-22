@@ -132,12 +132,6 @@
     letter-spacing: 0.02em;
 }
 
-/* Modal overlays (Celestial / Dungeon / Archives) */
-.celestial-panel-overlay {
-    background: rgba(5,9,18,0.85) !important;
-    backdrop-filter: blur(6px);
-}
-
 /* Central uses the canonical Modal for focus trapping, Escape handling, scroll
    lock, and top-layer portal behavior. The feature panels keep their own visual
    chrome inside this transparent shell. */

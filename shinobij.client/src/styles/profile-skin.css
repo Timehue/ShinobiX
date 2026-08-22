@@ -133,7 +133,6 @@
     overflow: hidden;
     box-shadow: 0 0 18px rgba(196,162,90,0.2);
 }
-.profile-info-grid,
 .profile-summary {
     color: #c8cfdc !important;
 }
@@ -663,29 +662,6 @@
     align-items: center !important;
     gap: 8px !important;
 }
-.profile-page-card .profile-big-avatar {
-    width: 140px !important;
-    height: 140px !important;
-    border-radius: 50% !important;
-    border: 3px solid rgba(196,162,90,0.55) !important;
-    overflow: hidden !important;
-    box-shadow: 0 0 24px rgba(196,162,90,0.25), inset 0 0 18px rgba(0,0,0,0.4) !important;
-    background: linear-gradient(180deg, #1a2238, #0a1020) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-.profile-page-card .profile-big-avatar img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    border-radius: 50% !important;
-}
-.profile-page-card .profile-big-avatar span {
-    font: 700 32px var(--font-display) !important;
-    color: #e8d496 !important;
-    letter-spacing: 0.06em;
-}
 .profile-page-card .avatar-upload-button {
     display: inline-block !important;
     background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
@@ -753,31 +729,6 @@
     gap: 24px !important;
     align-items: start !important;
     padding: 20px !important;
-}
-.profile-page-card .profile-info-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-    gap: 18px !important;
-}
-.profile-page-card .profile-info-grid h3 {
-    font: 600 12px var(--font-display) !important;
-    letter-spacing: 0.22em !important;
-    text-transform: uppercase !important;
-    color: #e8d496 !important;
-    border-bottom: 1px solid rgba(196,162,90,0.22) !important;
-    padding-bottom: 6px;
-    margin: 0 0 8px 0 !important;
-}
-.profile-page-card .profile-info-grid p {
-    font: 400 12px Inter, sans-serif !important;
-    color: #c8cfdc !important;
-    margin: 4px 0 !important;
-    line-height: 1.5;
-}
-.profile-page-card .profile-info-grid p strong {
-    color: #e8d496 !important;
-    font-family: Inter, sans-serif !important;
-    margin-right: 4px;
 }
 
 /* User Stats section — make the row of group panels span full width and center */

@@ -582,12 +582,6 @@
     filter: brightness(1.05);
 }
 
-.landing-auth-tab.is-active {
-    color: var(--gold-300);
-    background: linear-gradient(180deg, rgba(146, 64, 14, 0.78), rgba(69, 26, 3, 0.82));
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(250, 204, 21, 0.25);
-}
-
 .landing-auth-notice {
     color: #ffcf5a !important;
     text-align: left !important;
@@ -1695,7 +1689,6 @@
 
 .landing-cta:focus-visible,
 .landing-navlink:focus-visible,
-.landing-auth-tab:focus-visible,
 .landing-auth-secondary:focus-visible,
 .landing-brand:focus-visible,
 .landing-scroll-cue:focus-visible,

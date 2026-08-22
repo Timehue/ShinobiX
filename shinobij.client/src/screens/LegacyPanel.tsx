@@ -255,7 +255,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                                     style={{ width: 62, height: 62, borderRadius: 12, display: "inline-block", flexShrink: 0 }}
                                 >
                                     <img
-                                        src={`/badges/legacy-${def.badge}.png`} alt=""
+                                        src={`/badges/legacy-${def.badge}.webp`} alt=""
                                         style={{ width: "100%", height: "100%", borderRadius: 12, display: "block" }}
                                         onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
                                     />
@@ -604,7 +604,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                                             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                                                 {d.badge && (
                                                     <img
-                                                        src={`/badges/legacy-${d.badge}.png`} alt=""
+                                                        src={`/badges/legacy-${d.badge}.webp`} alt=""
                                                         style={{ width: 30, height: 30, borderRadius: 6, flexShrink: 0 }}
                                                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                                                     />

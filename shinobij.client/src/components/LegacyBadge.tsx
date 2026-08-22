@@ -1,7 +1,7 @@
 /*
  * LegacyBadge — the one violet identity mark for a Legacy, shared by every
  * player-facing surface (accepted card, UserView, tavern, directory). It reuses
- * the generated /badges/legacy-<slug>.png art, but when that image is missing
+ * the generated /badges/legacy-<slug>.webp art, but when that image is missing
  * or fails to load it degrades to a violet MONOGRAM (the legacy's initial in a
  * var(--purple-400) box) instead of vanishing — so the mark is never fully lost.
  *
@@ -41,7 +41,7 @@ export function LegacyBadge({ badge, name, size = 40, stage = 0, radius }: {
             {showFallback
                 ? initial
                 : <img
-                    src={`/badges/legacy-${badge}.png`} alt=""
+                    src={`/badges/legacy-${badge}.webp`} alt=""
                     style={{ width: "100%", height: "100%", borderRadius: r, display: "block" }}
                     onError={() => setFailed(true)}
                 />}

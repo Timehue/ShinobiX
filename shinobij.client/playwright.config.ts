@@ -5,6 +5,16 @@ const port = smokeE2ePort();
 const baseURL = `http://127.0.0.1:${port}`;
 const previewRoot = previewRootFor(port);
 
+// The non-combat screen walk visits ~20 screens per project. Layout-at-viewport
+// is what it measures, and the two chromium viewports below cover that, so the
+// other five projects were paying 31 tests each for the same answer — which is
+// what took e2e-responsive from 8 min to 15 min.
+//
+// item-artwork-coverage is deliberately NOT in this list: it is only 2 tests and
+// it decodes the actual WebP catalog, which is precisely the thing that can
+// differ between Chromium, Firefox and WebKit. It keeps running everywhere.
+const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts'];
+
 export default defineConfig({
     testDir: './e2e',
     timeout: 45_000,
@@ -44,11 +54,11 @@ export default defineConfig({
     },
     projects: [
         { name: 'chromium-desktop', use: { browserName: 'chromium', viewport: { width: 1366, height: 768 } } },
-        { name: 'firefox-desktop', use: { browserName: 'firefox', viewport: { width: 1366, height: 768 } } },
-        { name: 'webkit-desktop', use: { browserName: 'webkit', viewport: { width: 1366, height: 768 } } },
-        { name: 'chromium-compact', use: { browserName: 'chromium', viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true } },
+        { name: 'firefox-desktop', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'firefox', viewport: { width: 1366, height: 768 } } },
+        { name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'webkit', viewport: { width: 1366, height: 768 } } },
+        { name: 'chromium-compact', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true } },
         { name: 'chromium-mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-        { name: 'webkit-mobile', use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-        { name: 'chromium-tablet', use: { browserName: 'chromium', viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true } },
+        { name: 'webkit-mobile', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+        { name: 'chromium-tablet', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true } },
     ],
 });
