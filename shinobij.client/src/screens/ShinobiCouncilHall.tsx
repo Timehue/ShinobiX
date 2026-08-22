@@ -14,6 +14,16 @@ import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABE
 import { visiblePoll } from "../lib/poll";
 import { CW_DAMAGE } from "../constants/clan";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
+import councilHallHero from "../assets/council-hall-command-v2.webp";
+
+function CouncilHpBar({ current, max, color }: { current: number; max: number; color: string }) {
+    const pct = Math.max(0, Math.min(100, (current / max) * 100));
+    return (
+        <div className="council-hp-track" role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={current}>
+            <div className="council-hp-fill" style={{ width: `${pct}%`, background: color }} />
+        </div>
+    );
+}
 
 export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle, onBack }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void; onBack: () => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
@@ -147,18 +157,10 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
         return `${mins}m`;
     }
 
-    function HpBar({ current, max, color }: { current: number; max: number; color: string }) {
-        const pct = Math.max(0, Math.min(100, (current / max) * 100));
-        return (
-            <div className="council-hp-track">
-                <div className="council-hp-fill" style={{ width: `${pct}%`, background: color }} />
-            </div>
-        );
-    }
-
     return (
         <div className="card council-screen">
             <CentralDestinationHeader
+                art={councilHallHero}
                 backLabel="Central"
                 eyebrow="The Thousand Gates · War Council"
                 icon={<GiGreekTemple />}
@@ -171,9 +173,9 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             />
 
             <div className="council-tabs">
-                <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}><GiCrossedSwords style={SCH_ICON} />Active Wars</button>
-                <button className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}><GiBlackFlag style={SCH_ICON} />Clan Battles</button>
-                <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}><GiCrown style={SCH_ICON} />Kage Records</button>
+                <button aria-current={tab === "wars" ? "page" : undefined} className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}><GiCrossedSwords style={SCH_ICON} />Active Wars</button>
+                <button aria-current={tab === "clanBattles" ? "page" : undefined} className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}><GiBlackFlag style={SCH_ICON} />Clan Battles</button>
+                <button aria-current={tab === "kage" ? "page" : undefined} className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}><GiCrown style={SCH_ICON} />Kage Records</button>
             </div>
 
             {tab === "wars" && <><section className="council-section">
@@ -193,14 +195,14 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                     <div className={`council-side ${character.village === vA ? "council-mine" : ""}`}>
                                         <VillagePill village={vA} highlight={character.village === vA} />
                                         <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
-                                        <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="var(--success)" />
+                                        <CouncilHpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="var(--success)" />
                                         <span className="council-top"><GiTrophy style={SCH_ICON} />{topA}</span>
                                     </div>
                                     <div className="council-vs">VS</div>
                                     <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
                                         <VillagePill village={vB} highlight={character.village === vB} />
                                         <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
-                                        <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="var(--danger)" />
+                                        <CouncilHpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="var(--danger)" />
                                         <span className="council-top"><GiTrophy style={SCH_ICON} />{topB}</span>
                                     </div>
                                 </div>
@@ -235,14 +237,14 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                         <div className={`council-side ${character.clan === clanA ? "council-mine" : ""}`}>
                                             <span className="council-village-name">{clanA}</span>
                                             <span className="council-hp-label">{cw.villages[clanA]} · {hpA.toLocaleString()} / {maxA.toLocaleString()} HP</span>
-                                            <HpBar current={hpA} max={maxA} color="#a78bfa" />
+                                            <CouncilHpBar current={hpA} max={maxA} color="#a78bfa" />
                                             <span className="council-top"><GiTrophy style={SCH_ICON} />{topA}</span>
                                         </div>
                                         <div className="council-vs">VS</div>
                                         <div className={`council-side council-side-right ${character.clan === clanB ? "council-mine" : ""}`}>
                                             <span className="council-village-name">{clanB}</span>
                                             <span className="council-hp-label">{cw.villages[clanB]} · {hpB.toLocaleString()} / {maxB.toLocaleString()} HP</span>
-                                            <HpBar current={hpB} max={maxB} color="#fb923c" />
+                                            <CouncilHpBar current={hpB} max={maxB} color="#fb923c" />
                                             <span className="council-top"><GiTrophy style={SCH_ICON} />{topB}</span>
                                         </div>
                                     </div>

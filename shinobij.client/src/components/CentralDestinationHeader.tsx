@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import "../styles/central-skin.css";
 
 type CentralDestinationHeaderProps = {
+    art?: string;
     backLabel?: string;
     eyebrow: string;
     icon: ReactNode;
@@ -14,6 +15,7 @@ type CentralDestinationHeaderProps = {
 };
 
 export function CentralDestinationHeader({
+    art,
     backLabel = "Central",
     eyebrow,
     icon,
@@ -24,8 +26,12 @@ export function CentralDestinationHeader({
     title,
     tone = "gold",
 }: CentralDestinationHeaderProps) {
+    const style = art
+        ? ({ "--destination-art": `url(${art})` } as CSSProperties)
+        : undefined;
+
     return (
-        <header className="central-destination-header" data-tone={tone}>
+        <header className={`central-destination-header${art ? " has-art" : ""}`} data-tone={tone} style={style}>
             <button type="button" className="central-destination-back" onClick={onBack} aria-label={`Return to ${backLabel}`}>
                 <span aria-hidden="true">←</span>
                 <span>{backLabel}</span>
