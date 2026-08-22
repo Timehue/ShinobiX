@@ -383,7 +383,7 @@ export function HunterBoard({
                         disabled={invCount(HUNTER_RANKUP[hunterRank].itemId) < HUNTER_RANKUP[hunterRank].qty}
                         onClick={rankUp}
                     >
-                        Rank Up ? {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}
+                        Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}
                     </button>
                 )}
             </div>
