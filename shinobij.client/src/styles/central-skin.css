@@ -234,6 +234,13 @@
     font: 800 14px/1 var(--font-display);
 }
 
+.central-passport-signals strong em {
+    margin-left: 2px;
+    color: #8ba0bc;
+    font: 700 8px/1 Inter, sans-serif;
+    font-style: normal;
+}
+
 .central-hub .central-log {
     display: grid;
     grid-template-columns: 38px minmax(0, 1fr);
@@ -410,11 +417,11 @@
 .central-hub .central-card {
     position: relative;
     display: grid !important;
-    grid-template-columns: 50px minmax(0, 1fr) 24px !important;
-    align-items: center !important;
-    gap: 12px !important;
-    min-height: 126px;
-    padding: 14px !important;
+    grid-template-columns: clamp(132px, 13vw, 174px) minmax(0, 1fr) 24px !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    min-height: 154px;
+    padding: 0 14px 0 0 !important;
     color: #edf2f8 !important;
     text-align: left !important;
     background:
@@ -455,6 +462,43 @@
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34), inset 0 0 24px rgba(var(--district-accent-rgb), 0.045) !important;
 }
 
+.central-card-art {
+    position: relative;
+    display: block;
+    align-self: stretch;
+    min-width: 0;
+    overflow: hidden;
+    border-right: 1px solid rgba(var(--district-accent-rgb), 0.24);
+    background: #060c18;
+}
+
+.central-card-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, transparent 54%, rgba(5, 11, 23, 0.72) 100%),
+        linear-gradient(180deg, rgba(2, 7, 16, 0.02), rgba(2, 7, 16, 0.42));
+    pointer-events: none;
+}
+
+.central-card-art img {
+    width: 100%;
+    height: 100%;
+    min-height: 152px;
+    display: block;
+    object-fit: cover;
+    filter: saturate(0.88) contrast(1.06) brightness(0.82);
+    transform: scale(1.01);
+    transition: filter 180ms ease, transform 240ms ease;
+}
+
+.central-card:hover .central-card-art img,
+.central-card:focus-visible .central-card-art img {
+    filter: saturate(1.04) contrast(1.06) brightness(0.96);
+    transform: scale(1.045);
+}
+
 .central-hub .central-icon {
     position: relative;
     display: grid;
@@ -485,8 +529,10 @@
 
 .central-card-content {
     display: grid;
+    align-content: center;
     min-width: 0;
     gap: 6px;
+    padding-block: 15px;
 }
 
 .central-card-meta {
@@ -719,7 +765,7 @@
     }
 
     .central-hub .central-card {
-        min-height: 116px;
+        min-height: 142px;
     }
 
     .central-war-alert {
@@ -782,21 +828,14 @@
     .central-district-title h2 { font-size: 15px; }
 
     .central-hub .central-card {
-        grid-template-columns: 42px minmax(0, 1fr) 18px !important;
+        grid-template-columns: 94px minmax(0, 1fr) 16px !important;
         gap: 10px !important;
-        min-height: 112px;
-        padding: 12px 10px !important;
+        min-height: 132px;
+        padding: 0 9px 0 0 !important;
     }
 
-    .central-hub .central-icon {
-        width: 40px;
-        height: 40px;
-    }
-
-    .central-hub .central-icon svg {
-        width: 28px;
-        height: 28px;
-    }
+    .central-card-art img { min-height: 130px; }
+    .central-card-content { padding-block: 11px; }
 
     .central-card-meta { align-items: flex-start; }
     .central-card-badge { max-width: 55%; }

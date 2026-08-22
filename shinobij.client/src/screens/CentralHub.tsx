@@ -6,8 +6,8 @@ import type { CSSProperties, ReactElement } from "react";
 import "../styles/central-skin.css";
 // Compact local location and material glyphs shared with the rest of the game.
 import {
-    GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
-    GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
+    GiCrossedSwords, GiDragonHead, GiBookshelf,
+    GiCrystalBall, GiBlacksmith, GiDungeonGate, GiStoneTower,
     GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiRollingDices, GiTrashCan,
     // Craft-material + recipe glyphs (forge tab).
     GiSwapBag, GiAnimalHide, GiFeather, GiFangs, GiHornInternal, GiMeat, GiSnowflake1,
@@ -18,6 +18,20 @@ import type { IconType } from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import centralCommandHero from "../assets/central-command-v2.webp";
+import arenaDistrictArt from "../assets/facilities/battle-arena.webp";
+import councilHallArt from "../assets/council-hall-command-v2.webp";
+import grandMarketplaceArt from "../assets/facilities/shop.webp";
+import hunterGuildArt from "../assets/hunter/hunter-guild-board.webp";
+import ancientArchivesArt from "../assets/studio/archive-armory.webp";
+import crafterForgeArt from "../assets/central/crafter-forge-v1.webp";
+import petColosseumArt from "../assets/coliseum/pet-arena-command-v2.webp";
+import relicDungeonArt from "../assets/towers/chamber.webp";
+import celestialTowerArt from "../assets/towers/battle-towers-key-art-v1.webp";
+import weeklyAshenDragonArt from "../assets/combat-actors/creatures/apex-ai-ember-drake-idle.webp";
+import weeklyStormveilBeastArt from "../assets/combat-actors/creatures/apex-ai-ancient-chakra-beast-idle.webp";
+import weeklyDeathsgateArt from "../assets/combat-actors/bosses/tower-spectral-boss-idle.webp";
+import weeklyFrostfangArt from "../assets/combat-actors/bosses/tower-armored-boss-idle.webp";
+import weeklyMoonshadowArt from "../assets/combat-actors/bosses/clan-boss-oni-idle.webp";
 // Inline glyph style for section headers — sized to the heading text, nudged onto the baseline.
 const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 // Small inline glyph for currency/cost lines.
@@ -27,7 +41,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
-import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DAILY_MISSION_LIMIT, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
 import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
@@ -60,6 +74,15 @@ import { purchaseBloodlineForge } from "../lib/bloodline-forge";
 import { CentralAwakeningCinematic } from "../components/CentralAwakeningCinematic";
 import { primeGameAudio } from "../lib/game-audio";
 import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
+import { dailyMissionsCompleted } from "../lib/character-progress";
+
+const WEEKLY_BOSS_ART: Record<string, string> = {
+    "ashen-dragon": weeklyAshenDragonArt,
+    "moonshadow-oni": weeklyMoonshadowArt,
+    "frostfang-warlord": weeklyFrostfangArt,
+    "stormveil-beast": weeklyStormveilBeastArt,
+    "deathsgate-revenant": weeklyDeathsgateArt,
+};
 
 // Fantasy glyph per craft material — gives the forge's material list real
 // imagery instead of plain rows. Tiered by point value (see craftTier) for
@@ -458,6 +481,7 @@ export function CentralHub({
     // Surface the current server-wide hunt in the hub so players can tell whether
     // the destination is live before committing to the route.
     const weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
+    const weeklyBossArtwork = weeklyBossOverrideAi?.image || WEEKLY_BOSS_ART[weeklyBoss.bossId] || weeklyMoonshadowArt;
     const allHubItems = getAllItems(creatorItems);
 
     function countInventory(itemId: string) {
@@ -583,6 +607,7 @@ export function CentralHub({
 
     const awakenedElements = getCharacterElements(character);
     const dungeonKeyCount = countInventory(DUNGEON_KEY_ID);
+    const dailyMissionCount = dailyMissionsCompleted(character);
     const weeklyBossBadge = weeklyBoss.status === "active"
         ? `${weeklyBoss.bossIcon} Live now`
         : weeklyBoss.status === "defeated"
@@ -602,7 +627,8 @@ export function CentralHub({
                     name: "Arena District",
                     kicker: "Compete",
                     badge: "Ranked & clan",
-                    icon: <GiCrossedSwords size={34} />,
+                    art: arenaDistrictArt,
+                    artPosition: "52% center",
                     text: "Enter tournaments, ranked ladders, spectator boards, and challenge halls.",
                     action: () => setScreen("arenaDistrict"),
                 },
@@ -610,7 +636,8 @@ export function CentralHub({
                     name: "Shinobi Council Hall",
                     kicker: "Govern",
                     badge: "War command",
-                    icon: <GiGreekTemple size={34} />,
+                    art: councilHallArt,
+                    artPosition: "72% center",
                     text: "Review active village and clan wars, side strength, and leading contributors.",
                     action: () => setScreen("shinobiCouncil"),
                 },
@@ -618,7 +645,8 @@ export function CentralHub({
                     name: "Grand Marketplace",
                     kicker: "Trade",
                     badge: "Elite stock",
-                    icon: <GiShop size={34} />,
+                    art: grandMarketplaceArt,
+                    artPosition: "66% center",
                     text: "Browse legendary gear, companion equipment, and premium card packs.",
                     action: () => setScreen("grandMarketplace"),
                 },
@@ -626,7 +654,8 @@ export function CentralHub({
                     name: "Hunter Guild",
                     kicker: "Track",
                     badge: "Contracts",
-                    icon: <GiDragonHead size={34} />,
+                    art: hunterGuildArt,
+                    artPosition: "center",
                     text: "Take beast contracts, track sectors, gather materials, and build hunter rank.",
                     action: () => setScreen("hunting"),
                 },
@@ -643,7 +672,8 @@ export function CentralHub({
                     name: "Hall of Legends",
                     kicker: "Compare",
                     badge: "Leaderboards",
-                    icon: <GiTrophy size={34} />,
+                    art: "/legacy/hall-of-legends-banner.webp",
+                    artPosition: "center",
                     text: "See the shinobi, clans, pets, streaks, and villages defining the current era.",
                     action: () => setScreen("hallOfLegends"),
                 },
@@ -651,7 +681,8 @@ export function CentralHub({
                     name: "Ancient Archives",
                     kicker: "Study",
                     badge: "Bloodline codex",
-                    icon: <GiBookshelf size={34} />,
+                    art: ancientArchivesArt,
+                    artPosition: "64% center",
                     text: "Explore bloodline lore, techniques, ranks, elements, and player records.",
                     action: () => setShowArchives(true),
                 },
@@ -659,7 +690,8 @@ export function CentralHub({
                     name: "Awakening Stone",
                     kicker: "Awaken",
                     badge: hasFreeRoll ? "Free awakening ready" : awakenedElements.length ? awakenedElements.join(" · ") : "Elemental path",
-                    icon: <GiCrystalBall size={34} />,
+                    art: "/assets/awakening-stone-cinematic-v1.webp",
+                    artPosition: "center",
                     text: awakenedElements.length
                         ? "Reroll your elemental nature or begin forging a bloodline from ancient materials."
                         : "Reveal your elemental nature and open the path to bloodline forging.",
@@ -675,7 +707,8 @@ export function CentralHub({
                     name: "Crafter",
                     kicker: "Forge",
                     badge: "Weapons & supplies",
-                    icon: <GiBlacksmith size={34} />,
+                    art: crafterForgeArt,
+                    artPosition: "68% center",
                     text: "Convert hunting, boss, dungeon, and war materials into proven equipment.",
                     action: () => setShowCrafter(true),
                 },
@@ -692,7 +725,8 @@ export function CentralHub({
                     name: "Pet Colosseum",
                     kicker: "Command",
                     badge: "Companion trials",
-                    icon: <GiColiseum size={34} />,
+                    art: petColosseumArt,
+                    artPosition: "72% center",
                     text: "Choose a companion for cinematic showdowns or enter the tactical pet arena.",
                     action: () => setScreen("petArena"),
                 },
@@ -700,7 +734,8 @@ export function CentralHub({
                     name: "Relic Dungeons",
                     kicker: "Explore",
                     badge: `${dungeonKeyCount} ${dungeonKeyCount === 1 ? "key" : "keys"}`,
-                    icon: <GiDungeonGate size={34} />,
+                    art: relicDungeonArt,
+                    artPosition: "center",
                     text: "Spend a Dungeon Key to breach one of five relic vaults with equal strength curves.",
                     action: () => setShowDungeonPanel(true),
                 },
@@ -708,7 +743,8 @@ export function CentralHub({
                     name: "Weekly Boss",
                     kicker: "Rally",
                     badge: weeklyBossBadge,
-                    icon: <GiOgre size={34} />,
+                    art: weeklyBossArtwork,
+                    artPosition: "center 24%",
                     text: `${weeklyBoss.bossName} anchors this week's server-wide 72-hour hunt and contribution ladder.`,
                     action: () => setScreen("weeklyBoss"),
                     featured: weeklyBoss.status === "active",
@@ -717,7 +753,8 @@ export function CentralHub({
                     name: "Celestial Tower",
                     kicker: "Ascend",
                     badge: "Endless climb",
-                    icon: <GiStoneTower size={34} />,
+                    art: celestialTowerArt,
+                    artPosition: "72% center",
                     text: "Climb scaling floors, protect your banked ryo, and claim permanent milestones.",
                     action: () => setShowCelestialPanel(true),
                 },
@@ -766,11 +803,14 @@ export function CentralHub({
                     <div className="central-passport-copy">
                         <span>Arrival status</span>
                         <strong>{character.village ? `${character.village} envoy` : "Independent shinobi"}</strong>
-                        <small>{awakenedElements.length ? awakenedElements.join(" · ") : "Element not yet awakened"}</small>
+                        <small>{character.rankTitle || "Academy shinobi"}</small>
                     </div>
                     <div className="central-passport-signals" aria-label="Central resources">
                         <span><small>Relic keys</small><strong>{dungeonKeyCount}</strong></span>
-                        <span><small>Chakra natures</small><strong>{awakenedElements.length}</strong></span>
+                        <span>
+                            <small>Daily missions</small>
+                            <strong>{dailyMissionCount}<em>/{DAILY_MISSION_LIMIT}</em></strong>
+                        </span>
                     </div>
                 </aside>
             </header>
@@ -869,7 +909,15 @@ export function CentralHub({
                                     key={option.name}
                                     onClick={option.action}
                                 >
-                                    <span className="central-icon" aria-hidden="true">{option.icon}</span>
+                                    <span className="central-card-art" aria-hidden="true">
+                                        <img
+                                            src={option.art}
+                                            alt=""
+                                            loading="lazy"
+                                            decoding="async"
+                                            style={{ objectPosition: option.artPosition }}
+                                        />
+                                    </span>
                                     <span className="central-card-content">
                                         <span className="central-card-meta">
                                             <span className="central-card-kicker">{option.kicker}</span>
