@@ -749,7 +749,7 @@ const HOLLOWGATE: Guide = {
 
 // ── About & Credits ─────────────────────────────────────────────────────────
 // Kept last in the library. Holds the project blurb, the third-party attributions
-// we're obligated to surface (game-icons.net is CC BY 3.0 → attribution required),
+// we surface for players and reviewers,
 // and the community links.
 const ABOUT: Guide = {
     id: "about",
@@ -769,11 +769,11 @@ const ABOUT: Guide = {
             heading: "Credits & Attributions",
             blocks: [
                 { type: "h", text: "Icons" },
-                { type: "p", text: "Menu and interface icons are from game-icons.net, used under the Creative Commons Attribution 3.0 Unported license (CC BY 3.0). See game-icons.net for the full author list and the license text." },
+                { type: "p", text: "Menu and interface icons use the game's compact project-authored inline SVG set for fast, consistent rendering." },
                 { type: "h", text: "Fonts" },
                 { type: "p", text: "Display headings use a Cinzel-first local/system fallback stack for faster, more reliable loading." },
                 { type: "h", text: "Built With" },
-                { type: "p", text: "React, Vite, three.js, react-icons, Supabase, and other open-source software." },
+                { type: "p", text: "React, Vite, three.js, Supabase, and other open-source software." },
             ],
         },
         {

@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
 import { serverNow } from "../lib/server-clock";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
-import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } from "react-icons/gi";
+// Compact local chrome glyphs shared with the rest of the game.
+import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } from "../components/icons/LightweightGameIcons";
 const VW_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";

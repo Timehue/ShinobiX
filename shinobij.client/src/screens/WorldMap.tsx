@@ -6,14 +6,14 @@ import "../styles/atlas-skin.css";
 // view and the overlay are component modules and must stay CSS-free).
 import "../styles/chronicle-duel.css";
 import "../styles/card-pack-opening.css";
-// Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+// Compact local event-modal glyphs shared with the rest of the game.
 import {
     GiCardPickup,
     GiChest,
     GiOpenTreasureChest,
     GiPawPrint,
     GiTrail,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
