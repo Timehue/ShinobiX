@@ -1,0 +1,614 @@
+/* ========================================================================
+   Inventory armory presentation
+
+   The catalog artwork is authored as square 256–320px assets. The previous
+   88px landscape crop forced those squares through object-fit: cover, cutting
+   weapons, armor, and tall props off at the edges. This layer gives the art a
+   square stage and treats rarity as a controlled accent instead of repainting
+   each entire card.
+   ======================================================================== */
+
+.inventory-page {
+    --inventory-gold: #c9a968;
+    --inventory-gold-bright: #ead9a7;
+    --inventory-cyan: #74adbd;
+    --inventory-panel: rgba(8, 13, 22, 0.94);
+    --inventory-panel-high: rgba(14, 22, 34, 0.96);
+    --inventory-line: rgba(201, 169, 104, 0.2);
+    --inventory-line-strong: rgba(201, 169, 104, 0.42);
+    display: grid !important;
+    grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.58fr) !important;
+    gap: 12px !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.inventory-page .inventory-equipped-panel,
+.inventory-page .inventory-backpack-panel {
+    min-width: 0;
+    padding: 16px !important;
+    overflow: hidden;
+    border: 1px solid var(--inventory-line) !important;
+    border-radius: 8px !important;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 42%),
+        linear-gradient(180deg, var(--inventory-panel-high), var(--inventory-panel)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 14px 34px rgba(0, 0, 0, 0.28) !important;
+}
+
+.inventory-page .inventory-equipped-panel {
+    border-right: 1px solid var(--inventory-line) !important;
+    background:
+        radial-gradient(ellipse at 50% 42%, rgba(116, 173, 189, 0.095), transparent 48%),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 42%),
+        linear-gradient(180deg, var(--inventory-panel-high), var(--inventory-panel)) !important;
+}
+
+.inventory-equipped-heading,
+.inventory-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.inventory-equipped-heading {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--inventory-line);
+}
+
+.inventory-page .inventory-panel-header {
+    margin: 0 0 12px !important;
+    padding: 0 0 12px !important;
+    border-bottom: 1px solid var(--inventory-line) !important;
+}
+
+.inventory-panel-title-group {
+    min-width: 0;
+}
+
+.inventory-panel-kicker {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--inventory-cyan);
+    font: 700 0.62rem/1.2 var(--font-display);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.inventory-page .inventory-equipped-heading h2,
+.inventory-page .inventory-panel-title-group h2 {
+    margin: 0 !important;
+    color: var(--inventory-gold-bright) !important;
+    font: 700 clamp(1.15rem, 1.8vw, 1.45rem)/1.15 var(--font-display) !important;
+    letter-spacing: 0.065em !important;
+    text-transform: none;
+}
+
+.inventory-panel-title-group > p,
+.inventory-panel-intro {
+    color: #8793a6;
+    font: 500 0.72rem/1.4 var(--font-body, Inter, sans-serif);
+}
+
+.inventory-panel-title-group > p {
+    margin: 5px 0 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.inventory-panel-intro {
+    margin: 8px 0 0;
+}
+
+.inventory-panel-count {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    min-width: 48px;
+    padding: 7px 9px;
+    border: 1px solid rgba(116, 173, 189, 0.3);
+    border-radius: 6px;
+    color: #d9eef4;
+    background: rgba(116, 173, 189, 0.08);
+    font: 800 0.95rem/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.inventory-panel-count small {
+    margin-left: 2px;
+    color: #718092;
+    font-size: 0.65rem;
+}
+
+/* Loadout silhouette and slots */
+.inventory-page .inventory-character-layout {
+    min-height: 556px !important;
+    margin-top: 8px;
+}
+
+.inventory-page .inventory-silhouette {
+    inset: 50px 66px 20px !important;
+    opacity: 0.55 !important;
+    background:
+        radial-gradient(circle at 50% 28%, rgba(116, 173, 189, 0.12), transparent 34%),
+        radial-gradient(ellipse at center, rgba(116, 173, 189, 0.07), transparent 70%) !important;
+    border: 1px solid rgba(116, 173, 189, 0.08);
+    border-radius: 999px 999px 70px 70px !important;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.28);
+}
+
+.inventory-page :where(.silhouette-head, .silhouette-body, .silhouette-arm, .silhouette-leg) {
+    background: #060b13 !important;
+    box-shadow:
+        inset 0 0 28px rgba(35, 51, 69, 0.72),
+        0 0 0 1px rgba(116, 173, 189, 0.05) !important;
+}
+
+.inventory-page .character-equip-slot {
+    width: 70px !important;
+    height: 70px !important;
+    padding: 5px !important;
+    overflow: hidden;
+    border: 1px dashed rgba(116, 173, 189, 0.3) !important;
+    border-radius: 7px !important;
+    color: #8c99aa !important;
+    background:
+        linear-gradient(145deg, rgba(116, 173, 189, 0.08), transparent 62%),
+        rgba(8, 13, 22, 0.86) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 7px 16px rgba(0, 0, 0, 0.24) !important;
+}
+
+.inventory-page .character-equip-slot.filled {
+    border-style: solid !important;
+    border-color: color-mix(in srgb, var(--item-rarity, var(--inventory-cyan)) 68%, #2a3440) !important;
+    background: rgba(7, 12, 20, 0.96) !important;
+    box-shadow:
+        inset 0 2px 0 var(--item-rarity, var(--inventory-cyan)),
+        0 8px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+.inventory-page .character-equip-slot:hover,
+.inventory-page .character-equip-slot:focus-visible {
+    border-color: var(--inventory-cyan) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(116, 173, 189, 0.14),
+        0 0 18px rgba(116, 173, 189, 0.2) !important;
+}
+
+.inventory-page .character-equip-slot:focus-visible {
+    outline: 2px solid #d9eef4;
+    outline-offset: 2px;
+}
+
+.inventory-page .character-equip-slot img {
+    object-fit: contain !important;
+    padding: 4px !important;
+    background: radial-gradient(circle at center, rgba(116, 173, 189, 0.11), rgba(4, 8, 14, 0.72) 72%) !important;
+}
+
+.inventory-page .slot-keystone,
+.inventory-page .slot-left-item-1,
+.inventory-page .slot-left-hand,
+.inventory-page .slot-left-item-2,
+.inventory-page .slot-relic,
+.inventory-page .slot-left-item-3 {
+    left: 10px !important;
+}
+
+.inventory-page .slot-thrown,
+.inventory-page .slot-right-item-1,
+.inventory-page .slot-right-hand,
+.inventory-page .slot-right-item-2,
+.inventory-page .slot-right-item-3 {
+    right: 10px !important;
+}
+
+/* Backpack toolbar */
+.inventory-page .inventory-tabs {
+    flex: 0 1 auto;
+    align-self: center;
+    margin: 0;
+}
+
+.inventory-page .inventory-tabs button {
+    min-height: 36px !important;
+    padding: 7px 12px !important;
+    letter-spacing: 0.12em !important;
+}
+
+.inventory-page .inventory-category-bar {
+    gap: 5px !important;
+    margin-bottom: 9px !important;
+    padding: 5px !important;
+    border-color: rgba(116, 173, 189, 0.15) !important;
+    background: rgba(3, 7, 13, 0.5) !important;
+}
+
+.inventory-page .inventory-category-bar button {
+    min-height: 34px;
+    padding: 6px 10px !important;
+    letter-spacing: 0.075em !important;
+}
+
+.inventory-page .inventory-search-row {
+    margin-bottom: 9px !important;
+}
+
+.inventory-page .inventory-search-row input[type="search"] {
+    min-height: 40px;
+    padding: 8px 34px 8px 12px !important;
+    border-color: rgba(116, 173, 189, 0.22) !important;
+    border-radius: 6px !important;
+    background:
+        linear-gradient(90deg, rgba(116, 173, 189, 0.035), transparent 38%),
+        rgba(3, 7, 13, 0.6) !important;
+}
+
+/* Item grid and cards */
+.inventory-page .backpack-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)) !important;
+    gap: 10px !important;
+    align-items: stretch;
+    justify-content: stretch !important;
+}
+
+.inventory-page .backpack-item {
+    --item-rarity: #8c98a7;
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    min-height: 0 !important;
+    padding: 7px !important;
+    display: grid !important;
+    grid-template-rows: auto 1fr auto !important;
+    gap: 8px !important;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--item-rarity) 46%, #35404d) !important;
+    border-radius: 8px !important;
+    color: #e9edf3 !important;
+    background:
+        linear-gradient(150deg, color-mix(in srgb, var(--item-rarity) 7%, transparent), transparent 38%),
+        linear-gradient(180deg, rgba(15, 22, 33, 0.98), rgba(7, 12, 20, 0.99)) !important;
+    text-align: left;
+    cursor: pointer;
+    box-shadow:
+        inset 0 2px 0 color-mix(in srgb, var(--item-rarity) 78%, transparent),
+        inset 0 0 24px rgba(0, 0, 0, 0.2),
+        0 8px 18px rgba(0, 0, 0, 0.24) !important;
+    transform: translateY(0);
+    transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+.inventory-page .backpack-item.rarity-common { --item-rarity: #8c98a7; }
+.inventory-page .backpack-item.rarity-uncommon { --item-rarity: #73b95a; }
+.inventory-page .backpack-item.rarity-rare { --item-rarity: #58a9da; }
+.inventory-page .backpack-item.rarity-epic { --item-rarity: #a989d5; }
+.inventory-page .backpack-item.rarity-legendary { --item-rarity: #d6a64f; }
+.inventory-page .backpack-item.rarity-mythic { --item-rarity: #e56b67; }
+
+.inventory-page .backpack-item:hover {
+    z-index: 1;
+    border-color: color-mix(in srgb, var(--item-rarity) 78%, #d7e5ea) !important;
+    background:
+        linear-gradient(150deg, color-mix(in srgb, var(--item-rarity) 11%, transparent), transparent 42%),
+        linear-gradient(180deg, rgba(18, 27, 40, 0.99), rgba(8, 14, 23, 0.99)) !important;
+    box-shadow:
+        inset 0 2px 0 var(--item-rarity),
+        0 0 0 1px color-mix(in srgb, var(--item-rarity) 18%, transparent),
+        0 14px 28px rgba(0, 0, 0, 0.38) !important;
+    filter: none !important;
+    transform: translateY(-3px) !important;
+}
+
+.inventory-page .backpack-item:focus-visible {
+    z-index: 2;
+    outline: 2px solid #d9eef4;
+    outline-offset: 3px;
+    border-color: var(--inventory-cyan) !important;
+}
+
+.inventory-page .backpack-item-art {
+    position: relative;
+    width: 100%;
+    min-height: 0 !important;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: 0 !important;
+    border: 1px solid color-mix(in srgb, var(--item-rarity) 24%, #26313e) !important;
+    border-radius: 6px !important;
+    background:
+        radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--item-rarity) 10%, transparent), transparent 54%),
+        linear-gradient(145deg, #0c1420, #050910) !important;
+    box-shadow:
+        inset 0 0 26px rgba(0, 0, 0, 0.42),
+        0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+.inventory-page .backpack-item-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(115deg, rgba(255, 255, 255, 0.055), transparent 28%),
+        linear-gradient(0deg, rgba(2, 5, 9, 0.2), transparent 34%);
+}
+
+.inventory-page .backpack-item-art img {
+    position: relative;
+    z-index: 0;
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    padding: 0 !important;
+    border-radius: 5px !important;
+    object-fit: contain !important;
+    background: transparent !important;
+    transform: scale(0.98);
+    transition: transform 180ms ease, filter 180ms ease;
+}
+
+.inventory-page .backpack-item:hover .backpack-item-art img {
+    filter: brightness(1.06) saturate(1.04);
+    transform: scale(1.015);
+}
+
+.inventory-page .backpack-item-rarity,
+.inventory-page .stack-count {
+    position: absolute;
+    z-index: 2;
+    top: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    border: 1px solid color-mix(in srgb, var(--item-rarity) 64%, rgba(255, 255, 255, 0.18));
+    color: #f5f7fa;
+    background: rgba(4, 8, 14, 0.82);
+    font: 800 0.56rem/1 var(--font-display) !important;
+    letter-spacing: 0.11em !important;
+    text-transform: uppercase;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(5px);
+}
+
+.inventory-page .backpack-item .backpack-item-art > .backpack-item-rarity {
+    left: 7px;
+    padding: 5px 7px;
+    border-radius: 4px;
+    color: color-mix(in srgb, var(--item-rarity) 72%, white);
+    font-size: 0.56rem !important;
+    text-shadow: none !important;
+}
+
+.inventory-page .backpack-item .backpack-item-art > .stack-count {
+    right: 7px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    padding: 4px 6px;
+    border-width: 1px !important;
+    border-radius: 999px !important;
+    color: #111820 !important;
+    background: color-mix(in srgb, var(--item-rarity) 82%, white) !important;
+    font-size: 0.63rem !important;
+    letter-spacing: 0 !important;
+}
+
+.inventory-page .backpack-item .backpack-item-art > .backpack-item-initials {
+    color: color-mix(in srgb, var(--item-rarity) 66%, white) !important;
+    font: 800 clamp(1.45rem, 4vw, 2.1rem)/1 var(--font-display) !important;
+    letter-spacing: 0.08em !important;
+}
+
+.inventory-page .backpack-item-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 0 2px;
+}
+
+.inventory-page .backpack-item-type {
+    max-width: 100%;
+    overflow: hidden;
+    color: color-mix(in srgb, var(--item-rarity) 64%, #b9c4cf);
+    font: 700 0.56rem/1.2 var(--font-display);
+    letter-spacing: 0.13em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.inventory-page .backpack-item-copy > strong {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    display: -webkit-box;
+    overflow: hidden;
+    color: #f3ead0 !important;
+    font: 700 0.82rem/1.22 var(--font-display) !important;
+    letter-spacing: 0.02em !important;
+    text-overflow: ellipsis;
+    white-space: normal !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.inventory-page .backpack-item-summary {
+    width: 100%;
+    display: -webkit-box;
+    overflow: hidden;
+    color: #94a0af;
+    font: 500 0.66rem/1.35 var(--font-body, Inter, sans-serif);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.inventory-page .backpack-item-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    padding: 7px 9px;
+    border-top: 1px solid rgba(116, 173, 189, 0.12);
+    border-radius: 4px;
+    color: #b8c7d2;
+    background: rgba(116, 173, 189, 0.045);
+    font: 700 0.61rem/1 var(--font-display);
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color 150ms ease, background 150ms ease;
+}
+
+.inventory-page .backpack-item-action > span {
+    color: color-mix(in srgb, var(--item-rarity) 68%, white);
+    font-size: 1rem;
+    line-height: 0.7;
+    transition: transform 150ms ease;
+}
+
+.inventory-page .backpack-item:hover .backpack-item-action {
+    color: #edf4f7;
+    background: rgba(116, 173, 189, 0.09);
+}
+
+.inventory-page .backpack-item:hover .backpack-item-action > span {
+    transform: translateX(2px);
+}
+
+.inventory-page .inventory-empty {
+    min-height: 150px;
+    display: grid;
+    place-items: center;
+    padding: 28px !important;
+    border-color: rgba(116, 173, 189, 0.22) !important;
+    background: rgba(3, 7, 13, 0.32);
+}
+
+@media (max-width: 1180px) {
+    .inventory-page {
+        grid-template-columns: 1fr !important;
+    }
+
+    .inventory-page .inventory-equipped-panel {
+        border-bottom: 1px solid var(--inventory-line) !important;
+    }
+
+    .inventory-page .inventory-character-layout {
+        max-width: 420px;
+        margin-inline: auto;
+    }
+}
+
+@media (max-width: 720px) {
+    .inventory-page {
+        gap: 9px !important;
+    }
+
+    .inventory-page .inventory-equipped-panel,
+    .inventory-page .inventory-backpack-panel {
+        padding: 12px !important;
+        border-radius: 6px !important;
+    }
+
+    .inventory-page .inventory-panel-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .inventory-page .inventory-tabs {
+        width: 100%;
+    }
+
+    .inventory-page .inventory-tabs button {
+        flex: 1 1 0;
+        min-width: 0;
+        padding-inline: 8px !important;
+        white-space: normal;
+    }
+
+    .inventory-page .inventory-category-bar {
+        flex-wrap: wrap !important;
+        overflow-x: visible;
+    }
+
+    .inventory-page .inventory-category-bar button {
+        flex: 1 1 calc(50% - 5px);
+        min-width: 0;
+        justify-content: center;
+        white-space: normal;
+    }
+
+    .inventory-page .backpack-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+        gap: 8px !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .inventory-page .inventory-equipped-panel,
+    .inventory-page .inventory-backpack-panel {
+        padding: 10px !important;
+    }
+
+    .inventory-page .backpack-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+    }
+
+    .inventory-page .backpack-item {
+        padding: 6px !important;
+        gap: 6px !important;
+    }
+
+    .inventory-page .backpack-item-rarity {
+        top: 5px;
+        left: 5px;
+        padding: 4px 5px;
+        font-size: 0.5rem;
+    }
+
+    .inventory-page .stack-count {
+        top: 5px;
+        right: 5px !important;
+    }
+
+    .inventory-page .backpack-item-copy > strong {
+        font-size: 0.76rem !important;
+    }
+
+    .inventory-page .backpack-item-summary {
+        font-size: 0.62rem;
+    }
+
+    .inventory-page .backpack-item-action {
+        min-height: 30px;
+        padding: 6px 7px;
+        font-size: 0.56rem;
+        letter-spacing: 0.08em;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .inventory-page .backpack-item,
+    .inventory-page .backpack-item-art img,
+    .inventory-page .backpack-item-action,
+    .inventory-page .backpack-item-action > span {
+        transition: none !important;
+    }
+}
