@@ -264,6 +264,10 @@ async function installPetHomeApi(page: Page) {
             }
             return json(route, { error: "invalid-action" }, 400);
         }
+        if (path === "/api/pet/warfront-start") {
+            const body = request.postDataJSON() as { resumeOnly?: boolean };
+            if (body.resumeOnly) return route.fulfill({ status: 204 });
+        }
         if (path === "/api/battle-lock") return json(route, { lock: null });
         return json(route, { ok: true, players: [], images: {}, categories: {}, ladder: [], leaderboard: [], announcements: [], eras: [], entries: [], wars: [] });
     });
@@ -448,6 +452,46 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     const yardHint = page.getByRole("button", { name: /got it/i });
     if (await yardHint.isVisible().catch(() => false)) await yardHint.click();
     await shot(page, testInfo, "14-existing-pet-yard-tab");
+
+    await page.getByRole("button", { name: "Pet Arena" }).click();
+    await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
+    await expect(page.locator(".pet-arena-selector")).toHaveCount(2);
+    await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {
+        message: "the redesigned Pet Arena must not create desktop horizontal overflow",
+    }).toBe(true);
+    await shot(page, testInfo, "14b-desktop-pet-arena-command-deck");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {
+        message: "the redesigned Pet Arena must not create mobile horizontal overflow",
+    }).toBe(true);
+    await expect(page.locator(".pet-home-tabs button")).toHaveCount(5);
+    await expect(page.getByRole("button", { name: "Breeding Barn" })).toBeVisible();
+    await expect.poll(() => page.locator(".pet-home-tabs").evaluate((tabs) => tabs.scrollWidth <= tabs.clientWidth + 1), {
+        message: "all five Pet Home destinations should fit without a clipped mobile tab rail",
+    }).toBe(true);
+    const activityRows = await page.locator(".pet-arena-activity-nav button").evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().top)));
+    expect(new Set(activityRows).size).toBe(1);
+    await expect.poll(() => page.locator('.pet-arena-selector[data-side="player"] .pet-pick-strip').evaluate((strip) => strip.scrollWidth > strip.clientWidth), {
+        message: "mobile pet selection should use a compact horizontal touch carousel",
+    }).toBe(true);
+    await shot(page, testInfo, "14c-mobile-pet-arena-command-deck");
+    await page.setViewportSize({ width: 1366, height: 768 });
+
+    const arenaReturn = page.locator(".pet-arena-return");
+    await expect(arenaReturn).toContainText("Village");
+    await arenaReturn.click();
+    await expect(page.locator(".stormveil-village-screen")).toBeVisible();
+
+    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator(".central-hub")).toBeVisible();
+    await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
+    await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
+    await expect(page.locator(".pet-arena-return")).toContainText("Central · The Gates");
+    await page.locator(".pet-arena-return").click();
+    await expect(page.locator(".central-hub")).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await openHome(page);

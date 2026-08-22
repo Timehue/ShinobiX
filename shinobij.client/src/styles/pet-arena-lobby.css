@@ -1,0 +1,364 @@
+/* Pet Arena lobby — cinematic command deck layered over the existing combat UI. */
+.pet-arena-lobby {
+    --arena-cyan: #66e0df;
+    --arena-cyan-soft: rgba(102, 224, 223, .24);
+    --arena-gold: #f0ca79;
+    --arena-gold-soft: rgba(240, 202, 121, .25);
+    --arena-red: #ff806f;
+    --arena-panel: rgba(8, 17, 31, .92);
+    --arena-line: rgba(173, 207, 224, .16);
+    max-width: none !important;
+    min-height: 100%;
+    overflow: clip;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background:
+        radial-gradient(circle at 50% -12%, rgba(35, 116, 128, .22), transparent 35%),
+        linear-gradient(180deg, #060d17 0, #08111d 52%, #040912 100%) !important;
+    padding: 0 0 clamp(3rem, 6vw, 6rem) !important;
+    box-shadow: none !important;
+}
+
+.pet-arena-lobby::before {
+    content: "";
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    opacity: .16;
+    background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 54px 54px;
+    pointer-events: none;
+    mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+.pet-arena-lobby > * { position: relative; z-index: 1; }
+
+.pet-arena-lobby > .pet-home-tabs {
+    width: min(980px, calc(100% - 2rem));
+    margin: .75rem auto !important;
+    border-color: rgba(240, 202, 121, .24);
+    background: rgba(4, 11, 20, .9);
+}
+
+/* ── Cinematic command header ─────────────────────────────────────────── */
+.pet-arena-command {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    min-height: clamp(390px, 36vw, 520px);
+    overflow: hidden;
+    width: min(1320px, calc(100% - 2rem));
+    margin: 0 auto;
+    border: 1px solid rgba(240, 202, 121, .35);
+    border-radius: 26px;
+    background-color: #07111d;
+    background-image: var(--arena-hero);
+    background-position: center 34%;
+    background-size: cover;
+    box-shadow: 0 34px 90px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.025);
+}
+
+.pet-arena-command::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(3,9,18,.98) 0, rgba(3,9,18,.86) 35%, rgba(3,9,18,.2) 72%),
+        linear-gradient(0deg, rgba(3,9,18,.98) 0, rgba(3,9,18,.08) 58%, rgba(3,9,18,.46) 100%),
+        radial-gradient(circle at 70% 28%, transparent 0, rgba(2,7,14,.18) 45%, rgba(2,7,14,.7) 100%);
+}
+
+.pet-arena-command::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    right: 0;
+    bottom: 82px;
+    left: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(240,202,121,.75) 18%, rgba(102,224,223,.42) 72%, transparent);
+    box-shadow: 0 0 16px rgba(240,202,121,.18);
+}
+
+.pet-arena-command-topline {
+    position: absolute;
+    z-index: 2;
+    top: 1.2rem;
+    right: 1.35rem;
+    left: 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.pet-arena-return {
+    display: inline-flex;
+    align-items: center;
+    gap: .7rem;
+    min-width: 0;
+    min-height: 50px;
+    border: 1px solid rgba(240,202,121,.42);
+    border-radius: 12px;
+    color: #f5f8f8;
+    background: rgba(3,9,18,.74);
+    padding: .5rem .8rem;
+    box-shadow: 0 12px 35px rgba(0,0,0,.3);
+    backdrop-filter: blur(12px);
+}
+
+.pet-arena-return:hover { border-color: rgba(240,202,121,.75); background: rgba(12,22,33,.9); }
+.pet-arena-return-arrow { display: grid; flex: 0 0 auto; place-items: center; width: 31px; height: 31px; border-radius: 8px; color: #06101a; background: var(--arena-gold); font-size: 1rem; font-weight: 950; }
+.pet-arena-return > span:last-child { display: grid; min-width: 0; gap: .08rem; text-align: left; }
+.pet-arena-return small { color: #7e93a0; font-size: .54rem; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
+.pet-arena-return strong { overflow: hidden; color: #f6e7bd; font-size: .74rem; letter-spacing: .025em; text-overflow: ellipsis; white-space: nowrap; }
+
+.pet-arena-season { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid rgba(102,224,223,.22); border-radius: 999px; color: #a8c3ca; background: rgba(3,9,18,.62); padding: .48rem .72rem; font-size: .58rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; backdrop-filter: blur(10px); }
+.pet-arena-season i { width: 7px; height: 7px; border-radius: 50%; background: #51e5a5; box-shadow: 0 0 12px rgba(81,229,165,.9); }
+
+.pet-arena-command-copy {
+    align-self: center;
+    width: min(700px, 64%);
+    padding: 4.6rem clamp(1.25rem, 4vw, 3.5rem) 7rem;
+}
+
+.pet-arena-eyebrow { display: block; margin-bottom: .75rem; color: var(--arena-cyan); font-size: .65rem; font-weight: 950; letter-spacing: .22em; text-transform: uppercase; text-shadow: 0 2px 14px #02060c; }
+.pet-arena-command h1 { margin: 0; color: #fff4d5; font: 800 clamp(2.7rem, 6vw, 5.6rem)/.87 Georgia,serif; letter-spacing: -.045em; text-shadow: 0 4px 30px rgba(0,0,0,.9), 0 0 42px rgba(240,202,121,.16); }
+.pet-arena-command-copy > p { max-width: 620px; margin: 1rem 0 0; color: #c2d1d8; font: 500 clamp(.86rem, 1.35vw, 1.02rem)/1.65 Inter,sans-serif; text-shadow: 0 2px 12px #02060c; }
+
+.pet-arena-readiness { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.25rem; }
+.pet-arena-readiness > div { display: flex; align-items: center; gap: .55rem; min-width: 145px; border: 1px solid rgba(173,207,224,.14); border-radius: 11px; color: var(--arena-gold); background: rgba(4,11,21,.72); padding: .55rem .7rem; backdrop-filter: blur(10px); }
+.pet-arena-readiness > div > span { display: grid; min-width: 0; gap: .12rem; }
+.pet-arena-readiness small { color: #768e9b; font-size: .51rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.pet-arena-readiness strong { overflow: hidden; color: #e9f0f1; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+
+.pet-arena-activity-nav {
+    position: absolute;
+    z-index: 2;
+    right: 1.35rem;
+    bottom: .75rem;
+    left: 1.35rem;
+    display: grid;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: .5rem;
+}
+
+.pet-arena-activity-nav button {
+    display: grid;
+    grid-template-columns: auto minmax(0,1fr);
+    align-items: center;
+    gap: .7rem;
+    min-width: 0;
+    min-height: 64px;
+    border: 1px solid rgba(173,207,224,.15);
+    border-radius: 13px;
+    color: #9cb0ba;
+    background: rgba(4,11,21,.78);
+    padding: .62rem .75rem;
+    text-align: left;
+    backdrop-filter: blur(14px);
+    transition: transform .16s ease,border-color .16s ease,background .16s ease;
+}
+
+.pet-arena-activity-nav button:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,202,121,.48); background: rgba(12,24,36,.9); }
+.pet-arena-activity-nav button.active { border-color: rgba(102,224,223,.7); color: #e9ffff; background: linear-gradient(135deg,rgba(22,83,92,.88),rgba(7,27,40,.9)); box-shadow: 0 0 0 1px rgba(102,224,223,.14) inset,0 10px 28px rgba(0,0,0,.2); }
+.pet-arena-activity-nav button:disabled { opacity: .5; cursor: not-allowed; }
+.pet-arena-activity-icon { display: grid; place-items: center; width: 39px; height: 39px; border: 1px solid rgba(240,202,121,.24); border-radius: 10px; color: var(--arena-gold); background: rgba(240,202,121,.07); }
+.pet-arena-activity-nav button.active .pet-arena-activity-icon { border-color: rgba(102,224,223,.45); color: var(--arena-cyan); background: rgba(102,224,223,.1); }
+.pet-arena-activity-nav button > span:last-child { display: grid; min-width: 0; gap: .2rem; }
+.pet-arena-activity-nav strong { overflow: hidden; color: inherit; font-size: .74rem; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
+.pet-arena-activity-nav small { overflow: hidden; color: #6f8794; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Two-step contender setup ─────────────────────────────────────────── */
+.pet-arena-lobby .pet-arena-grid {
+    width: min(1320px, calc(100% - 2rem));
+    margin: 1.1rem auto 0 !important;
+    gap: 1rem !important;
+}
+
+.pet-arena-lobby .pet-arena-selector {
+    align-content: start;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--arena-line) !important;
+    border-left: 1px solid var(--arena-line) !important;
+    border-radius: 20px !important;
+    background:
+        radial-gradient(circle at 15% 0, rgba(102,224,223,.08), transparent 30%),
+        linear-gradient(145deg,rgba(13,27,42,.96),rgba(5,12,23,.96)) !important;
+    padding: clamp(.9rem,2vw,1.2rem) !important;
+    box-shadow: 0 18px 44px rgba(0,0,0,.26),inset 0 1px rgba(255,255,255,.035);
+}
+
+.pet-arena-lobby .pet-arena-selector[data-side="opponent"] { background: radial-gradient(circle at 85% 0,rgba(255,128,111,.07),transparent 30%),linear-gradient(215deg,rgba(22,25,39,.97),rgba(5,12,23,.96)) !important; }
+
+.pet-arena-panel-heading { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .75rem; padding-bottom: .8rem; border-bottom: 1px solid var(--arena-line); }
+.pet-arena-step { display: grid; place-items: center; width: 39px; height: 39px; border: 1px solid rgba(102,224,223,.4); border-radius: 11px; color: var(--arena-cyan); background: rgba(102,224,223,.07); font-size: .67rem; font-weight: 950; letter-spacing: .06em; }
+.pet-arena-selector[data-side="opponent"] .pet-arena-step { border-color: rgba(255,128,111,.38); color: #ffad9f; background: rgba(255,128,111,.07); }
+.pet-arena-panel-heading > span:nth-child(2) { display: grid; min-width: 0; gap: .15rem; }
+.pet-arena-panel-heading small { color: #6f8794; font-size: .52rem; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
+.pet-arena-lobby .pet-arena-panel-heading h2 { margin: 0 !important; color: #edf5f6 !important; font: 800 clamp(1rem,2vw,1.3rem)/1.1 Georgia,serif !important; letter-spacing: -.01em !important; text-transform: none !important; }
+.pet-arena-panel-heading > strong { border: 1px solid rgba(173,207,224,.13); border-radius: 999px; color: #88a0ac; background: rgba(255,255,255,.025); padding: .38rem .6rem; font-size: .56rem; letter-spacing: .08em; text-transform: uppercase; }
+
+.pet-arena-lobby .pet-arena-selector .pet-pick-panel { border-color: rgba(173,207,224,.12) !important; border-radius: 14px !important; background: rgba(2,8,16,.56) !important; padding: .65rem !important; box-shadow: inset 0 0 28px rgba(0,0,0,.28); }
+.pet-arena-lobby .pet-arena-selector .pet-pick-strip { grid-template-columns: repeat(auto-fit,minmax(105px,1fr)) !important; max-height: 236px; gap: .55rem !important; }
+.pet-arena-lobby .pet-arena-selector .pet-pick { min-width: 0; gap: .35rem; border: 1px solid rgba(173,207,224,.14) !important; border-radius: 13px !important; background: linear-gradient(180deg,rgba(18,31,46,.88),rgba(5,12,23,.94)) !important; padding: .65rem .45rem .58rem !important; box-shadow: none; }
+.pet-arena-lobby .pet-arena-selector .pet-pick:hover:not(:disabled) { border-color: rgba(240,202,121,.45) !important; box-shadow: 0 10px 24px rgba(0,0,0,.24); }
+.pet-arena-lobby .pet-arena-selector .pet-pick.selected { border-color: var(--arena-cyan) !important; background: linear-gradient(180deg,rgba(20,93,99,.5),rgba(5,28,39,.92)) !important; box-shadow: 0 0 0 1px rgba(102,224,223,.15),0 0 26px rgba(102,224,223,.13); }
+.pet-arena-lobby .pet-arena-selector .pet-pick-img { width: 68px; height: 68px; border: 1px solid rgba(240,202,121,.32); background: radial-gradient(circle,rgba(102,224,223,.16),rgba(3,9,18,.8)); object-fit: contain; }
+.pet-arena-lobby .pet-arena-selector .pet-pick-name { font-size: .66rem !important; }
+.pet-arena-lobby .pet-arena-selector .pet-pick-role { padding: 2px 6px; font-size: .52rem !important; }
+.pet-arena-lobby .pet-arena-selector .pet-pick-role-icon { width: 13px; height: 13px; }
+
+.pet-arena-lobby .pet-arena-selector > .pet-arena-card { align-items: center; min-height: 120px; max-height: 184px; overflow: hidden; border: 1px solid rgba(240,202,121,.22) !important; border-radius: 14px !important; background: rgba(3,9,18,.58) !important; padding: .75rem !important; box-shadow: inset 0 0 24px rgba(0,0,0,.24); }
+.pet-arena-lobby .pet-arena-selector > .pet-arena-card:hover { transform: none; border-color: rgba(240,202,121,.38) !important; }
+.pet-arena-lobby .pet-arena-selector .pet-arena-avatar { width: 86px; height: 86px; border: 1px solid rgba(240,202,121,.34); border-radius: 14px; background: radial-gradient(circle,rgba(102,224,223,.12),rgba(3,9,18,.82)); }
+.pet-arena-lobby .pet-arena-selector .pet-arena-avatar img { object-fit: contain; }
+.pet-arena-lobby .pet-arena-selector .pet-arena-card p { margin: .2rem 0; color: #8fa4ae; font-size: .65rem; line-height: 1.35; }
+.pet-arena-lobby .pet-arena-selector .pet-arena-jutsu-list { max-height: 58px; overflow-y: auto; margin-top: .4rem; }
+.pet-arena-lobby .pet-matchup-hint { border-radius: 11px; background: rgba(2,8,16,.48); padding: .55rem .7rem; }
+
+/* Opponent switch + search */
+.pet-arena-lobby .pet-arena-selector .pet-arena-mode-toggle { border-color: rgba(173,207,224,.12) !important; border-radius: 12px !important; background: rgba(2,8,16,.55) !important; padding: .3rem !important; }
+.pet-arena-lobby .pet-arena-selector .pet-arena-mode-toggle button { min-height: 38px; border-radius: 9px !important; color: #718995 !important; font-size: .6rem !important; }
+.pet-arena-lobby .pet-arena-selector .pet-arena-mode-toggle button.active { border-color: rgba(102,224,223,.45) !important; color: #cffffb !important; background: rgba(20,87,94,.46) !important; box-shadow: none; }
+.pet-player-search { display: grid; gap: .4rem; margin-top: .2rem; }
+.pet-player-search > label { color: #78909c; font-size: .55rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.pet-player-search-field { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: .65rem; min-height: 50px; border: 1px solid rgba(102,224,223,.26); border-radius: 12px; color: var(--arena-cyan); background: rgba(2,8,16,.68); padding: 0 .8rem; transition: border-color .16s ease,box-shadow .16s ease; }
+.pet-player-search-field:focus-within { border-color: rgba(102,224,223,.75); box-shadow: 0 0 0 3px rgba(102,224,223,.08); }
+.pet-arena-lobby .pet-player-search-field input { width: 100%; min-height: 48px; border: 0 !important; outline: 0; color: #edf7f7; background: transparent !important; padding: 0 !important; box-shadow: none !important; font-size: .8rem; }
+.pet-player-search-field input::placeholder { color: #526a77; }
+.pet-arena-lobby .pet-challenge-row { min-height: 55px; border-color: rgba(173,207,224,.14); border-radius: 11px; background: rgba(2,8,16,.52); }
+.pet-challenge-row > span:nth-child(2) { display: grid; gap: .15rem; }
+.pet-challenge-row > span:nth-child(2) small { color: #78909c; font-size: .6rem; }
+.pet-arena-lobby .pet-challenge-row button,.pet-arena-lobby .pet-arena-selector > div > button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-height: 36px; border: 1px solid rgba(102,224,223,.34); border-radius: 9px; color: #d7fffb; background: rgba(20,87,94,.45); padding: .45rem .65rem; font-size: .64rem; font-weight: 850; }
+.pet-arena-lobby .pet-arena-tips { min-height: 104px; align-content: center; border: 1px solid rgba(173,207,224,.1); border-radius: 12px; color: #8ca1ab; background: rgba(2,8,16,.4); padding: .8rem; font-size: .67rem !important; }
+
+/* ── 2v2 option ───────────────────────────────────────────────────────── */
+.pet-arena-lobby .pet-party-config { width: min(1320px,calc(100% - 2rem)); margin: .8rem auto 0; overflow: hidden; border: 1px solid var(--arena-line) !important; border-left: 1px solid var(--arena-line) !important; border-radius: 16px !important; background: linear-gradient(120deg,rgba(14,29,43,.94),rgba(5,12,23,.94)) !important; padding: .75rem .9rem !important; }
+.pet-party-toggle { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; align-items: center; gap: .7rem; cursor: pointer; }
+.pet-party-toggle > svg { color: var(--arena-gold); }
+.pet-party-toggle > span:nth-child(3) { display: grid; gap: .15rem; }
+.pet-party-toggle strong { color: #edf5f6; font-size: .74rem; letter-spacing: .035em; text-transform: uppercase; }
+.pet-party-toggle small { color: #8197a2; font-size: .65rem; line-height: 1.4; }
+.pet-party-toggle em { border: 1px solid rgba(173,207,224,.14); border-radius: 999px; color: #78909c; padding: .35rem .6rem; font-size: .54rem; font-style: normal; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.pet-party-switch { position: relative; display: block; width: 38px; height: 22px; }
+.pet-party-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.pet-party-switch i { position: absolute; inset: 0; border: 1px solid rgba(173,207,224,.25); border-radius: 999px; background: #0a1724; transition: background .16s ease,border-color .16s ease; }
+.pet-party-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #647b87; transition: transform .16s ease,background .16s ease; }
+.pet-party-switch input:checked + i { border-color: rgba(102,224,223,.62); background: rgba(25,104,109,.65); }
+.pet-party-switch input:checked + i::after { transform: translateX(16px); background: #9afff5; }
+.pet-party-switch input:focus-visible + i { outline: 2px solid var(--arena-cyan); outline-offset: 3px; }
+.pet-party-reserve { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--arena-line); }
+.pet-party-reserve > label { display: flex; align-items: baseline; gap: .45rem; color: #e7efef; font-size: .68rem; font-weight: 850; text-transform: uppercase; }
+.pet-party-reserve > label small { color: #6f8794; font-size: .56rem; font-weight: 600; text-transform: none; }
+
+/* ── Coliseum contracts ───────────────────────────────────────────────── */
+.pet-arena-destinations { width: min(1320px,calc(100% - 2rem)); margin: 1.35rem auto 0; }
+.pet-arena-section-title { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: .25rem 1rem; margin-bottom: .75rem; }
+.pet-arena-section-title > span { grid-column: 1 / -1; color: var(--arena-cyan); font-size: .55rem; font-weight: 950; letter-spacing: .18em; text-transform: uppercase; }
+.pet-arena-lobby .pet-arena-section-title h2 { margin: 0 !important; color: #f6e9c8 !important; font: 800 clamp(1.35rem,2.6vw,2rem)/1 Georgia,serif !important; letter-spacing: -.02em !important; text-transform: none !important; }
+.pet-arena-section-title p { max-width: 570px; margin: 0; color: #78909c; font-size: .68rem; line-height: 1.45; text-align: right; }
+.pet-arena-destination-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .8rem; }
+.pet-arena-destination { position: relative; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .9rem; min-width: 0; min-height: 132px; overflow: hidden; border: 1px solid rgba(240,202,121,.28); border-radius: 18px; color: #f6ead0; background: radial-gradient(circle at 0 50%,rgba(240,202,121,.13),transparent 35%),linear-gradient(135deg,rgba(27,27,33,.98),rgba(8,15,27,.98)); padding: 1rem; text-align: left; box-shadow: 0 16px 40px rgba(0,0,0,.24); transition: transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
+.pet-arena-destination.is-training { border-color: rgba(102,224,223,.25); background: radial-gradient(circle at 0 50%,rgba(102,224,223,.12),transparent 35%),linear-gradient(135deg,rgba(11,33,45,.98),rgba(7,15,27,.98)); }
+.pet-arena-destination::after { content: ""; position: absolute; top: 0; right: 0; width: 32%; height: 100%; opacity: .18; background: repeating-linear-gradient(135deg,transparent 0 12px,rgba(255,255,255,.08) 12px 13px); pointer-events: none; }
+.pet-arena-destination:hover { transform: translateY(-3px); border-color: rgba(240,202,121,.7); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(240,202,121,.08); }
+.pet-arena-destination.is-training:hover { border-color: rgba(102,224,223,.68); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(102,224,223,.08); }
+.pet-arena-destination-icon { display: grid; place-items: center; width: 55px; height: 55px; border: 1px solid rgba(240,202,121,.36); border-radius: 15px; color: var(--arena-gold); background: rgba(240,202,121,.08); }
+.is-training .pet-arena-destination-icon { border-color: rgba(102,224,223,.35); color: var(--arena-cyan); background: rgba(102,224,223,.08); }
+.pet-arena-destination-copy { display: grid; min-width: 0; gap: .22rem; }
+.pet-arena-destination-copy small { color: #9b8254; font-size: .52rem; font-weight: 950; letter-spacing: .15em; text-transform: uppercase; }
+.is-training .pet-arena-destination-copy small { color: #69aaa9; }
+.pet-arena-destination-copy strong { color: #fff2d1; font: 800 clamp(1rem,2vw,1.35rem)/1.1 Georgia,serif; }
+.pet-arena-destination-copy > span { max-width: 480px; color: #889da7; font-size: .66rem; line-height: 1.45; }
+.pet-arena-destination-action { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .45rem; border-left: 1px solid rgba(240,202,121,.18); color: #e7c77f; padding-left: .85rem; font-size: .59rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.is-training .pet-arena-destination-action { border-left-color: rgba(102,224,223,.18); color: #8be4df; }
+.pet-arena-destination-action b { font-size: 1.05rem; }
+
+/* Selected exhibition contract */
+.pet-exhibition-entry { width: min(1320px,calc(100% - 2rem)); margin: .8rem auto 0; }
+.pet-arena-lobby .pet-coliseum-fight-card { border-radius: 18px; border-color: rgba(240,202,121,.36); background: radial-gradient(circle at 50% 0,rgba(240,202,121,.11),transparent 38%),linear-gradient(135deg,rgba(7,18,34,.98),rgba(21,12,18,.98)); }
+.pet-arena-lobby .pet-coliseum-contender { min-height: 94px; }
+.pet-arena-lobby button.pet-exhibition-start { min-height: 94px; border-left-color: rgba(240,202,121,.28); background: linear-gradient(135deg,#a95418,#d67a24); }
+
+/* Compact battle feed until a fight exists. */
+.pet-arena-lobby .pet-arena-log { width: min(1320px,calc(100% - 2rem)); max-height: 330px; margin: .8rem auto 0; border: 1px solid var(--arena-line) !important; border-left: 1px solid var(--arena-line) !important; border-radius: 15px !important; background: rgba(4,11,21,.78) !important; padding: .75rem .9rem !important; }
+.pet-arena-lobby .pet-arena-log.is-idle { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: .8rem; min-height: 68px; }
+.pet-arena-log-heading { display: flex; align-items: center; gap: .6rem; min-width: 220px; color: var(--arena-gold); }
+.pet-arena-log-heading > span { display: grid; gap: .08rem; }
+.pet-arena-log-heading small { color: #6f8794; font-size: .49rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.pet-arena-log-heading strong { color: #e6eeee; font-size: .67rem; letter-spacing: .045em; text-transform: uppercase; }
+.pet-arena-log-heading em { margin-left: auto; border-radius: 999px; color: #718995; background: rgba(255,255,255,.035); padding: .3rem .55rem; font-size: .5rem; font-style: normal; font-weight: 850; text-transform: uppercase; }
+.pet-arena-lobby .pet-arena-log > p { margin: .35rem 0 0; color: #92a5ae; font-size: .68rem; }
+.pet-arena-lobby .pet-arena-log.is-idle > p { margin: 0; }
+
+/* Tactical setup inherits the same command surface. */
+.pet-arena-lobby .pet-warfront-lobby { width: min(1320px,calc(100% - 2rem)); margin: 1rem auto 0 !important; border: 1px solid var(--arena-line) !important; border-left: 1px solid var(--arena-line) !important; border-radius: 20px !important; background: linear-gradient(145deg,rgba(12,28,42,.96),rgba(5,12,23,.98)) !important; padding: clamp(.9rem,2vw,1.25rem) !important; }
+
+/* ── Responsive contracts ─────────────────────────────────────────────── */
+@media (max-width: 980px) {
+    .pet-arena-command-copy { width: 78%; }
+    .pet-arena-destination { grid-template-columns: auto minmax(0,1fr); }
+    .pet-arena-destination-action { grid-column: 2; justify-self: start; border-left: 0; padding-left: 0; }
+}
+
+@media (max-width: 760px) {
+    .pet-arena-command { display: block; min-height: 0; border-radius: 20px; background-image: var(--arena-hero-mobile); background-position: center 48%; }
+    .pet-arena-command::before { background: linear-gradient(90deg,rgba(3,9,18,.94),rgba(3,9,18,.52) 72%,rgba(3,9,18,.24)),linear-gradient(0deg,rgba(3,9,18,.98),rgba(3,9,18,.26) 72%,rgba(3,9,18,.66)); }
+    .pet-arena-command-copy { width: 100%; padding: 6rem 1.2rem 1rem; }
+    .pet-arena-command-copy > p { max-width: 520px; }
+    .pet-arena-command::after { display: none; }
+    .pet-arena-activity-nav { position: relative; right: auto; bottom: auto; left: auto; grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0 1rem 1rem; }
+    .pet-arena-activity-nav button { min-height: 66px; }
+    .pet-arena-readiness > div { min-width: 0; }
+    .pet-arena-lobby .pet-arena-grid { grid-template-columns: 1fr !important; }
+    .pet-arena-destination-grid { grid-template-columns: 1fr; }
+    .pet-arena-section-title { grid-template-columns: 1fr; }
+    .pet-arena-section-title p { text-align: left; }
+    .pet-arena-lobby .pet-arena-log.is-idle { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+    .pet-arena-lobby > .pet-home-tabs,.pet-arena-command,.pet-arena-lobby .pet-arena-grid,.pet-arena-lobby .pet-party-config,.pet-arena-destinations,.pet-exhibition-entry,.pet-arena-lobby .pet-arena-log,.pet-arena-lobby .pet-warfront-lobby { width: calc(100% - 1rem); }
+    .pet-arena-command-topline { top: .7rem; right: .7rem; left: .7rem; }
+    .pet-arena-season { display: none; }
+    .pet-arena-return { max-width: 100%; }
+    .pet-arena-command-copy { min-height: 350px; padding: 5.45rem .9rem .75rem; }
+    .pet-arena-command h1 { max-width: 8ch; font-size: clamp(2.65rem,14vw,3.8rem); }
+    .pet-arena-command-copy > p { max-width: 31rem; font-size: .74rem; line-height: 1.45; }
+    .pet-arena-eyebrow { margin-bottom: .55rem; font-size: .56rem; letter-spacing: .18em; }
+    .pet-arena-readiness { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .35rem; margin-top: .9rem; }
+    .pet-arena-readiness > div { gap: 0; min-height: 52px; padding: .42rem .38rem; }
+    .pet-arena-readiness > div > svg { display: none; }
+    .pet-arena-readiness small { font-size: .43rem; letter-spacing: .08em; }
+    .pet-arena-readiness strong { font-size: .61rem; }
+    .pet-arena-activity-nav { gap: .35rem; margin: 0 .7rem .7rem; }
+    .pet-arena-activity-nav button { grid-template-columns: 1fr; justify-items: center; gap: .25rem; min-height: 72px; padding: .45rem .2rem; text-align: center; }
+    .pet-arena-activity-nav small { display: none; }
+    .pet-arena-activity-nav strong { font-size: .58rem; line-height: 1.15; white-space: normal; }
+    .pet-arena-activity-icon { width: 32px; height: 32px; border-radius: 9px; }
+    .pet-arena-panel-heading { grid-template-columns: auto minmax(0,1fr); }
+    .pet-arena-panel-heading > strong { grid-column: 2; justify-self: start; }
+    .pet-arena-lobby .pet-arena-selector .pet-pick-panel { overflow: hidden; padding: .55rem !important; }
+    .pet-arena-lobby .pet-arena-selector .pet-pick-strip { display: flex !important; gap: .5rem !important; max-height: none; overflow-x: auto; overflow-y: hidden; padding: 0 0 .35rem; scroll-padding-inline: .1rem; scroll-snap-type: x proximity; scrollbar-width: thin; }
+    .pet-arena-lobby .pet-arena-selector .pet-pick { flex: 0 0 112px; min-height: 132px; padding: .55rem .35rem !important; scroll-snap-align: start; }
+    .pet-arena-lobby .pet-arena-selector .pet-pick-img { width: 62px; height: 62px; }
+    .pet-arena-lobby .pet-arena-selector > .pet-arena-card { min-height: 108px; padding: .65rem !important; }
+    .pet-arena-lobby .pet-arena-selector .pet-arena-avatar { width: 72px; height: 72px; }
+    .pet-arena-lobby .pet-arena-selector .pet-arena-jutsu-list { display: none; }
+    .pet-party-toggle { grid-template-columns: auto auto minmax(0,1fr); }
+    .pet-party-toggle em { grid-column: 3; justify-self: start; }
+    .pet-arena-destination { min-height: 155px; padding: .85rem; }
+    .pet-arena-destination-icon { width: 46px; height: 46px; }
+    .pet-arena-lobby .pet-coliseum-fight-card { grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); }
+    .pet-arena-lobby button.pet-exhibition-start { grid-column: 1 / -1; min-height: 62px; border-top: 1px solid rgba(240,202,121,.3); border-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-arena-activity-nav button,.pet-arena-destination,.pet-party-switch i,.pet-party-switch i::after { transition: none; }
+}

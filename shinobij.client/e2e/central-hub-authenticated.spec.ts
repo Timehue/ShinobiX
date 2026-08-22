@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 
 type SavePayload = {
@@ -18,6 +18,14 @@ function json(route: Route, body: unknown, status = 200) {
 async function installAuthenticatedApi(page: Page) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
+
+    await page.addInitScript(() => {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+            const key = localStorage.key(index);
+            if (key?.startsWith("ninjav-save-conflict-v1:")) localStorage.removeItem(key);
+        }
+        localStorage.setItem("shinobix:storage-notice-ack", "1");
+    });
 
     await page.route("**/api/**", async (route) => {
         const request = route.request();
@@ -112,7 +120,11 @@ async function returnToCentral(page: Page) {
     // Hash-only navigation does not reload the SPA, and this app intentionally
     // restores bookmarked screens only during boot.
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: /Central\s+The Thousand Gates/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Central\s*The Thousand Gates/i })).toBeVisible();
+}
+
+async function capture(page: Page, testInfo: TestInfo, name: string) {
+    await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
 }
 
 test("authenticated player can open every Central Hub system", async ({ page }, testInfo) => {
@@ -126,6 +138,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         return raw ? JSON.parse(raw).currentAccountName : "";
     })).toBe("AuditNinja");
     await returnToCentral(page);
+    await capture(page, testInfo, "central-premium-desktop");
 
     const navigations = [
         { tile: "Arena District", heading: "Arena District" },
@@ -140,6 +153,12 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
     for (const destination of navigations) {
         await page.locator(".central-card").filter({ hasText: destination.tile }).click();
         await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
+        if (destination.tile === "Shinobi Council Hall") {
+            await capture(page, testInfo, "council-hall-premium-desktop");
+            await page.getByRole("button", { name: "Return to Central" }).click();
+            await expect(page.getByRole("heading", { name: /Central\s*The Thousand Gates/i })).toBeVisible();
+            continue;
+        }
         await returnToCentral(page);
     }
 
@@ -148,6 +167,8 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         await opener.click();
         const dialog = page.getByRole("dialog", { name });
         await expect(dialog).toBeVisible();
+        if (name === "Awakening Stone") await capture(page, testInfo, "awakening-stone-premium-desktop");
+        if (name === "Relic Dungeons") await capture(page, testInfo, "relic-dungeons-premium-desktop");
         await expect(dialog.locator(":focus")).toHaveCount(1);
         await expect.poll(() => page.evaluate(() => (document.querySelector("#root") as HTMLElement | null)?.inert)).toBe(true);
         await page.keyboard.press("Escape");
@@ -161,4 +182,35 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         .analyze();
     expect(accessibility.violations.filter((violation) =>
         ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
+});
+
+test("Central premium destinations stay within the mobile viewport", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    test.skip(testInfo.project.name !== "chromium-mobile", "the phone layout needs one focused certification");
+    const api = await installAuthenticatedApi(page);
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    await returnToCentral(page);
+
+    async function expectNoHorizontalOverflow() {
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    }
+
+    await expectNoHorizontalOverflow();
+    await capture(page, testInfo, "central-premium-mobile");
+
+    for (const name of ["Awakening Stone", "Relic Dungeons"]) {
+        await page.locator(".central-card").filter({ hasText: name }).click();
+        await expect(page.getByRole("dialog", { name })).toBeVisible();
+        await expectNoHorizontalOverflow();
+        await capture(page, testInfo, `${name.toLowerCase().replaceAll(" ", "-")}-mobile`);
+        await page.keyboard.press("Escape");
+    }
+
+    await page.locator(".central-card").filter({ hasText: "Shinobi Council Hall" }).click();
+    await expect(page.getByRole("heading", { name: "Shinobi Council Hall" })).toBeVisible();
+    await expectNoHorizontalOverflow();
+    await capture(page, testInfo, "council-hall-premium-mobile");
+    await page.getByRole("button", { name: "Return to Central" }).click();
+    await expect(page.getByRole("heading", { name: /Central\s*The Thousand Gates/i })).toBeVisible();
 });
