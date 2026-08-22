@@ -2,7 +2,7 @@ import {
     GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiDna1, GiEnvelope,
     GiFireSpellCast, GiKnapsack, GiNinjaHeroicStance, GiPawPrint,
     GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
-} from "react-icons/gi";
+} from "./icons/LightweightGameIcons";
 
 export const PLAYER_MENU_GROUPS = [
     { id: "world", label: "World", items: [

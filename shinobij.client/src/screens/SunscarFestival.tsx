@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0). NOTE: the dice/slot symbols
+// Compact local chrome glyphs. NOTE: the dice/slot symbols
 // (🦂🪙👁️⚔️🌙⭐) are gameplay data the win-check compares — left as emoji on purpose.
-import { GiSun, GiDiceSixFacesSix, GiCampfire } from "react-icons/gi";
+import { GiSun, GiDiceSixFacesSix, GiCampfire } from "../components/icons/LightweightGameIcons";
 const SF_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { type TileCard } from "../data/tile-cards";

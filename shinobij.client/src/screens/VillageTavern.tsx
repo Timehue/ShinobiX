@@ -10,7 +10,7 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { GuestSocialLock } from "../components/GuestSocialLock";
 import { ReportControl } from "../components/ReportControl";
 import { useSocialLock } from "../lib/account-status";
-import { GiCrown, GiLaurelCrown, GiTalk } from "react-icons/gi";
+import { GiCrown, GiLaurelCrown, GiTalk } from "../components/icons/LightweightGameIcons";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
 // cosmetics + legacy prestige derived from the author's save, and the

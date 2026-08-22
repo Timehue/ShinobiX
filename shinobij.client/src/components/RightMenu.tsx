@@ -26,9 +26,8 @@ import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../lib/li
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
-// Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — matches the
-// shinobi theme. Mirrors the mobile nav (MobileNav.tsx). Attribution in the footer below.
-import { GiChatBubble, GiExitDoor, GiGears, GiHearts, GiOpenBook, GiSpeaker, GiSpeakerOff } from "react-icons/gi";
+// Compact local game glyphs mirror the mobile nav without a second icon library.
+import { GiChatBubble, GiExitDoor, GiGears, GiHearts, GiOpenBook, GiSpeaker, GiSpeakerOff } from "./icons/LightweightGameIcons";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
