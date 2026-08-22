@@ -35,7 +35,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { gameConfirm } from "../components/GameAlert";
 import { playerSlug } from "../lib/utils";
-import { GiDragonHead } from "react-icons/gi";
+import { GiDragonHead } from "../components/icons/LightweightGameIcons";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
 
 export function HunterBoard({

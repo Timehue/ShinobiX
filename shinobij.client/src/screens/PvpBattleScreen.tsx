@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
-// Command-deck glyphs (game-icons.net, CC BY 3.0) — one per basic action.
+// Compact local command-deck glyphs — one per basic action.
 import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";

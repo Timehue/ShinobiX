@@ -5,7 +5,7 @@ import {
     GiHealthPotion,
     GiPawPrint,
     GiShield,
-} from "react-icons/gi";
+} from "./icons/LightweightGameIcons";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX } from "../constants/game";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { sectorRegionName } from "../data/sectors";

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
-import { GiCrossedSwords, GiCrownedSkull, GiGraduateCap, GiHealthIncrease, GiPawPrint, GiShield, GiSpiralThrust } from "react-icons/gi";
+import { GiCrossedSwords, GiCrownedSkull, GiGraduateCap, GiHealthIncrease, GiPawPrint, GiShield, GiSpiralThrust } from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
 import { AURA_SPHERE_VN_ID, AWAKENING_VN_ID, DUNGEON_VN_ID } from "../constants/game";
 import type { Biome, Screen } from "../types/core";

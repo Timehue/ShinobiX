@@ -16,13 +16,13 @@ import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BackToVillageButton } from "../components/BackToVillageButton";
-// Fantasy stat/duration glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+// Compact local stat and duration glyphs shared with the rest of the game.
 import {
     GiBiceps, GiSprint, GiBrain, GiBrainstorm, GiSwirlString, GiWaterSplash,
     GiPunchBlast, GiBlackBelt, GiEyeball, GiMoon, GiCrossedSwords, GiShield,
     GiStopwatch, GiAlarmClock, GiSandsOfTime, GiNightSleep,
     GiRibbonMedal, GiFastForwardButton,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";

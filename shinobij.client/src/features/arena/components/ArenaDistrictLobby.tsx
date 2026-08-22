@@ -1,4 +1,4 @@
-import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball, GiColiseum } from "react-icons/gi";
+import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball, GiColiseum } from "../../../components/icons/LightweightGameIcons";
 import coliseumLadderImg from "../../../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../../../assets/ladder/tactical-hero.webp";
 import { TACTICAL_ARENA_PET_REQUIREMENT } from "../../../lib/pet";

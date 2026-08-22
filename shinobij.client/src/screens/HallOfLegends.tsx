@@ -1,12 +1,12 @@
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
 import { useEffect, useState, type ReactNode } from "react";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+// Compact local chrome glyphs shared with the rest of the game.
 import {
     GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiGauntlet, GiVortex,
     GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiHealing, GiColiseum,
     GiShield, GiCrown, GiPunchBlast, GiCastle,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 const HOL_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import {
     type Character,
