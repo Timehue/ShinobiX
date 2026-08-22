@@ -1398,9 +1398,8 @@ export function CentralHub({
                                     <button
                                         key={q}
                                         type="button"
-                                        className={craftQty === q ? "active" : ""}
+                                        className={`crafter-batch-size ${craftQty === q ? "active" : ""}`}
                                         onClick={() => setCraftQty(q)}
-                                        style={{ padding: "2px 12px" }}
                                     >
                                         ×{q}
                                     </button>

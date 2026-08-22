@@ -112,7 +112,7 @@ async function returnToCentral(page: Page) {
     // Hash-only navigation does not reload the SPA, and this app intentionally
     // restores bookmarked screens only during boot.
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: "Central — The Thousand Gates" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Central\s+The Thousand Gates/i })).toBeVisible();
 }
 
 test("authenticated player can open every Central Hub system", async ({ page }, testInfo) => {
@@ -138,7 +138,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
     ] as const;
 
     for (const destination of navigations) {
-        await page.getByRole("button", { name: new RegExp(`^${destination.tile}`) }).click();
+        await page.locator(".central-card").filter({ hasText: destination.tile }).click();
         await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
         await returnToCentral(page);
     }

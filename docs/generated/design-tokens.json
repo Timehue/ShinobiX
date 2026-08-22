@@ -2367,6 +2367,10 @@
             "line": 88
           },
           {
+            "source": "shinobij.client/src/styles/central-skin.css",
+            "line": 60
+          },
+          {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
             "line": 129
           },
@@ -2641,7 +2645,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 58
+            "line": 59
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -2944,7 +2948,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 57
+            "line": 58
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
