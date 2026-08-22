@@ -64,7 +64,7 @@ test("Tower art stays versioned, centralized, and honest about unknown combatant
         assert.deepEqual([metadata.width, metadata.height], [1536, 1024], `${artKey} must preserve the certified 3:2 crop`);
     }
     assert.match(manifest, /TOWER_STORY_FLOOR_ART\[normalized\]/);
-    assert.match(manifest, /kind: "fallback", src: TOWER_KEY_ART, key: null/);
+    assert.match(manifest, /kind: "fallback", src: TOWER_KEY_ART, thumb: TOWER_KEY_ART_THUMB, key: null/);
     assert.match(manifest, /chapter === 2[\s\S]{0,100}?src: stormglassCitadel/);
     assert.match(lobby, /resolveTowerStoryArt\(floor\.artKey\)/);
     assert.match(lobby, /resolveTowerStoryChapterArt\(chapter\.number, chapter\.artKey\)/);
@@ -73,6 +73,35 @@ test("Tower art stays versioned, centralized, and honest about unknown combatant
     assert.match(fight, /if \(a\.side === "enemy"\)[\s\S]*?resolveTowerCombatantArt/, "enemy art must resolve by visual id before sealed avatar fallbacks");
     assert.match(fight, /tower-unknown-combatant-badge/);
     assert.match(lobby, /TOWER_KEY_ART/);
+});
+
+test("the Story floor list paints from icon-sized thumbnails, not the landscape masters", async () => {
+    // The lobby lists every catalog floor at once in a 44x44 icon. Sourcing those
+    // from the 1536x1024 masters cost ~4.3 MB of transfer and ~94 MB of decoded
+    // bitmaps before the screen could respond, which froze the tab on entry.
+    const authoredKeys = [...new Set([...floorCatalog.matchAll(/\bartKey:\s*'([^']+)'/g)].map(match => match[1]))];
+    let thumbBytes = 0;
+    for (const artKey of [...authoredKeys, "key-art", "stormglass-citadel"]) {
+        const thumb = new URL(`../assets/towers/thumbs/${artKey}.webp`, import.meta.url);
+        const bytes = statSync(thumb).size;
+        assert.ok(bytes < 24 * 1024, `${artKey} thumbnail must stay under the 24 KiB icon ceiling (got ${bytes})`);
+        thumbBytes += bytes;
+        const metadata = await sharp(readFileSync(thumb)).metadata();
+        assert.equal(metadata.format, "webp", `${artKey} thumbnail must ship as WebP`);
+        assert.deepEqual([metadata.width, metadata.height], [240, 160], `${artKey} thumbnail must keep the 240x160 icon crop`);
+    }
+    // Whole icon strip must stay cheaper than a single master.
+    assert.ok(thumbBytes < 200 * 1024, `the Tower icon strip must stay under 200 KiB in total (got ${thumbBytes})`);
+    // Every authored master needs a matching thumbnail binding, or the resolver
+    // silently falls back to the master and the regression returns.
+    for (const artKey of authoredKeys) {
+        assert.match(manifest, new RegExp(`"${artKey}":\\s*\\w+Thumb`), `${artKey} must be bound in TOWER_STORY_FLOOR_THUMB`);
+    }
+    assert.match(manifest, /thumb: TOWER_STORY_FLOOR_THUMB\[normalized\] \?\? src/);
+    assert.match(manifest, /kind: "fallback", src: TOWER_KEY_ART, thumb: TOWER_KEY_ART_THUMB/);
+    // The floor card renders the thumbnail; the masters stay on the full-bleed surfaces.
+    assert.match(lobby, /<img src=\{floorArt\.thumb\}/, "the floor-card icon must render the thumbnail, never the master");
+    assert.doesNotMatch(lobby, /<img src=\{floorArt\.src\}/, "the floor-card icon must not fall back to the landscape master");
 });
 
 test("the selected Story encounter promotes its authored art with safe accessibility fallbacks", () => {

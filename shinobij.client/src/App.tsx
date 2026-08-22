@@ -239,6 +239,7 @@ const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default
 import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { isPetHomeScreen, petHomeReturnLabel } from "./lib/pet-home-navigation";
@@ -4144,6 +4145,7 @@ export default function App() {
     // A ref prevents duplicate fetches even when called from multiple effects.
     const loadedCatsRef = useRef<Set<string>>(new Set());
     const loadingCatsRef = useRef<Map<string, Promise<void>>>(new Map());
+    const imgRetryRoundsRef = useRef<Map<string, number>>(new Map());
 
     // Applies fetched images into the relevant React state arrays.
     // Extracted so applySnapshot can call it after the KV restore to avoid
@@ -4341,36 +4343,6 @@ export default function App() {
             });
     }
 
-    // SessionStorage cache helpers — images don't change often so 10-min local
-    // cache eliminates most repeat KV reads on page refresh / screen changes.
-    const IMG_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-    function imgCacheKey(cat: string) { return `imgcat:${cat}`; }
-    function clearImgCache() {
-        try {
-            ['item','pet','card','jutsu','event','avatar','ai','bloodline','misc'].forEach(c =>
-                sessionStorage.removeItem(imgCacheKey(c)));
-        } catch { /* private browsing — ignore */ }
-    }
-
-    // Phase 2 (image-as-files): categories served via per-image `/api/img` URLs
-    // instead of one giant base64 bucket. For these, loadCategory fetches only the
-    // lightweight id MANIFEST (`?ids=1`) and hydrates sharedImages with `/api/img`
-    // URLs — the browser then fetches each image individually (CDN/browser-cached)
-    // only when a screen shows it, and the multi-MB base64 blob is NEVER pulled.
-    // Roll out one category at a time, verifying each in-browser. To REVERT a
-    // category, remove it from this set (it falls back to the base64 path below).
-    // ALL loadCategory buckets serve via per-image /api/img URLs (image-as-files
-    // complete). Combat avatar/ai opponent portraits render via the widened
-    // guards; everything else via plain <img>/background. avatar/pet/bloodline
-    // also overwrite player-owned saved fields (character.avatarImage /
-    // character.pets[].image / savedBloodlines[].image) with the URL — that's
-    // fine: the URL is stable + tiny, renders directly, re-hydrates on load, and
-    // publishSharedImage skips re-publishing it (see lib/shared-images.ts). We
-    // deliberately do NOT strip "/api/img" from the localStorage preview, so the
-    // own avatar instant-paints instead of flickering. ('leader' village
-    // portraits ride the separate game-state?images=1 poll, not loadCategory.)
-    // Revert any single category by removing it here.
-    const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu', 'ai', 'shrine', 'landmark', 'avatar', 'pet', 'bloodline']);
 
     function loadCategory(cat: string): Promise<void> {
         if (loadedCatsRef.current.has(cat)) return Promise.resolve();
@@ -4440,12 +4412,12 @@ export default function App() {
                     } catch { /* quota exceeded — skip caching */ }
                 }
                 // Mark loaded even if empty — the category genuinely has no images yet
-                loadedCatsRef.current.add(cat);
+                loadedCatsRef.current.add(cat); imgRetryRoundsRef.current.delete(cat);
                 return;
             } catch { /* network error — retry */ }
         }
-        // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
-        window.setTimeout(() => { if (!loadedCatsRef.current.has(cat)) void loadCategory(cat); }, 10_000);
+        // Both attempts failed — leave loadedCatsRef unset so a later screen visit retries.
+        scheduleImageCategoryRetry(imgRetryRoundsRef.current, cat, () => loadedCatsRef.current.has(cat), () => void loadCategory(cat));
     }
 
     // Warm only shell-critical avatar metadata at login/restore. Route-specific

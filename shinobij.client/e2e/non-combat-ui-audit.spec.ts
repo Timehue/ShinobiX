@@ -194,6 +194,47 @@ for (const destination of CENTRAL_ROUTE_CARDS) {
     });
 }
 
+// Leaving a modal by navigating (one handler doing setShowPanel(false) + setScreen())
+// unmounts the modal's owner while its portal is still attached. The background-inert
+// sync used to see that dying backdrop, re-mark #root inert, and never take it back
+// off — leaving the whole app scrollable but click-dead, which reads as a hard freeze.
+const CELESTIAL_DESTINATIONS = [
+    { option: "Enter Celestial Tower", screen: "endlessTower" },
+    { option: "Battle Towers", screen: "battleTowers" },
+] as const;
+
+for (const destination of CELESTIAL_DESTINATIONS) {
+    test(`navigating to ${destination.screen} from the Celestial modal leaves the app interactive`, async ({ page }) => {
+        const runtime = await installUiAuditRuntime(page);
+        await expectUiAuditBoot(page, runtime, "centralHub");
+        await page.locator(".central-card").filter({ hasText: "Celestial Tower" }).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await page.getByRole("button", { name: new RegExp(destination.option) }).click();
+        await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", destination.screen);
+
+        const blocked = await page.evaluate(() => [...document.body.children]
+            .filter(el => (el as HTMLElement).inert === true || el.getAttribute("aria-hidden") === "true")
+            .map(el => `${el.tagName.toLowerCase()}#${(el as HTMLElement).id || "?"}`));
+        expect(blocked, "the modal left body children inert/aria-hidden after navigating away").toEqual([]);
+
+        // Inert leaves the page scrollable and painted, so the only proof of
+        // interactivity is that a control still accepts input. An inert subtree
+        // cannot take focus, which is deterministic regardless of scroll position.
+        await expect(page.locator(".lazy-screen-fallback")).toHaveCount(0);
+        // Must be an ENABLED control: a disabled button refuses focus for its own
+        // reasons, which would mask (or fake) the inert failure this guards.
+        const button = page.locator(".center-game button:not([disabled])").first();
+        await expect(button).toBeVisible();
+        const focusable = await button.evaluate((element: HTMLElement) => {
+            element.focus();
+            return document.activeElement === element
+                ? true
+                : `focus refused (activeElement=${document.activeElement?.tagName.toLowerCase() ?? "none"})`;
+        });
+        expect(focusable, "the destination screen's controls did not accept input").toBe(true);
+    });
+}
+
 test("Central Pet Colosseum card is wired to the combat destination", async ({ page }) => {
     const runtimeErrors = collectRuntimeErrors(page);
     const runtime = await installUiAuditRuntime(page);

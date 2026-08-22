@@ -132,6 +132,15 @@ export function BattleTowers({ character, updateCharacter, onVersionedCharacter,
         setView({ phase: "pvpFight", match });
     }, []);
 
+    // Stable identity on purpose. The Ready Room's poll effect depends on this
+    // through its own enterActiveRoom callback, so an inline arrow here made that
+    // effect tear down and re-issue fetchTowerParty on EVERY App re-render.
+    const enterRun = useCallback((runId: string, session: TowerSession) => {
+        setTowerFightRunId(runId);
+        writeRecoveryKey(runId);
+        setView({ phase: "fight", runId, session });
+    }, []);
+
     const updatePvpMatchLock = useCallback((matchId: string | null) => {
         if (matchId) setTowerPvpMatchId(matchId);
         else clearFightKey();
@@ -227,11 +236,7 @@ export function BattleTowers({ character, updateCharacter, onVersionedCharacter,
             character={character}
             updateCharacter={updateCharacter}
             hostLoadout={hostLoadout}
-            onEnter={(runId, session) => {
-                setTowerFightRunId(runId);
-                writeRecoveryKey(runId);
-                setView({ phase: "fight", runId, session });
-            }}
+            onEnter={enterRun}
             onEnterPvp={enterPvpMatch}
             onPvpMatchChange={updatePvpMatchLock}
             onBack={onExit}
