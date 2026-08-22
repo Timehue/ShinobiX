@@ -287,7 +287,7 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     runtime.setCharacter({ level: 85, rankTitle: "Special Jonin", examsPassed: ["genin", "chunin"] });
     await page.evaluate(() => localStorage.setItem("rankUp.celebrated.v1", "4"));
     await loadScreen(page, "centralHub");
-    await page.getByRole("button", { name: /Celestial Tower Endless PvE climb/ }).click();
+    await page.locator(".central-card").filter({ hasText: "Celestial Tower" }).click();
     await page.getByRole("button", { name: /Battle Towers Curated squad floors/ }).click();
     // The towers screen is a LAZY route (`lazyWithRetry` in App.tsx), so this
     // click starts a dynamic chunk fetch and the heading cannot exist until it
