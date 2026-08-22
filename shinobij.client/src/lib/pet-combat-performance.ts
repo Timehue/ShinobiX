@@ -49,6 +49,13 @@ export function resolveOpponentFacing(
         : normalize(fallbackX, fallbackZ);
 }
 
+/** Final root yaw that maps one model's corrected visible-forward axis onto its
+ * world-space combat heading. Keep this shared with PetModel3D so tests exercise
+ * the same last transform the renderer applies, not only the target vector. */
+export function resolveCombatBodyYaw(faceX: number, faceZ: number, yawOffset = 0): number {
+    return Math.atan2(faceX, faceZ) + yawOffset;
+}
+
 /** The generated attack take is one clip, but combat presents it as three
  * authored phases. Holding each phase at its boundary prevents anticipation
  * from reaching the clip's final raised-paw pose before contact occurs. */

@@ -1,7 +1,7 @@
 import { petVisualId } from "../data/pet-evolutions";
 import type { Pet } from "../types/pet";
 import { approvedRosterCombatModel } from "./pet-3d-roster";
-import { petShowdownAnimationModelUrl } from "./pet-showdown-animation-assets";
+import { petShowdownAnimationModelUrl, petShowdownAnimationYawOffset } from "./pet-showdown-animation-assets";
 import { PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
 
 export type PetCombatModelProfile = "quadruped" | "biped" | "avian" | "serpentine" | "heavy";
@@ -133,7 +133,7 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
         profile,
         targetHeight: targetHeight ?? (isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35),
         fit: MODEL_FIT_OVERRIDES[visualId] ?? (isRareWaterSelkie ? "height" : profile === "serpentine" ? "longest" : "height"),
-        yawOffset: 0,
+        yawOffset: petShowdownAnimationYawOffset(visualId),
         outlineScale: 1.026,
     };
 }
