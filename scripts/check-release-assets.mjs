@@ -17,20 +17,27 @@ const achievementIds = [...source.slice(tableStart, tableEnd).matchAll(/\bid:\s*
 if (achievementIds.length === 0) throw new Error('No achievement ids discovered.');
 if (new Set(achievementIds).size !== achievementIds.length) throw new Error('Duplicate achievement id discovered.');
 
+// Badges are WebP, not PNG. They shipped as 165 uncompressed 256px PNGs
+// (19.6 MB, 1.16 MB of it pulled just to open Profile) and were re-encoded at
+// the SAME resolution for a 90% saving. A .png here would be a 404 at every
+// render site, so this check follows the format rather than tolerating both.
 const entries = await readdir(badgeDir, { withFileTypes: true });
-const actualPngs = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.png')).map((entry) => entry.name);
-const actualNames = new Set(actualPngs);
-const expectedNames = achievementIds.map((id) => `${id}.png`);
+const actualBadges = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.webp')).map((entry) => entry.name);
+const actualNames = new Set(actualBadges);
+const expectedNames = achievementIds.map((id) => `${id}.webp`);
 const missing = expectedNames.filter((name) => !actualNames.has(name));
 if (missing.length > 0) throw new Error(`Missing achievement badges: ${missing.join(', ')}`);
 
+const strayPngs = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.png')).map((entry) => entry.name);
+if (strayPngs.length > 0) throw new Error(`Badge art must be WebP; found stray PNGs: ${strayPngs.join(', ')}`);
+
 const invalid = [];
-for (const filename of actualPngs) {
+for (const filename of actualBadges) {
     const full = path.join(badgeDir, filename);
     try {
         const metadata = await sharp(full).metadata();
-        if (metadata.format !== 'png' || !metadata.width || !metadata.height) {
-            invalid.push(`${filename} (not a dimensioned PNG)`);
+        if (metadata.format !== 'webp' || !metadata.width || !metadata.height) {
+            invalid.push(`${filename} (not a dimensioned WebP)`);
             continue;
         }
         if (metadata.width !== metadata.height) invalid.push(`${filename} (${metadata.width}x${metadata.height}, not square)`);
@@ -62,4 +69,4 @@ for (const relative of petHomeAssets) {
 }
 if (invalidPetHome.length) throw new Error(`Invalid Pet Home assets:\n${invalidPetHome.join('\n')}`);
 
-console.log(`release-assets: ${expectedNames.length} achievement references present; ${actualPngs.length} badge PNGs and ${petHomeAssets.length} Pet Home WebPs verified.`);
+console.log(`release-assets: ${expectedNames.length} achievement references present; ${actualBadges.length} badge WebPs and ${petHomeAssets.length} Pet Home WebPs verified.`);
