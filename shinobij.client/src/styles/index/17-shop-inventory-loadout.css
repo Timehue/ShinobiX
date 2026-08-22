@@ -148,6 +148,30 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     height: 68px;
 }
 
+/* Inventory renders a BARE <img> (and a bare initials <span>) in this box —
+   only Shop wraps its art in .shop-item-visual. The rules above replaced the
+   old `.item-popup-art-box img` / `span` pair, which left Inventory's detail
+   popup with no sizing at all: the artwork painted at its natural resolution
+   inside a 156px box, and the no-art fallback lost its 64px initials. Sized in
+   percentages so it tracks the box at every breakpoint (156px desktop, 120px
+   mobile) instead of pinning a second magic number. */
+.item-popup-art-box > img {
+    box-sizing: border-box;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.48);
+    background: rgba(2, 6, 23, 0.55);
+}
+
+.item-popup-art-box > span {
+    font-size: 44px;
+    font-weight: 800;
+    color: #cbd5e1;
+}
+
 @media (max-width: 800px) {
     .app-shell:is([data-screen="shop"], [data-screen="grandMarketplace"]) .shop-item-button {
         display: grid !important;

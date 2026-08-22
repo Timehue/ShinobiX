@@ -797,7 +797,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
     const pos = useRef(new THREE.Vector3(WIDE_POS[0], WIDE_POS[1], WIDE_POS[2]));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
     /** Shot identity — when it changes, the camera CUTS (snaps) instead of
-     *  lerping: the Pokémon Colosseum grammar. */
+     *  lerping: the classic monster battler Colosseum grammar. */
     const shotKey = useRef("");
     // Camera + size come from the frame-callback state (not render-scope
     // useThree destructuring) so the mutation stays outside render.
@@ -1130,7 +1130,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         // fall and the KO ritual — that beat is the point — and then LEAVES.
         // A corpse parked in its slot for the rest of the match reads as a bug,
         // clutters the lane the survivors fight in, and is the one thing both
-        // Pokémon and Temtem clear the instant the ceremony is over. It sinks
+        // other monster battlers clear the instant the ceremony is over. It sinks
         // and shrinks out rather than popping, so the exit is still a beat.
         if (ko) {
             if (!koAt.current) {
@@ -1689,7 +1689,7 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
  *  the component body so it is a plain pure builder — the row objects it makes
  *  are data, and the component just renders them.
  *
- *  Temtem-shaped: the TECHNIQUES are the root level, in a grid, with
+ *  reference-shaped: the TECHNIQUES are the root level, in a grid, with
  *  Guard/Rest/Switch as icon chips beside them. There used to be an
  *  Attack/Skill submenu in front of them, which cost a tap every single round
  *  to reach the only decision the round actually asks. */
@@ -1932,7 +1932,7 @@ function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
     );
 }
 
-/** PvP command clock (Pokémon Champions' MOVE TIME, Temtem's decision timer).
+/** PvP command clock (the genre's command timers).
  *  Renders only when the server put a deadline on the state view — practice
  *  fights carry none, so this never appears there. At zero it locks the round
  *  in as drafted; the engine defaults every missing order to guard, so an
@@ -2813,7 +2813,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 } else if (event.targets.some((t) => t.applied)) {
                     playPetSfx("buff");
                 }
-                // Overdraft: the actor bleeds for the deficit (Temtem's chip).
+                // Overdraft: the actor bleeds for the deficit (the reference model's chip).
                 if (event.overexertDamage) {
                     addPopup(event.actorId, `-${event.overexertDamage}`, "damage");
                     fxRef.current.hitAt.set(event.actorId, performance.now());

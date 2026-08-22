@@ -219,6 +219,9 @@ export function isCleanPlayerName(input: unknown): boolean {
     if (typeof input !== 'string') return false;
     const canonical = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
     if (!canonical) return false;
+    // Third-party IP is refused here too: a monster-collecting game does not
+    // want a shinobi called "Pikachu" on its leaderboards.
+    if (hasReservedIpTerm(input)) return false;
     return !COLLAPSED_BLOCKLIST
         .filter((term) => term.length >= 4)
         .some((term) => canonical.includes(term));
@@ -248,7 +251,57 @@ export const RESERVED_TITLE_TERMS: readonly string[] = [
     'anthropic', 'system message', 'game master',
 ];
 
+/**
+ * Third-party IP that must not become a player IDENTITY.
+ *
+ * Deliberately NOT in BLOCKLIST. That list masks matches with asterisks
+ * everywhere sanitizeUserText runs, including chat — turning "this plays a bit
+ * like pokemon" into "this plays a bit like *******", which censors ordinary
+ * conversation and teaches players the filter is broken. The risk being managed
+ * here is a player NAME, clan, title, or pet carrying someone else's trademark
+ * in a monster-collecting game, so it gates identity surfaces only.
+ *
+ * Entries are chosen to be unmistakable marks. Real-language words that happen
+ * to belong to a franchise are excluded on purpose: "sakura" is cherry blossom,
+ * "konoha" is tree-leaf, and both are legitimate choices in a shinobi setting.
+ * Village-leader titles (hokage, kazekage, …) are already covered above as
+ * impersonation terms, since this game has its own Kages.
+ *
+ * These are substring-matched on names (see isCleanPlayerName), so every entry
+ * MUST be long and distinctive enough not to sit inside an ordinary fantasy
+ * name — `_text-moderation.ip-terms.test.ts` asserts that against the game's
+ * own shipped pet, jutsu, item, village, and NPC names.
+ */
+export const RESERVED_IP_TERMS: readonly string[] = [
+    // Monster-collecting franchises — the closest genre neighbours, and the
+    // ones a pet-collection game is most likely to draw a complaint over.
+    'pokemon', 'pokémon', 'temtem', 'digimon', 'pikachu', 'charizard',
+    'nexomon', 'coromon', 'palworld',
+    // Shonen/anime marks this setting sits nearest to.
+    'naruto', 'uzumaki', 'uchiha', 'sharingan', 'byakugan', 'rinnegan',
+    'akatsuki', 'jinchuriki', 'kyuubi', 'susanoo',
+    'bleach anime', 'shippuden', 'boruto',
+    // Card/collectible marks.
+    'yugioh', 'yu-gi-oh', 'duel monsters', 'magic the gathering', 'hearthstone',
+    // Direct competitor (see the project rule against naming it).
+    'ninjarpg', 'the ninja rpg', 'theninjarpg',
+];
+
 const COLLAPSED_RESERVED = RESERVED_TITLE_TERMS.map((t) => leetCollapseStripSpace(t));
+const COLLAPSED_IP = RESERVED_IP_TERMS.map((t) => leetCollapseStripSpace(t));
+
+/** True when the text carries third-party IP that may not be worn as identity. */
+export function hasReservedIpTerm(input: unknown): boolean {
+    if (typeof input !== 'string' || !input.trim()) return false;
+    // Names have no reliable word boundaries ("XxNarutoxX"), so match the
+    // compacted form as a substring — the same shape isCleanPlayerName uses.
+    const compact = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
+    if (!compact) return false;
+    return COLLAPSED_IP.some((term) => {
+        const needle = term.replace(/[^a-z0-9]/g, '');
+        return needle.length >= 4 && compact.includes(needle);
+    });
+}
 
 /** True when the text contains a reserved authority/impersonation term. */
 export function hasReservedTitleTerm(input: unknown): boolean {
@@ -274,5 +327,6 @@ export function isAllowedCustomTitle(input: unknown): boolean {
     if (text.length > TEXT_LIMITS.customTitle) return false;
     if (!isCleanText(text)) return false;
     if (hasReservedTitleTerm(text)) return false;
+    if (hasReservedIpTerm(text)) return false;
     return true;
 }

@@ -723,7 +723,7 @@ function monsterFromLegacy(
   return {
     id: `legacy-${source.id}`,
     name: source.name,
-    image: `/badges/legacy-${source.badge}.png`,
+    image: `/badges/legacy-${source.badge}.webp`,
     lore: source.flavor,
     element,
     rarity: profile.rarity,

@@ -65,6 +65,14 @@ function ShopItemArtwork({ item }: { item: GameItem }) {
                     src={item.image}
                     alt=""
                     className="shop-item-thumb"
+                    // The shop renders every item of every slot group in one
+                    // pass (no pagination, no virtualization), and the catalog
+                    // carries ~9.7 MB of 512px art for a 64px thumbnail. Eager
+                    // loading made opening the shop a multi-megabyte fetch on a
+                    // phone; deferring the off-screen ones costs nothing, since
+                    // the GameIcon glyph underneath already fills the frame.
+                    loading="lazy"
+                    decoding="async"
                     onError={(event) => { event.currentTarget.style.display = "none"; }}
                 />
             )}

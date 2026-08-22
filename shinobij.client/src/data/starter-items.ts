@@ -43,7 +43,7 @@ export const starterItems: GameItem[] = [
     {
         id: "chakra-ring",
         name: "Chakra Ring",
-        image: "/items/chakra-ring.webp",
+        image: "/items/shop-chakra-ring-v1.webp",
         slot: "relic",
         rarity: "rare",
         cost: 600,

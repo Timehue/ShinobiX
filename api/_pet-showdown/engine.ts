@@ -10,6 +10,10 @@
  * only from the session's own mulberry32 rng state, which advances inside the
  * session object — so a persisted session replays identically after a crash,
  * and no Math.random/Date ever runs in combat.
+ *
+ * Terminology: "the reference model" / "the classic monster battler" are defined
+ * in shared/pet-showdown-contract.ts — the calibration targets these numbers came
+ * from, deliberately unnamed because this repository is public.
  */
 
 import {
@@ -104,10 +108,10 @@ export interface ShowdownMove {
     kind: string;
     cost: number;
     signature: boolean;
-    /** Temtem-style turn-order multiplier for the round this move is chosen. */
+    /** reference-style turn-order multiplier for the round this move is chosen. */
     priority: number;
-    /** Rounds in battle required before this move fires (Temtem Hold).
-     *  NO COOLDOWNS — stamina and hold are the only gates (the Temtem model). */
+    /** Rounds in battle required before this move fires (hold rounds).
+     *  NO COOLDOWNS — stamina and hold are the only gates (the reference stamina model). */
     hold: number;
     /** The technique's OWN element. Kit/signature moves carry the pet's;
      *  the universal basic is "None" (no STAB, wheel-neutral both ways). */
@@ -115,7 +119,7 @@ export interface ShowdownMove {
     /** Physical rides ATK vs DEF; special rides the role-derived special
      *  axis; status deals no direct hit. Derived from `kind` at seal. */
     cls: ShowdownMoveClass;
-    /** Ally element that empowers this technique (Temtem Synergy). */
+    /** Ally element that empowers this technique (ally synergy). */
     synergyElement?: string;
 }
 
@@ -163,7 +167,7 @@ export interface ShowdownPet {
     maxHp: number;
     attack: number;
     defense: number;
-    /** Special axis (Temtem SPATK/SPDEF), DERIVED at seal from the physical
+    /** Special axis (a special attack/defence axis), DERIVED at seal from the physical
      *  pair by role lean — sages cast harder than they swing, assassins the
      *  reverse — so the split exists with zero catalog or storage changes. */
     spAttack: number;
@@ -341,7 +345,7 @@ export const KIND_FX: Record<string, KindFx> = {
     pull:      { mult: 0.45, rounds: 0, blurb: 'Hooks the foe’s weakest reserve into the fight' },
     // The third rotation: push and pull move the FOE, pivot moves YOU. Hits and
     // withdraws behind a fresh reserve — the frail attacker's way to trade and
-    // leave before the answer lands (Pokemon's U-turn / Volt Switch).
+    // leave before the answer lands (switch-on-attack moves).
     pivot:     { mult: 0.32, rounds: 0, blurb: 'Strikes, then withdraws behind a reserve' },
     dot:       { mult: 0.82, rounds: 2, store: 'burn', blurb: 'Burns for 2 more rounds' },
     burn:      { mult: 0.82, rounds: 2, blurb: 'Burns for 2 more rounds' },
@@ -529,7 +533,7 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
     return Math.pow(reference / budget, BUDGET_DAMPING);
 }
 
-/** Temtem-style per-move pacing: quick jabs resolve early, haymakers swing
+/** reference-style per-move pacing: quick jabs resolve early, haymakers swing
  *  late and need a HOLD round before they come online. */
 export function movePriority(power: number, kind: string): number {
     if (kind === 'guard') return SHOWDOWN_PRIORITY_GUARD;
@@ -572,7 +576,7 @@ export function promoteHeavy(moves: ShowdownMove[], rarity: string): ShowdownMov
     // A kit needs a LIVE attack, not only a held one. Most catalog species
     // carry exactly one damaging technique, and promoting it left 119 of 140
     // species opening every fight with nothing but the neutral jab — the
-    // Tempest Pegasus disease, at roster scale. Champions and Temtem both give
+    // Tempest Pegasus disease, at roster scale. the genre's battlers both give
     // a mon several live attacking options and reserve the charge for one of
     // them; the haymaker is only promoted when something else can still swing
     // this round.
@@ -625,7 +629,7 @@ function moveClass(kind: string): ShowdownMoveClass {
     return 'status';
 }
 
-/** Temtem Synergy partner for a technique: the element this move's element
+/** ally synergy partner for a technique: the element this move's element
  *  BEATS — wind fans the fire, fire boils the water line dry. Deterministic,
  *  and it turns team COMPOSITION into a damage lever the lobby can plan. */
 function synergyPartnerOf(element: string, cls: ShowdownMoveClass): string | undefined {
@@ -885,7 +889,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         // stamina floor — persistent disruption for the cost of a breath. That
         // was the engine behind the four HIGH legendaries (round 28) and it is
         // still live on 51 species; on a fragile frame the same slot is simply
-        // dead weight. Temtem prices control at real stamina, so an unpriced
+        // dead weight. The reference model prices control at real stamina, so an unpriced
         // utility gets a floor before anything else is derived from it.
         const powerIn = authored <= 0 && kindRaw !== 'damage' ? SHOWDOWN_UTILITY_POWER_FLOOR : authored;
         const power = clampInt(Math.round(powerIn * kitNorm), 0, powerCeil, 0);
@@ -961,7 +965,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         : synth;
 
     const defense = clampInt(scaled(raw.defense, 28), 1, petStatCeil(rarity, 'defense'), 28);
-    // The stamina pool is a STAT (the Temtem model): bulk buys endurance.
+    // The stamina pool is a STAT (the reference stamina model): bulk buys endurance.
     // ~65 for a glass cannon, ~78 mid, ~90 for a war tortoise.
     //
     // Resized from an 80-125 band. At the old size a mid-tier technique (26 EN)
@@ -969,7 +973,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     // your best affordable move every single round and only run dry on the last
     // one, which is the definition of a resource that does not bind. At this
     // size the same move buys three, the haymaker buys one at ~63% of the pool
-    // (Temtem's own haymaker is 33 STA against a ~50 pool), and the jab stays
+    // (the reference haymaker is 33 STA against a ~50 pool), and the jab stays
     // effectively unlimited because being always-affordable is its entire job.
     // Scaling the ORIGINAL curve (rather than inventing new divisors) keeps the
     // relative spread between a glass cannon and a war tortoise exactly as tuned.
@@ -1346,7 +1350,7 @@ export function addStatus(
         pushConsumableEvent(session, pet, 'cleanse', reactions);
         return;
     }
-    // Temtem status interactions: fire thaws, frost smothers, a burst of speed
+    // Reference status interactions: fire thaws, frost smothers, a burst of speed
     // shakes the slow off. Runs BEFORE the condition cap so a thaw never
     // evicts an unrelated condition to make room for the burn that caused it.
     const cancels = SHOWDOWN_STATUS_CANCELS[kind];
@@ -1361,10 +1365,10 @@ export function addStatus(
         return;
     }
     pet.statuses.push({ kind, rounds, magnitude, bornRound: session.round });
-    // Temtem's two-condition rule: a third CONDITION evicts the oldest. The
+    // The reference two-condition rule: a third CONDITION evicts the oldest. The
     // absorb pools (shield/barrier/absorb) and the taunt bookkeeping are board
     // state, not conditions, and never count against or fall to the cap —
-    // Temtem itself puts barriers outside the status system.
+    // The reference model itself puts barriers outside the status system.
     const isCondition = (s: { kind: string }) =>
         s.kind !== 'shield' && s.kind !== 'barrier' && s.kind !== 'absorb' && s.kind !== 'tauntGuard';
     const conditions = pet.statuses.filter(isCondition);
@@ -1458,7 +1462,7 @@ function applyHeal(target: ShowdownPet, amount: number, round = 0): number {
  * round-cap judge, since deleted). 2.2 lands the typical KO in 6-9 rounds. */
 // Damage magnitude for the A/D RATIO formula below. History: the original
 // atk²/(atk+def) shape gave attack ~3x the marginal value of defense, which
-// made defense TRAINING a bad buy — switched to Pokémon's pure-ratio shape
+// made defense TRAINING a bad buy — switched to the classic monster battler's pure-ratio shape
 // (damage ∝ atk/def) where attack, defense, and hp all carry equal marginal
 // weight, so every training focus is a real choice. REF_DEF anchors the
 // magnitude so a typical mid-game hit lands in the same range as before.
@@ -1564,7 +1568,7 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     const atk = special ? effSpAttack(attacker) : effAttack(attacker);
     const def = special ? effSpDefense(defender) : effDefense(defender);
     const base = DAMAGE_SCALE * (power / 100) * REF_DEF * (atk / Math.max(1, def));
-    // ±8% in 16 discrete steps — the genre-proven roll (Pokémon's 85-100 band):
+    // ±8% in 16 discrete steps — the genre-proven roll (the classic monster battler's 85-100 band):
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
     // Lucky shifts the whole window up.
     const variance = 0.92 + tableMult(TRAIT_FX.varianceShift, traitOf(attacker), 0) + Math.floor(nextRand(session) * 16) * 0.01;
@@ -1683,7 +1687,7 @@ function executeMove(
     // the action event so the script reads blow-then-save.
     const reactions: ShowdownEvent[] = [];
 
-    // Costs and cooldowns — overexertion is allowed and priced the Temtem way:
+    // Costs and cooldowns — overexertion is allowed and priced the reference way:
     // the move fires, the pet pays HP for the deficit, and it is winded next
     // round. Push your luck, bleed for it.
     let overexerted = false;
@@ -1748,7 +1752,7 @@ function executeMove(
             return false;
         }
         const guarded = target.guarding;
-        // Temtem Synergy, the real thing: the TECHNIQUE declares its partner
+        // ally synergy, the real thing: the TECHNIQUE declares its partner
         // element (sealed at derivation — the element it beats; wind fans the
         // fire), and a LIVING fielded ally of that element empowers the cast.
         // Partner-driven, not target-driven, so the lobby can BUILD for it —
@@ -1945,7 +1949,7 @@ function executeMove(
                     // three-pet format the glass cannon kills one thing and
                     // dies, while a grinder chews through the whole team —
                     // assassins sat at 37.9% against trackers at 62.4%. Both
-                    // Pokemon (U-turn, Volt Switch) and Temtem solve it the
+                    // The classic monster battler and the reference model solve it the
                     // same way: let the frail attacker trade and leave before
                     // the answer lands.
                     applyOffensiveHit(target, KIND_FX.pivot.mult, kind);
@@ -2089,7 +2093,7 @@ export function resolveShowdownRound(
         return found ?? { kind: 'guard', petId: pet.id };
     };
 
-    // ── Switch phase: Pokémon priority — ALL switches resolve before any
+    // ── Switch phase: the classic monster battler priority — ALL switches resolve before any
     // attack, so a read on the incoming pet is a real prediction play. ──────
     const switchedIn = new Set<string>();
     for (const side of ['player', 'enemy'] as Side[]) {
@@ -2115,7 +2119,7 @@ export function resolveShowdownRound(
         }
     }
 
-    // Temtem-style order: pet speed × the CHOSEN move's priority, seeded
+    // reference-style order: pet speed × the CHOSEN move's priority, seeded
     // tiebreak, snapshot after switches. A guard resolves fast, a haymaker
     // swings late — the round order is itself a consequence of the commands.
     // Freshly switched-in pets spent their action arriving.
@@ -2242,7 +2246,7 @@ export function resolveShowdownRound(
             for (const pet of livingTeam(session, side).filter((p) => p.benched)) {
                 pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
             }
-            // Hold timers tick for EVERYONE, field or bench (the Temtem rule).
+            // Hold timers tick for EVERYONE, field or bench (the reference rule).
             for (const pet of livingTeam(session, side)) pet.readiness += 1;
         }
         if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
@@ -2293,9 +2297,9 @@ export function resolveShowdownRound(
     }
 
     // ── The judge ───────────────────────────────────────────────────────────
-    // Temtem's competitive turn cap, restored by owner ruling for full parity.
+    // The reference model's competitive turn cap, restored by owner ruling for full parity.
     // A fight still standing at the end of this round is decided on the same
-    // ladder Temtem publishes: surviving pets, combined HP%, combined
+    // ladder the reference model publishes: surviving pets, combined HP%, combined
     // stamina%, then the speed arrow — here the session's own seeded coin, so
     // a replayed script judges identically.
     if (!session.finished && session.round >= SHOWDOWN_TURN_CAP) {

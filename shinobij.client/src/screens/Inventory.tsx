@@ -757,9 +757,15 @@ export function Inventory({
                                         >
                                             <div className="backpack-item-art">
                                                 {item?.image ? (
+                                                    // Deferred like the shop grid: the backpack is an
+                                                    // unbounded list and the catalog art is 512px for a
+                                                    // thumbnail-sized cell. The equipped-slot images above
+                                                    // stay eager — there are eight and they are on screen.
                                                     <img
                                                         src={item.image}
                                                         alt={item.name}
+                                                        loading="lazy"
+                                                        decoding="async"
                                                         onError={(e) => { e.currentTarget.style.display = "none"; }}
                                                         style={{
                                                             width: "100%",

@@ -22,6 +22,7 @@
     "test:e2e:visual:update": "playwright test -c playwright.visual.config.ts --update-snapshots",
     "test:e2e:visual:size": "node scripts/check-visual-baselines.mjs",
     "test:e2e:warfront": "playwright test -c playwright.warfront.config.ts",
+    "test:e2e:ui-audit": "playwright test -c playwright.ui-audit.config.ts",
     "test:e2e:install": "playwright install chromium firefox webkit",
     "qa:story-v10": "node scripts/story-v10-certification.mjs",
     "qa:story-v10:production-network": "node scripts/story-v10-production-network.mjs",
