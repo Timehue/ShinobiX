@@ -2263,7 +2263,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1723
+            "line": 1726
           }
         ]
       },
@@ -2327,7 +2327,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1063
+            "line": 1217
           }
         ]
       },
@@ -2700,7 +2700,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1595
+            "line": 1596
           }
         ]
       },
@@ -2814,7 +2814,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1034
+            "line": 1045
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -3095,11 +3095,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1742
+            "line": 1745
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1802
+            "line": 1805
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3145,7 +3145,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1868
+            "line": 1871
           }
         ]
       },
@@ -3385,7 +3385,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1711
+            "line": 1714
           }
         ]
       },
@@ -3597,7 +3597,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1030
+            "line": 1041
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
@@ -3751,7 +3751,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1736
+            "line": 1739
           }
         ]
       }
