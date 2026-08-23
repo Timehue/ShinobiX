@@ -3,12 +3,18 @@ import { isDeepStrictEqual } from 'node:util';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cors, safeName, clanRecordKey, setSafeRecordValue } from './_utils.js';
+import { cors, safeName, clanBareSlug, clanRecordKey, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
 import { cachedFor } from './_proc-cache.js';
-import { resolveClaimedWarSupply } from './_territory-supply.js';
+import { collectTerritorySupply, resolveClaimedWarSupply } from './_territory-supply.js';
+import { territoryGuardsAfterSelfUpdate } from './_territory-guard.js';
+import {
+    beginTerritoryBreach,
+    clearTerritoryLifecycleForCapture,
+    settleExpiredTerritoryBreach,
+} from './_territory-lifecycle.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
 import { villageWarMapEnabled } from './_release-flags.js';
 // When the default-on Village War Map campaign is enabled,
@@ -79,12 +85,12 @@ import { pvpWarGroundRewardEligible } from './pvp/_war-ground-reward.js';
 import { raidProgressionReceiptId } from './missions/_raid-progression.js';
 import type { RaidTerritoryDamageResult } from './missions/_raid-territory.js';
 
-const TERRITORY_CONTROL_MAX = 20000;
+const TERRITORY_CONTROL_MAX = 75000;
 const TERRITORY_HP_MAX = 20000;
 // Minimum clan roster size to CAPTURE (take new ownership of) a sector.
 // Server-authoritative mirror of the client rule (shinobij.client/src/
 // constants/game.ts TERRITORY_CAPTURE_MIN_MEMBERS) — keep the two in sync.
-const TERRITORY_CAPTURE_MIN_MEMBERS = 3;
+const TERRITORY_CAPTURE_MIN_MEMBERS = 10;
 const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
@@ -267,6 +273,11 @@ type SectorTerritory = {
     warSupply: number;
     lastSupplyAt?: number;
     rebuiltAt?: number;
+    breachedAt?: number;
+    breachEndsAt?: number;
+    rewardSuspendedAt?: number;
+    inactiveReleaseAt?: number;
+    releaseReason?: string;
     // Exact server-owned raid settlement receipts. Never accepted from a
     // client territory payload; preserved under the territory row lock.
     serverRaidDamageReceipts?: unknown[];
@@ -408,6 +419,50 @@ function preserveServerRaidSettlementAuthority(
     delete next.serverRaidDamagePending;
     if (source && Object.prototype.hasOwnProperty.call(source, 'serverRaidDamagePending')) {
         next.serverRaidDamagePending = source.serverRaidDamagePending;
+    }
+    return next;
+}
+
+function clanActorIsMember(clan: Record<string, unknown>, actor: string): boolean {
+    if (safeName(String(clan.founderName ?? '')) === actor) return true;
+    const members = Array.isArray(clan.members) ? clan.members : [];
+    return members.some((member) => safeName(String(
+        typeof member === 'string' ? member : (member as Record<string, unknown>)?.name ?? '',
+    )) === actor);
+}
+
+function clanActorCanManageTerritory(clan: Record<string, unknown>, actor: string): boolean {
+    if (safeName(String(clan.founderName ?? '')) === actor) return true;
+    const overrides = (clan.roleOverrides ?? {}) as Record<string, unknown>;
+    const role = Object.entries(overrides).find(([name]) => safeName(name) === actor)?.[1];
+    return role === 'Leader' || role === 'Officer';
+}
+
+async function actorIsAppointedVillageAnbu(actor: string, actorVillage: string, territoryVillage: string): Promise<boolean> {
+    if (!actorVillage || actorVillage.toLowerCase() !== territoryVillage.toLowerCase()) return false;
+    const slug = territoryVillage.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const state = await kv.get<{ anbuAppointees?: unknown }>(`game:village-state:${slug}`);
+    const appointees = Array.isArray(state?.anbuAppointees) ? state.anbuAppointees : [];
+    return appointees.some((name) => safeName(String(name ?? '')) === actor);
+}
+
+function preserveServerTerritoryLifecycle(
+    next: SectorTerritory,
+    source: SectorTerritory | null | undefined,
+): SectorTerritory {
+    const fields = [
+        'breachedAt',
+        'breachEndsAt',
+        'rewardSuspendedAt',
+        'inactiveReleaseAt',
+        'releaseReason',
+    ] as const;
+    for (const field of fields) {
+        if (source && Object.prototype.hasOwnProperty.call(source, field)) {
+            (next as Record<string, unknown>)[field] = source[field];
+        } else {
+            delete (next as Record<string, unknown>)[field];
+        }
     }
     return next;
 }
@@ -743,13 +798,13 @@ export async function captureSectorForVillage(
             requestedOwnerVillage: ownerVillage,
         });
         if (ownershipError) throw new Error(ownershipError);
-        const next = preserveServerRaidSettlementAuthority(normalizeSectorTerritory({
+        const next = preserveServerRaidSettlementAuthority(normalizeSectorTerritory(clearTerritoryLifecycleForCapture({
             ...(prev ?? defaultSectorTerritory(s)),
             ownerVillage,
             ownerClan: undefined,
             hp: TERRITORY_HP_MAX,
             updatedAt: now,
-        }), prev);
+        }) as Partial<SectorTerritory>), prev);
         const owned = resolveClaimedWarSupply(prev ?? null, next, now);
         next.warSupply = owned.warSupply;
         next.lastSupplyAt = owned.lastSupplyAt;
@@ -1487,8 +1542,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // GET shouldn't block on the persist, and concurrent GETs that
         // both decay converge on the same idempotent result.
         const now = Date.now();
+        const projectedTerritories: SectorTerritory[] = [];
         const wars: VillageWar[] = [];
         const writes: Promise<unknown>[] = [];
+        for (const territory of territories) {
+            const settled = settleExpiredTerritoryBreach(territory, now);
+            projectedTerritories.push(settled.row as SectorTerritory);
+            if (settled.changed) {
+                const territoryKey = `${TERRITORY_KEY_PREFIX}${territory.sector}`;
+                writes.push(withKvLock(territoryKey, async () => {
+                    const fresh = await kv.get<SectorTerritory>(territoryKey);
+                    if (!fresh) return;
+                    const refreshed = settleExpiredTerritoryBreach(fresh, now);
+                    if (refreshed.changed) await commitSectorTerritoryExact(
+                        territoryKey,
+                        fresh,
+                        refreshed.row as SectorTerritory,
+                    );
+                }, { failClosed: true }).catch(() => undefined));
+            }
+        }
+        territories = projectedTerritories;
         for (const w of warsRaw) {
             if (!warIsGameplayActive(w)) continue;
             const { war, changed } = applyWarDecay(w, now);
@@ -1612,6 +1686,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                         const prevClan = String(prev?.ownerClan ?? '').trim();
                         const prevVillage = String(prev?.ownerVillage ?? '').trim();
+                        if (prev && prevClan) {
+                            const clanRec = await kv.get<Record<string, unknown>>(clanRecordKey(prevClan));
+                            if (!clanRec) {
+                                return res.status(409).json({ error: 'The owning clan record is unavailable. Retry after territory cleanup.' });
+                            }
+                            const actorSlug = safeName(identity.name);
+                            const actorInOwnerClan = clanBareSlug(actorClan) === clanBareSlug(prevClan)
+                                && clanActorIsMember(clanRec, actorSlug);
+                            const actorIsAnbu = await actorIsAppointedVillageAnbu(actorSlug, actorVillage, prevVillage);
+                            if (!actorInOwnerClan && !actorIsAnbu) {
+                                return res.status(403).json({ error: 'Only the owning clan or an appointed village ANBU may update this territory.' });
+                            }
+
+                            // HP is combat/economy authority. Raids apply damage
+                            // through their sealed settlement and repairs spend
+                            // treasury scrolls through assign-scrolls. The legacy
+                            // full-row endpoint must never raise or lower it.
+                            if (Object.prototype.hasOwnProperty.call(rawTerritory, 'hp')
+                                && incomingTerritory.hp !== prev.hp) {
+                                return res.status(403).json({ error: 'Territory HP can only change through verified raids or Territory Control Scroll repairs.' });
+                            }
+
+                            const weatherProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'weather');
+                            const terrainProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'terrainBuffStat');
+                            const settingsChanging = (weatherProvided && incomingTerritory.weather !== prev.weather)
+                                || (terrainProvided && incomingTerritory.terrainBuffStat !== prev.terrainBuffStat);
+                            if (settingsChanging && (!actorInOwnerClan || !clanActorCanManageTerritory(clanRec, actorSlug))) {
+                                return res.status(403).json({ error: 'Only clan leadership may change territory weather or terrain.' });
+                            }
+
+                            const guardsProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'guards');
+                            const nextGuards = guardsProvided
+                                ? territoryGuardsAfterSelfUpdate(prev.guards, incomingTerritory.guards, actorSlug)
+                                : prev.guards;
+                            if (!nextGuards) {
+                                return res.status(403).json({ error: 'You may only add or remove yourself from territory guards.' });
+                            }
+
+                            // Rebuild the row from server state and apply only the
+                            // two intended client commands. This also protects
+                            // images, ownership, control, supply, cooldowns, and
+                            // future server fields from full-object overwrite.
+                            Object.assign(incomingTerritory, prev, {
+                                weather: weatherProvided ? incomingTerritory.weather : prev.weather,
+                                terrainBuffStat: terrainProvided ? incomingTerritory.terrainBuffStat : prev.terrainBuffStat,
+                                guards: nextGuards,
+                                updatedAt: Date.now(),
+                            });
+                            claimingClan = prevClan;
+                            claimingVillage = prevVillage;
+                        }
+                        // Clan control progress and clan ownership are purchased
+                        // with treasury scrolls. They are owned exclusively by
+                        // /api/clan/territory/assign-scrolls, which validates clan
+                        // leadership and debits the canonical treasury under the
+                        // same locks. Keeping those fields writable here let any
+                        // clan member capture a sector without spending a scroll.
+                        // Village ownership remains on this route because the
+                        // village-war capture path legitimately flips it at 0 HP.
+                        const previousControlScore = Number(prev?.controlScore ?? 0);
+                        if (incomingTerritory.controlScore !== previousControlScore) {
+                            return res.status(403).json({ error: 'Clan control can only be changed by assigning Territory Control Scrolls.' });
+                        }
+                        if (claimingClan !== prevClan) {
+                            return res.status(403).json({ error: 'Clan territory ownership can only be changed by the clan territory command.' });
+                        }
                         const ownershipError = territoryVillageOwnershipError({
                             sector: incomingTerritory.sector,
                             actorVillage,
@@ -1793,9 +1933,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             return;
                         }
                     }
-                    committedTerritory = preserveServerRaidSettlementAuthority({
+                    committedTerritory = preserveServerTerritoryLifecycle(preserveServerRaidSettlementAuthority({
                         ...incomingTerritory,
-                    }, fresh);
+                    }, fresh), fresh);
+                    // A village conquest cannot leave the defeated clan owning
+                    // a sector inside the enemy village. Village capture strips
+                    // clan control; a qualifying clan must earn 75 scrolls and
+                    // claim the newly secured sector again.
+                    if (ownerVillageChanging && fresh?.ownerClan) {
+                        committedTerritory = clearTerritoryLifecycleForCapture({
+                            ...committedTerritory,
+                            ownerClan: undefined,
+                            backgroundImage: undefined,
+                            controlScore: 0,
+                            weather: undefined,
+                            terrainBuffStat: 'bukijutsuOffense',
+                            guards: [],
+                        }) as SectorTerritory;
+                    }
+                    if (fresh
+                        && fresh.ownerClan
+                        && committedTerritory.ownerClan
+                        && fresh.hp > 0
+                        && committedTerritory.hp <= 0) {
+                        const breachNow = Date.now();
+                        const bankedSupply = collectTerritorySupply(fresh, breachNow).collected;
+                        committedTerritory = preserveServerRaidSettlementAuthority(
+                            beginTerritoryBreach(committedTerritory, breachNow, bankedSupply) as SectorTerritory,
+                            fresh,
+                        );
+                    }
                     try {
                         if (!(await kv.compareSet(key, fresh, committedTerritory))) {
                             territoryConflict = true;

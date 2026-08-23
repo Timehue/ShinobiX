@@ -155,9 +155,10 @@ unequip does `addItem(id,1)`. Uniques behave exactly as today.
 - **Treasury transfer (recipient side)** clan/treasury/transfer.ts:186 and
   village/treasury/transfer.ts:242: route stackable items to `itemStacks`.
 - **Weekly boss reward** weekly-boss.ts:276–287: route via server `addItem`.
-- **Territory scroll grant** missions/_mission-catalog.ts:163
-  (`grantTerritoryScrollsToInventory`) → write to `itemStacks`
-  (TERRITORY_CONTROL_SCROLL_ID is already stackable). Update its test.
+- **Territory scroll grant** clan/war/_war-points.ts
+  (`grantClanWarPvpWinScrolls`) → write to `itemStacks`
+  (TERRITORY_CONTROL_SCROLL_ID is already stackable). Normal mission, hunt, AI,
+  and ordinary PvP paths must not mint it.
 - **Pet evolve** pet/evolve.ts:62–81 + pet/_evolution.ts:164 `checkEvolve`:
   consume the evolution stone from `itemStacks` (it's stackable). Server-
   authoritative single-stone consumption preserved.

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 // Compact local chrome glyphs plus the game's currency emblems.
 import {
     GiThreeFriends, GiUpgrade, GiCrossedSwords, GiTreasureMap, GiScrollUnfurled,
@@ -28,7 +28,7 @@ import { useCapabilityViewAvailability } from "../lib/live-capabilities-context"
 import type { TowerHostLoadout } from "../lib/towers-api";
 import type { BattleHistoryEntry } from "../types/character";
 import type { GameItem } from "../types/combat";
-import { TERRITORY_CAPTURE_MIN_MEMBERS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
+import { TERRITORY_CAPTURE_MIN_MEMBERS, TERRITORY_CAPTURE_SCROLLS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import type { WeatherType, Screen } from "../types/core";
 import { clanMissionProgress } from "../lib/clan-math";
 import { CLAN_DOCTRINES, doctrineName, type ClanDoctrine } from "../lib/clan-doctrines";
@@ -38,7 +38,7 @@ import { ClanUpgradeIcon } from "../components/ClanUpgradeIcon";
 import { fetchMentorView, assignStudent, claimMentor, releaseStudent, MENTOR_MILESTONE_LABEL, type MentorView } from "../lib/clan-mentor";
 import { canManageClan, clanContribTotal, clanHallTier, clanRoleOf, clanXpMemberScale, clanXpNeeded, clanXpScaleTiers, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
-import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, fetchClaimedClanMissions, postClanMissionClaim } from "../lib/player-api";
+import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, fetchClaimedClanMissions, postClanMissionClaim, postClanTerritoryAssignment } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
@@ -51,9 +51,10 @@ import { weatherEffects } from "../data/world";
 import { ClanWarsPanel } from "../components/ClanWarsPanel";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { ClanExchange } from "../components/ClanExchange";
-import { applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
+import { applyAuthoritativeSectorTerritory, applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryBreachMinsLeft, territoryRewardsSuspended, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { gameToast } from "../components/GameToast";
+import { CLAN_VIEW_REQUEST_EVENT } from "../lib/use-notifications";
 
 export function ClanHall({ character, updateCharacter, onVersionedCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     const lore = clanLore[character.village];
@@ -67,8 +68,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const [view, setView] = useState<"exchange" | "roster" | "guard" | "treasury" | "boosts" | "upgrades" | "missions" | "wars" | "rankings" | "boss" | "territory" | "notices" | "hall" | "mentor" | "chat">(() => {
         try {
             const initial = sessionStorage.getItem("clan.initialView");
-            sessionStorage.removeItem("clan.initialView");
-            return initial === "boss" ? "boss" : "exchange";
+            return initial === "boss" || initial === "territory" ? initial : "exchange";
         } catch { return "exchange"; }
     });
     const bossTabAvailability = useCapabilityViewAvailability("clanBoss");
@@ -76,6 +76,22 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     useEffect(() => {
         if (bossTabAvailability === "unavailable" && view === "boss") setView("exchange");
     }, [bossTabAvailability, view]);
+    // Register before paint so a mobile notification cannot be tapped in the
+    // narrow frame between Clan Hall rendering and a passive effect attaching.
+    useLayoutEffect(() => {
+        // Consume only after the mount commits. React Strict Mode may invoke a
+        // state initializer more than once; removing the value inside that
+        // initializer made the committed render fall back to Exchange.
+        try { sessionStorage.removeItem("clan.initialView"); } catch { /* initial tab already resolved */ }
+        const openRequestedView = (event: Event) => {
+            const requestedView = (event as CustomEvent<{ view?: string }>).detail?.view;
+            if (requestedView !== "territory") return;
+            try { sessionStorage.removeItem("clan.initialView"); } catch { /* tab still opens */ }
+            setView("territory");
+        };
+        window.addEventListener(CLAN_VIEW_REQUEST_EVENT, openRequestedView);
+        return () => window.removeEventListener(CLAN_VIEW_REQUEST_EVENT, openRequestedView);
+    }, []);
     const [loading, setLoading] = useState(false);
     const [clanData, setClanData] = useState<EnhancedClanData | null>(null);
     // Server-tracked set of clan missions whose one-time reward is already
@@ -108,6 +124,8 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const [territoryWeather, setTerritoryWeather] = useState<WeatherType>("clear");
     const [territoryBuffStat, setTerritoryBuffStat] = useState<TerritoryBuffStat>("bukijutsuOffense");
     const [territoryRefresh, setTerritoryRefresh] = useState(0);
+    const [territoryAssignBusy, setTerritoryAssignBusy] = useState(false);
+    const territoryAssignBusyRef = useRef(false);
     const [clanNoticeType, setClanNoticeType] = useState<NoticePostType>("clan");
     const [clanNoticeTitle, setClanNoticeTitle] = useState("");
     const [clanNoticeBody, setClanNoticeBody] = useState("");
@@ -419,7 +437,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         clanDeleteBusyRef.current = true;
         const clanNameToDelete = character.clan;
         try {
-            if (!(await gameConfirm(`Delete "${clanNameToDelete}"? This permanently removes its hall, treasury, roster, and upgrades. Other members may need to leave the missing clan manually. This data cannot be recovered.`, { danger: true, confirmLabel: "Delete" }))) return;
+            if (!(await gameConfirm(`Delete "${clanNameToDelete}"? This permanently dissolves the clan, removes every member, releases its territory, forfeits active clan wars, and deletes the hall, treasury, roster, and upgrades. This data cannot be recovered.`, { danger: true, confirmLabel: "Delete" }))) return;
             setClanDeleteBusy(true);
             let response: Response;
             try {
@@ -642,7 +660,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     void _spendWarSupplyOnActiveWar;
     function refreshTerritoryPanel() { setTerritoryRefresh(value => value + 1); }
     async function donateTerritoryScrolls(sector: number, count = 1) {
-        if (!clanData) return;
+        if (!clanData || territoryAssignBusyRef.current) return;
         if (villageForOutskirtsSector(sector)) return alert("Village sectors cannot be captured. This sector belongs to the village itself.");
         if (!canSpendTerritoryScrolls) return alert("Only the clan leader or Clan Elders can assign Territory Control Scrolls to sectors.");
         const amount = Math.max(1, Math.floor(count));
@@ -650,6 +668,10 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         const territory = loadSectorTerritory(sector);
         const isOwnedByUs = territory.ownerClan === clanData.name;
         if (territory.ownerClan && !isOwnedByUs) return alert("Raid or war this sector down before your clan can claim it.");
+        if (!isOwnedByUs && territory.ownerVillage
+            && territory.ownerVillage.toLowerCase() !== clanData.village.toLowerCase()) {
+            return alert(`${territory.ownerVillage} controls this sector. Your village must win it through a Sector War before your clan can claim it.`);
+        }
         // Capturing NEW territory is a big-clan endeavour: the clan must field at
         // least TERRITORY_CAPTURE_MIN_MEMBERS members before it can plant a banner.
         // Reinforcing an already-owned sector is exempt (a shrunk clan can hold on).
@@ -657,6 +679,9 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             return alert(`Your clan needs at least ${TERRITORY_CAPTURE_MIN_MEMBERS} members to capture a sector. You currently have ${clanData.members.length}. Recruit more shinobi, then plant your banner.`);
         // Clans are limited to one captured sector at a time
         if (!isOwnedByUs && clanOwnedTerritories(clanData.name).length >= 1) return alert("Your clan already controls a sector. Clans may only hold one sector at a time.");
+        if (!isOwnedByUs && amount !== TERRITORY_CAPTURE_SCROLLS) {
+            return alert(`Capture requires one committed payment of ${TERRITORY_CAPTURE_SCROLLS} Territory Control Scrolls. Partial deposits are not accepted.`);
+        }
         // Rebuild cooldown — sector cannot be captured while recovering from destruction
         if (!isOwnedByUs && territory.rebuiltAt) {
             const msLeft = TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt);
@@ -665,23 +690,41 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
                 return alert(`This sector was just destroyed and is recovering. It can be captured again in ${minsLeft} minute${minsLeft === 1 ? "" : "s"}.`);
             }
         }
-        const nextScore = Math.min(TERRITORY_CONTROL_MAX, territory.controlScore + amount * 1000);
-        const nextHp = isOwnedByUs ? Math.min(TERRITORY_HP_MAX, territory.hp + amount * 1000) : territory.hp;
-        const captured = !territory.ownerClan && nextScore >= TERRITORY_CONTROL_MAX;
-        saveSectorTerritory({
-            ...territory,
-            controlScore: captured ? TERRITORY_CONTROL_MAX : nextScore,
-            hp: captured ? TERRITORY_HP_MAX : nextHp,
-            ownerClan: captured ? clanData.name : territory.ownerClan,
-            ownerVillage: captured ? clanData.village : territory.ownerVillage,
-            backgroundImage: captured ? clanData.image : territory.backgroundImage,
-            weather: captured ? territoryWeather : territory.weather,
-            terrainBuffStat: captured ? territoryBuffStat : territory.terrainBuffStat,
-            warSupply: captured ? 0 : territory.warSupply,
-            lastSupplyAt: captured ? Date.now() : territory.lastSupplyAt,
-        });
-        await saveClan({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, TERRITORY_CONTROL_SCROLL_ID, amount) } });
-        refreshTerritoryPanel();
+        territoryAssignBusyRef.current = true;
+        setTerritoryAssignBusy(true);
+        try {
+            if (!isOwnedByUs) {
+                const villageControl = territory.ownerVillage || clanData.village;
+                const terrainBonus = territoryBuffStat.replace("Offense", " Offense");
+                const confirmed = await gameConfirm(
+                    `Spend ${TERRITORY_CAPTURE_SCROLLS} Territory Control Scrolls to capture Sector ${sector}?\n\nVillage control: ${villageControl}\nClan banner: ${clanData.name}\nWeather: ${weatherEffects[territoryWeather].name}\nTerrain bonus: ${terrainBonus} +10%\n\nThis is one irreversible treasury payment and cannot be refunded.`,
+                    {
+                        title: `Capture Sector ${sector}`,
+                        confirmLabel: `Spend ${TERRITORY_CAPTURE_SCROLLS} Scrolls`,
+                        danger: true,
+                    },
+                );
+                if (!confirmed) return;
+            }
+            const result = await postClanTerritoryAssignment(
+                character.name,
+                clanData.name,
+                sector,
+                amount === TERRITORY_CAPTURE_SCROLLS ? TERRITORY_CAPTURE_SCROLLS : amount === 5 ? 5 : 1,
+                territoryWeather,
+                territoryBuffStat,
+            );
+            if (!result) return;
+            applyAuthoritativeSectorTerritory(result.territory);
+            setClanData((previous) => previous ? enhanceClanData({
+                ...previous,
+                treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>),
+            }) : previous);
+            refreshTerritoryPanel();
+        } finally {
+            territoryAssignBusyRef.current = false;
+            setTerritoryAssignBusy(false);
+        }
     }
     function saveTerritorySettings(sector: number) {
         if (!clanData || !canSpendTerritoryScrolls) return alert("Only the clan leader or Clan Elders can adjust owned territory.");
@@ -695,7 +738,10 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         if (!clanData) return;
         const territory = loadSectorTerritory(sector);
         const isAnbu = isVillageAnbu(character);
-        if (territory.ownerClan !== clanData.name && !isAnbu) return alert("Only the owning clan or ANBU can guard this sector.");
+        if (territory.ownerClan !== clanData.name
+            && !(isAnbu && territory.ownerVillage === character.village)) {
+            return alert("Only the owning clan or an ANBU appointed by the controlling village can guard this sector.");
+        }
         const guards = territory.guards.includes(character.name)
             ? territory.guards.filter(name => name !== character.name)
             : [...territory.guards, character.name];
@@ -775,20 +821,43 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const selectedTerritory = loadSectorTerritory(territorySector);
     const personalTerritoryScrolls = territoryScrollCount(character);
     const clanTerritoryScrolls = clanTreasuryItems.find(stack => stack.itemId === TERRITORY_CONTROL_SCROLL_ID)?.count ?? 0;
-    const canGuardSelectedTerritory = selectedTerritory.ownerClan === clanData.name || isVillageAnbu(character);
+    const canGuardSelectedTerritory = selectedTerritory.ownerClan === clanData.name
+        || (selectedTerritory.ownerVillage === character.village && isVillageAnbu(character));
     // Capturing a NEW sector needs a full roster; reinforcing an owned one is exempt.
     const selectedOwnedByUs = selectedTerritory.ownerClan === clanData.name;
     const canCaptureNewSector = clanData.members.length >= TERRITORY_CAPTURE_MIN_MEMBERS;
     const blockedByRosterCapture = !selectedOwnedByUs && !canCaptureNewSector;
-    const clanSectorWarSupply = ownedTerritories.reduce((sum, territory) => sum + territory.warSupply, 0);
+    const blockedByVillageControl = !selectedOwnedByUs && Boolean(selectedTerritory.ownerVillage
+        && selectedTerritory.ownerVillage.toLowerCase() !== clanData.village.toLowerCase());
+    const clanSectorWarSupply = ownedTerritories.filter(territory => !territoryRewardsSuspended(territory)).reduce((sum, territory) => sum + territory.warSupply, 0);
+    const selectedRewardsSuspended = territoryRewardsSuspended(selectedTerritory);
+    const selectedBreachMinsLeft = territoryBreachMinsLeft(selectedTerritory);
+    const selectedVillageControl = selectedTerritory.ownerVillage?.trim() || "No village control recorded";
+    const selectedClanBanner = selectedTerritory.ownerClan?.trim() || "No clan banner planted";
+    const selectedIsVillageSector = Boolean(villageForOutskirtsSector(territorySector));
+    const blockedByExistingClanSector = !selectedOwnedByUs && ownedTerritories.length >= 1;
+    const selectedRebuildMinsLeft = !selectedOwnedByUs && selectedTerritory.rebuiltAt
+        ? Math.max(0, Math.ceil((TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - selectedTerritory.rebuiltAt)) / 60_000))
+        : 0;
+    const territoryClaimStatus = selectedOwnedByUs
+        ? "Owned by your clan"
+        : selectedTerritory.ownerClan
+            ? `Unavailable — ${selectedTerritory.ownerClan} holds the clan banner`
+            : selectedIsVillageSector
+                ? "Unavailable — permanent village sector"
+                : blockedByVillageControl
+                    ? `Unavailable — ${selectedTerritory.ownerVillage} must be defeated in Sector War first`
+                    : blockedByRosterCapture
+                        ? `Needs ${TERRITORY_CAPTURE_MIN_MEMBERS} clan members`
+                        : blockedByExistingClanSector
+                            ? "Unavailable — your clan already owns its one sector"
+                            : selectedRebuildMinsLeft > 0
+                                ? `Recovering — claim opens in ${selectedRebuildMinsLeft}m`
+                                : clanTerritoryScrolls < TERRITORY_CAPTURE_SCROLLS
+                                    ? `Treasury needs ${TERRITORY_CAPTURE_SCROLLS - clanTerritoryScrolls} more scrolls`
+                                    : `Eligible — leadership may spend ${TERRITORY_CAPTURE_SCROLLS} scrolls`;
     const villageSectorCount = villageOwnedTerritories(character.village).length;
     const villageSectorWarSupply = villageTerritoryWarSupply(character.village);
-    // Territory-derived display values for the legacy scripted war panel.
-    // Unread today (panel is hidden); kept + underscored so the lint passes.
-    const _territoryWarBonusPercent = Math.round((clanTerritoryWarMultiplier(clanData.name) - 1) * 100);
-    const _territoryStartingScore = clanTerritoryStartingScore(clanData.name);
-    void _territoryWarBonusPercent;
-    void _territoryStartingScore;
 
     return <div className="card clan-hall-screen">
         <BackToVillageButton onClick={() => setScreen("village")} />
@@ -849,7 +918,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         {view === "boss" && bossTabAvailability !== "unavailable" && <ClanBoss character={character} clanmates={clanData.members.filter(m => m.name !== character.name).map(m => m.name)} hostLoadout={towerHostLoadout} sharedImages={sharedImages} onRecordBattle={onRecordBattle} onVersionedCharacter={onVersionedCharacter} />}
         {view === "chat" && <ClanChat playerName={character.name} clan={clanData.name} />}
         {view === "mentor" && <div className="summary-box"><h3><GiBlackBelt style={CH_ICON} />Mentorship</h3><p className="hint">Take a new clan member (level 15 or below, recently joined) under your wing. You earn Honor Seals + clan contribution as they hit milestones — Academy graduation, level 20/40, first ranked win — and they get a ryo boost. (Rewards void if you share a connection.)</p>{mentorView?.asStudent.sensei && <p>Your sensei: <strong>{mentorView.asStudent.sensei}</strong></p>}<h4>Your Students</h4>{(!mentorView || mentorView.asSensei.students.length === 0) ? <p className="hint">You're not mentoring anyone yet.</p> : <div className="clan-request-list">{mentorView.asSensei.students.map(s => <div className="clan-request-card" key={s.student}><div><strong>{s.student}</strong><small>Claimed: {s.claimed.length === 0 ? "none" : s.claimed.map(m => MENTOR_MILESTONE_LABEL[m] ?? m).join(", ")}</small>{s.claimable.length > 0 && <small style={{ color: "#fde047" }}>Ready to claim: {s.claimable.map(m => MENTOR_MILESTONE_LABEL[m] ?? m).join(", ")}</small>}</div><div className="menu"><button disabled={s.claimable.length === 0} onClick={() => void doClaimMentor(s.student)}>{s.claimable.length > 0 ? "Claim" : "No rewards"}</button><button className="danger-button" onClick={() => void doReleaseStudent(s.student)}>Release</button></div></div>)}</div>}<label>Take on a Student</label><input list="mentor-student-options" value={mentorStudentInput} onChange={e => setMentorStudentInput(e.target.value)} placeholder="New clan member name" /><datalist id="mentor-student-options">{sortedMembers.filter(m => m.name !== character.name && m.level <= 15).map(m => <option key={m.name} value={m.name} />)}</datalist><div className="menu"><button onClick={() => void doAssignStudent()}>Take on Student</button></div></div>}
-        {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><p className="hint">🏯 Capturing a new sector requires <strong>{TERRITORY_CAPTURE_MIN_MEMBERS}+ clan members</strong> — your clan has <strong style={{ color: canCaptureNewSector ? "#4ade80" : "#f87171" }}>{clanData.members.length}</strong>. Reinforcing a sector you already hold has no roster requirement.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1 || donateBusy} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, MAX_WILD_SECTOR))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p>{blockedByRosterCapture && <p className="hint" style={{ color: "#f87171" }}>Your clan needs {TERRITORY_CAPTURE_MIN_MEMBERS} members to capture this sector — you have {clanData.members.length}. Recruit more shinobi to plant your banner.</p>}<div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name) || blockedByRosterCapture} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name) || blockedByRosterCapture} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
+        {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Territory Control Scrolls come only from shinobi PvP victories in active Clan Wars: each win has a 20% chance to drop exactly 1. A clan needs 75 scrolls and at least 10 members to capture its single sector.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village has {villageSectorCount} reward-active sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected War Supply.</p><p className="hint">🏯 Capturing a new sector requires <strong>{TERRITORY_CAPTURE_MIN_MEMBERS}+ clan members</strong> — your clan has <strong style={{ color: canCaptureNewSector ? "#4ade80" : "#f87171" }}>{clanData.members.length}</strong>. Capture is one atomic treasury payment, so no clan can inherit another clan's partial progress. Reinforcing an owned sector repairs 1,000 HP per scroll.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1 || donateBusy} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, MAX_WILD_SECTOR))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Village Control:</strong> {selectedVillageControl}</p><p><strong>Clan Banner:</strong> {selectedClanBanner}</p><p><strong>Claim Status:</strong> {territoryClaimStatus}</p>{selectedBreachMinsLeft > 0 && <p className="hint" style={{ color: "#f87171" }}><strong>BREACHED:</strong> restore HP before the fixed {selectedBreachMinsLeft}m deadline or ownership is lost. Rewards and bonuses are suspended.</p>}{selectedRewardsSuspended && selectedBreachMinsLeft <= 0 && <p className="hint" style={{ color: "#fbbf24" }}><strong>DORMANT HOLD:</strong> rewards and bonuses are suspended until the clan returns.</p>}<div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%{selectedRewardsSuspended ? " (suspended)" : ""}</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p>{blockedByRosterCapture && <p className="hint" style={{ color: "#f87171" }}>Your clan needs {TERRITORY_CAPTURE_MIN_MEMBERS} members to capture this sector — you have {clanData.members.length}. Recruit more shinobi to plant your banner.</p>}{blockedByVillageControl && <p className="hint" style={{ color: "#f87171" }}>Your village must win this sector through a Sector War before your clan can claim it.</p>}<div className="menu">{selectedOwnedByUs ? <><button disabled={territoryAssignBusy || !canSpendTerritoryScrolls || clanTerritoryScrolls < 1} onClick={() => donateTerritoryScrolls(territorySector)}>{territoryAssignBusy ? "Assigning…" : "Reinforce with 1 Scroll"}</button><button disabled={territoryAssignBusy || !canSpendTerritoryScrolls || clanTerritoryScrolls < 5} onClick={() => donateTerritoryScrolls(territorySector, 5)}>{territoryAssignBusy ? "Assigning…" : "Reinforce with 5 Scrolls"}</button></> : <button disabled={territoryAssignBusy || !canSpendTerritoryScrolls || clanTerritoryScrolls < TERRITORY_CAPTURE_SCROLLS || Boolean(selectedTerritory.ownerClan) || blockedByRosterCapture || blockedByVillageControl || selectedIsVillageSector || blockedByExistingClanSector || selectedRebuildMinsLeft > 0} onClick={() => donateTerritoryScrolls(territorySector, TERRITORY_CAPTURE_SCROLLS)}>{territoryAssignBusy ? "Claiming…" : `Capture Sector (${TERRITORY_CAPTURE_SCROLLS} Scrolls)`}</button>}<button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{territoryRewardsSuspended(territory) ? "Rewards and bonuses suspended" : `${weatherEffects[territory.weather ?? "clear"].name} · ${territory.terrainBuffStat.replace("Offense", " Offense")} +10%`}</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
         {view === "notices" && <div className="summary-box town-notice-board"><h3>Clan Notice Board</h3><p className="hint">Clan Head, leaders, officers, and Clan Elders can post tactical clan notices for members.</p><div className="treasury-grid"><div><label>Type</label><select value={clanNoticeType} onChange={(event) => setClanNoticeType(event.target.value as NoticePostType)}><option value="clan">Clan Notice</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={clanNoticeSector} onChange={(event) => setClanNoticeSector(event.target.value)} placeholder={`1-${MAX_WILD_SECTOR}`} /></div></div><label>Title</label><input value={clanNoticeTitle} maxLength={70} onChange={(event) => setClanNoticeTitle(event.target.value)} placeholder="Example: Prepare Sector 33 raid team" /><label>Message</label><textarea value={clanNoticeBody} maxLength={500} onChange={(event) => setClanNoticeBody(event.target.value)} placeholder="Post clan plans, resource needs, guard rotations, or war instructions." /><button onClick={() => void postClanNotice()} disabled={!clanNoticeTitle.trim() || !clanNoticeBody.trim()}>Post Clan Notice</button><div className="notice-board-list">{clanData.notices.length === 0 ? <p className="hint">No clan notices posted yet.</p> : clanData.notices.map(notice => { const canEditNotice = canManageClan(myRole) || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => void toggleClanNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => void removeClanNotice(notice.id)}>Delete</button></div>}</div>; })}</div></div>}
         {view === "guard" && <div className="summary-box"><h3><GiShield style={CH_ICON} />Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span><GiShield style={CH_ICON} /><strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
         {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><ClanHallTierArt name={hall.name} icon={hall.icon} /><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Doctrine: <DoctrineCrest doctrine={clanData.doctrine ?? "none"} size={20} /> <strong>{doctrineName(clanData.doctrine ?? "none")}</strong></p><p className="hint">Hall tier grows automatically from clan level: Camp → Dojo → Compound → Fortress → Citadel.</p></div></div>}

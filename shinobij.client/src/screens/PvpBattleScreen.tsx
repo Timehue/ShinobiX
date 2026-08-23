@@ -59,6 +59,7 @@ import {
     completePvpRewardCompletion,
     postPvpRewardCompletionAck,
     postPvpRewardClaim,
+    pvpRewardSettlementNotice,
     shouldRunPvpRewardCompletion,
     type PvpRewardClaimConfirmed,
     type PvpRewardCompletionStorage,
@@ -933,15 +934,10 @@ export function PvpBattleScreen({
             return;
         }
 
-        setPvpRewardNotice(isDrawNow
-            ? "Draw confirmed — terminal battle effects are settled."
-            : (!result.rewardAuthorized || effectiveIsSpar)
-            ? "Spar complete — no progression rewards."
-            : result.rating
-                ? `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`
-                : result.base
-                    ? "Combat rewards settled by the server."
-                    : "Official result verified; no generic payout for this mode.");
+        setPvpRewardNotice(pvpRewardSettlementNotice(result, {
+            draw: isDrawNow,
+            spar: effectiveIsSpar,
+        }));
         const runCompletion = shouldRunPvpRewardCompletion(
             completionStorage,
             claimRequest,

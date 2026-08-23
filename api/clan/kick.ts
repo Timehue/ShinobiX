@@ -93,9 +93,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const targetChar = (targetRec?.character ?? null) as Record<string, unknown> | null;
                 if (targetRec && targetChar && clanSlugBare(String(targetChar.clan ?? '')) === targetSlug) {
                     const nextChar: Record<string, unknown> = { ...targetChar };
-                    delete nextChar.clan;
-                    delete nextChar.clanUpgradeLevels;
-                    delete nextChar.clanDoctrine;
+                    // Explicit JSON nulls are required here: removing the keys
+                    // from the partial object makes the save merger preserve
+                    // (and therefore resurrect) the stored clan fields.
+                    nextChar.clan = null;
+                    nextChar.clanUpgradeLevels = null;
+                    nextChar.clanDoctrine = null;
                     nextChar.clanFounder = false;
                     nextChar.guardQueued = false;
                     await writeVersionedPlayerSave(targetSaveKey, targetRec, nextChar);

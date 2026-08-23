@@ -229,7 +229,7 @@ export function Missions({
     }
     // Combat missions are won in the Arena (which only queues the claim on the
     // character) and paid out HERE. Mirrors the field-mission / hunt claim
-    // pattern: per-rank XP + ryo (matching the card), +1 Territory Scroll, and
+    // pattern: per-rank XP + ryo (matching the card), and
     // the kill-counter / daily-mission bookkeeping that used to run on the win.
     // No stamina — stamina is not part of any mission reward.
     // Server-authoritative: the win only queued the claim (pendingCombatMissionClaims);
@@ -262,7 +262,7 @@ export function Missions({
             return alert(claimReasonMessage(result.reason));
         }
         if (!applySuccessfulMissionClaim(result)) return;
-        alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
+        alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}.`);
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
@@ -337,7 +337,7 @@ export function Missions({
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
+            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}.`);
             return;
         }
         if (result.applied === false) {
@@ -631,6 +631,7 @@ export function Missions({
                                         </span>
                                     </div>
                                     <div className="mh-field-body">
+                                        <span className="mh-field-mobile-sector">Sector {mission.targetSector} · {placeName}</span>
                                         <div className="mh-field-title-row">
                                             <div>
                                                 <span>Level {mission.levelReq}+</span>
@@ -661,21 +662,26 @@ export function Missions({
                                         )}
                                         <div className="mh-fetch-actions">
                                             {!accepted
-                                                ? <button disabled={fieldTrailPending !== null || locked} onClick={() => { void acceptFetchMission(mission); }}>
-                                                    {locked ? `Level ${mission.levelReq} required` : "Accept Mission"}
+                                                ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked} onClick={() => { void acceptFetchMission(mission); }}>
+                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : "Accept Mission"}</span>
+                                                    <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
                                                 </button>
                                                 : complete
                                                     ? <button
-                                                        className="mh-claim-btn"
+                                                        className="mh-claim-btn mh-field-primary-action"
                                                         disabled={claimingKey !== null}
                                                         onClick={() => { void runClaim(`field:${mission.id}`, () => claimFetchMission(mission)); }}
                                                     >
-                                                        {claimingKey === `field:${mission.id}` ? "Claiming…" : "Claim Reward"}
+                                                        <span className="mh-field-primary-label">{claimingKey === `field:${mission.id}` ? "Claiming…" : "Claim Reward"}</span>
+                                                        <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
                                                     </button>
-                                                    : <button onClick={() => setScreen("worldMap")}>Go to Sector {mission.targetSector}</button>}
-                                            {accepted && <button className="danger-button" disabled={fieldTrailPending !== null} onClick={() => { void abandonFetchMission(mission); }}>Abandon</button>}
+                                                    : <button className="mh-field-primary-action" onClick={() => setScreen("worldMap")}>
+                                                        <span className="mh-field-primary-label">Go to Sector {mission.targetSector}</span>
+                                                        <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
+                                                    </button>}
+                                            {accepted && <button className="danger-button mh-field-secondary-action" disabled={fieldTrailPending !== null} onClick={() => { void abandonFetchMission(mission); }}>Abandon</button>}
                                             {mission.aiProfileId && (
-                                                <button onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>
+                                                <button className="mh-field-secondary-action" onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>
                                             )}
                                         </div>
                                     </div>

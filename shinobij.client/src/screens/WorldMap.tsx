@@ -182,7 +182,7 @@ import {
 } from "../App";
 import { villagePageImage } from "../lib/village-page-image";
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
@@ -4303,8 +4303,11 @@ export function WorldMap({
             rebuildMinsLeft: territoryRebuildMinsLeft,
             controlScore: territory.controlScore,
             hp: territory.hp,
+            breached: territoryIsBreached(territory),
+            breachMinsLeft: territoryBreachMinsLeft(territory),
+            rewardsSuspended: territoryRewardsSuspended(territory),
             guards: territory.guards,
-            enemyControlled: Boolean(territory.ownerClan && territory.ownerClan !== character.clan),
+            enemyControlled: Boolean(territory.ownerClan && territory.ownerClan !== character.clan && territory.hp > 0),
             ...(villageWar ? {
                 war: {
                     playerVillage: character.village,

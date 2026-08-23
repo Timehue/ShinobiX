@@ -7,10 +7,18 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
 let kv: typeof import('../../_storage.js').kv;
 let settle: typeof import('./_pvp-settlement.js').settlePvpClanWarContinuation;
+let scrollDrop: typeof import('./_war-points.js').clanWarPvpTerritoryScrollDrop;
+
+function scrollCount(save: Record<string, any> | null): number {
+    return (save?.character?.itemStacks ?? [])
+        .filter((stack: Record<string, unknown>) => stack.itemId === 'territory-control-scroll')
+        .reduce((sum: number, stack: Record<string, unknown>) => sum + Number(stack.count ?? 0), 0);
+}
 
 before(async () => {
     ({ kv } = await import('../../_storage.js'));
     ({ settlePvpClanWarContinuation: settle } = await import('./_pvp-settlement.js'));
+    ({ clanWarPvpTerritoryScrollDrop: scrollDrop } = await import('./_war-points.js'));
 });
 
 function terminal(battleId: string, overrides: Partial<PvpSession> = {}): PvpSession {
@@ -91,6 +99,10 @@ test('either claimant can finalize the sealed Clan War result and crash replay c
     const loser = await kv.get<Record<string, any>>('save:clanpvpto');
     assert.equal(winner?.character.clanPoints, 50);
     assert.equal(loser?.character.clanPoints, 25);
+    const expectedScrolls = scrollDrop(session.battleId, 'clanpvpfrom') ? 1 : 0;
+    assert.deepEqual(first?.territoryScrollsByPlayer, { clanpvpfrom: expectedScrolls });
+    assert.equal(scrollCount(winner), expectedScrolls, 'winner receives exactly one scroll only when the 20% roll succeeds');
+    assert.equal(scrollCount(loser), 0, 'loser receives participation points but no scroll drop');
 
     // Model process death after the war/save CAS writes but before the external
     // continuation receipt. The embedded completed challenge and per-save PvP
@@ -98,10 +110,27 @@ test('either claimant can finalize the sealed Clan War result and crash replay c
     await kv.del(`pvp:clan-war-continuation:${session.battleId}`);
     const recovered = await settle(session);
     assert.equal(recovered?.outcome, 'applied');
-    assert.equal((await kv.get<Record<string, any>>('save:clanpvpfrom'))?.character.clanPoints, 50);
-    assert.equal((await kv.get<Record<string, any>>('save:clanpvpto'))?.character.clanPoints, 25);
+    assert.deepEqual(recovered?.territoryScrollsByPlayer, { clanpvpfrom: expectedScrolls });
+    const recoveredWinner = await kv.get<Record<string, any>>('save:clanpvpfrom');
+    const recoveredLoser = await kv.get<Record<string, any>>('save:clanpvpto');
+    assert.equal(recoveredWinner?.character.clanPoints, 50);
+    assert.equal(recoveredLoser?.character.clanPoints, 25);
+    assert.equal(scrollCount(recoveredWinner), expectedScrolls, 'crash recovery cannot reroll or duplicate the drop');
+    assert.equal(scrollCount(recoveredLoser), 0);
     const replay = await settle(session);
     assert.equal(replay?.replayed, true);
+    assert.deepEqual(replay?.territoryScrollsByPlayer, { clanpvpfrom: expectedScrolls });
+});
+
+test('the secret-backed scroll roll is stable and approximately twenty percent', () => {
+    const outcomes = Array.from({ length: 5_000 }, (_, index) =>
+        scrollDrop(`distribution-${index}`, 'clanpvpfrom', 'fixed-test-secret'));
+    const drops = outcomes.filter(Boolean).length;
+    assert.ok(drops >= 900 && drops <= 1_100, `expected about 1,000 drops, got ${drops}`);
+    assert.equal(
+        scrollDrop('stable-battle', 'ClanPvpFrom', 'fixed-test-secret'),
+        scrollDrop('stable-battle', 'clanpvpfrom', 'fixed-test-secret'),
+    );
 });
 
 test('participant drift or a conflicting completed result fails closed', async () => {
@@ -129,7 +158,10 @@ test('a battle overtaken by another ending blow records a canonical superseded c
     });
     const result = await settle(session);
     assert.equal(result?.outcome, 'superseded');
+    assert.deepEqual(result?.territoryScrollsByPlayer, {});
     assert.equal((await kv.get<Record<string, any>>(key))?.hp?.To, 100);
+    assert.equal(scrollCount(await kv.get<Record<string, any>>('save:clanpvpfrom')), 0);
+    assert.equal(scrollCount(await kv.get<Record<string, any>>('save:clanpvpto')), 0);
     assert.equal((await settle(session))?.replayed, true);
 });
 
@@ -155,6 +187,8 @@ test('a legacy or admin report completed before claim is backfilled without dupl
     assert.equal(result?.outcome, 'superseded');
     assert.equal((await kv.get<Record<string, any>>('save:clanpvpfrom'))?.character.clanPoints, 0);
     assert.equal((await kv.get<Record<string, any>>('save:clanpvpto'))?.character.clanPoints, 0);
+    assert.equal(scrollCount(await kv.get<Record<string, any>>('save:clanpvpfrom')), 0);
+    assert.equal(scrollCount(await kv.get<Record<string, any>>('save:clanpvpto')), 0);
     assert.equal((await kv.get<Record<string, any>>(key))?.hp?.To, 70);
     assert.equal((await settle(session))?.replayed, true);
 });

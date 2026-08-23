@@ -9,7 +9,7 @@
  * renders icon-only chips. The mobile equivalent is components/MobileNotificationBar.
  */
 import type { Screen } from "../types/core";
-import { useNotifications } from "../lib/use-notifications";
+import { activateGameNotification, useNotifications } from "../lib/use-notifications";
 
 export function NotificationBar({
     navigate,
@@ -39,7 +39,7 @@ export function NotificationBar({
                         className={`notif-chip tone-${n.tone}${n.screen ? "" : " static"}`}
                         title={n.screen ? `Go to ${n.label}` : n.label}
                         aria-label={n.label}
-                        onClick={n.screen ? () => navigate(n.screen!) : undefined}
+                        onClick={n.screen ? () => activateGameNotification(n, navigate) : undefined}
                     >
                         <span className="notif-chip-icon" aria-hidden="true">{n.icon}</span>
                         {!compact && <span className="notif-chip-label">{n.label}</span>}

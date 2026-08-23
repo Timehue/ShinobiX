@@ -29,9 +29,11 @@ import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
+import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
 
 export type CommittedPvpTerminalReplay = {
     playerRankedJournal?: PlayerRankedJournal;
+    clanWarSettlement?: PvpClanWarSettlement;
 };
 
 function jsonCanonical<T>(value: T): T {
@@ -162,16 +164,16 @@ export async function replayCommittedPvpTerminalEffects(
     // wins, losses, and draws here so every terminal replay (including either
     // participant's claim after a lost response) closes the accepted challenge
     // before browser completion can ACK away its recovery pointer.
-    if (session.rewardAuthority === 'clan-war') {
-        await settlePvpClanWarContinuation(session);
-    }
+    const clanWarSettlement = session.rewardAuthority === 'clan-war'
+        ? await settlePvpClanWarContinuation(session) ?? undefined
+        : undefined;
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {
             eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
             lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
         });
-        return { playerRankedJournal };
+        return { playerRankedJournal, clanWarSettlement };
     }
 
     // The receipt inside the Vanguard settlement is the authority; the old
@@ -185,5 +187,5 @@ export async function replayCommittedPvpTerminalEffects(
         await grantVanguardRewardsForSession(session);
     }
 
-    return {};
+    return { clanWarSettlement };
 }

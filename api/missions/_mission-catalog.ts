@@ -8,12 +8,11 @@
 //                         (builtinHuntMissions + builtinFetchMissions)
 //   • the reward-bonus math ← shinobij.client/src/lib/{village-upgrades,
 //                              aura-sphere}.ts (missionHall upgrade + aura sphere)
-//   • TERRITORY_CONTROL_SCROLL_ID / DAILY_MISSION_LIMIT / AURA_SPHERE_ITEM_ID
+//   • DAILY_MISSION_LIMIT / AURA_SPHERE_ITEM_ID
 //                         ← shinobij.client/src/constants/game.ts
 // The colocated _mission-catalog.test.ts pins these against an inline replica;
 // a drift on either side must change both (that's the point).
 
-export const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 export const DAILY_MISSION_LIMIT = 20;
 // Hunter Guild contracts use a daily pool independent of missions (own counter
@@ -21,11 +20,10 @@ export const DAILY_MISSION_LIMIT = 20;
 // of constants/game.ts DAILY_HUNT_LIMIT. (audit M-1)
 export const DAILY_HUNT_LIMIT = 20;
 export const VILLAGE_UPGRADE_MAX_LEVEL = 50;
-// Field missions always grant a flat 3 Territory Control Scrolls on claim
-// (matches Logbook.claimMission's grantTerritoryScrolls(..., 3)). Hunts grant
-// the same flat 3 (matches HunterBoard.claimHunt's grantTerritoryScrolls(..., 3)).
-export const FIELD_MISSION_SCROLLS = 3;
-export const HUNT_MISSION_SCROLLS = 3;
+// Retired reward fields kept at zero for rolling-deploy/API compatibility.
+// Territory Control Scrolls are minted only by finalized Clan War shinobi PvP.
+export const FIELD_MISSION_SCROLLS = 0;
+export const HUNT_MISSION_SCROLLS = 0;
 
 // ── Daily-checklist stat grants (docs/leveling-without-xp-map.md §4) ────────
 // Character XP is retired: each ONCE-PER-DAY field/hunt claim pays stat-POOL
@@ -76,12 +74,12 @@ export type FieldMissionDef = {
 
 // ── COMBAT_MISSIONS — mirror of data/combat-missions.ts ─────────────────────
 export const COMBAT_MISSIONS: CombatMissionDef[] = [
-    { key: 'combat-e-drill', min: 1, xp: 15, ryo: 10, territoryScrolls: 1, aiProfileId: 'builtin-ai-academy-sparring' },
-    { key: 'combat-d-errand', min: 5, xp: 25, ryo: 20, territoryScrolls: 1, aiProfileId: 'builtin-ai-mist-sentinel' },
-    { key: 'combat-c-patrol', min: 15, xp: 75, ryo: 60, territoryScrolls: 1, aiProfileId: 'builtin-ai-ember-duelist' },
-    { key: 'combat-b-escort', min: 30, xp: 150, ryo: 125, territoryScrolls: 1, aiProfileId: 'builtin-ai-frost-sealer' },
-    { key: 'combat-a-hunt', min: 50, xp: 300, ryo: 250, territoryScrolls: 1, aiProfileId: 'builtin-ai-shadow-weaver' },
-    { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
+    { key: 'combat-e-drill', min: 1, xp: 15, ryo: 10, territoryScrolls: 0, aiProfileId: 'builtin-ai-academy-sparring' },
+    { key: 'combat-d-errand', min: 5, xp: 25, ryo: 20, territoryScrolls: 0, aiProfileId: 'builtin-ai-mist-sentinel' },
+    { key: 'combat-c-patrol', min: 15, xp: 75, ryo: 60, territoryScrolls: 0, aiProfileId: 'builtin-ai-ember-duelist' },
+    { key: 'combat-b-escort', min: 30, xp: 150, ryo: 125, territoryScrolls: 0, aiProfileId: 'builtin-ai-frost-sealer' },
+    { key: 'combat-a-hunt', min: 50, xp: 300, ryo: 250, territoryScrolls: 0, aiProfileId: 'builtin-ai-shadow-weaver' },
+    { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 0, aiProfileId: 'builtin-ai-central-champion' },
 ];
 
 // ── FIELD_MISSIONS — mirror of data/missions.ts (hunt + fetch builtins) ──────
@@ -251,13 +249,6 @@ export function applyCurrencyRewardFields(char: CatalogChar, rewards?: Partial<R
         if (amount > 0) out[key] = Number(char[key] ?? 0) + amount;
     }
     return out;
-}
-
-// Push `count` territory scrolls onto the character's inventory array.
-export function grantTerritoryScrollsToInventory(char: CatalogChar, count: number): string[] {
-    const inventory = Array.isArray(char.inventory) ? (char.inventory as string[]) : [];
-    const n = Math.max(0, Math.floor(count));
-    return [...inventory, ...Array.from({ length: n }, () => TERRITORY_CONTROL_SCROLL_ID)];
 }
 
 // Append literal item ids (e.g. hunt material drops) onto the inventory array.
