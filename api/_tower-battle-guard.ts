@@ -6,12 +6,27 @@ export const TOWER_BATTLE_LOCK_SCREEN = 'battleTowers';
 export const TOWER_BATTLE_ACTIVE_ERROR_CODE = 'tower-battle-active';
 export const TOWER_BATTLE_ACTIVE_ERROR = 'Finish or recover your active Battle Towers run before starting another battle.';
 
+/**
+ * Tower sub-mode carried on the account-wide battle lease.
+ *
+ * 'mpvp' is the open Team Arena queue. 'clan-war-mpvp' is an accepted clan-war
+ * 2v2 — the same four-player engine, but owned by a clan-war challenge rather
+ * than by matchmaking. Keeping them distinct is what stops public presence
+ * recovery from surfacing a clan-war fight inside the Battle Towers lobby.
+ */
+export type TowerBattleLeaseMode = 'mpvp' | 'clan-war-mpvp' | 'ranked-2v2';
+
+/** Both sub-modes run the Tower MPvP match store rather than a `tower:<runId>` session. */
+export function isMpvpLeaseMode(mode: TowerBattleLeaseMode | undefined): boolean {
+    return mode === 'mpvp' || mode === 'clan-war-mpvp' || mode === 'ranked-2v2';
+}
+
 export type TowerBattleLock = {
     battleId: string;
     kind: typeof TOWER_BATTLE_LOCK_KIND;
     screen: typeof TOWER_BATTLE_LOCK_SCREEN;
     startedAt: number;
-    meta: { runId: string; partyId?: string; mode?: 'mpvp' };
+    meta: { runId: string; partyId?: string; mode?: TowerBattleLeaseMode };
 };
 
 type BattleLockReader = Pick<typeof realKv, 'get'>;

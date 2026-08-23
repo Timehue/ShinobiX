@@ -24,26 +24,45 @@ export type { ServerResolvedPetRankedToken } from './_ranked-engine.js';
 
 export const PET_RANKED_DISABLED_REASON = 'ranked-pet-server-authority-required';
 export const PET_RANKED_PUBLIC_PRESENTATION_DISABLED_REASON = 'ranked-pet-public-presentation-required';
+export const PET_RANKED_QUEUE_DISABLED_REASON = 'Ranked pet matchmaking is temporarily unavailable.';
 
-/** Strict positive rollout plus an independent emergency kill switch. */
+/*
+ * ROLLOUT STATE.
+ *
+ * These were three stacked POSITIVE flags from the era when ranked pet combat
+ * resolved twice, by two engines over two seeds, so a watched victory could be
+ * recorded as a loss. That defect is gone: resolveRankedPetDuel is the single
+ * resolution and ranked-watch replays that exact fight to both players.
+ *
+ * They are now opt-OUT kill switches, matching every switch in _release-flags.ts
+ * — the mode ships on and an incident closes it. The previous positive flags
+ * were also referenced by nothing but their own unit test, so nothing shipped
+ * behind them either way.
+ */
+
+/** Server-authoritative ranked pet resolution. Opt-out only. */
 export function petRankedStartsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return env.ENABLE_PET_RANKED_SERVER_V1 === '1'
-        && env.DISABLE_PET_RANKED_SERVER_V1 !== '1';
+    return env.DISABLE_PET_RANKED_SERVER_V1 !== '1';
+}
+
+/** Live ranked matchmaking (api/pet/ranked-queue.ts). Inherits the core switch. */
+export function petRankedQueueEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return petRankedStartsEnabled(env) && env.DISABLE_PET_RANKED_QUEUE !== '1';
 }
 
 /**
- * The private engine can be certified without opening legacy public challenges.
- * Both flags are required before that surface can accept rankedPet records.
+ * The retired legacy `rankedPet` CHALLENGE record stays closed on its own
+ * switch. Its client displayed one engine while settlement replayed another, so
+ * it is not covered by the fix above and must be re-opened deliberately.
  */
 export function petRankedPublicChallengesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return petRankedStartsEnabled(env)
         && env.ENABLE_PET_RANKED_PUBLIC_CHALLENGES_V1 === '1';
 }
 
-/** The public queue stays closed until its ranked start/result UI is wired. */
+/** Public ranked presentation surfaces. Inherits the core switch. */
 export function petRankedPublicPresentationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return petRankedStartsEnabled(env)
-        && env.ENABLE_PET_RANKED_PUBLIC_PRESENTATION_V1 === '1';
+    return petRankedStartsEnabled(env) && env.DISABLE_PET_RANKED_PUBLIC_PRESENTATION !== '1';
 }
 
 export type PetRankedSettlement = {

@@ -64,7 +64,7 @@ async function pvpJson<T>(url: string, init?: RequestInit): Promise<T> {
     const abortFromExternal = () => controller.abort(external?.reason);
     if (external?.aborted) abortFromExternal();
     else external?.addEventListener("abort", abortFromExternal, { once: true });
-    const timeout = globalThis.setTimeout(() => controller.abort(new DOMException("Tower Team Arena timed out.", "TimeoutError")), TOWER_PVP_TIMEOUT_MS);
+    const timeout = globalThis.setTimeout(() => controller.abort(new DOMException("Team Arena timed out.", "TimeoutError")), TOWER_PVP_TIMEOUT_MS);
     try {
         const response = await fetch(url, { ...init, signal: controller.signal });
         const body = await response.json().catch(() => ({})) as T & TowerPvpErrorBody;
@@ -82,7 +82,7 @@ async function pvpJson<T>(url: string, init?: RequestInit): Promise<T> {
     } catch (error) {
         if (error instanceof TowerPvpApiError) throw error;
         if (controller.signal.aborted || error instanceof TypeError) {
-            throw new TowerTransportError(external?.aborted ? "Tower Team Arena request cancelled." : "Tower Team Arena connection was interrupted.");
+            throw new TowerTransportError(external?.aborted ? "Team Arena request cancelled." : "Team Arena connection was interrupted.");
         }
         throw error;
     } finally {
@@ -164,7 +164,7 @@ export async function fetchTowerPvpMatch(matchId: string, playerName: string, si
 
 function pvpActionBody(action: TowerActionInput): Record<string, unknown> {
     if (action.type === "item" || action.type === "summon") {
-        throw new Error("Consumables and summons are disabled in the Tower Team Arena.");
+        throw new Error("Consumables and summons are disabled in the Team Arena.");
     }
     return action;
 }

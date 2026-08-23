@@ -123,6 +123,24 @@ export function towerPvpMatchIdFromRunKey(value: string | null | undefined): str
     const matchId = value.slice(TOWER_PVP_RUN_PREFIX.length);
     return /^tpvp-[a-f0-9]{32}$/i.test(matchId) ? matchId : null;
 }
+/**
+ * True when the stored run key names a live Team Arena 2v2.
+ *
+ * The Battle Arena uses this only to decide WHICH TAB opens first, never to
+ * reconstruct a fight: the match itself is re-entered from authoritative
+ * presence, so a stale key can pick a tab but can never fabricate a board.
+ * It lives here because this module owns TOWER_RUN_KEY — a lobby reading the
+ * raw key would be exactly the "browser storage as combat authority" pattern
+ * Arena.authority.test.ts forbids.
+ */
+export function hasActiveTeamArenaMatch(): boolean {
+    try {
+        return towerPvpMatchIdFromRunKey(localStorage.getItem(TOWER_RUN_KEY)) !== null;
+    } catch {
+        return false;
+    }
+}
+
 export function hasActiveTowerFight(): boolean {
     try {
         return !!localStorage.getItem(TOWER_RUN_KEY);
