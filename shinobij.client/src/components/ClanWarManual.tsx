@@ -207,6 +207,10 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         <strong style={{ color: "var(--blue-400)" }}>
           Rewards (auto-claimed):
         </strong>
+        <br />• <strong>Winning a shinobi PvP challenge:</strong> 20% chance for
+        exactly 1 Territory Control Scroll. Pet and Chronicle challenges do not drop them.
+        Clan leadership must bank 75 and commit them together to claim a sector
+        already controlled by the clan's village; partial capture deposits are not used.
         <br />• <strong>Winning clan:</strong> 1× Legendary War Crate per
         member.
         <br />• <strong>MVP each side:</strong> +10,000 ryo, +50 Honor Seals (or

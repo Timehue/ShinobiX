@@ -59,10 +59,7 @@ import {
     markMissionCompletedFields,
     markHuntCompletedFields,
     applyCurrencyRewardFields,
-    grantTerritoryScrollsToInventory,
     grantItemsToInventory,
-    FIELD_MISSION_SCROLLS,
-    HUNT_MISSION_SCROLLS,
     type CurrencyKey,
 } from './_mission-catalog.js';
 import {
@@ -554,6 +551,9 @@ async function applyReservedCombatMissionPayout(params: {
             saveVersion: Number(params.record._saveVersion ?? 0),
             reward: {
                 ...inspected.receipt.result.reward,
+                // Hard cutover: even a receipt created by an older worker cannot
+                // expose or re-mint the retired normal-drop reward on replay.
+                territoryScrolls: 0,
                 currency: inspected.receipt.result.reward.currency as Partial<Record<CurrencyKey, number>>,
             },
             combat: inspected.receipt.result.combat,
@@ -561,7 +561,9 @@ async function applyReservedCombatMissionPayout(params: {
         };
     }
 
-    const reward = settlement.result.reward;
+    // A payment reservation can outlive a deployment. Sanitize an old reserved
+    // reward here so rolling deploys cannot mint a normal-drop scroll later.
+    const reward = { ...settlement.result.reward, territoryScrolls: 0 };
     let next: SaveChar = { ...params.character };
     if (reward.statPoints > 0) {
         next = {
@@ -576,9 +578,6 @@ async function applyReservedCombatMissionPayout(params: {
             ...next,
             stamina: Math.min(Number(next.maxStamina ?? 0), Number(next.stamina ?? 0) + reward.stamina),
         };
-    }
-    if (reward.territoryScrolls > 0) {
-        next = { ...next, inventory: grantTerritoryScrollsToInventory(next, reward.territoryScrolls) };
     }
     if (reward.items.length > 0) {
         next = { ...next, inventory: grantItemsToInventory(next, reward.items) };
@@ -895,7 +894,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let baseRyo = 0, baseStamina = 0;
             let baseStatPoints = 0;
             let boostStatPoints = false; // true only for daily-checklist claims
-            let scrolls = 0;
+            const territoryScrolls = 0;
             let items: string[] = [];
             let currencyBase: Partial<Record<CurrencyKey, number>> | undefined;
             let combat: { aiProfileId: string; missionKey: string } | undefined;
@@ -950,9 +949,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // A cap-blocked claim leaves that authority untouched so it can be
                 // used after the daily reset.
                 // Repeatable combat-mission slots are the unlimited-repeat channel:
-                // ryo/scrolls only, no stat points (the once-per-day checklist and
+                // ryo only, no stat points (the once-per-day checklist and
                 // training are where growth lives).
-                baseRyo = combatDef.ryo; scrolls = combatDef.territoryScrolls;
+                baseRyo = combatDef.ryo;
                 combat = { aiProfileId: combatDef.aiProfileId, missionKey: combatDef.key };
                 completion = 'daily';
             } else if (missionType === 'field') {
@@ -986,7 +985,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
-                scrolls = FIELD_MISSION_SCROLLS; currencyBase = def.currencyRewards;
+                currencyBase = def.currencyRewards;
                 completion = 'daily';
             } else if (missionType === 'hunt') {
                 // Hunter Guild contract — own daily pool, grants material drops.
@@ -1012,7 +1011,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
-                scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
+                currencyBase = def.currencyRewards;
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
                 huntRankBonusPct = Math.max(0, Math.min(5, Math.floor(Number(char.hunterRank ?? 0)))) * 5;
@@ -1035,7 +1034,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 baseRyo = APEX_REWARD.ryo; baseStamina = APEX_REWARD.stamina;
                 baseStatPoints = APEX_STAT_POINTS; // weekly capstone — outside the daily checklist, unboosted
                 currencyBase = { fateShards: APEX_REWARD.fateShards };
-                scrolls = HUNT_MISSION_SCROLLS;
                 completion = 'total';
                 apexWeekToStamp = settledWeek;
                 apexReceiptKeyToClear = apexKillReceiptKey(playerName, settledWeek);
@@ -1085,9 +1083,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (staminaBoosted > 0) {
                 const maxStamina = Number(next.maxStamina ?? 0);
                 next = { ...next, stamina: Math.min(maxStamina, Number(next.stamina ?? 0) + staminaBoosted) };
-            }
-            if (scrolls > 0) {
-                next = { ...next, inventory: grantTerritoryScrollsToInventory(next, scrolls) };
             }
             if (items.length > 0) {
                 next = { ...next, inventory: grantItemsToInventory(next, items) };
@@ -1146,7 +1141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 statPoints: statPointsGranted,
                 ryo: ryoBoosted,
                 stamina: staminaBoosted,
-                territoryScrolls: scrolls,
+                territoryScrolls,
                 currency: rewardCurrency,
                 items: [...items],
             };
@@ -1233,7 +1228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     statPoints: statPointsGranted,
                     ryo: ryoBoosted,
                     stamina: staminaBoosted,
-                    territoryScrolls: scrolls,
+                    territoryScrolls,
                     currency: reward.currency,
                     items: reward.items,
                 },

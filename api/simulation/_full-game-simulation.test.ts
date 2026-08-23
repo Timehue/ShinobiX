@@ -17,12 +17,10 @@ import { computeBankInterest } from '../_bank-interest.js';
 import { applyTxnToAgg, duplicateTxnIds, type EconAgg, type EconTxn } from '../_economy.js';
 import {
     ACADEMY_TRIAL,
-    HUNT_MISSION_SCROLLS,
     applyCurrencyRewardFields,
     boostAmount,
     combatMissionByKey,
     grantItemsToInventory,
-    grantTerritoryScrollsToInventory,
     hasDailyHuntSlot,
     hasDailyMissionSlot,
     huntMissionById,
@@ -288,7 +286,6 @@ function applyCombatMission(char: SimCharacter, missionKey: string): SimCharacte
     return {
         ...leveled,
         ryo: Number(leveled.ryo) + boostAmount(mission.ryo, bonusPct),
-        inventory: grantTerritoryScrollsToInventory(leveled, mission.territoryScrolls),
         ...markMissionCompletedFields(leveled, TODAY_KEY, MONTH_KEY),
     };
 }
@@ -299,14 +296,13 @@ function applyHunt(char: SimCharacter, huntId: string): SimCharacter {
     assert.ok(hasDailyHuntSlot(char, TODAY_KEY), 'hunt daily cap exhausted');
     const bonusPct = missionRewardBonusPct(char);
     const leveled = withXp(char, boostAmount(hunt.xpReward, bonusPct));
-    const withScrolls = { ...leveled, inventory: grantTerritoryScrollsToInventory(leveled, HUNT_MISSION_SCROLLS) } as SimCharacter;
     return {
-        ...withScrolls,
-        ryo: Number(withScrolls.ryo) + boostAmount(hunt.ryoReward, bonusPct),
-        stamina: Math.min(Number(withScrolls.maxStamina), Number(withScrolls.stamina) + hunt.staminaReward),
-        inventory: grantItemsToInventory(withScrolls, hunt.itemRewards),
-        ...applyCurrencyRewardFields(withScrolls, hunt.currencyRewards),
-        ...markHuntCompletedFields(withScrolls, TODAY_KEY, MONTH_KEY),
+        ...leveled,
+        ryo: Number(leveled.ryo) + boostAmount(hunt.ryoReward, bonusPct),
+        stamina: Math.min(Number(leveled.maxStamina), Number(leveled.stamina) + hunt.staminaReward),
+        inventory: grantItemsToInventory(leveled, hunt.itemRewards),
+        ...applyCurrencyRewardFields(leveled, hunt.currencyRewards),
+        ...markHuntCompletedFields(leveled, TODAY_KEY, MONTH_KEY),
     };
 }
 
@@ -491,7 +487,7 @@ describe('full game simulation harness', () => {
         assertHealthySession(result);
         assert.equal(result.winner, 'squad');
         assert.equal(player.academyTrialClaimed, true);
-        assert.ok(player.inventory.includes('territory-control-scroll'), 'mission/hunt rewards should grant territory scrolls');
+        assert.equal(player.inventory.includes('territory-control-scroll'), false, 'normal missions and hunts must not grant Territory Scrolls');
         assert.ok(player.inventory.includes('hunt-beast-meat'), 'hunt rewards should grant materials');
         assertHealthyCharacter(player);
 
@@ -689,7 +685,7 @@ describe('full game simulation harness', () => {
         assert.ok(ryoAgg.created > 0, 'economy soak should create ryo through rewards');
         assert.ok(ryoAgg.destroyed > 0, 'economy soak should destroy ryo through sinks');
         assert.ok(roster.some((char) => char.currentSector !== 1), 'sector travel should move players');
-        assert.ok(roster.some((char) => char.inventory.includes('territory-control-scroll')), 'mission rewards should enter inventories');
+        assert.equal(roster.some((char) => char.inventory.includes('territory-control-scroll')), false, 'normal mission rewards must not mint Territory Scrolls');
         for (const char of roster) assertHealthyCharacter(char);
     });
 

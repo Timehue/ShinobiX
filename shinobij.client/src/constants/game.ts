@@ -17,15 +17,19 @@ export const GAME_STATE_API = "/api/game-state";
 
 // ── Territory / sector war ───────────────────────────────────────────────
 export const TERRITORY_CONTROL_SCROLL_ID = "territory-control-scroll";
-export const TERRITORY_CONTROL_MAX = 20000;
+export const TERRITORY_CONTROL_MAX = 75000;
+export const TERRITORY_CAPTURE_SCROLLS = 75;
 export const TERRITORY_HP_MAX = 20000;
 export const TERRITORY_DAILY_WAR_SUPPLY = 100;
 export const TERRITORY_SUPPLY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Time-to-recapture after a sector's territory is destroyed.
 export const TERRITORY_REBUILD_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
-// Minimum roster for a new capture: one three-shinobi cell. Reinforcing an
+// Minimum roster for a new capture. Reinforcing an
 // already-owned sector remains available if the clan later shrinks.
-export const TERRITORY_CAPTURE_MIN_MEMBERS = 3;
+export const TERRITORY_CAPTURE_MIN_MEMBERS = 10;
+export const TERRITORY_BREACH_DURATION_MS = 12 * 60 * 60 * 1000;
+export const TERRITORY_REWARD_SUSPEND_MS = 14 * 24 * 60 * 60 * 1000;
+export const TERRITORY_INACTIVE_RELEASE_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ── Character progression caps ───────────────────────────────────────────
 export const MAX_LEVEL = 100;

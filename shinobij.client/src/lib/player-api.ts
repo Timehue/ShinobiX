@@ -6,6 +6,8 @@
  */
 import type { DuelChallenge } from "../App";
 import type { Character } from "../types/character";
+import type { WeatherType } from "../types/core";
+import type { SectorTerritory, TerritoryBuffStat } from "./world-state";
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 import { abortableDelay } from "./pvp-session-runtime";
 
@@ -205,6 +207,60 @@ export async function postClanKick(
         alert("Couldn't remove that member. Please try again.");
         return null;
     }
+}
+
+export type ClanTerritoryAssignmentResponse = {
+    territory: SectorTerritory;
+    treasury: Record<string, unknown>;
+    captured: boolean;
+    spent: number;
+    replayed?: boolean;
+};
+
+// Replay-safe, server-authoritative territory-scroll spend. One request id is
+// retained across the automatic network retry, so a response lost after the
+// commit cannot charge the clan twice.
+export async function postClanTerritoryAssignment(
+    playerName: string,
+    clan: string,
+    sector: number,
+    count: 1 | 5 | 75,
+    weather: WeatherType,
+    terrainBuffStat: TerritoryBuffStat,
+): Promise<ClanTerritoryAssignmentResponse | null> {
+    const requestId = crypto.randomUUID();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            const res = await fetch("/api/clan/territory/assign-scrolls", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName, clan, sector, count, weather, terrainBuffStat, requestId }),
+            });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string } & Partial<ClanTerritoryAssignmentResponse>;
+            if (res.ok && data.ok && data.territory && data.treasury) {
+                return {
+                    territory: data.territory,
+                    treasury: data.treasury,
+                    captured: data.captured === true,
+                    spent: data.spent ?? count,
+                    replayed: data.replayed,
+                };
+            }
+            if (res.status >= 500 && attempt === 0) {
+                await abortableDelay(350);
+                continue;
+            }
+            alert(data.error || AMBIGUOUS_ACTION_MESSAGE);
+            return null;
+        } catch {
+            if (attempt === 0) {
+                await abortableDelay(350);
+                continue;
+            }
+        }
+    }
+    alert(AMBIGUOUS_ACTION_MESSAGE);
+    return null;
 }
 
 type TreasuryDonationBody =

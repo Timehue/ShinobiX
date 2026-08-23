@@ -20,6 +20,7 @@
 import { kv } from './_storage.js';
 import { setSafeRecordValue } from './_utils.js';
 import { WAR_VILLAGES, homeSectorsForVillage } from './_war-map-sectors.js';
+import { territoryRewardsSuspended } from './_territory-lifecycle.js';
 
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 
@@ -34,12 +35,16 @@ export type HeldSectorCounts = Record<string, number>;
 
 /** Tally `ownerVillage` across territory records. Pure — the unit-testable core.
  *  Unowned / blank-owner sectors are simply not counted. */
-export function tallyHeldSectors(territories: Iterable<{ ownerVillage?: unknown } | null | undefined>): HeldSectorCounts {
+export function tallyHeldSectors(
+    territories: Iterable<(Record<string, unknown> & { ownerVillage?: unknown }) | null | undefined>,
+    options: { rewardEligibleOnly?: boolean; now?: number } = {},
+): HeldSectorCounts {
     const counts: HeldSectorCounts = {};
     for (const t of territories) {
         if (!t) continue;
         const owner = String(t.ownerVillage ?? '').trim();
         if (!owner) continue;
+        if (options.rewardEligibleOnly && territoryRewardsSuspended(t, options.now ?? Date.now())) continue;
         setSafeRecordValue(counts, owner, (counts[owner] ?? 0) + 1);
     }
     return counts;
@@ -70,13 +75,18 @@ export function looksUnseeded(counts: HeldSectorCounts): boolean {
  * baseline and warn, so an unseeded deploy degrades to the previous behaviour
  * instead of shutting the economy down.
  */
-export async function loadHeldSectorCounts(store?: HeldSectorStore): Promise<HeldSectorCounts> {
+export async function loadHeldSectorCounts(
+    store?: HeldSectorStore,
+    options: { rewardEligibleOnly?: boolean; now?: number } = {},
+): Promise<HeldSectorCounts> {
     const src: HeldSectorStore = store ?? (kv as unknown as HeldSectorStore);
     try {
         const keys = await src.keys(`${TERRITORY_KEY_PREFIX}*`);
         const rows = keys.length ? await src.mget(...keys) : [];
-        const counts = tallyHeldSectors(rows as ({ ownerVillage?: unknown } | null)[]);
-        if (looksUnseeded(counts)) {
+        const typedRows = rows as ((Record<string, unknown> & { ownerVillage?: unknown }) | null)[];
+        const legalCounts = tallyHeldSectors(typedRows);
+        const counts = tallyHeldSectors(typedRows, options);
+        if (looksUnseeded(legalCounts)) {
             console.warn('[village-war] world:territory:* has no ownerVillage set — falling back to the home-sector baseline. Run the admin sector-war "seed" action.');
             return homeSectorBaseline();
         }

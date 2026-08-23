@@ -32,6 +32,9 @@ export type WorldSectorCommandTerritory = Readonly<{
     rebuildMinsLeft: number;
     controlScore: number;
     hp: number;
+    breached: boolean;
+    breachMinsLeft: number;
+    rewardsSuspended: boolean;
     guards: readonly string[];
     enemyControlled: boolean;
     war?: WorldSectorCommandWar;
@@ -122,11 +125,17 @@ export function WorldSectorCommandPanel({
                 <section className="summary-box sector-panel-card sector-territory-card">
                     <div className="sector-panel-card-head">
                         <h4><GiShield aria-hidden="true" />Territory</h4>
-                        <span className={`sector-status-pill ${territory.isOwned ? "is-owned" : ""}`}>{territory.isOwned ? "Owned" : "Open"}</span>
+                        <span className={`sector-status-pill ${territory.isOwned ? "is-owned" : ""}`}>{territory.breached ? "Breached" : territory.isOwned ? "Owned" : "Open"}</span>
                     </div>
                     {territory.isLive ? (
                         <>
                             <p className="sector-owner-line"><strong>Owner</strong><span>{territory.ownerLabel}</span></p>
+                            {territory.breached && (
+                                <p className="sector-rebuild-note">Breached: rewards and bonuses are suspended. The owner must restore HP before the fixed {territory.breachMinsLeft}m deadline or lose the sector.</p>
+                            )}
+                            {!territory.breached && territory.rewardsSuspended && (
+                                <p className="sector-rebuild-note">Dormant hold: rewards and bonuses are suspended until the clan returns.</p>
+                            )}
                             {!territory.isOwned && territory.rebuildMinsLeft > 0 && (
                                 <p className="sector-rebuild-note">Recovering: capturable in {territory.rebuildMinsLeft}m</p>
                             )}

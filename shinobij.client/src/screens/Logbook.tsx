@@ -157,7 +157,7 @@ export function Logbook({
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
+            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character)}.`);
             return;
         }
         if (result.applied === false) {

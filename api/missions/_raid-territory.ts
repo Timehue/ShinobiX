@@ -4,6 +4,12 @@ import { kv } from '../_storage.js';
 import { isWildSector } from '../../shared/sector-geo.js';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { collectTerritorySupply } from '../_territory-supply.js';
+import {
+    beginTerritoryBreach,
+    settleExpiredTerritoryBreach,
+    territoryIsBreached,
+} from '../_territory-lifecycle.js';
 
 const TERRITORY_HP_MAX = 20_000;
 const MAX_RECEIPTS = 160;
@@ -283,6 +289,18 @@ export async function settleRaidTerritoryDamage(params: {
                 updatedAt: Date.now(),
             };
             current = await helpForwardPendingReceipt(key, sector, current);
+            const lifecycleNow = Date.now();
+            const lifecycle = settleExpiredTerritoryBreach(current, lifecycleNow);
+            if (lifecycle.changed) {
+                const projected = lifecycle.row as Record<string, unknown>;
+                try {
+                    if (!(await kv.compareSet(key, current, projected))) throw new Error('raid-territory-lifecycle-conflict');
+                } catch (error) {
+                    const recovered = await kv.get<unknown>(key).catch(() => null);
+                    if (!isDeepStrictEqual(recovered, projected)) throw error;
+                }
+                current = projected;
+            }
             const existing = receipts(current.serverRaidDamageReceipts);
             const prior = existing.find((entry) => entry.proofId === proofId);
             if (prior) {
@@ -329,9 +347,15 @@ export async function settleRaidTerritoryDamage(params: {
                 amount = anbuCount > 0 ? Math.max(50, 250 - anbuCount * 50) : guards.length > 0 ? 150 : 250;
                 }
             }
-            const hpBefore = Math.max(0, Math.min(TERRITORY_HP_MAX, Math.floor(Number(current.hp) || TERRITORY_HP_MAX)));
-            const destroyed = amount > 0 && hpBefore - amount <= 0;
-            const hpAfter = destroyed ? TERRITORY_HP_MAX : Math.max(0, hpBefore - amount);
+            const rawHp = Number(current.hp);
+            const hpBefore = Math.max(0, Math.min(
+                TERRITORY_HP_MAX,
+                Number.isFinite(rawHp) ? Math.floor(rawHp) : TERRITORY_HP_MAX,
+            ));
+            if (territoryIsBreached(current, lifecycleNow) && hpBefore <= 0) amount = 0;
+            const breached = amount > 0 && hpBefore - amount <= 0;
+            const destroyed = false;
+            const hpAfter = breached ? 0 : Math.max(0, hpBefore - amount);
             const receipt: RaidDamageReceipt = {
                 proofId,
                 playerName,
@@ -340,26 +364,16 @@ export async function settleRaidTerritoryDamage(params: {
                 destroyed,
                 at: eventAt,
             };
-            const next = destroyed ? {
-                ...current,
-                ownerClan: undefined,
-                ownerVillage: undefined,
-                backgroundImage: undefined,
-                controlScore: 0,
-                hp: TERRITORY_HP_MAX,
-                weather: undefined,
-                guards: [],
-                warSupply: 0,
-                lastSupplyAt: undefined,
-                rebuiltAt: Date.now(),
-                updatedAt: Date.now(),
-                serverRaidDamageReceipts: [...existing, receipt].slice(-MAX_RECEIPTS),
-            } : {
+            let next = {
                 ...current,
                 hp: hpAfter,
-                updatedAt: Date.now(),
+                updatedAt: lifecycleNow,
                 serverRaidDamageReceipts: [...existing, receipt].slice(-MAX_RECEIPTS),
             };
+            if (breached) {
+                const bankedSupply = collectTerritorySupply(current, lifecycleNow).collected;
+                next = beginTerritoryBreach(next, lifecycleNow, bankedSupply) as typeof next;
+            }
             const durable: DurableRaidDamageReceipt = { version: 1, sector, ...receipt };
             await pinAndFinalizeReceipt(key, current, next, durable);
             return { proofId, playerName, amount, sector, hpAfter, destroyed, at: eventAt, replayed: false };

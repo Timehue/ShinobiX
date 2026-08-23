@@ -112,6 +112,7 @@ export async function runVillageWarDailyPass(
             typeof store.keys === 'function' && typeof store.mget === 'function'
                 ? (store as HeldSectorStore)
                 : undefined,
+            { rewardEligibleOnly: true, now },
         );
 
     let ran = 0;

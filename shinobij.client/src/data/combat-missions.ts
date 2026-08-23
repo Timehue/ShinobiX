@@ -2,7 +2,7 @@
  * Combat missions — the D/C/B/A/S "Mission Hall → Combat" contracts.
  *
  * Single source of truth for the combat-mission rewards. Tune XP / ryo / level
- * requirements / territory-scroll payouts HERE — both the Mission Hall cards
+ * requirements HERE — both the Mission Hall cards
  * (display) and the claim payout (Missions.claimCombatMission) read this table,
  * so the cards always show what the player actually receives.
  *
@@ -27,7 +27,7 @@ export type CombatMission = {
     xp: number;
     /** Ryo reward, before Town Hall / Aura Sphere mission bonuses. */
     ryo: number;
-    /** Territory Control Scrolls granted on claim. */
+    /** Retired compatibility field; always zero. */
     territoryScrolls: number;
     /** Fallback glyph shown when the AI has no image. */
     icon: string;
@@ -40,12 +40,12 @@ export type CombatMission = {
 // Each rank's `min` is the level the card recommends; the foe re-levels to the
 // PLAYER (floored at `min`), so a higher-level player still faces a real fight.
 export const COMBAT_MISSIONS: CombatMission[] = [
-    { key: "combat-e-drill", name: "E-Rank Drill", rank: "E", min: 1, xp: 15, ryo: 10, territoryScrolls: 1, icon: "E", aiProfileId: "builtin-ai-academy-sparring" },
-    { key: "combat-d-errand", name: "D-Rank Errand", rank: "D", min: 5, xp: 25, ryo: 20, territoryScrolls: 1, icon: "D", aiProfileId: "builtin-ai-mist-sentinel" },
-    { key: "combat-c-patrol", name: "C-Rank Patrol", rank: "C", min: 15, xp: 75, ryo: 60, territoryScrolls: 1, icon: "C", aiProfileId: "builtin-ai-ember-duelist" },
-    { key: "combat-b-escort", name: "B-Rank Escort", rank: "B", min: 30, xp: 150, ryo: 125, territoryScrolls: 1, icon: "B", aiProfileId: "builtin-ai-frost-sealer" },
-    { key: "combat-a-hunt", name: "A-Rank Hunt", rank: "A", min: 50, xp: 300, ryo: 250, territoryScrolls: 1, icon: "A", aiProfileId: "builtin-ai-shadow-weaver" },
-    { key: "combat-s-crisis", name: "S-Rank Crisis", rank: "S", min: 70, xp: 700, ryo: 600, territoryScrolls: 1, icon: "S", aiProfileId: "builtin-ai-central-champion" },
+    { key: "combat-e-drill", name: "E-Rank Drill", rank: "E", min: 1, xp: 15, ryo: 10, territoryScrolls: 0, icon: "E", aiProfileId: "builtin-ai-academy-sparring" },
+    { key: "combat-d-errand", name: "D-Rank Errand", rank: "D", min: 5, xp: 25, ryo: 20, territoryScrolls: 0, icon: "D", aiProfileId: "builtin-ai-mist-sentinel" },
+    { key: "combat-c-patrol", name: "C-Rank Patrol", rank: "C", min: 15, xp: 75, ryo: 60, territoryScrolls: 0, icon: "C", aiProfileId: "builtin-ai-ember-duelist" },
+    { key: "combat-b-escort", name: "B-Rank Escort", rank: "B", min: 30, xp: 150, ryo: 125, territoryScrolls: 0, icon: "B", aiProfileId: "builtin-ai-frost-sealer" },
+    { key: "combat-a-hunt", name: "A-Rank Hunt", rank: "A", min: 50, xp: 300, ryo: 250, territoryScrolls: 0, icon: "A", aiProfileId: "builtin-ai-shadow-weaver" },
+    { key: "combat-s-crisis", name: "S-Rank Crisis", rank: "S", min: 70, xp: 700, ryo: 600, territoryScrolls: 0, icon: "S", aiProfileId: "builtin-ai-central-champion" },
 ];
 
 /** Map a fought AI back to its combat mission (undefined if it isn't one). */

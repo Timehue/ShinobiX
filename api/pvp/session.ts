@@ -43,6 +43,7 @@ import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
+import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
@@ -2399,7 +2400,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const territory = await kv.get<Record<string, unknown>>(`world:territory:${secNum}`);
                         const ownerClan = String(territory?.ownerClan ?? '').trim();
                         const buffType = ownerClan ? terrainBuffStatToJutsuType(territory?.terrainBuffStat) : '';
-                        if (ownerClan && buffType) {
+                        if (ownerClan && buffType && !territoryRewardsSuspended(territory ?? {}, Date.now())) {
                             const clanOf = (save: Record<string, unknown> | null) =>
                                 String(((save?.character ?? null) as Record<string, unknown> | null)?.clan ?? '').trim();
                             if (clanOf(p1Save) === ownerClan) p1HomeTerrain = buffType;

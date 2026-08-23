@@ -89,6 +89,17 @@ describe('loadHeldSectorCounts (IO, fail-safe)', () => {
         assert.equal(counts['Frostfang Village'] ?? 0, 0);
     });
 
+    it('excludes suspended sectors from reward counts without treating the world as unseeded', async () => {
+        const now = Date.UTC(2026, 7, 22, 12);
+        const store = storeOf({
+            'world:territory:1': { sector: 1, ownerVillage: 'Stormveil Village', ownerClan: 'Storm', rewardSuspendedAt: now - 1 },
+            'world:territory:2': { sector: 2, ownerVillage: 'Moonshadow Village', ownerClan: 'Moon' },
+        });
+        const counts = await loadHeldSectorCounts(store, { rewardEligibleOnly: true, now });
+        assert.equal(counts['Stormveil Village'] ?? 0, 0);
+        assert.equal(counts['Moonshadow Village'], 1);
+    });
+
     it('falls back to the home baseline when nothing is seeded', async () => {
         const counts = await loadHeldSectorCounts(storeOf({}));
         assert.deepEqual(counts, homeSectorBaseline());

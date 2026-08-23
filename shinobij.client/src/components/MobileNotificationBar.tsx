@@ -9,7 +9,7 @@
  * menu overlay is closed.
  */
 import type { Screen } from "../types/core";
-import { useNotifications } from "../lib/use-notifications";
+import { activateGameNotification, useNotifications } from "../lib/use-notifications";
 
 export function MobileNotificationBar({
     navigate,
@@ -35,7 +35,7 @@ export function MobileNotificationBar({
                     className={`notif-chip tone-${n.tone}${n.screen ? "" : " static"}`}
                     title={n.screen ? `Go to ${n.label}` : n.label}
                     aria-label={n.label}
-                    onClick={n.screen ? () => navigate(n.screen!) : undefined}
+                    onClick={n.screen ? () => activateGameNotification(n, navigate) : undefined}
                 >
                     <span className="notif-chip-icon" aria-hidden="true">{n.icon}</span>
                     <span className="notif-chip-label">{n.label}</span>

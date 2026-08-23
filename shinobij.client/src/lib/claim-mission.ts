@@ -12,7 +12,6 @@
  * `gainXp` is injected by the caller (it lives in App.tsx) to avoid a lib→App
  * import cycle — every screen that claims already imports it.
  */
-import { grantTerritoryScrolls } from "./world-state";
 import { applyCurrencyRewards } from "./currency";
 import { markMissionCompleted, markHuntCompleted } from "./character-progress";
 import { currentMonthKey } from "./utils";
@@ -25,7 +24,7 @@ export type ClaimReward = {
     statPoints?: number;      // daily-checklist / capstone stat-pool grant
     ryo: number;
     stamina: number;
-    territoryScrolls: number;
+    territoryScrolls: number; // retired compatibility field; servers send 0
     currency: CurrencyRewards;
     items?: string[];         // literal item ids (hunt material drops)
 };
@@ -102,9 +101,6 @@ export function applyServerMissionReward(
     next = { ...next, ryo: next.ryo + result.reward.ryo };
     if (result.reward.stamina > 0) {
         next = { ...next, stamina: Math.min(next.maxStamina, next.stamina + result.reward.stamina) };
-    }
-    if (result.reward.territoryScrolls > 0) {
-        next = grantTerritoryScrolls(next, result.reward.territoryScrolls);
     }
     if (result.reward.items && result.reward.items.length > 0) {
         next = { ...next, inventory: [...next.inventory, ...result.reward.items] };

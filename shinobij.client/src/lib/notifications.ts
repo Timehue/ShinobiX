@@ -12,7 +12,12 @@
  */
 import type { Screen } from "../types/core";
 import { sharedClanWarCache } from "./clan-war-api";
-import { activeVillageWarsFor, loadArenaTournament } from "./world-state";
+import {
+    activeVillageWarsFor,
+    loadAllSectorTerritories,
+    loadArenaTournament,
+    territoryBreachMinsLeft,
+} from "./world-state";
 import { hasActiveBattleLock, hasActiveTowerFight } from "./screen-guards";
 import {
     buildNotifications,
@@ -59,6 +64,17 @@ export function computeNotifications(ctx: NotifContext): GameNotification[] {
         }
     }
 
+    const territoryBreach = clan
+        ? loadAllSectorTerritories()
+            .filter((territory) => territory.ownerClan?.trim().toLowerCase() === clan)
+            .map((territory) => ({
+                sector: territory.sector,
+                minutesLeft: territoryBreachMinsLeft(territory, now),
+            }))
+            .filter((territory) => territory.minutesLeft > 0)
+            .sort((a, b) => a.minutesLeft - b.minutesLeft)[0] ?? null
+        : null;
+
     // Village war — your village is in an un-ended war.
     let villageWar: { enemy: string; pending: boolean } | null = null;
     const village = ctx.village?.trim();
@@ -84,6 +100,7 @@ export function computeNotifications(ctx: NotifContext): GameNotification[] {
         // battle board itself the chip is redundant (you're looking at it) and
         // just overlaps the field on mobile.
         inBattle: isInBattle(ctx.screen) && !isBattleViewScreen(ctx.screen),
+        territoryBreach,
         clanWar,
         villageWar,
         tournament,
