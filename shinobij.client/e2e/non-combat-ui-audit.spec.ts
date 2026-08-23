@@ -282,7 +282,42 @@ test("Mission Hall Field board follows D-to-S progression and is alphabetized wi
     const runtimeErrors = collectRuntimeErrors(page);
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "missions");
-    await page.locator('button[data-tab="field"]').click();
+    const missionTabs = page.locator(".mission-hall .expanded-tabs");
+    await expect(missionTabs).toBeVisible();
+    expect(await missionTabs.evaluate((tabs) => tabs.scrollWidth <= tabs.clientWidth + 1), "mobile mission tabs should fit without horizontal scrolling").toBe(true);
+    const missionTabButtons = missionTabs.getByRole("tab");
+    await expect(missionTabButtons).toHaveCount(5);
+    const combatTab = page.locator('button[data-tab="combat"]');
+    const fieldTab = page.locator('button[data-tab="field"]');
+    await combatTab.click();
+    await expect(combatTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#mission-tab-panel")).toHaveAttribute("aria-labelledby", "mission-tab-combat");
+
+    if ((page.viewportSize()?.width ?? 0) <= 700) {
+        const tabRects = await missionTabButtons.evaluateAll((tabs) => tabs.map((tab) => {
+            const rect = tab.getBoundingClientRect();
+            return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+        }));
+        expect(Math.max(...tabRects.map((rect) => rect.top)) - Math.min(...tabRects.map((rect) => rect.top)), "mobile mission tabs should stay in one row").toBeLessThanOrEqual(1);
+        expect(Math.max(...tabRects.map((rect) => rect.width)) - Math.min(...tabRects.map((rect) => rect.width)), "mobile mission tabs should have equal widths").toBeLessThanOrEqual(1);
+        expect(tabRects.every((rect, index) => index === 0 || rect.left > tabRects[index - 1].left), "mobile mission tabs should preserve source order").toBe(true);
+        expect(tabRects.every((rect) => rect.height >= 44), "mobile mission tabs should retain touch-safe heights").toBe(true);
+
+        const firstCombatCard = page.locator(".mh-combat-card").first();
+        await expect(firstCombatCard).toBeVisible();
+        const compactMetrics = await firstCombatCard.evaluate((card) => {
+            const cardRect = card.getBoundingClientRect();
+            const actionRect = card.querySelector(".mh-combat-btn")?.getBoundingClientRect();
+            return { cardHeight: cardRect.height, actionWidth: actionRect?.width ?? 0, actionHeight: actionRect?.height ?? 0 };
+        });
+        expect(compactMetrics.cardHeight, "mobile combat cards should remain compact").toBeLessThanOrEqual(110);
+        expect(Math.min(compactMetrics.actionWidth, compactMetrics.actionHeight), "mobile combat actions should meet the 44px touch target").toBeGreaterThanOrEqual(44);
+    }
+
+    await combatTab.focus();
+    await combatTab.press("ArrowRight");
+    await expect(fieldTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#mission-tab-panel")).toHaveAttribute("aria-labelledby", "mission-tab-field");
 
     const fieldCards = page.locator(".mh-field-card");
     await expect(fieldCards.first()).toBeVisible();
