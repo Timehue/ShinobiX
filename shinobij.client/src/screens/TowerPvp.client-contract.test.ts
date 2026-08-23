@@ -52,9 +52,15 @@ test("recovery and ready-toggle copy describe the actions the UI actually permit
 });
 
 test("MPvP refresh recovery preserves the prefixed match lock through App boot", () => {
+    // Team Arena lives in the BATTLE ARENA now. The Towers wrapper must refuse
+    // to resume its key, and boot recovery must route the match to the arena.
     assert.match(wrapper, /towerPvpMatchIdFromRunKey\(saved\)/);
-    assert.match(wrapper, /phase: "lobby", pvpMatchId/);
-    assert.match(wrapper, /setTowerPvpMatchId\(view\.pvpMatchId\)/);
-    assert.match(app, /bootLock\.meta\?\.mode === "mpvp"\) setTowerPvpMatchId\(runId\)/);
-    assert.match(app, /setScreen\("battleTowers"\)/);
+    assert.doesNotMatch(wrapper, /phase: "pvpFight"/);
+    assert.match(app, /const arena2v2 = bootLock\.meta\?\.mode === "mpvp"/);
+    assert.match(app, /setScreen\(arena2v2 \? "battleArena" : "battleTowers"\)/);
+    // The queue + board are one self-contained Battle Arena section.
+    const section = readFileSync(new URL("../components/TeamArenaSection.tsx", import.meta.url), "utf8");
+    assert.match(section, /<TowerPvpPanel/);
+    assert.match(section, /variant="team-pvp"/);
+    assert.doesNotMatch(readFileSync(new URL("./BattleTowersLobby.tsx", import.meta.url), "utf8"), /TowerPvpPanel/);
 });

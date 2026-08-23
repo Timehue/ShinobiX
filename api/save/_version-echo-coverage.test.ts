@@ -32,6 +32,13 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  * have echoed from the start, which is why mission rewards survive a 409.
  */
 const ECHOES_VERSION = new Set([
+    // Ranked 2v2 ladder settlement. It rates up to four saves in one call, but
+    // the CALLER is always one of them, and its only caller — pvp/ranked-2v2.ts's
+    // settle action — echoes that participant's committed `_saveVersion` so the
+    // client adopts the new rating rather than racing a stale local save. The
+    // other three participants are covered by their own settle calls, each of
+    // which is a no-op past the first thanks to the per-match receipt.
+    'pvp/_ranked-2v2-settlement.ts',
     '_anbu-infiltration-store.ts',
     // Sector War garrison assault's personal settlement (item usage + HP). Its
     // only caller, village/sector-war.ts's garrison-resolve, echoes the exact
@@ -124,6 +131,13 @@ const PENDING_ECHO = new Set<string>();
  *  - shared helpers / world state — reached through many callers; the caller owns the echo.
  */
 const EXEMPT = new Set([
+    // Clan War 2v2 consumable charge. It debits every fighter who spent an item
+    // — up to four saves in one call — so there is no single participant whose
+    // `_saveVersion` it could echo. It is also reached from settlement rather
+    // than from a request the charged player made, so no response of theirs is
+    // in flight to carry one. Each save is stamped with its own durable receipt,
+    // which is what makes the charge exactly-once instead of version-guarded.
+    'clan/war/_mpvp-consumables.ts',
     // Village-war Honor Seal sagas. Both debit the declaring/hiring player and
     // bump that save, but they are helpers with several callers and cannot pick
     // one participant's version to expose. village/hire-mercenary.ts rereads and

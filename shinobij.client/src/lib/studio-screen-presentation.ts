@@ -121,6 +121,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   sectorPet: companion,
   sectorGarrison: combat,
   clanWarPet: companion,
+  clanWar2v2: combat,
   cardClashFreePlay: atFacility(combat, "card-hall"),
   guides: archive,
   messages: civic,

@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { isTowerBattleLock, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 
 /*
  * /api/battle/lock  — POST only, multiplexed by `action`
@@ -32,6 +33,14 @@ import { bumpSaveVersion } from '../save/_save-version.js';
  *
  * The compatibility marker self-heals after one hour so an abandoned legacy
  * flow cannot trap the account indefinitely.
+ *
+ * NOT a Battle Towers release path. Tower runs and Tower MPvP matches keep their
+ * account-wide lease under this same `battle-lock:<slug>` key, but own it through
+ * towers/_battle-lease.ts and free it only via an exact-run compare-delete. Both
+ * `start` and `resolve` therefore refuse a well-formed Tower lease with 409
+ * tower-battle-active: a run's own client knows its runId, so an unguarded
+ * endpoint here would let it drop or overwrite the lease and open a second
+ * concurrent fight that findTowerBattleStartConflict() could no longer see.
  */
 
 export type BattleLock = {
@@ -114,6 +123,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing && existing.battleId !== battleId) {
                     return { lock: existing, alreadyLocked: true };
                 }
+                // A Battle Towers lease shares this key but is server-owned (see
+                // towers/_battle-lease.ts). A matching battleId would otherwise
+                // fall through and OVERWRITE the lease with this client-shaped
+                // record, stripping meta.runId — after which isTowerBattleLock()
+                // no longer recognises it and findTowerBattleStartConflict()
+                // stops blocking a second fight. The run ID is known to its own
+                // client, so this has to be refused rather than trusted.
+                if (isTowerBattleLock(existing)) {
+                    return { lock: existing, alreadyLocked: true, towerLease: true };
+                }
 
                 const lock: BattleLock = {
                     battleId,
@@ -125,6 +144,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(key, lock, { ex: LOCK_TTL_SECONDS });
                 return { lock, alreadyLocked: false };
             }, { failClosed: true });
+            if ('towerLease' in result && result.towerLease) {
+                return res.status(409).json(towerBattleActiveErrorBody());
+            }
             return res.status(200).json({ ok: true, ...result });
         }
 
@@ -135,7 +157,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const existing = await kv.get<BattleLock>(key);
                 // Only the matching battleId clears the lock. A mismatch is a
                 // stale/replayed report and must not clear a newer fight.
-                const result: { version: number | null } = { version: null };
+                const result: { version: number | null; towerLease: boolean } = { version: null, towerLease: false };
+                // A Battle Towers lease is released ONLY by its own exact-run
+                // compare-delete (towers/settle, my-run recovery, the party
+                // lifecycle). Clearing it from this compatibility endpoint would
+                // drop the account-wide one-battle-at-a-time lease while the run
+                // is still live, letting the same account open a second fight.
+                // App's boot path already returns early on kind === 'battleTowers',
+                // so no legitimate caller reaches this.
+                if (existing && existing.battleId === battleId && isTowerBattleLock(existing)) {
+                    result.towerLease = true;
+                    return result;
+                }
                 if (existing && existing.battleId === battleId) {
                     if (outcome === 'loss') {
                         // A cleared-state defeat updates the save and removes the
@@ -161,6 +194,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 return result;
             }, { failClosed: true, ttlSec: 15 });
+            if (resolved.towerLease) return res.status(409).json(towerBattleActiveErrorBody());
             return res.status(200).json({
                 ok: true,
                 ...(resolved.version !== null ? { _saveVersion: resolved.version } : {}),

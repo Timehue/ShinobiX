@@ -1,6 +1,7 @@
 import { GiBoxingGlove, GiColiseum, GiCrossedSwords, GiPawPrint, GiRollingDices, GiTwoCoins } from "../../../components/icons/LightweightGameIcons";
 import { BackToVillageButton } from "../../../components/BackToVillageButton";
 import { BountyBoardPanel } from "../../../components/BountyBoardPanel";
+import { TeamArenaSection } from "../../../components/TeamArenaSection";
 import { MAX_LEVEL } from "../../../constants/game";
 import type { DuelChallenge } from "../../../App";
 import type { Character, PlayerRecord } from "../../../types/character";
@@ -31,6 +32,7 @@ type BattleArenaLobbyProps = {
     onAcceptPetChallenge?: (challenge: DuelChallenge) => void;
     onOpenPetArena: () => void;
     onOpenCardHall: () => void;
+    sharedImages?: Record<string, string>;
 };
 
 export function BattleArenaLobby({
@@ -56,6 +58,7 @@ export function BattleArenaLobby({
     onAcceptPetChallenge,
     onOpenPetArena,
     onOpenCardHall,
+    sharedImages,
 }: BattleArenaLobbyProps) {
     return (
         <div className="card arena-lobby">
@@ -65,8 +68,13 @@ export function BattleArenaLobby({
 
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
                 <button className={activeTab === "spar" ? "active" : ""} onClick={() => onTabChange("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar &amp; Challenges</button>
+                <button className={activeTab === "teamArena" ? "active" : ""} onClick={() => onTabChange("teamArena")}><GiColiseum style={ARENA_ICON} />Team Arena 2v2</button>
                 <button className={activeTab === "bounty" ? "active" : ""} onClick={() => onTabChange("bounty")}><GiTwoCoins style={ARENA_ICON} />Bounty Board</button>
             </div>
+
+            {activeTab === "teamArena" && (
+                <TeamArenaSection character={character} sharedImages={sharedImages} />
+            )}
 
             {activeTab === "spar" && (
                 <>

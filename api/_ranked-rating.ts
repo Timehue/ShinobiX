@@ -22,7 +22,7 @@
  * save lock with the existing NX claim receipt for exactly-once crediting.
  */
 
-export type RankedKind = 'player' | 'pet';
+export type RankedKind = 'player' | 'pet' | 'team2v2';
 
 /** Default Elo for a character that has never been rated (matches the client's `?? 1000`). */
 export const DEFAULT_RANKED_RATING = 1000;
@@ -30,6 +30,10 @@ export const DEFAULT_RANKED_RATING = 1000;
 const FIELDS: Record<RankedKind, { rating: string; wins: string; losses: string }> = {
     player: { rating: 'rankedRating', wins: 'rankedWins', losses: 'rankedLosses' },
     pet: { rating: 'petRankedRating', wins: 'petRankedWins', losses: 'petRankedLosses' },
+    // Team 2v2 is its OWN ladder, deliberately separate from the 1v1 rating: a
+    // duo result says nothing about solo skill, and merging them would let a
+    // strong partner inflate a solo rank. Same Elo formula, own numbers.
+    team2v2: { rating: 'ranked2v2Rating', wins: 'ranked2v2Wins', losses: 'ranked2v2Losses' },
 };
 
 /**

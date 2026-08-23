@@ -3,6 +3,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { TOWER_PVP_REQUEST_ID } from '../../shared/tower-pvp.js';
+import { ATTACKABLE_MIN_LEVEL, isBelowAttackableFloor } from '../_realtime/presence-gating.js';
 import { towerModeDisabled } from './_mode-control.js';
 import {
     joinTowerPvpQueue,
@@ -61,6 +62,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (towerModeDisabled()) return res.status(503).json({ error: 'Battle Towers launches are temporarily disabled.', errorCode: 'tower-mode-disabled' });
             const fighter = await loadTowerPvpFighter(slug);
             if (!fighter) return res.status(404).json({ error: 'Your save was not found.', errorCode: 'save-not-found' });
+            // Team Arena is a BATTLE ARENA mode, not a Towers one, so it gates on
+            // the shared PvP newcomer floor like ranked and casual PvP — not on
+            // the level-30 Battle Towers unlock it used to inherit from sitting
+            // in that lobby. The level is authoritative: loadTowerPvpFighter
+            // seals from `save:<slug>` and hydration starts from the save
+            // character, so it is never client-supplied. Admins keep the override.
+            const level = Math.floor(Number(fighter.character.level ?? 0)) || 0;
+            if (!identity.admin && isBelowAttackableFloor(level)) {
+                return res.status(403).json({
+                    error: `You must reach level ${ATTACKABLE_MIN_LEVEL} before entering Team Arena.`,
+                    errorCode: 'pvp-level-locked',
+                    requiredLevel: ATTACKABLE_MIN_LEVEL,
+                });
+            }
             try {
                 const joined = await joinTowerPvpQueue({ fighter, requestId });
                 if (joined.presence.state === 'matched') {
@@ -85,6 +100,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ready: input.ready !== false,
                 requestId,
                 expectedVersion,
+                // This route is the OPEN queue only. A clan-war 2v2 shares the
+                // match store, so without this a war member could drive their
+                // challenge match from here.
+                requireBinding: 'public-queue',
             });
             return result.ok
                 ? res.status(200).json({ replayed: result.replayed, match: result.match ? projectTowerPvpMatchForViewer(result.match, slug) : null })
@@ -99,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (matchId && (!Number.isSafeInteger(expectedVersion) || Number(expectedVersion) < 0)) {
                 return res.status(400).json({ error: 'A valid expected version is required.', errorCode: 'invalid-version' });
             }
-            const result = await leaveTowerPvp({ slug, matchId, requestId, expectedVersion });
+            const result = await leaveTowerPvp({ slug, matchId, requestId, expectedVersion, requireBinding: 'public-queue' });
             if (!result.ok) return res.status(result.status).json({ error: result.error, errorCode: result.code, match: result.match ? projectTowerPvpMatchForViewer(result.match, slug) : undefined });
             const presence = await towerPvpPresence(slug);
             if (presence.state === 'matched') presence.match = projectTowerPvpMatchForViewer(presence.match, slug)!;
