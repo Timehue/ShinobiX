@@ -19,7 +19,6 @@ import {
     sealedWorldRaidAttacker,
     type PvpSession,
 } from './session.js';
-import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
 import {
     settlePlayerRankedJournal,
@@ -53,6 +52,8 @@ import {
     pvpTerminalRecoveryExpiresAt,
 } from './_pending-session.js';
 import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
+import { CLAN_WAR_PVP_SCROLL_DROP_CHANCE } from '../clan/war/_war-points.js';
+import type { CommittedPvpTerminalReplay } from './_committed-terminal-effects.js';
 
 export { deductUsedItems } from './_consumable-settlement.js';
 
@@ -278,6 +279,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerRankedV2Claim = exactPlayerRankedV2Terminal
             && (session.winner === 'p1' || session.winner === 'p2');
         let playerRankedJournal: PlayerRankedJournal | undefined;
+        let committedTerminalReplay: CommittedPvpTerminalReplay = {};
 
         // Draws have no personal payout callback, but they still own mandatory
         // server terminal effects (notably an accepted Kage duel, where a draw
@@ -304,8 +306,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // first would reject the draw because no journal had
                         // been published yet. Replay the committed terminal
                         // saga first and require its exact draw journal.
-                        const replay = await replayCommittedPvpTerminalEffects(session);
-                        if (!replay.playerRankedJournal) {
+                        committedTerminalReplay = await replayCommittedPvpTerminalEffects(session);
+                        if (!committedTerminalReplay.playerRankedJournal) {
                             throw new Error('player-ranked-draw-terminal-journal-missing');
                         }
                     } else {
@@ -366,8 +368,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // A claim may be the first retry after terminal-session CAS and
                 // process death. Replay every post-CAS terminal effect; the
                 // ranked helper propagates until its journal is fully durable.
-                const replay = await replayCommittedPvpTerminalEffects(session);
-                playerRankedJournal = replay.playerRankedJournal;
+                committedTerminalReplay = await replayCommittedPvpTerminalEffects(session);
+                playerRankedJournal = committedTerminalReplay.playerRankedJournal;
                 if (!playerRankedJournal) throw new Error('player-ranked-terminal-journal-missing');
             } else {
                 await settlePvpConsumablesDurably(
@@ -379,7 +381,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Legacy terminal effects are individually idempotent and can be
                 // repaired by either participant's claim after a move lost its
                 // post-CAS continuation.
-                await replayCommittedPvpTerminalEffects(session);
+                committedTerminalReplay = await replayCommittedPvpTerminalEffects(session);
             }
         } catch (error) {
             console.error('[pvp/claim-rewards] consumable settlement pending', error);
@@ -391,6 +393,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 error: 'The ranked result is still being confirmed. Retry this claim.',
             });
         }
+
+        const clanWarScrollDrop = outcome === 'win'
+            && committedTerminalReplay.clanWarSettlement?.outcome === 'applied'
+            ? {
+                awarded: committedTerminalReplay.clanWarSettlement.territoryScrollsByPlayer[playerName] ?? 0,
+                chancePercent: Math.round(CLAN_WAR_PVP_SCROLL_DROP_CHANCE * 100),
+            }
+            : undefined;
 
         // Settle world-raid progression from the canonical PvP reward claim so
         // a dropped response cannot lose the client-enqueued report callback.
@@ -682,7 +692,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     finalChar = {
                         ...finalChar,
                         auraDust: Math.max(0, Number(finalChar.auraDust) || 0) + 6,
-                        inventory: grantTerritoryScrollsToInventory(finalChar, 5),
                         totalPvpKills: Math.max(0, Math.floor(Number(finalChar.totalPvpKills) || 0)) + 1,
                         monthlyPvpKills: monthlyKills,
                         pvpKillMonth: month,
@@ -858,6 +867,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(out.base ? { base: out.base } : {}),
                     ...(out.warGround ? { warGroundReward: out.warGround } : {}),
                     ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
+                    ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
                     ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });
@@ -916,6 +926,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rewardAuthorized,
                 progressionAuthorized,
                 ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
+                ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
                 ...(finalChar ? { character: finalChar } : {}),
                 _saveVersion: Number(finalSave?._saveVersion ?? 0),
             });

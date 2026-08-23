@@ -12,7 +12,7 @@
 import { clampNumber } from "./utils";
 import { clanUpgradeEffectPercent } from "./clan-upgrades";
 import { normalizeDoctrine } from "./clan-doctrines";
-import { loadAllSectorTerritories } from "./world-state";
+import { loadAllSectorTerritories, territoryRewardsSuspended } from "./world-state";
 import { cleanTreasuryItems } from "./items";
 import { normalizeNoticePosts } from "./clan-notices";
 import { CLAN_UPGRADE_MAX_LEVEL } from "../constants/clan";
@@ -77,7 +77,7 @@ export function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): Cla
     return "Member";
 }
 
-export function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
+export function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name && !territoryRewardsSuspended(territory)); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(1, territories.length); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
 // addClanWarPoints removed — replaced by the server-managed Clan War
 // system (see api/clan/war/_storage.ts + autoReportClanWarBattleResult
 // on the client). The old point-based score tracking lived in

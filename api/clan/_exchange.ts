@@ -13,7 +13,6 @@ export type ClanExchangeItemId =
     | 'fateShardCrate'
     | 'auraStone'
     | 'warSupplyGrant'
-    | 'territoryControlScroll'
     | 'honorSealBundle'
     | 'premiumFateShardCrate'
     | 'auraStoneBundle'
@@ -207,18 +206,6 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
         reward: { kind: 'treasury', currency: 'warSupply', amount: 500 },
     },
     {
-        id: 'territoryControlScroll',
-        tier: 2,
-        hall: 'compound',
-        requiredClanLevel: 15,
-        name: 'Border Claim Scroll',
-        description: 'A sealed border claim scroll to reinforce a clan sector.',
-        cost: 900,
-        limit: { kind: 'weekly', count: 2 },
-        rarity: 'epic',
-        reward: { kind: 'item', itemId: 'territory-control-scroll', count: 1 },
-    },
-    {
         id: 'honorSealBundle',
         tier: 2,
         hall: 'compound',
@@ -307,7 +294,7 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
 ];
 
 const ITEM_BY_ID = new Map(CLAN_EXCHANGE_ITEMS.map((item) => [item.id, item]));
-const STACKABLE_EXCHANGE_ITEM_IDS = new Set(['territory-control-scroll']);
+const STACKABLE_EXCHANGE_ITEM_IDS = new Set<string>();
 const ARMOR_SLOTS = new Set(['armor', 'head', 'body', 'waist', 'legs', 'feet']);
 
 function num(v: unknown): number {

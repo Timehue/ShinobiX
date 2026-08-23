@@ -627,8 +627,8 @@ const WORLD: Guide = {
             heading: "2 · Capturing & Holding",
             blocks: [
                 { type: "list", items: [
-                    "Capture a sector by collecting Territory Control Scrolls (from missions) and donating them through the Clan Hall to push its Control Score toward the cap.",
-                    "Holding a sector generates daily War Supply — a clan-treasury resource collected by your clan's leaders — plus a terrain bonus (+10% offense in a chosen discipline) for fights there.",
+                    "Each shinobi PvP win during an active Clan War has a 20% chance to drop exactly 1 Territory Control Scroll. Pet, Chronicle, normal PvP, missions, hunts, and the Clan Exchange do not drop them.",
+                    "A clan needs at least 10 members and one atomic treasury payment of 75 donated scrolls to capture one sector already controlled by its village. Partial deposits are not accepted, so another clan cannot inherit your progress. Holding it generates daily War Supply plus a chosen +10% offense terrain bonus and fixed weather while rewards are active.",
                     "If your village holds territory, claim your daily map-control reward.",
                 ] },
             ],
@@ -637,7 +637,8 @@ const WORLD: Guide = {
             heading: "3 · Raiding & Defense",
             blocks: [
                 { type: "list", items: [
-                    "Raid enemy-held sectors to drain their territory HP; knock it to zero and the sector falls, then enters a 2-hour rebuild cooldown before it can be retaken.",
+                    "Raid enemy-held sectors to drain their territory HP. At zero HP the sector is Breached for a fixed 12 hours: all rewards and bonuses stop, and the owner must repair above zero before the deadline. Repairs never extend the deadline and attackers can knock it back down.",
+                    "A breached sector still at zero when the deadline expires is released and enters a 2-hour rebuild cooldown. Clan inactivity suspends benefits after 14 days and releases the sector after 30 days; activity-data gaps never trigger an eviction.",
                     "Defense: players can queue as guards on a sector. Raiders face a real human defender if one is on duty, otherwise an AI guard.",
                 ] },
             ],

@@ -6,6 +6,7 @@ import {
     completePvpRewardCompletion,
     postPvpRewardCompletionAck,
     postPvpRewardClaim,
+    pvpRewardSettlementNotice,
     readPvpOwnerSaveForContinuation,
     shouldRunPvpRewardCompletion,
     type PvpRewardCompletionStorage,
@@ -64,6 +65,43 @@ describe("pvp-reward-claim", () => {
             // case: an already-claimed battle must not re-run either callback.
             progressionAuthorized: false,
         });
+    });
+
+    it("preserves the authoritative Clan War scroll roll and explains both outcomes", async () => {
+        for (const awarded of [0, 1] as const) {
+            const result = await postPvpRewardClaim(async () => response(200, {
+                ok: true,
+                alreadyClaimed: false,
+                completionPending: true,
+                rewardAuthorized: true,
+                progressionAuthorized: true,
+                clanWarScrollDrop: { awarded, chancePercent: 20 },
+            }), { playerName: "rin", battleId: `clan-war-${awarded}`, outcome: "win" });
+
+            assert.equal(result.status, "confirmed");
+            if (result.status !== "confirmed") continue;
+            assert.deepEqual(result.clanWarScrollDrop, { awarded, chancePercent: 20 });
+            const notice = pvpRewardSettlementNotice(result, { draw: false, spar: false });
+            if (awarded === 1) {
+                assert.match(notice, /Scroll dropped.*\+1 added to your inventory/i);
+            } else {
+                assert.match(notice, /no Territory Control Scroll.*20% chance/i);
+            }
+        }
+    });
+
+    it("rejects malformed Clan War scroll projections instead of inventing reward copy", async () => {
+        const result = await postPvpRewardClaim(async () => response(200, {
+            ok: true,
+            alreadyClaimed: false,
+            completionPending: true,
+            rewardAuthorized: true,
+            progressionAuthorized: true,
+            clanWarScrollDrop: { awarded: 2, chancePercent: 20 },
+        }), { playerName: "rin", battleId: "clan-war-malformed", outcome: "win" });
+
+        assert.equal(result.status, "confirmed");
+        if (result.status === "confirmed") assert.equal(result.clanWarScrollDrop, undefined);
     });
 
     it("preserves the versioned character and exact raid projection on first claim and replay", async () => {

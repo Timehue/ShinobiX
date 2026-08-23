@@ -13,6 +13,7 @@ import { loadPublishedContent } from '../_content-store.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { acceptedRaidFetchMissions } from './_field-raid-progress.js';
 import { raidGuardOpponentId } from './_generic-ai-fight-authority.js';
+import { territoryIsBreached } from '../_territory-lifecycle.js';
 
 /*
  * /api/missions/raid-start  — POST only
@@ -180,6 +181,11 @@ async function fieldRaidAuthority(params: {
         || (!!ownerClan && ownerClan !== playerClan);
     const acceptedFieldContract = acceptedRaidFetchMissions(params.save)
         .some((mission) => Math.floor(Number(mission.targetSector)) === params.sector);
+    if (hostileTerritory
+        && !acceptedFieldContract
+        && territory
+        && territoryIsBreached(territory, Date.now())
+        && Math.max(0, Number(territory.hp) || 0) <= 0) return null;
     if (!hostileTerritory && !acceptedFieldContract) return null;
 
     let guardLevel = Math.max(1, Math.floor(Number(params.character.level) || 1));

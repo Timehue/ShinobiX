@@ -15,7 +15,6 @@ import boneCharmCrate from "../assets/clan-exchange/boneCharmCrate.webp";
 import auraStone from "../assets/clan-exchange/auraStone.webp";
 import fateShardCrate from "../assets/clan-exchange/fateShardCrate.webp";
 import warSupplyGrant from "../assets/clan-exchange/warSupplyGrant.webp";
-import territoryControlScroll from "../assets/clan-exchange/territoryControlScroll.webp";
 import honorSealBundle from "../assets/clan-exchange/honorSealBundle.webp";
 import premiumFateShardCrate from "../assets/clan-exchange/premiumFateShardCrate.webp";
 import greaterWarSupplyGrant from "../assets/clan-exchange/greaterWarSupplyGrant.webp";
@@ -34,7 +33,6 @@ const ART_BY_ID: Record<string, string> = {
     auraStone,
     fateShardCrate,
     warSupplyGrant,
-    territoryControlScroll,
     honorSealBundle,
     premiumFateShardCrate,
     greaterWarSupplyGrant,

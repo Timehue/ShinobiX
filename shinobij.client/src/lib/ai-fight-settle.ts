@@ -10,7 +10,7 @@ import type { WorldAiFightContext } from "../../../shared/world-ai-fight";
  *
  * SERVER (api/missions/report-ai-fight) — reads the sealed SESSION and decides
  *   everything that matters: whether the player won, the XP/ryo, the secondary
- *   rewards (stamina, territory scroll, honor seals, aura dust, kill counters),
+ *   rewards (stamina, honor seals, aura dust, kill counters),
  *   the Legacy credit, the hunt + apex kill RECEIPTS, the surviving HP, and the
  *   hospital stay on a defeat or a forfeit. All of it in one atomic save
  *   mutation, none of it inflatable from here — this module sends only the token.

@@ -144,6 +144,11 @@ test('completion ACK cannot pass the server-credit barrier and remains repairabl
     await handler(request(winner, battleId, 'win'), repairedClaim.res);
     assert.equal(repairedClaim.out.statusCode, 200);
     assert.equal(repairedClaim.out.body?.completionPending, true);
+    assert.deepEqual(
+        (await kv.get<Record<string, any>>(`save:${winner}`))?.character.itemStacks,
+        [],
+        'ordinary PvP wins must not drop Territory Control Scrolls',
+    );
 
     // The exact claim receipt, not the short-lived combat row, authorizes ACK.
     const repairedAck = response();

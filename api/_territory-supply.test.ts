@@ -36,6 +36,20 @@ describe('collectTerritorySupply', () => {
         const viaNow = collectTerritorySupply({ ownerClan: 'Storm', warSupply: 40 }, NOW);
         assert.equal(viaNow.collected, 40); // base defaults to now → 0 cycles
     });
+
+    it('does not collect or accrue while breach or inactivity benefits are suspended', () => {
+        const breached = collectTerritorySupply({
+            ownerClan: 'Storm', warSupply: 250, lastSupplyAt: NOW - 3 * DAY,
+            hp: 0, breachedAt: NOW - 1_000, breachEndsAt: NOW + DAY,
+        }, NOW);
+        assert.deepEqual(breached, { collected: 0, nextLastSupplyAt: NOW - 3 * DAY });
+
+        const dormant = collectTerritorySupply({
+            ownerClan: 'Storm', warSupply: 250, lastSupplyAt: NOW - 3 * DAY,
+            rewardSuspendedAt: NOW - DAY,
+        }, NOW);
+        assert.deepEqual(dormant, { collected: 0, nextLastSupplyAt: NOW - 3 * DAY });
+    });
 });
 
 describe('resolveClaimedWarSupply', () => {

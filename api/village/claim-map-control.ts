@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { computeMapControlReward } from '../_map-control-reward.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { MERIT_MAP_CONTROL, meritNum } from './_village-merit.js';
+import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 
 /*
  * /api/village/claim-map-control  — POST only
@@ -95,7 +96,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const territories = territoryKeys.length
             ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
             : [];
-        const sectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village).length;
+        const rewardNow = Date.now();
+        const sectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village
+            && !territoryRewardsSuspended(t, rewardNow)).length;
 
         if (sectors <= 0) {
             // Mirrors the client guard ("Your village does not control any sectors

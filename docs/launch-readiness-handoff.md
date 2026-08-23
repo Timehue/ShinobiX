@@ -44,7 +44,7 @@ The server side is done (`api/missions/report-ai-fight.ts`, **return-only**, rac
 - **Recommended design:**
   1. Write a **characterization test** first that pins the current `winCharacter` for a sample AI win, so the refactor is provably flag-off-identical.
   2. Compute the side-effecting bits (`villageWarRaid`, `territoryRaidDamage`) and battle-end UI **once, synchronously** (as today).
-  3. Extract a pure `buildWin(effXp, effRyo)` closure: `gainXp({...base,hp:playerHp}, effXp)` → `grantTerritoryScrolls` → assemble `winCharacter` with `ryo: rewarded.ryo + effRyo + bounty…` (everything else captured from the once-computed values).
+  3. Extract a pure `buildWin(effXp, effRyo)` closure: `gainXp({...base,hp:playerHp}, effXp)` → assemble `winCharacter` with `ryo: rewarded.ryo + effRyo + bounty…` (everything else captured from the once-computed values). Do not grant Territory Control Scrolls here; they are reserved for finalized Clan War shinobi PvP wins.
   4. **flag-OFF:** `updateCharacter(maybeMarkMission(buildWin(xpGain, ryoGain)))` synchronously — identical to today.
   5. **flag-ON:** `authFetch('/api/missions/report-ai-fight', { playerName, xp: xpGain, ryo: ryoGain })` → `.then(r => updateCharacter(maybeMarkMission(buildWin(r.xp, r.ryo))))` → `.catch(() => updateCharacter(maybeMarkMission(buildWin(xpGain, ryoGain))))` (degraded fallback grants locally on network failure).
 - Add the flag in `shinobij.client/src/lib/pet-coliseum-flag.ts` style: `localStorage 'aiFightServerAuth.v1'`, default OFF (`=== "1"`).

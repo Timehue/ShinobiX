@@ -234,7 +234,7 @@ export function HunterBoard({
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-            alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
+            alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
         if (result.applied === false) {
@@ -335,7 +335,7 @@ export function HunterBoard({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
             if (!applySuccessfulMissionClaim(result)) return;
-            alert(`Apex Contract complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
+            alert(`Apex Contract complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
         if (result.applied === false) alert(claimReasonMessage(result.reason, result));

@@ -231,7 +231,7 @@ export function computeMvpByClan(war: ClanWar): Record<string, string> {
 // for kv.set'ing the result and stamping the rematch cooldown key.
 export function finalizeClanWarEnd(
     war: ClanWar,
-    opts: { endedAt: number; winnerClan?: string; reason: 'hp-zero' | 'timeout' }
+    opts: { endedAt: number; winnerClan?: string; reason: 'hp-zero' | 'timeout' | 'dissolution' }
 ): ClanWar {
     const { endedAt, winnerClan, reason } = opts;
     // Sweep any in-flight challenges → cancelled, move to history.

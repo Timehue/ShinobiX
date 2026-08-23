@@ -9,6 +9,8 @@
  * with those two client sources if the targets/rewards/formulas change.
  */
 
+import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
+
 export type ClanMissionKey =
     | 'battle' | 'mission' | 'guard' | 'territory'
     | 'anbu' | 'donation' | 'training' | 'raid';
@@ -18,7 +20,7 @@ export const CLAN_MISSION_TARGETS: Record<ClanMissionKey, number> = {
     battle: 20,
     mission: 50,
     guard: 10,
-    territory: 20,
+    territory: 1,
     anbu: 10,
     donation: 25_000,
     training: 100,
@@ -27,7 +29,7 @@ export const CLAN_MISSION_TARGETS: Record<ClanMissionKey, number> = {
 
 // Concrete one-time rewards, derived from the reward strings already shown on
 // the client mission cards. Missions whose advertised reward is purely a
-// gameplay nudge with no concrete payout (territory = "+1 Sector claim push")
+// gameplay nudge with no concrete payout (territory = honest prestige milestone)
 // are intentionally absent → not claimable, display-only.
 export type ClanTreasuryCurrency = 'ryo' | 'fateShards' | 'boneCharms' | 'auraStones' | 'mythicSeals';
 export interface ClanMissionReward {
@@ -50,7 +52,7 @@ export function isClanMissionKey(v: unknown): v is ClanMissionKey {
 
 type ClanRec = Record<string, unknown>;
 type Member = { battleContrib?: number; missionContrib?: number; eventContrib?: number; level?: number };
-type Territory = { ownerClan?: string; guards?: unknown[]; controlScore?: number };
+type Territory = Record<string, unknown> & { ownerClan?: string; guards?: unknown[]; controlScore?: number };
 
 // Server mirror of clanMissionProgress(data, key). `territories` is the set of
 // world:territory:* records (the caller filters/loads them); only this clan's
@@ -66,7 +68,9 @@ export function clanMissionProgressServer(
     const battle = members.reduce((s, m) => s + (Number(m.battleContrib) || 0), 0);
     const mission = members.reduce((s, m) => s + (Number(m.missionContrib) || 0), 0);
     const event = members.reduce((s, m) => s + (Number(m.eventContrib) || 0), 0);
-    const owned = territories.filter((t) => String(t.ownerClan ?? '') === clanName);
+    const now = Date.now();
+    const owned = territories.filter((t) => String(t.ownerClan ?? '') === clanName
+        && !territoryRewardsSuspended(t, now));
     const territoryGuards = owned.reduce((sum, t) => sum + (Array.isArray(t.guards) ? t.guards.length : 0), 0);
     const treasuryRyo = Number((clanRec.treasury as Record<string, unknown> | undefined)?.ryo ?? 0) || 0;
 
@@ -74,7 +78,7 @@ export function clanMissionProgressServer(
         case 'battle': return battle;
         case 'mission': return mission;
         case 'guard': return Math.min(10, territoryGuards + members.filter((m) => (Number(m.level) || 0) >= 5).length);
-        case 'territory': return Math.min(20, Math.floor(owned.reduce((sum, t) => sum + (Number(t.controlScore) || 0), 0) / 1000));
+        case 'territory': return Math.min(1, owned.length);
         case 'anbu': return Math.min(10, territoryGuards + Math.floor(battle / 5));
         case 'donation': return treasuryRyo;
         case 'training': return Math.min(100, Math.floor((battle + mission + event) * 1.5));

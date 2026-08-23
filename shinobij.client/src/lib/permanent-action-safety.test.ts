@@ -41,8 +41,18 @@ describe("permanent action interaction safety", () => {
         assert.match(deletion, /clanUpgradeLevels: undefined, clanDoctrine: undefined/);
 
         const kick = source("../../../api/clan/kick.ts");
-        assert.match(kick, /delete nextChar\.clanUpgradeLevels;/);
-        assert.match(kick, /delete nextChar\.clanDoctrine;/);
+        assert.match(kick, /nextChar\.clan = null;/);
+        assert.match(kick, /nextChar\.clanUpgradeLevels = null;/);
+        assert.match(kick, /nextChar\.clanDoctrine = null;/);
+
+        const dissolution = source("../../../api/clan/_dissolve.ts");
+        assert.match(dissolution, /nextCharacter\.clan = null;/);
+        assert.match(dissolution, /nextCharacter\.clanUpgradeLevels = null;/);
+        assert.match(dissolution, /nextCharacter\.clanDoctrine = null;/);
+
+        const saveHandler = source("../../../api/save/[name].ts");
+        assert.match(saveHandler, /CLAN_DISSOLUTION_LOCK_TTL_SEC = 120;/);
+        assert.match(saveHandler, /isClanSave\s*\? \{ failClosed: true, ttlSec: CLAN_DISSOLUTION_LOCK_TTL_SEC \}/);
     });
 
     test("ambiguous exchange failures tell players to refresh before retrying", () => {

@@ -720,7 +720,9 @@
 }
 
 .mission-hall .mh-tab-panel { outline: none; }
-.mission-hall .mh-combat-btn-arrow { display: none; }
+.mission-hall .mh-combat-btn-arrow,
+.mission-hall .mh-field-mobile-sector,
+.mission-hall .mh-field-primary-arrow { display: none; }
 
 .mission-hall .mh-section {
     margin: 0 !important;
@@ -1209,18 +1211,187 @@
         padding: 2px 5px;
         font-size: 6px;
     }
-    .mission-hall .mh-field-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
-    .mission-hall .mh-field-grid { grid-template-columns: minmax(0, 1fr); }
-    .mission-hall .mh-field-card { min-height: 0; }
+    .mission-hall .mh-field-heading {
+        display: block;
+        margin-bottom: 12px;
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+    .mission-hall .mh-field-heading > div { display: block; }
+    .mission-hall .mh-field-eyebrow,
+    .mission-hall .mh-field-sort { display: none; }
+    .mission-hall .mh-field-heading .mh-section-title {
+        margin: 18px 0 10px !important;
+        color: var(--bsv2-player) !important;
+        font: 600 13px var(--font-display) !important;
+        letter-spacing: 0.22em !important;
+        text-align: center !important;
+    }
+    .mission-hall .mh-field-heading .mh-section-title::before,
+    .mission-hall .mh-field-heading .mh-section-title::after { display: inline-block; }
+    .mission-hall .mh-field-heading p {
+        max-width: none;
+        color: #91a1b5;
+        font-size: 10px;
+        text-align: left;
+    }
+    .mission-hall .mh-field-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+    .mission-hall .mh-field-card {
+        display: grid;
+        grid-template-columns: 48px 68px minmax(0, 1fr) 44px;
+        grid-template-rows: minmax(82px, auto);
+        min-height: 82px;
+        border-radius: 9px;
+        transform: none;
+    }
+    .mission-hall .mh-field-card:hover { transform: none; }
+    .mission-hall .mh-field-art { display: contents; }
+    .mission-hall .mh-field-art::after { content: none; }
+    .mission-hall .mh-field-art img {
+        grid-column: 2;
+        grid-row: 1;
+        width: 68px;
+        height: 100%;
+        min-height: 82px;
+        object-position: center;
+        transform: none;
+    }
+    .mission-hall .mh-field-card:hover .mh-field-art img { transform: none; }
+    .mission-hall .mh-field-rank {
+        position: static;
+        display: flex;
+        grid-column: 1;
+        grid-row: 1;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 3px;
+        border: 0;
+        border-radius: 0;
+        background: color-mix(in srgb, var(--mission-rank-color) 25%, #07101d);
+        box-shadow: none;
+        font: 850 10px/1.15 var(--font-display);
+        letter-spacing: 0.04em;
+        text-align: center;
+        backdrop-filter: none;
+    }
+    .mission-hall .mh-field-sector { display: none; }
+    .mission-hall .mh-field-body {
+        position: relative;
+        grid-column: 3 / 5;
+        grid-row: 1;
+        min-width: 0;
+        padding: 8px 53px 8px 9px;
+        gap: 2px;
+    }
+    .mission-hall .mh-field-mobile-sector {
+        display: block;
+        overflow: hidden;
+        color: #8293a6;
+        font: 750 7px/1.2 Inter, sans-serif;
+        letter-spacing: 0.06em;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .mission-hall .mh-field-title-row { gap: 4px; }
+    .mission-hall .mh-field-title-row > div { gap: 2px; }
+    .mission-hall .mh-field-title-row > div > span { font-size: 7px; }
+    .mission-hall .mh-field-title-row h4 {
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.2;
+        letter-spacing: 0.045em;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .mission-hall .mh-field-status,
+    .mission-hall .mh-field-description { display: none; }
+    .mission-hall .mh-field-objectives { gap: 7px; }
+    .mission-hall .mh-field-objectives > span {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+    .mission-hall .mh-field-objectives small { font-size: 7px !important; }
+    .mission-hall .mh-field-objectives strong { font-size: 8px; }
+    .mission-hall .mh-field-card .mh-fetch-rewards {
+        flex-wrap: nowrap;
+        gap: 7px !important;
+        margin-top: 1px;
+        padding: 0 !important;
+        overflow: hidden;
+        border: 0 !important;
+        background: transparent !important;
+        font-size: 8px;
+        white-space: nowrap;
+    }
+    .mission-hall .mh-field-card .mh-fetch-progress-wrap {
+        margin-top: 2px;
+        padding: 0 !important;
+        background: transparent !important;
+    }
+    .mission-hall .mh-field-card .mh-fetch-progress-label {
+        margin-bottom: 2px;
+        font-size: 6px;
+    }
+    .mission-hall .mh-field-card .mh-fetch-actions {
+        gap: 4px;
+        margin-top: 2px;
+    }
+    .mission-hall .mh-field-card .mh-fetch-actions .mh-field-primary-action {
+        position: absolute;
+        z-index: 4;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        min-width: 44px;
+        height: auto;
+        min-height: 82px;
+        margin: 0;
+        padding: 0 !important;
+        border-width: 0 0 0 1px !important;
+        border-radius: 0 !important;
+        background: rgba(2, 7, 16, 0.18) !important;
+        box-shadow: none !important;
+    }
+    .mission-hall .mh-field-primary-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .mission-hall .mh-field-primary-arrow {
+        display: block;
+        color: #d8a84e;
+        font: 400 38px/1 Georgia, serif;
+        transform: translateY(-2px);
+    }
+    .mission-hall .mh-field-card .mh-fetch-actions .mh-field-secondary-action {
+        min-height: 22px;
+        padding: 3px 5px !important;
+        border-radius: 4px !important;
+        font-size: 6px !important;
+    }
 }
 
 @media (max-width: 440px) {
     .mission-hall .mh-header h2 { font-size: 29px !important; }
     .mission-hall .mh-header .mh-sub { font-size: 10.5px !important; }
     .mission-hall .mh-section { padding-inline: 12px !important; }
-    .mission-hall .mh-field-art,
-    .mission-hall .mh-field-art img { height: 150px; min-height: 150px; }
-    .mission-hall .mh-field-title-row { flex-direction: column; }
+    .mission-hall .mh-field-art img { height: 100%; min-height: 82px; }
+    .mission-hall .mh-field-title-row { flex-direction: row; }
     .mission-hall .mh-field-description { min-height: 0; }
 }
 

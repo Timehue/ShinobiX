@@ -323,6 +323,44 @@ test("Mission Hall Field board follows D-to-S progression and is alphabetized wi
     await expect(fieldCards.first()).toBeVisible();
     expect(await fieldCards.count()).toBeGreaterThan(0);
 
+    if ((page.viewportSize()?.width ?? 0) <= 700) {
+        const compactFieldMetrics = await fieldCards.first().evaluate((card) => {
+            const cardRect = card.getBoundingClientRect();
+            const rankRect = card.querySelector(".mh-field-rank")?.getBoundingClientRect();
+            const artRect = card.querySelector(".mh-field-art img")?.getBoundingClientRect();
+            const actionRect = card.querySelector(".mh-field-primary-action")?.getBoundingClientRect();
+            return {
+                cardHeight: cardRect.height,
+                alignedTop: Math.max(rankRect?.top ?? 0, artRect?.top ?? 0, actionRect?.top ?? 0)
+                    - Math.min(rankRect?.top ?? 0, artRect?.top ?? 0, actionRect?.top ?? 0),
+                rankWidth: rankRect?.width ?? 0,
+                artWidth: artRect?.width ?? 0,
+                actionWidth: actionRect?.width ?? 0,
+                actionHeight: actionRect?.height ?? 0,
+            };
+        });
+        expect(
+            compactFieldMetrics.cardHeight,
+            "mobile field cards should match the compact combat-card rhythm",
+        ).toBeLessThanOrEqual(110);
+        expect(
+            compactFieldMetrics.alignedTop,
+            "mobile field card columns should share one row",
+        ).toBeLessThanOrEqual(1);
+        expect(
+            compactFieldMetrics.rankWidth,
+            "mobile field rank rail should match combat cards",
+        ).toBeGreaterThanOrEqual(48);
+        expect(
+            compactFieldMetrics.artWidth,
+            "mobile field art should match combat avatars",
+        ).toBeGreaterThanOrEqual(68);
+        expect(
+            Math.min(compactFieldMetrics.actionWidth, compactFieldMetrics.actionHeight),
+            "mobile field actions should meet the 44px touch target",
+        ).toBeGreaterThanOrEqual(44);
+    }
+
     const renderedOrder = await fieldCards.evaluateAll((cards) => cards.map((card) => ({
         rank: card.querySelector(".mh-field-rank")?.textContent?.trim() ?? "",
         name: card.querySelector(".mh-field-title-row h4")?.textContent?.trim() ?? "",

@@ -209,6 +209,7 @@ import clanTreasuryDonateHandler     from './api/clan/treasury/donate.js';
 import clanTreasuryTransferHandler   from './api/clan/treasury/transfer.js';
 // Clan — territory war-supply collect (server-authoritative)
 import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.js';
+import clanAssignTerritoryScrollsHandler from './api/clan/territory/assign-scrolls.js';
 // Clan — upgrade tree purchase (server-authoritative spend from treasury)
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
@@ -1282,6 +1283,9 @@ route('/clan/treasury/transfer',    clanTreasuryTransferHandler);
 // ─── Clan: collect territory war supply (server-authoritative) ──────────────────
 // Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
 route('/clan/territory/collect-supply', clanCollectSupplyHandler);
+// Debits the shared clan treasury and advances/captures one sector in the same
+// replay-safe command. Generic world-state writes cannot mint this progress.
+route('/clan/territory/assign-scrolls', clanAssignTerritoryScrollsHandler);
 
 // ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
 // Locks the clan row, debits treasury ryo + warSupply, increments the building.
