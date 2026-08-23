@@ -577,6 +577,12 @@ export type Character = {
     rankedRating?: number;
     rankedWins?: number;
     rankedLosses?: number;
+    // Ranked 2v2 duo ladder — its OWN rating, deliberately separate from the
+    // solo one above: a duo result says nothing about solo skill, and merging
+    // them would let a strong partner inflate a solo rank. Default 1000 Elo.
+    ranked2v2Rating?: number;
+    ranked2v2Wins?: number;
+    ranked2v2Losses?: number;
     // Pet ranked 1v1 ladder — account-level (one rating per player, not
     // per-pet). Mirrors the player ranked fields above. Default 1000 Elo.
     petRankedRating?: number;

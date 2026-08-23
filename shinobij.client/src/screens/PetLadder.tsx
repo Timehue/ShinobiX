@@ -251,10 +251,11 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 </div>
             )}
 
-            {/* Live-ranked admission is retired fail-closed. The asynchronous
-                Coliseum and Tactical ladder modes below remain authoritative. */}
+            {/* Live ranked matchmaking. The duel is resolved once by the server
+                and replayed to both players; the asynchronous Coliseum and
+                Tactical ladder modes below remain authoritative on their own. */}
             {mode === "coliseum" && (
-                <PetLadderQueuePanel />
+                <PetLadderQueuePanel character={character} sharedImages={sharedImages} />
             )}
 
             {/* Two columns: defense + challenge (left) | the ladder (right) */}

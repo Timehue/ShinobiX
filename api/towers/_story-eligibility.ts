@@ -1,6 +1,9 @@
+import { BATTLE_TOWERS_MIN_LEVEL } from '../../shared/tower-pvp.js';
 import { hasClearedTowerFloor, type TowerEntryCharacter } from './_entry-fee.js';
 
-export const STORY_TOWER_MIN_LEVEL = 30;
+/** Story floors share the mode-wide Battle Towers unlock; kept as a named
+ *  re-export so existing importers and error payloads are unchanged. */
+export const STORY_TOWER_MIN_LEVEL: number = BATTLE_TOWERS_MIN_LEVEL;
 
 export type StoryTowerEligibility = {
     eligible: boolean;

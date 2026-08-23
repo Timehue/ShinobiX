@@ -190,6 +190,7 @@ const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardB
 const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
 const SectorWarGarrisonAssault = lazyWithRetry(() => import("./screens/SectorWarGarrisonAssault").then(m => ({ default: m.SectorWarGarrisonAssault })));
 const ClanWarPetBattle = lazyWithRetry(() => import("./screens/ClanWarPetBattle").then(m => ({ default: m.ClanWarPetBattle })));
+const ClanWar2v2Battle = lazyWithRetry(() => import("./screens/ClanWar2v2Battle").then(m => ({ default: m.ClanWar2v2Battle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
@@ -2243,10 +2244,8 @@ export default function App() {
 
         switch (ch.mode) {
             case "pvp2v2": {
-                // The hex-grid engine is 1v1. Do not silently let one duel decide
-                // a four-player result; this mode needs an aggregate two-duel
-                // server protocol before it can safely launch.
-                alert("Clan War 2v2 combat is temporarily unavailable while its two-duel server settlement is completed.");
+                // Four-player board; ClanWar2v2Battle resolves the match itself.
+                if (inferredWarId) setScreen("clanWar2v2"); else onLaunchFailed?.();
                 break;
             }
             case "pvp1v1": {
@@ -3358,11 +3357,13 @@ export default function App() {
                         // breadcrumb and route into authoritative recovery; never
                         // turn a missing browser key into a fabricated loss.
                         const runId = typeof bootLock.meta?.runId === "string" ? bootLock.meta.runId.trim() : "";
+                        // Team Arena 2v2 resumes in the BATTLE ARENA; only the
+                        // co-op climb resumes into the Towers.
+                        const arena2v2 = bootLock.meta?.mode === "mpvp";
                         if (runId && runId.length <= 128) {
-                            if (bootLock.meta?.mode === "mpvp") setTowerPvpMatchId(runId);
-                            else setTowerFightRunId(runId);
+                            if (arena2v2) setTowerPvpMatchId(runId); else setTowerFightRunId(runId);
                         }
-                        setScreen("battleTowers");
+                        setScreen(arena2v2 ? "battleArena" : "battleTowers");
                         return;
                     }
                     let recentlyResolved = "";
@@ -7304,6 +7305,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorGarrison" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarGarrisonAssault character={character} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "clanWar2v2" && character && <ClanWar2v2Battle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
@@ -7362,6 +7364,7 @@ export default function App() {
                 {!activeTriggeredEvent && (screen === "arena" || screen === "battleArena" || screen === "arenaDistrict") && character && (
                     <Arena
                         lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
+                        sharedImages={sharedImages}
                         character={character}
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}

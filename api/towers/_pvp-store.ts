@@ -4,9 +4,9 @@ import { withKvLock as realWithKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
-import type { TowerPvpPresence } from '../../shared/tower-pvp.js';
-import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_REQUEST_ID } from '../../shared/tower-pvp.js';
-import { sealTowerFighter } from './_seal.js';
+import type { TowerPvpBinding, TowerPvpPresence } from '../../shared/tower-pvp.js';
+import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_REQUEST_ID, towerPvpBindingOf } from '../../shared/tower-pvp.js';
+import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import type { TowerKv, TowerLock } from './_tower-store.js';
 import {
     battleLockKey,
@@ -79,8 +79,19 @@ function combatSkill(character: Record<string, unknown>): number {
         + Math.min(9_999, Math.floor(statTotal));
 }
 
-/** Full-save, canonical PvP/Tower seal. No client-authored loadout enters matchmaking. */
-export async function loadTowerPvpFighter(slugInput: string): Promise<TowerPvpFighterSeed | null> {
+/**
+ * Full-save, canonical PvP/Tower seal. No client-authored loadout enters
+ * matchmaking.
+ *
+ * `consumables` defaults OFF for the open Team Arena: it settles no economy, so
+ * burning a real potion there would cost the player something the mode never
+ * pays back. A reward-bearing caller (clan-war 2v2) opts in and gets the same
+ * sealed budget clan-war 1v1 receives on the PvP engine.
+ */
+export async function loadTowerPvpFighter(
+    slugInput: string,
+    options: { consumables?: boolean } = {},
+): Promise<TowerPvpFighterSeed | null> {
     const slug = safeName(slugInput);
     if (!slug) return null;
     const save = await augmentSaveWithForgedDefs(await realKv.get<Record<string, unknown>>(`save:${slug}`));
@@ -93,6 +104,7 @@ export async function loadTowerPvpFighter(slugInput: string): Promise<TowerPvpFi
         displayName: String(character.name ?? slug).slice(0, 40),
         skill: combatSkill(sealed),
         character: sealed,
+        ...(options.consumables ? { itemCharges: sealTowerItemCharges(character) } : {}),
     };
 }
 
@@ -347,7 +359,12 @@ async function presenceFromPointer(
 ): Promise<TowerPvpPresence<StoredTowerPvpMatch['combat']> | null> {
     if (pointer?.state === 'match') {
         const match = await deps.kv.get<StoredTowerPvpMatch>(towerPvpMatchKey(pointer.matchId));
-        if (match && towerPvpMember(match, slug)) return { state: 'matched', match, queuePosition: null };
+        // Defence in depth: the clan-war path never writes this pointer, but if a
+        // bound match ever reached it, public presence must still refuse to show
+        // it in the Battle Towers lobby rather than adopt someone else's fight.
+        if (match && towerPvpMember(match, slug) && towerPvpBindingOf(match).kind === 'public-queue') {
+            return { state: 'matched', match, queuePosition: null };
+        }
         await clearPointerIf(slug, current => current?.state === 'match' && current.matchId === pointer.matchId, deps);
     }
     if (pointer?.state === 'queued') {
@@ -410,6 +427,27 @@ function recordCommand(match: StoredTowerPvpMatch, slug: string, requestId: stri
         .slice(-TOWER_PVP_COMMAND_HISTORY);
 }
 
+/**
+ * A match may only be driven through the surface that owns it. The open queue
+ * and a clan-war challenge share this store and this reducer, so without an
+ * explicit binding check a clan-war member could cancel their war match through
+ * the public queue's `leave` action. Checked INSIDE the mutation lock so it
+ * cannot race a concurrent write.
+ */
+function bindingMismatch(
+    match: StoredTowerPvpMatch,
+    required: TowerPvpBinding['kind'] | undefined,
+): { ok: false; status: 403; code: 'wrong-surface'; error: string; match: StoredTowerPvpMatch } | null {
+    if (!required || towerPvpBindingOf(match).kind === required) return null;
+    return {
+        ok: false,
+        status: 403,
+        code: 'wrong-surface',
+        error: 'That match belongs to a different Tower surface.',
+        match,
+    };
+}
+
 export type TowerPvpMutationResult =
     | { ok: true; replayed: boolean; match?: StoredTowerPvpMatch }
     | { ok: false; status: number; code: string; error: string; match?: StoredTowerPvpMatch };
@@ -420,6 +458,8 @@ export async function setTowerPvpReady(input: {
     ready: boolean;
     requestId: string;
     expectedVersion: number;
+    /** Surface that owns this call; omitted only by internal callers. */
+    requireBinding?: TowerPvpBinding['kind'];
 }, dependencies: TowerPvpStoreDeps = {}): Promise<TowerPvpMutationResult> {
     const deps = depsOf(dependencies);
     const fingerprint = commandFingerprint('ready', input.ready);
@@ -427,6 +467,8 @@ export async function setTowerPvpReady(input: {
     const result = await withTowerPvpMatchMutation(input.matchId, async match => {
         if (!match) return { ok: false, status: 404, code: 'match-not-found', error: 'Tower MPvP match not found.' } as const;
         if (!towerPvpMember(match, input.slug)) return { ok: false, status: 403, code: 'not-a-member', error: 'Not a member of this match.' } as const;
+        const surface = bindingMismatch(match, input.requireBinding);
+        if (surface) return surface;
         const command = inspectCommand(match, input.slug, input.requestId, fingerprint);
         if (command === 'conflict') return { ok: false, status: 409, code: 'request-id-conflict', error: 'Request ID was reused for another command.', match } as const;
         if (command === 'replay') return { ok: true, replayed: true, match } as const;
@@ -462,6 +504,8 @@ export async function leaveTowerPvp(input: {
     matchId?: string;
     requestId: string;
     expectedVersion?: number;
+    /** Surface that owns this call; omitted only by internal callers. */
+    requireBinding?: TowerPvpBinding['kind'];
 }, dependencies: TowerPvpStoreDeps = {}): Promise<TowerPvpMutationResult> {
     const deps = depsOf(dependencies);
     if (!input.matchId) {
@@ -477,6 +521,8 @@ export async function leaveTowerPvp(input: {
     const result = await withTowerPvpMatchMutation(input.matchId, async match => {
         if (!match) return { ok: false, status: 404, code: 'match-not-found', error: 'Tower MPvP match not found.' } as const;
         if (!towerPvpMember(match, input.slug)) return { ok: false, status: 403, code: 'not-a-member', error: 'Not a member of this match.' } as const;
+        const surface = bindingMismatch(match, input.requireBinding);
+        if (surface) return surface;
         const command = inspectCommand(match, input.slug, input.requestId, fingerprint);
         if (command === 'conflict') return { ok: false, status: 409, code: 'request-id-conflict', error: 'Request ID was reused for another command.', match } as const;
         if (command === 'replay') return { ok: true, replayed: true, match } as const;

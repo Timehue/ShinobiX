@@ -6,6 +6,7 @@ import {
     derivePetRankedSettlement,
     petRankedSettlementId,
     petRankedStartsEnabled,
+    petRankedQueueEnabled,
     petRankedPublicChallengesEnabled,
     petRankedPublicPresentationEnabled,
     settlePetRankedSide,
@@ -74,21 +75,30 @@ const resolved: ServerResolvedPetRankedToken = {
 };
 
 describe('_ranked-settlement', () => {
-    it('keeps ranked pet starts server-disabled by default', () => {
-        assert.equal(petRankedStartsEnabled({}), false);
-        assert.equal(petRankedStartsEnabled({ ENABLE_PET_RANKED_SERVER_V1: 'true' }), false);
-        assert.equal(petRankedStartsEnabled({ ENABLE_PET_RANKED_SERVER_V1: '1' }), true);
-        assert.equal(petRankedStartsEnabled({ ENABLE_PET_RANKED_SERVER_V1: '1', DISABLE_PET_RANKED_SERVER_V1: '1' }), false);
-        assert.equal(petRankedPublicChallengesEnabled({ ENABLE_PET_RANKED_SERVER_V1: '1' }), false);
-        assert.equal(petRankedPublicPresentationEnabled({ ENABLE_PET_RANKED_SERVER_V1: '1' }), false);
-        assert.equal(petRankedPublicPresentationEnabled({
-            ENABLE_PET_RANKED_SERVER_V1: '1',
-            ENABLE_PET_RANKED_PUBLIC_PRESENTATION_V1: '1',
-        }), true);
-        assert.equal(petRankedPublicChallengesEnabled({
-            ENABLE_PET_RANKED_SERVER_V1: '1',
-            ENABLE_PET_RANKED_PUBLIC_CHALLENGES_V1: '1',
-        }), true);
+    it('ships ranked pet resolution ON with opt-out kill switches', () => {
+        // The stacked positive flags belonged to the two-engine era. That defect
+        // is fixed (one resolution, replayed to both players), so the mode ships
+        // on like every other switch in _release-flags.ts.
+        assert.equal(petRankedStartsEnabled({}), true);
+        assert.equal(petRankedQueueEnabled({}), true);
+        assert.equal(petRankedPublicPresentationEnabled({}), true);
+        assert.equal(petRankedStartsEnabled({ DISABLE_PET_RANKED_SERVER_V1: '1' }), false);
+        assert.equal(petRankedQueueEnabled({ DISABLE_PET_RANKED_QUEUE: '1' }), false);
+        assert.equal(petRankedPublicPresentationEnabled({ DISABLE_PET_RANKED_PUBLIC_PRESENTATION: '1' }), false);
+    });
+
+    it('closes every dependent surface from the one core switch', () => {
+        const off = { DISABLE_PET_RANKED_SERVER_V1: '1' } as NodeJS.ProcessEnv;
+        assert.equal(petRankedQueueEnabled(off), false, 'matchmaking must follow the core switch');
+        assert.equal(petRankedPublicPresentationEnabled(off), false);
+        assert.equal(petRankedPublicChallengesEnabled(off), false);
+    });
+
+    it('keeps the retired legacy challenge record closed on its own positive flag', () => {
+        // Its client showed one engine while settlement replayed another, so it
+        // is NOT covered by the single-resolution fix and stays opt-in.
+        assert.equal(petRankedPublicChallengesEnabled({}), false);
+        assert.equal(petRankedPublicChallengesEnabled({ ENABLE_PET_RANKED_PUBLIC_CHALLENGES_V1: '1' }), true);
     });
 
     it('rejects a ratings-only token because it does not prove an outcome', () => {

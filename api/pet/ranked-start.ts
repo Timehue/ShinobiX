@@ -6,8 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
-import { activeBreedingParentIds } from './_pet-busy.js';
-import { activeCarriedPets } from '../_entitlements.js';
+import { petRatingOf, selectRankedPet } from './_ranked-eligibility.js';
 import {
     PET_RANKED_ACTIVE_REGISTRY_KEY,
     PET_RANKED_AUTHORITY,
@@ -39,27 +38,6 @@ import {
 
 const ACTIVE_REGISTRY_TTL_SECONDS = 24 * 60 * 60;
 
-function petRatingOf(save: Record<string, unknown> | null): number {
-    const character = (save?.character ?? null) as Record<string, unknown> | null;
-    const rating = Number(character?.petRankedRating);
-    return Number.isFinite(rating) ? rating : DEFAULT_RANKED_RATING;
-}
-
-function rankedPetUnavailable(character: Record<string, unknown>, pet: Record<string, unknown>): boolean {
-    const id = String(pet.id ?? '');
-    return !id
-        || activeBreedingParentIds(character).has(id)
-        || !!pet.training
-        || !!pet.expedition;
-}
-
-function selectRankedPet(character: Record<string, unknown>, requestedId = ''): Record<string, unknown> | null {
-    const pets = activeCarriedPets<Record<string, unknown>>(character);
-    const requested = requestedId ? pets.find((pet) => String(pet?.id ?? '') === requestedId) : undefined;
-    const active = pets.find((pet) => String(pet?.id ?? '') === String(character.activePetId ?? ''));
-    const selected = requested ?? active ?? pets.find((pet) => !rankedPetUnavailable(character, pet));
-    return selected && !rankedPetUnavailable(character, selected) ? selected : null;
-}
 
 function pointerFor(
     claim: RankedPetStartClaim,

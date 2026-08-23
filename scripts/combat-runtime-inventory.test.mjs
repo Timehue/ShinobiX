@@ -139,7 +139,10 @@ describe('executable multi-engine runtime registry', () => {
     const expectedIds = EXPECTED_RUNTIME_MODE_CONTRACTS.map((contract) => contract.id);
     const expectedFactIds = Object.keys(EXPECTED_RUNTIME_MODE_FACTS);
     const expectedMetadataIds = Object.keys(EXPECTED_RUNTIME_MODE_METADATA);
-    assert.equal(ids.length, 57, 'The corrected inventory must retain the independently pinned 57-row model.');
+    // 58 since ranked-2v2 (the duo-queue ladder) was added. This count is a
+    // deliberate ratchet: raising it should be a conscious act, not a side
+    // effect of a mode appearing.
+    assert.equal(ids.length, 58, 'The corrected inventory must retain the independently pinned 58-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
@@ -523,12 +526,16 @@ describe('executable multi-engine runtime registry', () => {
     const dungeonPetAuthoritySource = readFileSync(join(ROOT, 'api', 'pet', '_dungeon-battle.ts'), 'utf8');
     const dungeonProofSource = readFileSync(join(ROOT, 'api', 'dungeon', '_encounter-proof.ts'), 'utf8');
     const dungeonRunSource = readFileSync(join(ROOT, 'api', 'dungeon', '_run.ts'), 'utf8');
+    const clanWar2v2Source = readFileSync(join(ROOT, 'api', 'clan', 'war', '_mpvp.ts'), 'utf8');
+    const clanWar2v2SettlementSource = readFileSync(join(ROOT, 'api', 'clan', 'war', '_mpvp-settlement.ts'), 'utf8');
     const cardAiStartSource = readFileSync(join(ROOT, 'api', 'card-clash', 'ai-start.ts'), 'utf8');
     const cardAiMoveSource = readFileSync(join(ROOT, 'api', 'card-clash', 'ai-move.ts'), 'utf8');
     const hollowGateSettleSource = readFileSync(join(ROOT, 'api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
     const hollowGateCombatSource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_combat-session.ts'), 'utf8');
     const hollowGatePetAuthoritySource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_pet-authority.ts'), 'utf8');
     const petShowdownSource = readFileSync(join(ROOT, 'api', 'pet', 'showdown.ts'), 'utf8');
+    const rankedWatchSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-watch.ts'), 'utf8');
+    const rankedDuelSource = readFileSync(join(ROOT, 'api', 'pet', '_ranked-duel.ts'), 'utf8');
     const petSocketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const gauntletHandlerSource = readFileSync(join(ROOT, 'api', 'pet', 'gauntlet.ts'), 'utf8');
     const gauntletRuntimeSource = readFileSync(join(ROOT, 'api', '_pet-sim', 'gauntlet-sim.ts'), 'utf8');
@@ -595,17 +602,27 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(dungeonRunSource, /dungeonPetWasWon\(active\)/);
     assert.match(dungeonRunSource, /dungeon-pet-proof-required/);
 
-    const rankedPet = runtimeModeById('pet-ranked-live-defect');
-    assert.equal(rankedPet.status, 'surface-gap');
-    assert.equal(rankedPet.authorityEngine, null);
-    assert.equal(rankedPet.intendedAuthorityEngine, E.PET_CINEMATIC_DUEL);
-    assert.deepEqual(rankedPet.routes, []);
+    // Live ranked pet matchmaking is mounted on the Showdown engine. The defect
+    // it was retired for was resolving the fight TWICE (two engines, two seeds),
+    // so the invariants worth locking are: the queue only pairs, and the rated
+    // fight is the one both players watch.
+    const rankedPet = runtimeModeById('pet-ranked-live');
+    assert.equal(rankedPet.status, 'match');
+    assert.equal(rankedPet.authorityEngine, E.PET_SHOWDOWN);
+    assert.equal(rankedPet.rewardPolicy, 'server-settled');
     assert.match(petLadderSource, /<PetLadderQueuePanel/);
     assert.doesNotMatch(petLadderSource, /PetDuelLiveHost|autoAcceptFrom|queuedAgainst/);
-    assert.doesNotMatch(petLadderQueuePanelSource, /challengeToDuel|\/api\/pvp\/pet-ranked-queue|Find a match/);
-    assert.match(petLadderQueuePanelSource, /Ranked live queue unavailable/);
-    assert.match(petRankedQueueSource, /res\.status\(410\)/);
-    assert.doesNotMatch(petRankedQueueSource, /withKvLock|randomUUID|petRankedQueueMatchKey/);
+    // The queue pairs and nothing else: no resolution, no seed, no rating.
+    assert.match(petRankedQueueSource, /petRankedQueueMatchKey/);
+    // Call shapes, not bare words: the file's own header legitimately NAMES
+    // resolveRankedPetDuel while explaining that it does not call it.
+    assert.doesNotMatch(petRankedQueueSource, /resolveRankedPetDuel\(|runPetDuel\(|writeSaveProjected\(|petRankedRating\s*[:=]/);
+    // One resolution, re-derived for both sides and for rating.
+    assert.match(rankedWatchSource, /resolveRankedPetDuel\(/);
+    assert.match(rankedDuelSource, /resolveWarDuel\(/);
+    // The panel must never simulate a ranked fight locally — that WAS the bug.
+    assert.doesNotMatch(petLadderQueuePanelSource, /runPetDuel|runPetDuelCinematic|Math\.random/);
+    assert.match(petLadderQueuePanelSource, /fetchRankedPetDuel/);
     assert.doesNotMatch(petSocketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/);
 
     const rankedCompat = runtimeModeById('pet-ranked-legacy-compat');
@@ -655,10 +672,20 @@ describe('executable multi-engine runtime registry', () => {
     assert.equal(tactical.intendedAuthorityEngine, E.PET_WARFRONT);
     assert.equal(tactical.routes.length, 0);
 
+    // Clan War 2v2 runs on the four-player Tower engine while its INTENDED
+    // long-term owner stays the PvP family, so the divergence remains explicit.
+    // The engine must stay reward-free: only the clan-war adapter writes war HP.
     const clan2v2 = runtimeModeById('clan-war-pvp-2v2');
-    assert.equal(clan2v2.status, 'surface-gap');
-    assert.equal(clan2v2.authorityEngine, null);
+    assert.equal(clan2v2.status, 'match');
+    assert.equal(clan2v2.authorityEngine, E.TOWER);
     assert.equal(clan2v2.intendedAuthorityEngine, E.PVP);
+    assert.equal(clan2v2.rewardPolicy, 'server-settled');
+    assert.match(clanWar2v2SettlementSource, /applyFinalResult\(/);
+    assert.match(clanWar2v2SettlementSource, /clan-war-2v2-receipt-conflict/);
+    assert.match(clanWar2v2Source, /mode: 'clan-war-mpvp'/);
+    assert.match(clanWar2v2Source, /teams: \{ amber: sides\.from, violet: sides\.to \}/);
+    // The public Team Arena must not have gained a reward path from the share.
+    assert.equal(runtimeModeById('tower-pvp').rewardPolicy, 'none');
 
     const dungeonCard = runtimeModeById('dungeon-card');
     assert.equal(dungeonCard.status, 'match');

@@ -1819,7 +1819,8 @@ test('Tower MPvP authoritative variant keeps jutsu selection geometry stable', a
     await installSession(page, account.name, account.token, { acknowledgeEstablishedNotices: true, savePreview });
     await page.addInitScript(({ matchId }) => {
         localStorage.setItem('shinobix:towerRunId', `pvp:${matchId}`);
-        localStorage.setItem('lastScreen.v1', 'battleTowers');
+        // Team Arena 2v2 lives in the BATTLE ARENA; the Towers are co-op PvE.
+        localStorage.setItem('lastScreen.v1', 'battleArena');
     }, { matchId: match.matchId });
     await page.goto('/', { waitUntil: 'networkidle' });
     await dismissNotices(page);

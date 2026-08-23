@@ -31,9 +31,9 @@ describe('live pet-duel roster UI contracts', () => {
         assert.doesNotMatch(arena, /sending a 1v1 challenge instead|otherwise it falls back to 1v1/);
     });
 
-    it('keeps the concurrently retired ranked admission outside the shared host', () => {
+    it('keeps live ranked admission outside the shared duel host', () => {
         assert.doesNotMatch(ladder, /PetDuelLiveHost|autoAcceptFrom=/);
-        assert.match(ladder, /<PetLadderQueuePanel \/>/);
+        assert.match(ladder, /<PetLadderQueuePanel /);
         assert.match(host, /live=\{bound\.duel\}/, 'the existing cinematic Socket.IO lockstep authority remains mounted');
     });
 });
