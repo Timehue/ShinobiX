@@ -18,7 +18,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "explorer",
         "title": "First Flame Bearer",
-        "flavor": "Before the roads had names, someone had to walk them burning. The world remembers who lit the way first.",
+        "flavor": "Road wardens in five countries copied routes from this shinobi’s field notes. Witnesses remember who carried the first torch into places patrols had abandoned.",
         "badge": "first-flame"
     },
     {
@@ -27,7 +27,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "pve",
         "title": "Sundered Seal",
-        "flavor": "The seal beneath Central does not crack for the curious. It cracks for the one who kept coming back.",
+        "flavor": "The Central keepers logged seventy-five descents under the same name. Most shinobi stop returning after the first bad extraction.",
         "badge": "gate-opener"
     },
     {
@@ -36,7 +36,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "ninjutsu",
         "title": "Hundred Storms",
-        "flavor": "Ninjutsu, genjutsu, taijutsu, bukijutsu — the storm does not choose one wind. It is all of them at once.",
+        "flavor": "Mission reports credit this shinobi with victories in all four combat disciplines. None of those victories reads like improvisation.",
         "badge": "hundred-storms"
     },
     {
@@ -45,7 +45,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "pvp",
         "title": "Duel Sovereign",
-        "flavor": "Kings are crowned. Sovereigns are proven — one challenger at a time, none of them lesser, none of them lucky.",
+        "flavor": "Arena clerks checked the record twice: four hundred wins, including ranked rivals and shinobi with every advantage on paper.",
         "badge": "duel-sovereign"
     },
     {
@@ -54,7 +54,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "genjutsu",
         "title": "Silent Emperor",
-        "flavor": "No banners, no borders, no decree ever spoken aloud. An empire built entirely of moments its subjects cannot remember.",
+        "flavor": "Opponents describe missing seconds, false orders, and fights decided before they understood the genjutsu. The reports come from every border.",
         "badge": "silent-empire"
     },
     {
@@ -63,7 +63,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "support",
         "title": "The Last Bastion",
-        "flavor": "When every other wall fell, the line held — because the line was a person.",
+        "flavor": "Medics and defenders keep placing the same shinobi at the last unbroken position. Hundreds of people reached shelter behind that line.",
         "badge": "last-bastion"
     },
     {
@@ -72,7 +72,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "village",
         "title": "Founder's Shadow",
-        "flavor": "Some serve a village. A very few become the thing the village quietly stands on.",
+        "flavor": "Donation ledgers, war rolls, and mission books all carry this name. The village has leaned on the same person for years.",
         "badge": "founders-shadow"
     },
     {
@@ -81,7 +81,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "pve",
         "title": "World Awakener",
-        "flavor": "The great beasts do not stir for armies. They stir for the one name the world keeps repeating.",
+        "flavor": "Great-beast hunt reports from eight seasons place this shinobi near the decisive strike. Rival villages agree on the name, which is rare enough.",
         "badge": "world-awakener"
     },
     {
@@ -90,7 +90,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "explorer",
         "title": "Horizon's End",
-        "flavor": "Maps end where courage does. Somewhere past the last drawn line, the horizon finally learned this one’s name.",
+        "flavor": "Surveyors have redrawn their outer lines around this shinobi’s discoveries. Their oldest boots have crossed more blank country than most maps contain.",
         "badge": "horizons-end"
     },
     {
@@ -99,7 +99,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "taijutsu",
         "title": "Deathless Ember",
-        "flavor": "Extinguished a hundred times, and a hundred times the coal came back red. Some fires simply refuse the dark.",
+        "flavor": "Healers recorded injuries that should have ended the fight. Witnesses recorded the same shinobi standing up and finishing it.",
         "badge": "deathless-ember"
     },
     {
@@ -108,7 +108,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "ninjutsu",
         "title": "Cataclysm",
-        "flavor": "Where this one fought, the weather still has not settled.",
+        "flavor": "Field teams still identify this shinobi’s battles by scorched ground, flash-frozen stone, and trees split by lightning.",
         "badge": "elemental-cataclysm"
     },
     {
@@ -117,7 +117,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "ninjutsu",
         "title": "Thousand Seals",
-        "flavor": "Hands faster than doubt. Every seal a promise the enemy could not read in time.",
+        "flavor": "Witnesses describe complete hand-seal chains formed under pressure, with no wasted motion and no need to begin again.",
         "badge": "thousand-seals"
     },
     {
@@ -127,7 +127,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "genjutsu",
         "villageAffinity": "Moonshadow",
         "title": "Moonlit Ghost",
-        "flavor": "Seen only twice: once in the moment before, and once in the nightmare after.",
+        "flavor": "Moonshadow booth records show opponents striking the wrong position again and again. Most never saw the real shinobi until the bout ended.",
         "badge": "moonlit-ghost"
     },
     {
@@ -136,7 +136,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "genjutsu",
         "title": "Void Whisper",
-        "flavor": "It never raised its voice. It lowered the world’s instead.",
+        "flavor": "Opponents remember the field going quiet before their senses failed. The same detail appears in reports from unrelated fights.",
         "badge": "void-whisper"
     },
     {
@@ -145,7 +145,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "taijutsu",
         "title": "Arena Demon",
-        "flavor": "The crowd stopped betting on outcomes years ago. Now they only bet on how long.",
+        "flavor": "Stormveil bookies still post a duration line, but few will take the opposing name anymore.",
         "badge": "arena-demon"
     },
     {
@@ -154,7 +154,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "taijutsu",
         "title": "Unbroken",
-        "flavor": "Bones remember every fracture. These bones remember winning anyway.",
+        "flavor": "The hospital has treated this shinobi for fractures, torn joints, and worse. Several intake forms were signed after a victory.",
         "badge": "unbroken-body"
     },
     {
@@ -163,7 +163,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "bukijutsu",
         "title": "Blade Saint",
-        "flavor": "To others, ten thousand draws of the sword. To the saint, one draw — practiced ten thousand times.",
+        "flavor": "Armorers who watched the bouts noted the same clean draw under ten different pressures. Practice made it reliable, not decorative.",
         "badge": "blade-saint"
     },
     {
@@ -172,7 +172,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "bukijutsu",
         "title": "Thousand Cuts",
-        "flavor": "No single wound was fatal. That was never the point.",
+        "flavor": "Hunt reports show a patient fighter who opens small wounds, controls the escape, and lets the target exhaust itself.",
         "badge": "thousand-cuts"
     },
     {
@@ -181,7 +181,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "pvp",
         "title": "Duel King",
-        "flavor": "The throne is a circle of scorched ground, and nobody has taken it back yet.",
+        "flavor": "The challenge board has carried this name through two hundred victories. Every open challenge was answered in public.",
         "badge": "duel-king"
     },
     {
@@ -190,7 +190,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "war",
         "title": "Village Reaper",
-        "flavor": "Ask a fallen sector who took it, and watch how quiet the survivors get.",
+        "flavor": "War rolls credit this shinobi with a hundred enemy defeats and repeated captures at the front. Survivors recognize the field sign.",
         "badge": "village-reaper"
     },
     {
@@ -199,7 +199,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "pvp",
         "title": "Bloodstained",
-        "flavor": "Every step of the road behind is marked. The road ahead has already started bleeding.",
+        "flavor": "The record follows one fighter through duels, hunts, and ambushes. Too many entries end with the other name crossed out.",
         "badge": "bloodstained-path"
     },
     {
@@ -208,7 +208,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "pve",
         "title": "Gatebreaker",
-        "flavor": "Doors are a suggestion. Ancient sealed doors are a slightly longer suggestion.",
+        "flavor": "Hollow Gate keepers have replaced hinges, seals, and warning boards after this shinobi’s descents. The repair ledger is unusually thick.",
         "badge": "gatebreaker"
     },
     {
@@ -217,7 +217,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "pve",
         "title": "Trial Conqueror",
-        "flavor": "The trials were built to find the limit of a shinobi. They are still looking.",
+        "flavor": "Dungeon wardens and tower clerks agree that this shinobi finishes trials after most candidates turn back.",
         "badge": "trial-conqueror"
     },
     {
@@ -226,7 +226,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "pve",
         "title": "Ancient Hunter",
-        "flavor": "The old beasts teach one lesson each. This hunter finished the whole curriculum.",
+        "flavor": "Hunter Guild records show old beasts tracked through broken country and brought down without losing the trail.",
         "badge": "ancient-hunter"
     },
     {
@@ -236,7 +236,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Ashen Leaf",
         "title": "Ashen Will",
-        "flavor": "Ashen Leaf endures because someone always chooses to be the ember that will not go out.",
+        "flavor": "Ashen Leaf’s Branch Register shows the same shinobi funding repairs, holding threatened ground, and changing old practice when it failed people.",
         "badge": "ashen-will"
     },
     {
@@ -246,7 +246,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Stormveil",
         "title": "Storm Fang",
-        "flavor": "Stormveil does not wait for weather. It sends its own.",
+        "flavor": "Stormveil’s Challenge Board records this shinobi answering raids and posted grievances in the open, usually before the rain cleared.",
         "badge": "storm-fang"
     },
     {
@@ -256,7 +256,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Frostfang",
         "title": "Frostbound Shield",
-        "flavor": "The north holds because its shield never asks how cold it is.",
+        "flavor": "Frostfang rescue rolls place this shinobi at failed walls and frozen crossings. Every name assigned behind them returned to the Count.",
         "badge": "frostbound-shield"
     },
     {
@@ -266,7 +266,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Moonshadow",
         "title": "Oath of the Moon",
-        "flavor": "Moonshadow keeps no written oaths. It keeps kept ones.",
+        "flavor": "Moonshadow brokers trusted this shinobi with names that could ruin families. The sealed receipts show every trust returned intact.",
         "badge": "moonlit-oath"
     },
     {
@@ -275,7 +275,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "support",
         "title": "Village Guardian",
-        "flavor": "Heroes are counted by the battles they won. Guardians, by the ones nobody else had to fight.",
+        "flavor": "Village medics list hundreds of wounds prevented by this shinobi’s shields. Many civilians never knew how close the fighting came.",
         "badge": "village-guardian"
     },
     {
@@ -284,7 +284,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "support",
         "title": "Oathkeeper",
-        "flavor": "Promised to stand between. Has never once defined between what.",
+        "flavor": "Witnesses keep finding this shinobi between danger and someone who cannot take the hit. The protected names keep changing.",
         "badge": "oathkeeper"
     },
     {
@@ -293,7 +293,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "explorer",
         "title": "The Mapless One",
-        "flavor": "Threw the map away at the first fork. The land has been introducing itself ever since.",
+        "flavor": "Survey teams use this shinobi’s trail marks beyond the last reliable chart. They also note a habit of checking the way home.",
         "badge": "mapless-one"
     },
     {
@@ -302,7 +302,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "explorer",
         "title": "Shrine Seeker",
-        "flavor": "Every forgotten shrine has one visitor left. They are all the same visitor.",
+        "flavor": "Shrine keepers across the countries remember the same visitor clearing steps, copying inscriptions, and asking who still tends the place.",
         "badge": "shrine-seeker"
     },
     {
@@ -311,7 +311,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "pets",
         "title": "Beast Sovereign",
-        "flavor": "Every beast in the wild owes this one a scar, a meal, or a life — and they pay their debts in loyalty.",
+        "flavor": "Stable hands report a tamer who wins hard bouts, brings injured companions home, and earns obedience without breaking temperament.",
         "badge": "beast-sovereign"
     },
     {
@@ -320,7 +320,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "cards",
         "title": "The Silent Gambit",
-        "flavor": "Won the hall’s deadliest hands without ever once needing the cards to be good.",
+        "flavor": "Card Hall ledgers show repeated wins from weak opening hands. The dealers blame patience and very careful counting.",
         "badge": "silent-gambit"
     },
     {
@@ -329,7 +329,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "legendary",
         "category": "war",
         "title": "Bannerlord",
-        "flavor": "Some carry the banner. Some are what the banner is a picture of.",
+        "flavor": "War clerks record this shinobi carrying orders through raids, winning ground, and returning with the village banner still upright.",
         "badge": "warborn-banner"
     },
     {
@@ -338,7 +338,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "ninjutsu",
         "title": "Elemental Storm",
-        "flavor": "Five elements, one temper.",
+        "flavor": "Mission ledgers show five elemental natures used with the same disciplined timing.",
         "badge": "elemental-storm"
     },
     {
@@ -348,7 +348,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "ninjutsu",
         "villageAffinity": "Ashen Leaf",
         "title": "Burning Vanguard",
-        "flavor": "First through every breach, and the breach is usually on fire because of them.",
+        "flavor": "Raid captains keep assigning this shinobi to the first breach because the entry is usually clear by the time the squad arrives.",
         "badge": "burning-vanguard"
     },
     {
@@ -357,7 +357,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "ninjutsu",
         "title": "Chakra Tempest",
-        "flavor": "Too much power, aimed just well enough.",
+        "flavor": "Damage reports describe unusually heavy ninjutsu placed close enough to allies that careful aim clearly mattered.",
         "badge": "chakra-tempest"
     },
     {
@@ -367,7 +367,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "ninjutsu",
         "villageAffinity": "Stormveil",
         "title": "Stormcaller",
-        "flavor": "Learned ninjutsu the Stormveil way: outside, mid-tempest, on purpose.",
+        "flavor": "Stormveil instructors remember this shinobi drilling ninjutsu outdoors through rain, crosswind, and live banner cables.",
         "badge": "stormcallers-path"
     },
     {
@@ -376,7 +376,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "genjutsu",
         "title": "Shadow Strategist",
-        "flavor": "Wins the fight during the bow before it.",
+        "flavor": "Opponents often misread the opening bow, the distance, or the first signal. By the correction, the genjutsu is already set.",
         "badge": "shadow-strategist"
     },
     {
@@ -386,7 +386,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "genjutsu",
         "villageAffinity": "Moonshadow",
         "title": "Silent Fang",
-        "flavor": "The bite arrives before the bark, instead of it.",
+        "flavor": "Fight reports rarely record a warning before this shinobi’s genjutsu lands.",
         "badge": "silent-fang"
     },
     {
@@ -395,7 +395,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "genjutsu",
         "title": "Dream Weaver",
-        "flavor": "Enemies wake up defeated and rested. Nobody knows how to feel about it.",
+        "flavor": "Several enemies woke restrained instead of dead, while allies remember the same shinobi treating their wounds.",
         "badge": "dream-weaver"
     },
     {
@@ -404,7 +404,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "genjutsu",
         "title": "Mirage Dancer",
-        "flavor": "Every step is a lie, and every lie lands.",
+        "flavor": "Witnesses describe false footsteps, doubled silhouettes, and opponents striking safe ground while the real attack arrived elsewhere.",
         "badge": "mirage-dancer"
     },
     {
@@ -413,7 +413,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "taijutsu",
         "title": "Iron Fist",
-        "flavor": "The training posts filed a complaint. It was denied.",
+        "flavor": "Training staff replaced enough split posts to start recording this shinobi’s practice hours separately.",
         "badge": "iron-fist"
     },
     {
@@ -422,7 +422,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "taijutsu",
         "title": "Bloodied Knuckle",
-        "flavor": "No weapon ever felt necessary.",
+        "flavor": "Arena records show repeated armed opponents disarmed by a shinobi who entered with empty hands.",
         "badge": "bloodied-knuckle"
     },
     {
@@ -432,7 +432,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "taijutsu",
         "villageAffinity": "Frostfang",
         "title": "Mountain Stance",
-        "flavor": "Has been moved exactly once, and still disputes it.",
+        "flavor": "Witnesses remember this shinobi holding position through impacts that broke the ground around both feet.",
         "badge": "mountain-stance"
     },
     {
@@ -442,7 +442,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "taijutsu",
         "villageAffinity": "Stormveil",
         "title": "Crashing Wave",
-        "flavor": "Stormveil taijutsu: hit like the tide, leave like it too.",
+        "flavor": "Stormveil bouts show the same rhythm: absorb the first rush, turn the footing, then drive the opponent back across the chalk.",
         "badge": "crashing-wave"
     },
     {
@@ -451,7 +451,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "bukijutsu",
         "title": "Warborn Blade",
-        "flavor": "Forged in a war, quenched in the next one.",
+        "flavor": "Weapon masters from two separate wars signed the same field assessment: reliable edge, disciplined recovery.",
         "badge": "warborn-blade"
     },
     {
@@ -460,7 +460,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "bukijutsu",
         "title": "Crimson Duelist",
-        "flavor": "Accepts every duel, apologizes to none of them.",
+        "flavor": "Challenge clerks record a wandering swordsman who accepts posted duels and leaves each result under a real name.",
         "badge": "crimson-duelist"
     },
     {
@@ -469,7 +469,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "bukijutsu",
         "title": "Quiet Scabbard",
-        "flavor": "The blade speaks once per conversation.",
+        "flavor": "Most witnesses remember a single decisive draw, followed by the sound of the weapon returning to its sheath.",
         "badge": "quiet-scabbard"
     },
     {
@@ -478,7 +478,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "bukijutsu",
         "title": "Hunter's Edge",
-        "flavor": "Every notch on the haft is a story the prey did not finish.",
+        "flavor": "Hunter Guild notes praise a polearm user who reads a charging beast, controls the distance, and ends the hunt cleanly.",
         "badge": "hunters-edge"
     },
     {
@@ -487,7 +487,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pvp",
         "title": "Proven",
-        "flavor": "Never asks for a rematch. Never needs one.",
+        "flavor": "The proving-ground ledger shows seventy-five wins and very few disputed results.",
         "badge": "proving-grounds"
     },
     {
@@ -496,7 +496,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pvp",
         "title": "Ascendant",
-        "flavor": "The ladder was climbed with other climbers still on it.",
+        "flavor": "Ranked clerks watched this shinobi advance through active challengers instead of waiting for easier pairings.",
         "badge": "ranked-ascendant"
     },
     {
@@ -505,7 +505,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pvp",
         "title": "Giant Slayer",
-        "flavor": "Reads level differences as suggestions.",
+        "flavor": "Ten verified bouts ended with this shinobi defeating an opponent whose record looked stronger before the bell.",
         "badge": "giant-slayer"
     },
     {
@@ -514,7 +514,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pvp",
         "title": "The Wall",
-        "flavor": "Challengers arrive with plans. They leave with respect for masonry.",
+        "flavor": "Opponents prepared ways around this guard and still spent the bout trying to move it.",
         "badge": "wall-of-defiance"
     },
     {
@@ -523,7 +523,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pve",
         "title": "Hollow Seeker",
-        "flavor": "The Gate whispers to everyone. This one whispers back.",
+        "flavor": "Gate keepers logged ten completed descents and careful notes on the intake patterns encountered below.",
         "badge": "hollow-seeker"
     },
     {
@@ -532,7 +532,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pve",
         "title": "Endless Ascent",
-        "flavor": "The tower is infinite. Their patience is merely very large.",
+        "flavor": "Tower clerks watched this shinobi clear twenty-five floors by conserving supplies and refusing unnecessary fights.",
         "badge": "tower-climber"
     },
     {
@@ -541,7 +541,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pve",
         "title": "Mission Hound",
-        "flavor": "The board runs out of postings before they run out of morning.",
+        "flavor": "Mission clerks know this shinobi by the stack of completed orders returned before midday.",
         "badge": "mission-hound"
     },
     {
@@ -550,7 +550,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pve",
         "title": "Beast Tracker",
-        "flavor": "Knows every hunt by its footprints, and several by first name.",
+        "flavor": "Guild trackers trust this shinobi to identify a target from damaged brush, spoor, and one partial print.",
         "badge": "beast-tracker"
     },
     {
@@ -559,7 +559,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pve",
         "title": "Boss Breaker",
-        "flavor": "Big health bars are just long to-do lists.",
+        "flavor": "Great-beast teams record this shinobi staying in the fight long enough to create a hundred thousand points of damage.",
         "badge": "boss-breaker"
     },
     {
@@ -568,7 +568,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pve",
         "title": "Dungeon Delver",
-        "flavor": "If it is dark, locked, and humming — they are already inside.",
+        "flavor": "Dungeon wardens keep finding this shinobi beyond doors their own survey teams had marked unopened.",
         "badge": "dungeon-delver"
     },
     {
@@ -578,7 +578,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Ashen Leaf",
         "title": "Hearthkeeper",
-        "flavor": "Ashen Leaf’s fires stay lit because someone keeps feeding them quietly.",
+        "flavor": "Ashen Leaf’s Register shows three weeks of duties kept and repairs funded without a public claim for credit.",
         "badge": "ashen-hearth"
     },
     {
@@ -588,7 +588,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Ashen Leaf",
         "title": "Ember Disciple",
-        "flavor": "Trained where the drills end when the instructor gets bored. The instructor never gets bored.",
+        "flavor": "Ashen Leaf instructors remember a student who stayed after formal drills to repeat the parts that still failed.",
         "badge": "embers-discipline"
     },
     {
@@ -598,7 +598,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Stormveil",
         "title": "Tidebreaker",
-        "flavor": "Stormveil counts its storms survived. This one counts storms caused.",
+        "flavor": "Stormveil’s board records this shinobi carrying twenty-five war challenges back across the bell line.",
         "badge": "tidebreaker"
     },
     {
@@ -608,7 +608,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Stormveil",
         "title": "Thunder Raider",
-        "flavor": "Arrives with the thunder. The lightning is just the announcement.",
+        "flavor": "Raid parties learned to watch for this shinobi at the front whenever Stormveil’s thunder covered an approach.",
         "badge": "thunder-raider"
     },
     {
@@ -618,7 +618,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Frostfang",
         "title": "Northern Fang",
-        "flavor": "In the north the frost bites first — and it learned the hard way who bites back.",
+        "flavor": "Frostfang’s Count lists eight threatened sectors where this shinobi held until the missing names came home.",
         "badge": "northern-fang"
     },
     {
@@ -628,7 +628,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Frostfang",
         "title": "Winter Sentinel",
-        "flavor": "Stood the long watch. The long watch blinked first.",
+        "flavor": "Watch captains recorded this shinobi completing the full northern rotation through cold, injury, and repeated attacks.",
         "badge": "winter-sentinel"
     },
     {
@@ -638,7 +638,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Moonshadow",
         "title": "Veiled Lantern",
-        "flavor": "Moonshadow’s streets are safe because something politely unseen keeps them so.",
+        "flavor": "Moonshadow route books show thirty quiet discoveries turned over to the people responsible for keeping those streets safe.",
         "badge": "veiled-lantern"
     },
     {
@@ -648,7 +648,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Moonshadow",
         "title": "Midnight Runner",
-        "flavor": "The missions nobody logs, delivered by the shinobi nobody saw.",
+        "flavor": "Moonshadow’s sealed office has one hundred fifty completed orders under this mark, most returned without public notice.",
         "badge": "midnight-errand"
     },
     {
@@ -657,7 +657,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "explorer",
         "title": "Pathfinder",
-        "flavor": "Shortcuts are just long-cuts nobody was brave enough to check.",
+        "flavor": "Survey notes show this shinobi checking side routes others dismissed, then marking which ones actually saved time.",
         "badge": "hidden-path"
     },
     {
@@ -666,7 +666,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "explorer",
         "title": "Wayfarer",
-        "flavor": "Home is a direction, not an address.",
+        "flavor": "Road journals place this shinobi a thousand tiles from familiar ground, still carrying clear return marks.",
         "badge": "wayfarers-mark"
     },
     {
@@ -675,7 +675,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "explorer",
         "title": "Rumor Chaser",
-        "flavor": "Every tall tale in every tavern gets personally fact-checked.",
+        "flavor": "Tavern rumors sent this shinobi to forty sites. The returned notes separate what was true from what merely sold drinks.",
         "badge": "rumor-chaser"
     },
     {
@@ -684,7 +684,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "explorer",
         "title": "Stranger's Friend",
-        "flavor": "Wanderers on every road owe this one a favor, a meal, or an apology.",
+        "flavor": "Couriers, medics, and road merchants in every country recognize this shinobi and can name a favor completed for them.",
         "badge": "strangers-friend"
     },
     {
@@ -693,7 +693,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "support",
         "title": "Shielding Palm",
-        "flavor": "An open hand that has stopped more blades than most swords.",
+        "flavor": "Combat medics credit this shinobi’s shields with stopping injuries their supplies could not have treated in time.",
         "badge": "shielding-palm"
     },
     {
@@ -702,7 +702,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "support",
         "title": "Field Medic",
-        "flavor": "Runs toward the scream. Bills nobody.",
+        "flavor": "Field reports repeatedly place this medic at the first cry for help, treating whoever was bleeding before asking for a name.",
         "badge": "field-medic"
     },
     {
@@ -711,7 +711,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "support",
         "title": "Purifier",
-        "flavor": "Curses, poisons, despair — all laundry, all washable.",
+        "flavor": "Patients remember poison drawn, genjutsu broken, and panic treated with the same steady hands.",
         "badge": "purifying-light"
     },
     {
@@ -720,7 +720,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pets",
         "title": "Pack Leader",
-        "flavor": "Speaks fluent growl, purr, and dramatic silence.",
+        "flavor": "Stable hands watch this tamer read flattened ears, stiff tails, and warning growls before a companion has to bite.",
         "badge": "pack-leader"
     },
     {
@@ -729,7 +729,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pets",
         "title": "Wild Heart",
-        "flavor": "Half the menagerie followed them home. The other half is en route.",
+        "flavor": "Expedition records show companions returning fed, treated, and willing to leave with the same tamer again.",
         "badge": "wild-heart"
     },
     {
@@ -738,7 +738,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "pets",
         "title": "Colosseum Tamer",
-        "flavor": "The crowd chants the pet’s name. The tamer prefers it that way.",
+        "flavor": "Colosseum crowds know the companion’s name first. The tamer keeps pointing back to it after every win.",
         "badge": "coliseum-tamer"
     },
     {
@@ -747,7 +747,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "cards",
         "title": "Card Sharp",
-        "flavor": "Shuffles like a magician, wins like an accountant.",
+        "flavor": "Card Hall dealers remember a neat shuffle, exact counts, and very few wagers made without a reason.",
         "badge": "card-sharp"
     },
     {
@@ -756,7 +756,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "cards",
         "title": "The Table's Shadow",
-        "flavor": "Nobody remembers inviting them to the game. Nobody dares un-invite them.",
+        "flavor": "Road games and formal halls both record this player taking a seat, stating the stake, and leaving with more wins than losses.",
         "badge": "tables-shadow"
     },
     {
@@ -765,7 +765,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "war",
         "title": "Sector Warden",
-        "flavor": "Holds ground like the ground asked them personally.",
+        "flavor": "War reports place this defender on eight sectors through the final signal, even after relief was late.",
         "badge": "sector-warden"
     },
     {
@@ -774,7 +774,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "war",
         "title": "Banner Taker",
-        "flavor": "Collects enemy flags the way others collect excuses.",
+        "flavor": "Quartermasters have logged enemy flags from twenty raids under this shinobi’s return receipts.",
         "badge": "banner-taker"
     },
     {
@@ -783,7 +783,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "war",
         "title": "Siege Runner",
-        "flavor": "Between the lines, under the arrows, on schedule.",
+        "flavor": "Commanders kept receiving orders through broken lines because this runner changed routes without losing the schedule.",
         "badge": "siege-runner"
     },
     {
@@ -792,7 +792,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "rare",
         "category": "war",
         "title": "War Drummer",
-        "flavor": "Every war has a heartbeat. Someone has to be it.",
+        "flavor": "Supply, signal, and casualty rolls from three wars all depend on work this shinobi kept moving behind the front.",
         "badge": "war-drummer"
     },
     {
@@ -801,7 +801,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "explorer",
         "title": "Wanderer",
-        "flavor": "The road never asked for credentials. Neither did they.",
+        "flavor": "Four hundred explored tiles show a shinobi who kept reliable notes after the marked patrol roads ended.",
         "badge": "wandering-shinobi"
     },
     {
@@ -810,7 +810,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "village",
         "title": "Veteran",
-        "flavor": "Fifty levels of showing up. It counts for more than anyone admits.",
+        "flavor": "For ten days of village work, this shinobi showed up when assigned and stayed until the task was signed closed.",
         "badge": "village-veteran"
     },
     {
@@ -819,7 +819,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "pvp",
         "title": "Fighter",
-        "flavor": "Not the strongest in the ring. Reliably in the ring.",
+        "flavor": "The arena ledger shows fifteen wins from a shinobi who kept answering the next bell.",
         "badge": "proven-fighter"
     },
     {
@@ -828,7 +828,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "explorer",
         "title": "Road-Worn",
-        "flavor": "Boots resoled six times. Resolve, zero times.",
+        "flavor": "Guild cobblers resoled the same boots through twenty-five completed hunts.",
         "badge": "road-worn-shinobi"
     },
     {
@@ -837,7 +837,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "ninjutsu",
         "title": "Ember Student",
-        "flavor": "The first spark was an accident. The next thousand were not.",
+        "flavor": "Instructors recorded the first unstable spark, then sixty field victories earned through deliberate control.",
         "badge": "ember-student"
     },
     {
@@ -846,7 +846,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "genjutsu",
         "title": "Quiet Mind",
-        "flavor": "Learned early that the loudest jutsu is rarely the one that ends it.",
+        "flavor": "Sixty fights ended after this shinobi made the enemy trust the wrong sight or sound.",
         "badge": "quiet-mind"
     },
     {
@@ -855,7 +855,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "taijutsu",
         "title": "Calloused Fist",
-        "flavor": "Gloves kept wearing out. The hands did not.",
+        "flavor": "Training staff replaced several pairs of gloves while the same hands kept improving.",
         "badge": "calloused-fist"
     },
     {
@@ -864,7 +864,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "bukijutsu",
         "title": "Steel Apprentice",
-        "flavor": "First blade: borrowed. First lesson: give it back sharper.",
+        "flavor": "The first blade was borrowed and returned sharper. Later weapon loans came without hesitation.",
         "badge": "steel-apprentice"
     },
     {
@@ -873,7 +873,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "pve",
         "title": "Field Hand",
-        "flavor": "No mission too small, no ledger left unbalanced.",
+        "flavor": "Mission clerks count sixty completed orders, including the small jobs experienced shinobi often ignore.",
         "badge": "field-hand"
     },
     {
@@ -882,7 +882,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "pets",
         "title": "Beast Friend",
-        "flavor": "Was adopted by a pet, technically.",
+        "flavor": "Stable hands joke that the companion chose first. Ten duel wins suggest the arrangement works.",
         "badge": "beast-friend"
     },
     {
@@ -891,7 +891,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "cards",
         "title": "Table Regular",
-        "flavor": "Has a usual seat, a usual bet, and an unusual win rate.",
+        "flavor": "The Card Hall keeps a usual seat open for this player and has recorded ten wins from it.",
         "badge": "table-regular"
     },
     {
@@ -900,7 +900,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "support",
         "title": "Lantern Bearer",
-        "flavor": "Someone has to hold the light. Someone always did.",
+        "flavor": "Patients remember this shinobi holding the lamp steady while treating wounds after dark.",
         "badge": "lantern-bearer"
     },
     {
@@ -909,7 +909,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "explorer",
         "title": "Trailblazer",
-        "flavor": "Every map starts with somebody’s first wrong turn.",
+        "flavor": "Ten discoveries began as wrong turns that this shinobi marked clearly for the next traveler.",
         "badge": "first-steps"
     },
     {
@@ -918,7 +918,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "village",
         "title": "Honest Hand",
-        "flavor": "Paid their dues. Then paid a little extra, quietly.",
+        "flavor": "Village receipts show every due paid and several repairs funded without a name on the notice board.",
         "badge": "honest-ryo"
     },
     {
@@ -927,7 +927,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "basic",
         "category": "village",
         "title": "Steadfast",
-        "flavor": "The village remembers who answered the bell without asking whose fire it was.",
+        "flavor": "Four defense rolls show this shinobi answering the alarm before asking whose street was threatened.",
         "badge": "steadfast-neighbor"
     }
 ] as const satisfies readonly ChronicleLegacySource[];

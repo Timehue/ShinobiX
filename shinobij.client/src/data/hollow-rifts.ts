@@ -1,7 +1,7 @@
 /*
  * hollow-rifts: wandering-AI quests that route a player into a SCALED-DOWN event
- * Hollow Gate. A roaming NPC reports a "strange energy" / "hollow gate beast
- * sighting" at a sector; the player travels there, finds a rift/cave/shrine, and
+ * Hollow Gate. A roaming NPC brings a concrete field report from a sector; the
+ * player travels there, finds a rift/cave/shrine, and
  * descends into a short (1-3 floor) event gate with a themed final boss scaled to
  * their level. Beating the boss completes the quest.
  *
@@ -88,9 +88,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "Dusk on a low country road lined with small leaning gravestones. A hooded shrine keeper kneels among them, brushing moss from a nameless marker, a walking staff resting across her knees.",
                 speaker: "Senna Graveward",
                 dialogue: [
-                    "I keep the graves that no one else remembers, and I have walked this low road longer than I can rightly say.",
-                    "Most travelers pass these stones without a glance, yet you slowed, and every battle and every choice you have made has already carved something into your spirit.",
-                    "A shape has formed behind your footsteps, and though it is faint and far from finished, one day someone with the eyes to see will know it and call it by its name.",
+                    "Hold this brush while I set the stone straight. You stopped to help, so I am putting you to work.",
+                    "Senna Graveward. I keep the markers whose families are gone. Most travelers step over them. You stepped around.",
+                    "That tells me one useful thing about you. I need one useful thing before I trust someone with the grave I am about to show them.",
                 ],
             },
             {
@@ -98,9 +98,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "Senna sits back on her heels among the leaning stones, resting her staff across her knees as if the question deserves her full attention.",
                 speaker: "Senna Graveward",
                 dialogue: [
-                    "You turned the word Legacy over just now, I saw it cross your face, so let me tell it true, since half the roads lie about it.",
-                    "It is never bought, never gifted, and never carried in your blood. It is earned the slow way, by the fights you choose and the mercy you keep or spend, until your whole life has pressed one stubborn shape into the world.",
-                    "You are too early in your training to hold one yet. When your field record nears its fiftieth rank, a quiet old traveler will find you, name the shape your deeds have made, and offer you the paths your living has opened. You take a single one, it is yours for good, and it deepens as you prove it.",
+                    "You have heard people say Legacy as if it means an ancestor hiding in the blood. It does not.",
+                    "Each Withheld was an ordinary person of the Sunken Court's age who refused to surrender a defining choice. Witnesses kept seeing the same hundred patterns in those refusals. Those patterns are the Legacies.",
+                    "Near the Fiftieth Rank, a Sage may compare your witnessed deeds with those patterns. He can name what he sees. He cannot put it inside you, and you may send him away.",
                 ],
             },
             {
@@ -108,13 +108,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "Senna rises and points with a weathered hand toward a dark ridge on the horizon, where a faint violet shimmer bleeds up from a broken shrine among the far hills.",
                 speaker: "Senna Graveward",
                 dialogue: [
-                    "There is a strange energy stirring in %sector, where an old shrine has leaned forgotten since before the first maps were drawn.",
-                    "It marks one of the Withheld, an ordinary person of the Sunken Court's age who refused to surrender one defining choice, and the years wore their name away to nothing.",
-                    "No soul waits in that stone. The Gate has cracked it and is trying to counterfeit the refusal recorded there, and I would ask you to go down and preserve the deed before the machine edits it away.",
+                    "The marker I mean stands in %sector. A rift split the shrine floor yesterday and rubbed half its oldest glyph smooth.",
+                    "That glyph records one of the Withheld refusing cession. The person's name is gone, but the deed is still legible if you know the old cuts.",
+                    "No soul waits in that stone. The Gate is copying the recorded refusal and building a fighter from it. Stop the copy, then take a charcoal rubbing of the original mark for me.",
                 ],
                 choices: [
-                    { text: "I will go down and remember the true one.", accept: true },
-                    { text: "Not today. I am not ready for this.", conclusion: "There is no shame in walking away, for the road keeps its own patience and so do I. Come find me when your footsteps turn this way again, and the stones will still be here." },
+                    { text: "I will recover the mark and stop the copy.", accept: true },
+                    { text: "Not today. Keep the charcoal for me.", conclusion: "Senna wraps the charcoal and paper together. I will keep them dry, she says. You keep yourself alive. Come back when both parts of that plan still sound sensible." },
                 ],
             },
         ],
@@ -124,9 +124,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A narrow stair of worn stone spirals down into a dim, humming hollow beneath the cracked shrine floor, a single leaning grave marker glowing faintly at the bottom.",
                 speaker: "Narrator",
                 dialogue: [
-                    "The rift opens like a wound in the shrine floor, and the stairs down are shorter than you feared, worn smooth by feet that walked here ages ago.",
-                    "You understand, without being told, that a Legacy is not a thing of blood but a shape a life leaves behind, a pattern of deeds that outlasts the one who made it.",
-                    "Its first keepers were erased so wholly that even their names decayed into silence, and yet the world has begun to gather its legends into one remembered hall, so that shape by buried shape those names are being spoken aloud again.",
+                    "The shrine floor has split around the marker without knocking it over. The cut looks deliberate.",
+                    "Three glyph strokes remain under the moss: an open hand, a closed gate, and a witness mark.",
+                    "A second set of strokes moves in the dark below, practicing the same refusal without understanding what was refused.",
                 ],
             },
             {
@@ -134,14 +134,14 @@ export const hollowRifts: HollowRift[] = [
                 scene: "At the bottom of the short gate a figure waits in the grey light, its features blurred and shifting as though it can never quite decide whose face to wear. Where its heart should be, a single warm ember of someone else's refusal still burns.",
                 speaker: "The Unremembered",
                 dialogue: [
-                    "I had a name once, I am almost certain of it, and I have searched for it in every face and every grave until my own edges wore away to nothing.",
-                    "So I have taken this bright and borrowed shape instead, this warm thing that hums inside me, and I mean to wear it and be someone at last, even though it was never mine to hold.",
-                    "Do not pity me and do not spare me, little shinobi, for a stolen name is still a name, and I would sooner be a lie that is remembered than a truth that no one ever was.",
+                    "The stone says someone refused. It does not say what they were called.",
+                    "The Gate gave me their stance, their grip, and the moment they said no. It gave me nothing that came before or after.",
+                    "Fight me. If the copy breaks, read the original mark aloud where a witness can hear you. That is more of a name than I have now.",
                 ],
                 choices: [
-                    { text: "Rest now. I will carry the true name back into the light where it belongs.", descend: true },
-                    { text: "Not yet. I need to steady myself before I face this.", conclusion: "You draw back from the seam of cold light, and the hollow voice fades behind you without anger, as patient and lost as it has always been." },
-                    { text: "Leave this name to its rest. It is not mine to carry.", abandon: true, conclusion: "You turn from the cold seam and let the borrowed shape keep its quiet. Somewhere on the low road, Senna sets another nameless stone straight and says nothing." },
+                    { text: "I will break the copy and preserve the deed under witness.", descend: true },
+                    { text: "Not yet. I need a steadier hand.", conclusion: "You climb to the shrine floor and wrap the charcoal again. Below, the copied stance starts its form from the beginning." },
+                    { text: "Leave the marker undisturbed.", abandon: true, conclusion: "You turn from the stair. On the low road, Senna unwraps a blank sheet, studies it, and puts it away without asking what happened." },
                 ],
             },
         ],
@@ -164,9 +164,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The road, a scout catching her breath against a boundary stone",
                 speaker: "Scout Vessa",
                 dialogue: [
-                    "Vessa is bent over her own knees, map still clutched in one fist, and she is not a person who bends over easily.",
-                    "There is a tear out there. A seam in the air, the color of a bruise, and it hums like the Hollow Gate hums, but there is no gate for a hundred miles.",
-                    "Something came out of it while I watched. Long. Wrong-jointed. It went back in before I could count its legs, and I did not want to.",
+                    "Give me one breath before you ask. I ran the last ridge instead of dying on it, and I would like to enjoy the difference.",
+                    "A violet seam is hanging above the east slope. No torii, no shrine, just a split in open air with the Hollow Gate's pressure behind it.",
+                    "A long thing climbed out while I marked the map. Too many joints. It went back before I counted the legs, which was polite of it.",
                 ],
             },
             {
@@ -174,9 +174,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "Vessa keeps her eyes on the seam while she speaks, plain and level, the way she would name a rockslide or a bad ford.",
                 speaker: "Scout Vessa",
                 dialogue: [
-                    "The Hollow Gate is older than any village, older than the roads. It is the power grid the Sunken Court left running when that ancient civilization died, buried under the four villages and Central both, and it is the same lost people the old legacies still trace back to.",
-                    "The villages never built it, they only settled on its four anchors and learned to feed it, and for thirty years now each has quietly poured its takings down into the grid, Stormveil's drained reasons and Ashen Leaf's futures, Frostfang's exits and Moonshadow's secrets.",
-                    "A seam like that one is a small tear in that grid, where everything the Gate ever swallowed comes leaking back out to pool and thicken into a body, and this one tore open far out in open country where nobody was near enough to notice or knew how to make it stop.",
+                    "Here is the short version. The Sunken Court built the Gate as civic machinery. The city died. The machinery kept running under Central and the four villages.",
+                    "Its village anchors take reasons, futures, exits, and surrendered trust. The local systems keep a share. Hidden pipes carry the rest down.",
+                    "That seam is a split pipe. What the Gate took has pooled on the surface and built itself legs. I saw where those legs went.",
                 ],
             },
             {
@@ -184,13 +184,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The boundary stone, the scout's map spread flat",
                 speaker: "Scout Vessa",
                 dialogue: [
-                    "It is sitting in %sector, if you can call what it does sitting. The energy is spreading. Slow, but spreading.",
-                    "I report anomalies. I do not close them. That is above my pay and, honestly, above my nerve.",
-                    "You have been inside the Gate and come back out. If anyone can walk into that seam and put whatever is nesting there back in the dark, it is you.",
+                    "The seam is in %sector. The dead grass around it widened by six strides while I watched.",
+                    "My order says mark anomalies and return. It says nothing about crawling into one, and I am choosing to respect the wording.",
+                    "You have survived Gate pressure before. Go inside, find the creature, and close the seam before I need a second sheet of map.",
                 ],
                 choices: [
-                    { text: "Go investigate the seam.", accept: true },
-                    { text: "Not yet. Mark it on my map and I will decide.", conclusion: "She scratches a bruise-colored circle onto your map where the seam sits, and does not pretend she is sorry you are the one going." },
+                    { text: "Mark the seam. I will close it.", accept: true },
+                    { text: "Not yet. Give me the route and your leg count.", conclusion: "Vessa draws the ridge approach and writes LEGS: ENOUGH beside the seam. That is the most honest field note she has left." },
                 ],
             },
         ],
@@ -232,9 +232,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A kennel-yard off the road, chains rattling in empty runs",
                 speaker: "Houndmaster Bel",
                 dialogue: [
-                    "Bel keeps a hand flat against the fence rail, the way you calm a spooked animal, except the yard behind her is empty and it is her own hand shaking.",
-                    "My pack went wrong three nights ago. Every companion I have raised, gentle beasts, family beasts, and they all turned their heads the same way at the same moment and would not turn back.",
-                    "They ran for the ridge, toward a tear in the air that smells like the Hollow Gate and hungers like nothing I have ever fed.",
+                    "Do not ask why the runs are empty. I will tell you once my hand stops shaking enough to point.",
+                    "Three nights ago, every companion I raised turned toward the north ridge at the same moment. Nara broke the gate. The rest followed her.",
+                    "There is a Gate rift up there. I could smell its cold chakra on their bedding after they left.",
                 ],
             },
             {
@@ -242,9 +242,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The kennel-yard at dusk, straw and iron and the low sound of animals settling. Bel loops an empty lead back over its peg and turns to face you, her voice dropping to the low even tone she saves for frightened animals.",
                 speaker: "Houndmaster Bel",
                 dialogue: [
-                    "A companion is not a weapon you draw and put away, it is a beast you raise from a pup, and it fights at your side because it trusts you and not because you own it.",
-                    "That trust is the whole of the bond, there is no leash holding it in place, and a beast that loves you will step in front of the blow meant for you every time without being told.",
-                    "The rift carries a hunger that crawls into an animal and takes hold of it from the inside, and once that hunger has the reins the trust counts for nothing, so the gentlest companion you ever raised will turn its teeth on you.",
+                    "The mission forms call them pets. I do not. Nara has opened my door every morning for nine years because she wanted breakfast, not because I owned the hinge.",
+                    "That is the bond. A companion stays, fights, and sometimes steps into a blow because it chose the person beside it.",
+                    "The rift is replacing that choice with hunger. If it can do that to Nara, it can do it to any companion that gets close.",
                 ],
             },
             {
@@ -252,13 +252,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The kennel gate, a single broken collar in Bel's hands",
                 speaker: "Houndmaster Bel",
                 dialogue: [
-                    "It is nesting in %sector. The seam is pulling beast-hunger out of the ground and pouring it into whatever is closest, and what was closest was my alpha.",
-                    "She is not my alpha anymore. She is the warren's now, a thing that calls more beasts the longer it breathes, and it will not stop calling until someone ends it.",
-                    "You keep companions. You know the difference between a beast and a beast being ridden. Go down and give her the mercy I cannot walk in there to give.",
+                    "The den is in %sector. Tracks from six wild packs already join my pack's trail at the entrance.",
+                    "Nara is still in there. I heard her call once, then the rift answered in her voice and every animal on the ridge moved closer.",
+                    "You know what a companion looks like when something else is driving. Stop what is riding her. If you cannot bring Nara home, do not let the rift keep using her voice.",
                 ],
                 choices: [
-                    { text: "Go end the Warren Alpha.", accept: true },
-                    { text: "Not yet. Let me ready my own companions first.", conclusion: "Bel nods hard, grateful for the honesty. Ready them well, she says. Whatever is down there was ready a long time ago." },
+                    { text: "I will find Nara and silence the warren.", accept: true },
+                    { text: "Not yet. I need to ready my own companion.", conclusion: "Bel checks your companion's collar, paws, and breathing before she nods. Ready means fed, rested, and willing, she says. Come back when all three are true." },
                 ],
             },
         ],
@@ -268,13 +268,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A beast-den torn open under the ridge, bones and broken collars underfoot",
                 speaker: "Narrator",
                 dialogue: [
-                    "The rift here breathes warm and rank, like the inside of something living. Old collars hang from the roots. Some of them are small.",
-                    "Deeper in, a sound that is almost a pack and almost a single throat, calling and calling, and the beast-hunger in the air answers it back.",
-                    "The Warren Alpha waits at the center, too many shapes moving under one hide.",
+                    "Hot animal breath rolls out of the rift. Old collars hang from the roots, sorted from largest to smallest.",
+                    "One throat calls from below. A dozen animals answer on the same note.",
+                    "Nara waits at the center of the warren. Her old collar is still buckled, but more than one shape moves under her hide.",
                 ],
                 choices: [
                     { text: "Descend into the warren.", descend: true },
-                    { text: "Step back. Come back when I am ready.", conclusion: "You back off. The calling does not stop. It never stops. It only gets one voice louder." },
+                    { text: "Step back. Come back when I am ready.", conclusion: "You back away from the den. The next call uses Nara's voice. The answer comes from every tunnel at once." },
                     { text: "Leave this rift behind. It is not mine to close.", abandon: true, conclusion: "You turn from the den. Somewhere Bel unhooks a lead from a peg and hangs it back up, and does not say the thing she wanted to say." },
                 ],
             },
@@ -300,9 +300,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A storm-country waystation, a clerk hunched over a book that keeps writing itself",
                 speaker: "Recorder Sann",
                 dialogue: [
-                    "Sann has a clerk's steady hands and a clerk's steady face, and both are failing him at once, which is how you know it is real.",
-                    "You know the drain. The old Engine took reasons out of Stormveil, priced them, and shipped them down it to the Hollow Gate, every manifest stamped with a quartered circle. I copied the manifests for years and told myself copying was not the same as carrying.",
-                    "A tear has opened over the Engine's old drain-line, and it is not taking reasons in. It is bleeding them back out, all the milked grief of this village at once, and the grief has learned to stand up and walk.",
+                    "My hands do not shake when I copy casualty rolls. They are shaking now. Sann, routing recorder, formerly of Stormveil's arena office.",
+                    "I copied the manifests that sent fighters' stolen reasons down to the Hollow Gate. Every one carried a circle cut into four quarters.",
+                    "A rift opened over that drain. Reasons are coming back up together, and the mass has learned to stand.",
                 ],
             },
             {
@@ -310,9 +310,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The disused Engine yard behind Stormveil's arena. Sann sets a lantern on the cracked intake floor, and the old drain-seams under the chalk ring catch the light like the veins of something asleep.",
                 speaker: "Recorder Sann",
                 dialogue: [
-                    "You have stood on this arena floor and thought it only soaked up sweat and blood, but the Engine underneath it was built to drink something quieter, the reason each fighter carried in with them.",
-                    "A reason is the plainest thing in the world, for it is the grief that will not let you sit still and the cause that makes a tired person stand back up one more time, and the Engine pulled that clean out of people at the peak of a bout and shipped it down the lower drain, the one stamped with a quartered circle, to the Gate that runs beneath all four villages.",
-                    "The winners went home with the purse and no memory of why they had ever cared enough to bleed, and I entered every one of those hollowed men in a tidy column and stamped the result fair.",
+                    "Stormveil built its arena over this intake. At the height of a bout, the Engine pulled out the reason a fighter cared enough to bleed.",
+                    "The crowd kept the score. The fighter kept the bruises. The lower drain carried the cause away under a quartered-circle seal.",
+                    "I entered each result as settled and fair. I can show you the columns. I cannot make that wording honest.",
                 ],
             },
             {
@@ -320,13 +320,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The waystation table, a manifest weighted flat by a storm-glass paperweight",
                 speaker: "Recorder Sann",
                 dialogue: [
-                    "It is in %sector, right over the drain-line, and the quartered circle is scorched into the stone beside it, fresh, like a bill that was never paid.",
-                    "The thing wearing all those stolen reasons calls itself nothing, but the Engine made it, so I call it the Engine-Echo. It is every closure bout and every legacy grudge this village ever sold, given one body.",
-                    "I only ever copied the ledger. You have been inside the Gate. Go put the Engine's debt back in the dark before it collects the whole village to pay itself off.",
+                    "The break is in %sector, directly above the drain-line. A fresh quartered circle is burned into the stone beside it.",
+                    "I call the thing inside the Engine-Echo. It is built from closure bouts, estate fights, and every cause the arena declared settled after extracting it.",
+                    "I copied the names that made it. You know how to survive Gate pressure. Close the break before the Echo reaches the arena and finds more names.",
                 ],
                 choices: [
                     { text: "Go silence the Engine-Echo.", accept: true },
-                    { text: "Not yet. Show me the manifests first.", conclusion: "He turns the book toward you and lets you read a column of names he has clearly read a thousand times. When you are ready, he says. The circle will keep." },
+                    { text: "Not yet. Show me the manifests first.", conclusion: "Sann turns the book toward you. Beside each fighter is a reason in one hand and the word SETTLED in another. He waits while you read every line on the open page." },
                 ],
             },
         ],
@@ -336,9 +336,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A rift torn over an old drain channel, the quartered circle scorched beside it, storm-light bleeding up",
                 speaker: "Narrator",
                 dialogue: [
-                    "The seam here hums in the storm-country key, the exact pitch the Engine used to hum, and the quartered circle beside it is still warm to stand near.",
-                    "Reasons pour up out of the drain like smoke that remembers being a person. They braid together the deeper you look, into shoulders, into a head, into a thing that turns toward you because you are new.",
-                    "The Engine-Echo rises out of the village's own stolen grief. It does not hate you. It simply has a debt, and you are standing in the collection.",
+                    "The drain vibrates at the same pitch as Stormveil's arena bell. The quartered circle beside it is hot through your boot.",
+                    "Voices rise through the split pipe, each stating a different cause. They knot into shoulders, hands, and a head that turns toward the newest name in the chamber.",
+                    "The Engine-Echo stands on the village's stolen reasons. Every voice inside it remembers why it came to fight.",
                 ],
                 choices: [
                     { text: "Descend to the Engine-Echo.", descend: true },
@@ -368,9 +368,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A quiet shrine-road, an old keeper reading names off a worn wooden slate",
                 speaker: "Keeper Oru",
                 dialogue: [
-                    "Oru keeps the small shrine where the road remembers the Wandering Sage's teaching, that a legacy is a thing you earn and never a thing you are simply handed, and never a thing that can be taken back once it is truly yours.",
-                    "There was a shinobi once whose era ended badly. A legendary name, a name they carve in the Hall of Legends, and then a fall, and then the slow work of being forgotten on purpose.",
-                    "A rift has found what is left of that name. Not the person. The person is long gone. Only the hollow shape a legacy leaves behind once its owner is dead and forgotten, the technique with no one left to mean it, and it is trying to be walked again.",
+                    "I am Oru. Hold the lamp higher. My eyes are old, and this name deserves to be read without guessing.",
+                    "The shinobi on this slate earned a place in the Hall, then used that standing to do harm. Their era ended with the entry revoked and the reason written beside it.",
+                    "A rift copied the old technique from that record. It did not bring the person back. It built a perfect stance with nobody inside to decide when to stop.",
                 ],
             },
             {
@@ -378,9 +378,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "Inside the small shrine, Oru stands before a wall of carved names lit by low lanternflame, one hand resting on the cold stone.",
                 speaker: "Keeper Oru",
                 dialogue: [
-                    "The world keeps a great record called the Hall of Legends, and beside every name it stamps the era, the age of history, in which that deed was done.",
-                    "A legacy is a title and a signature technique you earn by how you truly lived, and once you accept it, it is sealed to you forever and can never be traded away or stripped from you.",
-                    "What can change is a name's standing in that Hall, because a fallen legend's entry may be marked revoked or hidden with a note explaining the correction, yet even then the world annotates the record rather than erasing it.",
+                    "The Hall records witnessed deeds, the era in which they happened, and the names people accepted for the patterns they repeated.",
+                    "Accepting a Legacy is permanent. The Hall may later condemn what you do with it, but it cannot pretend the earlier deeds never happened.",
+                    "That is why we mark a fallen name instead of chiseling it out. Erasure would give the next liar room to tell the story clean.",
                 ],
             },
             {
@@ -388,13 +388,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The shrine step, the name-slate turned face-down",
                 speaker: "Keeper Oru",
                 dialogue: [
-                    "It stands in %sector, wearing an era that already ended, swinging techniques no living hand has the right to anymore.",
-                    "The Sage would tell you a hollow legacy is the most dangerous kind, because it fights with everything a legend earned and none of the reasons a legend stopped. I am only a keeper. I light the shrine. I do not close the wounds it warns about.",
-                    "You have earned your own path the hard way. You will understand what it means to meet a name that was earned and then hollowed. Go and let that era rest.",
+                    "The copied form is in %sector. It attacks anyone who approaches and resets to the opening stance after every fight.",
+                    "It has every technique the old shinobi earned and none of the judgment that once chose when to use them. That makes it dangerous, not sacred.",
+                    "Break the copy. Bring me the shard carrying its Hall mark, and I will file it beside the warning instead of the legend.",
                 ],
                 choices: [
                     { text: "Go lay the Hollowed Name to rest.", accept: true },
-                    { text: "Not yet. Tell me whose name it was.", conclusion: "Oru turns the slate over, reads a name aloud once, and turns it back down. That much it earned, he says. The rest it lost. Come back when you are ready to give it the ending." },
+                    { text: "Not yet. Tell me whose name it was.", conclusion: "Oru turns the slate over and reads the name once. Then he reads the revocation beneath it, just as clearly. You asked for the whole entry, he says. Keep both parts." },
                 ],
             },
         ],
@@ -404,9 +404,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A rift like an old shrine turned inside out, era-banners rotted to threads",
                 speaker: "Narrator",
                 dialogue: [
-                    "The seam here is quiet where the others roared, reverent, the way a tomb is reverent. That is worse.",
-                    "Banners of an ended era hang in the dark, rotted to cobweb, and beneath them a figure practices a form, alone, perfect, forever, the way only a hollow thing can be perfect.",
-                    "The Hollowed Name turns to face you with a legend's poise and nothing at all behind the eyes. It remembers every technique. It has forgotten every reason. It will fight you the way a name fights when it refuses to end.",
+                    "No sound comes from the seam. Even your sandals land quietly after you cross it.",
+                    "Banners from the revoked era hang in strips. Beneath them, a figure repeats one combat form without tiring or correcting a single foot placement.",
+                    "The Hollowed Name sees you and returns to its opening stance. Technique survived. Judgment did not.",
                 ],
                 choices: [
                     { text: "Descend to the Hollowed Name.", descend: true },
@@ -436,9 +436,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A moonlit canal booth, its shelf of sealed files knocked to the floor",
                 speaker: "Broker Nemo",
                 dialogue: [
-                    "Nemo is a Moonshadow broker, which means he sells secrets for a living, and tonight he is not selling, which for his kind is a kind of terror.",
-                    "You know the Mirror. The machine under Moonshadow took surrendered trust, names and files and confessions, and piped them down to the Hollow Gate, every reading stamped with a quartered circle.",
-                    "A rift has cracked open a shard of the Mirror, and the shard is doing what the Mirror always did, only loose. It is putting on stolen faces. It walked past me wearing mine.",
+                    "Booth is closed. If you came to buy a secret, tonight's secret is that I am terrified. You may have that one free.",
+                    "Moonshadow's Mirror copied the trust people surrendered in names, files, and confessions. A quartered-circle pipe carried those copies to the Hollow Gate.",
+                    "A rift broke one piece loose. It walked past this booth wearing my face and greeted me with a name I sold twenty years ago.",
                 ],
             },
             {
@@ -446,9 +446,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The canal booth. Nemo keeps one hand flat on a shuttered whisper-booth's cold glass as if holding a door shut, his eyes on the faint quartered mark scored into its frame.",
                 speaker: "Broker Nemo",
                 dialogue: [
-                    "The Mirror was Moonshadow's still-water basin, and every person this village ever registered had a private reading of themselves drunk straight down into it.",
-                    "A secret is not only a whispered rumor, it is the exact moment you hand another person a name or a confession and believe they will keep you safe, and that surrendered trust is the thing the basin actually took.",
-                    "None of it stayed here either, because each reading was stamped with a quartered circle and piped down to the Hollow Gate, and now a loose shard of that hoard is walking my streets wearing the faces those secrets belonged to.",
+                    "The Mirror was a still-water basin under the market. Each private reading made a copy of the person who trusted the booth.",
+                    "The valuable part was not the secret itself. It was the moment someone believed the holder would keep them safe.",
+                    "The basin kept one copy here and sent another down the quartered-circle pipe. The loose shard is wearing those copies as faces.",
                 ],
             },
             {
@@ -456,13 +456,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The canal booth, a broken hand-mirror reflecting the wrong room",
                 speaker: "Broker Nemo",
                 dialogue: [
-                    "It is holding in %sector, a warden made of every secret the Mirror ever swallowed, and it wears the faces of the people those secrets belonged to, one after another, none of them home.",
-                    "I have spent my life selling other people's truths. I did not think one would ever come back wearing my mouth. I cannot fight a thing that keeps showing me people I sold.",
-                    "You have been inside the Gate and kept your own face. Go break the shard before it learns enough faces to stop being a rift and start being a person nobody can trust.",
+                    "The shard is holding in %sector. It changes faces whenever a witness recognizes the last one.",
+                    "I sold some of those people. I cannot promise I would strike when it borrows the right mouth. That is the honest limit of my service.",
+                    "You have faced Gate copies without mistaking them for the people they record. Break the shard and bring back every name etched on its rim.",
                 ],
                 choices: [
                     { text: "Go break the Mirror-Shard Warden.", accept: true },
-                    { text: "Not yet. Whose face was it wearing?", conclusion: "Nemo looks at you a long moment and does not answer, which is its own answer. Come back, he says, before it wears yours." },
+                    { text: "Not yet. Whose face was it wearing?", conclusion: "A client who trusted me, Nemo says. I sold the confession, the buyer sold the name, and now the copy knows my night-name. He shuts the booth before you can ask for a price." },
                 ],
             },
         ],
@@ -472,9 +472,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A rift of black glass and moonlight, reflections that move a half-beat late",
                 speaker: "Narrator",
                 dialogue: [
-                    "The seam here is a wound of mirror, and every surface shows you a room you are not standing in and a face you are not wearing.",
-                    "At the center a warden turns, and its face is a shard of the Mirror, and across it faces run like water, borrowed, surrendered, sold. For one beat it wears yours, and gets it slightly wrong.",
-                    "The Mirror-Shard Warden is every secret Moonshadow ever gave away, standing up and asking to be sold one more time.",
+                    "Every glass surface beyond the seam shows a different booth. None is the room where you stand.",
+                    "The warden turns. Faces move across its mirrored head, each paired with a true name scratched along the rim. It tries yours and places the eyes too far apart.",
+                    "The Mirror-Shard raises one hand. Every reflected hand in the chamber moves a half-beat earlier.",
                 ],
                 choices: [
                     { text: "Descend to the shard.", descend: true },
@@ -504,9 +504,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "A high ridge, Kite Harrow on a wagon's tailboard reading a contract she has already read",
                 speaker: "Kite Harrow",
                 dialogue: [
-                    "Kite Harrow is where the roads run out, unsworn as ever, no village mark on her and a ledger on her knee that names things no village will admit are named.",
-                    "You have closed the little tears. The stalker, the warren, the echoes. I have been keeping the receipts. Congratulations, you gave the Hollow Gate indigestion.",
-                    "This one is not a leak. The Engine, the Rootfire, the Vault, the Mirror, all four villages' tribute has been backing up the quartered-circle drain at once, and it has to go somewhere, and somewhere grew a body.",
+                    "You look tired. Good. I distrust people who reach the end of a long road looking refreshed.",
+                    "I kept a list of the rifts you closed: the stalker, Nara's warren, the Engine-Echo, the stolen faces. You have made the Hollow Gate expensive to ignore.",
+                    "This last break is not a leak. All four village drains backed up together. The overflow built one body large enough to carry everything at once.",
                 ],
             },
             {
@@ -514,9 +514,10 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The tailboard. Harrow taps a folded ledger against her knee and lets out a dry breath, done with riddles, ready to say the plain thing out loud.",
                 speaker: "Kite Harrow",
                 dialogue: [
-                    "Four villages, four machines, and every one of them quietly robs its own people: Stormveil's Engine drinks the reason a fighter ever picked up the knife, Ashen Leaf's Rootfire burns the life a child was going to grow into, Frostfang's Vault buys the moment you would have walked away and did not, and Moonshadow's Mirror swallows the trust you handed the person who swore they would keep you safe.",
-                    "None of that stays up here, because each machine leaves the locals a comforting little share on top and pipes the real surplus down one hidden lower pipe stamped with a circle cut in four quarters, a quarter for each village, straight into the buried thing they all feed and none of them will name.",
-                    "That buried thing is the Hollow Gate, and no village built it, it is the still-running power grid of the Sunken Court, the same ancient people your own legacy will one day trace back to. The four villages are only refugees who settled on its anchors and have fed it for thirty years, and the Heir you are walking toward is every last bit of that hoard forcing its way back out through one living body at once.",
+                    "Short version. Stormveil drains the reason behind a fight. Ashen Leaf burns the future someone was becoming.",
+                    "Frostfang takes the moment a person would leave. Moonshadow copies the trust handed to a keeper.",
+                    "Each village keeps enough of the yield to defend its system. The surplus travels down a hidden pipe marked with one quarter of a circle.",
+                    "Those four pipes feed the Hollow Gate, the Sunken Court machine under all of them. Their backed-up surplus is what you are about to fight.",
                 ],
             },
             {
@@ -524,13 +525,13 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The tailboard, four village seals laid out in a row on the wood",
                 speaker: "Kite Harrow",
                 dialogue: [
-                    "It is nesting in %sector, and it is the closest thing to the Hollow Gate itself that anyone unsworn has ever stood next to and lived. An heir. Reasons and futures and exits and secrets, all four, wearing one shape.",
-                    "I do not do this for villages. No village owns my silence and no village will move on a thing that owes every seat a favor. So this is a contract on no roll. Not Central's, not any Kage's. Mine, and now yours.",
-                    "Go down and put the heir back where the Gate keeps the rest of what it stole. I will nail what you find to a waystation board where all four villages have to read it at once. I always keep the receipt.",
+                    "The body is in %sector. Reasons, futures, exits, and trust all register inside it. That is why I call it the Gate Heir.",
+                    "No village owns this contract. Every seat benefits from the same buried theft, so none will be first to name it. The order is mine, and you are free to refuse it.",
+                    "If you go, bring back the quartered plate at the center of the body. I will nail it to a waystation board where all four villages must read the same evidence.",
                 ],
                 choices: [
                     { text: "Take the contract. Face the Hollow Gate Heir.", accept: true },
-                    { text: "Not yet. Tell me who you are really protecting.", conclusion: "Myself, she says, without a flicker. And everyone the Gate would eat next if it got an heir that lived. She lets you decide which order to believe those in, and waits." },
+                    { text: "Not yet. Tell me who you are really protecting.", conclusion: "Myself, Harrow says. Then the people whose names would fill the next intake sheet. Believe those motives in whichever order makes you comfortable; I use both." },
                 ],
             },
         ],
@@ -540,9 +541,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The deepest rift yet, four-fold, storm and root and ice and moonlight braided into one dark throat",
                 speaker: "Narrator",
                 dialogue: [
-                    "The seam here is not one color. It is four, quartered like the circle itself, storm and root-fire and vault-ice and mirror-moon bleeding into a single dark that goes down further than a hillside should allow.",
-                    "Everything the four machines ever drained is here at once, and it has agreed on a shape. It has taken reasons for a spine, futures for hands, exits for the legs it walks toward you on, and secrets for the face it has not yet decided to show.",
-                    "The Hollow Gate Heir stands where all four villages' debts collect. It is the nearest thing to the Gate you will ever fight and walk away from, if you walk away.",
+                    "Four seams meet under the ridge: storm-blue, rootfire red, vault-white, and mirror-black. Each one feeds the chamber ahead.",
+                    "The body at their junction has a fighter's reason in its stance, unfinished futures shaping its hands, stolen exits in every step, and a face assembled from surrendered trust.",
+                    "A quartered plate turns behind its ribs. Break the Heir and recover that plate before the four pipes pull it apart again.",
                 ],
                 choices: [
                     { text: "Descend to the Hollow Gate Heir.", descend: true },

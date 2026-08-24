@@ -66,6 +66,16 @@ test('names and titles are present, distinct enough, and flavored', () => {
     }
 });
 
+test('Sage-facing Legacy flavor reads as concise witness evidence, not slogans or game UI', () => {
+    const copy = LEGACY_DEFS.map((legacy) => legacy.flavor).join('\n');
+    assert.doesNotMatch(copy, /[—–]/);
+    assert.doesNotMatch(copy, /\b(?:health bars?|level differences?|the world remembers|the Gate whispers|the swords? (?:speaks?|listens?)|the land has been introducing itself|fires? (?:refuse|stay lit)|storms? caused|the long watch blinked|base reward)\b/i);
+    for (const legacy of LEGACY_DEFS) {
+        const words = legacy.flavor.trim().split(/\s+/).length;
+        assert.ok(words <= 40, `${legacy.id} flavor is a lore wall (${words} words)`);
+    }
+});
+
 function reqCategories(d: LegacyDef): Set<LegacyCategory> {
     const cats = new Set<LegacyCategory>();
     for (const req of d.reqs) {

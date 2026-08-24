@@ -46,6 +46,18 @@ describe('Battle Towers floor catalog', () => {
         }
     });
 
+    it('keeps Tower chapter narration concrete and tied to the shinobi world', () => {
+        const narrative = FLOOR_CATALOG.flatMap(floor => [
+            floor.chapterTitle ?? '',
+            floor.chapterSubtitle ?? '',
+            floor.chapterSummary ?? '',
+            floor.briefing?.situation ?? '',
+        ]).join('\n');
+        assert.match(narrative, /shinobi/i);
+        assert.match(narrative, /Stormveil splinter regiment/i);
+        assert.doesNotMatch(narrative, /[—–]|throne above|weather-forged court awakens|endless storm|Tower can reinforce|boss burn|health gates?/i);
+    });
+
     it('ships every Story floor with unique authored art and mechanically truthful briefings', () => {
         assert.equal(new Set(FLOOR_CATALOG.map(floor => floor.artKey)).size, TOWER_FLOOR_COUNT, 'every Story floor owns distinct key art');
         for (const floor of FLOOR_CATALOG) {
