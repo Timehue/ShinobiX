@@ -54,6 +54,12 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "weeklyBoss", "villageWar", "endlessTower", "petArena", "petColiseum",
     "cardClashFreePlay", "clanWarPet", "tilecardsDuel",
     "sectorCard", "sectorPet", "sectorGarrison", "storyBoss",
+    // Clan War 2v2 reads the same sessionStorage handoff as clanWarPet and
+    // tilecardsDuel, and its entry is idempotent — all four members call the
+    // same start, so a reload re-enters the live fight rather than rebuilding
+    // lost React state. Without this entry a mid-fight refresh dropped the
+    // player in the village while their three teammates fought on.
+    "clanWar2v2",
 ]);
 
 // Screens that only exist around ephemeral React state (a viewed profile, a
@@ -138,6 +144,7 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "petArena", "petShowdown", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
     "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
+    "clanWar2v2",
 ]);
 
 // Battle Towers has no server BattleLockKeeper — the run lives in tower:<runId>
@@ -256,6 +263,7 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "tilecardsDuel":      // clan-war card duel, battle-only
         case "sectorCard":         // sector-war card battle, battle-only
         case "cardClashFreePlay":  // free-play PvP card duel, battle-only
+        case "clanWar2v2":         // clan-war 2v2, battle-only: teammates fight on
         case "hollowGateShrine":   // dungeon MAP: no retreat — exit only via the
                                    // in-map Leave tile or death (both setScreen
                                    // directly, bypassing the nav lock). Without

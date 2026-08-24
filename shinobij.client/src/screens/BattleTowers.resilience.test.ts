@@ -47,8 +47,10 @@ test("Tower fight breadcrumbs synchronously refresh App's ref-backed navigation 
     assert.match(navigationGuard, /window\.removeEventListener\(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard\)/);
     assert.match(app, /useBattleNavigationGuard\(\{/);
     assert.match(app, /bootLock\.kind === "battleTowers"[\s\S]*?setTowerFightRunId\(runId\)[\s\S]*?setScreen\(arena2v2 \? "battleArena" : "battleTowers"\)/, "server-owned Tower locks must resume without the generic hospital path");
-    // Team Arena 2v2 moved to the Battle Arena, so its lease resumes there.
-    assert.match(app, /const arena2v2 = bootLock\.meta\?\.mode === "mpvp"/);
+    // EVERY 2v2 lease resumes in the Battle Arena, not just the public queue's:
+    // clan-war and ranked leases carry their own modes, and matching one literal
+    // string sent those players to the co-op Spire lobby instead.
+    assert.match(app, /const arena2v2 = isMpvpLeaseMode\(bootLock\.meta\?\.mode\)/);
 });
 
 test("Tower cinematic and result overlays are keyboard-safe modal dialogs", () => {

@@ -56,7 +56,11 @@ test("MPvP refresh recovery preserves the prefixed match lock through App boot",
     // to resume its key, and boot recovery must route the match to the arena.
     assert.match(wrapper, /towerPvpMatchIdFromRunKey\(saved\)/);
     assert.doesNotMatch(wrapper, /phase: "pvpFight"/);
-    assert.match(app, /const arena2v2 = bootLock\.meta\?\.mode === "mpvp"/);
+    // Routed through the SHARED predicate, not one literal mode string: leases
+    // are also minted as 'clan-war-mpvp' and 'ranked-2v2', and those used to
+    // fall through to the co-op Spire lobby with a PvP match id in the tower
+    // run key while the player's live 2v2 carried on without them.
+    assert.match(app, /const arena2v2 = isMpvpLeaseMode\(bootLock\.meta\?\.mode\)/);
     assert.match(app, /setScreen\(arena2v2 \? "battleArena" : "battleTowers"\)/);
     // The queue + board are one self-contained Battle Arena section.
     const section = readFileSync(new URL("../components/TeamArenaSection.tsx", import.meta.url), "utf8");

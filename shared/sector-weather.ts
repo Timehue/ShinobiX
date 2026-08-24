@@ -82,7 +82,48 @@ export function scheduledSectorWeather(biome: unknown, sector: number, dayBucket
     return table[seed % table.length] ?? 'clear';
 }
 
-export type SectorWeatherOverride = { ownerClan?: unknown; weather?: unknown } | null | undefined;
+export const TERRITORY_BREACH_DURATION_MS = 12 * 60 * 60 * 1_000;
+
+/**
+ * A holding clan's stamped weather is a COMBAT MODIFIER (see WEATHER_ELEMENTS),
+ * and the clan picks it to favour its own element — so the lifecycle fields are
+ * part of this override, not decoration. A breached or dormant holding must
+ * stop supplying weather, exactly as it already stops supplying the terrain
+ * buff, or a clan that has lost its garrison keeps fighting at home advantage
+ * while the UI on the same screen reads "Rewards and bonuses suspended".
+ */
+export type SectorWeatherOverride = {
+    ownerClan?: unknown;
+    weather?: unknown;
+    breachedAt?: unknown;
+    breachEndsAt?: unknown;
+    hp?: unknown;
+    rewardSuspendedAt?: unknown;
+} | null | undefined;
+
+function finiteTimestamp(value: unknown): number | undefined {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+export function territoryBreachDeadlineOf(row: SectorWeatherOverride): number | undefined {
+    const startedAt = finiteTimestamp(row?.breachedAt);
+    if (!startedAt) return undefined;
+    return finiteTimestamp(row?.breachEndsAt) ?? startedAt + TERRITORY_BREACH_DURATION_MS;
+}
+
+/** Canonical: api/_territory-lifecycle.ts re-exports these so the server and the
+ *  sealed-fight resolver cannot drift apart on what "suspended" means. */
+export function territoryIsBreachedRow(row: SectorWeatherOverride, now: number): boolean {
+    if (!row?.ownerClan || !finiteTimestamp(row?.breachedAt)) return false;
+    const deadline = territoryBreachDeadlineOf(row);
+    return !!deadline && (now < deadline || Math.max(0, Number(row?.hp) || 0) <= 0);
+}
+
+/** Benefits are suspended during a breach and after verified clan inactivity. */
+export function territoryRewardsSuspendedRow(row: SectorWeatherOverride, now: number): boolean {
+    return territoryIsBreachedRow(row, now) || !!finiteTimestamp(row?.rewardSuspendedAt);
+}
 
 function isWeather(w: unknown): w is SectorWeather {
     return typeof w === 'string' && Object.prototype.hasOwnProperty.call(WEATHER_ELEMENTS, w);
@@ -95,7 +136,7 @@ function isWeather(w: unknown): w is SectorWeather {
  */
 export function resolveSectorWeather(biome: unknown, sector: number, nowMs: number, territory?: SectorWeatherOverride): SectorWeather {
     const ownerClan = String(territory?.ownerClan ?? '').trim();
-    if (ownerClan && isWeather(territory?.weather)) return territory.weather;
+    if (ownerClan && isWeather(territory?.weather) && !territoryRewardsSuspendedRow(territory, nowMs)) return territory.weather;
     return scheduledSectorWeather(biome, sector, weatherDayBucket(nowMs));
 }
 

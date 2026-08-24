@@ -1,3 +1,5 @@
+import { territoryIsBreachedRow, territoryRewardsSuspendedRow } from '../shared/sector-weather';
+
 export const TERRITORY_BREACH_DURATION_MS = 12 * 60 * 60 * 1_000;
 export const TERRITORY_REWARD_SUSPEND_MS = 14 * 24 * 60 * 60 * 1_000;
 export const TERRITORY_INACTIVE_RELEASE_MS = 30 * 24 * 60 * 60 * 1_000;
@@ -35,15 +37,15 @@ export function territoryBreachDeadline(row: Record<string, unknown>): number | 
     return finiteTimestamp(row.breachEndsAt) ?? startedAt + TERRITORY_BREACH_DURATION_MS;
 }
 
+// Unchanged signatures; the bodies moved to shared/ so the sealed-fight weather
+// resolver gates on the SAME rule the server applies to the terrain buff.
 export function territoryIsBreached(row: Record<string, unknown>, now = Date.now()): boolean {
-    if (!row.ownerClan || !finiteTimestamp(row.breachedAt)) return false;
-    const deadline = territoryBreachDeadline(row);
-    return !!deadline && (now < deadline || Math.max(0, Number(row.hp) || 0) <= 0);
+    return territoryIsBreachedRow(row, now);
 }
 
 /** Benefits are suspended during a breach and after verified clan inactivity. */
 export function territoryRewardsSuspended(row: Record<string, unknown>, now = Date.now()): boolean {
-    return territoryIsBreached(row, now) || !!finiteTimestamp(row.rewardSuspendedAt);
+    return territoryRewardsSuspendedRow(row, now);
 }
 
 export function beginTerritoryBreach(

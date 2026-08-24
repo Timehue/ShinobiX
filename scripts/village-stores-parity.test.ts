@@ -67,6 +67,8 @@ import {
     GARRISON_POINTS_CAP_FED as clientGarrisonCapFed,
     WAR_RATIONS_PER_DAY as warMapUiWarRations,
 } from '../shinobij.client/src/lib/village-war-map-ui';
+import { CLAN_WAR_RATIONS_PER_DAY as clientClanWarRations } from '../shinobij.client/src/lib/clan-stores';
+import { CLAN_WAR_RATIONS_PER_DAY as serverClanWarRations } from '../api/_village-stores-daily';
 
 const TIERS: IntelTier[] = ['none', 'scouted', 'mapped', 'infiltrated'];
 
@@ -74,6 +76,14 @@ test('the ration burn rates the supply copy quotes match the daily pass', () => 
     // "a siege eats 30 a day — 15 more for a fed garrison" is sized from these.
     assert.equal(clientWarRations, serverWarRations);
     assert.equal(clientGarrisonRations, serverGarrisonRations);
+});
+
+test('the clan war ration burn the Clan Hall quotes matches the daily pass', () => {
+    // The clan readout says "this war costs 30 rations a day" and sizes its
+    // "days covered" from it. clan-stores.test.ts used to "check" this by
+    // comparing two CLIENT constants, one assigned from the other — an
+    // assertion that could not fail. This one imports both trees.
+    assert.equal(clientClanWarRations, serverClanWarRations);
 });
 
 test('there is exactly ONE client mirror of WAR_RATIONS_PER_DAY', () => {
