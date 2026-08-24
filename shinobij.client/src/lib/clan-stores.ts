@@ -21,6 +21,7 @@ import {
     WAR_RATIONS_PER_DAY,
     storesDonatedToday,
 } from "./village-stores";
+import { LOW_PROVISION_DAYS } from "./village-stores-signposts";
 
 /**
  * Rations ONE active clan war burns per day. Mirror of
@@ -30,8 +31,10 @@ import {
 export const CLAN_WAR_RATIONS_PER_DAY = WAR_RATIONS_PER_DAY;
 
 /** Days of war a clan wants covered before the readout stops warning. Display
- *  only — the server's fed/unfed verdict is unchanged. */
-export const CLAN_LOW_RATION_DAYS = 2;
+ *  only — the server's fed/unfed verdict is unchanged. Imported rather than
+ *  restated: the village signpost warns on the same threshold and the two
+ *  must move together. */
+export const CLAN_LOW_RATION_DAYS = LOW_PROVISION_DAYS;
 
 const nonNeg = (v: unknown) => {
     const n = Math.floor(Number(v) || 0);
@@ -124,6 +127,10 @@ export type ClanStoresReadoutInput = {
     activeWars: number;
     /** Of those, how many today's daily pass marked unfed. */
     unfedWars?: number | null;
+    /** Of those, how many today's daily pass marked FED. Absent/0 simply means
+     *  the pass has not reached this clan yet today — silence, not a claim
+     *  that the wars went hungry. */
+    fedWars?: number | null;
 };
 
 const STOCK_CALL = "Cook ration packs at the Cafeteria, then donate them on the Treasury tab.";
@@ -142,10 +149,11 @@ export function clanStoresReadout(input: ClanStoresReadoutInput): ClanStoresRead
     const held = clanRationsHeldLabel(provisions);
     const burn = clanRationBurnLabel(activeWars);
     const days = clanRationDaysCovered(provisions, activeWars);
-    const cover = days === null ? null : `${days.toLocaleString()} day${days === 1 ? "" : "s"} of war covered`;
+    const cover = days === null ? null : `${days.toLocaleString()} day${days === 1 ? "" : "s"} of war`;
     // An unfed war can only ever be one of the wars actually running, so a
     // stale count can never raise a siege alarm on a clan at peace.
     const unfed = Math.min(nonNeg(input.unfedWars), activeWars);
+    const fed = Math.min(nonNeg(input.fedWars), activeWars);
 
     if (activeWars <= 0) {
         return {
@@ -197,7 +205,9 @@ export function clanStoresReadout(input: ClanStoresReadoutInput): ClanStoresRead
         held,
         burn,
         cover,
-        line: `${held} in the clan stores against ${burn} — ${cover}. The daily pass draws it automatically.`,
+        line: fed > 0
+            ? `${held} in the clan stores against ${burn} — enough for ${cover}. Today's rations are paid.`
+            : `${held} in the clan stores against ${burn} — enough for ${cover}. Rations are drawn from the stores each day.`,
     };
 }
 

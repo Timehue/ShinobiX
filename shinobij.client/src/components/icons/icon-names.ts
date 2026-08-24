@@ -34,7 +34,9 @@ export type GameIconName =
     | "snow"     // Frostfang village marker
     | "moon"     // Moonshadow village marker
     | "gate"     // Stormveil village marker
-    | "tower";   // Central citadel marker
+    | "tower"    // Central citadel marker
+    | "rations"  // rice bowl — war rations / provisions (NOT the hp heart)
+    | "hazard";  // warning triangle — starvation / unfed alert (NOT a flag)
 
 export const gameIconNames: readonly GameIconName[] = [
     "ryo", "shard", "crystal", "sparkle", "medal", "sigil", "bone",
@@ -42,4 +44,5 @@ export const gameIconNames: readonly GameIconName[] = [
     "map", "target", "dice", "clock", "dumbbell", "paw", "gift",
     "person", "bag", "menu", "flask", "bolt",
     "leaf", "snow", "moon", "gate", "tower",
+    "rations", "hazard",
 ];

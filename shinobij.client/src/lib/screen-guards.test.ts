@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
-import { isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+import { BATTLE_SCREENS, RESTORABLE_SCREENS, TRANSIENT_SCREEN_PARENT, isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const navigationGuardSource = readFileSync(new URL("./use-battle-navigation-guard.ts", import.meta.url), "utf8");
@@ -144,5 +144,45 @@ describe("screen navigation guards", () => {
         const block = navigationGuardSource.slice(Math.max(0, listener - 500), cleanup + 100);
         assert.match(block, /screenRef\.current === "battleTowers"/);
         assert.match(block, /inBattleRef\.current = hasActiveTowerFight\(\)/);
+    });
+});
+
+describe("a battle screen can never fall back out of its fight", () => {
+    // The bug this pins, twice over: a screen that hosts a live fight but is
+    // absent from RESTORABLE_SCREENS falls through restoreScreenForSave to
+    // safeFallbackScreen — so a refresh mid-fight puts the player in the
+    // village while the fight (and, in 2v2, three teammates) carries on
+    // without them. It first bit the sector/pet/card family; it bit again when
+    // clanWar2v2 arrived from another branch and this allowlist was not
+    // updated with it, because nothing failed when the two drifted apart.
+    //
+    // Only two battle screens are legitimately absent, and both are covered by
+    // a run flag that restoreScreenForSave checks BEFORE the allowlist.
+    const COVERED_BY_RUN_FLAG = new Set(["hollowGateShrine", "hollowGateTiles", "dungeon"]);
+    // `arena` is a lobby after the local-combat retirement, not a fight host.
+    const LOBBY_ONLY = new Set(["arena"]);
+
+    it("every battle screen restores to itself, to a parent, or via a run flag", () => {
+        const stranded = [...BATTLE_SCREENS].filter(screen =>
+            !RESTORABLE_SCREENS.has(screen)
+            && !TRANSIENT_SCREEN_PARENT[screen]
+            && !COVERED_BY_RUN_FLAG.has(screen)
+            && !LOBBY_ONLY.has(screen));
+        assert.deepEqual(stranded, [],
+            "these battle screens would teleport the player home on refresh — "
+            + "add each to RESTORABLE_SCREENS (the fight rehydrates from the server) "
+            + "or to TRANSIENT_SCREEN_PARENT (it cannot, so return to where it was opened from)");
+    });
+
+    it("the run-flag escape hatch really is checked first", () => {
+        // If this ever stops being true, the exemption above becomes a hole.
+        assert.equal(restoreScreenForSave("hollowGateShrine", true, false, false, false), "hollowGateShrine");
+        assert.equal(restoreScreenForSave("hollowGateTiles", true, false, false, false), "hollowGateShrine");
+        assert.equal(restoreScreenForSave("dungeon", false, false, true, false), "dungeon");
+    });
+
+    it("clanWar2v2 survives a refresh instead of landing in the village", () => {
+        assert.equal(restoreScreenForSave("clanWar2v2", false, false, false, false), "clanWar2v2");
+        assert.equal(restoreScreenForSave("clanWar2v2", false, false, false, true), "clanWar2v2");
     });
 });

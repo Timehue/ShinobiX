@@ -22,10 +22,15 @@ const NOW = Date.UTC(2026, 7, 24, 12, 0, 0);
 const TODAY = "2026-08-24";
 
 describe("clan stores — constants stay pinned to the server mirror", () => {
-    it("burns the same rations per day as a village war", () => {
-        // api/_village-stores-daily.ts: CLAN_WAR_RATIONS_PER_DAY = WAR_RATIONS_PER_DAY.
+    it("re-exports the village burn rate rather than restating it", () => {
+        // Identity, and only identity, is what this file can prove: both names
+        // live in this tree. The CROSS-TREE assertion — that the number also
+        // matches api/_village-stores-daily.ts — is in
+        // scripts/village-stores-parity.test.ts, which imports both trees and
+        // can therefore actually fail. Asserting a literal 30 here as well
+        // would just fire a second, more confusing failure on a legitimate
+        // retune.
         assert.equal(CLAN_WAR_RATIONS_PER_DAY, WAR_RATIONS_PER_DAY);
-        assert.equal(CLAN_WAR_RATIONS_PER_DAY, 30);
     });
 });
 
@@ -127,15 +132,34 @@ describe("clanStoresReadout", () => {
         const r = clanStoresReadout({ clanName: "Alpha", provisions: 45, activeWars: 1 });
         assert.ok(r);
         assert.equal(r.tone, "warn");
-        assert.equal(r.cover, "1 day of war covered");
+        assert.equal(r.cover, "1 day of war");
         assert.equal(r.line, `45 rations left against 30 rations a day — under ${CLAN_LOW_RATION_DAYS} days of war. Cook ration packs at the Cafeteria, then donate them on the Treasury tab.`);
     });
     it("reads as a calm status line when the stores are deep", () => {
         const r = clanStoresReadout({ clanName: "Alpha", provisions: 1_240, activeWars: 1 });
         assert.ok(r);
         assert.equal(r.tone, "neutral");
-        assert.equal(r.cover, "41 days of war covered");
-        assert.equal(r.line, "1,240 rations in the clan stores against 30 rations a day — 41 days of war covered. The daily pass draws it automatically.");
+        assert.equal(r.cover, "41 days of war");
+        assert.equal(r.line, "1,240 rations in the clan stores against 30 rations a day — enough for 41 days of war. Rations are drawn from the stores each day.");
+    });
+    it("confirms today's rations were paid once the pass has fed the war", () => {
+        // The FED half of the verdict. It shipped uncounted: the panel filtered
+        // for `=== false` only, so a clan the pass had fed read exactly like a
+        // clan the pass had not reached yet.
+        const r = clanStoresReadout({ clanName: "Alpha", provisions: 1_240, activeWars: 1, fedWars: 1 });
+        assert.ok(r);
+        assert.equal(r.tone, "neutral");
+        assert.match(r.line, /Today's rations are paid\.$/);
+    });
+    it("stays silent about feeding when the pass has not reached the clan today", () => {
+        const r = clanStoresReadout({ clanName: "Alpha", provisions: 1_240, activeWars: 1, fedWars: 0 });
+        assert.ok(r);
+        assert.doesNotMatch(r.line, /paid/, "an unreached clan must not be told its rations were paid");
+    });
+    it("never counts more fed wars than the clan is actually fighting", () => {
+        const r = clanStoresReadout({ clanName: "Alpha", provisions: 1_240, activeWars: 1, fedWars: 99 });
+        assert.ok(r);
+        assert.match(r.line, /Today's rations are paid\.$/);
     });
     it("falls back to a neutral clan name rather than an empty sentence", () => {
         const r = clanStoresReadout({ clanName: "   ", provisions: 100, activeWars: 0 });

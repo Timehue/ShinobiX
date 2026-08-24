@@ -1053,12 +1053,10 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
  * from (biome, sector, server UTC day) by shared/sector-weather so the server
  * seals the identical value when it applies weather to a sector fight
  * (api/pvp/session.ts). A holding clan's stamped `territory.weather` wins.
- *
- * NOTE: the override deliberately does NOT consult `territoryRewardsSuspended`
- * — api/pvp/session.ts passes the raw territory record to the same shared
- * resolver, so gating the override client-side would show a different sky than
- * the fight is sealed with. Reward/bonus suspension is surfaced separately
- * (ClanHall, WorldMap plates).
+ * A breached or dormant holding stops supplying it: that gate lives INSIDE the
+ * shared resolver, so the sky shown here and the sky sealed into the fight by
+ * api/pvp/session.ts are the same value — and it now matches the terrain buff,
+ * which the server already suspended on the same condition.
  */
 export function weatherForSector(sector: number, biome: Biome): WeatherType {
     return resolveSectorWeather(biome, sector, serverNow(), loadSectorTerritory(sector));

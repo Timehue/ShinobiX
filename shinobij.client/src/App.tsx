@@ -966,6 +966,7 @@ export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v
 import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "./data/village-leadership";
 import { setVillageLeadershipImagesCache } from "./lib/village-leadership-images";
 import { isDeletedJutsuEntry } from "../../shared/admin-content-tombstone";
+import { isMpvpLeaseMode } from "../../shared/tower-pvp";
 
 // Village upgrade system (definitions, levels/bonuses, costs + the derived
 // bonus helpers) extracted to ./lib/village-upgrades. The symbols still
@@ -3308,9 +3309,9 @@ export default function App() {
                         // breadcrumb and route into authoritative recovery; never
                         // turn a missing browser key into a fabricated loss.
                         const runId = typeof bootLock.meta?.runId === "string" ? bootLock.meta.runId.trim() : "";
-                        // Team Arena 2v2 resumes in the BATTLE ARENA; only the
-                        // co-op climb resumes into the Towers.
-                        const arena2v2 = bootLock.meta?.mode === "mpvp";
+                        // EVERY 2v2 mode resumes in the BATTLE ARENA; only the
+                        // co-op climb resumes into the Towers (see isMpvpLeaseMode).
+                        const arena2v2 = isMpvpLeaseMode(bootLock.meta?.mode);
                         if (runId && runId.length <= 128) {
                             if (arena2v2) setTowerPvpMatchId(runId); else setTowerFightRunId(runId);
                         }

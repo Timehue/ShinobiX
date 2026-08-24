@@ -1,6 +1,6 @@
 # Sector Wanderers — AI shinobi that roam sectors and *feel like players*
 
-> ## ✅ As-built (shipped to `main` — ENABLED, `wanderers.v1` default ON, opt-out with `=off`)
+> ## ✅ As-built (shipped to `main` — ALWAYS ON; the `wanderers.v1` per-device opt-out was RETIRED 2026-08-24)
 >
 > The feature below is **built and turned on** (Railway builds from source). Each
 > archetype has a bespoke portrait (gpt-image-1) and an NPC dialog. What actually
@@ -663,6 +663,8 @@ between `api/_utils.ts` and `server.ts`.
   existing avatar look + the tell.
 - A small interaction modal (dialogue / fight entry / quest accept), behind a
   default-off flag (e.g. `wanderers.v1`), following the other sector-feature flags.
+  (Historical: that flag shipped, then was retired — the road is world content and
+  must not differ per browser. See `lib/gameplay-layer-flags.test.ts`.)
 - `authFetch.ts` attaches auth automatically; new screens/components go in their own
   modules under `src/{screens,components,lib,data}` — **not** App.tsx (it's at its
   size ratchet ceiling).

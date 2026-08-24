@@ -4,7 +4,14 @@ import test from "node:test";
 
 const worldMapSource = readFileSync(new URL("./WorldMap.tsx", import.meta.url), "utf8");
 const canvasSource = readFileSync(new URL("../components/WorldSectorCanvas.tsx", import.meta.url), "utf8");
-const commandPanelSource = readFileSync(new URL("../components/WorldSectorCommandPanel.tsx", import.meta.url), "utf8");
+const commandPanelBody = readFileSync(new URL("../components/WorldSectorCommandPanel.tsx", import.meta.url), "utf8");
+// The panel's row/prop shapes live in a sibling module. BOTH halves are
+// budgeted and BOTH are searched for authority, because the split did not
+// remove lines — it moved them, and added a header plus imports on top. A
+// single combined budget would have had to be LOOSER than the one it replaced;
+// two tight ones cannot be dodged by moving code across the pair.
+const commandPanelTypes = readFileSync(new URL("../components/WorldSectorCommandPanel.types.ts", import.meta.url), "utf8");
+const commandPanelSource = commandPanelBody + "\n" + commandPanelTypes;
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
 
@@ -40,16 +47,25 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
     // the wanderer dialog stayed extracted in WorldWandererDialog.tsx instead of
     // returning inline. Set to the exact achieved count with no buffer.
     assert.ok(
-        lineCount(worldMapSource) <= 5_258,
-        `WorldMap.tsx grew past 5,258 lines; retired overview layers must stay retired.`,
+        // 5,264: the accessible scrim extraction paid back 2 lines, and two
+        // encounter fixes spent 8 — Escape/role/label on the one dialog that can
+        // open unbidden, and a Fight button that no longer swallows the click
+        // when admission is closed. The budget guards re-inlining retired map
+        // layers, not bug fixes; it is the exact achieved count, with no buffer.
+        lineCount(worldMapSource) <= 5_264,
+        `WorldMap.tsx grew past 5,264 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
         `WorldSectorCanvas.tsx grew past 220 lines; overlays and controllers must remain separate.`,
     );
     assert.ok(
-        lineCount(commandPanelSource) <= 285,
-        `WorldSectorCommandPanel.tsx grew past 285 lines; commands and authority must remain in WorldMap.`,
+        lineCount(commandPanelBody) <= 233,
+        `WorldSectorCommandPanel.tsx grew past 233 lines; commands and authority must remain in WorldMap.`,
+    );
+    assert.ok(
+        lineCount(commandPanelTypes) <= 82,
+        `WorldSectorCommandPanel.types.ts grew past 82 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
     );
     assert.ok(
         lineCount(overlaySource) <= 165,
@@ -219,7 +235,7 @@ test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected
 
     const portal = sliceBetween(worldMapSource, "{wandererDialog && createPortal(", "document.body,");
     assertOrdered(portal, [
-        "onClick={handleWandererBackdropClick}",
+        "onBackdrop={handleWandererBackdropClick}",
         "<WorldWandererDialog",
         "now={wandererDialogNow}",
         "emissaryDayBucket={wandererDialogDayBucket}",
@@ -229,6 +245,16 @@ test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected
         "handleStoryReckoningAbandon={handleStoryReckoningAbandon}",
     ], "wanderer portal projection");
     assert.match(worldMapSource, /function handleWandererBackdropClick\(\)[\s\S]*requiresWandererChoice\(wandererDialog\)[\s\S]*dismissWandererDialog\(\)/u);
+    // The encounter dialog is the ONLY one in the game that can open with no
+    // player action (a bandit arms itself and walks to you), so it must not go
+    // back to being a bare div: announced, focusable, and escapable even when
+    // the backdrop deliberately refuses a forced choice.
+    assert.match(portal, /<ModalDialogScrim label=\{`\$\{wandererDialog\.w\.name\}/u,
+        "the wanderer portal must render through the accessible scrim, labelled with the wanderer");
+    assert.match(portal, /onEscape=\{dismissWandererDialog\}/u,
+        "Escape must be a real exit — fleeing already costs the wanderer cooldown");
+    assert.doesNotMatch(portal, /zIndex:\s*9999/u,
+        "the scrim's own styling belongs in ModalDialogScrim, not inline here");
     assert.match(worldMapSource, /async function tradeWithWanderer[\s\S]*postWandererService/u);
     assert.match(worldMapSource, /async function acceptEpic[\s\S]*fetch\("\/api\/sector\/questbook"/u);
 });

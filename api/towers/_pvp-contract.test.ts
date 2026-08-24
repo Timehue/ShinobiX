@@ -130,11 +130,23 @@ describe('Tower MPvP additive isolation contract', () => {
         assert.match(myRun, /pvpMatchId: battleLease!\.battleId/);
         assert.match(myRun, /pvpMatchKind/, 'recovery must say which surface owns the match');
 
+        // The predicate lives in shared/ so the CLIENT can route on it too; the
+        // server guard re-exports it, so both trees resolve ONE implementation.
         const guard = source('api/_tower-battle-guard.ts');
-        assert.match(guard, /export function isMpvpLeaseMode/);
-        for (const mode of ["'mpvp'", "'clan-war-mpvp'"]) {
-            assert.ok(guard.includes(mode), `isMpvpLeaseMode must cover ${mode}`);
+        assert.match(guard, /export \{ isMpvpLeaseMode \} from '\.\.\/shared\/tower-pvp'/,
+            'the server guard must re-export the shared predicate, not fork a second copy');
+        const shared = source('shared/tower-pvp.ts');
+        assert.match(shared, /export function isMpvpLeaseMode/);
+        for (const mode of ["'mpvp'", "'clan-war-mpvp'", "'ranked-2v2'"]) {
+            assert.ok(shared.includes(mode), `isMpvpLeaseMode must cover ${mode}`);
         }
+        // Boot recovery used to test `mode === "mpvp"` literally, so a clan-war
+        // or ranked 2v2 lease fell through: the match id was written into the
+        // co-op tower run key and the player landed in the Spire lobby while
+        // their live match ran on without them.
+        assert.match(source('shinobij.client/src/App.tsx'),
+            /const arena2v2 = isMpvpLeaseMode\(bootLock\.meta\?\.mode\)/,
+            'client boot recovery must route on the shared predicate, not one literal mode');
     });
 
     it('never lets one Tower surface drive another surface\'s match', () => {

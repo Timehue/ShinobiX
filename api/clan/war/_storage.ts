@@ -80,6 +80,12 @@ export type ClanWar = {
     // canonical ID (mirrors village-war pattern).
     warCrateId?: string;
     mvpByClan?: Record<string, string>;
+    /** UTC day the Village Stores daily pass last settled this war's rations,
+     *  and its per-clan fed/unfed verdict for that day. Written by
+     *  api/_village-stores-daily.ts and read by the Clan Hall Wars tab; typed
+     *  here so a future rewrite-style write cannot silently drop them. */
+    storesDate?: string;
+    storesFed?: Record<string, boolean>;
 };
 
 // ── Constants ───────────────────────────────────────────────────────

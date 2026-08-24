@@ -180,6 +180,24 @@ const PATHS: Record<GameIconName, ReactElement> = {
     flask: (
         <path d="M10 3.2h4a.8.8 0 0 1 .8.8v2.3a1 1 0 0 0 .15.52l1.7 2.8A5.5 5.5 0 0 1 17.4 15v2.6a3.2 3.2 0 0 1-3.2 3.2H9.8a3.2 3.2 0 0 1-3.2-3.2V15a5.5 5.5 0 0 1 .75-2.78l1.7-2.8a1 1 0 0 0 .15-.52V4a.8.8 0 0 1 .8-.8Z" />
     ),
+    // Rice bowl — war rations / provisions. Deliberately NOT the hp heart:
+    // the Village War Map shows rations, HP and Patreon at once, and a shared
+    // glyph made "fed" read as "healthy".
+    rations: (
+        <>
+            <path d="M7.2 11a4.8 4.8 0 0 1 9.6 0Z" />
+            <path d="M2.8 12.2h18.4a9.2 9.2 0 0 1-9.2 8.4 9.2 9.2 0 0 1-9.2-8.4Z" />
+        </>
+    ),
+    // Warning triangle — starvation / unfed alert. Deliberately NOT a flag:
+    // on a territory map a flag means OWNERSHIP.
+    hazard: (
+        <>
+            <path fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" d="M12 3.6 21.2 19.9H2.8Z" />
+            <path d="M11.15 9.4h1.7l-.3 5.2h-1.1Z" />
+            <circle cx="12" cy="17.1" r="1.05" />
+        </>
+    ),
     // Lightning bolt — speed stat.
     bolt: (
         <path d="M13.4 2.3 5.6 13a.65.65 0 0 0 .53 1.03h3.3l-1.2 7a.55.55 0 0 0 1 .42l7.9-11a.65.65 0 0 0-.53-1.03h-3.5l1.5-6.6a.55.55 0 0 0-1-.42Z" />

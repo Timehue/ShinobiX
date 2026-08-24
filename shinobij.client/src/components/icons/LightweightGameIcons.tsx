@@ -69,6 +69,12 @@ const dice = gameGlyph("dice");
 const fire = pathGlyph("M13.3 2.5c.5 3-1.7 4.3-1.7 6.2 0 1.2.8 2.1 1.9 2.1 1.8 0 2.8-1.7 2.5-3.6 2.4 2 3.8 4.6 3.8 7.1 0 3.8-3 6.7-7.1 6.7s-7.1-2.9-7.1-6.7c0-3.1 1.9-6 5.5-8.5-.2 2.6.8 4.1 2.2 4.1 1.7 0 3-2.1 3.8-5.2Z", { fill: true });
 const gift = gameGlyph("gift");
 const health = gameGlyph("hp");
+// Rations and the starvation warning get their OWN glyphs. They used to alias
+// the hp heart and the ownership flag, which put three meanings on one shape on
+// the Village War Map (rations / HP / Patreon) and made "marches hungry" read
+// as a planted banner on a territory-control map.
+const rations = gameGlyph("rations");
+const hazard = gameGlyph("hazard");
 const map = gameGlyph("map");
 const medal = gameGlyph("medal");
 const menu = gameGlyph("menu");
@@ -112,7 +118,7 @@ export {
     book as GiBookCover,
     book as GiBookshelf,
     speed as GiBootPrints,
-    health as GiBowlOfRice,
+    rations as GiBowlOfRice,
     attack as GiBoxingGlove,
     chakra as GiBrain,
     chakra as GiBrainstorm,
@@ -155,7 +161,7 @@ export {
     medal as GiGraduateCap,
     tower as GiGreekTemple,
     menu as GiHamburgerMenu,
-    flag as GiHazardSign,
+    hazard as GiHazardSign,
     health as GiHealing,
     health as GiHealthIncrease,
     health as GiHealthNormal,

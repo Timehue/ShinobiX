@@ -32,6 +32,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
+import { ModalDialogScrim } from "../components/ModalDialogScrim";
 import { WorldWandererDialog, type WorldWandererDialogState } from "../components/WorldWandererDialog";
 import {
     WorldSectorCommandPanel,
@@ -83,7 +84,7 @@ import {
     useCapabilityViewAvailability,
     useLiveCapabilities,
 } from "../lib/live-capabilities-context";
-import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
+import { capabilityAdmissionAllowed, mutationAdmissionMessage } from "../lib/live-capability-admission";
 import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
@@ -1337,6 +1338,14 @@ export function WorldMap({
     }
     function startWandererAttack(w: Wanderer, nemesis = false) {
         if (selectedSector == null) return;
+        // launchWorldMapFight REFUSES SILENTLY when admission is closed. On a
+        // dialog the player is already looking at, that read as a dead Fight
+        // button, so say what happened instead of swallowing the click.
+        const admission = mutationAvailability();
+        if (!capabilityAdmissionAllowed(admission)) {
+            setWandererDialog({ w, msg: mutationAdmissionMessage(admission) });
+            return;
+        }
         // The sealed World start owns the encounter cooldown. Do not hide or
         // relocate this NPC before the start ACK: a rejected/offline start must
         // leave the exact encounter available to retry.
@@ -4385,7 +4394,7 @@ export function WorldMap({
             if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
             const roam = weeklyBossRoamState(roamingBoss, serverNow());
             if (!roam?.active || roam.currentSector !== selectedSector) return null;
-            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), Date.now())) return null;
+            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), serverNow())) return null;
             if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
             return {
                 name: roamingBoss.bossName ?? "Weekly Boss",
@@ -4602,10 +4611,7 @@ export function WorldMap({
                                 />
                             )}
                             {wandererDialog && createPortal(
-                                <div
-                                    style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}
-                                    onClick={handleWandererBackdropClick}
-                                >
+                                <ModalDialogScrim label={`${wandererDialog.w.name} — encounter`} onBackdrop={handleWandererBackdropClick} onEscape={dismissWandererDialog}>
                                     <WorldWandererDialog
                                         wandererDialog={wandererDialog}
                                         character={character}
@@ -4638,7 +4644,7 @@ export function WorldMap({
                                         acceptEpic={acceptEpic}
                                         handleStoryReckoningAbandon={handleStoryReckoningAbandon}
                                     />
-                                </div>,
+                                </ModalDialogScrim>,
                                 document.body,
                             )}
                             </>

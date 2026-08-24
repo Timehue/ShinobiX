@@ -293,7 +293,12 @@ import { readFileSync } from "node:fs";
 // (7,661 → 7,613). The merged file carries BOTH sets of additions and BOTH
 // sets of drains, and the drains won: 7,585 is the exact achieved count of
 // the merged file, measured after every conflict was resolved. No buffer.
-const MAX_LINES = 7_585;
+//
+// → 7,586 (+1) for ONE import: isMpvpLeaseMode, which fixes boot recovery
+// dropping a clan-war/ranked 2v2 player into the co-op Spire lobby. Raised by
+// exactly the line it cost rather than crammed onto an existing statement, and
+// still tighter than BOTH merge parents (branch 7,613 / main 7,636).
+const MAX_LINES = 7_586;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
