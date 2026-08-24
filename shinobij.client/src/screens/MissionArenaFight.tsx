@@ -8,7 +8,7 @@ import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-his
 import { SparCoach } from "../components/SparCoach";
 import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase,
     // Command-deck glyphs (one per basic action), matching Arena + PvP.
-    GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "react-icons/gi";
+    GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "../components/icons/LightweightGameIcons";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { JutsuMethod } from "../types/core";
 import type {

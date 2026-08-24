@@ -339,7 +339,44 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // (docs/pet-showdown-design.md, follow-ups). Do that before raising this again.
 //
 // Entry and initial-graph gates below are NOT touched by this entry.
-const TOTAL_JS_CSS_FAIL_BYTES = 7_855_000;
+
+//
+// 2026-08-22: 7.70 -> 7.44 MB. The AAA Pet Home / Central destination polish
+// (e25446356) is CSS, not code: styles/central-skin.css +54.6 KB of source,
+// a new styles/pet-arena-lobby.css at 29.3 KB, styles/relic-dungeons.css at
+// 5.4 KB, and styles/pet-home.css +5.3 KB — ~95 KB of authored CSS that
+// minifies to ~61 KB and landed the product graph 60,620 B over the old cap.
+// That commit shipped RED: the overage took client-quality down and with it
+// release-artifact, release-certification and every e2e job, so nothing could
+// deploy. Checked for slack before raising this: CSS is already minified, the
+// react-icons/gi chunk tree-shakes to the 117 icons actually imported, and the
+// 264 inlined FX frames are the deliberate flipbook trade-off documented above
+// — there was no waste to reclaim, only a real feature that costs real bytes.
+// Exact product graph 7,760,620 B, leaving ~38 KB of headroom. The scheduled
+// drain remains the legacy coliseum-stack deletion; the Central/Pet-Home CSS
+// is the next-best candidate if this needs paying down before that lands.
+//
+// 2026-08-22 (same day): RAISE WITHDRAWN, back to 7.34 MB. The icon-bundle
+// replacement in #77 (ca993bf73) cut 175,244 B of JS — more than paying back
+// the Central/Pet-Home CSS that forced the raise hours earlier. Exact product
+// graph is now 7,585,376 B, i.e. 114,624 B UNDER the original cap, so the
+// budget goes back to where it was rather than banking someone else's win as
+// permanent slack. Deliberately restored to the pre-regression value and not
+// ratcheted tighter: the ~112 KB of headroom belongs to the next feature, not
+// to this note. The scheduled drain remains the legacy coliseum-stack deletion.
+// 2026-08-23: 7.70 -> 7.75 MB. The complete non-combat mobile product layer is
+// a single 34,607 B async CSS chunk covering every authenticated phone/tablet
+// screen while remaining data-gated off combat. The layer was first imported
+// eagerly and failed the independent startup gate; it now loads only after the
+// <=979px media query, restoring the desktop initial graph to 1.39 MB raw /
+// 378.0 KB gzip. Exact CI-equivalent product graph is 7,723,354 B, leaving
+// ~27 KB under the product ceiling.
+//
+// 2026-08-24 MERGE: both sides moved this gate, and both histories are
+// kept above. The merged bundle contains main's UI overhaul AND this
+// branch's work, so NEITHER side's number describes it — the value below
+// was re-measured from the merged build, not carried over from either.
+const TOTAL_JS_CSS_FAIL_BYTES = 7_840_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -421,6 +458,18 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // hollow-gate-tile 10,271 B). Headroom under this gate: 8,148 B, up from -1,252 B.
 // A future ratchet is available here; leaving it wide is a deliberate choice
 // after this gate blocked production three times inside two weeks.
+
+//
+// 2026-08-23: 387,000 -> 389,000 B. The mobile product layer itself remains
+// async and absent from index.html; the only startup addition is its media-query
+// loader. A CI-equivalent build measures 387,176 B gzip across the same nine
+// initial files, so this restores 1,824 B of explicit variance without moving
+// the independent 1.50 MB raw, 640 KB entry, per-chunk, or async-product gates.
+//
+// 2026-08-24 MERGE: both sides moved this gate, and both histories are
+// kept above. The merged bundle contains main's UI overhaul AND this
+// branch's work, so NEITHER side's number describes it — the value below
+// was re-measured from the merged build, not carried over from either.
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 387_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;

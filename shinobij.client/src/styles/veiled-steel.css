@@ -1590,13 +1590,43 @@ body.coach-banner-open .coach-guide-actions .location-button {
   }
 }
 
+.profession-approval-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 12px;
+  padding: 11px;
+  border: 1px solid rgba(196, 162, 90, 0.32);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(92, 65, 24, 0.18), rgba(8, 14, 25, 0.78));
+}
+
+.profession-approval-summary > img {
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  object-fit: cover;
+  border: 1px solid rgba(232, 212, 150, 0.4);
+  border-radius: 8px;
+  background: #0a101a;
+}
+
+.profession-approval-summary > div { display: grid; gap: 4px; min-width: 0; }
+.profession-approval-summary strong { color: #f2dfaa; font-size: 0.95rem; }
+.profession-approval-summary span { color: #cbd5e1; font-size: 0.8rem; }
+.profession-approval-summary small { color: #b9a26e; font-size: 0.72rem; }
+.profession-change-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* Non-combat mobile navigation and event layouts: keep every primary action
-   visible without requiring a hidden horizontal swipe. */
+   visible without requiring a hidden horizontal swipe. Mission Hall uses one
+   compact, source-ordered row; its screen chunk supplies the icon treatment. */
 @media (max-width: 620px) {
   .app-shell.screen-missions .clan-tabs.expanded-tabs {
     display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible !important;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    overflow: hidden !important;
   }
 
   .app-shell.screen-missions .clan-tabs.expanded-tabs > button {
@@ -1606,7 +1636,7 @@ body.coach-banner-open .coach-guide-actions .location-button {
   }
 
   .app-shell.screen-missions .clan-tabs.expanded-tabs > button:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .app-shell.screen-townHall .town-tabs {

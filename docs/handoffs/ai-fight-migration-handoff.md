@@ -444,8 +444,9 @@ it had no way to say so). Unlike a tracked hunt it has no trail and nothing abou
 its encounter is modified client-side, so it is safe to seal.
 
 ⚠ **Consequence, stated plainly:** the Apex fight now pays the same hunt-shaped
-reward as any other beast (ryo + honor seals + aura dust + a territory scroll)
-where it previously paid nothing. That is the same reward every regular hunt beast
+reward as any other beast (ryo + honor seals + aura dust; Territory Control Scrolls
+are reserved for finalized Clan War shinobi PvP wins) where it previously paid
+nothing. That is the same reward every regular hunt beast
 already pays, and the purse itself is unchanged — still separate, still gated on
 `apexWeekClaimed`.
 

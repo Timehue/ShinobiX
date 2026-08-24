@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
-import "../styles/living-chronicle-spine.css";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
@@ -446,38 +445,6 @@ function CardHallInner({
         The scribes will tell you straight: our archives kept burning. So we
         print the history on cards now — you can't burn ten thousand pockets.
       </p>
-      <section className="living-chronicle-spine" aria-labelledby="living-chronicle-spine-title">
-        <header>
-          <small>ONE JOURNEY · FOUR FORMS OF PROOF</small>
-          <h2 id="living-chronicle-spine-title">The Living Chronicle</h2>
-          <p>
-            The Ancients were people of the Sunken Court's age. The Withheld refused to surrender their defining choices;
-            the hundred patterns they left are now called Legacies. Your deeds make those patterns visible again.
-          </p>
-        </header>
-        <ol>
-          <li>
-            <span aria-hidden="true">01</span>
-            <strong>Make the deed</strong>
-            <p>Defeat a story foe and Ihara presses the witnessed victory into the Chronicle. A deed already recorded is never pressed twice.</p>
-          </li>
-          <li>
-            <span aria-hidden="true">02</span>
-            <strong>Carry a living witness</strong>
-            <p>Your eligible active companion can answer your call in story combat. After ten arena victories, that companion earns a Living Witness record.</p>
-          </li>
-          <li>
-            <span aria-hidden="true">03</span>
-            <strong>Replay the record</strong>
-            <p>Chronicle victories are part of your path. The scribes record how you defend history, and the Wandering Sage weighs that choice with the rest.</p>
-          </li>
-          <li>
-            <span aria-hidden="true">04</span>
-            <strong>Repeat the pattern</strong>
-            <p>The Sage names a pattern you chose, never a bloodline. Acceptance preserves the meeting; Awakening presses one of the hundred Legacy cards.</p>
-          </li>
-        </ol>
-      </section>
       {progressionReceipt.length ? (
         <section
           ref={progressionReceiptRef}
@@ -510,7 +477,7 @@ function CardHallInner({
               window.requestAnimationFrame(() => collectionTabRef.current?.focus());
             }}
           >
-            Enter the archive
+            View new cards
           </button>
         </section>
       ) : null}

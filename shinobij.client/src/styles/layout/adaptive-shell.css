@@ -247,6 +247,16 @@ body {
     scrollbar-gutter: auto;
   }
 
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"]:not(.screen-start) > .center-game {
+    inline-size: min(100%, 760px);
+    margin-inline: auto;
+    padding:
+      calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px) + var(--sp-3))
+      var(--mobile-aaa-gutter)
+      calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + var(--sp-5));
+    line-height: 1.55;
+  }
+
   /* Fixed-surface exceptions remain part of the shell contract: Tavern owns a
      viewport chat log, while Battle Arena owns the one route-level scroller
      needed to prevent fixed-nav swipe gestures from landing on battle actions. */
@@ -291,6 +301,16 @@ body {
     gap: var(--sp-1);
     align-items: center;
     justify-content: space-around;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-block-size: var(--mobile-aaa-nav-height);
+    padding:
+      6px max(6px, env(safe-area-inset-right, 0px))
+      calc(6px + env(safe-area-inset-bottom, 0px))
+      max(6px, env(safe-area-inset-left, 0px));
   }
 
   .mobile-bottom-nav :where(button, a),

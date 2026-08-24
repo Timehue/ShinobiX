@@ -1,5 +1,4 @@
 import { masteryHasCapstone } from '../_profession-mastery.js';
-import { grantTerritoryScrollsToInventory } from './_mission-catalog.js';
 import type { AiFightToken } from './_ai-fight-token.js';
 
 type Character = Record<string, unknown>;
@@ -22,8 +21,8 @@ export function applyAiFightSecondaryRewards(
     const battleKind = token.battleKind ?? 'practice';
     if (!rewardEligible || battleKind === 'practice') return character;
 
-    // `world` preserves the old WorldMap fight's generic payout (scroll,
-    // stamina, kill counters) but is not a village raid. No raid honor/aura,
+    // `world` preserves the old WorldMap fight's generic stamina/kill tracking
+    // but is not a village raid. No raid honor/aura,
     // raid aggregate, or field-mission producer can leak through this adapter.
     const honorBase = battleKind === 'defense' ? 20 : battleKind === 'raidAi' ? 5 : 0;
     const auraDust = battleKind === 'defense' ? 8 : battleKind === 'raidAi' ? 4 : 0;
@@ -44,7 +43,6 @@ export function applyAiFightSecondaryRewards(
 
     return {
         ...character,
-        inventory: grantTerritoryScrollsToInventory(character, 1),
         stamina: Math.min(whole(character.maxStamina), whole(character.stamina) + 15),
         honorSeals: whole(character.honorSeals) + honorSeals,
         auraDust: whole(character.auraDust) + auraDust,

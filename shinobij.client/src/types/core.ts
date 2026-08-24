@@ -74,6 +74,7 @@ export type Screen =
     | "sectorPet"
     | "sectorGarrison"
     | "clanWarPet"
+    | "clanWar2v2"
     | "cardClashFreePlay"
     | "guides"
     | "messages";

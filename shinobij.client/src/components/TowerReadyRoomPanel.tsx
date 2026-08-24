@@ -25,6 +25,7 @@ import { gameConfirm } from "./GameAlert";
 // the room locks its edits, so Leave unlocks once the status outlives the
 // window. Clock/storage handling is unit-tested in lib/tower-launch-escape.ts.
 import { launchEscapeOpen, resolveLaunchStuckSince, type EscapeClockStore } from "../lib/tower-launch-escape";
+import { BATTLE_TOWERS_MIN_LEVEL } from "../../../shared/tower-pvp";
 
 const EMPTY_ROOM: TowerPartyEnvelope = { party: null, invitations: [] };
 const READY_ROOM_OBJECTIVE_LABEL: Record<string, string> = {
@@ -84,6 +85,7 @@ function TowerReadyRoomInvitations({
     busy,
     connectionUnavailable,
     externalBattleActive,
+    towersUnlocked,
     secondary = false,
     onRespond,
 }: {
@@ -92,6 +94,7 @@ function TowerReadyRoomInvitations({
     busy: boolean;
     connectionUnavailable: boolean;
     externalBattleActive: boolean;
+    towersUnlocked: boolean;
     secondary?: boolean;
     onRespond: (invitation: TowerPartyInvitationView, action: "accept" | "decline") => void;
 }) {
@@ -99,6 +102,15 @@ function TowerReadyRoomInvitations({
 
     const cards = (
         <div className="tower-ready-room-invitation-list">
+            {/* Accepting is gated exactly like hosting: /towers/start rejects an
+                under-levelled member, and it does so at LAUNCH — so an ungated
+                accept lets someone sit in the roster marked ready and fail the
+                whole squad's deployment. Declining stays available either way. */}
+            {!towersUnlocked && (
+                <p className="tower-ready-room-notice" role="note">
+                    Battle Towers unlock at level {BATTLE_TOWERS_MIN_LEVEL}. You can decline these invitations, but the squad cannot deploy with you until then.
+                </p>
+            )}
             {invitations.map(invitation => (
                 <article key={invitation.partyId} className="tower-ready-room-invite">
                     <div className="tower-ready-room-invite-copy">
@@ -110,7 +122,7 @@ function TowerReadyRoomInvitations({
                     <span className="tower-ready-room-inline-actions">
                         <button className="tower-ready-room-accept" type="button"
                             onClick={() => onRespond(invitation, "accept")}
-                            disabled={busy || activeParty || connectionUnavailable || externalBattleActive}>
+                            disabled={busy || activeParty || connectionUnavailable || externalBattleActive || !towersUnlocked}>
                             Accept
                         </button>
                         <button className="tower-ready-room-secondary" type="button"
@@ -446,11 +458,21 @@ export function TowerReadyRoomPanel({
     function joinOpenRoom() {
         const inviteCode = joinCode.trim().toUpperCase();
         if (!inviteCode) return;
+        // The code input's Enter handler calls this directly, so the disabled
+        // submit button alone would not hold the gate.
+        if (!towersUnlocked) {
+            setError(`Battle Towers unlock at level ${BATTLE_TOWERS_MIN_LEVEL}. Keep climbing before joining a squad.`);
+            return;
+        }
         void runRequest("join", () => mutateTowerPartyWithLostResponseRetry(playerName, { action: "join", inviteCode }))
             .then(next => { if (next?.party) setJoinCode(""); });
     }
 
     function respondToInvitation(invitation: TowerPartyInvitationView, action: "accept" | "decline") {
+        if (action === "accept" && !towersUnlocked) {
+            setError(`Battle Towers unlock at level ${BATTLE_TOWERS_MIN_LEVEL}. You can decline this invitation in the meantime.`);
+            return;
+        }
         void runRequest(action, async () => {
             const preview = await fetchTowerParty(playerName, invitation.partyId);
             if (!preview.party) throw new Error("That invitation is no longer available.");
@@ -598,7 +620,7 @@ export function TowerReadyRoomPanel({
                 </div>
             )}
             {externalBattleActive && !party && (
-                <div className="tower-ready-room-notice" role="status">Finish or leave your Tower Team Arena match before opening a co-op room.</div>
+                <div className="tower-ready-room-notice" role="status">Finish or leave your Team Arena match before opening a co-op room.</div>
             )}
 
             {!party ? (
@@ -609,6 +631,7 @@ export function TowerReadyRoomPanel({
                         busy={Boolean(busy)}
                         connectionUnavailable={connectionUnavailable}
                         externalBattleActive={externalBattleActive}
+                        towersUnlocked={towersUnlocked}
                         onRespond={respondToInvitation}
                     />
                     <div className="tower-ready-room-open">
@@ -647,13 +670,13 @@ export function TowerReadyRoomPanel({
                                             joinOpenRoom();
                                         }}
                                         onChange={event => setJoinCode(event.target.value.toUpperCase().replace(/[^ABCDEFGHJKLMNPQRSTUVWXYZ23456789]/g, ""))} placeholder="ROOMCODE" />
-                                    <button type="submit" disabled={Boolean(busy || connectionUnavailable || externalBattleActive || joinCode.length !== 8)}>
+                                    <button type="submit" disabled={Boolean(busy || connectionUnavailable || externalBattleActive || !towersUnlocked || joinCode.length !== 8)}>
                                         {busy === "join" ? "Joining…" : "Join room"}
                                     </button>
                                 </div>
                             </form>
                         </div>
-                        <p className="tower-ready-room-size">{towersUnlocked ? sizeText : "Battle Towers unlock at level 30."}</p>
+                        <p className="tower-ready-room-size">{towersUnlocked ? sizeText : `Battle Towers unlock at level ${BATTLE_TOWERS_MIN_LEVEL}.`}</p>
                     </div>
                 </>
             ) : (
@@ -832,6 +855,7 @@ export function TowerReadyRoomPanel({
                         busy={Boolean(busy)}
                         connectionUnavailable={connectionUnavailable}
                         externalBattleActive={externalBattleActive}
+                        towersUnlocked={towersUnlocked}
                         secondary
                         onRespond={respondToInvitation}
                     />

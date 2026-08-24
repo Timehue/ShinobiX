@@ -3,6 +3,7 @@ import type { Character } from "../types/character";
 import { playerSlug } from "./utils";
 
 export type PvpRewardRating = { field: string; value: number; delta: number };
+export type ClanWarScrollDrop = { awarded: 0 | 1; chancePercent: number };
 export type PvpRaidProgression = {
     fetchMissionsCredited: string[];
     missionsCompleted: Array<{ id: string; name: string; xpReward: number }>;
@@ -28,6 +29,8 @@ export type PvpRewardClaimConfirmed = {
     character?: Character;
     _saveVersion?: number;
     raidProgression?: PvpRaidProgression;
+    /** Present only for the winning player in a settled Clan War shinobi duel. */
+    clanWarScrollDrop?: ClanWarScrollDrop;
 };
 
 export type PvpRewardClaimRetry = {
@@ -203,6 +206,37 @@ function cleanRating(raw: unknown): PvpRewardRating | undefined {
     return { field: value.field, value: Number(value.value), delta: Number(value.delta) };
 }
 
+function cleanClanWarScrollDrop(raw: unknown): ClanWarScrollDrop | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const awarded = Number(value.awarded);
+    const chancePercent = Number(value.chancePercent);
+    if ((awarded !== 0 && awarded !== 1)
+        || !Number.isFinite(chancePercent)
+        || chancePercent <= 0
+        || chancePercent > 100) return undefined;
+    return { awarded, chancePercent: Math.round(chancePercent) };
+}
+
+/** Player-facing copy for the exact authoritative terminal settlement. */
+export function pvpRewardSettlementNotice(
+    result: PvpRewardClaimConfirmed,
+    options: { draw: boolean; spar: boolean },
+): string {
+    if (options.draw) return "Draw confirmed — terminal battle effects are settled.";
+    if (result.clanWarScrollDrop) {
+        return result.clanWarScrollDrop.awarded > 0
+            ? "Clan War victory settled — Territory Control Scroll dropped! +1 added to your inventory."
+            : `Clan War victory settled — no Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`;
+    }
+    if (!result.rewardAuthorized || options.spar) return "Spar complete — no progression rewards.";
+    if (result.rating) {
+        return `Server-settled rating: ${result.rating.delta >= 0 ? "+" : ""}${result.rating.delta}.${result.base ? " Combat rewards credited." : ""}`;
+    }
+    if (result.base) return "Combat rewards settled by the server.";
+    return "Official result verified; no generic payout for this mode.";
+}
+
 function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
     if (!raw || typeof raw !== "object") return undefined;
     const value = raw as Record<string, unknown>;
@@ -263,6 +297,7 @@ export async function postPvpRewardClaim(
             : undefined;
         const saveVersion = Number(payload._saveVersion);
         const raidProgression = cleanRaidProgression(payload.raidProgression);
+        const clanWarScrollDrop = cleanClanWarScrollDrop(payload.clanWarScrollDrop);
         if (typeof payload.completionPending !== "boolean") {
             return {
                 status: "retry",
@@ -282,6 +317,7 @@ export async function postPvpRewardClaim(
             ...(character ? { character } : {}),
             ...(Number.isFinite(saveVersion) ? { _saveVersion: saveVersion } : {}),
             ...(raidProgression ? { raidProgression } : {}),
+            ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
         };
     } catch {
         return {

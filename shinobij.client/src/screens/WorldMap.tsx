@@ -6,14 +6,14 @@ import "../styles/atlas-skin.css";
 // view and the overlay are component modules and must stay CSS-free).
 import "../styles/chronicle-duel.css";
 import "../styles/card-pack-opening.css";
-// Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+// Compact local event-modal glyphs shared with the rest of the game.
 import {
     GiCardPickup,
     GiChest,
     GiOpenTreasureChest,
     GiPawPrint,
     GiTrail,
-} from "react-icons/gi";
+} from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
@@ -183,7 +183,7 @@ import {
 } from "../App";
 import { villagePageImage } from "../lib/village-page-image";
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { useSectorIntelPlate } from "../lib/village-intel";
 import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
@@ -4269,12 +4269,9 @@ export function WorldMap({
             ? undefined
             : sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector);
         const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
-        // Clan territory is inert until a clan actually claims the sector: the terrain
-        // buff, the raid path, guards, war supply and the weather override all no-op on
-        // `!ownerClan` (lib/world-state, Arena territoryBuffMultiplier). On an untouched
-        // sector the full card is five rows of zeroes eating the top of the panel, so
-        // collapse it to one line and only spend the space once it means something —
-        // owned, mid-capture, guarded, cooling down, or a live war ground.
+        // Clan territory is inert until a clan claims the sector. Collapse its five-row
+        // card until it is owned, mid-capture, guarded, cooling down, or a live war
+        // ground; untouched sectors would otherwise show rows of zeroes.
         const territoryRebuildMinsLeft = territory.rebuiltAt
             ? Math.ceil((TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt)) / 60000)
             : 0;
@@ -4302,8 +4299,11 @@ export function WorldMap({
             rebuildMinsLeft: territoryRebuildMinsLeft,
             controlScore: territory.controlScore,
             hp: territory.hp,
+            breached: territoryIsBreached(territory),
+            breachMinsLeft: territoryBreachMinsLeft(territory),
+            rewardsSuspended: territoryRewardsSuspended(territory),
             guards: territory.guards,
-            enemyControlled: Boolean(territory.ownerClan && territory.ownerClan !== character.clan),
+            enemyControlled: Boolean(territory.ownerClan && territory.ownerClan !== character.clan && territory.hp > 0),
             ...(villageWar ? {
                 war: {
                     playerVillage: character.village,

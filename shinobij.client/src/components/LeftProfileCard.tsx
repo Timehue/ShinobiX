@@ -37,8 +37,8 @@ import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
-import { GameIcon } from "./icons/GameIcon";
-import type { GameIconName } from "./icons/GameIcon";
+import { GameIcon, ShinobiCurrencyIcon } from "./icons/GameIcon";
+import type { ShinobiCurrencyIconName } from "./icons/GameIcon";
 import { DailyBriefingModal } from "./DailyBriefingModal";
 import { RankUpCelebration } from "./RankUpCelebration";
 import { PatchNotesModal } from "./PatchNotesModal";
@@ -150,17 +150,17 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             {/* Currencies — icons from the GameIcon SVG set (themeable, no emoji) */}
             <div className="left-currencies">
                 {([
-                    { icon: "ryo",     iconColor: "#f4c95d", label: "Ryo",          value: character.ryo },
-                    { icon: "medal",   iconColor: "var(--gold)", label: "Honor Seals",  value: character.honorSeals,  valueColor: "var(--gold)" },
-                    { icon: "sparkle", iconColor: "var(--gold-400)", label: "Aura Dust",    value: character.auraDust,    valueColor: "#fef3c7" },
-                    { icon: "shard",   iconColor: "#ce93d8", label: "Fate Shards",  value: character.fateShards,  valueColor: "#ce93d8" },
-                    { icon: "crystal", iconColor: "var(--blue-400)", label: "Aura Stones",  value: character.auraStones,  valueColor: "var(--blue-400)" },
-                    { icon: "sigil",   iconColor: "#fde047", label: "Mythic Seals", value: character.mythicSeals, valueColor: "#fde047" },
-                    { icon: "bone",    iconColor: "var(--slate-300)", label: "Bone Charms",  value: character.boneCharms,  valueColor: "var(--text-dim)" },
-                ] as { icon: GameIconName; iconColor: string; label: string; value: number; valueColor?: string }[]).map((c) => (
+                    { icon: "ryo",     label: "Ryo",          value: character.ryo },
+                    { icon: "medal",   label: "Honor Seals",  value: character.honorSeals,  valueColor: "var(--gold)" },
+                    { icon: "sparkle", label: "Aura Dust",    value: character.auraDust,    valueColor: "#fef3c7" },
+                    { icon: "shard",   label: "Fate Shards",  value: character.fateShards,  valueColor: "#ce93d8" },
+                    { icon: "crystal", label: "Aura Stones",  value: character.auraStones,  valueColor: "var(--blue-400)" },
+                    { icon: "sigil",   label: "Mythic Seals", value: character.mythicSeals, valueColor: "#fde047" },
+                    { icon: "bone",    label: "Bone Charms",  value: character.boneCharms,  valueColor: "var(--text-dim)" },
+                ] as { icon: ShinobiCurrencyIconName; label: string; value: number; valueColor?: string }[]).map((c) => (
                     <div className="left-currency-row" key={c.label}>
                         <span className="left-currency-icon">
-                            <GameIcon name={c.icon} size={14} style={{ color: c.iconColor, display: "block", margin: "0 auto" }} />
+                            <ShinobiCurrencyIcon name={c.icon} size={19} />
                         </span>
                         <span className="left-currency-label">{c.label}</span>
                         <span className="left-currency-value" title={formatExact(c.value)} style={c.valueColor ? { color: c.valueColor } : undefined}>{formatCompact(c.value)}</span>

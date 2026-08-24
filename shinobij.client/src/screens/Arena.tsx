@@ -9,6 +9,7 @@ import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { BattleArenaLobby } from "../features/arena/components/BattleArenaLobby";
 import { ArenaDistrictLobby } from "../features/arena/components/ArenaDistrictLobby";
 import type { ArenaDistrictTab, BattleArenaLobbyTab } from "../features/arena/types";
+import { hasActiveTeamArenaMatch } from "../lib/screen-guards";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
@@ -40,6 +41,8 @@ import {
 
 type ArenaProps = {
     lobbyMode?: "battleArena" | "arenaDistrict";
+    /** Art overrides for the Team Arena board. */
+    sharedImages?: Record<string, string>;
     character: Character;
     updateCharacter: (character: Character) => void;
     savedBloodlines: SavedBloodline[];
@@ -73,6 +76,7 @@ type PlayerChallengeResult = Readonly<{
  */
 export function Arena({
     lobbyMode = "battleArena",
+    sharedImages,
     character,
     updateCharacter,
     savedBloodlines,
@@ -100,7 +104,13 @@ export function Arena({
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
     const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>("ranked");
-    const [battleArenaTab, setBattleArenaTab] = useState<BattleArenaLobbyTab>("spar");
+    // Open on Team Arena when a live 2v2 breadcrumb is present, so a refresh
+    // mid-fight lands back on the board instead of the default Spar tab. The
+    // match itself is re-entered from authoritative presence, not this key —
+    // the key only decides which tab to show first.
+    const [battleArenaTab, setBattleArenaTab] = useState<BattleArenaLobbyTab>(
+        () => (hasActiveTeamArenaMatch() ? "teamArena" : "spar"),
+    );
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
@@ -371,6 +381,7 @@ export function Arena({
                 onAcceptPetChallenge={onAcceptPetChallenge}
                 onOpenPetArena={() => setScreen("petArena")}
                 onOpenCardHall={() => setScreen("shinobiTiles")}
+                sharedImages={sharedImages}
             />
         );
     }
@@ -461,6 +472,7 @@ export function Arena({
 
     return (
         <ArenaDistrictLobby
+            sharedImages={sharedImages}
             character={character}
             activeTab={activeArenaTab}
             hasAvailablePet={combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}

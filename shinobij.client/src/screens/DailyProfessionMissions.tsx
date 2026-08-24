@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { visiblePoll } from "../lib/poll";
 import { LoadingState } from "../components/ui/LoadingState";
 import { readDailyMissionCache, writeDailyMissionCache } from "../lib/daily-mission-cache";
@@ -136,8 +137,8 @@ export function DailyProfessionMissions({ character }: { character: Character })
     const missions = data?.missions ?? [];
 
     return (
-        <div className="card" style={{ border: `1px solid ${accent}55`, marginBottom: "1rem" }}>
-            <h3 style={{ marginTop: 0, color: accent }}>
+        <section className="card profession-daily-card" aria-labelledby="profession-daily-heading" style={{ border: `1px solid ${accent}55`, marginBottom: "1rem", "--profession-accent": accent } as CSSProperties}>
+            <h3 id="profession-daily-heading" style={{ marginTop: 0, color: accent }}>
                 {isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
             </h3>
             {loading && <LoadingState />}
@@ -148,13 +149,14 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 </p>
             )}
             {!loading && data && missions.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div className="profession-mission-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {missions.map(m => {
                         const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
                         const done = m.completedAt !== null;
                         return (
-                            <div
+                            <article
                                 key={m.id}
+                                className={`profession-mission-card${done ? " is-complete" : ""}`}
                                 style={{
                                     background: done ? `${accent}22` : "rgba(15,18,34,0.55)",
                                     border: `1px solid ${done ? accent : "rgba(148,163,184,0.25)"}`,
@@ -162,7 +164,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                                     padding: 10,
                                 }}
                             >
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                                <div className="profession-mission-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                                     <strong style={{ color: done ? accent : "var(--slate-200)" }}>
                                         {done && "✓ "}{m.name}
                                     </strong>
@@ -173,15 +175,15 @@ export function DailyProfessionMissions({ character }: { character: Character })
                                 <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.8rem" }}>
                                     {m.description}
                                 </p>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <div style={{ flex: 1, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
+                                <div className="profession-mission-progress" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div className="profession-progress-track" role="progressbar" aria-label={`${m.name} progress`} aria-valuemin={0} aria-valuemax={m.target} aria-valuenow={m.progress} style={{ flex: 1, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
                                         <div style={{ width: `${pct}%`, height: "100%", background: accent, transition: "width 200ms" }} />
                                     </div>
                                     <span className="hint" style={{ fontSize: "0.75rem", minWidth: 50, textAlign: "right" }}>
                                         {m.progress} / {m.target}
                                     </span>
                                 </div>
-                            </div>
+                            </article>
                         );
                     })}
                 </div>
@@ -189,6 +191,6 @@ export function DailyProfessionMissions({ character }: { character: Character })
             <p className="hint" style={{ margin: "8px 0 0", fontSize: "0.72rem", opacity: 0.7 }}>
                 Resets daily at midnight UTC. Rewards auto-grant on completion.
             </p>
-        </div>
+        </section>
     );
 }

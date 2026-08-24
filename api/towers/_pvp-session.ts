@@ -5,12 +5,14 @@ import {
     type CombatActorRef,
 } from '../combat-core/n-actor.js';
 import type {
+    TowerPvpBinding,
     TowerPvpMatch,
     TowerPvpMatchView,
     TowerPvpRosterMember,
     TowerPvpTeamId,
 } from '../../shared/tower-pvp.js';
 import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_TEAM_SIZE, TOWER_PVP_TURN_MS } from '../../shared/tower-pvp.js';
+import { MAX_ROUNDS } from '../combat-core/constants.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import {
     activeActor,
@@ -43,13 +45,22 @@ export const TOWER_PVP_TOWER_ID = 'tower-mpvp-v1';
 export const TOWER_PVP_READY_MS = 90_000;
 export const TOWER_PVP_AFK_STRIKES_TO_FORFEIT = 2;
 
-/** A neutral, symmetric arena. It is embedded and can never pass Story/Spire settlement identity. */
+/**
+ * A neutral, symmetric arena. It is embedded and can never pass Story/Spire
+ * settlement identity.
+ *
+ * The board is the CANONICAL 12x10 hex grid (combat-core GRID_W/GRID_H) that
+ * 1v1 PvP and solo PvE fight on — shinobi PvP is one battlefield regardless of
+ * team size. The round cap is likewise the canonical MAX_ROUNDS rather than a
+ * Tower-specific budget: a 2v2 is shinobi PvP and must not end sooner than the
+ * 1v1 it is scored beside. Story/Spire floors keep their own per-floor budgets.
+ */
 export const TOWER_PVP_FLOOR: TowerFloor = {
     id: 0,
-    name: 'Tower Team Arena',
+    name: 'Team Arena',
     biome: 'central',
     objective: 'defeat-all',
-    roundBudget: 20,
+    roundBudget: MAX_ROUNDS,
     map: { width: 12, height: 10 },
     fieldRule: { kind: 'none' },
     enemies: [],
@@ -61,6 +72,14 @@ export type TowerPvpFighterSeed = {
     displayName: string;
     skill: number;
     character: Record<string, unknown>;
+    /**
+     * Sealed per-fight consumable budget, or omitted for a consumable-free
+     * match. The open Team Arena omits it because it settles no economy, so
+     * spending a real potion there would be a pure loss. A clan-war 2v2 IS
+     * reward-bearing and seals real charges, matching clan-war 1v1 on the PvP
+     * engine — see api/clan/war/_mpvp.ts.
+     */
+    itemCharges?: Record<string, number>;
 };
 
 export type StoredTowerPvpMatch = TowerPvpMatch<TowerSession>;
@@ -96,10 +115,50 @@ function fighterActor(
         cooldowns: {},
         pos,
         character: fighter.character,
-        // Public MPvP has no economy settlement. Hand weapons remain reusable,
-        // while consumables and thrown ammunition fail closed at zero charges.
-        itemCharges: {},
+        // Hand weapons are always reusable. Consumables and thrown ammunition
+        // fail closed at zero UNLESS the caller sealed a real budget: the open
+        // queue settles no economy so it spends nothing, while a reward-bearing
+        // clan-war duel must behave like every other rated fight.
+        itemCharges: { ...(fighter.itemCharges ?? {}) },
     };
+}
+
+function assertExactUniqueRoster(fighters: readonly TowerPvpFighterSeed[]): void {
+    if (fighters.length !== TOWER_PVP_MATCH_SIZE) {
+        throw new RangeError(`Tower MPvP needs exactly ${TOWER_PVP_MATCH_SIZE} fighters.`);
+    }
+    const unique = new Set(fighters.map(fighter => fighter.slug));
+    if (unique.size !== TOWER_PVP_MATCH_SIZE) throw new TypeError('Tower MPvP fighter slugs must be unique.');
+}
+
+/**
+ * Build the canonical roster from an explicit, caller-owned team split.
+ *
+ * Public matchmaking balances teams by skill, but a clan-war 2v2 must field
+ * challengers against defenders — the split is a fact of the challenge, not a
+ * fairness decision. Validated exactly as strictly as the balanced path: four
+ * unique fighters, two per side, every named slug present.
+ */
+export function assignFixedTowerPvpTeams(
+    fighters: readonly TowerPvpFighterSeed[],
+    assignment: Readonly<Record<TowerPvpTeamId, readonly string[]>>,
+): TowerPvpRosterMember[] {
+    assertExactUniqueRoster(fighters);
+    const bySlug = new Map(fighters.map(fighter => [fighter.slug, fighter] as const));
+    const named = [...assignment.amber, ...assignment.violet];
+    if (named.length !== TOWER_PVP_MATCH_SIZE || new Set(named).size !== TOWER_PVP_MATCH_SIZE) {
+        throw new TypeError('Tower MPvP fixed teams must name four unique fighters.');
+    }
+    if (assignment.amber.length !== TOWER_PVP_TEAM_SIZE || assignment.violet.length !== TOWER_PVP_TEAM_SIZE) {
+        throw new RangeError(`Tower MPvP fixed teams need exactly ${TOWER_PVP_TEAM_SIZE} fighters per side.`);
+    }
+    if (named.some(slug => !bySlug.has(slug))) {
+        throw new TypeError('Tower MPvP fixed teams named a fighter that is not in the roster.');
+    }
+    return buildTowerPvpRoster({
+        amber: assignment.amber.map(slug => bySlug.get(slug)!),
+        violet: assignment.violet.map(slug => bySlug.get(slug)!),
+    });
 }
 
 /**
@@ -107,17 +166,16 @@ function fighterActor(
  * face the middle pair, which is substantially fairer than queue-order teams.
  */
 export function assignTowerPvpTeams(fighters: readonly TowerPvpFighterSeed[]): TowerPvpRosterMember[] {
-    if (fighters.length !== TOWER_PVP_MATCH_SIZE) {
-        throw new RangeError(`Tower MPvP needs exactly ${TOWER_PVP_MATCH_SIZE} fighters.`);
-    }
-    const unique = new Set(fighters.map(fighter => fighter.slug));
-    if (unique.size !== TOWER_PVP_MATCH_SIZE) throw new TypeError('Tower MPvP fighter slugs must be unique.');
+    assertExactUniqueRoster(fighters);
     const ranked = [...fighters].sort((a, b) =>
         b.skill - a.skill || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
-    const teams: Record<TowerPvpTeamId, TowerPvpFighterSeed[]> = {
+    return buildTowerPvpRoster({
         amber: [ranked[0]!, ranked[3]!],
         violet: [ranked[1]!, ranked[2]!],
-    };
+    });
+}
+
+function buildTowerPvpRoster(teams: Record<TowerPvpTeamId, TowerPvpFighterSeed[]>): TowerPvpRosterMember[] {
     const roster: TowerPvpRosterMember[] = [];
     for (const team of ['amber', 'violet'] as const) {
         canonicalTeamId(`tower-pvp:${team}`);
@@ -155,9 +213,21 @@ export function createTowerPvpMatch(input: {
     fighters: readonly TowerPvpFighterSeed[];
     seed: number;
     now: number;
+    /** Omitted for the public queue, which balances teams by skill instead. */
+    teams?: Readonly<Record<TowerPvpTeamId, readonly string[]>>;
+    /** Defaults to the open Team Arena queue. */
+    binding?: TowerPvpBinding;
 }): StoredTowerPvpMatch {
     if (!TOWER_PVP_ID.test(input.matchId)) throw new TypeError('Invalid Tower MPvP match ID.');
-    const roster = assignTowerPvpTeams(input.fighters);
+    const binding: TowerPvpBinding = input.binding ?? { kind: 'public-queue' };
+    // A clan-war challenge fields clan against clan; only the open queue may
+    // reshuffle sides for fairness.
+    if (binding.kind !== 'public-queue' && !input.teams) {
+        throw new TypeError('A bound Tower MPvP match must supply its fixed teams.');
+    }
+    const roster = input.teams
+        ? assignFixedTowerPvpTeams(input.fighters, input.teams)
+        : assignTowerPvpTeams(input.fighters);
     const bySlug = new Map(input.fighters.map(fighter => [fighter.slug, fighter] as const));
     const positions: Record<string, number> = {
         'amber-0': 25,
@@ -193,6 +263,14 @@ export function createTowerPvpMatch(input: {
     return {
         contractVersion: 1,
         matchId: input.matchId,
+        binding,
+        ...(input.fighters.some(f => f.itemCharges !== undefined)
+            ? {
+                sealedItemCharges: Object.fromEntries(input.fighters.map(f => (
+                    [f.slug, { ...(f.itemCharges ?? {}) }]
+                ))),
+            }
+            : {}),
         status: 'ready',
         version: 0,
         createdAt: input.now,
@@ -206,7 +284,12 @@ export function createTowerPvpMatch(input: {
         settlement: { policy: 'no-progression-v1', acknowledgements: [] },
         rules: {
             teamSize: TOWER_PVP_TEAM_SIZE,
-            consumables: 'disabled',
+            // Driven by whether a budget was SEALED, not by whether anyone
+            // happens to be carrying something: a clan-war duel where nobody
+            // packed a potion still plays by consumable rules.
+            consumables: input.fighters.some(fighter => fighter.itemCharges !== undefined)
+                ? 'enabled'
+                : 'disabled',
             rewards: 'none',
             afkStrikesToForfeit: TOWER_PVP_AFK_STRIKES_TO_FORFEIT,
         },
@@ -278,7 +361,7 @@ export function projectTowerPvpTerminal(match: StoredTowerPvpMatch): boolean {
         const violet = totalVitality(match, 'violet');
         winner = Math.abs(amber - violet) < 0.000_001 ? 'draw' : amber > violet ? 'amber' : 'violet';
         match.combat.winner = winner === 'draw' ? 'draw' : winner === 'amber' ? 'squad' : 'enemy';
-        match.combat.log.push(`Tower Team Arena adjudication: ${winner === 'draw' ? 'draw' : `${winner} wins`} on remaining vitality.`);
+        match.combat.log.push(`Team Arena adjudication: ${winner === 'draw' ? 'draw' : `${winner} wins`} on remaining vitality.`);
     } else {
         winner = match.combat.winner === 'squad' ? 'amber'
             : match.combat.winner === 'enemy' ? 'violet' : 'draw';

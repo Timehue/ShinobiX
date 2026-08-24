@@ -315,12 +315,21 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'durable-pvp-history', status: 'match',
     }),
     defineMode({
-        id: 'clan-war-pvp-2v2', label: 'Clan War shinobi PvP 2v2', category: 'shinobi-pvp', authorityEngine: null,
+        id: 'clan-war-pvp-2v2', label: 'Clan War shinobi PvP 2v2', category: 'shinobi-pvp', authorityEngine: E.TOWER,
         intendedAuthorityEngine: E.PVP, orchestrationOwner: O.CLAN_WAR,
-        clientEntries: ['App.tsx', 'lib/clan-war-api.ts'],
-        routes: [mountedRoute('/clan/war/challenge', 'clan/war/challenge', ['lifecycle'])],
-        participantModel: 'party', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
-        statusDetail: 'New send/join/accept progression is retired fail-closed. Retained queue records remain cleanup-only and cannot launch until one server-owned four-player PvP lifecycle can settle the whole challenge.',
+        clientEntries: [
+            'App.tsx', 'lib/clan-war-api.ts', 'lib/clan-war-2v2-api.ts', 'screens/ClanWar2v2Battle.tsx',
+            // The fight itself is issued through the shared Tower MPvP transport.
+            'lib/tower-pvp-api.ts',
+        ],
+        routes: [
+            mountedRoute('/clan/war/challenge', 'clan/war/challenge', ['lifecycle']),
+            mountedRoute('/clan/war/pvp-2v2', 'clan/war/pvp-2v2', ['start', 'settlement']),
+            mountedRoute('/towers/pvp-action', 'towers/pvp-action', ['action']),
+            mountedRoute('/towers/pvp-state', 'towers/pvp-state', ['state']),
+        ],
+        participantModel: 'party', rewardPolicy: 'server-settled', replayKind: 'bounded-terminal-command-ring', status: 'match',
+        statusDetail: 'Runs on the four-player Tower MPvP engine with teams fixed by clan rather than skill-balanced. The engine writes no rewards; api/clan/war/_mpvp-settlement.ts applies the war HP under a durable exactly-once receipt, so the shared open-queue surface stays progression-free. DISABLE_CLAN_WAR_PVP_2V2=1 re-closes progression while leaving cleanup available.',
     }),
 
     defineMode({
@@ -517,8 +526,36 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo-or-party', rewardPolicy: 'server-settled', replayKind: 'expiring-tower-session-and-aggregate-standings', status: 'match', migrationStatus: 'keep',
     }),
     defineMode({
-        id: 'tower-pvp', label: 'Tower PvP', category: 'tower', authorityEngine: E.TOWER,
-        clientEntries: ['lib/tower-pvp-api.ts', 'components/TowerPvpPanel.tsx'],
+        id: 'ranked-2v2', label: 'Ranked 2v2', category: 'shinobi-pvp', authorityEngine: E.TOWER,
+        intendedAuthorityEngine: E.PVP,
+        // You pair with ONE partner, then the pair queues against another pair,
+        // so teams are a fact of who chose to play together. Runs the shared
+        // four-player session on the canonical PvP grid; the engine writes no
+        // rating — api/pvp/_ranked-2v2-settlement.ts owns the ladder, which is
+        // what keeps the open Team Arena unrated while sharing the same board.
+        clientEntries: [
+            'lib/ranked-2v2-api.ts', 'components/Ranked2v2Panel.tsx',
+            'features/arena/components/ArenaDistrictLobby.tsx', 'lib/tower-pvp-api.ts',
+        ],
+        routes: [
+            mountedRoute('/pvp/ranked-2v2', 'pvp/ranked-2v2', ['lifecycle', 'start', 'settlement']),
+            mountedRoute('/towers/pvp-action', 'towers/pvp-action', ['action']),
+            mountedRoute('/towers/pvp-state', 'towers/pvp-state', ['state']),
+        ],
+        participantModel: 'party', rewardPolicy: 'server-settled', replayKind: 'bounded-terminal-command-ring', status: 'match',
+        statusDetail: 'Duo-queue ladder on its own ranked2v2Rating, separate from solo ranked. Elo is computed once from the two TEAM ratings sealed at match time and applied to both members of each side; a cancelled match rates nobody. Settlement is exactly-once per match via a durable per-save receipt.',
+    }),
+
+    defineMode({
+        id: 'tower-pvp', label: 'Team Arena 2v2', category: 'tower', authorityEngine: E.TOWER,
+        // Lives in the BATTLE ARENA, not the Towers lobby: the Towers are the
+        // co-op PvE climb. It keeps the tower engine because that is what puts
+        // four fighters on the canonical PvP grid, and keeps its route/mode ids
+        // so stored matches and leases stay readable.
+        clientEntries: [
+            'lib/tower-pvp-api.ts', 'components/TowerPvpPanel.tsx',
+            'components/TeamArenaSection.tsx', 'features/arena/components/BattleArenaLobby.tsx',
+        ],
         routes: [
             mountedRoute('/towers/pvp-queue', 'towers/pvp-queue', ['start']),
             mountedRoute('/towers/pvp-action', 'towers/pvp-action', ['action']),
@@ -698,11 +735,19 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match',
     }),
     defineMode({
-        id: 'pet-ranked-live-defect', label: 'Pet ranked live queue (retired)', category: 'pet-legacy', authorityEngine: null,
-        intendedAuthorityEngine: E.PET_CINEMATIC_DUEL,
-        clientEntries: ['screens/PetLadder.tsx', 'components/PetLadderQueuePanel.tsx'], routes: [],
-        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'none', status: 'surface-gap',
-        statusDetail: 'The broken public queue is retired fail-closed because it launched an ordinary no-reward cinematic duel without ranked settlement. Re-admission requires one server-owned cinematic match proof shared by combat and rating; legacy and Showdown pipelines remain separate.',
+        id: 'pet-ranked-live', label: 'Pet ranked live queue', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
+        clientEntries: [
+            'screens/PetLadder.tsx', 'components/PetLadderQueuePanel.tsx',
+            'lib/pet-ranked-queue-api.ts', 'lib/pet-ranked-watch-api.ts',
+        ],
+        routes: [
+            mountedRoute('/pvp/pet-ranked-queue', 'pvp/pet-ranked-queue', ['lifecycle']),
+            mountedRoute('/pet/ranked-start', 'pet/ranked-start', ['start']),
+            mountedRoute('/pet/ranked-watch', 'pet/ranked-watch', ['state', 'observation']),
+            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
+        ],
+        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'derived-showdown-script', status: 'match',
+        statusDetail: 'The queue produces only a reciprocal pairing. resolveRankedPetDuel is the single resolution: /pet/ranked-watch re-derives it for BOTH players and settlement rates that same derivation, so the fight on screen is the rated fight. DISABLE_PET_RANKED_QUEUE=1 closes matchmaking; DISABLE_PET_RANKED_SERVER_V1=1 closes the whole mode.',
     }),
     defineMode({
         id: 'pet-ranked-legacy-compat', label: 'Pet ranked legacy compatibility challenge', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,

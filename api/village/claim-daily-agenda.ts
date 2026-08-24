@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -175,7 +176,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const territories = territoryKeys.length
                     ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
                     : [];
-                heldSectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village).length;
+                const rewardNow = Date.now();
+                heldSectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village
+                    && !territoryRewardsSuspended(t, rewardNow)).length;
             }
             const gate = verifyAgendaCompletion(seededKinds, heldSectors);
             if (!gate.ok) return res.status(403).json({ error: gate.error });

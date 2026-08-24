@@ -769,7 +769,10 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             () => claim(player),
         );
         assert.equal(first.statusCode, 200);
-        assert.equal(Number((await savedCharacter(player)).ryo) > before, true);
+        const paidCharacter = await savedCharacter(player);
+        assert.equal(Number(paidCharacter.ryo) > before, true);
+        assert.equal((first.body?.reward as Record<string, unknown>)?.territoryScrolls, 0);
+        assert.equal((paidCharacter.inventory as string[]).includes('territory-control-scroll'), false);
         assert.equal(
             (await kv.get<Record<string, unknown>>(tokenKey(player, MISSION_ID)))?.authority,
             'server-combat-spent',

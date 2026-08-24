@@ -31,15 +31,6 @@
     },
     {
       "system": "combat-mission",
-      "id": "combat-e-drill",
-      "currency": "territoryControlScrolls",
-      "amount": 1,
-      "cadence": "per claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "combat-mission",
       "id": "combat-d-errand",
       "currency": "ryo",
       "amount": 20,
@@ -49,27 +40,9 @@
     },
     {
       "system": "combat-mission",
-      "id": "combat-d-errand",
-      "currency": "territoryControlScrolls",
-      "amount": 1,
-      "cadence": "per claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "combat-mission",
       "id": "combat-c-patrol",
       "currency": "ryo",
       "amount": 60,
-      "cadence": "per claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "combat-mission",
-      "id": "combat-c-patrol",
-      "currency": "territoryControlScrolls",
-      "amount": 1,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -85,27 +58,9 @@
     },
     {
       "system": "combat-mission",
-      "id": "combat-b-escort",
-      "currency": "territoryControlScrolls",
-      "amount": 1,
-      "cadence": "per claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "combat-mission",
       "id": "combat-a-hunt",
       "currency": "ryo",
       "amount": 250,
-      "cadence": "per claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "combat-mission",
-      "id": "combat-a-hunt",
-      "currency": "territoryControlScrolls",
-      "amount": 1,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -120,15 +75,6 @@
       "notes": ""
     },
     {
-      "system": "combat-mission",
-      "id": "combat-s-crisis",
-      "currency": "territoryControlScrolls",
-      "amount": 1,
-      "cadence": "per claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
       "system": "hunt-mission",
       "id": "hunt-wild-boar",
       "currency": "ryo",
@@ -145,15 +91,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-wild-boar",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -175,15 +112,6 @@
     },
     {
       "system": "hunt-mission",
-      "id": "hunt-forest-hawk",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "hunt-mission",
       "id": "hunt-frost-wolf",
       "currency": "ryo",
       "amount": 160,
@@ -202,15 +130,6 @@
     },
     {
       "system": "hunt-mission",
-      "id": "hunt-frost-wolf",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "hunt-mission",
       "id": "hunt-ash-lizard",
       "currency": "ryo",
       "amount": 160,
@@ -226,15 +145,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-ash-lizard",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -253,15 +163,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-shadow-panther",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -289,15 +190,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-ironback-bear",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -325,15 +217,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-ember-drake",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -370,15 +253,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-moon-serpent",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -415,15 +289,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-ancient-chakra-beast",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -469,15 +334,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "hunt-mission",
-      "id": "hunt-worldstorm-dragon",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "hunt-mission",
@@ -526,15 +382,6 @@
     },
     {
       "system": "field-mission",
-      "id": "fetch-d-supply-trail",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "field-mission",
       "id": "fetch-c-border-scout",
       "currency": "ryo",
       "amount": 190,
@@ -553,15 +400,6 @@
     },
     {
       "system": "field-mission",
-      "id": "fetch-c-border-scout",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "field-mission",
       "id": "fetch-b-enemy-cache",
       "currency": "ryo",
       "amount": 420,
@@ -577,15 +415,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "field-mission",
-      "id": "fetch-b-enemy-cache",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "field-mission",
@@ -613,15 +442,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "field-mission",
-      "id": "fetch-a-black-route",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "field-mission",
@@ -658,15 +478,6 @@
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": "Daily checklist progression; XP fields are legacy display data."
-    },
-    {
-      "system": "field-mission",
-      "id": "fetch-s-shadow-front",
-      "currency": "territoryControlScrolls",
-      "amount": 3,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
     },
     {
       "system": "field-mission",
@@ -793,6 +604,15 @@
       "cadence": "per crate",
       "authority": "api/inventory/_war-crate.ts",
       "notes": ""
+    },
+    {
+      "system": "clan-war",
+      "id": "shinobi-pvp-challenge-win",
+      "currency": "territoryControlScrolls",
+      "amount": 1,
+      "cadence": "per finalized win",
+      "authority": "api/clan/war/_war-points.ts",
+      "notes": "Only shinobi PvP challenge winners; exactly-once server settlement."
     },
     {
       "system": "territory",
@@ -1560,6 +1380,15 @@
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare potion"
+    },
+    {
+      "system": "shop",
+      "id": "profession-change-approval",
+      "currency": "fateShards",
+      "amount": 200,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
     },
     {
       "system": "shop",
@@ -2903,6 +2732,15 @@
       "levelReq": 1,
       "baseCost": 1800,
       "currency": "ryo"
+    },
+    {
+      "id": "profession-change-approval",
+      "name": "Profession change approval",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 13,
+      "baseCost": 200,
+      "currency": "fateShards"
     },
     {
       "id": "pve-apex-predator-fang",

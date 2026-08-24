@@ -329,8 +329,13 @@ test("mission desktop restores the dossier-board-dossier composition and full-wi
     );
     assert.match(
         missionCss,
-        /grid-template-columns:\s*minmax\(140px, 210px\) minmax\(0, 1fr\) minmax\(140px, 210px\)\s*!important;/,
-        "wide mission combat must keep player, battlefield, and enemy columns",
+        /grid-template-columns:\s*clamp\(180px, 13vw, 190px\) minmax\(0, 1fr\) clamp\(180px, 13vw, 190px\)\s*!important;/,
+        "wide mission combat must keep slimmer player/opponent dossiers around a dominant battlefield column",
+    );
+    assert.match(
+        missionCss,
+        /\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[\s\S]*?grid-template-rows:\s*28px\s*clamp\(72px, 10dvh, 88px\)\s*26px\s*minmax\(240px, 1fr\)\s*72px\s*clamp\(104px, 15dvh, 132px\)\s*46px\s*!important;/,
+        "desktop mission combat must reserve the flexible majority of its height for the tactical board",
     );
 
     const desktopBoardRule = battleSkinCss.match(

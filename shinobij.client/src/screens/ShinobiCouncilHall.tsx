@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
-import { GiGreekTemple, GiCrossedSwords, GiBlackFlag, GiCrown, GiTrophy } from "react-icons/gi";
+// Compact local chrome glyphs shared with the rest of the game.
+import { GiGreekTemple, GiCrossedSwords, GiBlackFlag, GiCrown, GiTrophy } from "../components/icons/LightweightGameIcons";
 const SCH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";

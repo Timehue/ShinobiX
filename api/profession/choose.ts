@@ -4,11 +4,26 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import {
+    PROFESSION_CHANGE_APPROVAL_ID,
+    PROFESSION_CHANGE_APPROVAL_NAME,
+} from '../../shared/profession-change.js';
 
 const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
 type Profession = typeof VALID_PROFESSIONS[number];
 
 const PROFESSION_UNLOCK_LEVEL = 13;
+
+function consumeProfessionApproval(character: Record<string, unknown>): Record<string, unknown> | null {
+    if (!Array.isArray(character.inventory)) return null;
+    const inventory = character.inventory;
+    const approvalIndex = inventory.indexOf(PROFESSION_CHANGE_APPROVAL_ID);
+    if (approvalIndex < 0) return null;
+    return {
+        ...character,
+        inventory: [...inventory.slice(0, approvalIndex), ...inventory.slice(approvalIndex + 1)],
+    };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -76,27 +91,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return {
                         status: 409 as const,
                         body: {
-                            error: char.professionRespecUsed === true
-                                ? 'Your one-time profession change has already been used.'
-                                : 'Profession already chosen. Use the one-time free change from your Profession Hub.',
+                            error: `Profession already chosen. A ${PROFESSION_CHANGE_APPROVAL_NAME} is required to change it.`,
                             current: char.profession,
-                            canRespec: char.professionRespecUsed !== true,
+                            requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
                         },
                     };
                 }
-                if (char.professionRespecUsed === true) {
-                    return { status: 409 as const, body: { error: 'Your one-time profession change has already been used.', current: char.profession, canRespec: false } };
+                if (!consumeProfessionApproval(char)) {
+                    return {
+                        status: 409 as const,
+                        body: {
+                            error: `You need a ${PROFESSION_CHANGE_APPROVAL_NAME} from the Grand Marketplace.`,
+                            current: char.profession,
+                            requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
+                        },
+                    };
                 }
             }
 
             const changingProfession = Boolean(char.profession);
+            const paidCharacter = changingProfession ? consumeProfessionApproval(char)! : char;
             const nextCharacter = {
-                ...char,
+                ...paidCharacter,
                 profession,
                 professionRank: 1,
                 professionXp: 0,
                 professionChosenAt: Date.now(),
-                ...(changingProfession ? { professionRespecUsed: true, masterySpec: {} } : {}),
+                ...(changingProfession ? { masterySpec: {} } : {}),
             };
             const updated = {
                 ...existing,
@@ -115,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 body: {
                     ok: true,
                     profession,
-                    respecUsed: changingProfession,
+                    approvalConsumed: changingProfession,
                     character: nextCharacter,
                     ...(Number.isFinite(nextVersion) ? { _saveVersion: nextVersion } : {}),
                 },
