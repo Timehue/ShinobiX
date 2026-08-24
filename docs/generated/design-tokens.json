@@ -3033,7 +3033,7 @@
           },
           {
             "source": "shinobij.client/src/components/world-map-charting.css",
-            "line": 109
+            "line": 108
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
@@ -3462,7 +3462,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/world-map-charting.css",
-            "line": 147
+            "line": 146
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
