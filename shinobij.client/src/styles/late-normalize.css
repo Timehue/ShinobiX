@@ -36,7 +36,6 @@
 
 /* ---- Back buttons: one consistent treatment across screens ---------------- */
 .back-btn,
-.back-to-hub-btn,
 .pl-back {
   color: var(--text-dim);
   background: rgba(148, 163, 184, .06);
@@ -46,7 +45,6 @@
   transition: color .12s ease, background .12s ease, border-color .12s ease;
 }
 .back-btn:hover,
-.back-to-hub-btn:hover,
 .pl-back:hover {
   color: var(--text);
   border-color: var(--border-strong);

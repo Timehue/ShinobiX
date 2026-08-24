@@ -6,8 +6,6 @@
    undo the spacing we added when it was a fixed header.
    ========================================================================= */
 
-.journey-banner {
-    display: none !important;
-}
+
 
 /* Shell offsets were retired with the banner; adaptive-shell.css owns geometry. */

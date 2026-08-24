@@ -25,8 +25,7 @@
 
 /* Sector boards: the 12x12 DOM grid always occupies a measured square. */
 .map-instance,
-.map-instance .instance-frame,
-.sector-instance-wrap {
+.map-instance .instance-frame {
   inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -37,20 +36,7 @@
   gap: var(--sp-2);
 }
 
-.sector-instance-wrap:has(> .instance-info) {
-  grid-template-columns: clamp(160px, 15vw, 210px) minmax(0, 1fr) clamp(180px, 18vw, 240px);
-  grid-template-areas: "profile scene actions";
-}
-
-.sector-instance-wrap > .instance-info {
-  grid-area: profile;
-  inline-size: 100%;
-  min-inline-size: 0;
-  max-inline-size: 100%;
-}
-
-.map-instance .instance-frame,
-.sector-instance-wrap {
+.map-instance .instance-frame {
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(180px, 18vw, 280px);
   grid-template-areas: "scene actions";
@@ -63,8 +49,7 @@
   overflow: visible;
 }
 
-.map-instance .instance-frame > main.tile-scene,
-.sector-instance-wrap > main.tile-scene {
+.map-instance .instance-frame > main.tile-scene {
   grid-area: scene;
   display: grid;
   grid-template-rows: auto auto;
@@ -76,8 +61,7 @@
   overflow: visible;
 }
 
-.map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map),
-.sector-instance-wrap > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
+.map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
   inline-size: min(100%, calc(100dvh - 96px));
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -91,8 +75,7 @@
   overflow: hidden;
 }
 
-.map-instance .instance-frame > main.tile-scene > .pixel-map,
-.sector-instance-wrap > main.tile-scene > .pixel-map {
+.map-instance .instance-frame > main.tile-scene > .pixel-map {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-template-rows: repeat(12, minmax(0, 1fr));
@@ -102,8 +85,7 @@
   image-rendering: pixelated;
 }
 
-.map-instance .instance-frame > aside.instance-actions,
-.sector-instance-wrap > aside.instance-actions {
+.map-instance .instance-frame > aside.instance-actions {
   grid-area: actions;
   position: static;
   inline-size: 100%;
@@ -116,44 +98,30 @@
   overscroll-behavior: contain;
 }
 
-.map-instance .instance-frame > aside.instance-actions > button,
-.sector-instance-wrap > aside.instance-actions > button {
+.map-instance .instance-frame > aside.instance-actions > button {
   block-size: auto !important;
   min-block-size: var(--touch-target-min) !important;
   max-block-size: none !important;
 }
 
 @media (max-width: 979px) {
-  .map-instance .instance-frame,
-  .sector-instance-wrap {
+  .map-instance .instance-frame {
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);
     padding: var(--sp-1);
   }
 
-  .sector-instance-wrap:has(> .instance-info) {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "profile"
-      "scene"
-      "actions";
-  }
-
-  .map-instance .instance-frame > main.tile-scene,
-  .sector-instance-wrap > main.tile-scene {
+  .map-instance .instance-frame > main.tile-scene {
     flex: 0 0 auto;
     inline-size: 100%;
   }
 
-  .map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map),
-  .sector-instance-wrap > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
+  .map-instance .instance-frame > main.tile-scene > :where(.pixel-map, .walkable-sector-map, .sector-image-map) {
     inline-size: 100%;
   }
 
-  .map-instance .instance-frame > aside.instance-actions,
-  .sector-instance-wrap > aside.instance-actions {
+  .map-instance .instance-frame > aside.instance-actions {
     flex: 0 0 auto;
     max-block-size: none;
     overflow: visible;

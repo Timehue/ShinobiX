@@ -1383,6 +1383,15 @@
     },
     {
       "system": "shop",
+      "id": "profession-change-approval",
+      "currency": "fateShards",
+      "amount": 200,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
       "id": "pve-apex-predator-fang",
       "currency": "ryo",
       "amount": 9600,
@@ -2723,6 +2732,15 @@
       "levelReq": 1,
       "baseCost": 1800,
       "currency": "ryo"
+    },
+    {
+      "id": "profession-change-approval",
+      "name": "Profession change approval",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 13,
+      "baseCost": 200,
+      "currency": "fateShards"
     },
     {
       "id": "pve-apex-predator-fang",

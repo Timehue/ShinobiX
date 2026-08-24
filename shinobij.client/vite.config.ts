@@ -1170,9 +1170,15 @@ export default defineConfig({
         }
     },
     build: {
+        // This 2023 evergreen floor matches the browsers supported by the live
+        // game and avoids emitting obsolete CSS compatibility expansions.
+        cssTarget: ['chrome120', 'firefox120', 'safari17'],
         // Retained build metadata lets the size gate measure each lazy route's
         // real static closure instead of guessing from chunk filenames.
         manifest: true,
+        // Use Vite's bundled production CSS minifier so the release stays under
+        // the immutable startup and all-product budgets without relaxing them.
+        cssMinify: 'lightningcss',
         // runtimePublicAssetsPlugin performs the filtered copy. Leaving Vite's
         // blanket copy enabled would ship multi-gigabyte pet authoring sources.
         copyPublicDir: false,

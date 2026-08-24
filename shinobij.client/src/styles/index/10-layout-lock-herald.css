@@ -57,13 +57,7 @@
         z-index: -1;
     }
 
-.aura-sphere-panel {
-    display: grid;
-    gap: 12px;
-    margin-top: 14px;
-    border-color: rgba(250,204,21,.38) !important;
-    background: linear-gradient(135deg, rgba(120,53,15,.26), rgba(2,6,23,.72)) !important;
-}
+
 
 /* ── Legacy auras (docs/legacy-system-plan.md §17) ─────────────────────────
    Cosmetic identity ring on the profile avatar, escalating with legacy stage:
@@ -142,9 +136,6 @@
 }
 
 @media (max-width: 900px) {
-    .journey-banner {
-        height: 160px;
-        background-position: center 100%;
-    }
+
 
 }
