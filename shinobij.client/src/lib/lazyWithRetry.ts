@@ -21,7 +21,15 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
  * is re-thrown with a chunk-load-shaped message so the top-level ErrorBoundary
  * recognises it and does its one-shot reload (see components/ErrorBoundary).
  */
-function retryDynamicImport<T>(
+/**
+ * Exported because the retry/backoff/timeout policy above is NOT specific to
+ * React.lazy: any bare `import()` in the app has the same three failure modes
+ * (a one-shot rejection that a caller memoizes, a hung fetch that never
+ * settles, and a chunk whose hash rotated under a still-open tab). Library-level
+ * deferrals — e.g. lib/hollow-gate-generator-loader — route through this so they
+ * inherit the same self-healing instead of re-inventing a weaker version.
+ */
+export function retryDynamicImport<T>(
     factory: () => Promise<T>,
     retries = 3,
     backoffMs = 600,

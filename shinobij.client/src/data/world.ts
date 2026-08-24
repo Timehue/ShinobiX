@@ -104,13 +104,10 @@ export const weatherEffects: Record<
     },
 };
 
-export const biomeWeatherTables: Record<Biome, WeatherType[]> = {
-    forest: ["rain", "tornado", "rain", "clear"],
-    snow: ["rain", "thunderstorm", "clear", "rain"],
-    volcano: ["ashfall", "desertHaze", "ashfall", "clear"],
-    shadow: ["thunderstorm", "tornado", "desertHaze", "clear"],
-    central: ["clear", "rain", "ashfall", "thunderstorm", "tornado", "desertHaze"],
-};
+// The per-biome weather rotation tables now live in shared/sector-weather.ts
+// (client + server derive the same daily weather from them). Re-exported here
+// so existing "../data/world" import sites keep working.
+export { biomeWeatherTables } from "../../../shared/sector-weather";
 
 export function biomeLabel(biome: Biome) {
     if (biome === "forest") return "Stormveil Coastal Waters";

@@ -168,6 +168,8 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
 };
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
 import { commitPvpSessionMutation } from './_session-mutation.js';
+import { enforcePvpTurnDeadlineLocked, pvpTurnLapsed } from './_turn-deadline.js';
+import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import {
     replayCommittedPvpActionReceipt,
     withPvpActionReceiptReplay,
@@ -1056,7 +1058,35 @@ function endTurn(session: PvpSession): PvpSession {
     // Overclock: next player's AP costs decrease by percent — stored on fighter, applied by canAct in handler
     // Both are status effects already applied; the handler reads them via the session
 
-    return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0 };
+    // The next turn's clock starts now — the server enforces its deadline
+    // (api/pvp/_turn-deadline.ts) independently of the browser countdown.
+    // `commit()` re-stamps it again on every real action the next player takes,
+    // so the deadline measures silence rather than capping a multi-action turn.
+    return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0, turnStartedAt: Date.now() };
+}
+
+/**
+ * Pass the ACTIVE player's turn because its clock ran out — the server-side
+ * twin of the client's timer-fired `wait` + `auto: true`. Applies exactly the
+ * same bookkeeping as that legacy path: a lapsed turn with ZERO real actions
+ * bumps the lapsed player's consecutive auto-wait streak (which is what
+ * `claim-afk-win` reads), while a lapsed turn in which they DID act resets it.
+ * No AP, cooldown, damage, or reward math is touched beyond what `endTurn`
+ * already does for any end of turn. Pure: the caller commits the result under
+ * the session lock.
+ */
+export function applyPvpServerAutoWait(session: PvpSession): PvpSession {
+    const role = session.activePlayer;
+    const me = role === 'p1' ? session.p1 : session.p2;
+    const isIdleAutoSkip = session.actionsThisTurn === 0;
+    const prevCount = session.consecAutoWait?.[role] ?? 0;
+    const nextCount = isIdleAutoSkip ? prevCount + 1 : 0;
+    const consecAutoWait = { ...(session.consecAutoWait ?? {}), [role]: nextCount };
+    const lines = [`${me.name} ran out of time — turn passes.`];
+    if (isIdleAutoSkip && nextCount >= 2) {
+        lines.push(`⚠ ${me.name} has skipped 2 rounds in a row — opponent may claim a forfeit win.`);
+    }
+    return endTurn({ ...session, log: [...session.log, ...lines], consecAutoWait });
 }
 
 function isPvpSessionRow(value: unknown, battleId: string): value is PvpSession {
@@ -1165,7 +1195,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // definition submitted by the INACTIVE player (the one claiming the
         // active player went AFK). Letting only that action through the guard;
         // the switch case re-validates that the claimant is indeed inactive.
-        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
+        // A lapsed turn (shared/pvp-turn.ts) also falls through: the inactive
+        // player's request must reach the lock so the server can pass the
+        // stale turn before deciding whose turn it really is.
+        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join' && !pvpTurnLapsed(session)) {
             return res.status(200).json(session);
         }
 
@@ -1272,6 +1305,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && (session.joined?.p1 !== true || session.joined?.p2 !== true)) {
                 return finish(withRejected(session, 'Waiting for both fighters to join before combat can advance.'));
             }
+            // Server-authoritative turn expiry (shared/pvp-turn.ts). If the
+            // ACTIVE player's clock has run out, pass their turn here — under
+            // the lock we already hold — before resolving whatever this request
+            // asked for. A lapsed player's own late action then lands on "no
+            // longer your turn"; the opponent's action proceeds on the advanced
+            // state. The client's legacy `auto: true` wait is still honoured as
+            // a wait, but it cannot pre-empt or bypass this deadline.
+            if (action !== 'join') {
+                // `claim-afk-win` is exempt from enforcement: applying the
+                // deadline here would flip the lapsed opponent's turn to the
+                // CLAIMANT a beat before their own claim resolves, and the claim
+                // gate below then rejects it (only valid on the opponent's
+                // turn) - so an abandoned fight slipped a full round on every
+                // attempt instead of resolving. The claim reads consecAutoWait
+                // and lastMoveAt, which polls and the opponent's own moves
+                // already keep current.
+                if (action !== 'claim-afk-win') {
+                    try {
+                        const enforced = await enforcePvpTurnDeadlineLocked(kv, key, session, Date.now(), { stampLegacy: false });
+                        session = enforced.session;
+                    } catch (error) {
+                        console.error('[pvp/move] turn deadline enforcement failed', error);
+                        return finishUnavailable(503, 'The battle clock could not be reconciled; retry.');
+                    }
+                }
+                if (session.rankedCloseFence) {
+                    return finishUnavailable(409, 'This ranked match ended as a season-close no-contest.');
+                }
+                if (session.status === 'done') return finishTerminal(session);
+            }
             if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join') {
                 return finish(withRejected(session, 'It is no longer your turn.'));
             }
@@ -1343,7 +1406,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 p2: session.joined?.p2 === true,
                 [role]: true,
             } as { p1: boolean; p2: boolean };
-            const updated = { ...session, joined };
+            // Seating the second fighter starts the first turn's server clock —
+            // offset by the "X goes first!" countdown the browser shows, so the
+            // opening fighter still gets the full PVP_TURN_SECONDS.
+            const bothSeated = joined.p1 && joined.p2;
+            const updated = {
+                ...session,
+                joined,
+                ...(bothSeated && session.turnStartedAt === undefined
+                    ? { turnStartedAt: Date.now() + PVP_PREFIGHT_COUNTDOWN_MS }
+                    : {}),
+            };
             const desiredPointer = pendingPointerForSessionRole(updated, role, 'reserving');
             let pointerCreated = false;
             let reservedPointer = desiredPointer;
@@ -1502,8 +1575,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Stamp lastMoveAt + reset this player's AFK counter (any real
             // action ends the streak of skipped rounds). Both are read by
             // the claim-afk-win action.
+            //
+            // turnStartedAt is re-stamped here too, so the server's deadline
+            // (api/pvp/_turn-deadline.ts) measures "time since your last
+            // action", NOT "time since your turn began". A turn is worth 100 AP
+            // and up to MAX_ACTIONS actions, and the browser's ring already
+            // resets on every action - anchoring the deadline to the start of
+            // the turn hard-capped a multi-action turn at one turn length and
+            // auto-passed a player who was visibly still acting, taking their
+            // unspent AP with it. The deadline exists ONLY to unfreeze a match
+            // against a closed tab; a player who is present and acting must
+            // never be timed out. A `wait` (manual or timer-fired) deliberately
+            // does NOT come through here, so an idle turn still lapses on time.
             const nextConsec = { ...(s.consecAutoWait ?? {}), [role as 'p1' | 'p2']: 0 };
-            s = { ...s, lastMoveAt: Date.now(), consecAutoWait: nextConsec };
+            s = { ...s, lastMoveAt: Date.now(), turnStartedAt: Date.now(), consecAutoWait: nextConsec };
             return checkWinner(s);
         }
 
@@ -1589,12 +1674,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // skipped 2 consecutive rounds (let the 45s timer run out
                 // twice). Falls back to a 90s "no contact" timeout for the
                 // crashed-tab case where the round timer never fires.
-                if (session.activePlayer === role) {
-                    // can only claim against opponent
-                    return finish(withRejected(session, 'You can only claim a forfeit while it is your opponent\'s turn.'));
-                }
                 const oppRole: 'p1' | 'p2' = role === 'p1' ? 'p2' : 'p1';
                 const oppSkipCount = session.consecAutoWait?.[oppRole] ?? 0;
+                if (session.activePlayer === role && oppSkipCount < 2) {
+                    // Can only claim against the opponent — UNLESS they have
+                    // already banked the 2 consecutive skipped rounds this claim
+                    // is about. Server-side deadline enforcement runs on any
+                    // read, so the turn can legitimately have come back to the
+                    // claimant between the opponent's second lapse and this
+                    // POST; refusing then just slipped the resolution another
+                    // full round, every round.
+                    return finish(withRejected(session, 'You can only claim a forfeit while it is your opponent\'s turn.'));
+                }
                 const AFK_FALLBACK_MS = 90_000;
                 const lastMove = Number(session.lastMoveAt ?? session.createdAt);
                 const elapsed = Date.now() - lastMove;

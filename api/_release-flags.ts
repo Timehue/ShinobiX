@@ -42,3 +42,23 @@ export function clanBossPartiesEnabled(env: NodeJS.ProcessEnv = process.env): bo
 export function anbuInfiltrationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.DISABLE_ANBU_INFILTRATION !== '1';
 }
+
+/**
+ * Server-enforced PvP turn expiry (api/pvp/_turn-deadline.ts). Default ON —
+ * a closed tab must never freeze a live match. The opt-out exists for test
+ * harnesses that hold a turn idle on purpose (the combat-layout viewport
+ * matrix captures ten viewports of one open turn); never set it in prod.
+ */
+export function pvpTurnDeadlineEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_PVP_TURN_DEADLINE !== '1';
+}
+
+/**
+ * Village Stores (Provisions + Materials): the ration cook recipes, donation
+ * routing, daily spoil/burn/convert pass, garrison-feed toggle, and the
+ * materials gate on structure levels 6–10. Default ON; the exact kill switch
+ * turns every new path into a no-op / 404 and the daily pass skips stores.
+ */
+export function villageStoresEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_VILLAGE_STORES !== '1';
+}

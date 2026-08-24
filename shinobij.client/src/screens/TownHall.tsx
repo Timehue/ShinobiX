@@ -4,6 +4,7 @@ import { GiBroadsword, GiCrossedSwords, GiMoneyStack, GiPagoda, GiShield, GiTrea
 import { visiblePoll } from "../lib/poll";
 import {
     KAGE_CHALLENGE_RYO_COST,
+    kageActivityLines,
     kageEligibility,
     type ServerKageChallenge,
     type ServerKageState,
@@ -13,12 +14,15 @@ import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { NoticePostType } from "../types/clan";
 import type { VillageUpgradeKey, Screen } from "../types/core";
 import { UPGRADE_IMAGES, HOLLOW_GATE_IMAGE } from "../data/upgrade-images";
-import { fetchWarMap, upgradeWarStructure } from "../lib/village-war-map";
+import { contestVillageUnfed, fetchWarMap, upgradeWarStructure, type SectorWarContest } from "../lib/village-war-map";
+import { storesLedgerEmptyLine, storesLedgerScopeLine, storesSpendAuthorityLine, villageSupplyCall } from "../lib/village-stores-signposts";
+import { DAILY_CRAFT_POINT_DONATION_CAP, DAILY_RATION_DONATION_CAP, DEPOT_CONVERSION_POINTS_PER_WR, readStores, storesCreditNote, storesDonationBucket, storesDonationCapLine, storesDonationGate, storesLedgerRows } from "../lib/village-stores";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 import { STRUCTURE_IMAGES } from "../data/war-ui-images";
 import { LeaderPortrait } from "../components/Marks";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
+import { gameToast } from "../components/GameToast";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed, sectorMapAdmissionMessage } from "../lib/live-capability-admission";
 import { clampNumber, currentDateKey, currentMonthKey, makeId } from "../lib/utils";
@@ -161,6 +165,26 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const [villageNoticeBody, setVillageNoticeBody] = useState("");
     const [villageNoticeSector, setVillageNoticeSector] = useState("");
     const [warStructures, setWarStructures] = useState<Record<string, number> | null>(null);
+    // Village Stores (api/_village-stores.ts): the war-map view carries the
+    // village's ledger + a stores snapshot. Fetched once when the Treasury tab
+    // opens; the stock rows prefer the polled village-state treasury (the blob
+    // the server drains) and fall back to this snapshot while it lacks the keys.
+    //
+    // BOTH sources are optional by design, so a bare `?? 0` cannot tell "the
+    // stores are empty" from "we have not read them yet" — the fetch status is
+    // what separates those, and it also separates a failed read from an empty
+    // log. The ledger is kept RAW: its rows carry "5m ago" stamps that go stale
+    // the instant they are baked into state, so they are formatted in render
+    // against a ticking clock instead.
+    const [storesLedgerRaw, setStoresLedgerRaw] = useState<unknown>(null);
+    const [storesFetch, setStoresFetch] = useState<"loading" | "ready" | "error">("loading");
+    const [storesLedgerNow, setStoresLedgerNow] = useState(() => Date.now());
+    const [storesSnapshot, setStoresSnapshot] = useState<{ provisions: number; materialPoints: number } | null>(null);
+    // The same war-map read also carries this village's sector-war contests,
+    // which is what turns "N rations" into "we are marching hungry". Kept raw
+    // for the same reason the ledger is: the unfed verdict is scoped to a UTC
+    // day and is read against a live clock in render, never frozen into state.
+    const [storesContests, setStoresContests] = useState<SectorWarContest[] | null>(null);
     const [warStructBusy, setWarStructBusy] = useState("");
     const [townActionBusy, setTownActionBusy] = useState<VillageUpgradeKey | "hollow-gate" | null>(null);
     const townActionBusyRef = useRef(false);
@@ -171,6 +195,10 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // Keep every Town Hall summary on the same authoritative seat state so the
     // header cannot say "Unclaimed" while another panel names an NPC as Kage.
     const displayedKage = state.seatedKage ?? (state.kageSystemUnlocked ? "Unclaimed" : "Acting Kage Council");
+    // "Unclaimed" is a call to action, not a status. The only claim button in
+    // the game lives in the Shinobi Council Hall, so the Town Hall has to say
+    // where it is and take the player there.
+    const kageSeatVacant = Boolean(state.kageSystemUnlocked) && !state.seatedKage;
     const villagePlayers = [
         character.name,
         ...allServerPlayers
@@ -208,6 +236,85 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         }).catch(() => { if (alive) setWarStructures(null); });
         return () => { alive = false; };
     }, [tab, character.village]);
+    // Command AND Treasury read the stores. Command needs them for the supply
+    // call to action ("{Village} is marching hungry"); reusing THIS fetch is the
+    // point — the war-map aggregator already carries the stock and the contests,
+    // so the banner costs no extra request and no new endpoint. It still fires
+    // once per tab entry, not on a poll.
+    useEffect(() => {
+        if (tab !== "treasury" && tab !== "status") return;
+        let alive = true;
+        setStoresFetch("loading");
+        void fetchWarMap().then((wm) => {
+            if (!alive) return;
+            const mine = wm.villages.find((v) => v.village === character.village);
+            setStoresLedgerRaw(mine ? mine.storesLedger : []);
+            setStoresSnapshot(mine ? { provisions: Math.max(0, Math.floor(Number(mine.provisions) || 0)), materialPoints: Math.max(0, Math.floor(Number(mine.materialPoints) || 0)) } : null);
+            setStoresContests((wm.contests ?? []).filter((c) => c.attackerVillage === character.village || c.defenderVillage === character.village));
+            setStoresFetch("ready");
+        }).catch(() => { if (alive) { setStoresLedgerRaw(null); setStoresSnapshot(null); setStoresContests(null); setStoresFetch("error"); } });
+        return () => { alive = false; };
+    }, [tab, character.village]);
+    // Keep "5m ago" honest while the tab stays open. visiblePoll pauses in a
+    // hidden tab, so this costs nothing in the background.
+    // (Command shares it: the supply banner compares a contest's endsAt against
+    // this same clock, so a tab left open for hours must not keep judging a war
+    // that has since closed.)
+    useEffect(() => {
+        if (tab !== "treasury" && tab !== "status") return;
+        setStoresLedgerNow(Date.now());
+        return visiblePoll(() => setStoresLedgerNow(Date.now()), 60_000);
+    }, [tab]);
+    // The Village Stores ride the war layer. When that layer is unavailable the
+    // stores endpoints answer 'Not found.', so the rows, the cap line and the
+    // supply log are hidden rather than shown as zeroes — failing CLOSED, the
+    // same read the Sector Map door uses.
+    const storesOpen = sectorMapOpen;
+    // "Loaded" is a fetch fact, not a value fact: the treasury blob may legally
+    // carry neither key, and 0 only becomes truthful once a read has landed.
+    const storesLoaded = storesFetch === "ready" || state.treasury.provisions !== undefined || state.treasury.materialPoints !== undefined;
+    // …and it is a PER-FIELD fact. `storesLoaded` is an OR across three
+    // independent sources, so a treasury carrying materialPoints but no
+    // provisions key reads as loaded while `provisions` is still unread — and
+    // the `?? 0` below would then let an unread field assert "The stores stand
+    // empty" at a village that is mid-siege. Track the two separately and hand
+    // the banner null (never 0) for a field nobody has read.
+    const provisionsKnown = state.treasury.provisions !== undefined || storesSnapshot?.provisions !== undefined;
+    const storesView = {
+        provisions: state.treasury.provisions ?? storesSnapshot?.provisions ?? 0,
+        materialPoints: state.treasury.materialPoints ?? storesSnapshot?.materialPoints ?? 0,
+    };
+    const storesLedgerView = storesLedgerRows(storesLedgerRaw, storesLedgerNow);
+    // Who may spend what a villager just donated. Copy only — the authority is
+    // the server's and is unchanged: the Kage spends the stores, ANBU appointees
+    // may order a garrison fed. Null while the read is still outstanding, so a
+    // bare 0 never stands in for "unknown".
+    const storesAuthorityLine = storesOpen ? storesSpendAuthorityLine({ loaded: storesLoaded, ...storesView }) : null;
+    // The supply call to action. Every input is already on screen or already
+    // fetched; the predicate itself (lib/village-stores-signposts) decides when
+    // there is genuinely nothing to say, and says nothing then.
+    const activeStoresContests = (storesContests ?? []).filter((c) => !c.flipped && storesLedgerNow < (Number(c.endsAt) || 0));
+    const supplyCall = storesOpen
+        ? villageSupplyCall({
+            village: character.village,
+            loaded: storesLoaded && storesContests !== null,
+            provisions: provisionsKnown ? storesView.provisions : null,
+            activeWars: activeStoresContests.length,
+            unfedWars: activeStoresContests.filter((c) => contestVillageUnfed(c, character.village)).length,
+        })
+        : null;
+    // Per-donor daily stores caps, mirrored from the save's own server-written
+    // counters (api/_treasury-stores-donate.ts). Shown as a running total and
+    // enforced before the request, the way the Cafeteria's cook cap already is.
+    const villageDonateCapLine = storesDonationCapLine(character);
+    const villageDonateGate = storesDonationGate(character, villageDonateItemId);
+    // The button says what the button DOES. A refusal is a sentence, and a
+    // sentence belongs in a hint under the select — not stretched across a
+    // control's label.
+    const villageDonateBucket = storesDonationBucket(villageDonateItemId);
+    const villageDonateLabel = villageDonateBucket === "provisions" ? "Donate to Provisions"
+        : villageDonateBucket === "materialPoints" ? "Donate to Materials"
+            : "Donate Item";
     async function upgradeWarStruct(key: string) {
         setWarStructBusy(key);
         try {
@@ -405,12 +512,30 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         if (donateBusyRef.current) return;
         if (!villageDonateItemId) return alert("Choose an item to donate.");
         if (!ownsItem(character, villageDonateItemId)) return alert("You do not have that item.");
+        // Mirror of the server's per-donor daily stores caps. Without it the
+        // only feedback on a 1,500-point / 40-ration day was a bare 429.
+        if (!villageDonateGate.ok) return alert(`${villageDonateGate.reason}. The cap resets at midnight UTC.`);
         donateBusyRef.current = true;
         try {
+            const before = readStores({ ...storesSnapshot, ...state.treasury } as Record<string, unknown>);
             const result = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
             if (!result) return;
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
-            updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+            // Village Stores routing: ration-pack → provisions, hunt-*/relics →
+            // material points. The server says what it credited; the rows update
+            // from the returned treasury and the toast names the credit.
+            const credit = storesCreditNote(result.stores, before);
+            const itemName = itemDisplayName(villageDonateItemId, allVillageItems);
+            if (result.stores) setStoresSnapshot((prev) => ({ provisions: result.stores?.provisions ?? prev?.provisions ?? 0, materialPoints: result.stores?.materialPoints ?? prev?.materialPoints ?? 0 }));
+            updateVillageState(addNotice(`${character.name} donated ${itemName} to the village ${result.stores ? "stores" : "treasury"}${credit ? ` (${credit})` : ""}.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+            // ONE confirmation for a routine success, and a toast rather than a
+            // modal: the alert used to fire on top of the notice-board line,
+            // which is the village's shared activity log and not the donor's
+            // receipt (see components/GameToast.tsx).
+            gameToast(
+                credit ? `${itemName} donated to the village stores — ${credit}.` : `${itemName} donated to the village treasury.`,
+                { kind: "success" },
+            );
         } finally {
             donateBusyRef.current = false;
         }
@@ -631,6 +756,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         .slice(0, 7);
     const anbuSlots = [...appointedAnbuSlots, ...Array.from({ length: 7 }, (_, index) => earnedAnbuSlots[index] ?? null)];
     const kageChallenge = serverKage?.challenge ?? null;
+    const kageActivity = kageActivityLines(serverKage, kageNow);
     const isKageChallenger = !!kageChallenge && kageChallenge.challenger.toLowerCase() === character.name.toLowerCase();
     const agenda = normalizeVillageDailyAgenda(character.village, state.dailyAgenda);
     const ownedVillageSectors = villageOwnedTerritories(character.village);
@@ -776,12 +902,13 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         </header>
         <nav className="town-tabs" aria-label="Town Hall sections">{TOWN_TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
         {tab === "status" && <div className="town-command">
+            {supplyCall && <section className="summary-box town-supply-call" data-tone={supplyCall.tone} role="status"><div className="town-supply-call-copy"><p className="act-label">Village supply</p><h3>{supplyCall.headline}</h3><p>{supplyCall.body}</p></div><button type="button" className="town-supply-call-action" onClick={() => setScreen(supplyCall.screen)}>{supplyCall.actionLabel}</button></section>}
             <section className="town-action-center"><div className="town-section-heading"><p className="act-label">Ready now</p><h3>Village priorities</h3></div><div className="town-priority-grid">
                 <article className="town-priority-card" data-state={agendaClaimed ? "done" : agendaComplete ? "ready" : "progress"}><div><span>Daily Agenda</span><strong>{agendaClaimed ? "Claimed" : agendaComplete ? "Rewards ready" : `${agenda.tasks.filter(task => agendaProgress(task) >= task.target).length}/${agenda.tasks.length} goals`}</strong></div><div className="town-task-list">{agenda.tasks.map(task => <span key={task.id}>{task.label}<b>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</b></span>)}</div><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Claimed today" : agendaComplete ? "Claim rewards" : "In progress"}</button></article>
                 <article className="town-priority-card" data-state={mapControlClaimed ? "done" : ownedVillageSectors.length ? "ready" : "locked"}><div><span>Map Control</span><strong>{ownedVillageSectors.length} sector{ownedVillageSectors.length === 1 ? "" : "s"}</strong></div><p>+{mapControlRyo.toLocaleString()} ryo · +{mapControlHonor} seals · +{mapControlBone} charms</p><button disabled={!ownedVillageSectors.length || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Claimed today" : ownedVillageSectors.length ? "Claim territory yield" : "No controlled sectors"}</button></article>
                 <article className="town-priority-card" data-state={character.guardQueued ? "ready" : "progress"}><div><span>Village Guard</span><strong>{character.guardQueued ? "On duty" : `${guardList.length} active`}</strong></div><p>Town defense bonus +{getTownDefenseGuardBonus(character).toFixed(2)}% while queued.</p><button onClick={() => setTab("guard")}>{character.guardQueued ? "Review guard post" : "Open guard post"}</button></article>
             </div></section>
-            <div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village overview</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><div><small>Village leadership</small><strong>{displayedKage}</strong><p>{population.toLocaleString()} citizens · {villageStrength.toLocaleString()} strength</p></div></div><h4>Active village bonuses</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop −{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank +{getBankInterestPercent(character).toFixed(2)}%</span><span>Missions +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital −{getHospitalDiscountPercent(character).toFixed(2)}%</span></div></section>
+            <div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village overview</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><div><small>Village leadership</small><strong>{displayedKage}</strong><p>{population.toLocaleString()} citizens · {villageStrength.toLocaleString()} strength</p></div></div>{kageSeatVacant && <p className="hint town-seat-vacant">The seat stands empty — claim it at the Shinobi Council Hall. <button type="button" className="town-seat-claim" onClick={() => setScreen("shinobiCouncil")}>Open the Council Hall</button></p>}<h4>Active village bonuses</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop −{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank +{getBankInterestPercent(character).toFixed(2)}%</span><span>Missions +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital −{getHospitalDiscountPercent(character).toFixed(2)}%</span></div></section>
                 <section className="summary-box town-hall-panel"><div className="town-panel-head"><h3>War operations</h3><span className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At war · ${activeWarEnemyVillage}` : "Peace"}</span></div>{primaryVillageWar ? <><p><strong>{character.village}</strong> · {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</p><div className="bar enemy-bar"><span style={{ width: `${primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX * 100}%` }} /></div><p><strong>{activeWarEnemyVillage}</strong> · {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX * 100 : 0}%` }} /></div><p className="hint">War Ground · Sector {primaryVillageWar.warGroundSector} · {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()} HP</p></> : <p className="hint">No active village war. Declarations and sector campaigns are managed in the war halls.</p>}<div className="town-war-actions"><button onClick={() => setScreen("villageWar")}><GiCrossedSwords aria-hidden="true" /> War Hall</button><button onClick={() => setScreen("villageWarMap")} disabled={!sectorMapOpen} title={!sectorMapOpen ? sectorMapStatus : undefined}><GiTreasureMap aria-hidden="true" /> Sector Map</button></div>{!sectorMapOpen && <p className="hint" role="status">{sectorMapStatus}</p>}</section></div>
             <div className="town-secondary-grid"><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage system open" : "Kage system sealed"}</h3><p>{state.kageSystemUnlocked ? "Leadership, upgrades, war access, and policy control are active." : "Defeat the village’s level 100 Kage story encounter to unlock civic leadership."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}</section><section className="summary-box town-notice-board"><h3>Village notices</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section></div>
             <section className="summary-box"><h3>War records</h3><div className="war-record-grid">{endedVillageWars.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP {war.topDefender}</small><small>{war.rewards}</small></div>)}</div></section>
@@ -820,18 +947,18 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 </div>
             )}
         </section>}
-        {tab === "treasury" && <section className="summary-box"><h3><GiMoneyStack aria-hidden="true" /> Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo <small>(max {TREASURY_DONATE_MAX_RYO.toLocaleString()} per donation)</small></label><input type="number" min={1} max={TREASURY_DONATE_MAX_RYO} value={donation} onChange={(e) => setDonation(Math.min(TREASURY_DONATE_MAX_RYO, Math.max(0, Number(e.target.value))))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players. A {TREASURY_GIFT_TAX_LABEL} transit levy is burned on everything except Honor Seals, which move in full.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
+        {tab === "treasury" && <section className="summary-box"><h3><GiMoneyStack aria-hidden="true" /> Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p>{storesOpen && <><p className="town-store-row"><strong>Provisions:</strong> {storesLoaded ? `${storesView.provisions.toLocaleString()} rations` : "—"}</p><p className="town-store-row"><strong>Materials:</strong> {storesLoaded ? `${storesView.materialPoints.toLocaleString()} materials` : "—"}</p></>}<p><strong>Your Contribution:</strong> {state.contributionPoints} points</p></div>{storesOpen && <>{!storesLoaded && <p className="hint" role="status">{storesFetch === "error" ? "The stores could not be read. Try again in a moment." : "Fetching the stores…"}</p>}{storesAuthorityLine && <p className="hint town-store-authority">{storesAuthorityLine}</p>}<p className="hint">Provisions feed sector wars, mercenary bands and fed garrisons, and 5% of them spoil nightly. Materials become War Resources at the Supply Depot ({DEPOT_CONVERSION_POINTS_PER_WR} materials = 1 War Resource) and pay for level 6+ structures.</p><p className="hint">🍚 Donated <b>ration packs</b> stock Provisions and <b>hunt materials / relics</b> stock Materials (up to {DAILY_RATION_DONATION_CAP} rations and {DAILY_CRAFT_POINT_DONATION_CAP.toLocaleString()} materials per player per day). Cook rations at the Cafeteria.</p><p className="hint">{villageDonateCapLine} Resets at midnight UTC.</p></>}<label>Donate Ryo <small>(max {TREASURY_DONATE_MAX_RYO.toLocaleString()} per donation)</small></label><input type="number" min={1} max={TREASURY_DONATE_MAX_RYO} value={donation} onChange={(e) => setDonation(Math.min(TREASURY_DONATE_MAX_RYO, Math.max(0, Number(e.target.value))))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select>{!villageDonateGate.ok && <p className="hint town-donate-reason" id="village-donate-reason" role="status">{villageDonateGate.reason}. The cap resets at midnight UTC.</p>}<button type="button" onClick={donateVillageItem} disabled={!villageDonateItemId || !villageDonateGate.ok} aria-describedby={villageDonateGate.ok ? undefined : "village-donate-reason"}>{villageDonateLabel}</button>{storesOpen && <><h4>Supply log</h4><p className="hint">{storesLedgerScopeLine(character.village)}</p>{storesFetch === "error" ? <p className="hint" role="status">The stores ledger could not be read. Try again in a moment.</p> : storesFetch === "loading" ? <p className="hint" role="status">Reading the supply log…</p> : storesLedgerView.length === 0 ? <p className="hint town-stores-log-empty">{storesLedgerEmptyLine(storesView)}</p> : <ul className="town-stores-log">{storesLedgerView.map((row) => <li key={row.key} data-kind={row.kind}><span className="town-stores-log-icon" aria-hidden="true">{row.icon}</span><span>{row.text}</span></li>)}</ul>}</>}<h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players. A {TREASURY_GIFT_TAX_LABEL} transit levy is burned on everything except Honor Seals, which move in full.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
         {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Queue to apply your Town Defense bonus against all combat styles.</p><p>Defense bonus <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span><GiShield aria-hidden="true" /> <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
         {tab === "notices" && <section className="summary-box town-notice-board"><h3>Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post and pin orders for {character.village}.</p>{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Leadership Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector</label><input type="number" min={1} max={MAX_WILD_SECTOR} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="Optional" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Defend Sector 18" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Issue the order…" /><button onClick={postVillageNotice} disabled={!villageNoticeTitle.trim() || !villageNoticeBody.trim()}>Post Order</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No active orders.</p> : state.noticePosts.map(notice => { const canEditNotice = isSeatedKage || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
         {tab === "mercenaries" && <section className="summary-box"><h3><GiCrossedSwords aria-hidden="true" /> War Mercenaries</h3>{!primaryVillageWar ? <p className="hint">Mercenaries become available during an active village war.</p> : <><p className="hint">Hire each band once per war to strike {activeWarEnemyVillage}. Mercenaries cannot land the final blow.</p><p className="hint"><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong> seals · {hiredMercTiers.length}/{MERCENARY_TIERS.length} bands hired</p><div className="town-upgrade-grid">{MERCENARY_TIERS.map(tier => { const hired = hiredMercTiers.includes(tier.id); const afford = (character.honorSeals ?? 0) >= tier.costSeals; const busy = mercBusy === tier.id; return <div key={tier.id} className="town-upgrade-card" data-state={hired ? "done" : afford ? "ready" : "locked"} style={{ order: hired ? 2 : afford ? 0 : 1 }}><div className="town-upgrade-topline"><span className="town-upgrade-icon town-merc-icon">{mercPortrait(tier.id) ? <img src={mercPortrait(tier.id)} alt={tier.name} /> : <GiBroadsword aria-hidden="true" />}</span><div><strong>{tier.name}</strong><p>Level {tier.level}</p></div></div><p className="town-upgrade-desc">{tier.blurb}</p><p className="town-upgrade-bonus"><strong>{tier.warDamage.toLocaleString()}</strong> war damage · <strong>{tier.costSeals.toLocaleString()}</strong> seals</p><button disabled={hired || !afford || busy} onClick={() => hireMercenary(tier.id)}>{hired ? "Hired" : busy ? "Hiring…" : afford ? `Hire · ${tier.costSeals.toLocaleString()} seals` : `Need ${tier.costSeals.toLocaleString()} seals`}</button></div>; })}</div></>}</section>}
         {tab === "politics" && <>
-            <section className="summary-box"><h3>Village Council</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><p><strong>Kage:</strong> {displayedKage}</p></div><div className="elder-seat-grid">
+            <section className="summary-box"><h3>Village Council</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={displayedKage} fallback="?" /><p><strong>Kage:</strong> {displayedKage}{kageActivity && <><br /><small>{kageActivity.lastActive}</small></>}{kageActivity?.warning && <><br /><small className="town-kage-warning">⚠️ {kageActivity.warning}</small></>}</p></div>{kageSeatVacant && <p className="hint town-seat-vacant">The seat stands empty — claim it at the Shinobi Council Hall. <button type="button" className="town-seat-claim" onClick={() => setScreen("shinobiCouncil")}>Open the Council Hall</button></p>}<div className="elder-seat-grid">
                 <div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small>−1% wartime damage</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "War focus active" : "Select focus"}</button></div>
                 <div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small>−5% shop prices</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "Trade focus active" : "Select focus"}</button></div>
                 <div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small>+10% XP and jutsu speed</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "Training focus active" : "Select focus"}</button></div>
             </div></section>
             <section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1–3 are Kage-appointed; 4–10 rank by monthly PvP kills ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={index}><label>Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open seat"}</strong>{slot && ` · ${slot.rankTitle}`}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} kills` : "Vacant"}</span></div>)}</div><h4>Field authority</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Recon sectors</span><span>Reveal defenses</span></div><div className="clan-guard-row"><span>Guard sectors</span><span>Village-wide access</span></div><div className="clan-guard-row"><span>Support raids</span><span>Clan pressure</span></div></div></section>
-            <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Win the duel or exhaust the Kage’s accept clock. The seat gate is <strong>Village Merit</strong> — a personal record, not the village contribution ranking below.</p><div className="contrib-rank-grid">{kageEligibility(character, kageNow).map(req => <div key={req.label} className="clan-guard-row"><span>{req.ok ? "✅" : "⬜"} {req.label}</span><span>{req.detail ?? ""}</span></div>)}</div><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
+            <section className="summary-box"><h3>Kage Challenge</h3><p className="hint">Win the duel or exhaust the Kage’s accept clock. The seat gate is <strong>Village Merit</strong> — a personal record, not the village contribution ranking below.</p><div className="contrib-rank-grid">{kageEligibility(character, kageNow).map(req => <div key={req.label} className="clan-guard-row"><span>{req.ok ? "✅" : "⬜"} {req.label}</span><span>{req.detail ?? ""}</span></div>)}</div><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> · {row.role}</span><span>{row.points.toLocaleString()} points</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Accept clock <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong></p>{isKageChallenger && <button onClick={() => void sendKageDuel()}>Send Official Duel</button>}{isSeatedKage && <p className="hint">Accept the duel before the clock expires.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Challenge · {KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge."}</p></>}</section>
         </>}
     </div>;
 }

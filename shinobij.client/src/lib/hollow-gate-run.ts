@@ -122,3 +122,15 @@ export function elementalShardBossDrop(floor: number): number {
     const f = Math.max(1, Math.floor(floor));
     return Math.random() < Math.min(0.8, 0.5 + f * 0.03) ? 1 : 0;
 }
+
+/** Stable, Date-shaped seed for a sealed pet encounter. A refresh must replay
+ * the same Hollow Hound rather than rerolling an easier duel. The 13-digit base
+ * also preserves the server's sealed encounter-id contract. */
+export function hollowGatePetEncounterSeed(runId: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < runId.length; index += 1) {
+        hash ^= runId.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return 1_700_000_000_000 + (hash >>> 0);
+}

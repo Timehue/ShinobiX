@@ -22,6 +22,8 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { clearSleeperCamp, getSleeperCamp } from '../_realtime/sleeper-camps.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
+import { pushOfflineNotice } from './_offline-notices.js';
+import { announce } from '../_announce.js';
 
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
@@ -126,6 +128,85 @@ export function computeSleeperSeals(
     return { seals, xpGain, today, dailySoFar, nextByTarget: { ...byTarget, [loserSlug]: targetSoFar + seals } };
 }
 
+export type SleeperKoSettled =
+    | { status: 200; record: Record<string, unknown>; character: Record<string, unknown>; sector: number }
+    | SleeperBlock;
+
+/**
+ * Settle a sleeper KO against the target's COMMITTED save. The caller MUST hold
+ * the `save:<targetSlug>` lock (failClosed). Re-reads the save + camp under that
+ * lock, re-validates every sleeper condition (camp still exists — and, when
+ * `expectSector` is given, is still in that sector — a real wild sector, not
+ * already hospitalized, still offline), then applies the ONE consequence a
+ * sleeper KO has for the victim: HP 0 + the standard hospital stamp + relocation
+ * to the village (sector 0) + the camp cleared. It pays NOTHING — the player
+ * handler layers its rewards on top; an NPC raid (api/_merc-auto.ts) has none.
+ *
+ * Once-per-camp by construction: clearing the camp and moving the victim to
+ * sector 0 drops them out of the sleeper pool, so they cannot be hit again until
+ * they log in, walk back out, and log off in the wild again — and a second
+ * caller racing this one sees "no camp" / "already defeated" and stops.
+ */
+export async function settleSleeperKoLocked(
+    targetSlug: string,
+    opts: { now?: number; expectSector?: number } = {},
+): Promise<SleeperKoSettled> {
+    const now = opts.now ?? Date.now();
+    const [tRecRaw, lockedBattleFlags] = await Promise.all([
+        kv.get<Record<string, unknown>>(`save:${targetSlug}`),
+        battleLockFlagsForPlayers([targetSlug]),
+    ]);
+    const tRec = tRecRaw
+        ? settleSaveRecord(tRecRaw, { battleLocked: lockedBattleFlags.get(targetSlug) === true }).record
+        : tRecRaw;
+    const tChar = tRec?.character as Record<string, unknown> | undefined;
+    const lockedCamp = await getSleeperCamp(targetSlug);
+    if (!lockedCamp) return { status: 409, error: 'Target no longer has a camp in the world.' };
+    if (opts.expectSector != null && lockedCamp.sector !== opts.expectSector) {
+        return { status: 409, error: 'That camp is no longer in this sector.' };
+    }
+    const reBlock = sleeperTargetBlock(tChar, lockedCamp.sector);
+    if (reBlock) return reBlock;
+    if (onlineStore.get(targetSlug)) return { status: 409, error: 'Target came online — use a normal attack.' };
+    if (!tRec || !tChar) return { status: 404, error: 'Target not found.' };
+
+    // KO the victim: HP 0 + hospitalized for the standard duration, and
+    // relocate to the village (sector 0). The save validator in
+    // save/[name].ts enforces the hospital timer against the victim's
+    // stale autosave on re-login, and currentSector:0 drops them from the
+    // sleeper pool immediately.
+    const koChar = {
+        ...tChar,
+        hp: 0,
+        hospitalized: true,
+        hospitalizedUntil: now + HOSPITAL_DURATION_MS,
+        hospitalizedAt: now,
+    };
+    const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, character: koChar });
+    await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
+    await clearSleeperCamp(targetSlug);
+    return { status: 200, record: tRec, character: tChar, sector: lockedCamp.sector };
+}
+
+/** After a SUCCESSFUL player sleeper-kill: queue the "you were ambushed by X"
+ *  notice the victim reads on their next heartbeat, and post a low-importance
+ *  (feed-only, 3/day/attacker via announce's own limiter) world announcement.
+ *  Best-effort — the KO has already settled, so nothing here may fail it. */
+export async function notifySleeperKill(args: { attackerName: string; victimSlug: string; victimName: string; sector: number; now?: number }): Promise<void> {
+    const at = args.now ?? Date.now();
+    await Promise.all([
+        pushOfflineNotice(args.victimSlug, { kind: 'sleeper-kill', by: args.attackerName, sector: args.sector, at })
+            .catch((err) => console.error('[sleeper-kill] offline notice failed', err)),
+        announce({
+            type: 'sleeper_kill',
+            importance: 'low',
+            title: 'Camp Ambushed',
+            message: `${args.attackerName} ambushed ${args.victimName}'s camp in Sector ${args.sector}.`,
+            player: args.attackerName,
+        }).catch(() => null),
+    ]);
+}
+
 // Lock both fighters' saves in a deterministic (sorted) order — same pattern as
 // pvp/claim-rewards.ts — so two attackers racing the same target (or the
 // attacker's own concurrent autosave) can't interleave their read-modify-write
@@ -209,31 +290,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })();
 
         const settled = await withSavesLocked([attackerSlug, targetSlug], async () => {
-            // Re-read both saves inside the lock so we settle against committed state.
-            const [tRecRaw, lockedBattleFlags] = await Promise.all([
-                kv.get<Record<string, unknown>>(`save:${targetSlug}`),
-                battleLockFlagsForPlayers([targetSlug]),
-            ]);
-            const tRec = tRecRaw
-                ? settleSaveRecord(tRecRaw, { battleLocked: lockedBattleFlags.get(targetSlug) === true }).record
-                : tRecRaw;
-            const tChar = tRec?.character as Record<string, unknown> | undefined;
+            // Re-read inside the lock so we settle against committed state.
             const lockedCamp = await getSleeperCamp(targetSlug);
             if (!lockedCamp) return { status: 409 as const, error: 'Target no longer has a camp in the world.' };
             if (!identity.admin) {
                 const attackerBlock = sleeperAttackerBlock(onlineStore.get(attackerSlug), lockedCamp.sector);
                 if (attackerBlock) return attackerBlock;
             }
-            // Re-validate the sleeper conditions — another attacker may have won
-            // the race (relocated + hospitalized them) between our checks and the lock.
-            const reBlock = sleeperTargetBlock(tChar, lockedCamp.sector);
-            if (reBlock) return reBlock;
-            if (onlineStore.get(targetName)) return { status: 409 as const, error: 'Target came online — use a normal attack.' };
-            if (!tRec || !tChar) return { status: 404 as const, error: 'Target not found.' };
-
             const aRec = await kv.get<Record<string, unknown>>(`save:${attackerSlug}`);
             const aChar = aRec?.character as Record<string, unknown> | undefined;
             if (!aRec || !aChar) return { status: 404 as const, error: 'Attacker save not found.' };
+
+            // Re-validates the sleeper conditions (another attacker may have won
+            // the race between our checks and the lock) and applies the KO —
+            // the same settlement an NPC merc raid uses.
+            const ko = await settleSleeperKoLocked(targetSlug);
+            if (ko.status !== 200) return ko;
+            const tChar = ko.character;
 
             let updatedAttacker = aChar;
             let ryoGained = 0;
@@ -285,26 +358,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(`save:${attackerSlug}`, mergePreservingImages(attackerRecord, aRec));
             }
 
-            // KO the victim: HP 0 + hospitalized for the standard duration, and
-            // relocate to the village (sector 0). The save validator in
-            // save/[name].ts enforces the hospital timer against the victim's
-            // stale autosave on re-login, and currentSector:0 drops them from the
-            // sleeper pool immediately.
-            const now = Date.now();
-            const koChar = {
-                ...tChar,
-                hp: 0,
-                hospitalized: true,
-                hospitalizedUntil: now + HOSPITAL_DURATION_MS,
-                hospitalizedAt: now,
-            };
-            const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, character: koChar });
-            await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
-            await clearSleeperCamp(targetSlug);
-
             return {
                 status: 200 as const,
                 character: updatedAttacker,
+                attackerName: String((aChar.name as string) ?? attackerSlug),
+                koSector: ko.sector,
                 reward: {
                     ryo: ryoGained,
                     xp: xpGained,
@@ -318,6 +376,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (settled.status !== 200) {
             return res.status(settled.status).json({ error: settled.error });
         }
+        // Tell the victim who did it (next heartbeat) + feed the world. Outside
+        // the save locks, best-effort, never fails the already-settled KO.
+        await notifySleeperKill({
+            attackerName: settled.attackerName,
+            victimSlug: targetSlug,
+            victimName: settled.reward.target,
+            sector: settled.koSector,
+        });
         return res.status(200).json({ ok: true, koed: true, character: settled.character, reward: settled.reward });
     } catch (err) {
         // failClosed lock contention surfaces here — signal "transient, retry".

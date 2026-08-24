@@ -9,8 +9,9 @@ import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
 import { cachedFor } from './_proc-cache.js';
 import { resolveClaimedWarSupply } from './_territory-supply.js';
+import { readAllSectorPoolUsage, SECTOR_POOL_CAPS, type SectorPoolRow } from './world/_sector-pool.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
-import { villageWarMapEnabled } from './_release-flags.js';
+import { villageWarMapEnabled, villageStoresEnabled } from './_release-flags.js';
 // When the default-on Village War Map campaign is enabled,
 // war declaration is funded from the village WR pool instead of the Kage's Honor
 // Seals, and war settlement applies the comeback-morale/spoils rules. When OFF,
@@ -1460,6 +1461,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let territories: SectorTerritory[];
         let warsRaw: VillageWar[];
         let standingRows: WarStanding[];
+        let sectorPools: Record<number, SectorPoolRow>;
+        // Village Stores — INTEL is NOT here. It is per-viewer, so attaching it
+        // to this shared GET forced `private, no-store` on every logged-in poll
+        // and defeated the CDN cache outright. It lives on its own authenticated
+        // endpoint instead (api/village/intel.ts → GET /api/village/intel).
         try {
             // Proc-cached like game-state.ts: this GET is polled by every online
             // client, and each CDN miss cost 3 keyspace scans + 3 mgets. The 3s
@@ -1467,10 +1473,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // of poll fan-in (single-flight); the CDN s-maxage below still applies
             // on top. Treat the cached arrays as immutable — the decay/settle
             // logic below already derives fresh objects instead of mutating.
-            [territories, warsRaw, standingRows] = await cachedFor('world-state:frame', 3_000, () => Promise.all([
+            [territories, warsRaw, standingRows, sectorPools] = await cachedFor('world-state:frame', 3_000, () => Promise.all([
                 getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
                 getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
                 getByPrefix<WarStanding>(WAR_STANDING_PREFIX),
+                // Shared per-sector gathering usage (today's raw counts). The
+                // viewer applies the owner-village bonus to the caps itself.
+                // Gated on the Village Stores kill switch so turning the campaign
+                // off also drops this 4th keyspace scan + mget from the frame.
+                villageStoresEnabled()
+                    ? readAllSectorPoolUsage().catch(() => ({} as Record<number, SectorPoolRow>))
+                    : Promise.resolve({} as Record<number, SectorPoolRow>),
             ]));
         } catch (err) {
             // Storage is down — fail safe with an explicit degraded flag and a
@@ -1528,13 +1541,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const standings = standingRows
             .filter(s => s && s.village && (vnum(s.wins) + vnum(s.losses)) > 0)
             .sort((a, b) => (vnum(b.wins) - vnum(b.losses)) - (vnum(a.wins) - vnum(a.losses)));
-        const payload = { territories, wars, standings };
+        const payload = { territories, wars, standings, sectorPools, sectorPoolCaps: SECTOR_POOL_CAPS };
         // Content-hash ETag → unchanged polls get a 304 (empty body) instead of
         // re-downloading the full territory/war/standings map every 15s. The lazy
         // decay/settle writes above were already dispatched, so the 304 path does
         // not skip them. Freshness is identical; only the repeat bytes are saved.
         // (Mirrors api/game-state.ts. Pairs with the client's `cache: "no-cache"`.)
-        const etag = `W/"${createHash('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
+        //
+        // The hash covers the NON-VOLATILE slice only. `sectorPools` still rides
+        // the body, but it moves every time anyone explores anywhere, so hashing
+        // it churned the ETag continuously and the 304 fast path never fired.
+        //
+        // Be honest about what that costs: the client polls with
+        // `cache: "no-cache"`, so it revalidates every time and a 304 re-hydrates
+        // the body it already had. The pool counts in that body are therefore
+        // pinned until the territory/war/standings slice actually changes — which
+        // can be many minutes, NOT the 3s proc-cache + 12s s-maxage window (that
+        // window bounds the 200 path only). The client compensates: an explore /
+        // open-chest response carries the server's exact per-viewer pool view,
+        // and lib/sector-pool keeps it until a poll's counts have caught up with
+        // it, so the on-screen counter never runs backwards.
+        const etag = `W/"${createHash('sha1').update(JSON.stringify({ territories, wars, standings })).digest('base64')}"`;
         // s-maxage lowered 15→12 to offset the 3s proc cache above, keeping the
         // total worst-case staleness at the original ~15s (see api/_proc-cache.ts).
         res.setHeader('Cache-Control', 's-maxage=12, stale-while-revalidate=10');

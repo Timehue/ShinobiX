@@ -13,14 +13,15 @@
  * persist* writers POST changes back.
  */
 import type { Biome, WeatherType } from "../types/core";
+import { hydrateSectorPools } from "./sector-pool";
 import { serverNow } from "./server-clock";
 import type { Character, PlayerRecord } from "../types/character";
 import type { NoticePost } from "../types/clan";
-import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_DAILY_WAR_SUPPLY, TERRITORY_HP_MAX, TERRITORY_SUPPLY_INTERVAL_MS, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
+import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
-import { biomeWeatherTables } from "../data/world";
+import { resolveSectorWeather } from "../../../shared/sector-weather";
 import { clampNumber, currentDateKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
@@ -208,8 +209,11 @@ export function hydrateSharedGameState(data: {
  * art, never interactive. Remount per cast by keying on the FX id.
  */
 
-export type VillageTreasury = { ryo: number; honorSeals: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; items: TreasuryItemStack[]; };
-export type VillageTreasuryCurrencyKey = Exclude<keyof VillageTreasury, "items">;
+// provisions / materialPoints are the Village Stores (api/_village-stores.ts):
+// server-credited only (donate endpoint), server-drained only (daily pass,
+// war-structure). The blob re-asserts them at a zero delta like the currencies.
+export type VillageTreasury = { ryo: number; honorSeals: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; provisions?: number; materialPoints?: number; items: TreasuryItemStack[]; };
+export type VillageTreasuryCurrencyKey = Exclude<keyof VillageTreasury, "items" | "provisions" | "materialPoints">;
 export type DetailedVillageWarRecord = { opponent: string; winner: string; finalScore: string; topDefender: string; topAttacker: string; mvpClan: string; rewards: string; date: string; };
 // Mirrors the server-owned reign record (api/village/_kage-challenge.ts
 // KageHistoryEntry). The Kage system now writes this on every seat change; the
@@ -395,7 +399,44 @@ let sharedWarStandingsCache: WarStandingRecord[] = [];
 export function loadWarStandings(): WarStandingRecord[] { return sharedWarStandingsCache; }
 
 let lastSharedWorldStateSnapshot = "";
-export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[]; standings?: Partial<WarStandingRecord>[] }): boolean {
+
+// Late-change bus: signals that land AFTER hydrateSharedWorldState has already
+// returned, so they cannot be reported through its return value.
+//
+// Currently only per-viewer Village Intel (lib/village-intel). That block is
+// deliberately NOT part of this payload — it lives on its own authenticated
+// endpoint (GET /api/village/intel), because attaching a per-viewer block to
+// this shared, CDN-cached document forced `private, no-store` on every
+// logged-in poll (authFetch patches window.fetch for all /api/ URLs, so every
+// signed-in poll is authenticated) and collapsed the cache entirely. The world
+// poll only NUDGES the intel module here; the module owns its own slow cadence,
+// its own login gate, and its own cache.
+const sharedWorldStateLateListeners = new Set<() => void>();
+/** Subscribe to change signals that land after hydrateSharedWorldState returned
+ *  (currently: the Village Intel poll). Returns the unsubscribe. */
+export function subscribeSharedWorldStateLateChanges(listener: () => void): () => void {
+    sharedWorldStateLateListeners.add(listener);
+    return () => { sharedWorldStateLateListeners.delete(listener); };
+}
+/** Fire the late-change listeners (lib/village-intel calls this when its poll
+ *  actually changed something). */
+export function notifySharedWorldStateLateChange(): void {
+    sharedWorldStateLateListeners.forEach((listener) => listener());
+}
+// Lazy import: village-intel drags village-stores (~3 KB gz) into the startup
+// graph if imported statically, and the module self-throttles + no-ops when
+// nobody is signed in, so this stays a cheap nudge on every world poll.
+function nudgeVillageIntel(): void {
+    void import("./village-intel")
+        .then((m) => m.maybeRefreshVillageIntel())
+        .catch(() => { /* chunk fetch failed; the next poll retries */ });
+}
+
+export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[]; standings?: Partial<WarStandingRecord>[]; sectorPools?: unknown; sectorPoolCaps?: unknown }): boolean {
+    // Shared per-sector gathering pool usage rides the same poll (lib/sector-pool).
+    const poolsChanged = hydrateSectorPools(data);
+    // Village Intel is a SEPARATE authenticated endpoint on a slower cadence.
+    nudgeVillageIntel();
     const territories: Record<number, SectorTerritory> = {};
     (data.territories ?? []).forEach(territory => {
         const sector = Math.floor(Number(territory?.sector ?? 0));
@@ -422,7 +463,7 @@ export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerr
     // village / when idle). The cache still updates every poll, so any re-render
     // from another source (e.g. the heartbeat) reads current data.
     const snapshot = JSON.stringify([sharedSectorTerritoryCache, sharedVillageWarCache, sharedWarStandingsCache]);
-    const changed = snapshot !== lastSharedWorldStateSnapshot;
+    const changed = snapshot !== lastSharedWorldStateSnapshot || poolsChanged;
     lastSharedWorldStateSnapshot = snapshot;
     return changed;
 }
@@ -1007,11 +1048,14 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
 // back above). statPointsEarnedFromXp stays here because it pulls
 // effectiveCharacterXpGain from ./lib/progression.
 
-export function weatherForSector(sector: number, biome: Biome) {
-    const territory = loadSectorTerritory(sector);
-    if (territory.ownerClan && territory.weather) return territory.weather;
-    const table = biomeWeatherTables[biome];
-    return table[(sector - 1) % table.length] ?? "clear";
+/**
+ * The weather a sector shows right now — ONE sky for every player. Derived
+ * from (biome, sector, server UTC day) by shared/sector-weather so the server
+ * seals the identical value when it applies weather to a sector fight
+ * (api/pvp/session.ts). A holding clan's stamped `territory.weather` wins.
+ */
+export function weatherForSector(sector: number, biome: Biome): WeatherType {
+    return resolveSectorWeather(biome, sector, serverNow(), loadSectorTerritory(sector));
 }
 
 // Territory + API constants moved to ./constants/game — imported above.
@@ -1087,9 +1131,7 @@ export function persistSharedGameState(payload: Record<string, unknown>) {
 }
 
 export function loadSectorTerritory(sector: number): SectorTerritory {
-    const cached = sharedSectorTerritoryCache[sector];
-    if (cached) return produceSectorWarSupply(cached);
-    return defaultSectorTerritory(sector);
+    return sharedSectorTerritoryCache[sector] ?? defaultSectorTerritory(sector);
 }
 
 export function saveSectorTerritory(territory: SectorTerritory) {
@@ -1099,20 +1141,10 @@ export function saveSectorTerritory(territory: SectorTerritory) {
     return normalized;
 }
 
-function produceSectorWarSupply(territory: SectorTerritory) {
-    if (!territory.ownerClan) return territory;
-    const now = Date.now();
-    const lastSupplyAt = territory.lastSupplyAt ?? territory.updatedAt ?? now;
-    const cycles = Math.floor((now - lastSupplyAt) / TERRITORY_SUPPLY_INTERVAL_MS);
-    if (cycles <= 0) return territory;
-    const next = normalizeSectorTerritory(territory.sector, {
-        ...territory,
-        warSupply: territory.warSupply + cycles * TERRITORY_DAILY_WAR_SUPPLY,
-        lastSupplyAt: lastSupplyAt + cycles * TERRITORY_SUPPLY_INTERVAL_MS,
-    });
-    saveSectorTerritory(next);
-    return next;
-}
+// War-supply accrual is SERVER-owned (api/_territory-supply.ts derives it
+// lazily from `lastSupplyAt` at collect time and ignores any client-sent
+// warSupply). The old client producer that ticked it from the device clock
+// and POSTed the territory on every read is gone — reads no longer write.
 
 export function loadAllSectorTerritories() {
     return WILD_SECTOR_IDS.map((sector) => loadSectorTerritory(sector));

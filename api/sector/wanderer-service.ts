@@ -9,7 +9,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
-    parseNaturalWandererId,
+    naturalWandererClaimOk,
     withWandererUseState,
 } from './_wanderer-encounter.js';
 import {
@@ -80,7 +80,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (action === 'merchant' || action === 'medic' || action === 'favor-start') {
             const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
-            if (!parseNaturalWandererId(wandererId)) {
+            // Not just the id's SHAPE: the server re-rolls the roster and refuses
+            // an id it does not currently put on the road, plus any archetype/
+            // verb/level/name the client echoed back that disagrees with that
+            // roll. `wandererName` matters here — favor-start seals the claimed
+            // name into the favor record the player later delivers.
+            if (!naturalWandererClaimOk(wandererId, Date.now(), body)) {
                 return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
             }
             const sector = sectorFrom(body.sector);

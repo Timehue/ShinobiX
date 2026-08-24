@@ -23,7 +23,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildVaultInterior } from "./vault-interior";
 import { findHollowGatePath } from "../../lib/hollow-gate-path";
-import { computeHollowGateVisible } from "../../lib/hollow-gate-dungeon";
+import { computeHollowGateVisible } from "../../lib/hollow-gate-visibility";
 import {
     startInfiltration,
     reportInfiltration,

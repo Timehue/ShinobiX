@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyCafeteriaMeal, cafeteriaMeal } from './_cafeteria.js';
+import { applyCafeteriaMeal, cafeteriaMeal, applyCookRecipe, cookMaterialChoiceName, cookMaterialName, cookRecipe } from './_cafeteria.js';
 
 describe('_cafeteria', () => {
     it('applies the small ramen cost and stat restoration', () => {
@@ -57,5 +57,55 @@ describe('_cafeteria', () => {
         assert.ok(meal);
         const result = applyCafeteriaMeal({ ryo: 99, hp: 1, maxHp: 100 }, meal);
         assert.equal(result.ok, false);
+    });
+});
+
+describe('_cafeteria - Village Stores cook recipes', () => {
+    const NOW = Date.UTC(2026, 7, 22, 12, 0, 0);
+    it('field rations: 1 beast meat + 30 ryo -> 5 ration-pack (stacked), counter stamped', () => {
+        const r = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }] }, cookRecipe('field-rations')!, NOW);
+        assert.equal(r.ok, true);
+        if (!r.ok) return;
+        assert.equal(r.cooked, 5);
+        assert.equal(r.dailyCooked, 5);
+        assert.equal(r.dailyCap, 40);
+        assert.equal(r.character.ryo, 0);
+        assert.deepEqual(r.character.itemStacks, [{ itemId: 'ration-pack', count: 5 }]);
+        assert.equal(r.character.rationsCookedDate, '2026-08-22');
+        assert.equal(r.character.rationsCookedToday, 5);
+    });
+    it('campaign rations accept frost pelt OR ash scale (80 ryo -> 20)', () => {
+        const r = applyCookRecipe({ ryo: 80, inventory: ['hunt-ash-scale'] }, cookRecipe('campaign-rations')!, NOW);
+        assert.equal(r.ok, true);
+        if (!r.ok) return;
+        assert.equal(r.materialUsed, 'hunt-ash-scale');
+        assert.deepEqual(r.character.inventory, []);
+        assert.equal(r.cooked, 20);
+    });
+    it('refuses over the 40/day cap, without ryo, and without a material - and resets on a new UTC day', () => {
+        const capped = applyCookRecipe({ ryo: 999, inventory: ['hunt-frost-pelt'], rationsCookedDate: '2026-08-22', rationsCookedToday: 25 }, cookRecipe('campaign-rations')!, NOW);
+        assert.equal(capped.ok, false);
+        const poor = applyCookRecipe({ ryo: 29, inventory: ['hunt-beast-meat'] }, cookRecipe('field-rations')!, NOW);
+        assert.equal(poor.ok, false);
+        const bare = applyCookRecipe({ ryo: 999 }, cookRecipe('field-rations')!, NOW);
+        assert.equal(bare.ok, false);
+        const newDay = applyCookRecipe({ ryo: 999, inventory: ['hunt-frost-pelt'], rationsCookedDate: '2026-08-21', rationsCookedToday: 40 }, cookRecipe('campaign-rations')!, NOW);
+        assert.equal(newDay.ok, true);
+        assert.equal(cookRecipe('bogus'), null);
+    });
+    it('a refusal names the materials, never their item ids', () => {
+        const bare = applyCookRecipe({ ryo: 999 }, cookRecipe('campaign-rations')!, NOW);
+        assert.equal(bare.ok, false);
+        if (bare.ok) return;
+        assert.equal(bare.error, 'Campaign Rations needs 1 Frost Pelt or Ash Scale.');
+        const field = applyCookRecipe({ ryo: 999 }, cookRecipe('field-rations')!, NOW);
+        assert.equal(field.ok, false);
+        if (field.ok) return;
+        assert.equal(field.error, 'Field Rations needs 1 Beast Meat.');
+        // no message this endpoint can emit may leak a raw hunt-* id
+        for (const message of [bare.error, field.error]) assert.doesNotMatch(message, /hunt-/);
+        assert.equal(cookMaterialName('hunt-ash-scale'), 'Ash Scale');
+        assert.equal(cookMaterialName('hunt-unknown'), 'hunt-unknown', 'an unmapped id falls back to itself, never undefined');
+        assert.equal(cookMaterialChoiceName(cookRecipe('campaign-rations')!), 'Frost Pelt or Ash Scale');
     });
 });

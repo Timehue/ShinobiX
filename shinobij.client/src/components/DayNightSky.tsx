@@ -34,7 +34,7 @@ export function DayNightSky({
     useEffect(() => {
         if (dayCycleDisabled()) return;
         let timer = 0;
-        const apply = () => setSky(skyNow(new Date()));
+        const apply = () => setSky(skyNow());
         apply();
         const start = () => { if (!timer) timer = window.setInterval(apply, 60_000); };
         const stop = () => { if (timer) { window.clearInterval(timer); timer = 0; } };

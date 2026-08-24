@@ -5,7 +5,13 @@ import {
     DAILY_SECTOR_EXPLORE_LIMIT,
     rollSectorExploreOutcome,
     sectorExploreReward,
+    SECTOR_EXPLORE_CHEST_CHANCE,
 } from './_explore.js';
+import {
+    OWNER_VILLAGE_POOL_BONUS,
+    SECTOR_CHEST_POOL_PER_DAY,
+    SECTOR_EXPLORE_POOL_PER_DAY,
+} from './_sector-pool.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 describe('sector exploration settlement', () => {
@@ -60,5 +66,34 @@ describe('sector exploration settlement', () => {
         const reset = applySectorExploreReward({ serverExploreDate: '2026-07-11', serverExploresToday: DAILY_SECTOR_EXPLORE_LIMIT }, 1, '2026-07-12');
         assert.equal(reset.ok, true);
         if (reset.ok) assert.equal(reset.character.serverExploresToday, 1);
+    });
+});
+
+describe('shared sector pool sizing against the explore ceilings', () => {
+    it('needs a real crowd to drain a sector, and leaves the world plenty of slack', () => {
+        // The per-player ceiling is GLOBAL, not per-sector, so one maxed player
+        // can spend all 150 explores on a single tile.
+        assert.equal(SECTOR_EXPLORE_POOL_PER_DAY / DAILY_SECTOR_EXPLORE_LIMIT, 10,
+            '10 maxed players to pick a non-owner sector clean (500/day was 3.3)');
+        assert.equal(
+            Math.floor(SECTOR_EXPLORE_POOL_PER_DAY * (1 + OWNER_VILLAGE_POOL_BONUS)) / DAILY_SECTOR_EXPLORE_LIMIT, 15,
+            'and 15 for the village standing on ground it owns');
+        // World capacity vs the officially supported 200-player ceiling: the
+        // pool must not be a de-facto global cap on exploring.
+        const worldCapacity = MAX_WILD_SECTOR * SECTOR_EXPLORE_POOL_PER_DAY;
+        const worldDemand = 200 * DAILY_SECTOR_EXPLORE_LIMIT;
+        assert.equal(worldCapacity, 99_000);
+        assert.equal(worldDemand, 30_000);
+        assert.ok(worldCapacity >= worldDemand * 3,
+            `world explore capacity ${worldCapacity} must leave 3x headroom over ${worldDemand} of demand`);
+    });
+
+    it('sizes the chest pool so it can never be the binding constraint', () => {
+        // A fully farmed sector yields exactly SECTOR_EXPLORE_POOL_PER_DAY x the
+        // authored chest rate in expectation. At 500/75 that was 75.0 expected
+        // against a 75 cap, so roughly half of fully farmed sectors stranded
+        // chests. The ratio must stay exact.
+        assert.equal(SECTOR_EXPLORE_POOL_PER_DAY * SECTOR_EXPLORE_CHEST_CHANCE, SECTOR_CHEST_POOL_PER_DAY);
+        assert.equal(SECTOR_CHEST_POOL_PER_DAY, 225);
     });
 });

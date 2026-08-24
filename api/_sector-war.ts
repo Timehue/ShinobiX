@@ -25,6 +25,7 @@
  */
 
 import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
+import { GARRISON_POINTS_CAP_FED, unfedStructureMultiplier, utcDay } from './_village-stores.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { homeVillageForSector, isWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
@@ -70,6 +71,32 @@ export interface SectorWarSession {
     /** Durable receipts for every scored battle (idempotence, the garrison cap,
      *  and the settlement capture credit). */
     appliedBattles?: SectorWarBattleReceipt[];
+    // ── Village Stores (api/_village-stores.ts; written by the daily pass) ──
+    /** False when a participant's provisions could not cover the war today
+     *  (undefined = not evaluated yet → treated as fed). Unfed defender → its
+     *  Watchtower bonus is halved (unfedStructureMultiplier). */
+    fed?: boolean;
+    /** Villages that went unfed for this war today (stamped with `storesDate`). */
+    unfedVillages?: string[];
+    /** UTC day the stores pass last evaluated this war. */
+    storesDate?: string;
+    /** Garrison feed, PER VILLAGE (keyed by participant village name). Only
+     *  that village's Kage / ANBU appointee may set or clear its own entry —
+     *  the other side can never switch a village's paid feed off. `covered`
+     *  is stamped by the daily pass once the day's GARRISON_RATIONS_PER_DAY
+     *  were actually paid; only then does the cap rise (garrisonPointsCapFor).
+     *  Legacy rows carried a single `garrisonFed/garrisonFedBy/garrisonCovered`
+     *  trio — normalizeSectorWarSession folds it into this map; it is no
+     *  longer written. */
+    garrisonFeed?: Record<string, GarrisonFeedEntry>;
+}
+
+export interface GarrisonFeedEntry {
+    on: boolean;
+    covered: boolean;
+    updatedAt: number;
+    /** Player who last toggled the entry. */
+    by: string;
 }
 
 /** Why a war ended without the attacker taking the sector. */
@@ -157,6 +184,72 @@ function parseSectorWarBattleReceipts(raw: unknown): SectorWarBattleReceipt[] {
  *  A defence that shows up can still outscore it: repelled attackers and merc
  *  repels pay the defender full/quarter weight with no cap. */
 export const GARRISON_POINTS_CAP = 150;
+/** `village`'s garrison-feed entry on this war (undefined = never toggled). */
+export function garrisonFeedFor(session: Pick<SectorWarSession, 'garrisonFeed'>, village: string): GarrisonFeedEntry | undefined {
+    return session.garrisonFeed?.[village];
+}
+/** The garrison cap for a run by `village` (the attacker making the garrison
+ *  assault): 200 while THAT village's garrison-feed entry is on AND the day's
+ *  rations were covered (api/_village-stores.ts), else 150. Pure.
+ *
+ *  `today` is the UTC day the caller is resolving for, and the `covered` verdict
+ *  only counts while `storesDate` still matches it. Without that check a stale
+ *  `covered: true` kept granting the raised cap for free forever — the daily
+ *  pass need only throw once, or the Village Stores kill switch be flipped, and
+ *  the last day's verdict would freeze in the player's favour. A day with no
+ *  pass now reads as UNCOVERED. */
+export function garrisonPointsCapFor(
+    session: Pick<SectorWarSession, 'garrisonFeed' | 'storesDate'>,
+    village: string,
+    today: string,
+): number {
+    if (!today || session.storesDate !== today) return GARRISON_POINTS_CAP;
+    const e = garrisonFeedFor(session, village);
+    return e?.on === true && e.covered === true ? GARRISON_POINTS_CAP_FED : GARRISON_POINTS_CAP;
+}
+/** Legacy-tolerant reader: the per-village map, with the retired single
+ *  `garrisonFed/garrisonFedBy/garrisonCovered` trio folded in as a fallback so
+ *  rows written before the per-village split keep their feed. */
+export function normalizeGarrisonFeed(raw: Record<string, unknown>): Record<string, GarrisonFeedEntry> | undefined {
+    const out: Record<string, GarrisonFeedEntry> = {};
+    const map = raw.garrisonFeed;
+    if (map && typeof map === 'object' && !Array.isArray(map)) {
+        for (const [village, v] of Object.entries(map as Record<string, unknown>)) {
+            if (!village || !v || typeof v !== 'object') continue;
+            const e = v as Record<string, unknown>;
+            out[village] = {
+                on: e.on === true,
+                covered: e.covered === true,
+                updatedAt: Math.max(0, Math.floor(Number(e.updatedAt) || 0)),
+                by: typeof e.by === 'string' ? e.by : '',
+            };
+        }
+    }
+    if (raw.garrisonFed === true && typeof raw.garrisonFedBy === 'string' && raw.garrisonFedBy && !out[raw.garrisonFedBy]) {
+        out[raw.garrisonFedBy] = { on: true, covered: raw.garrisonCovered === true, updatedAt: 0, by: '' };
+    }
+    return Object.keys(out).length ? out : undefined;
+}
+/** Whether `village` went unfed for this war on `today` (Village Stores).
+ *
+ *  The verdict EXPIRES with its day. `fed: false` is only believed while
+ *  `storesDate` still names the day being resolved — otherwise a village that
+ *  went hungry once would march hungry forever: flipping DISABLE_VILLAGE_STORES
+ *  froze the last `fed: false` and halved the defender's Watchtower bonus for
+ *  the rest of the war with no way to clear it (the kill switch could stop the
+ *  pass maintaining the penalty, but never undo it), and a single throw in the
+ *  active-war scan applied yesterday's verdict to a fully stocked village. A day
+ *  with no pass reads as FED. */
+export function sectorWarVillageUnfed(
+    session: Pick<SectorWarSession, 'fed' | 'unfedVillages' | 'storesDate'>,
+    village: string,
+    today: string,
+): boolean {
+    if (!today || session.storesDate !== today) return false;
+    if (session.fed !== false) return false;
+    const list = session.unfedVillages ?? [];
+    return list.length === 0 || list.includes(village);
+}
 /** Garrison kills score at half weight — live defence stays the better target. */
 export const GARRISON_POINTS_FRACTION = 0.5;
 /** Repelling an AI mercenary scores the defender a quarter weight (lower stakes
@@ -237,6 +330,7 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
         ? Math.max(0, nonNeg(raw.controlHpMax) - nonNeg(raw.controlHp))
         : 0;
     const appliedBattles = parseSectorWarBattleReceipts(raw.appliedBattles);
+    const garrisonFeed = normalizeGarrisonFeed(raw);
     const legacyReason = raw.expiredReason as unknown;
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
@@ -263,6 +357,10 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
             : {}),
         ...(Number(raw.lastLiveBattleAt) > 0 ? { lastLiveBattleAt: Math.floor(Number(raw.lastLiveBattleAt)) } : {}),
         ...(appliedBattles.length ? { appliedBattles } : {}),
+        ...(typeof raw.fed === 'boolean' ? { fed: raw.fed } : {}),
+        ...(Array.isArray(raw.unfedVillages) ? { unfedVillages: raw.unfedVillages.filter((v): v is string => typeof v === 'string' && !!v).slice(0, 2) } : {}),
+        ...(typeof raw.storesDate === 'string' && raw.storesDate ? { storesDate: raw.storesDate.slice(0, 10) } : {}),
+        ...(garrisonFeed ? { garrisonFeed } : {}),
     };
 }
 
@@ -340,13 +438,18 @@ export function applySectorWarBattle(
         ...(aiBattle ? {} : { lastLiveBattleAt: opts.now }),
     };
 
+    // Village Stores: an unfed defender's Watchtower bonus is halved for the day.
+    // Both stores verdicts are read against THIS battle's UTC day — a verdict
+    // whose `storesDate` has rolled over no longer applies (see the two helpers).
+    const today = utcDay(opts.now);
+    const rawDefMult = Math.max(0, Number(opts.defenderMult ?? 1) || 1);
     const sideMult = attackerWon
         ? Math.max(0, Number(opts.attackerMult ?? 1) || 1)
-        : Math.max(0, Number(opts.defenderMult ?? 1) || 1);
+        : (sectorWarVillageUnfed(session, session.defenderVillage, today) ? unfedStructureMultiplier(rawDefMult) : rawDefMult);
     let points = Math.round(nonNeg(opts.roleSwing) * sideMult);
     if (opts.garrisonBattle && attackerWon) {
         points = Math.floor(points * GARRISON_POINTS_FRACTION);
-        points = Math.min(points, Math.max(0, GARRISON_POINTS_CAP - garrisonPointsInWar(session)));
+        points = Math.min(points, Math.max(0, garrisonPointsCapFor(session, session.attackerVillage, today) - garrisonPointsInWar(session)));
     }
     if (opts.mercBattle && !attackerWon) {
         points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
@@ -405,10 +508,21 @@ export function recordSectorWarBattleOutcome(
  *  200 rows the war-map's 15s poll would otherwise ship to every viewer, with
  *  per-player attribution nobody renders. Keep responses on this projection;
  *  never return a raw session. Pure. */
-export function projectSectorWarForClient(session: SectorWarSession): Omit<SectorWarSession, 'appliedBattles' | 'declarationFunding'> {
+export function projectSectorWarForClient(session: SectorWarSession, viewerVillage?: string): SectorWarClientView {
     const { appliedBattles: _receipts, declarationFunding: _funding, ...view } = session;
-    return view;
+    if (!viewerVillage) return view;
+    // Compatibility mirror of the VIEWER's own per-village entry only — the
+    // other side's feed is never surfaced through these flat fields.
+    const mine = garrisonFeedFor(session, viewerVillage);
+    if (!mine?.on) return view;
+    return { ...view, garrisonFed: true, garrisonFedBy: viewerVillage, garrisonCovered: mine.covered };
 }
+export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'declarationFunding'> & {
+    /** Derived for the viewer's village (see projectSectorWarForClient). */
+    garrisonFed?: boolean;
+    garrisonFedBy?: string;
+    garrisonCovered?: boolean;
+};
 
 // ── Settlement ─────────────────────────────────────────────────────────────────
 
@@ -677,6 +791,8 @@ export interface SectorWarDeclareCheck {
     /** A prior FAILED war by this attacker on this sector is still in cooldown. */
     priorFailedSiegeActive?: boolean;
     allowedWinConditions?: readonly WinCondition[];
+    /** Declare base cost AFTER the Village Stores intel discount; defaults to SECTOR_WAR_WR. */
+    baseCost?: number;
 }
 
 export type SectorWarDeclareResult =
@@ -700,7 +816,10 @@ export function canDeclareSectorWar(c: SectorWarDeclareCheck): SectorWarDeclareR
     if (c.priorFailedSiegeActive) return { ok: false, error: 'siege-cooldown' };
     const allowed = c.allowedWinConditions ?? (['combat'] as readonly WinCondition[]);
     if (!allowed.includes(c.winCondition)) return { ok: false, error: 'win-condition-unavailable' };
-    const cost = discountedWrCost(SECTOR_WAR_WR, c.attackerSectorsHeld);
+    // Village Stores intel discount (api/_village-intel.ts intelDeclareCost)
+    // arrives as a reduced BASE; the comeback multiplier stacks on top of it.
+    const base = Number.isFinite(Number(c.baseCost)) ? Math.max(0, Number(c.baseCost)) : SECTOR_WAR_WR;
+    const cost = discountedWrCost(base, c.attackerSectorsHeld);
     if (Math.floor(Number(c.attackerWr) || 0) < cost) return { ok: false, error: 'insufficient-wr', cost };
     return { ok: true, cost };
 }

@@ -3,8 +3,19 @@ import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
 
+/**
+ * Authored chance an admitted tile turns up an Ancient Chest. Exported because
+ * the shared sector pool is sized against it: SECTOR_CHEST_POOL_PER_DAY must be
+ * SECTOR_EXPLORE_POOL_PER_DAY × this, or the chest pool becomes the binding
+ * constraint and fully-farmed sectors strand chests (api/world/_sector-pool.ts).
+ */
+export const SECTOR_EXPLORE_CHEST_CHANCE = 0.15;
+
 export type SectorExploreOutcome =
-    | { kind: 'chest'; reservationDate?: string; reservationOrdinal?: number }
+    // `poolReserved` marks a chest that already took its slot from the SHARED
+    // sector chest pool at discovery time, so /world/open-chest never has to
+    // reserve (and therefore can never refuse) a chest the player already holds.
+    | { kind: 'chest'; reservationDate?: string; reservationOrdinal?: number; poolReserved?: boolean }
     | { kind: 'battle' }
     | { kind: 'external'; source: 'dungeon' | 'pet' }
     | { kind: 'none' };
@@ -21,7 +32,7 @@ export function rollSectorExploreOutcome(
 ): SectorExploreOutcome {
     const unit = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
     const chestRoll = unit();
-    if (chestAvailable && chestRoll < 0.15) return { kind: 'chest' };
+    if (chestAvailable && chestRoll < SECTOR_EXPLORE_CHEST_CHANCE) return { kind: 'chest' };
     if (unit() <= 0.80) return { kind: 'battle' };
     return { kind: 'none' };
 }

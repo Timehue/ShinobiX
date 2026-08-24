@@ -28,6 +28,7 @@ import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
+import { runKageInactivityPass } from '../village/_kage-inactivity.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 import { clanBossWeekId } from '../clan-boss/_storage.js';
 
@@ -52,6 +53,7 @@ const LEASE_TTL = {
     settlementReconciliation: 4 * 60,
     clanBossPartySweep: 4 * 60,
     guestSweep: 20 * 60 * 60,
+    kageInactivity: 20 * 60 * 60,
 } as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
@@ -194,6 +196,16 @@ async function fire(): Promise<void> {
         }
     } catch (err) {
         console.error('[cron-scheduler] village-war daily pass threw:', (err as Error).message);
+    }
+    // An ABSENT Kage loses the seat: close any reign whose Kage has not
+    // autosaved in 10 days and leave the seat open (fail-safe on unreadable saves).
+    try {
+        const k = await runLeasedJob('kage-inactivity', LEASE_TTL.kageInactivity, () => runKageInactivityPass());
+        if (k && k.dethroned.length > 0) {
+            console.log(`[cron-scheduler] kage inactivity pass: seat declared open in ${k.dethroned.join(', ')}.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] kage inactivity pass threw:', (err as Error).message);
     }
     // Reclaim abandoned guest accounts. Reports what it would take unless
     // GUEST_SWEEP_ENABLED=1, so the first cycles can be read before anything is

@@ -8,7 +8,7 @@
 // TERRITORY_SUPPLY_INTERVAL_MS elapsed since `lastSupplyAt`. Collecting yields
 // the already-stored supply PLUS the newly-accrued amount, then zeroes the
 // territory and advances `lastSupplyAt` by the consumed whole cycles (the
-// partial-period remainder is preserved, exactly as the client does).
+// partial-period remainder is preserved).
 //
 // Keep these two constants in sync with shinobij.client/src/constants/game.ts.
 export const TERRITORY_DAILY_WAR_SUPPLY = 100;

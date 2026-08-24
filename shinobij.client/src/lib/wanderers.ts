@@ -7,7 +7,7 @@
  * trip, no save state. Rendering + movement live in <SectorWanderer>; the
  * encounter wiring (and the only thing that touches combat) lives in <WorldMap>.
  *
- * Phase 1 scope (behind the `wanderers.v1` opt-in flag, default OFF): wanderers
+ * Scope (always on — a gameplay layer, not a per-device toggle): wanderers
  * spawn, walk/patrol/approach, and the ones whose function is to ROB/ATTACK
  * launch a fight when they reach the player. Gift / gamble archetypes just greet
  * for now (their reward economy is a later, server-authoritative phase — see
@@ -15,231 +15,36 @@
  *
  * See also docs/sector-wanderers-content.md for the written character voice.
  */
-import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+// The roster roll itself lives in shared/wanderer-roster.ts so the SERVER
+// re-derives the identical cast (api/sector/_wanderer-encounter.ts). Everything
+// is re-exported here so existing `lib/wanderers` imports keep working.
+export {
+    WANDERER_ARCHETYPES, WANDERER_GRID, WANDERER_BUCKET_MS, WANDERER_MAX_INDEX, WANDERER_SECTOR_COUNT,
+    wandererDayBucketFromMs, wandererSeedFrom, wandererHash32, mulberry32, wandererPresenceGate,
+    wandererLevelFor, wandererCount, rollWanderers, parseWandererId, resolveWandererById,
+    wandererRelocationSector, relocateWandererInto,
+    type Wanderer, type WandererVerb, type WandererArchetypeId, type WandererArchetypeMeta,
+} from "../../../shared/wanderer-roster";
+import {
+    rollWanderers, parseWandererId, relocateWandererInto, wandererDayBucketFromMs,
+    type Wanderer, type WandererVerb,
+} from "../../../shared/wanderer-roster";
+import { serverNow } from "./server-clock";
 
-export type WandererVerb =
-    | "attack" | "gift" | "gamble" | "petDuel" | "quest"
-    | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
-    | "legacyQuest";
-export type WandererArchetypeId =
-    | "bandit" | "gambler" | "pilgrim" | "beast" | "sage"
-    | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
-    | "wanderingSage"
-    // The eight Legacy Emissaries (lib/legacy-emissaries.ts) — weight-0 like the
-    // Sage: never rolled into the natural cast, synthed per-player per window.
-    | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
-    | "duel-broker-kesshi" | "hollow-warden" | "lantern-warden-mei" | "mapless-ojii";
-
-export interface Wanderer {
-    /** stable within (sector, dayBucket) */
-    id: string;
-    name: string;
-    archetype: WandererArchetypeId;
-    verb: WandererVerb;
-    /** banded to the sector; drives the AI tier when an attacker engages */
-    level: number;
-    /** 0..143 grid tile the wanderer starts on */
-    homeTile: number;
-    /** patrol route (includes home); the wanderer ambles between these */
-    waypoints: number[];
-    /** the line shown when you meet a non-attacker (and as a bandit's opener) */
-    greeting: string;
-    /** colour of the small "this is a wanderer" tell ring */
-    tellTint: string;
-    /** which face from the existing NPC art pool to wear (mapped in the component) */
-    avatarKey: WandererArchetypeId;
-    /** Optional exact portrait override for authored/story NPCs. */
-    avatarImage?: string;
-    /** Optional synthetic metadata for chained encounters. */
-    targetName?: string;
-    bountyAmount?: number;
-    originSector?: number;
-    targetSector?: number;
-    expiresAt?: number;
-    factionVillage?: string;
-}
-
-const GRID = 12;
-
-interface ArchetypeMeta {
-    verb: WandererVerb;
-    weight: number;
-    tellTint: string;
-    names: string[];
-    greetings: string[];
-}
-
-// The Phase-1 cast. Voices mirror docs/sector-wanderers-content.md.
-const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
-    bandit: {
-        // 2026-07 clutter pass: 0.30 → 0.24. The bandit is the only archetype that
-        // WALKS AT YOU and forces a Fight/Flee choice, so it sets how intrusive the
-        // road feels — it was ~2× the support cast. Knock-on: the robberStreak
-        // ambush gauntlet (5 fends → gang) now triggers proportionally less often.
-        verb: "attack",
-        weight: 0.24,
-        tellTint: "#ff6b5a",
-        names: ["Kazan the Ashbound", "Goro Two-Blades", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
-        greetings: [
-            "This stretch of road is mine. Pay the toll — or bleed.",
-            "Hand over your ryo, leaf-rat. Choose quick.",
-            "Wrong road to walk alone.",
-            "Far from home. That makes this easy.",
-            "Toll road. New policy. Started about when I saw you coming.",
-        ],
-    },
-    gambler: {
-        verb: "gamble",
-        weight: 0.18,
-        tellTint: "#ffd24a",
-        names: ["Saji Two-Coins", "Miraa the Sly", "Old Tatsu", "Kael of Sixes"],
-        greetings: [
-            "Care for a hand, friend? Small stakes. Mostly.",
-            "May the better liar win — and I'm a very good liar.",
-            "Fresh Chronicle deck, and nobody on this road brave enough to sit down. You look brave.",
-            "One game. I win, we call it tuition. You win, the purse is yours.",
-        ],
-    },
-    pilgrim: {
-        verb: "gift",
-        weight: 0.18,
-        tellTint: "#7be0a3",
-        names: ["Brother Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
-        greetings: [
-            "Rest a moment, traveler. The road is long.",
-            "Here — take something for the road. An old man's pack is too heavy already.",
-            "Sit, sit — well, don't sit, you're in a hurry, I can tell. Take this anyway.",
-            "Take it, take it. An old man needs a lighter pack more than he needs ryo.",
-        ],
-    },
-    beast: {
-        verb: "petDuel",
-        weight: 0.16,
-        tellTint: "#9bf0a6",
-        names: ["Wild Emberlynx", "Stray Oni-Hound", "Feral Stormcrow", "Rogue Guardhound", "Lone Sparrowhawk"],
-        greetings: [
-            "A wild beast bars your path, hackles raised.",
-            "It locks eyes with your pet — a challenge.",
-            "The creature snarls, daring your beast to step up.",
-        ],
-    },
-    sage: {
-        verb: "quest",
-        weight: 0.16,
-        tellTint: "#8fd0ff",
-        names: ["Old Hermit Roku", "Hermit Kaede", "The Grey Ascetic", "Master Tobei", "Sister Uzune"],
-        greetings: [
-            "These roads aren't safe, traveler. Lend your blade to a task?",
-            "You look capable, and I'm past pretending I can handle this myself. A task, for fair pay?",
-            "I've been waiting all day for someone who doesn't walk like a victim. Got a moment?",
-        ],
-    },
-    merchant: {
-        verb: "merchant",
-        weight: 0.15,
-        tellTint: "#fbbf24",
-        names: ["Miko of the Pack", "Suri Lantern-Hands", "Jin the Mule", "Tama Roadstall"],
-        greetings: [
-            "Road prices, friend. Everything costs more out where the patrols don't reach.",
-            "Keep your blade low and your coins ready.",
-            "Everything's for sale except the mule. People keep asking about the mule.",
-        ],
-    },
-    medic: {
-        verb: "medic",
-        weight: 0.14,
-        tellTint: "#67e8f9",
-        names: ["Nurse Enka", "Field Medic Ren", "Old Stitch", "Sister Koma"],
-        greetings: [
-            "You look like the road has been chewing on you.",
-            "Bandage, tonic, steady hands. Sit down if you need mending.",
-            "I don't ask who hit first. I patch whoever's bleeding.",
-        ],
-    },
-    patrol: {
-        verb: "patrol",
-        weight: 0.14,
-        tellTint: "#93c5fd",
-        names: ["Storm Road Patrol", "Ashen Border Patrol", "Frostfang Scout", "Moonshadow Sentry"],
-        greetings: [
-            "State your village and your business.",
-            "These roads are watched. Move along and we've got no quarrel.",
-            "Patrol coming through. Seen anything on the road we should hear about?",
-        ],
-    },
-    tracker: {
-        verb: "tracker",
-        weight: 0.14,
-        tellTint: "#a7f3d0",
-        names: ["Ibo the Tracker", "Kana Reed-Eyes", "Old Pawprint", "Shin of the Bent Grass"],
-        greetings: [
-            "Fresh tracks cross this dirt. Something bold is nearby.",
-            "Something big crossed here before dawn, dragging a paw. If that beast of yours is game, it's worth following.",
-            "I can point you toward teeth, coin, or trouble. Sometimes all three.",
-        ],
-    },
-    courier: {
-        verb: "courier",
-        weight: 0,
-        tellTint: "#fde68a",
-        names: ["Road Courier"],
-        greetings: [
-            "Package sealed. Name checked. You made good time.",
-        ],
-    },
-    bountyHunter: {
-        verb: "bountyHunter",
-        weight: 0,
-        tellTint: "#f87171",
-        names: ["Contract Hunter"],
-        greetings: [
-            "Your face matches the bounty slip.",
-        ],
-    },
-    // The Legacy system's Wandering Sage (lib/legacy.ts synthSageWanderer).
-    // weight 0 = never rolled into the natural cast; spawned server-side only,
-    // per-player, when a Legacy offer is waiting (api/legacy/sage.ts).
-    wanderingSage: {
-        verb: "quest",
-        weight: 0,
-        tellTint: "#c084fc",
-        names: ["The Wandering Sage"],
-        greetings: [
-            "I've watched your path a long while, shinobi.",
-        ],
-    },
-    // The eight Legacy Emissaries. All weight 0: like the Sage they are synthed
-    // per-player (lib/legacy-emissaries.ts rollEmissarySpawn), never rolled into
-    // the natural cast — these entries exist to satisfy the archetype record;
-    // the synth supplies the real voice/tint from EMISSARY_DEFS.
-    "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["The clouds told me you were coming."] },
-    "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Don't mind the moths."] },
-    "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Disciple Daigo"], greetings: ["Every bead is a fight without a weapon."] },
-    "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["The swords are listening."] },
-    "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything's a wager, friend."] },
-    "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["Speak softly, or interestingly."] },
-    "lantern-warden-mei": { verb: "legacyQuest", weight: 0, tellTint: "#fbbf24", names: ["Lantern-Warden Mei"], greetings: ["Shield in one hand, lantern in the other."] },
-    "mapless-ojii":       { verb: "legacyQuest", weight: 0, tellTint: "#7be0a3", names: ["Mapless Ojii"],       greetings: ["This map is blank on purpose."] },
-};
-
-const ARCHETYPE_IDS = Object.keys(ARCHETYPES) as WandererArchetypeId[];
-
-// ── Locked content: don't spawn an NPC whose offer dead-ends ─────────────────
+// ── Locked content: the NPC is on the road for everyone; the OFFER is gated ──
 // Some archetypes hand the player straight into a system that may still be
-// sealed for them. The gambler deals you into Shinobi Chronicle Showdown, which
-// stays locked until Scribe Ihara hands over the traveler's codex
-// (`starterCardsClaimed`) — so before that, "Deal me in" walked you into the
-// Card Hall's "the Chronicle is sealed" wall. The beast challenges your pet,
-// which needs you to actually own one. The server already refuses the duel
-// itself (api/card-clash/ai-start.ts checks chronicleUnlockedFor), so this is
-// about not OFFERING what can't be taken: the NPC simply isn't on the road yet.
-//
-// Locked archetypes don't leave a hole in the roster — pickWeightedArchetype
-// redistributes their weight across the rest of the cast, so a pre-codex player
-// meets just as many wanderers, drawn from the archetypes that work for them.
+// sealed for them: the gambler deals you into Shinobi Chronicle Showdown (locked
+// until Scribe Ihara hands over the codex, `starterCardsClaimed`), the beast
+// challenges your pet (needs one). The roster is a WORLD fact — every player in
+// the sector sees the same cast, and the server re-rolls it to validate
+// encounters — so these locks never change WHO appears. They gate the
+// interaction instead: the NPC is visible, the verb is refused in-fiction
+// (WorldMap startWandererCardDuel / startWandererPetDuel), and the server
+// refuses the duel itself (api/card-clash/ai-start.ts chronicleUnlockedFor).
 
 /** What this character can't be offered yet. Pure + tested; the single place
- *  that decides which archetypes are content-locked. */
+ *  that decides which verbs are content-locked. Used for INTERACTION gating
+ *  only — never fed into the roster roll. */
 export function lockedWandererVerbs(
     character: { starterCardsClaimed?: boolean; pets?: unknown[] } | null | undefined,
 ): WandererVerb[] {
@@ -251,10 +56,24 @@ export function lockedWandererVerbs(
     return locked;
 }
 
-/** Default ON for everyone; opt out per-device with localStorage `wanderers.v1 = "off"`. */
+/** Why this character can't take a wanderer's verb right now (null = allowed).
+ *  The in-fiction line the dialog shows instead of the action. */
+export function wandererVerbLockReason(
+    character: { starterCardsClaimed?: boolean; pets?: unknown[] } | null | undefined,
+    verb: WandererVerb,
+): string | null {
+    if (!lockedWandererVerbs(character).includes(verb)) return null;
+    if (verb === "gamble") return "Come back when a scribe's put a codex in your pack — no sport in fleecing a man with nothing to play.";
+    if (verb === "petDuel") return "You have no pet to send out — tame one first, and the beast will still be prowling this road.";
+    return "You can't take this offer yet.";
+}
+
+/** Wanderers are a gameplay layer, not a cosmetic one: always on. (The old
+ *  per-device `wanderers.v1 = "off"` kill switch let one player hide NPCs the
+ *  rest of the sector could see; removed 2026-08.) Kept as a function so call
+ *  sites compile unchanged. */
 export function isWanderersEnabled(): boolean {
-    if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("wanderers.v1") !== "off"; } catch { return true; }
+    return true;
 }
 
 // ── Per-NPC anti-spam cooldown ───────────────────────────────────────────────
@@ -306,100 +125,16 @@ export function withWandererCooldown(
     return out;
 }
 
-/** Roster refreshes every 6h so a sector's cast changes a few times a day. */
+/** Roster window for a Date. Prefer `currentWandererDayBucket()` on the client
+ *  so a skewed device never rolls a window the server refuses; this Date form
+ *  stays for tests/back-compat. */
 export function wandererDayBucket(now: Date): number {
-    return Math.floor(now.getTime() / (6 * 60 * 60 * 1000));
+    return wandererDayBucketFromMs(now.getTime());
 }
 
-// ── deterministic RNG (mulberry32 over an FNV-1a seed) ───────────────────────
-function seedFrom(sector: number, dayBucket: number): number {
-    let h = 2166136261 >>> 0;
-    for (const n of [sector | 0, dayBucket | 0]) {
-        h ^= n & 0xff;        h = Math.imul(h, 16777619);
-        h ^= (n >>> 8) & 0xff; h = Math.imul(h, 16777619);
-        h ^= (n >>> 16) & 0xff; h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-}
-function mulberry32(seed: number): () => number {
-    let a = seed >>> 0;
-    return () => {
-        a = (a + 0x6d2b79f5) >>> 0;
-        let t = a;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-/**
- * Deterministic presence gate for the "the road finds you" quest-giver NPCs
- * (story road events, rift givers): instead of following the player into EVERY
- * sector until dealt with — which reads as wallpaper — the NPC is present in
- * roughly `chance` of sectors per 6h window. Same key → same answer, so nothing
- * flickers; the blocked sectors reshuffle when the window rolls over. Callers
- * key by (feature, player, npc/quest id, sector, dayBucket).
- */
-export function wandererPresenceGate(key: string, chance: number): boolean {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return mulberry32(h >>> 0)() < chance;
-}
-
-/** Weighted draw over the natural cast. `locked` verbs are dropped and their
- *  weight is re-normalised across the rest, so excluding an archetype thins the
- *  CAST, never the roster size — and the draw still consumes exactly one rng
- *  value, keeping every other roll in rollWanderers on its usual footing. */
-function pickWeightedArchetype(r: number, locked?: ReadonlySet<WandererVerb>): WandererArchetypeId {
-    const pool = ARCHETYPE_IDS.filter((id) => ARCHETYPES[id].weight > 0 && !locked?.has(ARCHETYPES[id].verb));
-    if (!pool.length) return "bandit"; // every archetype locked out — shouldn't happen
-    const total = pool.reduce((s, id) => s + ARCHETYPES[id].weight, 0);
-    let x = r * total;
-    for (const id of pool) {
-        x -= ARCHETYPES[id].weight;
-        if (x <= 0) return id;
-    }
-    return pool[pool.length - 1];
-}
-
-// Keep wanderers in the interior of the 12×12 board (away from the corners/edges
-// where the UI chrome and the player's spawn tend to sit).
-function interiorTile(rng: () => number): number {
-    const col = 2 + Math.floor(rng() * 8); // 2..9
-    const row = 2 + Math.floor(rng() * 8); // 2..9
-    return row * GRID + col;
-}
-
-function nearbyTile(tile: number, rng: () => number): number {
-    const col = tile % GRID;
-    const row = Math.floor(tile / GRID);
-    const nc = Math.max(1, Math.min(10, col + (Math.floor(rng() * 5) - 2)));
-    const nr = Math.max(1, Math.min(10, row + (Math.floor(rng() * 5) - 2)));
-    return nr * GRID + nc;
-}
-
-/** Banded to the sector so an attacker scales to where the player is. */
-export function wandererLevelFor(sector: number, rng: () => number): number {
-    const base = 6 + sector * 1.4;
-    const jitter = Math.floor(rng() * 7) - 3; // ±3
-    return Math.max(3, Math.min(95, Math.round(base + jitter)));
-}
-
-// Spawn rarity — a wanderer is an OCCASIONAL encounter, not a fixture. Roughly
-// half of wild sectors are empty in a given 6h window; most of the rest have one;
-// a pair is uncommon. Tune these two thresholds to taste (raise EMPTY_CHANCE for
-// rarer, lower for busier). 2026-07 balance pass: 0.6/0.92 → 0.52/0.88 so the
-// flattened archetype weights above actually get room to show their whole cast.
-const WANDERER_EMPTY_CHANCE = 0.52;  // ~52% of sectors: nobody this window
-// 2026-07 clutter pass: 0.88 → 0.93, so a two-wanderer sector drops from ~12% to
-// ~7%. The EMPTY chance is deliberately left alone — raising it would undo the
-// earlier pass that gave the flattened archetype weights room to show the whole
-// cast. It's the CROWDED tail, not the occupancy rate, that reads as clutter.
-const WANDERER_SINGLE_CHANCE = 0.93; // 0.52–0.93 → one; 0.93–1.0 → two
-export function wandererCount(roll: number): 0 | 1 | 2 {
-    if (roll < WANDERER_EMPTY_CHANCE) return 0;
-    if (roll < WANDERER_SINGLE_CHANCE) return 1;
-    return 2;
+/** The current roster window on the SERVER's clock. */
+export function currentWandererDayBucket(): number {
+    return wandererDayBucketFromMs(serverNow());
 }
 
 // ── Roaming quest-giver density ──────────────────────────────────────────────
@@ -448,52 +183,6 @@ export function pickRoamingQuestGivers(
     return out;
 }
 
-/**
- * The deterministic roster for a sector at a given 6h bucket. Same inputs →
- * identical roster (verified in wanderers.test.ts), so nothing flickers and the
- * server could re-derive the exact same cast if a later phase needs to.
- */
-export function rollWanderers(
-    sector: number,
-    dayBucket: number,
-    lockedVerbs?: readonly WandererVerb[],
-): Wanderer[] {
-    if (!Number.isFinite(sector) || sector <= 0) return [];
-    const locked = lockedVerbs?.length ? new Set(lockedVerbs) : undefined;
-    const rng = mulberry32(seedFrom(sector, dayBucket));
-    const count = wandererCount(rng());
-    const used = new Set<number>();
-    const out: Wanderer[] = [];
-
-    for (let i = 0; i < count; i++) {
-        const archetype = pickWeightedArchetype(rng(), locked);
-        const meta = ARCHETYPES[archetype];
-
-        let home = interiorTile(rng);
-        let guard = 0;
-        while (used.has(home) && guard++ < 8) home = interiorTile(rng);
-        used.add(home);
-
-        const waypoints = [home];
-        const legs = 2 + Math.floor(rng() * 2); // 2..3 extra stops
-        for (let w = 0; w < legs; w++) waypoints.push(nearbyTile(home, rng));
-
-        out.push({
-            id: `w-${sector}-${dayBucket}-${i}`,
-            name: meta.names[Math.floor(rng() * meta.names.length)],
-            archetype,
-            verb: meta.verb,
-            level: wandererLevelFor(sector, rng),
-            homeTile: home,
-            waypoints: Array.from(new Set(waypoints)),
-            greeting: meta.greetings[Math.floor(rng() * meta.greetings.length)],
-            tellTint: meta.tellTint,
-            avatarKey: archetype,
-        });
-    }
-    return out;
-}
-
 // ── Relocation: a wanderer you've dealt with moves ON, not back ───────────────
 // The per-NPC cooldown above hides a wanderer in its sector for a few hours — but
 // the deterministic roster would otherwise drop it right back in the SAME sector
@@ -508,31 +197,6 @@ export function rollWanderers(
 // match the id shape and never relocate (they're server-driven). Keyed, like the
 // cooldowns, by the wanderer's stable id. The whole map self-clears every 6h window
 // (a stale-bucket prune), so it stays tiny.
-const SECTOR_COUNT = MAX_WILD_SECTOR;
-
-/** Parse the home sector + window bucket + roster index out of a wanderer id
- *  (`w-<sector>-<dayBucket>-<index>`). Returns null for ids that aren't real
- *  wanderers (e.g. server-synthesised `merc-…` NPCs), which therefore never
- *  relocate. */
-export function parseWandererId(id: string): { sector: number; dayBucket: number; index: number } | null {
-    const m = /^w-(\d+)-(\d+)-(\d+)$/.exec(id);
-    if (!m) return null;
-    return { sector: Number(m[1]), dayBucket: Number(m[2]), index: Number(m[3]) };
-}
-
-/** The sector a wanderer wanders off to after being dealt with — deterministic
- *  from (id, the sector it was just found in) and always a DIFFERENT sector, so a
- *  repeat encounter nudges it somewhere new instead of back where it started. */
-export function wandererRelocationSector(id: string, fromSector: number, maxSector: number = SECTOR_COUNT): number {
-    let h = 2166136261 >>> 0;
-    const key = `${id}#${fromSector}`;
-    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const span = Math.max(1, maxSector - 1);
-    let dest = 1 + ((h >>> 0) % span);      // 1..maxSector-1
-    if (dest >= fromSector) dest += 1;      // skip `fromSector` → 1..maxSector minus it
-    return Math.max(1, Math.min(maxSector, dest));
-}
-
 /** Drop relocation entries from a stale window (the id's dayBucket no longer
  *  matches the current one) so the map clears itself every 6h and never grows
  *  without bound on the save. */
@@ -558,20 +222,6 @@ export function hasWandererRelocated(
     return moves != null && typeof moves[id] === "number";
 }
 
-/** Re-home a wanderer into `sector` at a deterministic interior tile + patrol, so a
- *  visiting wanderer holds still in its new sector instead of jumping around. */
-function relocateWandererInto(w: Wanderer, sector: number): Wanderer {
-    let h = 2166136261 >>> 0;
-    const key = `${w.id}@${sector}`;
-    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const rng = mulberry32(h >>> 0);
-    const home = interiorTile(rng);
-    const waypoints = [home];
-    const legs = 2 + Math.floor(rng() * 2);
-    for (let i = 0; i < legs; i++) waypoints.push(nearbyTile(home, rng));
-    return { ...w, homeTile: home, waypoints: Array.from(new Set(waypoints)) };
-}
-
 /** Wanderers that have wandered INTO `sector` from elsewhere and are ready to be
  *  found again (their cooldown has lifted). Re-derived from their ids against the
  *  current window; entries pointing at other sectors, still on cooldown, or from a
@@ -582,7 +232,6 @@ export function wanderersVisitingSector(
     moves: Record<string, number> | null | undefined,
     cooldowns: Record<string, number> | null | undefined,
     now: number,
-    lockedVerbs?: readonly WandererVerb[],
 ): Wanderer[] {
     const out: Wanderer[] = [];
     for (const [id, dest] of Object.entries(moves ?? {})) {
@@ -590,9 +239,8 @@ export function wanderersVisitingSector(
         if (isWandererOnCooldown(cooldowns, id, now)) continue; // still on the road
         const parsed = parseWandererId(id);
         if (!parsed || parsed.dayBucket !== dayBucket) continue; // stale window
-        // Same lock as the home roster: a visiting wanderer is RE-DERIVED from its
-        // id, so without this a content-locked archetype could walk in the back door.
-        const w = rollWanderers(parsed.sector, dayBucket, lockedVerbs)[parsed.index];
+        // A visiting wanderer is RE-DERIVED from its id against the shared roll.
+        const w = rollWanderers(parsed.sector, dayBucket)[parsed.index];
         if (!w) continue;
         out.push(relocateWandererInto(w, sector));
     }

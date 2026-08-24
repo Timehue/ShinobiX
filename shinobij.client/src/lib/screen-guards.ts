@@ -7,6 +7,9 @@
 
 import type { Screen } from "../types/core";
 import { BATTLE_LOCK_ID_KEY } from "./battle-save";
+import { isWildSector } from "../../../shared/sector-geo";
+
+export { isWildSector };
 
 // ─── Refresh-restore routing ────────────────────────────────────────────────
 //
@@ -44,7 +47,45 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     // fight instead of reconstructing lost React state. Without this entry the
     // allowlist rejection is what dumped a mid-fight reload in the village.
     "petShowdown",
+    // Lobbies and server-sealed encounters that render from the save alone (or
+    // from a sessionStorage stash that survives a reload and is handled when
+    // missing). Before these were listed, a refresh on any of them fell through
+    // to the village — i.e. teleported the player home out of the world.
+    "weeklyBoss", "villageWar", "endlessTower", "petArena", "petColiseum",
+    "cardClashFreePlay", "clanWarPet", "tilecardsDuel",
+    "sectorCard", "sectorPet", "sectorGarrison", "storyBoss",
 ]);
+
+// Screens that only exist around ephemeral React state (a viewed profile, a
+// battle-log id, a pending encounter). On a refresh they cannot render, so we
+// return to the screen they were opened FROM — never to the village, which
+// would move the player out of the world.
+export const TRANSIENT_SCREEN_PARENT: Readonly<Partial<Record<Screen, Screen>>> = {
+    pvpBattle: "worldMap",
+    eventPetBattle: "worldMap",
+    eventTiles: "worldMap",
+    userView: "userHub",
+    battleLog: "arena",
+};
+
+// ─── Location ──────────────────────────────────────────────────────────────
+//
+// Your SECTOR is where you are in the world; the SCREEN is just the panel you
+// are looking at. Opening the inventory / profile / pets / messages from a wild
+// sector must not move you — you stay present (and attackable) where you
+// stand. Only walking into a town resets the sector to 0: the village and
+// Central hubs (entered explicitly from the map or the "← Village" button) and
+// the hospital (you were carried there).
+export const TOWN_SCREENS: ReadonlySet<Screen> = new Set<Screen>(["village", "centralHub", "hospital"]);
+
+export function screenResetsSector(screen: Screen): boolean {
+    return TOWN_SCREENS.has(screen);
+}
+
+/** Where a player lands when no screen can be restored: the world if they are in it, else town. */
+export function safeFallbackScreen(inWildSector: boolean): Screen {
+    return inWildSector ? "worldMap" : "village";
+}
 
 // An active Hollow Gate run is the strongest restore signal. Older builds sent
 // Gate encounters through Battle Towers, so that breadcrumb must not strand an
@@ -54,6 +95,7 @@ export function restoreScreenForSave(
     inHollowGateRun: boolean,
     hospitalized = false,
     inDungeonRun = false,
+    inWildSector = false,
 ): Screen {
     // Hospital admission is stronger than a bookmarked/last-visited hub and
     // than a stale dungeon breadcrumb. Admitted HP intentionally does not
@@ -61,7 +103,10 @@ export function restoreScreenForSave(
     if (hospitalized) return "hospital";
     if (inHollowGateRun) return "hollowGateShrine";
     if (inDungeonRun) return "dungeon";
-    return persisted && RESTORABLE_SCREENS.has(persisted) ? persisted : "village";
+    if (persisted && RESTORABLE_SCREENS.has(persisted)) return persisted;
+    const parent = persisted ? TRANSIENT_SCREEN_PARENT[persisted] : undefined;
+    if (parent) return parent;
+    return safeFallbackScreen(inWildSector);
 }
 
 /**

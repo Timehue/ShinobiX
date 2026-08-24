@@ -7,7 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, type WandererQuestSeal } from './_wanderer-quest.js';
-import { currentWandererCooldownUntil, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
+import { currentWandererCooldownUntil, naturalWandererClaimOk, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
@@ -41,6 +41,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
         const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
         const naturalWanderer = parseNaturalWandererId(wandererId);
+        // A road wanderer must survive the server's own re-roll, claimed
+        // archetype/verb/level/name included — a shape check alone let a forged
+        // NPC drive the cooldown/relocation and the ryo payout below. Synthetic
+        // ids (Legacy Sage / Emissary errands) never enter this path.
+        if (naturalWanderer && !naturalWandererClaimOk(wandererId, Date.now(), body)) {
+            return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
+        }
         const sector = Math.max(1, Math.min(MAX_WILD_SECTOR, Math.floor(Number(body.sector ?? 0)) || 0));
 
         const identity = await authedPlayerOrAdmin(req, playerName);

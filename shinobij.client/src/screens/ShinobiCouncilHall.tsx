@@ -10,7 +10,7 @@ import { VillagePill } from "../components/Pills";
 import { villages } from "../data/sectors";
 import { type CwChallenge, type CwWar } from "../lib/clan-war-api";
 import { VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageWar } from "../lib/world-state";
-import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABEL } from "../lib/kage-challenge-state";
+import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABEL, kageActivityLines, kageEligibility } from "../lib/kage-challenge-state";
 import { visiblePoll } from "../lib/poll";
 import { CW_DAMAGE } from "../constants/clan";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
@@ -31,6 +31,12 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
     // when the Kage Records tab opens. Replaces the old client-synthesized,
     // per-viewer Date.now() history.
     const [kageStates, setKageStates] = useState<Record<string, ServerKageState>>({});
+    // The register load is a real state, not an absence: while it was undefined
+    // the vacant-seat row simply wasn't drawn, so a failed fetch looked exactly
+    // like an occupied seat — the most valuable action in the game, silently
+    // missing.
+    const [kageLoad, setKageLoad] = useState<"loading" | "ready" | "error">("loading");
+    const [claimBusy, setClaimBusy] = useState(false);
 
     // --- Village Wars ---
     const [activeVillageWars, setActiveVillageWars] = useState<VillageWar[]>([]);
@@ -114,6 +120,10 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
     useEffect(() => {
         if (tab !== "kage") return;
         let alive = true;
+        // `kageLoad` starts at "loading" and is only ever settled from the
+        // resolution below — a synchronous reset here would cascade a render,
+        // and re-opening the tab with the register already cached should show
+        // the cached rows rather than blink back to a spinner.
         Promise.all(villages.map(v =>
             fetch(`/api/village/kage?village=${encodeURIComponent(v)}`)
                 .then(r => r.ok ? r.json() : null)
@@ -124,9 +134,47 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             const map: Record<string, ServerKageState> = {};
             for (const [v, s] of entries) if (s) map[v] = s;
             setKageStates(map);
+            // The viewer's OWN village is the one that gates the claim row, so
+            // that is the read whose failure has to be surfaced.
+            setKageLoad(map[character.village] ? "ready" : "error");
         });
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, character.village]);
+
+    // --- Vacant seat in the viewer's own village (inactivity vacancy etc.) ---
+    // Mirrors the server's canClaimVacantSeat: the challenge gates minus the
+    // seated Kage and minus the ryo stake (nothing is staked on a claim).
+    const homeKage = kageStates[character.village];
+    const homeSeatOpen = !!homeKage?.kageSystemUnlocked && !homeKage.seatedKage;
+    // Nothing is STAKED on a claim, so the ryo requirement does not apply. Match
+    // on the requirement's id — the old `!label.endsWith("ryo")` test would have
+    // started demanding 250,000 ryo the moment that label was reworded.
+    const claimBlockers = homeSeatOpen
+        ? kageEligibility(character, Date.now()).filter(req => !req.ok && req.id !== "ryo")
+        : [];
+    async function claimSeat() {
+        if (claimBusy) return;
+        setClaimBusy(true);
+        try {
+            const res = await fetch("/api/village/kage", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "claim", village: character.village, playerName: character.name }),
+            });
+            const data = await res.json().catch(() => ({})) as ServerKageState & { error?: string };
+            if (!res.ok) return alert(data.error || "Could not claim the Kage seat.");
+            setKageStates(prev => ({ ...prev, [character.village]: data }));
+            alert(`👑 The council rises.\n\n${character.name} of ${character.village} takes the Kage seat. The village answers to you now — hold it against every challenger, and be seen in your own streets: ten days of silence and the council opens the seat again.`);
+        } catch {
+            // Without this the rejection was unhandled and the player saw
+            // NOTHING — no success, no failure, on the most valuable action in
+            // the game. The seat is server-owned, so a failed request changed
+            // nothing; say so and let them try again.
+            alert("The council could not be reached, so the seat was not claimed. Check your connection and try again — nothing has changed.");
+        } finally {
+            setClaimBusy(false);
+        }
+    }
 
     // --- Kage History (server-owned) ---
     const allKageHistory: ServerKageHistoryEntry[] = villages.flatMap(v => {
@@ -261,12 +309,43 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
 
             {tab === "kage" && <section className="council-section">
                 <h3 className="council-section-title"><GiCrown style={SCH_ICON} />Kage Records — All Villages</h3>
+                {kageLoad === "loading" && <p className="council-empty" role="status">Reading the Kage register…</p>}
+                {kageLoad === "error" && <p className="council-empty council-kage-warning" role="status">
+                    The Kage register could not be reached, so this page cannot say whether your village's seat is held or open. Reopen this tab to try again.
+                </p>}
+                {kageLoad === "ready" && homeSeatOpen && <div className="council-kage-row council-kage-vacant">
+                    <div className="council-kage-seal"><GiCrown /></div>
+                    <div className="council-kage-info">
+                        <span className="council-kage-vacant-kicker">The seat stands empty</span>
+                        <span className="council-kage-name">No Kage rules {character.village}.</span>
+                        <VillagePill village={character.village} highlight />
+                    </div>
+                    <div className="council-claim-panel">
+                        {claimBlockers.length === 0
+                            ? <>
+                                <button className="council-claim-btn" onClick={() => void claimSeat()} disabled={claimBusy}>
+                                    <GiCrown style={SCH_ICON} />{claimBusy ? "Presenting yourself…" : "Claim the Kage seat"}
+                                </button>
+                                <p className="council-claim-note">Nothing stands in your way. Take it before another does.</p>
+                            </>
+                            : <div className="council-claim-requirements">
+                                <p className="council-claim-requirements-title">The council will hear you once you have:</p>
+                                <ul className="council-claim-req-list">
+                                    {claimBlockers.map(b => (
+                                        <li key={b.id}>{b.label}{b.detail ? <span className="council-claim-req-detail"> ({b.detail})</span> : null}</li>
+                                    ))}
+                                </ul>
+                                <p className="council-claim-note">No ryo is staked on an empty seat — only these.</p>
+                            </div>}
+                    </div>
+                </div>}
                 {sortedKageHistory.length === 0
                     ? <p className="council-empty">No Kage have been seated yet. Defeat your village's story boss to open the Kage system.</p>
                     : sortedKageHistory.map((entry, i) => {
                         const isActive = !entry.endedAt;
                         const duration = isActive ? Date.now() - entry.seatedAt : (entry.endedAt! - entry.seatedAt);
                         const isMe = entry.name === character.name;
+                        const activity = isActive ? kageActivityLines(kageStates[entry.village], Date.now()) : null;
                         return (
                             <div key={`${entry.name}-${entry.village}-${i}`} className={`council-kage-row ${isMe ? "council-kage-me" : ""} ${isActive ? "council-kage-active" : ""}`}>
                                 <div className="council-kage-seal"><GiCrown /></div>
@@ -289,6 +368,8 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                         }
                                     </span>
                                     {typeof entry.defenseCount === "number" && entry.defenseCount > 0 && <span className="council-kage-date">🛡️ {entry.defenseCount} successful defense{entry.defenseCount === 1 ? "" : "s"}</span>}
+                                    {activity && <span className="council-kage-date">{activity.lastActive}</span>}
+                                    {activity?.warning && <span className="council-kage-date council-kage-warning">⚠️ {activity.warning}</span>}
                                     {!isActive && entry.endedReason && <span className="council-kage-date">{KAGE_END_REASON_LABEL[entry.endedReason]}{entry.wonBy ? ` by ${entry.wonBy}` : ""}</span>}
                                 </div>
                             </div>

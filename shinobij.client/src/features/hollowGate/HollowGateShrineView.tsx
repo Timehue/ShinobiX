@@ -24,7 +24,7 @@ import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
 import { hollowGateIntroPages, hollowGateTileIconForKind } from "../../data/hollow-gate-flavor";
-import { computeHollowGateVisible } from "../../lib/hollow-gate-dungeon";
+import { computeHollowGateVisible } from "../../lib/hollow-gate-visibility";
 import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/hollow-gate-variant";
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
 import {

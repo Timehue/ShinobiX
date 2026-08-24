@@ -28,6 +28,31 @@ import { loadSectorWar, saveSectorWar, listUnsettledDueSectorWars } from './_sec
 import { captureSectorForVillage } from './world-state.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from './_legacy-track.js';
+import { announce } from './_announce.js';
+import { zeroSectorIntel } from './_village-intel.js';
+
+/** World Herald copy for a settled war. Exported for the test. */
+export function sectorWarResolutionAnnouncement(
+    war: Pick<SectorWarSession, 'id' | 'sector' | 'attackerVillage' | 'defenderVillage'>,
+    outcome: { attackerWon: boolean; attackerPoints: number; defenderPoints: number },
+): { type: string; title: string; message: string; village: string; receiptId: string } {
+    const score = `${outcome.attackerPoints}–${outcome.defenderPoints}`;
+    return outcome.attackerWon
+        ? {
+            type: 'sector_war_resolved',
+            title: `Sector ${war.sector} Falls`,
+            message: `${war.attackerVillage} has taken Sector ${war.sector} from ${war.defenderVillage} after a 72-hour war (${score}).`,
+            village: war.attackerVillage,
+            receiptId: `sector-war-resolved:${war.id}`,
+        }
+        : {
+            type: 'sector_war_resolved',
+            title: `Sector ${war.sector} Holds`,
+            message: `${war.defenderVillage} held Sector ${war.sector} against ${war.attackerVillage}'s 72-hour siege (${score}).`,
+            village: war.defenderVillage,
+            receiptId: `sector-war-resolved:${war.id}`,
+        };
+}
 
 /** Every distinct player who won an attacker-side battle in this war, from the
  *  durable receipts. Under the count-down model `sectorCaptures` credited only
@@ -88,6 +113,28 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                 return verdict;
             }, { failClosed: true });
             if (!outcome) continue;
+            // Village Stores — Intel: a resolved war (either outcome) burns BOTH
+            // sides' intel on the sector. Idempotent delete, best-effort, after the
+            // war lock (api/_village-intel.ts).
+            await zeroSectorIntel(war.sector, [war.attackerVillage, war.defenderVillage], now);
+            // World Herald, AFTER the verdict is durable and outside the war lock.
+            // The receipt is the war id, so a cron re-run or a second poller that
+            // loses the settle race can never post it twice.
+            try {
+                const copy = sectorWarResolutionAnnouncement(war, {
+                    attackerWon: outcome.attackerWon,
+                    attackerPoints: outcome.session.attackerPoints,
+                    defenderPoints: outcome.session.defenderPoints,
+                });
+                await announce({
+                    type: copy.type,
+                    importance: 'high',
+                    title: copy.title,
+                    message: copy.message,
+                    village: copy.village,
+                    meta: { sector: war.sector, contestId: war.id, attackerVillage: war.attackerVillage, defenderVillage: war.defenderVillage, attackerWon: outcome.attackerWon },
+                }, { receiptId: copy.receiptId });
+            } catch { /* best-effort */ }
             if (outcome.attackerWon) {
                 void recordWarEcoEvent({
                     eventId: `capture:${war.id}`,

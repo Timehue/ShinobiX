@@ -7,6 +7,7 @@ import {
     beginWorldChestOperation,
     beginWorldRewardOperation,
     completeWorldRewardOperation,
+    mergeServerPendingWorldRewards,
     readPendingWorldRewards,
     WORLD_REWARD_RECOVERY_MAX_AGE_MS,
     type WorldRewardRecoveryStorage,
@@ -93,4 +94,51 @@ test("a chest recovery receipt survives beyond one day for the server authority 
     }]));
     assert.equal(readPendingWorldRewards("Rill", memory).length, 1);
     assert.ok(WORLD_REWARD_RECOVERY_MAX_AGE_MS >= 31 * 24 * 60 * 60 * 1000);
+});
+
+test("server pending mirror merges into the local queue, dedupes by id, and keeps local entries first-class", () => {
+    const memory = storage();
+    const local = beginResolvedWorldExplore("Rill", 41, memory);
+    const chest = beginWorldChestOperation("Rill", 41, local.id, memory);
+    const now = Date.now();
+    const merged = mergeServerPendingWorldRewards("Rill", [
+        { kind: "explore", requestId: local.id, sector: 99, createdAt: now - 5_000 }, // duplicate of a local op: local wins
+        { kind: "explore", requestId: "serverexplore001", sector: 52, createdAt: now - 60_000 },
+        { kind: "chest", requestId: "serverchestid0001", sector: 53, createdAt: now - 30_000 },
+        { kind: "explore", requestId: "bad id", sector: 1, createdAt: now },
+        { kind: "explore", requestId: "tooold00000000001", sector: 1, createdAt: now - WORLD_REWARD_RECOVERY_MAX_AGE_MS - 1 },
+        { kind: "bogus", requestId: "wrongkind00000001", sector: 1, createdAt: now },
+        null,
+    ], memory);
+    assert.deepEqual(merged.map((entry) => entry.id), ["serverexplore001", "serverchestid0001", local.id, chest.id]);
+    const localAfter = merged.find((entry) => entry.id === local.id)!;
+    assert.equal(localAfter.sector, 41, "a local entry is never rewritten by the mirror");
+    const explore = merged.find((entry) => entry.id === "serverexplore001")!;
+    assert.equal(explore.kind, "explore");
+    assert.equal(explore.credit, "tile");
+    assert.equal(explore.resolveOutcome, true);
+    assert.equal(explore.sector, 52);
+    const imported = merged.find((entry) => entry.id === "serverchestid0001")!;
+    assert.equal(imported.kind, "chest");
+    assert.equal(imported.worldExploreRequestId, "serverchestid0001");
+    // Idempotent: a second merge of the same payload changes nothing, and an
+    // empty / malformed payload leaves the queue untouched.
+    assert.deepEqual(mergeServerPendingWorldRewards("Rill", [{ kind: "chest", requestId: "serverchestid0001", sector: 53, createdAt: now }], memory), merged);
+    assert.deepEqual(mergeServerPendingWorldRewards("Rill", undefined, memory), merged);
+    assert.deepEqual(mergeServerPendingWorldRewards("Rill", [], memory), merged);
+    assert.deepEqual(readPendingWorldRewards("Rill", memory), merged, "the merge is persisted for the drain");
+    assert.deepEqual(readPendingWorldRewards("Other", memory), []);
+});
+
+test("server pending mirror never evicts local work at the 8-entry cap", () => {
+    const memory = storage();
+    const locals = Array.from({ length: 3 }, (_, index) => beginResolvedWorldExplore("Rill", 10 + index, memory));
+    const now = Date.now();
+    const server = Array.from({ length: 10 }, (_, index) => ({
+        kind: "explore" as const, requestId: `serverbulk${String(index).padStart(7, "0")}`, sector: 20 + index, createdAt: now - 1_000 * (10 - index),
+    }));
+    const merged = mergeServerPendingWorldRewards("Rill", server, memory);
+    assert.equal(merged.length, 8);
+    for (const local of locals) assert.ok(merged.some((entry) => entry.id === local.id), `local ${local.id} survived`);
+    assert.deepEqual(merged.slice(-3).map((entry) => entry.id), locals.map((entry) => entry.id));
 });

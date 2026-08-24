@@ -695,3 +695,21 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
 .tile-card-selected-detail {
     position: relative;
 }
+
+
+/* ===== Village Stores signpost on the item card =====
+   A hunt material that cooks into rations, or a cooked pack that belongs at the
+   Town Hall. The sentence carries the meaning; the button beside it in
+   .item-popup-actions carries the action -- neither lives in a title attribute,
+   which a touch device can never reach. */
+
+.item-popup-stores-note {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-left: 3px solid rgba(250, 204, 21, .55);
+    border-radius: 8px;
+    background: rgba(250, 204, 21, .09);
+    color: #fde68a;
+    font-size: .84rem;
+    line-height: 1.45;
+}

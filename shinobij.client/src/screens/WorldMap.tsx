@@ -19,6 +19,7 @@ import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
+import { gameToast } from "../components/GameToast";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
@@ -45,7 +46,7 @@ import { resolveOwnAvatar } from "../lib/own-avatar";
 // it is <WorldWandererDialog>, which imports what it needs itself. The
 // <SectorWanderer> named in a comment further down is that component's, not a
 // use from this file.
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedWandererVerbs, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -183,12 +184,16 @@ import {
 import { villagePageImage } from "../lib/village-page-image";
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
+import { useSectorIntelPlate } from "../lib/village-intel";
 import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
+import { contractHunterLevel } from "../../../shared/contract-hunter";
+import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
@@ -322,14 +327,11 @@ function ambienceBiomeForSector(sector: number): Biome {
 // in ../lib/sector-return (shared so the Hospital can clear it on a KO). See that
 // module for the full lifecycle.
 
+// Contract Hunter derivation lives in shared/contract-hunter.ts (the server
+// settles the fight from the SAME function). Thin alias kept for the existing
+// fight-launch call site below.
 function bountyHunterLevel(playerLevel: number, amount: number): number {
-    const bountyPressure = Math.min(12, Math.floor(Math.max(0, amount) / 75_000));
-    return Math.max(1, Math.min(100, Math.round(playerLevel + 4 + bountyPressure)));
-}
-
-function bountyHunterIdFor(playerName: string, bounty: BountyEntry): string {
-    const slug = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 32) || "target";
-    return `bounty-hunter-${slug}-${Math.floor(bounty.updatedAt || 0)}`;
+    return contractHunterLevel(playerLevel, amount);
 }
 
 function interiorTileFromKey(key: string): number {
@@ -485,6 +487,7 @@ export function WorldMap({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
+    const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
     // Direction the player walked in from on an edge crossing — drives the brief
     // slide-in on the sector board (cleared right after the animation plays).
     const [sectorEnterDir, setSectorEnterDir] = useState<"north" | "east" | "south" | "west" | null>(null);
@@ -590,8 +593,9 @@ export function WorldMap({
         // while standing in a real explorable sector (see isWildSector), reopen that sector's
         // detail. selectedSector is ephemeral React state, so without this a refresh
         // dumps the player on the overview ("the refresh moved me"). currentSector is
-        // reset to 0 by App whenever you're not in the field, so this only fires for a
-        // genuine in-sector reload; a normal in-session trip to the map still opens on
+        // only reset to 0 when the player enters a town (lib/screen-guards TOWN_SCREENS),
+        // so a wild-sector reload — from the map OR from any menu opened in the field —
+        // lands back in that sector; a normal in-session trip to the map still opens on
         // the overview (consumeReloadIntoSector is a one-shot, false on SPA navigation).
         if (consumeReloadIntoSector() && isWildSector(currentSector)) {
             setSelectedSector(currentSector);
@@ -821,39 +825,40 @@ export function WorldMap({
         return "builtin-ai-central-champion";
     }
 
-    // Sector Wanderers (behind `wanderers.v1`, default OFF). The per-sector cast
-    // is deterministic for a 6h window so it doesn't flicker; rendering + movement
-    // live in <SectorWanderer>. When an "attack" wanderer reaches the player it
-    // calls startWandererAttack, which launches through the same canonical
-    // server-sealed Solo-PvE host as village-guard raids.
+    // Sector Wanderers. The cast is deterministic per 6h window from (sector,
+    // bucket) ONLY — shared/wanderer-roster.ts, the roll the server runs too — so
+    // everyone in the sector sees the same NPCs; rendering + movement live in
+    // <SectorWanderer>. When an "attack" wanderer reaches the player it calls
+    // startWandererAttack (the canonical server-sealed Solo-PvE host).
     const sectorWanderers = useMemo(
         () => {
             if (!isWanderersEnabled() || selectedSector == null) return [];
-            const now = Date.now();
+            const now = serverNow();
             const cd = character.wandererCooldowns;
             const moves = character.wandererMoves;
-            const bucket = wandererDayBucket(new Date());
+            const bucket = currentWandererDayBucket();
             // Hide natural road NPCs you've already used for a few hours, AND hide
             // ones that have since wandered off to another sector so they don't
             // reappear here when the cooldown lifts. Legacy Sage/emissaries render
             // from their own arrays below and stay exempt.
-            // Content the player can't act on yet is kept OFF the road entirely —
-            // no gambler before Ihara hands over the codex (the Card Hall would just
-            // show its sealed wall), no beast challenge with an empty pet roster.
-            // Their weight is redistributed, so the roster keeps its usual size.
-            const locked = lockedWandererVerbs(character);
-            const natives = rollWanderers(selectedSector, bucket, locked)
+            // Content the player can't act on yet (a gambler before the codex, a
+            // beast with no pet) stays ON the road like for everyone else; the verb is
+            // refused in-fiction (startWandererCardDuel / startWandererPetDuel).
+            const natives = rollWanderers(selectedSector, bucket)
                 .filter(w => !isWandererOnCooldown(cd, w.id, now) && !hasWandererRelocated(moves, w.id));
             // Plus any wanderers that have wandered INTO this sector from elsewhere and
             // whose cooldown has now lifted — they're findable again, just somewhere new.
-            const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now, locked);
+            const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now);
             return [...natives, ...visitors];
         },
-        [selectedSector, character.wandererCooldowns, character.wandererMoves, character.starterCardsClaimed, character.pets.length],
+        [selectedSector, character.wandererCooldowns, character.wandererMoves],
     );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
-        if (!globalViewOpen) return;
+        // The board feeds the global view AND the Contract Hunters on the sector
+        // floor (everyone in a sector sees the hunter stalking a bountied peer),
+        // so it is polled whenever either is showing.
+        if (!globalViewOpen && selectedSector == null) return;
         let alive = true;
         const load = () => {
             void fetchBountyBoard().then((board) => { if (alive) setBountyBoard(board); }).catch(() => { /* best-effort */ });
@@ -861,32 +866,17 @@ export function WorldMap({
         load();
         const id = setInterval(load, 45000);
         return () => { alive = false; clearInterval(id); };
-    }, [character.name, globalViewOpen]);
+    }, [character.name, globalViewOpen, selectedSector != null]);
     const selfBounty = useMemo(
         () => bountyBoard.find((b) => b.target.trim().toLowerCase() === character.name.trim().toLowerCase()) ?? null,
         [bountyBoard, character.name],
     );
+    // Contract Hunters on this sector floor — shared derivation in
+    // lib/contract-hunter-wanderers.ts (same function the server settles from).
     const bountyHunterWanderers = useMemo<Wanderer[]>(() => {
-        if (!isWanderersEnabled() || selectedSector == null || !selfBounty) return [];
-        const id = bountyHunterIdFor(character.name, selfBounty);
-        if (isWandererOnCooldown(character.wandererCooldowns, id, Date.now())) return [];
-        const home = interiorTileFromKey(`${id}:${selectedSector}`);
-        const level = bountyHunterLevel(character.level, selfBounty.amount);
-        return [{
-            id,
-            name: "Contract Hunter",
-            archetype: "bountyHunter",
-            verb: "bountyHunter",
-            level,
-            homeTile: home,
-            waypoints: [home],
-            greeting: `${character.name}, your bounty is worth ${selfBounty.amount.toLocaleString()} ryo. Stand still.`,
-            tellTint: "var(--red-400)",
-            avatarKey: "bountyHunter",
-            targetName: character.name,
-            bountyAmount: selfBounty.amount,
-        }];
-    }, [selectedSector, selfBounty, character.name, character.level, character.wandererCooldowns]);
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        return contractHunterWanderers({ sector: selectedSector, bountyBoard, roster: playerRoster, now: Date.now(), interiorTileFromKey, self: { name: character.name, level: character.level, wandererCooldowns: character.wandererCooldowns } });
+    }, [selectedSector, bountyBoard, playerRoster, character.name, character.level, character.wandererCooldowns]);
     const courierWanderers = useMemo<Wanderer[]>(() => {
         const favor = character.activeWandererFavor;
         if (!isWanderersEnabled() || selectedSector == null || !favor || favor.targetSector !== selectedSector || serverNow() > favor.expiresAt) return [];
@@ -959,7 +949,7 @@ export function WorldMap({
     // poll (roamingBoss) and the slow tick (roamBossTick).
     const weeklyBossSector = useMemo(() => {
         if (!isWeeklyBossRoamEnabled() || !roamingBoss) return null;
-        const r = weeklyBossRoamState(roamingBoss, Date.now());
+        const r = weeklyBossRoamState(roamingBoss, serverNow());
         return r?.active ? r.currentSector : null;
     }, [roamingBoss, roamBossTick]);
     // The Stand/Flee prompt shown when the boss reaches the player in its sector.
@@ -1107,7 +1097,7 @@ export function WorldMap({
         // A legacy holder's emissary is category-bound; until the category fetch
         // resolves, don't fall into the pre-acceptance roaming branch by mistake.
         if (character.legacy && !legacyCategory) return [];
-        const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()), selectedSector);
+        const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, currentWandererDayBucket(), selectedSector);
         return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
     }, [legacyAvailable, legacyServerLive, character.name, character.level, character.legacy, legacyCategory, selectedSector]);
     // Story road events (docs/fable-5-story-rebuild.md §10): the next eligible
@@ -1121,8 +1111,9 @@ export function WorldMap({
         // QUEST_GIVER_PRESENCE.road of sectors per 6h window (deterministic,
         // reshuffles each window), so an ignored story beat stops reading as
         // wallpaper yet stays a couple of hops away when the player goes looking.
-        const bucket = wandererDayBucket(new Date());
-        if (!wandererPresenceGate(`road#${character.name}#${event.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.road)) return [];
+        // Keyed by (event, sector, window) — never the player — so everyone agrees.
+        const bucket = currentWandererDayBucket();
+        if (!wandererPresenceGate(`road#${event.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.road)) return [];
         return [synthRoadWanderer(event, selectedSector)];
     }, [character.level, character.storyProgress, character.storyTraits, character.name, selectedSector]);
     // Named story reckonings: current-canon characters stand at their own
@@ -1143,8 +1134,8 @@ export function WorldMap({
         // put the rattled messenger in every sector you enter. nextRift is fixed
         // for a whole UTC day, so this is the giver that most easily turns into a
         // fixture: one face, all day, in every gate-passing sector.
-        const bucket = wandererDayBucket(new Date());
-        if (!wandererPresenceGate(`rift#${character.name}#${rift.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.rift)) return [];
+        const bucket = currentWandererDayBucket();
+        if (!wandererPresenceGate(`rift#${rift.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.rift)) return [];
         return [synthRiftGiver(rift, selectedSector)];
     }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, character.name, selectedSector]);
     // Chronicle Scribe (lib/chronicle-scribe): one-time roaming NPC who explains
@@ -1248,12 +1239,12 @@ export function WorldMap({
     function coolWanderer(id: string, ms?: number) {
         updateCharacter(prev => {
             if (!prev) return prev;
-            const now = Date.now();
+            const now = serverNow();
             const cooldowns = withWandererCooldown(prev.wandererCooldowns, id, now, ms);
             const parsed = parseWandererId(id);
             let moves = prev.wandererMoves;
             if (parsed) {
-                const bucket = wandererDayBucket(new Date());
+                const bucket = currentWandererDayBucket();
                 const from = selectedSector != null && selectedSector >= 1 ? selectedSector : parsed.sector;
                 const dest = wandererRelocationSector(id, from);
                 moves = { ...pruneWandererMoves(prev.wandererMoves, bucket), [id]: dest };
@@ -2020,9 +2011,9 @@ export function WorldMap({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
-        // Backstop for the spawn gate, same as the gambler's: the Pet Arena has its
-        // own empty-roster screen, and being walked into it by a beast that just
-        // challenged you is a dead end.
+        // The interaction gate, same as the gambler's (the beast is on the road for
+        // everyone): the Pet Arena has its own empty-roster screen, and being walked
+        // into it by a beast that just challenged you is a dead end.
         if (!character.pets.length) {
             setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out — tame one first, and it will still be prowling this road.` });
             return;
@@ -2061,10 +2052,10 @@ export function WorldMap({
         setScreen("petArena");
     }
     function startWandererCardDuel(w: Wanderer) {
-        // Backstop for the spawn gate (lockedWandererVerbs keeps gamblers off the
-        // road pre-codex): never hand a sealed player to the Card Hall, which would
-        // just show its "the Chronicle is sealed" wall. Say it in-fiction instead —
-        // and point at Ihara, since finding her IS the way through.
+        // The interaction gate (the roster is shared by everyone, so a sealed
+        // player DOES meet gamblers): never hand a sealed player to the Card Hall,
+        // which would just show its "the Chronicle is sealed" wall. Say it
+        // in-fiction instead — and point at Ihara, since finding her IS the way through.
         if (cardGameLockStatus(character).locked) {
             setWandererDialog({ w, msg: `${w.name} squints at your empty hands, then pockets the deck. "Come back when a scribe's put a codex in your pack — no sport in fleecing a man with nothing to play."` });
             return;
@@ -2867,6 +2858,7 @@ export function WorldMap({
             if (settled.retryable === false) {
                 completeWorldRewardOperation(character.name, operation.id);
             }
+            if (settled.error === "sector-depleted") { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
             alert(settled.error === "daily-limit"
                 ? "Daily tile exploration limit reached (150/150). Resets at midnight UTC."
                 : settled.retryable === false
@@ -2915,6 +2907,7 @@ export function WorldMap({
             worldExploreRequestId,
         );
         if (!chest.loot || !chest.character) {
+            if (chest.error === "sector-depleted") gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" });
             if (chest.retryable === false) {
                 completeWorldRewardOperation(character.name, chestOperation.id);
                 completeWorldRewardOperation(character.name, worldExploreRequestId);
@@ -3175,6 +3168,12 @@ export function WorldMap({
         const dailyTiles = character.dailyTilesExplored ?? 0;
         if (dailyTiles >= 150) {
             alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
+            exploreInFlight.current = false;
+            return;
+        }
+        const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
+        if (depleted) {
+            gameToast(depleted, { kind: "info" });
             exploreInFlight.current = false;
             return;
         }
@@ -4384,7 +4383,7 @@ export function WorldMap({
         })();
         const sectorOverlayBoss = (() => {
             if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
-            const roam = weeklyBossRoamState(roamingBoss, Date.now());
+            const roam = weeklyBossRoamState(roamingBoss, serverNow());
             if (!roam?.active || roam.currentSector !== selectedSector) return null;
             if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), Date.now())) return null;
             if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
@@ -4406,7 +4405,7 @@ export function WorldMap({
         ) : null;
         const wandererDialogNow = !wandererDialog?.msg && wandererDialog?.w.verb === "quest" ? Date.now() : 0;
         const wandererDialogDayBucket = !wandererDialog?.msg && wandererDialog?.w.verb === "legacyQuest"
-            ? wandererDayBucket(new Date())
+            ? currentWandererDayBucket()
             : 0;
         const wandererDialogAtWar = !wandererDialog?.msg && wandererDialog?.w.verb === "quest"
             ? activeVillageWarsFor(character.village).length > 0
@@ -4738,6 +4737,7 @@ export function WorldMap({
                         biome={biome}
                         weather={sectorWeather}
                         territory={commandTerritory}
+                        gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
                         villageWarAdmissionOpen={villageWarAdmissionOpen}
                         traces={sectorTraces}
                         hasLivePlayers={livePlayersHere.length > 0}

@@ -10,7 +10,7 @@ import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './
 import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
-    parseNaturalWandererId,
+    naturalWandererClaimOk,
     withWandererUseState,
 } from './_wanderer-encounter.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
@@ -43,7 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
         const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
-        if (!parseNaturalWandererId(wandererId)) {
+        // Not just the id's SHAPE: the server re-rolls the roster and refuses an
+        // id it does not currently put on the road, plus any archetype/verb/
+        // level/name the client echoed back that disagrees with that roll.
+        if (!naturalWandererClaimOk(wandererId, Date.now(), body)) {
             return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
         }
         const sector = Math.max(1, Math.min(60, Math.floor(Number(body.sector ?? 0)) || 0));

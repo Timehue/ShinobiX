@@ -7,7 +7,11 @@
 .vwm-header h1 { font-family: var(--font-display, inherit); margin: 0.4rem 0; }
 .vwm-back { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 8px; padding: 0.35rem 0.8rem; cursor: pointer; }
 .vwm-back:hover { background: rgba(255, 255, 255, 0.08); }
-.vwm-error { color: var(--red-400); font-weight: 600; }
+/* A refusal STICKS until the player acts again or dismisses it — the 15s poll
+   must never wipe an unread one, so it needs its own visible dismiss control. */
+.vwm-error { color: var(--red-400); font-weight: 600; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.vwm-error-dismiss { background: transparent; border: 1px solid rgba(248, 113, 113, 0.45); color: inherit; border-radius: 999px; padding: 0.2rem 0.7rem; font: inherit; font-size: 0.76rem; font-weight: 600; cursor: pointer; }
+.vwm-error-dismiss:hover { background: rgba(248, 113, 113, 0.14); }
 
 /* "How Sector War works" — a collapsible primer at the top of the map. */
 .vwm-info { margin: 0.55rem 0 0.9rem; border: 1px solid rgba(243, 194, 89, 0.28); border-radius: 12px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5)); overflow: hidden; }
@@ -39,6 +43,42 @@
 .vwm-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin: 0.4rem 0; font-size: 0.92rem; }
 .vwm-stats b { font-variant-numeric: tabular-nums; }
 .vwm-dormant { color: #fbbf24; font-style: italic; }
+/* Village Stores: fed/unfed chip on contest cards + the garrison-feed row. */
+.vwm-fed-chip { display: inline-flex; align-items: center; gap: 0.22rem; margin-left: 0.4rem; padding: 0 0.4rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; color: var(--green-300); border: 1px solid rgba(134, 239, 172, 0.45); }
+.vwm-fed-chip.is-unfed { color: #fbbf24; border-color: rgba(251, 191, 36, 0.55); }
+.vwm-garrison-feed { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.3rem; }
+.vwm-garrison-feed .hint { display: flex; align-items: flex-start; gap: 0.3rem; line-height: 1.35; }
+.vwm-materials-need { font-size: 0.75rem; opacity: 0.85; }
+/* The stores one-liner under the stat row: the Provisions/Materials meaning used
+   to hide in title= attributes, which touch and keyboard can never reach. */
+.vwm-stores-meaning { margin: 0.15rem 0 0; line-height: 1.45; }
+.vwm-declare-note { display: block; margin-top: 0.25rem; line-height: 1.35; font-size: 0.72rem; opacity: 0.8; }
+
+/* Feeding a garrison is ROUTINE housekeeping toggled again and again; declaring
+   war is a 72-hour commitment. They must not share the primary treatment. */
+.vwm-feed-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+    min-height: 34px;
+    padding: 0.3rem 0.55rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    color: inherit;
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: background 0.14s ease, border-color 0.14s ease;
+}
+.vwm-feed-toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.11); border-color: rgba(255, 255, 255, 0.36); }
+.vwm-feed-toggle:disabled { opacity: 0.5; cursor: default; }
+/* Feeding ON reads as a held state, not a call to action. */
+.vwm-feed-toggle[aria-pressed="true"] { border-style: solid; border-color: rgba(134, 239, 172, 0.42); color: var(--green-300); background: rgba(134, 239, 172, 0.09); }
 .vwm-structures { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
 .vwm-structures button,
 .vwm-declare { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18); color: inherit; border-radius: 8px; padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.85rem; }
@@ -50,7 +90,7 @@
 .vwm-village { padding: 0.8rem 1rem; }
 .vwm-village h4 { margin: 0.2rem 0 0.6rem; }
 .vwm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.55rem; }
-.vwm-sector { border: 1px solid rgba(255, 255, 255, 0.15); border-left-width: 3px; border-radius: 10px; padding: 0.5rem 0.55rem; background: rgba(0, 0, 0, 0.18); font-size: 0.82rem; }
+.vwm-sector { border: 1px solid rgba(255, 255, 255, 0.15); border-left-width: 3px; border-radius: 10px; padding: 0.5rem 0.55rem; background: rgba(0, 0, 0, 0.18); font-size: 0.82rem; min-width: 0; overflow-wrap: anywhere; }
 .vwm-sector-head { display: flex; justify-content: space-between; gap: 0.4rem; align-items: baseline; }
 .vwm-sector-meta { opacity: 0.7; text-transform: capitalize; margin: 0.15rem 0; }
 .vwm-control { margin: 0.3rem 0; }
@@ -96,8 +136,15 @@
 .vwm-declare:hover:not(:disabled) { background: linear-gradient(180deg, rgba(96, 165, 250, 0.34), rgba(30, 58, 95, 0.42)); }
 
 @media (max-width: 800px) {
-  .vwm-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  /* 120px could not hold a Fed/Unfed chip, a "marches hungry" line and a
+     full-width feed button without overflowing — verified at 360px. */
+  .vwm-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .vwm-info-grid { grid-template-columns: 1fr; }
+  /* Sector-card actions are repeated, routine taps: give them a real target. */
+  .vwm-declare, .vwm-feed-toggle { min-height: 44px; padding: 0.55rem 0.7rem; }
+  .vwm-structures button { min-height: 44px; padding: 0.5rem 0.7rem; }
+  .vwm-merc-tier > button { min-height: 44px; }
+  .vwm-error-dismiss { min-height: 36px; }
 }
 
 /* ── World-map ownership overlay (§10.3) ─────────────────────────────────────

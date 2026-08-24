@@ -14,7 +14,12 @@
  */
 import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
-import { generateHollowGateShrineRun } from "./hollow-gate-dungeon";
+// The procedural generator (./hollow-gate-dungeon + its ASCII layouts, BSP and
+// maze modules) is loaded on demand — the only call site here already awaits a
+// network round-trip first, so it costs no extra wait and keeps ~16 KB of
+// generator off the startup graph. Visibility is a separate, always-loaded
+// module (./hollow-gate-visibility).
+import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
 import { befriendHollowGatePetServer } from "./hollow-gate-locked-door-api";
 import { hollowGateFloorProfile } from "./hollow-gate-presentation";
 import { hollowGateAugmentEffects } from "./hollow-gate-server";
@@ -297,6 +302,21 @@ export function resolveHollowGateTile(
                                 pushHollowGateLog("The staircase has no secure run seal. Use Emergency Forfeit and begin a fresh dive.");
                                 return;
                             }
+                            // The generator chunk is fetched BEFORE the server call,
+                            // deliberately. descendHollowGateRun COMMITS the floor
+                            // advance server-side and is not idempotent: once it has
+                            // returned, a client-side failure leaves the client on
+                            // floor N with the server on N+1, and re-clicking re-sends
+                            // the now-stale fromFloor, which is rejected forever. Doing
+                            // the load first means a dropped chunk fails while both
+                            // sides still agree — and since the generator is pure and
+                            // side-effect-free, this also overlaps the round-trip
+                            // rather than adding to it.
+                            const generator = await loadHollowGateGenerator().catch(() => null);
+                            if (!generator) {
+                                pushHollowGateLog("The shrine could not draw the floor below this one — the connection dropped mid-load. Nothing was spent; try the staircase again.");
+                                return;
+                            }
                             try {
                                 await descendHollowGateRun({
                                     playerName: character.name,
@@ -309,7 +329,7 @@ export function resolveHollowGateTile(
                             }
                             // The run's variant rides along so an event gate keeps its
                             // shape (floors / board / boss) on every floor below.
-                            const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
+                            const next = applyAttunementToRun(generator.generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
                             const sealed = await sealHollowGateFloor(character.name, hollowGateRun.runToken, next);
                             if (!sealed.ok) {
                                 pushHollowGateLog(sealed.error || "The next floor could not be sealed. Retry the staircase.");

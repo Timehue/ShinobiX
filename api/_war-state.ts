@@ -18,6 +18,7 @@ import {
     mercBandSize,
     MERC_BAND_MAX,
 } from './_war-economy.js';
+import { parseStoresLedger, type StoresLedgerEntry } from './_village-stores.js';
 import {
     HOME_SECTORS,
     VILLAGE_BIOME,
@@ -51,6 +52,9 @@ export interface MercLease {
     player: string;     // hirer (safeName slug)
     expiresAt: number;  // epoch ms
     count: number;      // AI mercs still alive in the band (the player kills them down)
+    /** Set by the daily stores pass when the band went UNFED: api/_merc-auto.ts
+     *  skips exactly one auto-deploy tick, then clears it. */
+    skipNextAutoDeploy?: boolean;
 }
 
 export interface VillageWarRecord {
@@ -63,12 +67,84 @@ export interface VillageWarRecord {
     terrainSetBy: Record<string, string>;       // sectorKey → player who set its terrain (§17.3 quota)
     /** Non-evicting exact-once declaration debits, co-written with WR subtraction. */
     warDeclarationFundingReceipts?: Record<string, unknown>;
+    /** Village Stores audit trail (api/_village-stores.ts), newest last, cap 30. */
+    storesLedger?: StoresLedgerEntry[];
+    /** Exact-once stores receipts (home-sector-loss burns): receiptId → epoch ms. */
+    storesReceipts?: Record<string, number>;
+    /** Home sectors this village held at the last stores pass — the diff against
+     *  the live territory rows is how a HOME loss is detected and burned once. */
+    storesHomeHeld?: number[];
 }
 
 // Terrain-pick quota (§17.3): the Kage may set 3 sectors' terrain, each elder 1.
 export const TERRAIN_QUOTA_KAGE = 3;
 export const TERRAIN_QUOTA_ELDER = 1;
 export type TerrainRole = 'kage' | 'elder' | 'none';
+
+/*
+ * Stores-receipt retention.
+ *
+ * `storesReceipts` was the one stored structure in this record with no bound:
+ * the daily pass stamps `home-loss:<sector>:<YYYY-MM-DD>` per home sector lost
+ * and nothing ever removed one, so an 8-home-sector village accrued up to ~2,920
+ * keys (~130 KB) a year — on a row the daily pass READS AND WRITES under two
+ * nested locks, and that every war-map / intel read normalizes.
+ *
+ * A receipt exists solely to stop a second 25% provisions burn for the same
+ * sector on the same DAY (api/_village-stores-daily.ts writes the key and checks
+ * the identical key), so only the current day's entries are ever consulted. A
+ * 7-day window is therefore an order of magnitude more than the semantics need,
+ * while bounding the map at 8 sectors x 8 days = 64 entries (~2.5 KB).
+ *
+ * The window is measured from the NEWEST day stamped into the row itself, not
+ * from a wall clock: the normalizer is pure and IO-free (see the file header),
+ * and a clock-derived cutoff would silently expire a receipt on a paused or
+ * back-dated village — reintroducing exactly the double-burn this guards. Being
+ * data-relative keeps the bound regardless of how stale the row is.
+ */
+export const STORES_RECEIPT_RETENTION_DAYS = 7;
+/** Hard backstop so a receipt kind with no day in its key can never grow without limit. */
+export const STORES_RECEIPT_MAX_ENTRIES = 256;
+
+/** The `YYYY-MM-DD` a receipt key ends in, or null when it carries no day. */
+function storesReceiptDay(key: string): string | null {
+    const m = /(\d{4}-\d{2}-\d{2})$/.exec(key);
+    return m ? m[1] : null;
+}
+
+/** `YYYY-MM-DD` shifted by whole UTC days. ISO dates compare lexicographically. */
+function shiftUtcDay(day: string, deltaDays: number): string {
+    const ms = Date.parse(`${day}T00:00:00.000Z`);
+    if (!Number.isFinite(ms)) return day;
+    return new Date(ms + deltaDays * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Clamp a raw receipts map: drop malformed entries, then drop anything more than
+ * STORES_RECEIPT_RETENTION_DAYS older than the newest day present. Pure — no clock.
+ * Entries whose key carries no day are kept (an unknown receipt kind must keep
+ * working) but share the hard entry cap, newest-first by stamped timestamp.
+ */
+export function pruneStoresReceipts(raw: Record<string, unknown>): Record<string, number> {
+    const entries: [string, number][] = [];
+    for (const [k, v] of Object.entries(raw)) {
+        if (typeof k === 'string' && k && Number(v) > 0) entries.push([k, Math.floor(Number(v))]);
+    }
+    let newestDay = '';
+    for (const [k] of entries) {
+        const day = storesReceiptDay(k);
+        if (day && day > newestDay) newestDay = day;
+    }
+    const cutoff = newestDay ? shiftUtcDay(newestDay, -STORES_RECEIPT_RETENTION_DAYS) : '';
+    let kept = entries.filter(([k]) => {
+        const day = storesReceiptDay(k);
+        return !day || !cutoff || day >= cutoff;
+    });
+    if (kept.length > STORES_RECEIPT_MAX_ENTRIES) {
+        kept = [...kept].sort((a, b) => b[1] - a[1]).slice(0, STORES_RECEIPT_MAX_ENTRIES);
+    }
+    return Object.fromEntries(kept);
+}
 
 function clampInt(n: unknown, lo: number, hi: number): number {
     const v = Math.floor(Number(n) || 0);
@@ -142,7 +218,7 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             if (seen.has(dedupeKey)) continue;
             seen.add(dedupeKey);
             const count = clampInt((l as MercLease).count ?? mercBandSize(tierId), 0, MERC_BAND_MAX);
-            base.mercLeases.push({ tierId, player, expiresAt, count });
+            base.mercLeases.push({ tierId, player, expiresAt, count, ...((l as MercLease).skipNextAutoDeploy === true ? { skipNextAutoDeploy: true } : {}) });
         }
     }
 
@@ -157,6 +233,16 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
         && typeof raw.warDeclarationFundingReceipts === 'object'
         && !Array.isArray(raw.warDeclarationFundingReceipts)) {
         base.warDeclarationFundingReceipts = { ...raw.warDeclarationFundingReceipts };
+    }
+
+    if (Array.isArray(raw.storesLedger)) base.storesLedger = parseStoresLedger(raw.storesLedger);
+    if (raw.storesReceipts && typeof raw.storesReceipts === 'object' && !Array.isArray(raw.storesReceipts)) {
+        // Pruned on read, so the daily pass persists the trimmed map (it spreads
+        // `record.storesReceipts` forward). See pruneStoresReceipts above.
+        base.storesReceipts = pruneStoresReceipts(raw.storesReceipts as Record<string, unknown>);
+    }
+    if (Array.isArray(raw.storesHomeHeld)) {
+        base.storesHomeHeld = [...new Set(raw.storesHomeHeld.map((s) => Math.floor(Number(s) || 0)).filter((s) => s > 0))];
     }
 
     return base;

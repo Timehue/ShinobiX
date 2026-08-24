@@ -15,7 +15,7 @@ export const KAGE_CHALLENGE_MIN_LEVEL = 90;
 export const KAGE_CHALLENGE_MIN_MERIT = 250;
 export const KAGE_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type KageEndReason = "defeated" | "forfeit" | "admin-reset" | "abdicated";
+export type KageEndReason = "defeated" | "forfeit" | "admin-reset" | "abdicated" | "inactive";
 export type ServerKageHistoryEntry = {
     name: string;
     village: string;
@@ -43,9 +43,19 @@ export type ServerKageState = {
     history?: ServerKageHistoryEntry[];
     challenge?: ServerKageChallenge | null;
     postDefenseGraceUntil?: number;
+    /** Seated Kage's last autosave (server-read); absent when unknown. */
+    kageLastActiveAt?: number;
+    /** When the seat is declared open if the Kage stays absent (kageLastActiveAt + 10 days). */
+    kageInactiveAt?: number;
 };
 
-export type KageEligibilityItem = { label: string; ok: boolean; detail?: string };
+/** Stable identity for one eligibility requirement. Callers that need to single
+ *  out a requirement (the vacant-seat claim stakes no ryo, so it drops `ryo`)
+ *  MUST match on this id — matching on the label was a string test that broke
+ *  silently the moment a cost or a wording was retuned. */
+export type KageEligibilityId = 'level' | 'account-age' | 'ryo' | 'merit';
+
+export type KageEligibilityItem = { id: KageEligibilityId; label: string; ok: boolean; detail?: string };
 export type KageChallengeRole = "challenger" | "kage" | "bystander";
 
 export type KageBoardState =
@@ -69,10 +79,10 @@ export function kageEligibility(character: Character, now: number): KageEligibil
     // blocker the server would have waved through.
     const accountAgeMs = now - Number(character.createdAt ?? 0);
     return [
-        { label: `Level ${KAGE_CHALLENGE_MIN_LEVEL}+`, ok: (character.level ?? 0) >= KAGE_CHALLENGE_MIN_LEVEL, detail: `Lv. ${character.level ?? 0}` },
-        { label: "Account 7+ days old", ok: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS },
-        { label: `${KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo`, ok: ryo >= KAGE_CHALLENGE_RYO_COST, detail: `${ryo.toLocaleString()}` },
-        { label: `${KAGE_CHALLENGE_MIN_MERIT} Village Merit`, ok: merit >= KAGE_CHALLENGE_MIN_MERIT, detail: `${merit}/${KAGE_CHALLENGE_MIN_MERIT}` },
+        { id: 'level', label: `Level ${KAGE_CHALLENGE_MIN_LEVEL}+`, ok: (character.level ?? 0) >= KAGE_CHALLENGE_MIN_LEVEL, detail: `Lv. ${character.level ?? 0}` },
+        { id: 'account-age', label: "Account 7+ days old", ok: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS },
+        { id: 'ryo', label: `${KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo`, ok: ryo >= KAGE_CHALLENGE_RYO_COST, detail: `${ryo.toLocaleString()}` },
+        { id: 'merit', label: `${KAGE_CHALLENGE_MIN_MERIT} Village Merit`, ok: merit >= KAGE_CHALLENGE_MIN_MERIT, detail: `${merit}/${KAGE_CHALLENGE_MIN_MERIT}` },
     ];
 }
 
@@ -128,4 +138,44 @@ export const KAGE_END_REASON_LABEL: Record<KageEndReason, string> = {
     forfeit: "Forfeited the seat",
     "admin-reset": "Seat reset",
     abdicated: "Stepped down",
+    inactive: "Seat declared open after 10 days of absence",
 };
+
+// ── Kage inactivity visibility (mirrors api/village/_kage-inactivity.ts) ──────
+// An absent Kage loses the seat after KAGE_INACTIVITY_DAYS; the GET exposes the
+// seated Kage's last autosave + the deadline so the village can see it coming.
+export const KAGE_INACTIVITY_DAYS = 10;
+const KAGE_INACTIVITY_WARN_DAYS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type KageActivityLines = { lastActive: string; warning?: string };
+
+/** Small counts read as words in the Council register — "four days", not "4 days". */
+const DAY_WORD = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+function dayWord(n: number): string {
+    return DAY_WORD[n] ?? String(n);
+}
+
+/** The register's line on the seated Kage's absence, plus a warning within 3
+ *  days of the deadline. `null` when unknown. Written as register prose rather
+ *  than a log line — this is the Council speaking, not a telemetry readout. */
+export function kageActivityLines(server: Pick<ServerKageState, "seatedKage" | "kageLastActiveAt" | "kageInactiveAt"> | null | undefined, now: number): KageActivityLines | null {
+    if (!server?.seatedKage) return null;
+    const lastActiveAt = Number(server.kageLastActiveAt);
+    if (!Number.isFinite(lastActiveAt) || lastActiveAt <= 0) return null;
+    const inactiveAt = Number.isFinite(Number(server.kageInactiveAt)) && Number(server.kageInactiveAt) > 0
+        ? Number(server.kageInactiveAt)
+        : lastActiveAt + KAGE_INACTIVITY_DAYS * DAY_MS;
+    const daysAgo = Math.max(0, Math.floor((now - lastActiveAt) / DAY_MS));
+    const lastActive = daysAgo === 0
+        ? "The Kage walked the village today."
+        : daysAgo === 1
+            ? "The Kage has not been seen since yesterday."
+            : `The Kage has not been seen in ${dayWord(daysAgo)} days.`;
+    const daysLeft = Math.max(0, Math.ceil((inactiveAt - now) / DAY_MS));
+    if (daysLeft > KAGE_INACTIVITY_WARN_DAYS) return { lastActive };
+    const warning = daysLeft === 0
+        ? "Should the silence hold, the council opens the seat at the next daily pass."
+        : `Should the silence hold, the council opens the seat in ${dayWord(daysLeft)} day${daysLeft === 1 ? "" : "s"}.`;
+    return { lastActive, warning };
+}

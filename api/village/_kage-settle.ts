@@ -10,6 +10,7 @@
 import { kv } from '../_storage.js';
 import { safeName, setSafeRecordValue } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
+import { announce } from '../_announce.js';
 import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
 import { pvpSessionMayReward, type PvpSession } from '../pvp/session.js';
@@ -383,14 +384,18 @@ async function settleFromOutcome(
         return { ok: false, status: 409, error: 'That duel is too old to settle the seat.' };
     }
     const key = kageKey(village);
-    return withKvLock<SettleResult>(key, async () => {
+    // The durable receipt that settled (fresh or replayed). Read after the lock
+    // to announce a dethroning exactly once — the announcement receipt is the
+    // battle id, so a replay after a lost acknowledgement does not re-post.
+    let settledReceipt: KagePvpDuelSettlementReceipt | null = null;
+    const result = await withKvLock<SettleResult>(key, async () => {
         const raw = await kv.get<KageStateLike>(key);
         let state = raw ?? { kageSystemUnlocked: false };
         const challengeId = opts.expectChallengeId ?? outcome.challengeId ?? state.challenge?.challengeId ?? '';
         if (!challengeId) return { ok: false, status: 409, error: 'The official challenge proof is missing.' };
 
         const replay = receiptForOutcome(state, outcome, challengeId);
-        if (replay) return resultFromReceipt(village, replay);
+        if (replay) { settledReceipt = replay; return resultFromReceipt(village, replay); }
 
         const winnerNorm = safeName(outcome.winnerName);
         const loserNorm = safeName(outcome.loserName);
@@ -460,16 +465,50 @@ async function settleFromOutcome(
         });
         const candidate = canonical(embedReceipt(projected, receipt));
         try {
-            if (await kv.compareSet(key, raw, candidate)) return resultFromReceipt(village, receipt);
+            if (await kv.compareSet(key, raw, candidate)) { settledReceipt = receipt; return resultFromReceipt(village, receipt); }
         } catch (error) {
             const recovered = await kv.get<KageStateLike>(key).catch(() => null);
-            if (recovered && exactReceipt(recovered, receipt)) return resultFromReceipt(village, receipt);
+            if (recovered && exactReceipt(recovered, receipt)) { settledReceipt = receipt; return resultFromReceipt(village, receipt); }
             throw error;
         }
         const recovered = await kv.get<KageStateLike>(key);
-        if (recovered && exactReceipt(recovered, receipt)) return resultFromReceipt(village, receipt);
+        if (recovered && exactReceipt(recovered, receipt)) { settledReceipt = receipt; return resultFromReceipt(village, receipt); }
         throw new Error('kage-settlement-cas-conflict');
     }, { failClosed: true });
+    const receipt = settledReceipt as KagePvpDuelSettlementReceipt | null;
+    if (result.ok && result.result === 'transferred' && receipt && receipt.outcome === 'transferred') {
+        await announceKageDethroned({
+            village,
+            challenger: receipt.winnerName,
+            oldKage: receipt.loserName,
+            receiptId: `kage-dethroned:${village}:${receipt.battleId}`,
+            meta: { battleId: receipt.battleId, challengeId: receipt.challengeId, how: 'defeated' },
+        });
+    }
+    return result;
+}
+
+/** World Herald for a Kage seat changing hands by challenge (duel defeat or a
+ *  forfeited obligation). Best-effort and exact-once per receipt — never
+ *  throws into the settlement that triggered it. */
+export async function announceKageDethroned(args: {
+    village: string;
+    challenger: string;
+    oldKage: string;
+    receiptId: string;
+    meta?: Record<string, unknown>;
+}): Promise<void> {
+    try {
+        await announce({
+            type: 'kage_dethroned',
+            importance: 'high',
+            title: 'A New Kage Rises',
+            message: `${args.challenger} has defeated ${args.oldKage} and taken the Kage seat of ${args.village}.`,
+            player: args.challenger,
+            village: args.village,
+            meta: args.meta,
+        }, { receiptId: args.receiptId });
+    } catch { /* best-effort */ }
 }
 
 export async function settleKageDuelFromSession(

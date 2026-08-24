@@ -11,6 +11,7 @@ import {
     terrainSetCountFor,
     STRUCTURE_KEYS,
     MAX_SECTORS_PER_WIN_CONDITION,
+    STORES_RECEIPT_MAX_ENTRIES,
 } from './_war-state.js';
 import { WR_POOL_CAP, VILLAGE_STRUCTURE_MAX_LEVEL } from './_war-economy.js';
 import { HOME_SECTORS } from './_war-map-sectors.js';
@@ -177,5 +178,73 @@ describe('war-state: terrain quota (Kage 3 / elder 1)', () => {
         });
         assert.equal(r.terrainSetBy['26'], 'kage'); // 26 is a Frostfang home sector (the gate)
         assert.equal(r.terrainSetBy['99'], undefined); // foreign sector dropped
+    });
+});
+
+describe('war-state: storesReceipts retention', () => {
+    const HOME = HOME_SECTORS['Frostfang Village'];
+    const stamp = (sector: number, day: string) => `home-loss:${sector}:${day}`;
+
+    it('keeps a receipt inside the 7-day window — the double-burn guard is intact', () => {
+        const raw: Record<string, number> = {
+            [stamp(26, '2026-08-22')]: 1,   // newest day present → the reference
+            [stamp(26, '2026-08-21')]: 2,
+            [stamp(27, '2026-08-16')]: 3,   // exactly 6 days back
+            [stamp(28, '2026-08-15')]: 4,   // exactly on the 7-day cutoff, inclusive
+        };
+        const r = normalizeVillageWarRecord('Frostfang Village', { storesReceipts: raw } as never);
+        assert.deepEqual(Object.keys(r.storesReceipts ?? {}).sort(), Object.keys(raw).sort());
+    });
+
+    it('drops receipts older than the window, keyed off the day in the key', () => {
+        const r = normalizeVillageWarRecord('Frostfang Village', {
+            storesReceipts: {
+                [stamp(26, '2026-08-22')]: 1,
+                [stamp(26, '2026-08-14')]: 2,   // 8 days back — gone
+                [stamp(27, '2025-11-02')]: 3,   // last year — gone
+            },
+        } as never);
+        assert.deepEqual(Object.keys(r.storesReceipts ?? {}), [stamp(26, '2026-08-22')]);
+    });
+
+    it('the window is measured from the row itself, not a wall clock', () => {
+        // A village that stopped losing sectors months ago must not have its last
+        // receipts silently expired: a clock-relative cutoff would reopen the
+        // double-burn this receipt exists to prevent.
+        const r = normalizeVillageWarRecord('Frostfang Village', {
+            storesReceipts: { [stamp(26, '2019-03-04')]: 1, [stamp(27, '2019-03-01')]: 2 },
+        } as never);
+        assert.equal(Object.keys(r.storesReceipts ?? {}).length, 2);
+    });
+
+    it('bounds a year of daily home losses to at most 8 sectors x 8 days', () => {
+        const raw: Record<string, number> = {};
+        const start = Date.UTC(2025, 7, 22);
+        for (let d = 0; d < 365; d++) {
+            const day = new Date(start + d * 86_400_000).toISOString().slice(0, 10);
+            for (const s of HOME) raw[stamp(s, day)] = start + d * 86_400_000;
+        }
+        assert.equal(Object.keys(raw).length, 365 * HOME.length); // ~2,920 unpruned
+        const r = normalizeVillageWarRecord('Frostfang Village', { storesReceipts: raw } as never);
+        const kept = Object.keys(r.storesReceipts ?? {});
+        assert.ok(kept.length <= 8 * HOME.length, `expected <= ${8 * HOME.length}, got ${kept.length}`);
+        // and the newest day survives, so today's burn is still blocked
+        assert.ok(kept.some((k) => k.endsWith('2026-08-21')));
+    });
+
+    it('still drops malformed entries, as before', () => {
+        const r = normalizeVillageWarRecord('Frostfang Village', {
+            storesReceipts: { [stamp(26, '2026-08-22')]: 1, '': 5, [stamp(27, '2026-08-22')]: 0, bad: -1 },
+        } as never);
+        assert.deepEqual(Object.keys(r.storesReceipts ?? {}).sort(), [stamp(26, '2026-08-22')]);
+    });
+
+    it('keeps a receipt kind that carries no day, under the hard entry cap', () => {
+        const raw: Record<string, number> = { 'some-future-receipt:abc': 7 };
+        for (let i = 0; i < 400; i++) raw[`some-future-receipt:${i}`] = i + 1;
+        const r = normalizeVillageWarRecord('Frostfang Village', { storesReceipts: raw } as never);
+        const kept = Object.keys(r.storesReceipts ?? {});
+        assert.equal(kept.length, STORES_RECEIPT_MAX_ENTRIES);
+        assert.ok(kept.includes('some-future-receipt:399')); // newest stamps survive
     });
 });

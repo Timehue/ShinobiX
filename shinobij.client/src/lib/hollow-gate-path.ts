@@ -10,7 +10,7 @@
  *
  * Pure helpers — no App state, unit-tested in hollow-gate-path.test.ts.
  */
-import { computeHollowGateVisible } from "./hollow-gate-dungeon";
+import { computeHollowGateVisible } from "./hollow-gate-visibility";
 import type { HollowGateShrineRun } from "../types/character";
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];

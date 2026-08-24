@@ -38,3 +38,241 @@
     font-weight: 800;
 }
 
+
+/* ===== Village Stores: Town Hall supply log + Cafeteria kitchen =====
+   Added 2026-08-22. New class names only -- nothing here overrides an existing
+   selector, so the part's position in the index.css manifest is not
+   load-bearing for these rules. */
+
+.town-store-row strong {
+    color: #fcd34d;
+}
+
+.town-seat-vacant {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 9px 11px;
+    border-left: 3px solid rgba(250, 204, 21, .55);
+    border-radius: 8px;
+    background: rgba(250, 204, 21, .08);
+}
+
+.town-seat-claim {
+    padding: 5px 11px;
+    font-size: .8rem;
+    min-height: 36px;
+}
+
+.town-donate-reason {
+    margin: 6px 0 8px;
+    color: #fca5a5;
+}
+
+.town-stores-log {
+    display: grid;
+    gap: 4px;
+    margin: 0 0 12px;
+    padding: 0;
+    list-style: none;
+}
+
+    .town-stores-log li {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        align-items: start;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(2, 6, 23, .45);
+        color: var(--text-dim);
+        font-size: .82rem;
+        line-height: 1.35;
+    }
+
+.town-stores-log-icon {
+    text-align: center;
+    font-size: .95rem;
+    line-height: 1.35;
+}
+
+/* Cafeteria kitchen (Village Stores cooking) */
+.cafe-kitchen h3 {
+    margin-bottom: 4px;
+}
+
+.cafe-cap-line {
+    margin-bottom: 10px;
+}
+
+.cafe-stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 0;
+    list-style: none;
+}
+
+.cafe-stock-chip {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 1px solid var(--slate-600);
+    border-radius: 9px;
+    background: rgba(2, 6, 23, .5);
+}
+
+    .cafe-stock-chip span {
+        color: var(--text-dim);
+        font-size: .72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+    }
+
+    .cafe-stock-chip strong {
+        color: #e2e8f0;
+        font-size: 1.15rem;
+        line-height: 1.1;
+    }
+
+.cafe-stock-packs {
+    border-color: rgba(250, 204, 21, .45);
+}
+
+    .cafe-stock-packs strong {
+        color: #fcd34d;
+    }
+
+.cafe-recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
+.cafe-recipe {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+}
+
+    .cafe-recipe .location-button {
+        width: 100%;
+        min-height: 92px;
+        text-align: center;
+    }
+
+.cafe-recipe-reason {
+    margin: 0;
+    color: #fca5a5;
+    font-size: .78rem;
+    line-height: 1.35;
+}
+
+.cafe-kitchen-empty {
+    margin: 0;
+    padding: 11px 12px;
+    border: 1px dashed var(--slate-600);
+    border-radius: 10px;
+    background: rgba(2, 6, 23, .4);
+    line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+    .cafe-stock-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cafe-recipe-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .town-stores-log li {
+        font-size: .78rem;
+    }
+}
+
+
+/* ===== Village Stores signposts: supply call to action + spend authority =====
+   Added 2026-08-23. New class names only; nothing here overrides an existing
+   selector. The banner is rendered only when lib/village-stores-signposts says
+   there is something to do, so it has no "quiet" variant to style. */
+
+/* `14-menu-panels-bloodline-vn.css` pins `.summary-box` background and
+   border-color with !important (its shared "smaller inner boxes" rule), so a
+   tone that only sets them politely renders as a plain panel -- the urgent and
+   the merely-thin banner would look identical. This file is imported LATER in
+   index.css, so an equally-!important declaration here wins; these are the
+   minimum needed to do that. */
+.town-supply-call {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    border-left: 4px solid rgba(250, 204, 21, .75) !important;
+}
+
+    .town-supply-call[data-tone="hungry"] {
+        border-left-color: rgba(248, 113, 113, .9) !important;
+        background: rgba(127, 29, 29, .3) !important;
+    }
+
+    .town-supply-call[data-tone="low"] {
+        background: rgba(250, 204, 21, .1) !important;
+    }
+
+.town-supply-call-copy {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+    .town-supply-call-copy h3 {
+        margin: 2px 0 6px;
+        font-size: 1.05rem;
+    }
+
+    .town-supply-call-copy p {
+        margin: 0;
+        line-height: 1.5;
+    }
+
+.town-supply-call-action {
+    flex: 0 1 auto;
+    min-height: 42px;
+    white-space: normal;
+}
+
+.town-store-authority {
+    margin-top: 4px;
+    padding: 9px 11px;
+    border-left: 3px solid rgba(148, 163, 184, .55);
+    border-radius: 8px;
+    background: rgba(2, 6, 23, .42);
+    line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+    .town-supply-call {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .town-supply-call-action {
+        width: 100%;
+    }
+}
+
+/* The Supply log's empty state is a paragraph now, not a shrug: it names the
+   log's scope and the stock a fresh donation just landed in. */
+.town-stores-log-empty {
+    margin: 0;
+    padding: 9px 11px;
+    border: 1px dashed var(--slate-600);
+    border-radius: 10px;
+    line-height: 1.5;
+}

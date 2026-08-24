@@ -102,15 +102,17 @@ test("1v1 survives degenerate pets (no jutsus, 0 speed, missing hp)", () => {
 
 // ── accuracy / miss-chance (flag-gated, default off) ───────────────────────
 
-test("accuracy off (default) never makes a move miss", () => {
+test("accuracy off never makes a move miss; the default is the ON constant in every environment", () => {
     let off = 0;
     for (let seed = 1; seed <= 40; seed++) {
-        // Explicit false AND the default (no arg) must both be miss-free, since
-        // node has no localStorage so petAccuracyEnabled() defaults off.
         const r = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed, 1, 1, false, false);
-        const d = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed);
         if (r.logs.some(l => /misses/.test(l))) off++;
-        assert.deepEqual(d, r, `seed ${seed}: explicit accuracy=false must equal the default path`);
+        // The default (no arg) is the PET_ACCURACY_DEFAULT constant — identical in
+        // Node and the browser (no localStorage read), so a server replay and the
+        // client render of one seed can never disagree.
+        const d = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed);
+        const on = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed, 1, 1, false, true);
+        assert.deepEqual(d, on, `seed ${seed}: the default path must equal explicit accuracy=true`);
     }
     assert.equal(off, 0, "moves must never miss while the accuracy flag is off");
 });

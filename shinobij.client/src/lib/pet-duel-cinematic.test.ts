@@ -446,7 +446,9 @@ test("ranged and melee roles use distinct spacing, while melee can close and lan
 test("disadvantaged AI retreats and the advantaged pursuer recognizes burst windows", () => {
     const strong = mk({ id: "strong", hp: 1100, attack: 140, speed: 105, element: "Fire", role: "assassin" });
     const weak = mk({ id: "weak", hp: 650, attack: 75, speed: 75, element: "Wind", role: "sage", subRole: "support", jutsus: [j({ name: "Mend", kind: "heal", power: 100, cooldown: 4 }), j({ name: "Slow", kind: "slow", power: 90, cooldown: 2 })] });
-    const duel = runPetDuelCinematic(strong, weak, 55, 1, 1, false, true, undefined, null, true);
+    // accuracy=false pins the miss-free scripted exchange this AI-state check was
+    // authored against (the default is now the ON constant in Node too).
+    const duel = runPetDuelCinematic(strong, weak, 55, 1, 1, false, true, false, null, true);
     assert.ok(duel.snapshots.some((snapshot) => snapshot.actors.find((actor) => actor.id === "enemy-0")?.ai?.state === "retreat"));
     assert.ok(duel.snapshots.some((snapshot) => snapshot.actors.find((actor) => actor.id === "player-0")?.ai?.state === "burst"));
 });

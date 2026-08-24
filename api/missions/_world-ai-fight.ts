@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
 import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
 import { kv } from '../_storage.js';
-import { parseNaturalWandererId, wandererDayBucketFromMs } from '../sector/_wanderer-encounter.js';
+import { resolveNaturalWanderer } from '../sector/_wanderer-encounter.js';
 import { QUEST_BOOK, finalStageIndex, parseQuestbookSeal, questStage, stageTimerMs } from '../sector/_questbook.js';
 import { STORY_RECKONINGS, ownedItemCount, parseStoryReckoningSeal } from '../sector/_story-reckoning.js';
 import { findBounty, normalizeBoard } from '../pvp/_bounty.js';
+import { deriveContractHunter } from '../../shared/contract-hunter.js';
 import { huntMissionById } from './_mission-catalog.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
@@ -105,17 +106,6 @@ const STORY_BOSSES: Record<string, QuestBossSpec> = {
     'story-reckoning-harrow-unbought': { name: 'Counterfeit Broker Vael', statBonus: 5, levelOffset: 3, loadoutId: 'boss' },
 };
 
-const ARCHETYPES = [
-    { id: 'bandit', verb: 'attack', weight: .24, names: ['Kazan the Ashbound', 'Goro Two-Blades', 'Saito the Cinder', 'Renga of the Waste', 'Hibiki the Restless'] },
-    { id: 'gambler', verb: 'gamble', weight: .18, names: ['Saji Two-Coins', 'Miraa the Sly', 'Old Tatsu', 'Kael of Sixes'] },
-    { id: 'pilgrim', verb: 'gift', weight: .18, names: ['Brother Yuki', 'Brother Mibu', 'Wandering Aki', 'Old Doteki'] },
-    { id: 'beast', verb: 'petDuel', weight: .16, names: ['Wild Emberlynx', 'Stray Oni-Hound', 'Feral Stormcrow', 'Rogue Guardhound', 'Lone Sparrowhawk'] },
-    { id: 'sage', verb: 'quest', weight: .16, names: ['Old Hermit Roku', 'Hermit Kaede', 'The Grey Ascetic', 'Master Tobei', 'Sister Uzune'] },
-    { id: 'merchant', verb: 'merchant', weight: .15, names: ['Miko of the Pack', 'Suri Lantern-Hands', 'Jin the Mule', 'Tama Roadstall'] },
-    { id: 'medic', verb: 'medic', weight: .14, names: ['Nurse Enka', 'Field Medic Ren', 'Old Stitch', 'Sister Koma'] },
-    { id: 'patrol', verb: 'patrol', weight: .14, names: ['Storm Road Patrol', 'Ashen Border Patrol', 'Frostfang Scout', 'Moonshadow Sentry'] },
-    { id: 'tracker', verb: 'tracker', weight: .14, names: ['Ibo the Tracker', 'Kana Reed-Eyes', 'Old Pawprint', 'Shin of the Bent Grass'] },
-] as const;
 
 function finiteInt(value: unknown, min: number, max: number): number | null {
     const n = Math.floor(Number(value));
@@ -413,69 +403,16 @@ export async function settleWorldAiChainStage(
     }, { ex: WORLD_AI_CHAIN_TTL_SECONDS });
 }
 
-function mulberry32(seed: number): () => number {
-    let a = seed >>> 0;
-    return () => {
-        a = (a + 0x6d2b79f5) >>> 0;
-        let t = a;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-function seedFrom(sector: number, bucket: number): number {
-    let h = 2166136261 >>> 0;
-    for (const n of [sector | 0, bucket | 0]) {
-        h ^= n & 0xff; h = Math.imul(h, 16777619);
-        h ^= (n >>> 8) & 0xff; h = Math.imul(h, 16777619);
-        h ^= (n >>> 16) & 0xff; h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-}
-
 /** Reconstruct one natural wanderer from the exact roster algorithm the World
- * Map uses. Other server entrypoints import this rather than accepting the
- * client's preview/name/verb as encounter authority. */
+ * Map uses (shared/wanderer-roster.ts — the SAME function, not a mirror), for
+ * the server's current window, honouring the player's relocation map. Other
+ * server entrypoints import this rather than accepting the client's
+ * preview/name/verb as encounter authority. Returns `{ id: archetype, verb,
+ * name, level }` — `id` is the ARCHETYPE id (callers store it as archetypeId). */
 export function resolveNaturalWorldWanderer(sourceId: string, character: Record<string, unknown>, requestedSector: number, now: number) {
-    const parsed = parseNaturalWandererId(sourceId);
-    if (!parsed
-        || !Number.isSafeInteger(parsed.sector) || parsed.sector < 1 || parsed.sector > MAX_WORLD_SECTOR
-        || !Number.isSafeInteger(parsed.dayBucket) || parsed.dayBucket < 0
-        || !Number.isSafeInteger(parsed.index) || parsed.index < 0 || parsed.index > 1
-        || parsed.dayBucket !== wandererDayBucketFromMs(now)) return null;
-    const moves = character.wandererMoves && typeof character.wandererMoves === 'object' && !Array.isArray(character.wandererMoves)
-        ? character.wandererMoves as Record<string, unknown>
-        : {};
-    const moved = Math.floor(Number(moves[sourceId]));
-    const visibleSector = Number.isFinite(moved) && moved >= 1 && moved <= MAX_WORLD_SECTOR ? moved : parsed.sector;
-    if (visibleSector !== requestedSector) return null;
-    const locked = new Set<string>();
-    if (character.starterCardsClaimed !== true) locked.add('gamble');
-    if (!Array.isArray(character.pets) || character.pets.length === 0) locked.add('petDuel');
-    const pool = ARCHETYPES.filter((entry) => !locked.has(entry.verb));
-    const rng = mulberry32(seedFrom(parsed.sector, parsed.dayBucket));
-    const countRoll = rng();
-    const count = countRoll < .52 ? 0 : countRoll < .93 ? 1 : 2;
-    if (parsed.index >= count) return null;
-    const used = new Set<number>();
-    for (let index = 0; index < count; index += 1) {
-        let x = rng() * pool.reduce((sum, entry) => sum + entry.weight, 0);
-        let selected = pool[pool.length - 1]!;
-        for (const entry of pool) { x -= entry.weight; if (x <= 0) { selected = entry; break; } }
-        const interior = () => (2 + Math.floor(rng() * 8)) + (2 + Math.floor(rng() * 8)) * 12;
-        let home = interior();
-        let guard = 0;
-        while (used.has(home) && guard++ < 8) home = interior();
-        used.add(home);
-        const legs = 2 + Math.floor(rng() * 2);
-        for (let leg = 0; leg < legs; leg += 1) { rng(); rng(); }
-        const name = selected.names[Math.floor(rng() * selected.names.length)]!;
-        rng(); // level jitter
-        rng(); // greeting
-        if (index === parsed.index) return { ...selected, name };
-    }
-    return null;
+    const w = resolveNaturalWanderer(sourceId, now, character, requestedSector);
+    if (!w) return null;
+    return { id: w.archetype, verb: w.verb, name: w.name, level: w.level };
 }
 
 function template(loadout: QuestBossSpec['loadoutId']): AiFightProfile {
@@ -593,12 +530,16 @@ export async function buildWorldAiFightSpec(params: {
         const board = normalizeBoard(await kv.get('pvp:bounties'));
         const bounty = findBounty(board, params.playerName);
         if (!bounty) throw new Error('world-bounty-missing');
-        const slug = params.playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 32) || 'target';
-        const expectedId = `bounty-hunter-${slug}-${Math.floor(bounty.updatedAt || 0)}`;
-        if (request.sourceId !== expectedId) throw new Error('world-bounty-stale');
-        const bountyPressure = Math.min(12, Math.floor(bounty.amount / 75_000));
-        return { profile: runtimeProfile(`world-bounty-${request.sourceId}`, 'Contract Hunter', level + 4 + bountyPressure, Math.min(18, 8 + Math.floor(bounty.amount / 100_000)), 'boss'), environment,
-            context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: 'Contract Hunter', finalStage: true } };
+        // The hunter is derived from the SHARED bounty record + this player's
+        // validated level / settled sector (shared/contract-hunter.ts — the same
+        // function every client in the sector renders from). Nothing in the
+        // request body shapes it: a sourceId that does not match the derived id
+        // is a stale or forged hunter and is refused.
+        const hunter = deriveContractHunter(bounty, { name: params.playerName, level, currentSector: request.sector });
+        if (!hunter) throw new Error('world-bounty-missing');
+        if (request.sourceId !== hunter.id) throw new Error('world-bounty-stale');
+        return { profile: runtimeProfile(`world-bounty-${request.sourceId}`, hunter.name, hunter.level, hunter.power, 'boss'), environment,
+            context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: hunter.name, finalStage: true } };
     }
 
     if (request.kind === 'wanderer-ambush') {

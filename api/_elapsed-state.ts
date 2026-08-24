@@ -141,7 +141,10 @@ function hasEquippedAuraSphere(character: Record<string, unknown>): boolean {
     return eq.aura === AURA_SPHERE_ITEM_ID || eq.accessory === AURA_SPHERE_ITEM_ID;
 }
 
-function auraRegenBonus(character: Record<string, unknown>): number {
+/** Extra vitals per regen tick from an equipped Aura Sphere. Exported so the
+ *  save sanitizer's vitals-gain cap (api/save/[name].ts) allows exactly the
+ *  rate this file settles — the two must never drift apart. */
+export function auraRegenBonus(character: Record<string, unknown>): number {
     if (!hasEquippedAuraSphere(character)) return 0;
     const level = Math.max(1, Math.floor(num(character.auraSphereLevel, 1)));
     if (level >= 300) return 5;
