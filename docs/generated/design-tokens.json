@@ -2251,6 +2251,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 359,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
+            "line": 1254
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 360,
         "occurrences": [
           {
@@ -2279,6 +2290,17 @@
           {
             "source": "shinobij.client/src/styles/pet-chronicle-ceremony.css",
             "line": 121
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 389,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
+            "line": 1262
           }
         ]
       },
@@ -2510,7 +2532,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 315
+            "line": 335
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -2523,6 +2545,10 @@
           {
             "source": "shinobij.client/src/styles/layout/adaptive-tools.css",
             "line": 82
+          },
+          {
+            "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
+            "line": 674
           }
         ]
       },
@@ -3063,7 +3089,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 307
+            "line": 327
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3362,6 +3388,14 @@
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
             "line": 331
+          },
+          {
+            "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
+            "line": 10
+          },
+          {
+            "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
+            "line": 705
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
