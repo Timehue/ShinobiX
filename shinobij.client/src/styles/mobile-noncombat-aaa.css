@@ -40,16 +40,6 @@
       radial-gradient(circle at 50% 10%, transparent 0 20%, rgba(4, 8, 13, 0.38) 70%);
   }
 
-  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"]:not(.screen-start) > .center-game {
-    inline-size: min(100%, 760px);
-    margin-inline: auto;
-    padding:
-      calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px) + var(--sp-3))
-      var(--mobile-aaa-gutter)
-      calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + var(--sp-5));
-    line-height: 1.55;
-  }
-
   .app-shell[data-ui-mode="noncombat"] .center-game > .card,
   .app-shell[data-ui-mode="noncombat"] .center-game > [class$="-screen"] {
     inline-size: 100%;
@@ -368,13 +358,6 @@
 
   /* Five persistent anchors: strong selected state, no cramped sixth slot. */
   .app-shell[data-ui-mode="noncombat"] .mobile-bottom-nav {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    min-block-size: var(--mobile-aaa-nav-height);
-    padding:
-      6px max(6px, env(safe-area-inset-right, 0px))
-      calc(6px + env(safe-area-inset-bottom, 0px))
-      max(6px, env(safe-area-inset-left, 0px));
     gap: 4px;
     background:
       linear-gradient(180deg, rgba(18, 27, 37, 0.96), rgba(5, 9, 14, 0.99)),
