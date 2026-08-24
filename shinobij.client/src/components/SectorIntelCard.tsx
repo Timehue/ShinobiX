@@ -1,4 +1,4 @@
-import { GiSpyglass } from "react-icons/gi";
+import { GiSpyglass } from "./icons/LightweightGameIcons";
 import type { SectorIntelPlateView } from "../lib/village-intel";
 import { INTEL_PAYOFF_HEADING } from "../lib/village-stores-signposts";
 

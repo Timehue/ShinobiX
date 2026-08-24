@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
-import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "react-icons/gi";
+// Compact local chrome glyphs shared with the rest of the game.
+import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";

@@ -25,13 +25,12 @@ import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { MobileProfileSheet } from "./MobileProfileSheet";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
-// Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — they match
-// the shinobi theme far better than thin outline icons. Attribution rendered in the
-// menu footer below. Game-specific emblems (ryō, chakra, …) still use GameIcon.
+// Compact local game glyphs keep the navigation consistent with the HUD emblems
+// without loading a second icon library.
 import {
-    GiBeerStein, GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
-    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiTreasureMap,
-} from "react-icons/gi";
+    GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu, GiHearts,
+    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiTreasureMap,
+} from "./icons/LightweightGameIcons";
 
 // Memo'd — the bottom nav depends on immutable character snapshots, the
 // (stable) navigate/logout callbacks, and the active-training timers that feed
@@ -96,7 +95,6 @@ export const MobileNav = memo(function MobileNav({
     // Name-keyed shared image as the fallback, so the menu card doesn't drop to
     // initials before character.avatarImage hydrates (lib/own-avatar.ts).
     const avatarSrc = useOwnAvatar(character);
-
     function go(screen: Screen) {
         const now = Date.now();
         if (now < navLockUntilRef.current) return;
@@ -116,8 +114,8 @@ export const MobileNav = memo(function MobileNav({
                 />
             )}
 
-            <nav className="mobile-bottom-nav">
-                <button className="mobile-nav-btn" onClick={() => setYouOpen(true)}>
+            <nav className="mobile-bottom-nav" aria-label="Primary game navigation">
+                <button className="mobile-nav-btn" aria-expanded={youOpen} onClick={() => setYouOpen(true)}>
                     <span className="mnb-icon"><GiHealthNormal size={24} /></span>
                     You
                 </button>
@@ -125,19 +123,15 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
                 </button>
-                <button className="mobile-nav-btn" aria-current={screen === "tavern" ? "page" : undefined} onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}>
-                    <span className="mnb-icon"><GiBeerStein size={24} /></span>
-                    Tavern
-                </button>
-                <button className="mobile-nav-btn" aria-current={screen === "profile" ? "page" : undefined} onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}>
-                    <span className="mnb-icon"><GiNinjaHeroicStance size={24} /></span>
-                    Char
+                <button className="mobile-nav-btn" aria-current={screen === "village" ? "page" : undefined} onClick={() => go("village")} onPointerDown={() => preloadScreen("village", character.storyVillage || character.village)}>
+                    <span className="mnb-icon"><GiPagoda size={24} /></span>
+                    Village
                 </button>
                 <button className="mobile-nav-btn" aria-current={screen === "inventory" ? "page" : undefined} onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
-                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
+                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" aria-expanded={open} aria-controls="mobile-shinobi-menu" onClick={() => setOpen(true)}>
                     <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
                     Menu
                     <MailUnreadDot />
@@ -156,10 +150,10 @@ export const MobileNav = memo(function MobileNav({
             />
 
             {open && (
-                <div ref={menuDialogRef} className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
+                <div id="mobile-shinobi-menu" ref={menuDialogRef} className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
                     <div className="mobile-menu-header">
                         <span className="mobile-menu-title"><GiNinjaHeroicStance size={22} aria-hidden="true" /> SHINOBI MENU</span>
-                        <button className="mobile-menu-close" aria-label="Close menu" autoFocus onClick={() => setOpen(false)}>✕</button>
+                        <button className="mobile-menu-close" aria-label="Close menu" onClick={() => setOpen(false)}>✕</button>
                     </div>
 
                     <div className="mobile-char-card">

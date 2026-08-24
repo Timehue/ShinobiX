@@ -56,6 +56,8 @@ import {
     isChronicleProgressionCardId,
 } from '../card-clash/_progression-cards.js';
 import { detachPlayerReferences } from '../_delete-player-account.js';
+import { ClanDissolutionForbiddenError, dissolveClanUnderLock } from '../clan/_dissolve.js';
+import { awardWarEndClanXp } from '../clan/war/_war-xp.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
@@ -77,6 +79,13 @@ import {
     countChronicleCardsWithStarter,
     validateDeckIds,
 } from '../../shared/chronicle-duel.js';
+
+// Clan dissolution scans global territory/war indexes and detaches every
+// member. The ordinary five-second save lease is intentionally too short for
+// that bounded saga on a populated production dataset; keep the clan document
+// fenced for the whole operation so no concurrent clan write can split the
+// cleanup. Ordinary player deletion keeps the standard short lease.
+const CLAN_DISSOLUTION_LOCK_TTL_SEC = 120;
 
 /** Coarse authenticated ingress budget for ordinary save POSTs. This is
  * deliberately six times the fastest successful-save cadence (20/minute): it
@@ -3212,12 +3221,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'DELETE') {
         try {
             const fullAdminAuth = isFullAdmin(req);
+            let deletionActor: string | null = null;
             if (isAdmin(req) && !fullAdminAuth) {
                 return res.status(403).json({ error: 'Full admin authentication required to delete player saves.' });
             }
             if (!fullAdminAuth) {
                 const identity = await authedPlayerOrAdmin(req, name);
                 if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!identity.admin) deletionActor = identity.name;
                 if (!identity.admin && isClanSave) {
                     // Clan record: only the clan FOUNDER (or an admin) may delete
                     // the shared save — mirrors the founder-only "Delete Clan" UI.
@@ -3248,7 +3259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
-            return await withKvLock(`save:${lowered}`, async () => {
+            const deletionResult = await withKvLock(`save:${lowered}`, async () => {
                 await kv.set(adminLockKey, 1, { ex: 300 });
                 const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
                 if (deletionFenceKey) {
@@ -3267,6 +3278,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await kv.set(deletionFenceKey, deletionVersion);
                     }
                 }
+                if (isClanSave) {
+                    const liveClanRecord = await kv.get<Record<string, unknown>>(key);
+                    // Re-check the founder against the record held under this
+                    // exact clan lock. The pre-lock check provides a fast 403;
+                    // this one closes deletion/recreation name-reuse races.
+                    const dissolution = await dissolveClanUnderLock(key, liveClanRecord, deletionActor);
+                    await kv.hdel(REGISTRY_KEY, name);
+                    return {
+                        body: {
+                            ok: true,
+                            dissolution: {
+                                members: dissolution.memberNames.length,
+                                membersCleared: dissolution.membersCleared,
+                                territoriesReleased: dissolution.territoriesReleased,
+                                warsForfeited: dissolution.warsForfeited,
+                                replayed: dissolution.replayed,
+                            },
+                        },
+                        finalizedWars: dissolution.finalizedWars,
+                    };
+                }
+
                 // Detach the rows that point AT this player before the save goes —
                 // the clan is read off the save itself. Deleting `save:` and the
                 // registry entry alone left a departed member still counted on the
@@ -3280,15 +3313,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the fence has to be durable before any part of this account is
                 // torn down, and the detach belongs to the same critical section
                 // as the deletes it precedes.
-                if (!isClanSave) {
-                    try {
-                        const detached = await detachPlayerReferences(name);
-                        if (detached.failures.length) {
-                            console.warn(`[save DELETE] partial detach for ${name}: ${detached.failures.join('; ')}`);
-                        }
-                    } catch (err) {
-                        console.error('[save DELETE detach]', safeLogValue(err));
+                try {
+                    const detached = await detachPlayerReferences(name);
+                    if (detached.failures.length) {
+                        console.warn(`[save DELETE] partial detach for ${name}: ${detached.failures.join('; ')}`);
                     }
+                } catch (err) {
+                    console.error('[save DELETE detach]', safeLogValue(err));
                 }
                 await Promise.all([
                     kv.del(key),
@@ -3296,9 +3327,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Signal the player's client to reload on next heartbeat (5-min TTL)
                     kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
                 ]);
-                return res.status(200).json({ ok: true });
-            }, { failClosed: true });
+                return { body: { ok: true }, finalizedWars: [] };
+            }, isClanSave
+                ? { failClosed: true, ttlSec: CLAN_DISSOLUTION_LOCK_TTL_SEC }
+                : { failClosed: true });
+            for (const war of deletionResult.finalizedWars) {
+                await awardWarEndClanXp(war).catch((error) => console.error('[save DELETE] clan-war XP award failed', safeLogValue(error)));
+            }
+            return res.status(200).json(deletionResult.body);
         } catch (err) {
+            if (err instanceof ClanDissolutionForbiddenError) {
+                return res.status(403).json({ error: err.message });
+            }
             if (err instanceof LockContendedError) {
                 return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
             }

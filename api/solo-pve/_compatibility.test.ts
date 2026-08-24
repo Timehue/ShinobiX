@@ -26,7 +26,8 @@ describe('solo-PvE published content compatibility', () => {
         assert.deepEqual(items.flatMap(soloPveItemCompatibility), []);
         // 164 → 172: the 8 wild relics (open-world RNG drops for the relic slot).
         // 172 → 173: `ration-pack` (Village Stores cooked rations).
-        assert.equal(items.length, 173, 'update the compatibility report when the generated catalog changes');
+        // 173 → 174: main's own catalog addition, merged 2026-08-24.
+        assert.equal(items.length, 174, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

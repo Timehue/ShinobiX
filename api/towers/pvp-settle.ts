@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only settle your own match.' });
         const slug = identity.admin ? playerName : identity.name;
-        const result = await settleTowerPvpMatch(matchId, slug);
+        const result = await settleTowerPvpMatch(matchId, slug, {}, 'public-queue');
         res.setHeader('Cache-Control', 'private, no-store');
         return result.ok
             ? res.status(200).json({ ...result.response, match: projectTowerPvpMatchForViewer(result.response.match, slug) })

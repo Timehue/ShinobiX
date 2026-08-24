@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { awardClanPointsToPlayerSave, clanPointWeekKey } from '../../_clan-points.js';
 import { commitEconomicReceipt, isEconomicReceiptStorageError, reserveEconomicReceipt } from '../../_economic-receipt.js';
+import { territoryRewardsSuspended } from '../../_territory-lifecycle.js';
 import {
     CLAN_MISSION_TARGETS,
     CLAN_MISSION_REWARDS,
@@ -56,7 +57,7 @@ type ClanMissionMember = {
     level?: number;
 };
 
-type ClanMissionTerritory = { ownerClan?: string; guards?: unknown[] };
+type ClanMissionTerritory = Record<string, unknown> & { ownerClan?: string; guards?: unknown[] };
 
 const CLAN_MISSION_POINT_AMOUNTS: Partial<Record<ClanMissionKey, number>> = {
     battle: 40,
@@ -76,8 +77,11 @@ function pointEligibleMembers(
     if (!amount) return [];
     const members = Array.isArray(clanRec.members) ? clanRec.members as ClanMissionMember[] : [];
     const guardNames = new Set<string>();
+    const now = Date.now();
     for (const territory of territories) {
-        if (String(territory.ownerClan ?? '') !== clanName || !Array.isArray(territory.guards)) continue;
+        if (String(territory.ownerClan ?? '') !== clanName
+            || territoryRewardsSuspended(territory, now)
+            || !Array.isArray(territory.guards)) continue;
         for (const guard of territory.guards) {
             const name = typeof guard === 'string'
                 ? guard

@@ -55,7 +55,7 @@ export const clanMissionDefinitions = [
     { key: "battle", icon: "⚔", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
     { key: "mission", icon: "📜", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
     { key: "guard", icon: "🛡", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
-    { key: "territory", icon: "🏴", name: "Claim Territory", description: "Collect Territory Control Scrolls and donate them to a sector your clan wants to own.", target: 20, reward: "+1 Sector claim push" },
+    { key: "territory", icon: "🏴", name: "Claim Territory", description: "Capture and keep one reward-active clan sector.", target: 1, reward: "Prestige milestone (no item payout)" },
     { key: "anbu", icon: "🥷", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
     { key: "donation", icon: "💰", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
     { key: "training", icon: "💪", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
@@ -68,7 +68,7 @@ export const clanMissionDefinitions = [
 type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
 
 /** Player-admitted modes; shinobi 2v2 stays typed for retained record cleanup. */
-export const CW_ADMITTED_CHALLENGE_MODES = ["pvp1v1", "pet1v1", "pet2v2", "tilecards"] as const satisfies readonly CwChallengeMode[];
+export const CW_ADMITTED_CHALLENGE_MODES = ["pvp1v1", "pvp2v2", "pet1v1", "pet2v2", "tilecards"] as const satisfies readonly CwChallengeMode[];
 
 export const CW_HP_MAX = 1000;
 

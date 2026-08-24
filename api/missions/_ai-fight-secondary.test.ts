@@ -14,7 +14,7 @@ describe('_ai-fight-secondary', () => {
     it('atomically grants the sealed defense reward and counters', () => {
         const token = createAiFightTokenRecord('P', 't', 1, { battleKind: 'defense', opponentId: 'enemy' });
         const next = applyAiFightSecondaryRewards(base, token, true);
-        assert.deepEqual(next.inventory, ['old', 'territory-control-scroll']);
+        assert.deepEqual(next.inventory, ['old'], 'ordinary AI wins do not drop Territory Scrolls');
         assert.equal(next.stamina, 100);
         assert.equal(next.honorSeals, 21);
         assert.equal(next.auraDust, 10);
@@ -45,7 +45,7 @@ describe('_ai-fight-secondary', () => {
     it('pays ordinary World encounter rewards without impersonating a village raid', () => {
         const token = createAiFightTokenRecord('P', 't', 1, { battleKind: 'world', opponentId: 'world-foe' });
         const next = applyAiFightSecondaryRewards(base, token, true);
-        assert.deepEqual(next.inventory, ['old', 'territory-control-scroll']);
+        assert.deepEqual(next.inventory, ['old'], 'world encounters do not drop Territory Scrolls');
         assert.equal(next.stamina, 100);
         assert.equal(next.totalAiKills, 6);
         assert.equal(next.dailyAiKills, 7);

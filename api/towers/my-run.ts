@@ -4,6 +4,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { readSession, getTowerInvite, clearTowerInvite } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
+import { isMpvpLeaseMode } from '../_tower-battle-guard.js';
 import {
     ensureTowerBattleLeases,
     recoverConfirmedMissingTowerBattleLease,
@@ -51,13 +52,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runId = battleLease?.battleId ?? activeParty?.launch?.runId ?? inviteRunId;
         if (!runId) return res.status(200).json({ runId: null });
 
-        // Public Tower MPvP owns the same account-wide battle lease but persists
-        // under an isolated, non-reward session namespace. Do not interpret its
-        // intentionally absent `tower:<runId>` row as a crashed Story launch and
-        // release the live match after publication grace. The MPvP client follows
-        // this explicit pointer through /api/towers/pvp-state.
-        if (battleLease?.meta.mode === 'mpvp') {
-            return res.status(200).json({ runId: null, pvpMatchId: battleLease.battleId });
+        // BOTH Tower MPvP sub-modes — the open Team Arena queue and a bound
+        // clan-war 2v2 — own the same account-wide battle lease but persist in
+        // the match store, never as a `tower:<runId>` row. Falling through would
+        // read that intentionally absent row as a crashed Story launch and
+        // release a perfectly live match after publication grace. Clients follow
+        // this explicit pointer through /api/towers/pvp-state; `pvpMatchKind`
+        // routes a clan-war fight to its own shell, not the Battle Towers lobby.
+        if (isMpvpLeaseMode(battleLease?.meta.mode)) {
+            return res.status(200).json({
+                runId: null,
+                pvpMatchId: battleLease!.battleId,
+                pvpMatchKind: battleLease!.meta.mode === 'clan-war-mpvp' ? 'clan-war' : 'public-queue',
+            });
         }
 
         // A thrown storage read reaches the outer 500 and preserves the lease.

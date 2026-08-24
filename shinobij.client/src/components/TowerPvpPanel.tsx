@@ -215,7 +215,7 @@ export function TowerPvpPanel({
         if (match?.status === "active") return;
         const confirmed = await gameConfirm(match
             ? "Leave this 2v2 ready check? The other three players will return to matchmaking."
-            : "Leave the Tower Team Arena queue?");
+            : "Leave the Team Arena queue?");
         if (!confirmed) return;
         void mutate("leave", async () => (await leaveTowerPvp(playerName, match)).presence);
     };
@@ -225,7 +225,7 @@ export function TowerPvpPanel({
             <header className="tower-pvp-head">
                 <div>
                     <span className="tower-pvp-kicker">Public multiplayer · exact 2v2</span>
-                    <h2 id="tower-pvp-title">Tower Team Arena</h2>
+                    <h2 id="tower-pvp-title">Team Arena</h2>
                 </div>
                 <div className="tower-pvp-network" role="status" aria-live="polite">
                     <strong>{syncState === "checking" ? "Checking…" : syncState === "reconnecting" ? "Reconnecting…" : presence.state === "queued" ? "Matchmaking" : presence.state === "matched" ? "Match found" : "Open"}</strong>

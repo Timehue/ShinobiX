@@ -3,12 +3,15 @@
  *
  * Extracted verbatim from api/clan/war/report.ts so the server-resolved PET path
  * (api/clan/war/pet.ts) pays exactly the same points through exactly the same
- * code. Behaviour is unchanged — this is a move, not a rewrite. Every award is
- * keyed by a stable `eventId`, so awardClanPointsToPlayerSave dedupes replays.
+ * code. Every award is keyed by a stable `eventId`, so
+ * awardClanPointsToPlayerSave dedupes replays. The authoritative PvP variant
+ * also co-writes the winner's Territory Control Scroll drop with its durable
+ * battle receipt; pet and Chronicle settlements never call that variant.
  *
  * Underscore-prefixed → a shared helper, not a route.
  */
 
+import { createHmac } from 'node:crypto';
 import { awardClanPoints, awardClanPointsToPlayerSave } from '../../_clan-points.js';
 import { kv } from '../../_storage.js';
 import { withKvLock } from '../../_lock.js';
@@ -23,6 +26,50 @@ import type { ClanWar, ClanChallenge } from './_storage.js';
 export const CLAN_WAR_PARTICIPATION_POINTS = 25;
 export const CLAN_WAR_CHALLENGE_WIN_POINTS = 25;
 export const CLAN_WAR_VICTORY_POINTS = 75;
+export const CLAN_WAR_PVP_WIN_SCROLLS = 1;
+export const CLAN_WAR_PVP_SCROLL_DROP_CHANCE = 0.20;
+export const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
+
+/** Stable across settlement retries, but not predictable by players in production. */
+export function clanWarPvpTerritoryScrollDrop(
+    battleId: string,
+    playerName: string,
+    secret = process.env.SESSION_SECRET,
+): boolean {
+    const key = secret || (process.env.NODE_ENV === 'production' ? '' : 'local-clan-war-scroll-drop');
+    if (!key) return false;
+    const digest = createHmac('sha256', key)
+        .update(`territory-scroll-drop:v1:${battleId}:${playerName.trim().toLowerCase()}`)
+        .digest();
+    const roll = digest.readUInt32BE(0) / 0x1_0000_0000;
+    return roll < CLAN_WAR_PVP_SCROLL_DROP_CHANCE;
+}
+
+/** Add the Clan War PvP drop to the counted inventory without disturbing gear. */
+export function grantClanWarPvpWinScrolls(
+    character: Record<string, unknown>,
+    amount = CLAN_WAR_PVP_WIN_SCROLLS,
+): Record<string, unknown> {
+    const count = Math.max(0, Math.floor(amount));
+    if (count <= 0) return character;
+    const stacks = Array.isArray(character.itemStacks)
+        ? (character.itemStacks as Array<Record<string, unknown>>)
+        : [];
+    const counts = new Map<string, number>();
+    for (const stack of stacks) {
+        const itemId = typeof stack.itemId === 'string' ? stack.itemId : '';
+        const stackCount = Math.max(0, Math.floor(Number(stack.count) || 0));
+        if (itemId && stackCount > 0) counts.set(itemId, (counts.get(itemId) ?? 0) + stackCount);
+    }
+    counts.set(
+        TERRITORY_CONTROL_SCROLL_ID,
+        Math.min(9_999, (counts.get(TERRITORY_CONTROL_SCROLL_ID) ?? 0) + count),
+    );
+    return {
+        ...character,
+        itemStacks: [...counts.entries()].map(([itemId, stackCount]) => ({ itemId, count: stackCount })),
+    };
+}
 
 export function challengeParticipants(ch: ClanChallenge): string[] {
     return [...new Set([
@@ -139,18 +186,31 @@ export async function awardPvpFinalizedWarPoints(
 ): Promise<void> {
     if (!Number.isSafeInteger(eventAt) || eventAt <= 0) throw new Error('clan-war-pvp-event-time-invalid');
     const events = finalizedWarPointEvents(body);
+    const challenge = body.challenge as ClanChallenge | undefined;
+    const scrollWinners = new Set(
+        challenge?.mode === 'pvp1v1'
+            ? challengeWinners(challenge).map((name) => name.toLowerCase())
+            : [],
+    );
     for (const [player, playerEvents] of events) {
+        const territoryScrolls = scrollWinners.has(player)
+            && clanWarPvpTerritoryScrollDrop(battleId, player)
+            ? CLAN_WAR_PVP_WIN_SCROLLS
+            : 0;
         const saveKey = `save:${player}`;
         await withKvLock(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const character = (record?.character ?? null) as Record<string, unknown> | null;
             if (!record || !character) throw new Error(`clan-war-pvp-save-missing:${player}`);
             const settlementId = pvpSettlementId('clan-war', battleId);
-            const fingerprint = JSON.stringify(playerEvents.map((event) => ({
-                source: event.source,
-                amount: event.amount,
-                eventId: event.metadata.eventId,
-            })));
+            const fingerprint = JSON.stringify({
+                points: playerEvents.map((event) => ({
+                    source: event.source,
+                    amount: event.amount,
+                    eventId: event.metadata.eventId,
+                })),
+                territoryScrolls,
+            });
             const decision = inspectPvpCredit(character, settlementId, fingerprint);
             if (!decision.fresh && !decision.needsBackfill) return;
             let nextCharacter = character;
@@ -163,6 +223,9 @@ export async function awardPvpFinalizedWarPoints(
                         event.metadata,
                         new Date(eventAt),
                     ).character;
+                }
+                if (territoryScrolls > 0) {
+                    nextCharacter = grantClanWarPvpWinScrolls(nextCharacter, territoryScrolls);
                 }
             }
             const credited = embedPvpSettlementReceipt(

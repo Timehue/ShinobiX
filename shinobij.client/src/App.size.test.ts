@@ -278,7 +278,22 @@ import { readFileSync } from "node:fs";
 // warmHollowGateGenerator() call sites collapsed into ONE screen-scoped effect,
 // which is also the fix: the scattered ones sat on the menu entries and missed
 // every boot-restore path back into a live run. Exact achieved count, no buffer.
-const MAX_LINES = 7_613;
+//
+// → 7,636 LOWERED (−25) by the 2026-08-22 modal-inert freeze fix. main had drifted
+// to 7,664 — three lines OVER the 7,661 ratchet, so this test was already failing
+// on main. Paid down by draining the shared-image cache plumbing (IMG_CACHE_TTL,
+// imgCacheKey, clearImgCache, URL_MODE_CATEGORIES) plus the new bounded
+// category-retry into lib/shared-image-cache.ts — a verbatim move, values and
+// behaviour unchanged. Exact achieved count, no buffer.
+//
+// → 7,585 LOWERED (−28) by the 2026-08-24 merge of origin/main. Both sides
+// had moved this file and both histories are kept above: main drained the
+// shared-image cache (7,664 → 7,636) while this branch drained the
+// save-preview cache, normalizePendingTravel and buildHollowGateRunFromStart
+// (7,661 → 7,613). The merged file carries BOTH sets of additions and BOTH
+// sets of drains, and the drains won: 7,585 is the exact achieved count of
+// the merged file, measured after every conflict was resolved. No buffer.
+const MAX_LINES = 7_585;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

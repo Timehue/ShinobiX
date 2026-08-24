@@ -4,20 +4,35 @@ import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import type { CSSProperties, ReactElement } from "react";
 import "../styles/central-skin.css";
-// Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
+// Compact local location and material glyphs shared with the rest of the game.
 import {
-    GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
-    GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
-    GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiRollingDices, GiTrashCan,
+    GiCrossedSwords, GiDragonHead, GiBookshelf,
+    GiCrystalBall, GiBlacksmith, GiDungeonGate, GiStoneTower,
+    GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiTrashCan,
     // Craft-material + recipe glyphs (forge tab).
     GiSwapBag, GiAnimalHide, GiFeather, GiFangs, GiHornInternal, GiMeat, GiSnowflake1,
     GiClawSlashes, GiWolfHead, GiFishScales, GiSpikedDragonHead, GiCrystalGrowth,
     GiSpinalCoil, GiGems, GiCrystalCluster, GiHood,
-} from "react-icons/gi";
-import type { IconType } from "react-icons";
+} from "../components/icons/LightweightGameIcons";
+import type { IconType } from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
-import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import { GameIcon, ShinobiCurrencyIcon, type GameIconName } from "../components/icons/GameIcon";
+import { ElementSigil } from "../components/icons/ElementSigil";
 import centralCommandHero from "../assets/central-command-v2.webp";
+import arenaDistrictArt from "../assets/facilities/battle-arena.webp";
+import councilHallArt from "../assets/council-hall-command-v2.webp";
+import grandMarketplaceArt from "../assets/facilities/shop.webp";
+import hunterGuildArt from "../assets/hunter/hunter-guild-board.webp";
+import ancientArchivesArt from "../assets/studio/archive-armory.webp";
+import crafterForgeArt from "../assets/central/crafter-forge-v1.webp";
+import petColosseumArt from "../assets/coliseum/pet-arena-command-v2.webp";
+import relicDungeonArt from "../assets/towers/chamber.webp";
+import celestialTowerArt from "../assets/towers/battle-towers-key-art-v1.webp";
+import weeklyAshenDragonArt from "../assets/combat-actors/creatures/apex-ai-ember-drake-idle.webp";
+import weeklyStormveilBeastArt from "../assets/combat-actors/creatures/apex-ai-ancient-chakra-beast-idle.webp";
+import weeklyDeathsgateArt from "../assets/combat-actors/bosses/tower-spectral-boss-idle.webp";
+import weeklyFrostfangArt from "../assets/combat-actors/bosses/tower-armored-boss-idle.webp";
+import weeklyMoonshadowArt from "../assets/combat-actors/bosses/clan-boss-oni-idle.webp";
 // Inline glyph style for section headers — sized to the heading text, nudged onto the baseline.
 const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 // Small inline glyph for currency/cost lines.
@@ -27,11 +42,11 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
-import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { AWAKENING_ELEMENTS, AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DAILY_MISSION_LIMIT, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
 import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
-import { elementIcon, getCharacterElements } from "../lib/elements";
+import { getCharacterElements } from "../lib/elements";
 import { getAllItems } from "../lib/items";
 import { countItem } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
@@ -60,6 +75,15 @@ import { purchaseBloodlineForge } from "../lib/bloodline-forge";
 import { CentralAwakeningCinematic } from "../components/CentralAwakeningCinematic";
 import { primeGameAudio } from "../lib/game-audio";
 import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
+import { dailyMissionsCompleted } from "../lib/character-progress";
+
+const WEEKLY_BOSS_ART: Record<string, string> = {
+    "ashen-dragon": weeklyAshenDragonArt,
+    "moonshadow-oni": weeklyMoonshadowArt,
+    "frostfang-warlord": weeklyFrostfangArt,
+    "stormveil-beast": weeklyStormveilBeastArt,
+    "deathsgate-revenant": weeklyDeathsgateArt,
+};
 
 // Fantasy glyph per craft material — gives the forge's material list real
 // imagery instead of plain rows. Tiered by point value (see craftTier) for
@@ -458,6 +482,7 @@ export function CentralHub({
     // Surface the current server-wide hunt in the hub so players can tell whether
     // the destination is live before committing to the route.
     const weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
+    const weeklyBossArtwork = weeklyBossOverrideAi?.image || WEEKLY_BOSS_ART[weeklyBoss.bossId] || weeklyMoonshadowArt;
     const allHubItems = getAllItems(creatorItems);
 
     function countInventory(itemId: string) {
@@ -583,6 +608,7 @@ export function CentralHub({
 
     const awakenedElements = getCharacterElements(character);
     const dungeonKeyCount = countInventory(DUNGEON_KEY_ID);
+    const dailyMissionCount = dailyMissionsCompleted(character);
     const weeklyBossBadge = weeklyBoss.status === "active"
         ? `${weeklyBoss.bossIcon} Live now`
         : weeklyBoss.status === "defeated"
@@ -602,7 +628,8 @@ export function CentralHub({
                     name: "Arena District",
                     kicker: "Compete",
                     badge: "Ranked & clan",
-                    icon: <GiCrossedSwords size={34} />,
+                    art: arenaDistrictArt,
+                    artPosition: "52% center",
                     text: "Enter tournaments, ranked ladders, spectator boards, and challenge halls.",
                     action: () => setScreen("arenaDistrict"),
                 },
@@ -610,7 +637,8 @@ export function CentralHub({
                     name: "Shinobi Council Hall",
                     kicker: "Govern",
                     badge: "War command",
-                    icon: <GiGreekTemple size={34} />,
+                    art: councilHallArt,
+                    artPosition: "72% center",
                     text: "Review active village and clan wars, side strength, and leading contributors.",
                     action: () => setScreen("shinobiCouncil"),
                 },
@@ -618,7 +646,8 @@ export function CentralHub({
                     name: "Grand Marketplace",
                     kicker: "Trade",
                     badge: "Elite stock",
-                    icon: <GiShop size={34} />,
+                    art: grandMarketplaceArt,
+                    artPosition: "66% center",
                     text: "Browse legendary gear, companion equipment, and premium card packs.",
                     action: () => setScreen("grandMarketplace"),
                 },
@@ -626,7 +655,8 @@ export function CentralHub({
                     name: "Hunter Guild",
                     kicker: "Track",
                     badge: "Contracts",
-                    icon: <GiDragonHead size={34} />,
+                    art: hunterGuildArt,
+                    artPosition: "center",
                     text: "Take beast contracts, track sectors, gather materials, and build hunter rank.",
                     action: () => setScreen("hunting"),
                 },
@@ -643,7 +673,8 @@ export function CentralHub({
                     name: "Hall of Legends",
                     kicker: "Compare",
                     badge: "Leaderboards",
-                    icon: <GiTrophy size={34} />,
+                    art: "/legacy/hall-of-legends-banner.webp",
+                    artPosition: "center",
                     text: "See the shinobi, clans, pets, streaks, and villages defining the current era.",
                     action: () => setScreen("hallOfLegends"),
                 },
@@ -651,7 +682,8 @@ export function CentralHub({
                     name: "Ancient Archives",
                     kicker: "Study",
                     badge: "Bloodline codex",
-                    icon: <GiBookshelf size={34} />,
+                    art: ancientArchivesArt,
+                    artPosition: "64% center",
                     text: "Explore bloodline lore, techniques, ranks, elements, and player records.",
                     action: () => setShowArchives(true),
                 },
@@ -659,7 +691,8 @@ export function CentralHub({
                     name: "Awakening Stone",
                     kicker: "Awaken",
                     badge: hasFreeRoll ? "Free awakening ready" : awakenedElements.length ? awakenedElements.join(" · ") : "Elemental path",
-                    icon: <GiCrystalBall size={34} />,
+                    art: "/assets/awakening-stone-cinematic-v1.webp",
+                    artPosition: "center",
                     text: awakenedElements.length
                         ? "Reroll your elemental nature or begin forging a bloodline from ancient materials."
                         : "Reveal your elemental nature and open the path to bloodline forging.",
@@ -675,7 +708,8 @@ export function CentralHub({
                     name: "Crafter",
                     kicker: "Forge",
                     badge: "Weapons & supplies",
-                    icon: <GiBlacksmith size={34} />,
+                    art: crafterForgeArt,
+                    artPosition: "68% center",
                     text: "Convert hunting, boss, dungeon, and war materials into proven equipment.",
                     action: () => setShowCrafter(true),
                 },
@@ -692,7 +726,8 @@ export function CentralHub({
                     name: "Pet Colosseum",
                     kicker: "Command",
                     badge: "Companion trials",
-                    icon: <GiColiseum size={34} />,
+                    art: petColosseumArt,
+                    artPosition: "72% center",
                     text: "Choose a companion for cinematic showdowns or enter the tactical pet arena.",
                     action: () => setScreen("petArena"),
                 },
@@ -700,7 +735,8 @@ export function CentralHub({
                     name: "Relic Dungeons",
                     kicker: "Explore",
                     badge: `${dungeonKeyCount} ${dungeonKeyCount === 1 ? "key" : "keys"}`,
-                    icon: <GiDungeonGate size={34} />,
+                    art: relicDungeonArt,
+                    artPosition: "center",
                     text: "Spend a Dungeon Key to breach one of five relic vaults with equal strength curves.",
                     action: () => setShowDungeonPanel(true),
                 },
@@ -708,7 +744,8 @@ export function CentralHub({
                     name: "Weekly Boss",
                     kicker: "Rally",
                     badge: weeklyBossBadge,
-                    icon: <GiOgre size={34} />,
+                    art: weeklyBossArtwork,
+                    artPosition: "center 24%",
                     text: `${weeklyBoss.bossName} anchors this week's server-wide 72-hour hunt and contribution ladder.`,
                     action: () => setScreen("weeklyBoss"),
                     featured: weeklyBoss.status === "active",
@@ -717,7 +754,8 @@ export function CentralHub({
                     name: "Celestial Tower",
                     kicker: "Ascend",
                     badge: "Endless climb",
-                    icon: <GiStoneTower size={34} />,
+                    art: celestialTowerArt,
+                    artPosition: "72% center",
                     text: "Climb scaling floors, protect your banked ryo, and claim permanent milestones.",
                     action: () => setShowCelestialPanel(true),
                 },
@@ -766,11 +804,14 @@ export function CentralHub({
                     <div className="central-passport-copy">
                         <span>Arrival status</span>
                         <strong>{character.village ? `${character.village} envoy` : "Independent shinobi"}</strong>
-                        <small>{awakenedElements.length ? awakenedElements.join(" · ") : "Element not yet awakened"}</small>
+                        <small>{character.rankTitle || "Academy shinobi"}</small>
                     </div>
                     <div className="central-passport-signals" aria-label="Central resources">
                         <span><small>Relic keys</small><strong>{dungeonKeyCount}</strong></span>
-                        <span><small>Chakra natures</small><strong>{awakenedElements.length}</strong></span>
+                        <span>
+                            <small>Daily missions</small>
+                            <strong>{dailyMissionCount}<em>/{DAILY_MISSION_LIMIT}</em></strong>
+                        </span>
                     </div>
                 </aside>
             </header>
@@ -869,7 +910,15 @@ export function CentralHub({
                                     key={option.name}
                                     onClick={option.action}
                                 >
-                                    <span className="central-icon" aria-hidden="true">{option.icon}</span>
+                                    <span className="central-card-art" aria-hidden="true">
+                                        <img
+                                            src={option.art}
+                                            alt=""
+                                            loading="lazy"
+                                            decoding="async"
+                                            style={{ objectPosition: option.artPosition }}
+                                        />
+                                    </span>
                                     <span className="central-card-content">
                                         <span className="central-card-meta">
                                             <span className="central-card-kicker">{option.kicker}</span>
@@ -1051,7 +1100,8 @@ export function CentralHub({
                                         <div className="awakening-element-badges">
                                             {ownedElements.map((element) => (
                                                 <span key={element} className={`awakening-element-badge element-${element.toLowerCase()}`}>
-                                                    {elementIcon(element)} {element}
+                                                    <ElementSigil element={element} size={28} />
+                                                    <span>{element}</span>
                                                 </span>
                                             ))}
                                         </div>
@@ -1072,13 +1122,22 @@ export function CentralHub({
                         <div className="awakening-command-grid">
                         {/* Element roll section */}
                         <div className="awakening-section awakening-section--element">
-                            <h3><GiSparkles style={HDR_ICON} />Elemental Awakening</h3>
-                            <p className="awakening-hint">The stone randomly reveals one of five elements: 💧 Water · 💨 Wind · 🌍 Earth · ⚡ Lightning · 🔥 Fire</p>
+                            <h3><span className="awakening-section-icon"><GiSparkles /></span><span>Elemental Awakening<small>Chakra attunement</small></span></h3>
+                            <p className="awakening-hint">The stone reveals one of five chakra natures.</p>
+                            <div className="awakening-element-key" aria-label="Possible chakra natures">
+                                {AWAKENING_ELEMENTS.map((element) => (
+                                    <span key={element}><ElementSigil element={element} size={20} /><span>{element}</span></span>
+                                ))}
+                            </div>
                             <div className="awakening-roll-row">
                                 {hasFreeRoll ? (
                                     <button className="awakening-free-btn" onClick={awakeningFreeRoll} disabled={awakeningBusy}>
-                                        <GiSparkles style={HDR_ICON} />{awakeningBusy ? "Awakening..." : "Awaken Element — FREE"}
-                                        <small>{freeAwakeningKind === AWAKENING_FREE_LV20_ID ? "(Level 20 reward)" : "(Level 2 reward)"}</small>
+                                        <span className="awakening-action-seal"><GiSparkles /></span>
+                                        <span className="awakening-action-copy">
+                                            <strong>{awakeningBusy ? "Awakening..." : "Awaken Element"}</strong>
+                                            <small>{freeAwakeningKind === AWAKENING_FREE_LV20_ID ? "Level 20 reward · No cost" : "Level 2 reward · No cost"}</small>
+                                        </span>
+                                        <span className="awakening-action-arrow" aria-hidden="true">→</span>
                                     </button>
                                 ) : (
                                     <button
@@ -1087,8 +1146,12 @@ export function CentralHub({
                                         disabled={character.fateShards < 10 || awakeningBusy}
                                         title={character.fateShards < 10 ? "Not enough Fate Shards" : ""}
                                     >
-                                        <GiRollingDices style={HDR_ICON} />Reroll Element — 10 Fate Shards
-                                        <small>You have {character.fateShards} Fate Shards</small>
+                                        <span className="awakening-action-seal"><GameIcon name="dice" size={20} /></span>
+                                        <span className="awakening-action-copy">
+                                            <strong>{awakeningBusy ? "Attuning..." : "Reroll Element"}</strong>
+                                            <small>10 Fate Shards · {character.fateShards} available</small>
+                                        </span>
+                                        <span className="awakening-action-arrow" aria-hidden="true">→</span>
                                     </button>
                                 )}
                             </div>
@@ -1096,20 +1159,20 @@ export function CentralHub({
 
                         {/* Material balances */}
                         <div className="awakening-section awakening-section--materials">
-                            <h3><GiStoneStack style={HDR_ICON} />Ancient Materials</h3>
+                            <h3><span className="awakening-section-icon"><GiStoneStack /></span><span>Ancient Materials<small>Inventory reserve</small></span></h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon"><GameIcon name="bone" size={20} /></span>
+                                    <span className="awakening-material-icon"><ShinobiCurrencyIcon name="bone" size={27} /></span>
                                     <span className="awakening-material-name">Bone Charms</span>
                                     <span className="awakening-material-count">{character.boneCharms ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon"><GameIcon name="shard" size={20} /></span>
+                                    <span className="awakening-material-icon"><ShinobiCurrencyIcon name="crystal" size={27} /></span>
                                     <span className="awakening-material-name">Aura Stones</span>
                                     <span className="awakening-material-count">{character.auraStones ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon"><GameIcon name="scroll" size={20} /></span>
+                                    <span className="awakening-material-icon"><ShinobiCurrencyIcon name="sigil" size={27} /></span>
                                     <span className="awakening-material-name">Mythic Seals</span>
                                     <span className="awakening-material-count">{character.mythicSeals ?? 0}</span>
                                 </div>
@@ -1118,43 +1181,58 @@ export function CentralHub({
 
                         {/* Bloodline forge section */}
                         <div className="awakening-section awakening-section--forge">
-                            <h3><GiFlame style={HDR_ICON} />Bloodline Forge</h3>
+                            <h3><span className="awakening-section-icon"><GiFlame /></span><span>Bloodline Forge<small>Legacy infusion</small></span></h3>
                             <p className="awakening-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
                             <div className="awakening-forge-grid">
                                 <div className="awakening-forge-card rank-b">
-                                    <div className="awakening-forge-rank">B Rank</div>
-                                    <div className="awakening-forge-cost"><GameIcon name="bone" size={14} style={COST_ICON} />100 Bone Charms</div>
-                                    <div className="awakening-forge-have">You have: {character.boneCharms ?? 0}</div>
+                                    <div className="awakening-forge-card-header">
+                                        <span className="awakening-forge-tier">B</span>
+                                        <div><small>Bloodline grade</small><div className="awakening-forge-rank">B Rank</div></div>
+                                    </div>
+                                    <div className="awakening-forge-material">
+                                        <ShinobiCurrencyIcon name="bone" size={29} />
+                                        <div><strong>100 Bone Charms</strong><small>{character.boneCharms ?? 0} held in inventory</small></div>
+                                    </div>
                                     <button
                                         className="awakening-forge-btn"
                                         onClick={() => awakeningCreateBloodline("B Rank", "boneCharms", 100)}
                                         disabled={(character.boneCharms ?? 0) < 100 || bloodlineForgeBusy}
                                     >
-                                        Forge B Rank Bloodline
+                                        <span>Forge Bloodline</span><small>B Rank ritual</small><b aria-hidden="true">→</b>
                                     </button>
                                 </div>
                                 <div className="awakening-forge-card rank-a">
-                                    <div className="awakening-forge-rank">A Rank</div>
-                                    <div className="awakening-forge-cost"><GameIcon name="crystal" size={14} style={COST_ICON} />100 Aura Stones</div>
-                                    <div className="awakening-forge-have">You have: {character.auraStones ?? 0}</div>
+                                    <div className="awakening-forge-card-header">
+                                        <span className="awakening-forge-tier">A</span>
+                                        <div><small>Bloodline grade</small><div className="awakening-forge-rank">A Rank</div></div>
+                                    </div>
+                                    <div className="awakening-forge-material">
+                                        <ShinobiCurrencyIcon name="crystal" size={29} />
+                                        <div><strong>100 Aura Stones</strong><small>{character.auraStones ?? 0} held in inventory</small></div>
+                                    </div>
                                     <button
                                         className="awakening-forge-btn"
                                         onClick={() => awakeningCreateBloodline("A Rank", "auraStones", 100)}
                                         disabled={(character.auraStones ?? 0) < 100 || bloodlineForgeBusy}
                                     >
-                                        Forge A Rank Bloodline
+                                        <span>Forge Bloodline</span><small>A Rank ritual</small><b aria-hidden="true">→</b>
                                     </button>
                                 </div>
                                 <div className="awakening-forge-card rank-s">
-                                    <div className="awakening-forge-rank">S Rank</div>
-                                    <div className="awakening-forge-cost"><GameIcon name="sigil" size={14} style={COST_ICON} />100 Mythic Seals</div>
-                                    <div className="awakening-forge-have">You have: {character.mythicSeals ?? 0}</div>
+                                    <div className="awakening-forge-card-header">
+                                        <span className="awakening-forge-tier">S</span>
+                                        <div><small>Bloodline grade</small><div className="awakening-forge-rank">S Rank</div></div>
+                                    </div>
+                                    <div className="awakening-forge-material">
+                                        <ShinobiCurrencyIcon name="sigil" size={29} />
+                                        <div><strong>100 Mythic Seals</strong><small>{character.mythicSeals ?? 0} held in inventory</small></div>
+                                    </div>
                                     <button
                                         className="awakening-forge-btn"
                                         onClick={() => awakeningCreateBloodline("S Rank", "mythicSeals", 100)}
                                         disabled={(character.mythicSeals ?? 0) < 100 || bloodlineForgeBusy}
                                     >
-                                        Forge S Rank Bloodline
+                                        <span>Forge Bloodline</span><small>S Rank ritual</small><b aria-hidden="true">→</b>
                                     </button>
                                 </div>
                             </div>

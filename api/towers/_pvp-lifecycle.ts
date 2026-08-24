@@ -1,4 +1,5 @@
-import type { TowerPvpSettleResponse } from '../../shared/tower-pvp.js';
+import type { TowerPvpBinding, TowerPvpSettleResponse } from '../../shared/tower-pvp.js';
+import { towerPvpBindingOf } from '../../shared/tower-pvp.js';
 import {
     advanceExpiredTowerPvpTurn,
     bumpTowerPvpVersion,
@@ -69,6 +70,13 @@ export async function settleTowerPvpMatch(
     matchId: string,
     slug: string,
     deps: TowerPvpStoreDeps = {},
+    /**
+     * Surface that owns this settlement. The open queue's acknowledgement is
+     * terminal, but a clan-war 2v2 must ALSO apply its ChallengeResult — so the
+     * public route must never be able to zero-settle a war match and strand the
+     * challenge. Omitted only by internal callers.
+     */
+    requireBinding?: TowerPvpBinding['kind'],
 ): Promise<
     | { ok: true; response: TowerPvpSettleResponse<StoredTowerPvpMatch['combat']> }
     | { ok: false; status: number; code: string; error: string; match?: StoredTowerPvpMatch }
@@ -77,6 +85,9 @@ export async function settleTowerPvpMatch(
     const result = await withTowerPvpMatchMutation(matchId, async match => {
         if (!match) return { ok: false, status: 404, code: 'match-not-found', error: 'Tower MPvP match not found.' } as const;
         if (!towerPvpMember(match, slug)) return { ok: false, status: 403, code: 'not-a-member', error: 'Not a member of this match.' } as const;
+        if (requireBinding && towerPvpBindingOf(match).kind !== requireBinding) {
+            return { ok: false, status: 403, code: 'wrong-surface', error: 'That match settles through a different Tower surface.', match } as const;
+        }
         if (match.status !== 'done' && match.status !== 'cancelled') {
             return { ok: false, status: 409, code: 'match-active', error: 'The match has not ended.', match } as const;
         }

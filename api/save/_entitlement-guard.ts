@@ -12,6 +12,9 @@ const SERVER_OWNED_ITEM_IDS = new Set([
     'hunt-legendary-material',
     'hunt-ancient-beast-core',
     'hunt-titan-bone',
+    // Minted only by authoritative Clan War shinobi PvP settlement. Players may
+    // spend/donate existing scrolls, but an ordinary client save cannot add any.
+    'territory-control-scroll',
     // Anbu Vault Infiltration war caches — minted ONLY by the raid settle
     // (api/_anbu-infiltration-store.ts), redeemed only by its turn-in. A client
     // save can spend them, never mint them.

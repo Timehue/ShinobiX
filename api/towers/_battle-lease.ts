@@ -8,11 +8,12 @@ import {
     isTowerBattleLock,
     TOWER_BATTLE_LOCK_KIND,
     TOWER_BATTLE_LOCK_SCREEN,
+    type TowerBattleLeaseMode,
     type TowerBattleLock,
 } from '../_tower-battle-guard.js';
 
-export { TOWER_BATTLE_LOCK_KIND, TOWER_BATTLE_LOCK_SCREEN } from '../_tower-battle-guard.js';
-export type { TowerBattleLock } from '../_tower-battle-guard.js';
+export { TOWER_BATTLE_LOCK_KIND, TOWER_BATTLE_LOCK_SCREEN, isMpvpLeaseMode } from '../_tower-battle-guard.js';
+export type { TowerBattleLeaseMode, TowerBattleLock } from '../_tower-battle-guard.js';
 export const TOWER_BATTLE_LOCK_TTL = TOWER_SESSION_TTL;
 export const TOWER_BATTLE_PUBLICATION_GRACE_MS = 5 * 60 * 1_000;
 export const CLAN_BOSS_MARKER_PUBLICATION_TTL = TOWER_SESSION_TTL;
@@ -93,8 +94,13 @@ export async function claimTowerBattleLeases(input: {
     runId: string;
     members: readonly string[];
     partyId?: string;
-    /** Additive Tower sub-mode routing hint. Omitted for Story/Spire. */
-    mode?: 'mpvp';
+    /**
+     * Additive Tower sub-mode routing hint. Omitted for Story/Spire.
+     * 'mpvp' is the open Team Arena queue; 'clan-war-mpvp' is a bound
+     * clan-war 2v2. They are deliberately distinct so public presence
+     * recovery never adopts a clan-war match into the Tower lobby.
+     */
+    mode?: TowerBattleLeaseMode;
     /** @deprecated Same-run leases are always preserved on a conflicting claim. */
     preserveExistingOnConflict?: boolean;
     /** False fills only missing leases and does not extend existing TTLs. */

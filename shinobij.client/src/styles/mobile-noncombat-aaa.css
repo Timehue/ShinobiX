@@ -1,0 +1,1248 @@
+/* ==========================================================================
+   AAA mobile application layer — non-combat only
+
+   The shell emits data-ui-mode from the same battle-chrome decision used by
+   App.tsx. Every authenticated selector in this file is gated on
+   data-ui-mode="noncombat"; portaled surfaces use body:not(.in-battle).
+   Combat boards, HUDs, actions, and logs are intentionally outside this layer.
+   ========================================================================== */
+
+@media (max-width: 979px) {
+  :root {
+    --mobile-aaa-hud-height: 56px;
+    --mobile-aaa-nav-height: 72px;
+    --mobile-aaa-gutter: clamp(8px, 2.8vw, 16px);
+    --mobile-aaa-panel: color-mix(in srgb, var(--sj-surface-low) 94%, transparent);
+    --mobile-aaa-panel-raised: color-mix(in srgb, var(--sj-surface) 96%, transparent);
+    --mobile-aaa-hairline: color-mix(in srgb, var(--sj-text-muted) 24%, transparent);
+  }
+
+  html {
+    scroll-padding-block:
+      calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px) + 12px)
+      calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"]:not(.screen-start) {
+    background-color: var(--sj-background);
+  }
+
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"]:not(.screen-start) > .app-background {
+    background-position: 58% center;
+  }
+
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"]:not(.screen-start) > .app-background::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(5, 9, 14, 0.2) 0%, rgba(5, 9, 14, 0.66) 52%, rgba(5, 9, 14, 0.9) 100%),
+      radial-gradient(circle at 50% 10%, transparent 0 20%, rgba(4, 8, 13, 0.38) 70%);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game > .card,
+  .app-shell[data-ui-mode="noncombat"] .center-game > [class$="-screen"] {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    margin-inline: auto;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game > .card {
+    box-sizing: border-box;
+    min-inline-size: 0;
+    border-radius: 12px;
+    border-color: color-mix(in srgb, var(--village-accent, var(--sj-gold)) 40%, var(--sj-border-soft));
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.025), transparent 42%),
+      var(--mobile-aaa-panel);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 18px 42px rgba(0, 0, 0, 0.26);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(p, li, label, input, select, textarea) {
+    font-size: max(15px, 0.9375rem);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(h1, h2, h3, h4) {
+    text-wrap: balance;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(h1, h2) {
+    line-height: 1.08;
+    letter-spacing: 0.01em;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game h2 {
+    font-size: clamp(1.55rem, 7vw, 2rem);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game h3 {
+    font-size: clamp(1.05rem, 4.8vw, 1.28rem);
+    line-height: 1.2;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.hint, small) {
+    color: var(--sj-text-secondary);
+    line-height: 1.45;
+  }
+
+  /* Every discrete action meets the mobile target, including icon-only tools. */
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea),
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea) {
+    min-inline-size: 44px !important;
+    min-block-size: 44px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-block-size: 48px;
+    border: 1px solid var(--mobile-aaa-hairline);
+    border-radius: 8px;
+    background-color: rgba(5, 9, 15, 0.88);
+    color: var(--sj-text-primary);
+    font-size: 16px; /* Prevent iOS form-focus zoom. */
+    line-height: 1.3;
+    padding: 11px 12px;
+    scroll-margin-block:
+      calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px) + 12px)
+      calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game textarea,
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) textarea {
+    min-block-size: 112px;
+    resize: vertical;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(input, select, textarea):focus-visible,
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(input, select, textarea):focus-visible {
+    border-color: var(--sj-spirit);
+    outline: 2px solid color-mix(in srgb, var(--sj-spirit) 48%, transparent);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--sj-spirit) 11%, transparent);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.back-button, .village-back-button, .back-btn, .back-to-hub-btn) {
+    display: inline-flex;
+    inline-size: auto !important;
+    width: auto !important;
+    max-inline-size: 100%;
+    min-block-size: 44px !important;
+    margin: 0 0 var(--sp-3);
+    padding: 9px 14px !important;
+    align-items: center;
+    justify-content: center;
+    justify-self: start !important;
+    border-radius: 8px !important;
+    font-size: 0.875rem !important;
+    line-height: 1.15;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.summary-box, .ui-panel, .town-upgrade-card, .notice-post, .war-record-card, .clan-request-card) {
+    border-radius: 10px;
+    border-color: var(--mobile-aaa-hairline);
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 48%),
+      var(--mobile-aaa-panel-raised);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game .summary-box {
+    padding: clamp(12px, 3.8vw, 18px);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.town-hall-screen, .clan-hall-screen) > * {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.menu, .item-popup-actions, .town-war-actions, .coach-guide-actions) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.menu, .item-popup-actions, .town-war-actions) > :where(button, .ui-btn, a) {
+    inline-size: 100%;
+    justify-content: center;
+  }
+
+  /* Dense desktop grids become readable decision stacks; metric pairs remain compact. */
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(
+    .town-priority-grid,
+    .town-hall-grid,
+    .town-secondary-grid,
+    .town-upgrade-grid,
+    .clan-join-grid,
+    .clan-upgrade-grid,
+    .clan-mission-grid,
+    .war-record-grid,
+    .elder-seat-grid,
+    .location-grid,
+    .contrib-rank-grid
+  ) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game .treasury-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game .treasury-grid > * {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* MMORPG-scale section counts remain reachable without wrapping into tiny pills. */
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(
+    .town-tabs,
+    .clan-tabs,
+    .hol-tabs,
+    .council-tabs,
+    .user-hub-tabs,
+    .profile-mobile-tabs,
+    .pet-home-tabs,
+    .pet-arena-mode-toggle,
+    .expanded-tabs,
+    .ui-tabs
+  ) {
+    display: flex !important;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    gap: 6px;
+    padding: 6px;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 6px;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(
+    .town-tabs,
+    .clan-tabs,
+    .hol-tabs,
+    .council-tabs,
+    .user-hub-tabs,
+    .profile-mobile-tabs,
+    .pet-home-tabs,
+    .pet-arena-mode-toggle,
+    .expanded-tabs,
+    .ui-tabs
+  )::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(
+    .town-tabs,
+    .clan-tabs,
+    .hol-tabs,
+    .council-tabs,
+    .user-hub-tabs,
+    .profile-mobile-tabs,
+    .pet-home-tabs,
+    .pet-arena-mode-toggle,
+    .expanded-tabs,
+    .ui-tabs
+  ) > button {
+    flex: 0 0 auto;
+    inline-size: auto !important;
+    width: auto !important;
+    min-block-size: 44px;
+    padding-inline: 14px;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.town-tabs, .clan-tabs, .hol-tabs, .council-tabs, .user-hub-tabs) {
+    position: sticky;
+    inset-block-start: calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px));
+    z-index: var(--z-sticky);
+    background: rgba(8, 13, 20, 0.94);
+    border: 1px solid var(--mobile-aaa-hairline);
+    border-radius: 10px;
+    box-shadow: 0 9px 22px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Mission Hall owns a compact five-item rail. Keep it in normal flow: a
+     generic sticky clan rail lets its tab panel paint over the tap targets. */
+  .app-shell[data-ui-mode="noncombat"].screen-missions .center-game .mission-hall .clan-tabs.expanded-tabs {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 2;
+    min-block-size: 64px;
+    overflow: hidden !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .center-game .profile-page-card .profile-mobile-tabs {
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .center-game .profile-page-card .profile-mobile-tabs > .pmtab {
+    flex: 0 0 auto !important;
+    inline-size: auto !important;
+    min-inline-size: 104px !important;
+    min-block-size: 46px !important;
+    white-space: nowrap;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.table-scroll, .admin-table-wrap) {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--mobile-aaa-hairline);
+    border-radius: 9px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.table-scroll, .admin-table-wrap) table {
+    min-inline-size: max(100%, 620px);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.clan-request-card, .clan-guard-row, .notice-post-head, .town-panel-head, .town-section-heading, .user-hub-header, .user-hub-section-header) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-inventory .inventory-page .inventory-tabs > button,
+  .app-shell[data-ui-mode="noncombat"].screen-inventory .inventory-page .inventory-search-row input[type="search"] {
+    min-inline-size: 44px !important;
+    min-block-size: 44px !important;
+    height: auto !important;
+  }
+
+  html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-topbar > .village-back-button,
+  html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-zoom-btn,
+  html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-village-chip {
+    min-inline-size: 44px !important;
+    min-block-size: 44px !important;
+    height: 44px !important;
+  }
+
+  html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-zoom-btn {
+    inline-size: 44px !important;
+    width: 44px !important;
+  }
+
+  /* The overview keeps compact painted pins; the button pseudo-hit ring is the
+     44px target so increasing the visible marker cannot collapse dense routes. */
+  .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-sector::after {
+    inset: -9px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-hollowGate::after {
+    inset: -10px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.clan-request-card, .clan-guard-row, .notice-post, .war-record-card) {
+    overflow-wrap: anywhere;
+  }
+
+  /* Five persistent anchors: strong selected state, no cramped sixth slot. */
+  .app-shell[data-ui-mode="noncombat"] .mobile-bottom-nav {
+    gap: 4px;
+    background:
+      linear-gradient(180deg, rgba(18, 27, 37, 0.96), rgba(5, 9, 14, 0.99)),
+      var(--sj-surface-low);
+    border-block-start: 1px solid color-mix(in srgb, var(--sj-gold) 34%, transparent);
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(14px) saturate(1.12);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn {
+    position: relative;
+    min-inline-size: 0;
+    min-block-size: 56px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    color: var(--sj-text-muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn .mnb-icon {
+    display: grid;
+    min-block-size: 25px;
+    place-items: center;
+    color: var(--sj-text-secondary);
+    transition: transform var(--motion-fast), color var(--motion-fast);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn[aria-current="page"] {
+    border-color: color-mix(in srgb, var(--village-accent, var(--sj-spirit)) 42%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--village-accent, var(--sj-spirit)) 17%, transparent), transparent),
+      rgba(255, 255, 255, 0.025);
+    color: var(--sj-text-primary);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    inset-block-start: -7px;
+    inset-inline: 18%;
+    block-size: 2px;
+    border-radius: 99px;
+    background: var(--village-accent, var(--sj-spirit));
+    box-shadow: 0 0 10px var(--village-accent, var(--sj-spirit));
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn[aria-current="page"] .mnb-icon {
+    color: var(--village-accent, var(--sj-spirit));
+    transform: translateY(-1px);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn.menu-btn {
+    border-color: transparent;
+    background: transparent;
+    color: var(--sj-text-muted);
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn.menu-btn[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--sj-gold) 44%, transparent);
+    background: color-mix(in srgb, var(--sj-gold) 12%, transparent);
+    color: var(--sj-gold);
+  }
+
+  body:not(.in-battle) .mobile-menu-overlay {
+    padding:
+      calc(12px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      calc(24px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+    background:
+      radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--sj-spirit) 13%, transparent), transparent 30%),
+      radial-gradient(circle at 0 100%, color-mix(in srgb, var(--sj-gold) 10%, transparent), transparent 36%),
+      linear-gradient(165deg, #0b1118, #070b10 54%, #101016);
+    overscroll-behavior: contain;
+  }
+
+  body:not(.in-battle) .mobile-menu-header {
+    position: sticky;
+    inset-block-start: calc(-12px - env(safe-area-inset-top, 0px));
+    z-index: 4;
+    margin: 0 -2px 10px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 2px 10px;
+    background: linear-gradient(180deg, rgba(8, 13, 19, 0.99) 70%, rgba(8, 13, 19, 0.86));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  body:not(.in-battle) .mobile-menu-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 5vw, 1.2rem);
+    letter-spacing: 0.09em;
+  }
+
+  body:not(.in-battle) .mobile-char-card {
+    margin-block-end: 12px;
+    border-color: var(--mobile-aaa-hairline);
+    background:
+      linear-gradient(120deg, color-mix(in srgb, var(--village-accent, var(--sj-spirit)) 12%, transparent), transparent 58%),
+      var(--mobile-aaa-panel-raised);
+  }
+
+  body:not(.in-battle) .mobile-menu-section {
+    margin-block: 0 14px;
+  }
+
+  body:not(.in-battle) .mobile-menu-section > h2 {
+    margin: 0 0 7px;
+    color: var(--sj-text-secondary);
+    font-family: var(--font-body);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  body:not(.in-battle) .mobile-menu-grid {
+    gap: 8px;
+  }
+
+  body:not(.in-battle) .mobile-menu-btn {
+    min-block-size: 56px;
+    padding: 11px 12px;
+    justify-content: flex-start;
+    border-radius: 9px;
+    font-size: 13px;
+    text-align: start;
+  }
+
+  body:not(.in-battle) .mobile-menu-btn[aria-current="page"] {
+    border-color: var(--menu-accent);
+    background:
+      linear-gradient(90deg, var(--menu-accent-glow), transparent 68%),
+      rgba(18, 28, 39, 0.98);
+    box-shadow: inset 3px 0 0 var(--menu-accent), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  body:not(.in-battle) .mobile-menu-empty {
+    display: grid;
+    min-block-size: 150px;
+    padding: 24px;
+    place-content: center;
+    gap: 6px;
+    border: 1px dashed var(--mobile-aaa-hairline);
+    border-radius: 10px;
+    color: var(--sj-text-secondary);
+    text-align: center;
+  }
+
+  body:not(.in-battle) .mobile-menu-empty strong {
+    color: var(--sj-text-primary);
+    font-family: var(--font-display);
+  }
+
+  body:not(.in-battle) .mobile-profile-sheet-overlay {
+    align-items: flex-end;
+    padding: 0;
+    background: rgba(2, 5, 9, 0.76);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  body:not(.in-battle) .mobile-profile-sheet {
+    inline-size: min(100%, 560px);
+    max-inline-size: 100%;
+    max-block-size: min(88dvh, 780px);
+    border: 1px solid color-mix(in srgb, var(--sj-gold) 36%, var(--sj-border-soft));
+    border-block-end: 0;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(180deg, #141d27, #090e14 38%);
+    box-shadow: 0 -22px 54px rgba(0, 0, 0, 0.55);
+  }
+
+  body:not(.in-battle) .mobile-profile-sheet::before {
+    content: "";
+    display: block;
+    inline-size: 42px;
+    block-size: 4px;
+    margin: 8px auto 0;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--sj-text-muted) 52%, transparent);
+  }
+
+  body:not(.in-battle) .mobile-profile-sheet-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    padding: 8px 12px 10px 16px;
+    background: rgba(17, 25, 34, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  body:not(.in-battle) .mobile-profile-sheet-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sj-text-primary);
+    font-family: var(--font-display);
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  body:not(.in-battle) .mobile-profile-sheet-title svg {
+    color: var(--sj-gold);
+  }
+
+  body:not(.in-battle) .screen-hint-banner {
+    bottom: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+    display: flex !important;
+    inline-size: calc(100% - 16px) !important;
+    max-inline-size: 520px !important;
+    min-block-size: 72px;
+    padding: 10px 11px !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    border-radius: 11px !important;
+    background: linear-gradient(180deg, rgba(9, 21, 35, 0.98), rgba(5, 12, 23, 0.99)) !important;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  body:not(.in-battle) .screen-hint-banner .screen-hint-copy {
+    min-inline-size: 0;
+    max-block-size: 4.25em;
+    overflow-y: auto;
+    color: var(--sj-text-primary);
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+  }
+
+  body:not(.in-battle) .screen-hint-banner .screen-hint-dismiss {
+    flex: 0 0 auto !important;
+    inline-size: auto !important;
+    width: auto !important;
+    min-inline-size: 92px;
+    min-block-size: 44px;
+    margin: 0 !important;
+    padding: 9px 14px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+  }
+
+  /* The guided tip stays useful without becoming a second bottom sheet. */
+  body:not(.in-battle) .onboarding-coach-banner.coach-guide {
+    bottom: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+    inline-size: calc(100% - 16px) !important;
+    max-inline-size: 620px !important;
+  }
+
+  body:not(.in-battle) .coach-guide-bubble {
+    border-width: 1px;
+    border-radius: 12px;
+    padding: 9px 11px 10px;
+  }
+
+  body:not(.in-battle) .coach-guide-line {
+    max-block-size: 4.5em;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.42;
+  }
+
+  body:not(.in-battle) .coach-guide-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin-block-start: 7px;
+  }
+
+  body:not(.in-battle) .coach-guide-actions button {
+    min-block-size: 44px;
+    inline-size: 100%;
+  }
+
+  body:not(.in-battle).coach-banner-open .app-shell[data-ui-mode="noncombat"] > .center-game {
+    padding-block-end: calc(198px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+@media (max-width: 559px) {
+  .app-shell[data-ui-mode="noncombat"] .center-game .treasury-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body:not(.in-battle) .mobile-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body:not(.in-battle) .coach-guide-pet {
+    inline-size: 72px;
+    block-size: 88px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn .mnb-icon,
+  .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn[aria-current="page"] .mnb-icon {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Route-specific mobile command centers
+
+   These screens carry the game's deepest player-build workflows. The shared
+   shell keeps them safe; this layer gives each route its own mobile hierarchy.
+   All selectors remain explicitly non-combat gated.
+   ========================================================================== */
+
+@media (max-width: 979px) {
+  /* Character dossier ---------------------------------------------------- */
+  .app-shell[data-ui-mode="noncombat"].screen-profile .profile-page-card {
+    padding: 0 0 14px !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .profile-mobile-tabs {
+    position: sticky !important;
+    inset-block-start: calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px)) !important;
+    z-index: calc(var(--z-sticky) + 1);
+    margin: 0 0 12px !important;
+    padding: 5px 18px 5px 5px !important;
+    scroll-padding-inline: 5px 28px;
+    scroll-snap-type: inline mandatory;
+    overscroll-behavior-inline: contain;
+    border-color: color-mix(in srgb, var(--sj-gold) 34%, var(--sj-border-soft)) !important;
+    border-radius: 10px !important;
+    background: rgba(5, 10, 17, 0.96) !important;
+    box-shadow:
+      inset -28px 0 24px -25px rgba(232, 212, 150, 0.7),
+      0 10px 24px rgba(0, 0, 0, 0.34) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .profile-mobile-tabs > .pmtab {
+    scroll-snap-align: start;
+    min-inline-size: 96px !important;
+    min-block-size: 46px !important;
+    padding-inline: 12px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .shinobi-identity-card,
+  .app-shell[data-ui-mode="noncombat"].screen-profile :where(.profile-overview-panel, .profile-build-panel, .achievements-panel) {
+    border-radius: 12px !important;
+    border-color: color-mix(in srgb, var(--sj-gold) 28%, var(--sj-border-soft)) !important;
+    background:
+      linear-gradient(145deg, rgba(78, 168, 255, 0.055), transparent 45%),
+      rgba(7, 13, 24, 0.96) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 30px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .shinobi-identity-card {
+    margin-block-end: 12px !important;
+    padding: 14px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .sic-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-profile .sic-stat {
+    min-block-size: 76px;
+    border-radius: 9px !important;
+    background: rgba(3, 8, 18, 0.72) !important;
+  }
+
+  /* Stat training -------------------------------------------------------- */
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-screen {
+    padding: 14px !important;
+    border-color: color-mix(in srgb, #e8d496 38%, transparent) !important;
+    border-radius: 12px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-screen > h2 {
+    margin-block-start: 10px !important;
+    font-size: clamp(1.2rem, 5.8vw, 1.55rem) !important;
+    text-wrap: balance;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel {
+    margin-block: 12px 14px !important;
+    padding: 12px !important;
+    border-radius: 10px !important;
+    background:
+      linear-gradient(135deg, rgba(78, 168, 255, 0.11), rgba(9, 16, 29, 0.94)) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel > strong {
+    margin-block-end: 8px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel > ul {
+    display: flex !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 0 18px 3px 0 !important;
+    overflow-x: auto;
+    scroll-snap-type: inline mandatory;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    list-style: none;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel > ul::-webkit-scrollbar,
+  .app-shell[data-ui-mode="noncombat"].screen-training .stat-group-list::-webkit-scrollbar,
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-ladder::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel li {
+    position: relative;
+    flex: 0 0 min(82%, 270px);
+    min-block-size: 78px;
+    padding: 12px 12px 10px 38px;
+    scroll-snap-align: start;
+    border: 1px solid rgba(78, 168, 255, 0.2);
+    border-radius: 9px;
+    background: rgba(3, 9, 20, 0.62);
+    font-size: 13px !important;
+    line-height: 1.42;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel li::before {
+    content: counter(list-item, decimal-leading-zero);
+    position: absolute;
+    inset-block-start: 12px;
+    inset-inline-start: 11px;
+    color: #75c6ff;
+    font: 800 10px var(--font-display);
+    letter-spacing: 0.08em;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .stat-group-list {
+    display: flex !important;
+    gap: 10px !important;
+    margin-inline: 0 !important;
+    padding: 0 26px 4px 0;
+    overflow-x: auto;
+    scroll-snap-type: inline mandatory;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .stat-group-list > .stat-group {
+    flex: 0 0 min(88%, 310px);
+    scroll-snap-align: start;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .stat-group .location-button {
+    min-block-size: 72px !important;
+    border-radius: 8px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .stat-group .location-button[aria-pressed="true"] {
+    background: linear-gradient(180deg, rgba(38, 95, 159, 0.74), rgba(7, 23, 47, 0.96)) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-screen > .location-grid {
+    gap: 8px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-screen > .location-grid .location-button {
+    min-block-size: 74px !important;
+    border-radius: 9px !important;
+  }
+
+  /* Jutsu curriculum ----------------------------------------------------- */
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-training-screen {
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-hall-hero {
+    margin-block-start: 10px;
+    padding: 18px 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-hall-hero > h2 {
+    font-size: clamp(1.65rem, 8vw, 2.1rem) !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-hall-stats {
+    gap: 0 !important;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining :where(.jutsu-plan-card, .jutsu-session-card, .jutsu-library) {
+    border-radius: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 28px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-plan-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-plan-metrics > span {
+    min-inline-size: 0;
+    padding-inline: 8px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .technique-filter-panel {
+    padding: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .technique-card {
+    border-radius: 9px !important;
+  }
+
+  /* Profession command centers ----------------------------------------- */
+  .app-shell[data-ui-mode="noncombat"].screen-professions .center-game > .profession-screen {
+    display: grid;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    gap: 12px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hub,
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview,
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-respec-panel {
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-inline-size: 0;
+    border-radius: 12px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hub {
+    position: relative;
+    margin: 0 !important;
+    padding: 12px !important;
+    border-color: color-mix(in srgb, var(--profession-accent) 48%, transparent) !important;
+    background:
+      radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--profession-accent) 12%, transparent), transparent 30%),
+      linear-gradient(160deg, rgba(255, 255, 255, 0.025), transparent 42%),
+      rgba(5, 10, 18, 0.97) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hub > .village-back-button {
+    position: absolute;
+    inset-block-start: 22px;
+    inset-inline-start: 22px;
+    z-index: 3;
+    border-color: color-mix(in srgb, var(--profession-accent) 58%, white 8%) !important;
+    background: rgba(3, 8, 16, 0.84) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.38) !important;
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero {
+    min-block-size: 210px !important;
+    margin-block-end: 12px !important;
+    border-radius: 11px !important;
+    border-color: color-mix(in srgb, var(--profession-accent) 56%, transparent) !important;
+    background-position: center 38% !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero::after {
+    content: "ROLE COMMAND";
+    position: absolute;
+    inset-block-start: 18px;
+    inset-inline-end: 14px;
+    padding: 5px 8px;
+    border: 1px solid color-mix(in srgb, var(--profession-accent) 46%, transparent);
+    border-radius: 999px;
+    background: rgba(3, 8, 16, 0.66);
+    color: color-mix(in srgb, var(--profession-accent) 82%, white 18%);
+    font: 800 9px var(--font-display);
+    letter-spacing: 0.12em;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero-content {
+    padding: 18px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero-identity {
+    gap: 11px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero-icon {
+    display: grid;
+    inline-size: 48px;
+    block-size: 48px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--profession-accent) 52%, transparent);
+    border-radius: 12px;
+    background: rgba(3, 8, 16, 0.72);
+    font-size: 30px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hero-copy h2 {
+    font-size: clamp(1.8rem, 8vw, 2.25rem) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-card {
+    margin: 0 0 10px !important;
+    padding: 13px !important;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-heading strong {
+    font-size: 1rem !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-progress-labels {
+    gap: 10px;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-progress-labels > :last-child {
+    text-align: end;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-progress-track {
+    block-size: 8px !important;
+    border-radius: 999px !important;
+    background: rgba(148, 163, 184, 0.17) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-role-brief {
+    margin: 0 0 10px !important;
+    padding: 14px !important;
+    border-inline-start: 3px solid var(--profession-accent) !important;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-section-eyebrow {
+    margin: 0 0 7px !important;
+    color: var(--profession-accent) !important;
+    font-size: 11px !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-role-brief p {
+    font-size: 14px !important;
+    line-height: 1.52;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-primary-action {
+    inline-size: 100% !important;
+    min-block-size: 52px !important;
+    margin: 0 0 12px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--profession-accent) 19%, transparent) !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.03em;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-resource-strip {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+    margin: 0 0 10px !important;
+    padding: 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-resource-strip > span:not(.profession-resource-divider) {
+    display: grid;
+    gap: 2px;
+    min-inline-size: 0;
+    padding: 9px 10px;
+    border: 1px solid color-mix(in srgb, var(--profession-accent) 22%, transparent);
+    border-radius: 8px;
+    background: rgba(3, 8, 16, 0.6);
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-resource-strip small {
+    color: var(--sj-text-secondary);
+    font-size: 10px !important;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-resource-strip strong {
+    font-size: 1.15rem;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-resource-divider {
+    display: none;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-progress-card {
+    margin-block-end: 12px !important;
+    padding: 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-ladder {
+    display: flex !important;
+    gap: 6px !important;
+    margin-block-end: 14px !important;
+    padding: 1px 22px 4px 1px;
+    overflow-x: auto;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: none;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-step {
+    flex: 0 0 54px;
+    min-block-size: 50px;
+    scroll-snap-align: start;
+    border-radius: 9px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-step.is-current {
+    box-shadow: 0 0 0 1px var(--profession-accent), 0 8px 16px color-mix(in srgb, var(--profession-accent) 16%, transparent);
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-bonus-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-bonus-stat {
+    min-inline-size: 0;
+    margin: 0 !important;
+    padding: 11px 6px !important;
+    border-radius: 9px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-bonus-stat > :first-child {
+    font-size: 1.08rem !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-bonus-stat .hint {
+    font-size: 10px !important;
+    line-height: 1.3;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-companion-row,
+  .app-shell[data-ui-mode="noncombat"].screen-professions .healer-patient-row {
+    border-radius: 9px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-action-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+    margin-block-end: 18px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-action-grid > button {
+    inline-size: 100% !important;
+    min-block-size: 52px !important;
+    margin: 0 !important;
+    border-radius: 9px !important;
+    white-space: normal;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-action-grid > .profession-primary-action {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions :where(.profession-daily-card, .profession-mastery-panel) {
+    margin-block-start: 12px !important;
+    padding: 13px !important;
+    border: 1px solid color-mix(in srgb, var(--profession-accent) 34%, transparent) !important;
+    border-radius: 11px !important;
+    background: rgba(4, 9, 18, 0.74) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-daily-card > h3,
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mastery-heading h3 {
+    font-size: 1rem !important;
+    letter-spacing: 0.04em;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mission-card {
+    border-radius: 9px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mission-heading {
+    align-items: flex-start !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mission-heading > .hint {
+    flex: 0 0 auto;
+    text-align: end;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mastery-path {
+    padding: 11px !important;
+    border-radius: 9px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mastery-node {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-block-size: 52px;
+    padding-block: 6px;
+    border-block-start: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-mastery-node button {
+    min-inline-size: 78px !important;
+    min-block-size: 44px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-respec-panel {
+    margin: 0 !important;
+    padding: 14px !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+    background: rgba(5, 10, 17, 0.82) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-respec-panel > h3 {
+    margin-block-start: 0;
+    color: var(--sj-text-secondary);
+    font-size: 0.95rem !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview {
+    padding: 12px !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview-card {
+    border-width: 1px !important;
+    border-radius: 11px !important;
+  }
+
+  /* The ambient hint must never squeeze its label out on copy-heavy routes. */
+  body:not(.in-battle) .screen-hint-banner .screen-hint-inline {
+    display: flex !important;
+    inline-size: 100%;
+    min-inline-size: 0;
+    align-items: center;
+    gap: 10px;
+  }
+
+  body:not(.in-battle) .screen-hint-banner .screen-hint-dismiss {
+    box-sizing: border-box;
+    flex: 0 0 132px !important;
+    inline-size: 132px !important;
+    min-inline-size: 132px !important;
+    padding-inline: 10px !important;
+    color: #fff7d6 !important;
+    font-size: 11px !important;
+    letter-spacing: 0.11em !important;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 359px) {
+  body:not(.in-battle) .screen-hint-banner .screen-hint-dismiss {
+    flex-basis: 116px !important;
+    inline-size: 116px !important;
+    min-inline-size: 116px !important;
+  }
+}
+
+@media (max-width: 389px) {
+  .app-shell[data-ui-mode="noncombat"].screen-jutsuTraining .jutsu-plan-metrics,
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-bonus-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-action-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-action-grid > .profession-primary-action {
+    grid-column: auto;
+  }
+}

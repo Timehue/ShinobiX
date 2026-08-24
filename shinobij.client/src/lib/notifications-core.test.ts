@@ -9,7 +9,7 @@ import {
     type NotifInputs,
 } from "./notifications-core";
 
-const EMPTY: NotifInputs = { inBattle: false, clanWar: null, villageWar: null, tournament: null };
+const EMPTY: NotifInputs = { inBattle: false, territoryBreach: null, clanWar: null, villageWar: null, tournament: null };
 
 test("no signals → no notifications", () => {
     assert.deepEqual(buildNotifications(EMPTY), []);
@@ -31,6 +31,21 @@ test("clan war chip names the enemy and links to the clan screen", () => {
     assert.match(notes[0].label, /Crimson Fang/);
 });
 
+test("territory breach chip is urgent, time-bound, and deep-links to Clan Territory", () => {
+    const notes = buildNotifications({
+        ...EMPTY,
+        territoryBreach: { sector: 40, minutesLeft: 719 },
+    });
+    assert.deepEqual(notes, [{
+        id: "territoryBreach",
+        icon: "🚨",
+        label: "Sector 40 breached · 12h left",
+        tone: "danger",
+        screen: "clan",
+        targetView: "territory",
+    }]);
+});
+
 test("village war chip flags the pre-war pending window", () => {
     const live = buildNotifications({ ...EMPTY, villageWar: { enemy: "Frostfang Village", pending: false } });
     assert.equal(live[0].screen, "villageWar");
@@ -50,14 +65,15 @@ test("tournament chip links to the arena district; falls back to a generic label
     assert.match(unnamed[0].label, /Tournament/);
 });
 
-test("notifications are ordered: battle → clan war → village war → tournament", () => {
+test("notifications are ordered: battle → territory breach → clan war → village war → tournament", () => {
     const notes = buildNotifications({
         inBattle: true,
+        territoryBreach: { sector: 40, minutesLeft: 30 },
         clanWar: { enemy: "A" },
         villageWar: { enemy: "B", pending: false },
         tournament: { name: "C" },
     });
-    assert.deepEqual(notes.map((n) => n.id), ["battle", "clanWar", "villageWar", "tournament"]);
+    assert.deepEqual(notes.map((n) => n.id), ["battle", "territoryBreach", "clanWar", "villageWar", "tournament"]);
 });
 
 test("battle-only vs lobby-fight screen classification", () => {

@@ -1,5 +1,6 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { PROFESSION_CHANGE_APPROVAL_ID } from '../../shared/profession-change.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -56,23 +57,24 @@ describe('profession choice settlement', () => {
         assert.equal((await kv.get<{ character?: { profession?: string } }>(SAVE_KEY))?.character?.profession, 'vanguard');
     });
 
-    it('allows one free profession change and resets profession progression', { concurrency: false }, async () => {
+    it('consumes a profession approval and resets profession progression', { concurrency: false }, async () => {
         await kv.set(SAVE_KEY, {
             _saveVersion: 4,
             character: {
                 name: 'professiontester', level: 25, profession: 'vanguard', professionRank: 7,
                 professionXp: 8_400, masterySpec: { ironclad: 2 },
+                inventory: [PROFESSION_CHANGE_APPROVAL_ID, 'kept-item'],
             },
         });
 
         const changed = await post({ playerName: 'professiontester', profession: 'healer', respec: true });
         assert.equal(changed.statusCode, 200);
-        assert.equal(changed.body?.respecUsed, true);
+        assert.equal(changed.body?.approvalConsumed, true);
         const saved = await kv.get<{ character?: Record<string, unknown> }>(SAVE_KEY);
         assert.equal(saved?.character?.profession, 'healer');
         assert.equal(saved?.character?.professionRank, 1);
         assert.equal(saved?.character?.professionXp, 0);
-        assert.equal(saved?.character?.professionRespecUsed, true);
+        assert.deepEqual(saved?.character?.inventory, ['kept-item']);
         assert.deepEqual(saved?.character?.masterySpec, {});
 
         const second = await post({ playerName: 'professiontester', profession: 'petTamer', respec: true });
@@ -80,14 +82,31 @@ describe('profession choice settlement', () => {
         assert.equal((await kv.get<{ character?: { profession?: string } }>(SAVE_KEY))?.character?.profession, 'healer');
     });
 
-    it('does not consume the free change on the initial profession choice or an idempotent replay', { concurrency: false }, async () => {
+    it('requires a fresh approval for every change, including legacy accounts', { concurrency: false }, async () => {
+        await kv.set(SAVE_KEY, {
+            _saveVersion: 7,
+            character: {
+                name: 'professiontester', level: 25, profession: 'healer', professionRank: 4,
+                professionRespecUsed: true,
+                inventory: [PROFESSION_CHANGE_APPROVAL_ID],
+            },
+        });
+        const changed = await post({ playerName: 'professiontester', profession: 'petTamer', respec: true });
+        assert.equal(changed.statusCode, 200);
+        const saved = await kv.get<{ character?: { profession?: string; inventory?: string[] } }>(SAVE_KEY);
+        assert.equal(saved?.character?.profession, 'petTamer');
+        assert.deepEqual(saved?.character?.inventory, []);
+    });
+
+    it('does not consume an approval on the initial choice or an idempotent replay', { concurrency: false }, async () => {
+        await kv.set(SAVE_KEY, { _saveVersion: 1, character: { name: 'professiontester', level: 13, inventory: [PROFESSION_CHANGE_APPROVAL_ID] } });
         const first = await post({ playerName: 'professiontester', profession: 'petTamer' });
         assert.equal(first.statusCode, 200);
-        assert.equal((await kv.get<{ character?: { professionRespecUsed?: boolean } }>(SAVE_KEY))?.character?.professionRespecUsed, undefined);
+        assert.deepEqual((await kv.get<{ character?: { inventory?: string[] } }>(SAVE_KEY))?.character?.inventory, [PROFESSION_CHANGE_APPROVAL_ID]);
 
         const replay = await post({ playerName: 'professiontester', profession: 'petTamer', respec: true });
         assert.equal(replay.statusCode, 200);
         assert.equal(replay.body?.idempotent, true);
-        assert.equal((await kv.get<{ character?: { professionRespecUsed?: boolean } }>(SAVE_KEY))?.character?.professionRespecUsed, undefined);
+        assert.deepEqual((await kv.get<{ character?: { inventory?: string[] } }>(SAVE_KEY))?.character?.inventory, [PROFESSION_CHANGE_APPROVAL_ID]);
     });
 });

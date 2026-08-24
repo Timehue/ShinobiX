@@ -260,7 +260,7 @@ export function ProfessionPicker({
                         <div className="pp-warn-band">
                             <p className="pp-warn">
                                 <span className="pp-warn-mark" aria-hidden="true" />
-                                Your first choice includes one free path change later
+                                Later changes require a Grand Marketplace profession approval
                             </p>
                         </div>
                     </header>
@@ -349,8 +349,8 @@ export function ProfessionPicker({
                     <p className="pp-kicker">Confirm your path</p>
                     <h2 className="pp-confirm-title">Become a {info.name}?</h2>
                     <p className="pp-confirm-copy">
-                        This becomes your profession now. You may change paths once for free from your Profession Hub;
-                        doing so resets profession rank, XP, and mastery, and that second choice is permanent.
+                        This becomes your profession now. Future changes require a Profession change approval from the Grand Marketplace;
+                        each change consumes the approval and resets profession rank, XP, and mastery.
                     </p>
                     {error && (
                         <p className="pp-error" role="alert">

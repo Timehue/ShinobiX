@@ -55,9 +55,9 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
     }
 
     return (
-        <div className="mastery-panel" style={{ marginTop: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                <h3 style={{ margin: 0 }}>⭐ Mastery — Level {level}/{MASTERY_MAX_LEVEL}</h3>
+        <section className="mastery-panel profession-mastery-panel" aria-labelledby="profession-mastery-heading" style={{ marginTop: 14 }}>
+            <div className="profession-mastery-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+                <h3 id="profession-mastery-heading" style={{ margin: 0 }}>⭐ Mastery — Level {level}/{MASTERY_MAX_LEVEL}</h3>
                 <span style={{ color: available > 0 ? "var(--gold)" : "var(--text-dim)", fontWeight: 700 }}>
                     {available} point{available === 1 ? "" : "s"} to spend
                 </span>
@@ -82,17 +82,17 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
                 );
             })()}
 
-            <div style={{ display: "grid", gap: 12 }}>
+            <div className="profession-mastery-paths" style={{ display: "grid", gap: 12 }}>
                 {paths.map((path) => {
                     const inPath = pointsInPath(character, path.id);
                     return (
-                        <div key={path.id} className="summary-box" style={{ padding: 12 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <section key={path.id} className="summary-box profession-mastery-path" style={{ padding: 12 }}>
+                            <div className="profession-mastery-path-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                                 <strong>{path.name}</strong>
                                 <span className="hint" style={{ margin: 0 }}>{inPath} pts</span>
                             </div>
                             <p className="hint" style={{ margin: "2px 0 8px" }}>{PATH_BLURBS[path.id] ?? ""}</p>
-                            <div style={{ display: "grid", gap: 6 }}>
+                            <div className="profession-mastery-nodes" style={{ display: "grid", gap: 6 }}>
                                 {path.nodes.map((n) => {
                                     const ranks = Math.max(0, Math.floor(Number(spec[n.id] ?? 0)));
                                     const maxed = ranks >= n.maxRank;
@@ -100,8 +100,8 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
                                     const check = canIncrement(character, n.id);
                                     const spendBlocked = check.ok === false;
                                     return (
-                                        <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 8, opacity: gateLocked ? 0.6 : 1 }}>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="profession-mastery-node" key={n.id} style={{ display: "flex", alignItems: "center", gap: 8, opacity: gateLocked ? 0.6 : 1 }}>
+                                            <div className="profession-mastery-node-copy" style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600 }}>
                                                     {n.capstone ? "★ " : ""}{n.name}
                                                     <span style={{ marginLeft: 6, color: "var(--text-dim)", fontWeight: 400, fontSize: "0.85em" }}>
@@ -122,7 +122,7 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
                                     );
                                 })}
                             </div>
-                        </div>
+                        </section>
                     );
                 })}
             </div>
@@ -132,6 +132,6 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
                     Respec all ({MASTERY_RESPEC_COST.toLocaleString()} ryo)
                 </button>
             )}
-        </div>
+        </section>
     );
 }

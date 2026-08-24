@@ -82,6 +82,7 @@ shop,moonshadow-needleblade,ryo,900,per unit,api/pvp/_item-catalog.ts,epic hand
 shop,padded-leggings,ryo,240,per unit,api/pvp/_item-catalog.ts,uncommon legs
 shop,pet-treat,ryo,80,per unit,api/pvp/_item-catalog.ts,common item
 shop,potion-rejuvenation,ryo,1800,per unit,api/pvp/_item-catalog.ts,rare potion
+shop,profession-change-approval,fateShards,200,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,pve-apex-predator-fang,ryo,9600,per unit,api/pvp/_item-catalog.ts,epic item
 shop,pve-avengers-pendant,ryo,7200,per unit,api/pvp/_item-catalog.ts,epic item
 shop,pve-bloodbond-totem,ryo,8000,per unit,api/pvp/_item-catalog.ts,epic item

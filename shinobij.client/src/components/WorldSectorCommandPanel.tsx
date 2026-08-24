@@ -5,86 +5,28 @@ import {
     GiHealthPotion,
     GiPawPrint,
     GiShield,
-} from "react-icons/gi";
+} from "./icons/LightweightGameIcons";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX } from "../constants/game";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { sectorRegionName } from "../data/sectors";
-import type { SectorTracesView } from "../lib/sector-traces";
-import { sectorGatherLineFor, type SectorPoolPlateView } from "../lib/sector-pool";
-import type { SectorIntelPlateView } from "../lib/village-intel";
-import type { PlayerRecord } from "../types/character";
-import type { Biome, WeatherType } from "../types/core";
+import { sectorGatherLineFor } from "../lib/sector-pool";
 import { sectorName } from "../../../shared/sector-geo";
 import { SectorTracesCard } from "./SectorTraces";
 import { SectorGatherReadout } from "./SectorGatherReadout";
 import { SectorIntelCard } from "./SectorIntelCard";
 
-export type WorldSectorCommandWar = Readonly<{
-    playerVillage: string;
-    enemyVillage?: string;
-    warGroundHp: number;
-    warGroundHpMax: number;
-    enemyVillageHp: number;
-    enemyVillageHpMax: number;
-    ended: boolean;
-}>;
+// Row/prop shapes live in a sibling module (see its header); re-exported here
+// so every existing import of these names keeps working unchanged.
+export type {
+    WorldSectorCommandWar,
+    WorldSectorCommandTerritory,
+    WorldSectorCommandPlayerStatus,
+    WorldSectorCommandPlayer,
+    WorldSectorCommandHunt,
+    WorldSectorCommandPanelProps,
+} from "./WorldSectorCommandPanel.types";
 
-export type WorldSectorCommandTerritory = Readonly<{
-    isLive: boolean;
-    isOwned: boolean;
-    ownerLabel: string;
-    rebuildMinsLeft: number;
-    controlScore: number;
-    hp: number;
-    guards: readonly string[];
-    enemyControlled: boolean;
-    war?: WorldSectorCommandWar;
-}>;
-
-export type WorldSectorCommandPlayerStatus = "Sleeping" | "Traveling" | "Fighting" | "Ready";
-
-export type WorldSectorCommandPlayer = Readonly<{
-    target: PlayerRecord;
-    name: string;
-    level: number;
-    avatarSrc: string;
-    status: WorldSectorCommandPlayerStatus;
-    sleeping: boolean;
-    actionDisabled: boolean;
-}>;
-
-export type WorldSectorCommandHunt = Readonly<{
-    targetName: string;
-    progress: number;
-    requiredTracks: number;
-    ready: boolean;
-}>;
-
-export type WorldSectorCommandPanelProps = Readonly<{
-    sector: number;
-    biome: Biome;
-    weather: WeatherType;
-    territory: WorldSectorCommandTerritory | null;
-    /** Shared daily gathering pool for this sector (explores / chests), viewer-sized. */
-    gathering: SectorPoolPlateView | null;
-    /** Village Intel on this sector as seen by the viewer's village (null = logged out / no intel block). */
-    intel?: SectorIntelPlateView | null;
-    villageWarAdmissionOpen: boolean;
-    traces: SectorTracesView | null;
-    hasLivePlayers: boolean;
-    players: readonly WorldSectorCommandPlayer[];
-    hunt: WorldSectorCommandHunt | null;
-    onRaidEnemyVillage: () => void;
-    onRaidControlledSector: () => void;
-    onOpenSigns: () => void;
-    onOpenShrine: () => void;
-    onStrikeSleeper: (target: PlayerRecord) => void;
-    onAttackPlayer: (target: PlayerRecord) => void;
-    onExplore: () => void;
-    onHunt: () => void;
-    onRecover: () => void;
-    onLeave: () => void;
-}>;
+import type { WorldSectorCommandPanelProps } from "./WorldSectorCommandPanel.types";
 
 /**
  * Presentation-only command surface for a selected sector.
@@ -137,11 +79,17 @@ export function WorldSectorCommandPanel({
                 <section className="summary-box sector-panel-card sector-territory-card">
                     <div className="sector-panel-card-head">
                         <h4><GiShield aria-hidden="true" />Territory</h4>
-                        <span className={`sector-status-pill ${territory.isOwned ? "is-owned" : ""}`}>{territory.isOwned ? "Owned" : "Open"}</span>
+                        <span className={`sector-status-pill ${territory.isOwned ? "is-owned" : ""}`}>{territory.breached ? "Breached" : territory.isOwned ? "Owned" : "Open"}</span>
                     </div>
                     {territory.isLive ? (
                         <>
                             <p className="sector-owner-line"><strong>Owner</strong><span>{territory.ownerLabel}</span></p>
+                            {territory.breached && (
+                                <p className="sector-rebuild-note">Breached: rewards and bonuses are suspended. The owner must restore HP before the fixed {territory.breachMinsLeft}m deadline or lose the sector.</p>
+                            )}
+                            {!territory.breached && territory.rewardsSuspended && (
+                                <p className="sector-rebuild-note">Dormant hold: rewards and bonuses are suspended until the clan returns.</p>
+                            )}
                             {!territory.isOwned && territory.rebuildMinsLeft > 0 && (
                                 <p className="sector-rebuild-note">Recovering: capturable in {territory.rebuildMinsLeft}m</p>
                             )}

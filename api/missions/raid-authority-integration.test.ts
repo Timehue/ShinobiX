@@ -578,6 +578,56 @@ describe('sealed raid authority', () => {
         assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.hp, 20_000);
     });
 
+    it('opens a fixed breach at zero HP instead of instantly erasing clan ownership', async () => {
+        const player = 'raidauthbreach';
+        await seed(player, { village: 'Leaf', clan: 'LeafClan' });
+        const observedAt = Date.now() - 1_000;
+        const evidence = {
+            version: 1 as const,
+            sector: 18,
+            ownerVillage: 'Mist',
+            ownerClan: 'MistClan',
+            raidDamage: 250,
+            observedAt,
+        };
+        await kv.set('world:territory:18', {
+            sector: 18,
+            ownerVillage: 'Mist',
+            ownerClan: 'MistClan',
+            hp: 200,
+            guards: [],
+            controlScore: 75_000,
+            warSupply: 0,
+            lastSupplyAt: observedAt,
+            updatedAt: observedAt,
+        });
+        const first = await settleRaidTerritoryDamage({
+            playerName: player,
+            proofId: 'raid-territory-breach-first',
+            sector: 18,
+            eventAt: observedAt + 500,
+            evidence,
+        });
+        assert.equal(first.amount, 250);
+        assert.equal(first.hpAfter, 0);
+        assert.equal(first.destroyed, false);
+        const breached = await kv.get<Record<string, unknown>>('world:territory:18');
+        assert.equal(breached?.ownerClan, 'MistClan');
+        assert.equal(breached?.hp, 0);
+        assert.ok(Number(breached?.breachedAt) > 0);
+        const deadline = breached?.breachEndsAt;
+
+        const second = await settleRaidTerritoryDamage({
+            playerName: player,
+            proofId: 'raid-territory-breach-second',
+            sector: 18,
+            eventAt: observedAt + 700,
+            evidence,
+        });
+        assert.equal(second.amount, 0, 'a zero-HP breach cannot absorb wasted raid damage');
+        assert.equal((await kv.get<Record<string, unknown>>('world:territory:18'))?.breachEndsAt, deadline);
+    });
+
     it('rejects a stale territory holder without erasing a concurrent row update, then retries exactly', async () => {
         const player = 'raidauthstaleholder';
         await seed(player, { village: 'Leaf', clan: 'LeafClan' });

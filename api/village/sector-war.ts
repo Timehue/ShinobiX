@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { clanRecordKey, cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -540,6 +540,13 @@ async function sendSectorFundingOutcome(
             }, { receiptId: `sector-war-declared:${live.id}:g${generation}` });
         } catch { /* announcements never fail the declaration */ }
     }
+    // The world-wide herald above is the public drumbeat; this is the private
+    // notice to the CLAN that actually holds the sector, which is a different
+    // audience with a different call to action. Both fire; neither may fail the
+    // declaration.
+    await notifyTerritoryClanOfSectorWar(outcome.session).catch((error) => {
+        console.error('[sector-war] clan owner notice failed:', safeLogValue(error));
+    });
     return res.status(200).json({
         ok: true,
         cost: outcome.chargedNow ? outcome.cost : 0,
@@ -564,6 +571,40 @@ async function sendSectorFundingOutcome(
 function declarationFault(res: VercelResponse, code: string, message: string, detail: Record<string, unknown>): VercelResponse {
     console.warn('[village/sector-war] declaration-fault', safeLogValue({ code, ...detail }));
     return res.status(503).json({ error: message, code });
+}
+
+async function notifyTerritoryClanOfSectorWar(session: SectorWarSession): Promise<void> {
+    const territory = await kv.get<Record<string, unknown>>(territoryKey(session.sector));
+    const ownerClan = String(territory?.ownerClan ?? '').trim();
+    if (!ownerClan) return;
+    const generation = Math.max(1, Math.floor(Number(session.declarationGeneration) || 1));
+    const noticeId = `sector-war:${session.id}:g${generation}`;
+    const clanKey = clanRecordKey(ownerClan);
+    await withKvLock(clanKey, async () => {
+        const clan = await kv.get<Record<string, unknown>>(clanKey);
+        if (!clan) return;
+        const existing = Array.isArray(clan.notices)
+            ? clan.notices.filter((notice): notice is Record<string, unknown> => !!notice && typeof notice === 'object')
+            : [];
+        if (existing.some((notice) => notice.id === noticeId)) return;
+        const notice: Record<string, unknown> = {
+            id: noticeId,
+            type: 'guard',
+            title: `Sector ${session.sector} is under siege`,
+            body: `${session.attackerVillage} opened a 72-hour sector war against ${session.defenderVillage}. If the attacker finishes ahead, your clan loses this sector. Rally defenders before ${new Date(session.endsAt).toLocaleString('en-US', { timeZone: 'UTC' })} UTC.`,
+            author: 'System',
+            authorRole: 'System',
+            createdAt: session.startedAt,
+            pinned: true,
+            sector: session.sector,
+        };
+        const notices = [notice, ...existing]
+            .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))
+                || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+            .slice(0, 24);
+        const next = { ...clan, notices };
+        if (!(await kv.compareSet(clanKey, clan, next))) throw new Error('sector-war-clan-notice-conflict');
+    }, { failClosed: true });
 }
 
 async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {

@@ -18,6 +18,8 @@ export interface GameNotification {
     tone: NotifTone;
     /** Click target. Omitted ⇒ the chip is informational (not navigable). */
     screen?: Screen;
+    /** Optional destination within a multi-tab screen. */
+    targetView?: "territory";
 }
 
 // Screens that are battle-ONLY (no lobby state) — simply being on one means an
@@ -78,6 +80,8 @@ export interface NotifInputs {
     inBattle: boolean;
     /** Active clan war the player's clan is fighting, or null. */
     clanWar: { enemy: string } | null;
+    /** Most urgent breached sector owned by the player's clan. */
+    territoryBreach: { sector: number; minutesLeft: number } | null;
     /** Active village war the player's village is fighting, or null. */
     villageWar: { enemy: string; pending: boolean } | null;
     /** A live arena tournament, or null. */
@@ -95,6 +99,21 @@ export function buildNotifications(inputs: NotifInputs): GameNotification[] {
         // Informational: you're already looking at the fight, and the nav lock
         // blocks leaving it — so no click target.
         out.push({ id: "battle", icon: "⚔️", label: "In battle", tone: "danger" });
+    }
+
+    if (inputs.territoryBreach) {
+        const minutes = Math.max(1, Math.ceil(inputs.territoryBreach.minutesLeft));
+        const timeLeft = minutes >= 60
+            ? `${Math.ceil(minutes / 60)}h left`
+            : `${minutes}m left`;
+        out.push({
+            id: "territoryBreach",
+            icon: "🚨",
+            label: `Sector ${inputs.territoryBreach.sector} breached · ${timeLeft}`,
+            tone: "danger",
+            screen: "clan",
+            targetView: "territory",
+        });
     }
 
     if (inputs.clanWar) {

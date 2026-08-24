@@ -25,6 +25,15 @@ import type { VersionedCharacterCommit } from "../../types/character";
 
 const ACCENT = "#84cc16";
 
+function ProfessionBonusStat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="summary-box profession-bonus-stat" style={{ flex: "1 1 140px", textAlign: "center", border: `1px solid ${ACCENT}55` }}>
+            <div style={{ fontSize: "1.3rem", fontWeight: 800, color: ACCENT }}>{value}</div>
+            <div className="hint" style={{ fontSize: "0.74rem" }}>{label}</div>
+        </div>
+    );
+}
+
 export function PetTamerHub({
     character,
     onVersionedCharacter,
@@ -41,15 +50,8 @@ export function PetTamerHub({
     const expeditionPct = Math.round((petTamerExpeditionMult(character) - 1) * 1000) / 10;
     const pets = character.pets ?? [];
 
-    const stat = (label: string, value: string) => (
-        <div className="summary-box" style={{ flex: "1 1 140px", textAlign: "center", border: `1px solid ${ACCENT}55` }}>
-            <div style={{ fontSize: "1.3rem", fontWeight: 800, color: ACCENT }}>{value}</div>
-            <div className="hint" style={{ fontSize: "0.74rem" }}>{label}</div>
-        </div>
-    );
-
     return (
-        <div className="card">
+        <div className="card profession-hub profession-hub-pet-tamer" style={{ "--profession-accent": ACCENT } as React.CSSProperties}>
             <BackToVillageButton onClick={onBack} label="← Back" />
             <ProfessionHero image={petTamerBg} icon="🐾" title="Pet Tamer" tagline="Walk with beasts." accent={ACCENT} />
 
@@ -57,10 +59,10 @@ export function PetTamerHub({
 
             {/* Live profession bonuses */}
             <h4 style={{ margin: "1rem 0 0.5rem" }}>Active Bonuses</h4>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1rem" }}>
-                {stat("PvE Pet Damage", `+${pveBonusPct}%`)}
-                {stat("Training Speed", `+${trainSpeedPct}%`)}
-                {stat("Expedition Rewards", `+${expeditionPct}%`)}
+            <div className="profession-bonus-grid" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1rem" }}>
+                <ProfessionBonusStat label="PvE Pet Damage" value={`+${pveBonusPct}%`} />
+                <ProfessionBonusStat label="Training Speed" value={`+${trainSpeedPct}%`} />
+                <ProfessionBonusStat label="Expedition Rewards" value={`+${expeditionPct}%`} />
             </div>
             <p className="hint" style={{ margin: "0 0 1rem", fontSize: "0.78rem" }}>
                 Your first expedition each day grants <strong style={{ color: ACCENT }}>2× Tamer XP</strong>. Bonuses scale as you rank up.
@@ -73,9 +75,9 @@ export function PetTamerHub({
                     You haven't befriended any beasts yet. Visit the Pet Yard to find a companion.
                 </p>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: "1rem" }}>
+                <div className="profession-companion-list" style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: "1rem" }}>
                     {pets.slice(0, 8).map((p, i) => (
-                        <div key={`${p.name}-${i}`} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <div key={`${p.name}-${i}`} className="summary-box profession-companion-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <strong style={{ flex: 1 }}>{p.nickname || p.name}</strong>
                             <span className="hint" style={{ fontSize: "0.78rem" }}>Lv {p.level}</span>
                             {p.element && <span style={{ fontSize: "0.74rem", color: ACCENT }}>{p.element}</span>}
@@ -88,8 +90,8 @@ export function PetTamerHub({
 
             {/* Where to use the bonuses */}
             <h4 style={{ margin: "0 0 0.5rem" }}>Den</h4>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1.5rem" }}>
-                <button onClick={() => setScreen("pets")} style={{ background: `linear-gradient(${ACCENT}cc,${ACCENT}88)`, borderColor: ACCENT, color: "#0a1a02" }}>
+            <div className="profession-action-grid" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1.5rem" }}>
+                <button className="profession-primary-action" onClick={() => setScreen("pets")} style={{ background: `linear-gradient(${ACCENT}cc,${ACCENT}88)`, borderColor: ACCENT, color: "#0a1a02" }}>
                     🐾 Pet Yard
                 </button>
                 <button onClick={() => setScreen("petArena")} style={{ borderColor: ACCENT }}>

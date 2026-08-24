@@ -30,6 +30,106 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     grid-template-columns: minmax(140px, 210px) minmax(0, 1fr) minmax(140px, 210px) !important;
 }
 
+/* Desktop battlefield priority.
+   The generic Arena composition gives the loadout two tall rows and lets the
+   AP header grow past 110px. On a 900px-tall display that leaves only ~280px
+   for the tactical board; at 125% browser/OS scaling it falls close to 200px.
+   Mission combat has a scroll-owned loadout already, so keep its utility bands
+   compact and give the remaining height and width to the surface players aim
+   at. The direct-body/high-specificity form is intentional: CombatInstance is
+   portaled to body and older data-vp desktop rules otherwise win by source
+   order in some production chunk arrangements. */
+@media (min-width: 1024px) {
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight {
+        padding: 14px 16px 12px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout {
+        grid-template-columns: clamp(180px, 13vw, 190px) minmax(0, 1fr) clamp(180px, 13vw, 190px) !important;
+        gap: 12px !important;
+        height: calc(100dvh - 26px) !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout > .combat-side-hud {
+        padding: 14px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-layout.has-action-notice > .combat-main-area {
+        grid-template-rows:
+            28px
+            clamp(72px, 10dvh, 88px)
+            26px
+            minmax(240px, 1fr)
+            72px
+            clamp(104px, 15dvh, 132px)
+            46px !important;
+        gap: 6px !important;
+        padding: 6px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-action-notice {
+        height: 28px !important;
+        max-height: 28px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .dual-ap-panel {
+        height: 100% !important;
+        min-height: 0 !important;
+        padding: 4px 18px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .round-timer-display {
+        min-width: 70px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .round-timer-display .round-timer-ring {
+        width: 54px !important;
+        height: 54px !important;
+        border-width: 3px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .round-timer-display .round-timer-num {
+        font-size: 24px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .twp-strip {
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 auto !important;
+        padding: 3px 12px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .shinobi-command-bar {
+        grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        padding: 6px 8px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .shinobi-command-bar button {
+        min-height: 52px !important;
+        padding: 6px 8px !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-jutsu-bar,
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-text-log {
+        height: 100% !important;
+        max-height: none !important;
+        min-height: 0 !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .combat-jutsu-bar {
+        padding: 6px !important;
+        overflow-y: auto !important;
+    }
+}
+
+@media (min-width: 1024px) and (max-height: 800px) {
+    html[data-vp] body > .arena-fullscreen.pvp-battle-layout.mission-arena-fight .round-timer-display > small {
+        display: none !important;
+    }
+}
+
 /* Action-notice slot — the rejection alert and the armed-action hint share ONE
    grid child. `.combat-main-area` (desktop) and `.combat-layout` (mobile) are
    fixed-track grids whose bands are placed by `order`; an unordered extra child

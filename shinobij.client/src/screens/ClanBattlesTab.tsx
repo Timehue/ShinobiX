@@ -297,7 +297,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                             </button>
                         </div>
                         <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", margin: "6px 0 0" }}>
-                            Shinobi 2v2 is unavailable until one server-owned four-player PvP lifecycle can settle the whole challenge.
+                            Shinobi 2v2 is a single four-player battle: both pairs fight on one board and the server settles the whole challenge.
                         </p>
                         {atSlotCap && (
                             <p style={{ fontSize: "0.78rem", color: "var(--red-400)", marginTop: 6 }}>You're at the {CW_MAX_PER_PLAYER}-slot cap. Cancel one of your active challenges or wait for them to resolve / expire.</p>
@@ -326,12 +326,11 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                 {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
                                                 <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
                                             </strong>
-                                            {!isSeed && ch.mode !== "pvp2v2" && (
+                                            {!isSeed && (
                                                 <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🤝 Join as Partner
                                                 </button>
                                             )}
-                                            {ch.mode === "pvp2v2" && <span className="hint">Unavailable; cancel or let this retained queue expire.</span>}
                                             {isSeed && (
                                                 <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
                                                     ✕ Cancel Queue
@@ -373,12 +372,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             {!isTwoV && !meQueued && (
                                                 <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)" }}>Accept</button>
                                             )}
-                                            {isTwoV && ch.mode !== "pvp2v2" && !meQueued && !ch.acceptedPlayer && (
+                                            {isTwoV && !meQueued && !ch.acceptedPlayer && (
                                                 <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🪑 Queue to Accept (1st)
                                                 </button>
                                             )}
-                                            {isTwoV && ch.mode !== "pvp2v2" && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
+                                            {isTwoV && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
                                                 <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🤝 Join Accept Queue (2nd)
                                                 </button>
@@ -388,7 +387,6 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                     ✕ Leave Accept Queue
                                                 </button>
                                             )}
-                                            {ch.mode === "pvp2v2" && <span className="hint">Unavailable; decline or leave this retained queue.</span>}
                                             {!meQueued && (
                                                 <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
                                                     Decline (clan)
@@ -482,11 +480,9 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                     {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
                                                     <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
                                                 </strong>
-                                                {ch.mode === "pvp2v2"
-                                                    ? <span className="hint">No four-player combat authority; this retained record cannot launch.</span>
-                                                    : <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "var(--slate-900)", borderColor: "var(--slate-600)", color: "var(--text-dim)", fontSize: "0.78rem" }}>
-                                                        ↻ Re-launch
-                                                    </button>}
+                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "var(--slate-900)", borderColor: "var(--slate-600)", color: "var(--text-dim)", fontSize: "0.78rem" }}>
+                                                    ↻ Re-launch
+                                                </button>
                                             </div>
                                             {hasTentative && (
                                                 <div style={{ background: "#0f1a2a", border: "1px solid var(--blue-400)", borderRadius: 4, padding: "0.4rem 0.6rem", marginBottom: 6, fontSize: "0.82rem" }}>

@@ -6,8 +6,8 @@ import {
     missionRewardBonusPct, boostAmount,
     hasDailyMissionSlot, dailyMissionsCompleted, markMissionCompletedFields,
     hasDailyHuntSlot, dailyHuntsCompleted, dailyHuntCap, markHuntCompletedFields,
-    applyCurrencyRewardFields, grantTerritoryScrollsToInventory, grantItemsToInventory,
-    DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, FIELD_MISSION_SCROLLS, TERRITORY_CONTROL_SCROLL_ID,
+    applyCurrencyRewardFields, grantItemsToInventory,
+    DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, FIELD_MISSION_SCROLLS, HUNT_MISSION_SCROLLS,
 } from './_mission-catalog.js';
 
 // ─── Inline replica of the CLIENT mission reward data ───────────────────────
@@ -19,12 +19,12 @@ import {
 // lockstep (the "server == client" rule, same convention as _xp-engine.test.ts).
 
 const C_COMBAT = [
-    { key: 'combat-e-drill', min: 1, xp: 15, ryo: 10, territoryScrolls: 1, aiProfileId: 'builtin-ai-academy-sparring' },
-    { key: 'combat-d-errand', min: 5, xp: 25, ryo: 20, territoryScrolls: 1, aiProfileId: 'builtin-ai-mist-sentinel' },
-    { key: 'combat-c-patrol', min: 15, xp: 75, ryo: 60, territoryScrolls: 1, aiProfileId: 'builtin-ai-ember-duelist' },
-    { key: 'combat-b-escort', min: 30, xp: 150, ryo: 125, territoryScrolls: 1, aiProfileId: 'builtin-ai-frost-sealer' },
-    { key: 'combat-a-hunt', min: 50, xp: 300, ryo: 250, territoryScrolls: 1, aiProfileId: 'builtin-ai-shadow-weaver' },
-    { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
+    { key: 'combat-e-drill', min: 1, xp: 15, ryo: 10, territoryScrolls: 0, aiProfileId: 'builtin-ai-academy-sparring' },
+    { key: 'combat-d-errand', min: 5, xp: 25, ryo: 20, territoryScrolls: 0, aiProfileId: 'builtin-ai-mist-sentinel' },
+    { key: 'combat-c-patrol', min: 15, xp: 75, ryo: 60, territoryScrolls: 0, aiProfileId: 'builtin-ai-ember-duelist' },
+    { key: 'combat-b-escort', min: 30, xp: 150, ryo: 125, territoryScrolls: 0, aiProfileId: 'builtin-ai-frost-sealer' },
+    { key: 'combat-a-hunt', min: 50, xp: 300, ryo: 250, territoryScrolls: 0, aiProfileId: 'builtin-ai-shadow-weaver' },
+    { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 0, aiProfileId: 'builtin-ai-central-champion' },
 ];
 
 const C_FIELD = [
@@ -194,9 +194,9 @@ describe('reward application helpers', () => {
         assert.deepEqual(applyCurrencyRewardFields({}, undefined), {});
     });
 
-    it('grantTerritoryScrollsToInventory appends N scroll ids', () => {
-        const inv = grantTerritoryScrollsToInventory({ inventory: ['x'] }, FIELD_MISSION_SCROLLS);
-        assert.equal(inv.length, 1 + FIELD_MISSION_SCROLLS);
-        assert.equal(inv.filter((i) => i === TERRITORY_CONTROL_SCROLL_ID).length, FIELD_MISSION_SCROLLS);
+    it('keeps every normal mission Territory Scroll reward disabled', () => {
+        assert.equal(FIELD_MISSION_SCROLLS, 0);
+        assert.equal(HUNT_MISSION_SCROLLS, 0);
+        assert.ok(COMBAT_MISSIONS.every((mission) => mission.territoryScrolls === 0));
     });
 });

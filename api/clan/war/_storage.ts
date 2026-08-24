@@ -85,8 +85,9 @@ export type ClanWar = {
 // ── Constants ───────────────────────────────────────────────────────
 export const CLAN_WAR_HP_MAX = 1000;
 // Damage per challenge type on win. Tier: combat > pet battle > cards.
-// 2v2 modes pay double the 1v1 of the same tier — the wins represent
-// two real fights happening sequentially under the hood.
+// 2v2 modes pay double the 1v1 of the same tier: the win is worth two
+// shinobi's contribution. (Values unchanged from when 2v2 was modelled as two
+// sequential duels; pvp2v2 now resolves as ONE four-player fight instead.)
 export const CHALLENGE_DAMAGE: Record<ChallengeMode, number> = {
     pvp1v1: 30,
     pvp2v2: 60,
@@ -231,7 +232,7 @@ export function computeMvpByClan(war: ClanWar): Record<string, string> {
 // for kv.set'ing the result and stamping the rematch cooldown key.
 export function finalizeClanWarEnd(
     war: ClanWar,
-    opts: { endedAt: number; winnerClan?: string; reason: 'hp-zero' | 'timeout' }
+    opts: { endedAt: number; winnerClan?: string; reason: 'hp-zero' | 'timeout' | 'dissolution' }
 ): ClanWar {
     const { endedAt, winnerClan, reason } = opts;
     // Sweep any in-flight challenges → cancelled, move to history.

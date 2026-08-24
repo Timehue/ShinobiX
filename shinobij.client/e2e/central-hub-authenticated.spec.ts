@@ -61,6 +61,8 @@ async function installAuthenticatedApi(page: Page) {
                         boneCharms: 500,
                         auraStones: 500,
                         mythicSeals: 500,
+                        element: "Water",
+                        elements: ["Water", "Wind"],
                         inventory: [
                             ...((incoming.character?.inventory as string[] | undefined) ?? []),
                             "dungeon-key",
@@ -153,6 +155,12 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
     for (const destination of navigations) {
         await page.locator(".central-card").filter({ hasText: destination.tile }).click();
         await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
+        if (destination.tile === "Hunter Guild") {
+            const rankUp = page.locator(".rank-up-btn");
+            await expect(rankUp).toContainText(/^Rank Up → /);
+            await expect(rankUp).not.toContainText("?");
+            await capture(page, testInfo, "hunter-guild-rank-up-desktop");
+        }
         if (destination.tile === "Shinobi Council Hall") {
             await capture(page, testInfo, "council-hall-premium-desktop");
             await page.getByRole("button", { name: "Return to Central" }).click();
@@ -167,7 +175,16 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         await opener.click();
         const dialog = page.getByRole("dialog", { name });
         await expect(dialog).toBeVisible();
-        if (name === "Awakening Stone") await capture(page, testInfo, "awakening-stone-premium-desktop");
+        if (name === "Awakening Stone") {
+            await capture(page, testInfo, "awakening-stone-premium-desktop");
+            const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
+            await forge.scrollIntoViewIfNeeded();
+            await expect(forge).toBeVisible();
+            const sRankForge = dialog.locator(".awakening-forge-card.rank-s");
+            await sRankForge.scrollIntoViewIfNeeded();
+            await expect(sRankForge).toBeVisible();
+            await dialog.screenshot({ path: testInfo.outputPath("awakening-stone-forge-premium-desktop.png"), animations: "disabled" });
+        }
         if (name === "Relic Dungeons") await capture(page, testInfo, "relic-dungeons-premium-desktop");
         await expect(dialog.locator(":focus")).toHaveCount(1);
         await expect.poll(() => page.evaluate(() => (document.querySelector("#root") as HTMLElement | null)?.inert)).toBe(true);
@@ -201,9 +218,20 @@ test("Central premium destinations stay within the mobile viewport", async ({ pa
 
     for (const name of ["Awakening Stone", "Relic Dungeons"]) {
         await page.locator(".central-card").filter({ hasText: name }).click();
-        await expect(page.getByRole("dialog", { name })).toBeVisible();
+        const dialog = page.getByRole("dialog", { name });
+        await expect(dialog).toBeVisible();
         await expectNoHorizontalOverflow();
         await capture(page, testInfo, `${name.toLowerCase().replaceAll(" ", "-")}-mobile`);
+        if (name === "Awakening Stone") {
+            const forge = dialog.getByRole("heading", { name: /Bloodline Forge/i });
+            await forge.scrollIntoViewIfNeeded();
+            await expect(forge).toBeVisible();
+            const sRankForge = dialog.locator(".awakening-forge-card.rank-s");
+            await sRankForge.scrollIntoViewIfNeeded();
+            await expect(sRankForge).toBeVisible();
+            await expectNoHorizontalOverflow();
+            await dialog.screenshot({ path: testInfo.outputPath("awakening-stone-forge-mobile.png"), animations: "disabled" });
+        }
         await page.keyboard.press("Escape");
     }
 

@@ -178,7 +178,6 @@ const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker"
 const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
 const loadIntroCinematic = () => import("./features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic }));
 const IntroCinematic = lazyWithRetry(loadIntroCinematic);
-
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
@@ -191,6 +190,7 @@ const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardB
 const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
 const SectorWarGarrisonAssault = lazyWithRetry(() => import("./screens/SectorWarGarrisonAssault").then(m => ({ default: m.SectorWarGarrisonAssault })));
 const ClanWarPetBattle = lazyWithRetry(() => import("./screens/ClanWarPetBattle").then(m => ({ default: m.ClanWarPetBattle })));
+const ClanWar2v2Battle = lazyWithRetry(() => import("./screens/ClanWar2v2Battle").then(m => ({ default: m.ClanWar2v2Battle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
@@ -239,6 +239,7 @@ const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default
 import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { isPetHomeScreen, petHomeReturnLabel } from "./lib/pet-home-navigation";
@@ -270,9 +271,7 @@ import {
     type AdminAccount,
     type AdminRole,
 } from "./types/core";
-import {
-    type Pet,
-} from "./types/pet";
+import { type Pet } from "./types/pet";
 import {
     type Stats,
     type Jutsu,
@@ -2191,10 +2190,8 @@ export default function App() {
 
         switch (ch.mode) {
             case "pvp2v2": {
-                // The hex-grid engine is 1v1. Do not silently let one duel decide
-                // a four-player result; this mode needs an aggregate two-duel
-                // server protocol before it can safely launch.
-                alert("Clan War 2v2 combat is temporarily unavailable while its two-duel server settlement is completed.");
+                // Four-player board; ClanWar2v2Battle resolves the match itself.
+                if (inferredWarId) setScreen("clanWar2v2"); else onLaunchFailed?.();
                 break;
             }
             case "pvp1v1": {
@@ -3311,11 +3308,13 @@ export default function App() {
                         // breadcrumb and route into authoritative recovery; never
                         // turn a missing browser key into a fabricated loss.
                         const runId = typeof bootLock.meta?.runId === "string" ? bootLock.meta.runId.trim() : "";
+                        // Team Arena 2v2 resumes in the BATTLE ARENA; only the
+                        // co-op climb resumes into the Towers.
+                        const arena2v2 = bootLock.meta?.mode === "mpvp";
                         if (runId && runId.length <= 128) {
-                            if (bootLock.meta?.mode === "mpvp") setTowerPvpMatchId(runId);
-                            else setTowerFightRunId(runId);
+                            if (arena2v2) setTowerPvpMatchId(runId); else setTowerFightRunId(runId);
                         }
-                        setScreen("battleTowers");
+                        setScreen(arena2v2 ? "battleArena" : "battleTowers");
                         return;
                     }
                     let recentlyResolved = "";
@@ -4095,6 +4094,7 @@ export default function App() {
     // A ref prevents duplicate fetches even when called from multiple effects.
     const loadedCatsRef = useRef<Set<string>>(new Set());
     const loadingCatsRef = useRef<Map<string, Promise<void>>>(new Map());
+    const imgRetryRoundsRef = useRef<Map<string, number>>(new Map());
 
     // Applies fetched images into the relevant React state arrays.
     // Extracted so applySnapshot can call it after the KV restore to avoid
@@ -4292,36 +4292,6 @@ export default function App() {
             });
     }
 
-    // SessionStorage cache helpers — images don't change often so 10-min local
-    // cache eliminates most repeat KV reads on page refresh / screen changes.
-    const IMG_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-    function imgCacheKey(cat: string) { return `imgcat:${cat}`; }
-    function clearImgCache() {
-        try {
-            ['item','pet','card','jutsu','event','avatar','ai','bloodline','misc'].forEach(c =>
-                sessionStorage.removeItem(imgCacheKey(c)));
-        } catch { /* private browsing — ignore */ }
-    }
-
-    // Phase 2 (image-as-files): categories served via per-image `/api/img` URLs
-    // instead of one giant base64 bucket. For these, loadCategory fetches only the
-    // lightweight id MANIFEST (`?ids=1`) and hydrates sharedImages with `/api/img`
-    // URLs — the browser then fetches each image individually (CDN/browser-cached)
-    // only when a screen shows it, and the multi-MB base64 blob is NEVER pulled.
-    // Roll out one category at a time, verifying each in-browser. To REVERT a
-    // category, remove it from this set (it falls back to the base64 path below).
-    // ALL loadCategory buckets serve via per-image /api/img URLs (image-as-files
-    // complete). Combat avatar/ai opponent portraits render via the widened
-    // guards; everything else via plain <img>/background. avatar/pet/bloodline
-    // also overwrite player-owned saved fields (character.avatarImage /
-    // character.pets[].image / savedBloodlines[].image) with the URL — that's
-    // fine: the URL is stable + tiny, renders directly, re-hydrates on load, and
-    // publishSharedImage skips re-publishing it (see lib/shared-images.ts). We
-    // deliberately do NOT strip "/api/img" from the localStorage preview, so the
-    // own avatar instant-paints instead of flickering. ('leader' village
-    // portraits ride the separate game-state?images=1 poll, not loadCategory.)
-    // Revert any single category by removing it here.
-    const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu', 'ai', 'shrine', 'landmark', 'avatar', 'pet', 'bloodline']);
 
     function loadCategory(cat: string): Promise<void> {
         if (loadedCatsRef.current.has(cat)) return Promise.resolve();
@@ -4391,12 +4361,12 @@ export default function App() {
                     } catch { /* quota exceeded — skip caching */ }
                 }
                 // Mark loaded even if empty — the category genuinely has no images yet
-                loadedCatsRef.current.add(cat);
+                loadedCatsRef.current.add(cat); imgRetryRoundsRef.current.delete(cat);
                 return;
             } catch { /* network error — retry */ }
         }
-        // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
-        window.setTimeout(() => { if (!loadedCatsRef.current.has(cat)) void loadCategory(cat); }, 10_000);
+        // Both attempts failed — leave loadedCatsRef unset so a later screen visit retries.
+        scheduleImageCategoryRetry(imgRetryRoundsRef.current, cat, () => loadedCatsRef.current.has(cat), () => void loadCategory(cat));
     }
 
     // Warm only shell-critical avatar metadata at login/restore. Route-specific
@@ -6397,13 +6367,13 @@ export default function App() {
     );
 
     const surfaceBlockerMode = playerSurfaceBlockerMode(Boolean(character), screen, gameplayViewAvailability);
-
     return (
         <MaintenanceOperatorBoundary mode={surfaceBlockerMode}>
         <AdaptiveGameShell
             biome={currentBiome}
             screen={screen}
             village={character?.village}
+            uiMode={hideBattleChrome || isBattleViewScreen(screen) ? "combat" : "noncombat"}
             facilityAccent={STUDIO_SCREEN_PRESENTATION[screen].facility?.accent}
             artwork={screen === "start" ? backgroundImage : STUDIO_SCREEN_PRESENTATION[screen].artwork}
         >
@@ -7283,6 +7253,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorGarrison" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarGarrisonAssault character={character} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "clanWar2v2" && character && <ClanWar2v2Battle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
@@ -7342,6 +7313,7 @@ export default function App() {
                 {!activeTriggeredEvent && (screen === "arena" || screen === "battleArena" || screen === "arenaDistrict") && character && (
                     <Arena
                         lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
+                        sharedImages={sharedImages}
                         character={character}
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}

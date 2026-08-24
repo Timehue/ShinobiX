@@ -17,7 +17,7 @@ import { hydrateSectorPools } from "./sector-pool";
 import { serverNow } from "./server-clock";
 import type { Character, PlayerRecord } from "../types/character";
 import type { NoticePost } from "../types/clan";
-import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
+import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_BREACH_DURATION_MS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
@@ -26,7 +26,7 @@ import { clampNumber, currentDateKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
-import { addItem, countItem, removeItem } from "./inventory";
+import { countItem, removeItem } from "./inventory";
 import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";
 
@@ -1053,6 +1053,12 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
  * from (biome, sector, server UTC day) by shared/sector-weather so the server
  * seals the identical value when it applies weather to a sector fight
  * (api/pvp/session.ts). A holding clan's stamped `territory.weather` wins.
+ *
+ * NOTE: the override deliberately does NOT consult `territoryRewardsSuspended`
+ * — api/pvp/session.ts passes the raw territory record to the same shared
+ * resolver, so gating the override client-side would show a different sky than
+ * the fight is sealed with. Reward/bonus suspension is surfaced separately
+ * (ClanHall, WorldMap plates).
  */
 export function weatherForSector(sector: number, biome: Biome): WeatherType {
     return resolveSectorWeather(biome, sector, serverNow(), loadSectorTerritory(sector));
@@ -1060,7 +1066,7 @@ export function weatherForSector(sector: number, biome: Biome): WeatherType {
 
 // Territory + API constants moved to ./constants/game — imported above.
 export type TerritoryBuffStat = "bukijutsuOffense" | "taijutsuOffense" | "ninjutsuOffense" | "genjutsuOffense";
-type SectorTerritory = {
+export type SectorTerritory = {
     sector: number;
     ownerClan?: string;
     ownerVillage?: string;
@@ -1073,6 +1079,11 @@ type SectorTerritory = {
     warSupply: number;
     lastSupplyAt?: number;
     rebuiltAt?: number; // timestamp when sector was last destroyed — blocks recapture for TERRITORY_REBUILD_COOLDOWN_MS
+    breachedAt?: number;
+    breachEndsAt?: number;
+    rewardSuspendedAt?: number;
+    inactiveReleaseAt?: number;
+    releaseReason?: string;
     updatedAt: number;
 };
 
@@ -1134,6 +1145,16 @@ export function loadSectorTerritory(sector: number): SectorTerritory {
     return sharedSectorTerritoryCache[sector] ?? defaultSectorTerritory(sector);
 }
 
+// Accept a territory record returned by a server-authoritative command without
+// publishing it back through the generic world-state route. This keeps the
+// Clan Hall instant while ensuring the server response remains the source of
+// truth for scroll spend, control progress, and capture ownership.
+export function applyAuthoritativeSectorTerritory(territory: SectorTerritory) {
+    const normalized = normalizeSectorTerritory(territory.sector, territory);
+    sharedSectorTerritoryCache[normalized.sector] = normalized;
+    return normalized;
+}
+
 export function saveSectorTerritory(territory: SectorTerritory) {
     const normalized = normalizeSectorTerritory(territory.sector, { ...territory, updatedAt: Date.now() });
     sharedSectorTerritoryCache[normalized.sector] = normalized;
@@ -1146,6 +1167,31 @@ export function saveSectorTerritory(territory: SectorTerritory) {
 // warSupply). The old client producer that ticked it from the device clock
 // and POSTed the territory on every read is gone — reads no longer write.
 
+export function territoryBreachDeadline(territory: SectorTerritory) {
+    if (!territory.breachedAt) return 0;
+    return territory.breachEndsAt ?? territory.breachedAt + TERRITORY_BREACH_DURATION_MS;
+}
+
+export function territoryIsBreached(territory: SectorTerritory, now = Date.now()) {
+    const deadline = territoryBreachDeadline(territory);
+    return Boolean(territory.ownerClan && territory.breachedAt && deadline && (now < deadline || territory.hp <= 0));
+}
+
+export function territoryRewardsSuspended(territory: SectorTerritory, now = Date.now()) {
+    return territoryIsBreached(territory, now) || Boolean(territory.rewardSuspendedAt);
+}
+
+export function territoryBreachMinsLeft(territory: SectorTerritory, now = Date.now()) {
+    const deadline = territoryBreachDeadline(territory);
+    return deadline > now ? Math.ceil((deadline - now) / 60_000) : 0;
+}
+
+export function territoryInactiveReleaseMinsLeft(territory: SectorTerritory, now = Date.now()) {
+    return territory.inactiveReleaseAt && territory.inactiveReleaseAt > now
+        ? Math.ceil((territory.inactiveReleaseAt - now) / 60_000)
+        : 0;
+}
+
 export function loadAllSectorTerritories() {
     return WILD_SECTOR_IDS.map((sector) => loadSectorTerritory(sector));
 }
@@ -1157,15 +1203,8 @@ export function clanOwnedTerritories(clanName?: string) {
 
 export function villageOwnedTerritories(village?: string) {
     if (!village) return [];
-    return loadAllSectorTerritories().filter(territory => territory.ownerVillage === village);
-}
-
-export function clanTerritoryWarMultiplier(clanName?: string) {
-    return 1 + Math.min(10, clanOwnedTerritories(clanName).length) * 0.02;
-}
-
-export function clanTerritoryStartingScore(clanName?: string) {
-    return clanOwnedTerritories(clanName).filter(territory => territory.hp >= TERRITORY_HP_MAX).length * 250;
+    return loadAllSectorTerritories().filter(territory => territory.ownerVillage === village
+        && !territoryRewardsSuspended(territory));
 }
 
 export function villageTerritoryWarSupply(village?: string) {
@@ -1196,26 +1235,16 @@ export function removeTerritoryScrolls(character: Character, count: number) {
     return removeItem(character, TERRITORY_CONTROL_SCROLL_ID, count);
 }
 
-export function grantTerritoryScrolls(character: Character, count: number) {
-    return addItem(character, TERRITORY_CONTROL_SCROLL_ID, count);
-}
-
 export function damageSectorTerritory(sector: number, amount: number) {
     const territory = loadSectorTerritory(sector);
     if (!territory.ownerClan) return territory;
     const hp = Math.max(0, territory.hp - Math.max(0, Math.floor(amount)));
+    const now = Date.now();
     const next = normalizeSectorTerritory(sector, hp <= 0 ? {
         ...territory,
-        ownerClan: undefined,
-        ownerVillage: undefined,
-        backgroundImage: undefined,
-        controlScore: 0,
-        hp: TERRITORY_HP_MAX,
-        weather: undefined,
-        guards: [],
-        warSupply: 0,
-        lastSupplyAt: undefined,
-        rebuiltAt: Date.now(),
+        hp: 0,
+        breachedAt: territory.breachedAt ?? now,
+        breachEndsAt: territory.breachEndsAt ?? now + TERRITORY_BREACH_DURATION_MS,
     } : { ...territory, hp });
     saveSectorTerritory(next);
     return next;
