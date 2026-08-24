@@ -35,6 +35,18 @@ test("AAA mobile layer is last and battle-gated at the shell boundary", () => {
     assert.ok(main.includes("mobileProductViewport.addEventListener('change', ensureMobileProductLayer)"), "desktop-to-mobile resize must request the layer");
 });
 
+test("portaled combat suppresses ambient mobile hint expansion before body mode settles", () => {
+    const screenHintSelectors = [...css.matchAll(/([^{}]+\.screen-hint-(?:banner|copy|dismiss|inline)[^{}]*)\{/g)]
+        .map((match) => match[1].trim());
+    assert.ok(screenHintSelectors.length >= 6, "the mobile layer must retain its screen-hint treatments");
+    for (const selector of screenHintSelectors) {
+        assert.ok(
+            selector.includes(":not(:has(> .combat-instance))"),
+            `combat portal exclusion missing from ${selector}`,
+        );
+    }
+});
+
 test("mobile navigation keeps five anchors and a searchable destination sheet", () => {
     const anchorCount = nav.match(/className="mobile-nav-btn(?: menu-btn)?"/g)?.length ?? 0;
     assert.equal(anchorCount, 5, "the persistent bar must keep the five-anchor mobile pattern");

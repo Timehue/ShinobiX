@@ -598,7 +598,7 @@
     color: var(--sj-gold);
   }
 
-  body:not(.in-battle) .screen-hint-banner {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner {
     bottom: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 8px) !important;
     display: flex !important;
     inline-size: calc(100% - 16px) !important;
@@ -615,7 +615,7 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
-  body:not(.in-battle) .screen-hint-banner .screen-hint-copy {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner .screen-hint-copy {
     min-inline-size: 0;
     max-block-size: 4.25em;
     overflow-y: auto;
@@ -624,7 +624,7 @@
     line-height: 1.4 !important;
   }
 
-  body:not(.in-battle) .screen-hint-banner .screen-hint-dismiss {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner .screen-hint-dismiss {
     flex: 0 0 auto !important;
     inline-size: auto !important;
     width: auto !important;
@@ -1230,7 +1230,7 @@
   }
 
   /* The ambient hint must never squeeze its label out on copy-heavy routes. */
-  body:not(.in-battle) .screen-hint-banner .screen-hint-inline {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner .screen-hint-inline {
     display: flex !important;
     inline-size: 100%;
     min-inline-size: 0;
@@ -1238,7 +1238,7 @@
     gap: 10px;
   }
 
-  body:not(.in-battle) .screen-hint-banner .screen-hint-dismiss {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner .screen-hint-dismiss {
     box-sizing: border-box;
     flex: 0 0 132px !important;
     inline-size: 132px !important;
@@ -1253,7 +1253,7 @@
 }
 
 @media (max-width: 359px) {
-  body:not(.in-battle) .screen-hint-banner .screen-hint-dismiss {
+  body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner .screen-hint-dismiss {
     flex-basis: 116px !important;
     inline-size: 116px !important;
     min-inline-size: 116px !important;
