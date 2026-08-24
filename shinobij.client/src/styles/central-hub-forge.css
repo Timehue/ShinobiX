@@ -180,13 +180,15 @@
 
 .cf-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+    min-width: 0;
 }
 
 .cf-card {
     display: flex;
     flex-direction: column;
+    min-width: 0;
     gap: 6px;
     padding: 14px;
     border: 1px solid rgba(148,163,184,.22);
@@ -416,6 +418,15 @@
 
 .nw-commit:hover {
     opacity: 0.85;
+}
+
+/* Keep this override beside the component styles. CentralHub is lazy-loaded,
+   so a mobile rule in the eager shell stylesheet can be inserted before this
+   file and lose the cascade, leaving recipe tracks wider than the viewport. */
+@media (max-width: 480px) {
+    .cf-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* ── Named Weapon Odds Panel ───────────────────────────────────── */
