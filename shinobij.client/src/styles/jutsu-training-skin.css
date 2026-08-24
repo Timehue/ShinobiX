@@ -417,6 +417,28 @@
 .jutsu-detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .jutsu-training-screen .jutsu-detail-stack > p { margin: 0 !important; color: #9faec1 !important; font: 500 11px/1.45 Inter, sans-serif !important; text-align: left !important; }
 .jutsu-training-screen .jutsu-detail-stack > p strong { color: #d9e4f2 !important; font-weight: 750; }
+.jutsu-detail-description { padding: 9px 10px; border-left: 3px solid rgba(96, 165, 250, 0.65); background: rgba(30, 64, 175, 0.10); color: #cbd9eb !important; }
+
+.ui-modal-card.jutsu-mobile-info-modal {
+    width: min(94vw, 560px);
+    max-height: min(88dvh, 780px);
+    border-color: rgba(96, 165, 250, 0.42);
+    background: linear-gradient(160deg, #111d33, #050b18 72%);
+}
+
+.jutsu-mobile-info-modal > .ui-modal-body { overflow-y: auto; overscroll-behavior: contain; }
+.jutsu-mobile-info-content { display: grid; gap: 14px; min-width: 0; }
+.jutsu-mobile-info-hero { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 12px; }
+.jutsu-mobile-info-hero > span { display: grid; width: 70px; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid rgba(232, 212, 150, 0.38); border-radius: 10px; background: #071022; color: #f3e3aa; font: 800 13px var(--font-display); }
+.jutsu-mobile-info-hero img { width: 100%; height: 100%; object-fit: cover; }
+.jutsu-mobile-info-hero > div { display: grid; gap: 5px; min-width: 0; }
+.jutsu-mobile-info-hero strong { color: #f3e3aa; font: 800 17px/1.2 var(--font-display); letter-spacing: 0.06em; }
+.jutsu-mobile-info-hero small { color: #93a4ba; font: 650 11px/1.35 Inter, sans-serif; }
+.jutsu-mobile-info-modal .jutsu-detail-stack > p { margin: 0; color: #aebdd0; font: 500 12px/1.5 Inter, sans-serif; text-align: left; }
+.jutsu-mobile-info-modal .jutsu-detail-stack > p strong { color: #e3ebf6; }
+.jutsu-mobile-info-modal .jutsu-detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.jutsu-mobile-info-modal .jutsu-mobile-train-action { width: 100%; min-height: 48px; border: 1px solid rgba(96, 165, 250, 0.78); border-radius: 8px; background: linear-gradient(180deg, #2764c6, #173f8e); color: #fff; font: 800 12px var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; }
+.jutsu-mobile-info-modal .jutsu-mobile-train-action:disabled { opacity: 0.52; }
 
 .jutsu-training-screen button:focus-visible,
 .jutsu-training-screen input:focus-visible,
@@ -442,7 +464,15 @@
     .jutsu-library-heading { display: grid; }
     .jutsu-training-screen .jutsu-library-heading p { text-align: left !important; }
     .jutsu-training-screen .technique-shell { display: flex !important; flex-direction: column !important; }
-    .jutsu-training-screen .technique-filter-panel { position: static !important; max-height: none !important; overflow: visible !important; }
+    .jutsu-training-screen .technique-filter-panel {
+        display: grid !important;
+        order: 1 !important;
+        grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+        position: static !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    .jutsu-training-screen .technique-selected-panel { display: none; }
     .jutsu-training-screen .technique-grid { max-height: 520px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
     .jutsu-training-screen .technique-card { grid-template-rows: 78px minmax(34px, auto) !important; min-height: 126px !important; }
 }
@@ -460,7 +490,17 @@
     .jutsu-queue-card > button { grid-column: 1; grid-row: auto; width: 100%; }
     .jutsu-notice { grid-template-columns: 1fr auto; }
     .jutsu-notice > span { grid-column: 1 / -1; grid-row: 2; }
-    .jutsu-training-screen .technique-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 480px; padding: 7px; }
+    .jutsu-training-screen .technique-grid { grid-template-columns: minmax(0, 1fr); max-height: none; padding: 7px; overflow: visible; }
+    .jutsu-training-screen .technique-card {
+        grid-template-columns: 72px minmax(0, 1fr);
+        grid-template-rows: 72px !important;
+        align-items: center;
+        min-height: 84px !important;
+        padding: 6px 42px 6px 6px !important;
+    }
+    .jutsu-training-screen .technique-thumb { grid-column: 1; grid-row: 1; width: 72px; height: 72px; }
+    .jutsu-training-screen .technique-name { grid-column: 2; grid-row: 1; font-size: 11px; line-height: 1.3; text-align: left; }
+    .jutsu-training-screen .technique-cost { top: 50%; right: 9px; translate: 0 -50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

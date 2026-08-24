@@ -308,6 +308,33 @@ for (const screen of NON_COMBAT_SCREENS) {
     });
 }
 
+test("Jutsu Training opens mobile technique details with a training action", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-mobile", "mobile jutsu interaction regression");
+    const runtimeErrors = collectRuntimeErrors(page);
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "jutsuTraining");
+
+    const technique = page.locator(".jutsu-library .technique-card").first();
+    const techniqueName = (await technique.locator(".technique-name").textContent())?.trim() ?? "";
+    await technique.click();
+
+    const dialog = page.locator(".jutsu-mobile-info-modal");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: techniqueName })).toBeVisible();
+    await expect(dialog.locator(".jutsu-detail-description")).not.toBeEmpty();
+    await expect(dialog.getByRole("button", { name: /unlock|train|battle training|another lesson/i })).toBeVisible();
+    // The modal enters with a short scale animation. Audit the settled target
+    // boxes so a transient sub-pixel transform cannot turn 44px into 43.99px.
+    await page.waitForTimeout(150);
+    await expectViewportSafe(page);
+
+    const metrics = await auditVisibleScreen(page, ".jutsu-mobile-info-modal");
+    expect(metrics.clippedControls, "the mobile jutsu dialog has controls clipped by the viewport").toEqual([]);
+    expect(metrics.undersizedControls, "the mobile jutsu dialog has undersized touch targets").toEqual([]);
+    expect(runtimeErrors, "the mobile jutsu dialog emitted runtime errors").toEqual([]);
+    await capture(page, testInfo, "jutsu-training-info");
+});
+
 const PROFESSION_HUB_VARIANTS = [
     { id: "healer", className: "profession-hub-healer", rank: 5, xp: 3_000, capture: "professions-healer" },
     { id: "vanguard", className: "profession-hub-vanguard", rank: 5, xp: 2_500, capture: "professions-vanguard" },
