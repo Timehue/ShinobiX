@@ -41,6 +41,14 @@ export type CwWar = {
     completedChallenges: CwChallenge[];
     warCrateId?: string;
     mvpByClan?: Record<string, string>;
+    // Village Stores clan mirror — stamped by the daily pass
+    // (api/_village-stores-daily.ts runClanStoresDailyPass) once per UTC day:
+    // `storesDate` is that day, `storesFed[clan]` is whether the clan's
+    // treasury covered its 30 rations. Both are absent until the first pass
+    // runs on a war, so read them through clanWarFedToday() in ./clan-stores,
+    // which refuses to present a missing or stale stamp as "unfed".
+    storesDate?: string;
+    storesFed?: Record<string, boolean>;
 };
 // CW_HP_MAX / CW_DAMAGE / CW_MODE_LABEL / CW_MODE_ICON moved to ./constants/clan.
 
