@@ -13,6 +13,35 @@ const ARMOR_SPECIALS = [
 ] as const;
 const SLOTS = ['head', 'body', 'waist', 'legs', 'feet', 'hand'] as const;
 
+/**
+ * Receipts stay string-only for save-schema compatibility, but new entries also
+ * carry the minted definition id. That gives a lost-response retry enough data
+ * to return the exact item without re-rolling or charging the player again.
+ */
+export function makeNamedForgeReceipt(token: string, itemId: string): string {
+    return `${token}:${itemId}`;
+}
+
+export function resolveNamedForgeReplay(
+    receiptsRaw: unknown,
+    token: string,
+    creatorItemsRaw: unknown,
+): { matched: boolean; item: Record<string, unknown> | null } {
+    const receipts = Array.isArray(receiptsRaw) ? receiptsRaw.filter((value): value is string => typeof value === 'string') : [];
+    const receipt = receipts.find((value) => value === token || value.startsWith(`${token}:`));
+    if (!receipt) return { matched: false, item: null };
+
+    // Legacy receipts contain only the token. They remain recognized as spent,
+    // while every receipt minted from this version onward is fully recoverable.
+    const itemId = receipt.slice(token.length + 1);
+    if (!itemId) return { matched: true, item: null };
+    const creatorItems = Array.isArray(creatorItemsRaw) ? creatorItemsRaw : [];
+    const item = creatorItems.find((value): value is Record<string, unknown> =>
+        !!value && typeof value === 'object' && !Array.isArray(value) && (value as Record<string, unknown>).id === itemId,
+    );
+    return { matched: true, item: item ?? null };
+}
+
 export type NamedRoll =
     | { kind: 'weapon'; ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> }
     | { kind: 'armor'; slot: typeof SLOTS[number]; armorQuality: 'Elite' | 'Legendary' | 'Mythic'; offenseVal: number; defenseVal: number; special: { kind: string; bonusKey: string; value: number } };

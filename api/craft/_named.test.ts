@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildNamedItem, debitNamedForge } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay } from './_named.js';
 
 describe('named forge authority', () => {
     it('debits the canonical 1000-point premium pool and rejects insufficient funds', () => {
@@ -12,6 +12,20 @@ describe('named forge authority', () => {
     it('builds combat fields only from the sealed roll', () => {
         const item = buildNamedItem({ kind: 'weapon', ep: 31, range: 4, offenseVal: 170, tags: [{ name: 'Wound', percent: 36 }] }, 'Blade', 'Lore');
         assert.equal(item.weaponEp, 31); assert.equal(item.apCost, 40); assert.equal(item.bonuses.ninjutsuOffense, 170);
+    });
+
+    it('recovers the exact forged item from an idempotency receipt', () => {
+        const token = 'forgeToken123456';
+        const item = { id: 'named-weapon-1234', name: 'Storm Fang' };
+        const receipt = makeNamedForgeReceipt(token, item.id);
+        assert.equal(receipt, `${token}:${item.id}`);
+        assert.deepEqual(resolveNamedForgeReplay([receipt], token, [{ id: 'other' }, item]), { matched: true, item });
+        assert.deepEqual(resolveNamedForgeReplay([receipt], 'differentToken12', [item]), { matched: false, item: null });
+    });
+
+    it('recognizes legacy token-only receipts without inventing an item', () => {
+        const token = 'legacyToken12345';
+        assert.deepEqual(resolveNamedForgeReplay([token], token, [{ id: 'named-weapon-unrelated' }]), { matched: true, item: null });
     });
 
     /*

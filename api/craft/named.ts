@@ -7,7 +7,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
-import { buildNamedItem, debitNamedForge, rollNamedForge, type NamedRoll } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 
@@ -46,15 +46,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const token = cleanToken(body.token); if (!token) return res.status(400).json({ error: 'Invalid forge token.' });
         const result = await mutatePlayerSave<{ replayed: boolean; item: Record<string, unknown> | null }>(playerName, async ({ character, record }) => {
-            const receipts = Array.isArray(character.redeemedNamedForges) ? character.redeemedNamedForges as string[] : [];
-            if (receipts.includes(token)) return { ok: true as const, character, value: { replayed: true, item: null } };
+            const receipts = Array.isArray(character.redeemedNamedForges)
+                ? character.redeemedNamedForges.filter((value): value is string => typeof value === 'string')
+                : [];
+            const creatorItems = Array.isArray(record.creatorItems) ? record.creatorItems as Array<Record<string, unknown>> : [];
+            const replay = resolveNamedForgeReplay(receipts, token, creatorItems);
+            if (replay.matched) {
+                return { ok: true as const, character, write: false, value: { replayed: true, item: replay.item } };
+            }
             const sealed = await kv.get<{ playerName: string; roll: NamedRoll }>(`named-forge:${playerName}:${token}`);
             if (!sealed || sealed.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-roll' };
             const paid = debitNamedForge(character); if (!paid) return { ok: false as const, status: 409, error: 'insufficient-forge-materials' };
             const item = buildNamedItem(sealed.roll, sanitizeUserText(body.name, 60), sanitizeUserText(body.flavorText, 300));
             const inventory = Array.isArray(paid.inventory) ? paid.inventory as string[] : [];
-            const creatorItems = Array.isArray(record.creatorItems) ? record.creatorItems as Array<Record<string, unknown>> : [];
-            return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), token] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
+            return { ok: true as const, character: { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(token, item.id)] }, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         // P0-3: durable definition registry — the in-save creatorItems copy is a
