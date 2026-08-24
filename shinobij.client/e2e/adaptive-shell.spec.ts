@@ -11,6 +11,42 @@ import {
     expectNoLargeOverlap,
     expectViewportSafe,
 } from "./helpers/adaptive-assertions";
+// Mirrored from shared/wanderer-roster.ts rather than imported: that module
+// reaches sideways to `./sector-geo.js`, an extension the Playwright runner's
+// TypeScript resolution refuses, so importing it fails collection outright.
+// shared/wanderer-roster.test.ts pins both values on the source side.
+const WANDERER_BUCKET_MS = 6 * 60 * 60 * 1000;
+const WANDERER_MAX_INDEX = 1;
+
+/**
+ * Keep the road empty for a sector-projection run.
+ *
+ * The world is shared, so there is no per-device "hide the NPCs" switch any
+ * more (see src/lib/gameplay-layer-flags.test.ts — `wanderers.v1 = "off"` and
+ * its siblings are retired constants). The bandit archetype WALKS AT YOU and
+ * opens a blocking Fight/Flee encounter, whose scrim then eats every click on
+ * the sector command panel — a non-deterministic failure that lands on
+ * whichever button the run happens to be on when the NPC arrives.
+ *
+ * The supported way to keep a specific NPC off the road is its own anti-farm
+ * cooldown, which is real character state the sector floor already honours. A
+ * sector's natural cast is deterministic per (sector, 6h bucket) and capped at
+ * WANDERER_MAX_INDEX + 1, so seeding whole rosters covers it exactly. The
+ * neighbouring buckets are seeded too because the page reads the bucket off
+ * `serverNow()`, not this process's clock: a run that straddles a boundary — or
+ * meets a mock server an hour out of step — must still find a quiet road.
+ */
+function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, number> {
+    const expiry = now + 30 * 24 * 60 * 60 * 1000;
+    const cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) {
+        const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
+        for (let index = 0; index <= WANDERER_MAX_INDEX; index++) {
+            cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
+        }
+    }
+    return cooldowns;
+}
 
 type SavePayload = {
     character?: Record<string, unknown>;
@@ -860,15 +896,20 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
             totalTilesExplored: 0,
             dailyTilesExplored: 0,
             seenHints: ["worldMap"],
+            // The road NPCs are shared world state now, not a per-device toggle;
+            // their own anti-farm cooldown is what keeps this projection run
+            // free of a blocking Fight/Flee encounter. See quietRoadCooldowns.
+            wandererCooldowns: quietRoadCooldowns(44),
         },
     });
     await installPersistedAdaptiveSession(page);
     await page.addInitScript(() => {
-        localStorage.setItem("wanderers.v1", "off");
-        localStorage.setItem("weeklyBossRoam.v1", "off");
-        localStorage.setItem("sectorPeers.v1", "off");
+        // Only presentation preferences survive here: the gameplay-layer kill
+        // switches (wanderers.v1 / weeklyBossRoam.v1 / sectorPeers.v1 /
+        // villageWarMap.v1) are retired constants and setting them does
+        // nothing. The shared layers are held off by the server capability
+        // snapshot below and by the seeded cooldowns above instead.
         localStorage.setItem("anbuInfiltration.v1", "0");
-        localStorage.setItem("villageWarMap.v1", "0");
     });
 
     const capabilities = publicCapabilitiesExcept("villageWar", "anbuInfiltration");
