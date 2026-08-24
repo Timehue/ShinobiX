@@ -57,7 +57,6 @@ h3 {
     margin: 30px auto;
 }
 
-.start-grid,
 .admin-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -66,10 +65,7 @@ h3 {
     margin: 30px auto;
 }
 
-.admin-start-card {
-    border-color: rgba(250,204,21,.55);
-    box-shadow: 0 0 28px rgba(250,204,21,.08);
-}
+
 
 .admin-panel-switcher {
     display: grid;
@@ -363,41 +359,15 @@ button {
 }
 
 /* ── Hospital admitted banner ── */
-.hospital-admitted-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    background: linear-gradient(135deg, rgba(127,29,29,0.45), rgba(69,10,10,0.55));
-    border: 1px solid rgba(248,113,113,0.4);
-    border-radius: 10px;
-    padding: 0.9rem 1rem;
-    margin-bottom: 1rem;
-}
 
-    .hospital-admitted-banner strong {
-        color: var(--red-300);
-        display: block;
-        margin-bottom: 0.25rem;
-        font-size: 1rem;
-    }
 
-    .hospital-admitted-banner p {
-        color: var(--slate-300);
-        font-size: 0.82rem;
-        margin: 0;
-        line-height: 1.45;
-    }
 
-.hospital-admitted-icon {
-    font-size: 2rem;
-    flex-shrink: 0;
-    line-height: 1;
-}
 
-.bloodline-save-card {
-    display: grid;
-    gap: 8px;
-}
+
+
+
+
+
 
 .summary-box strong,
 .jutsu-card h4 {
@@ -605,11 +575,7 @@ button {
     }
 }
 
-.profile-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 8px;
-}
+
 
 .stat-grid {
     display: grid;

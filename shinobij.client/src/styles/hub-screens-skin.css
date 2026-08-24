@@ -323,12 +323,6 @@
     padding: 14px !important;
     margin-bottom: 14px;
 }
-.mission-hall .hunter-board-header {
-    border-bottom: 1px solid var(--bsv2-gold-faint);
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-    color: var(--bsv2-gold-bright) !important;
-}
 .mission-hall .hunter-rank-banner {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 14px !important;
@@ -464,7 +458,6 @@
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
     gap: 10px !important;
 }
-.mission-hall .mh-fetch-group,
 .mission-hall .mh-combat-enemy {
     background: linear-gradient(180deg, rgba(15,22,40,0.92), rgba(8,12,24,0.96)) !important;
     border: 1px solid var(--bsv2-gold-soft) !important;
@@ -473,7 +466,6 @@
     color: #e8edf5 !important;
     box-shadow: 0 2px 0 rgba(0,0,0,0.6), inset 0 0 16px rgba(0,0,0,0.4);
 }
-.mission-hall .mh-fetch-group-label,
 .mission-hall .mh-combat-name {
     color: var(--bsv2-gold-bright) !important;
     font: 600 11px var(--font-display) !important;
@@ -502,24 +494,8 @@
 /* Field Missions — lay out rank groups side-by-side instead of stacked rows.
    Each rank had its own grid that only contained one mission, leaving huge
    empty space. Display .mh-fetch-group itself in a multi-column grid. */
-.mission-hall .mh-section:has(.mh-fetch-group) {
-    /* Wrap the rank groups in a column layout */
-}
-.mission-hall .mh-section > .mh-fetch-group + .mh-fetch-group {
-    /* Sit groups next to each other when there's space */
-}
-.mission-hall .mh-section > .mh-fetch-group {
-    display: block;
-}
 
 /* Lay out all the rank groups as columns of a parent grid */
-.mission-hall section.mh-section:has(.mh-fetch-group) {
-    /* Render rank groups in a responsive multi-column flow */
-    display: block;
-}
-.mission-hall .mh-section > .mh-fetch-group {
-    margin-bottom: 14px;
-}
 
 /* The key fix: each rank-group's inner grid should keep cards compact */
 .mission-hall .mh-fetch-grid {
@@ -529,19 +505,6 @@
 }
 
 /* Wrap all rank groups into a responsive multi-column flow */
-.mission-hall .mh-section:has(.mh-fetch-group) {
-    column-gap: 14px;
-    column-count: auto;
-    column-width: 320px;
-}
-.mission-hall .mh-section:has(.mh-fetch-group) > .mh-section-title,
-.mission-hall .mh-section:has(.mh-fetch-group) > .hint {
-    column-span: all;
-}
-.mission-hall .mh-fetch-group {
-    break-inside: avoid;
-    page-break-inside: avoid;
-}
 
 /* =========================================================================
    Mission Hall v3 — cinematic operations board

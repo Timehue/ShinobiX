@@ -126,16 +126,13 @@
     letter-spacing: 0.16em;
     text-transform: uppercase;
 }
-.profile-avatar-wrap,
-.profile-avatar-upload-box {
+.profile-avatar-wrap {
     border: 2px solid var(--bsv2-gold-soft) !important;
     border-radius: 50% !important;
     overflow: hidden;
     box-shadow: 0 0 18px rgba(196,162,90,0.2);
 }
-.profile-summary {
-    color: #c8cfdc !important;
-}
+
 .profile-stat {
     display: flex;
     justify-content: space-between;
@@ -335,8 +332,7 @@
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
     gap: 8px !important;
 }
-.stat-card,
-.stat-box {
+.stat-card {
     background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
     border: 1px solid var(--bsv2-gold-soft) !important;
     border-radius: 6px !important;
@@ -569,13 +565,7 @@
 }
 
 /* -------- Item detail popover -------- */
-.item-detail-popover {
-    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
-    border: 1px solid var(--bsv2-gold-soft) !important;
-    border-radius: 6px !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
-    color: #e8edf5 !important;
-}
+
 
 /* -------- Buttons within profile/inventory -------- */
 .profile-page-card button,
@@ -650,18 +640,6 @@
    ========================================================================= */
 
 /* Avatar — circular only on the inner image, not the upload box wrapper */
-.profile-page-card .profile-avatar-upload-box {
-    border: none !important;
-    border-radius: 6px !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    overflow: visible !important;
-    padding: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 8px !important;
-}
 .profile-page-card .avatar-upload-button {
     display: inline-block !important;
     background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
