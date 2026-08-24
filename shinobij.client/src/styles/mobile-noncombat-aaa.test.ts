@@ -10,6 +10,9 @@ const main = readFileSync(join(HERE, "..", "main.tsx"), "utf8");
 const shell = readFileSync(join(HERE, "..", "components", "layout", "AdaptiveGameShell.tsx"), "utf8");
 const app = readFileSync(join(HERE, "..", "App.tsx"), "utf8");
 const nav = readFileSync(join(HERE, "..", "components", "MobileNav.tsx"), "utf8");
+const training = readFileSync(join(HERE, "..", "screens", "Training.tsx"), "utf8");
+const jutsuCss = readFileSync(join(HERE, "jutsu-training-skin.css"), "utf8");
+const missionCss = readFileSync(join(HERE, "hub-screens-skin.css"), "utf8");
 
 test("AAA mobile layer is last and battle-gated at the shell boundary", () => {
     assert.ok(shell.includes('data-ui-mode={uiMode}'), "the adaptive shell must publish its UI mode");
@@ -32,11 +35,24 @@ test("AAA mobile layer is last and battle-gated at the shell boundary", () => {
     assert.ok(main.includes("mobileProductViewport.addEventListener('change', ensureMobileProductLayer)"), "desktop-to-mobile resize must request the layer");
 });
 
-test("mobile navigation keeps five anchors and a searchable destination sheet", () => {
+test("mobile navigation keeps five anchors and a direct destination sheet", () => {
     const anchorCount = nav.match(/className="mobile-nav-btn(?: menu-btn)?"/g)?.length ?? 0;
     assert.equal(anchorCount, 5, "the persistent bar must keep the five-anchor mobile pattern");
     assert.ok(nav.includes('aria-label="Primary game navigation"'));
-    assert.ok(nav.includes('type="search"'));
-    assert.ok(nav.includes('enterKeyHint="search"'));
-    assert.ok(nav.includes("filteredMenuGroups"));
+    assert.ok(nav.includes("PLAYER_MENU_GROUPS.map"));
+    assert.ok(!nav.includes('type="search"'));
+    assert.ok(!nav.includes("Find a destination"));
+});
+
+test("mobile jutsu cards open readable details with the training action inside", () => {
+    assert.ok(training.includes('window.matchMedia("(max-width: 800px)").matches'));
+    assert.ok(training.includes('className="jutsu-mobile-info-modal"'));
+    assert.ok(training.includes("void startPaidJutsuTraining()"));
+    assert.match(jutsuCss, /\.jutsu-training-screen \.technique-selected-panel \{ display: none; \}/);
+    assert.match(jutsuCss, /\.jutsu-training-screen \.technique-grid \{ grid-template-columns: minmax\(0, 1fr\); max-height: none;/);
+});
+
+test("accepted field missions keep their abandon action in mobile flow", () => {
+    assert.match(missionCss, /\.mh-field-card\.mh-field-accepted \.mh-fetch-actions \{[\s\S]*display: contents;/);
+    assert.match(missionCss, /\.mh-field-secondary-action \{[\s\S]*min-height: 30px;/);
 });

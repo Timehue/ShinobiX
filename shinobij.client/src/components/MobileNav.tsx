@@ -9,7 +9,7 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { levelProgress } from "../lib/character-progress";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
@@ -60,7 +60,6 @@ export const MobileNav = memo(function MobileNav({
     const sectorMapOpen = capabilityAdmissionAllowed(villageWarAvailability);
     const sectorMapStatus = sectorMapAdmissionMessage(villageWarAvailability);
     const [open, setOpen] = useState(false);
-    const [menuQuery, setMenuQuery] = useState("");
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
     const [youOpen, setYouOpen] = useState(false);
     const navLockUntilRef = useRef(0);
@@ -96,24 +95,6 @@ export const MobileNav = memo(function MobileNav({
     // Name-keyed shared image as the fallback, so the menu card doesn't drop to
     // initials before character.avatarImage hydrates (lib/own-avatar.ts).
     const avatarSrc = useOwnAvatar(character);
-    const normalizedQuery = menuQuery.trim().toLocaleLowerCase();
-    const filteredMenuGroups = useMemo(() => PLAYER_MENU_GROUPS
-        .map((group) => ({
-            ...group,
-            items: group.items.filter(([target, label]) => {
-                const professionLabel = target === "professions" && character.profession
-                    ? PROFESSION_LABEL[character.profession]
-                    : "";
-                return `${group.label} ${label} ${target} ${professionLabel}`
-                    .toLocaleLowerCase()
-                    .includes(normalizedQuery);
-            }),
-        }))
-        .filter((group) => group.items.length > 0), [character.profession, normalizedQuery]);
-    const showSupport = !normalizedQuery || "support guides discord patreon".includes(normalizedQuery);
-    const showSystem = !normalizedQuery || "system admin logout save".includes(normalizedQuery);
-    const noMenuResults = filteredMenuGroups.length === 0 && !showSupport && !showSystem;
-
     function go(screen: Screen) {
         const now = Date.now();
         if (now < navLockUntilRef.current) return;
@@ -196,24 +177,11 @@ export const MobileNav = memo(function MobileNav({
                         </div>
                     </div>
 
-                    <label className="mobile-menu-search">
-                        <span>Find a destination</span>
-                        <input
-                            type="search"
-                            value={menuQuery}
-                            autoFocus
-                            autoComplete="off"
-                            enterKeyHint="search"
-                            placeholder="Search missions, training, pets…"
-                            onChange={(event) => setMenuQuery(event.target.value)}
-                        />
-                    </label>
-
                     {/* onPointerDown warms each destination's lazy chunk on press,
                         before onClick's go()/navigate fires — see lib/screen-preload.
                         onClick is unchanged; the preload is best-effort + side-effect-free. */}
                     <div className="mobile-menu-groups">
-                        {filteredMenuGroups.map((group) => (
+                        {PLAYER_MENU_GROUPS.map((group) => (
                             <section className="mobile-menu-section" aria-labelledby={`mobile-menu-${group.id}`} key={group.id}>
                                 <h2 id={`mobile-menu-${group.id}`}>{group.label}</h2>
                                 <div className="mobile-menu-grid">
@@ -225,27 +193,21 @@ export const MobileNav = memo(function MobileNav({
                                 </div>
                             </section>
                         ))}
-                        {showSupport && <section className="mobile-menu-section" aria-labelledby="mobile-menu-support">
+                        <section className="mobile-menu-section" aria-labelledby="mobile-menu-support">
                             <h2 id="mobile-menu-support">Support</h2>
                             <div className="mobile-menu-grid">
                                 <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                                 <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
                                 <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiHearts size={20} />Patreon</button>
                             </div>
-                        </section>}
-                        {showSystem && <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">
+                        </section>
+                        <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">
                             <h2 id="mobile-menu-system">System</h2>
                             <div className="mobile-menu-grid">
                                 {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>}
                                 <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
                             </div>
-                        </section>}
-                        {noMenuResults && (
-                            <div className="mobile-menu-empty" role="status">
-                                <strong>No destination found</strong>
-                                <span>Try a system name such as “training,” “pets,” or “mail.”</span>
-                            </div>
-                        )}
+                        </section>
                     </div>
                 </div>
             )}

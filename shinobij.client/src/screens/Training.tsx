@@ -16,6 +16,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { Modal } from "../components/ui/Modal";
 // Compact local stat and duration glyphs shared with the rest of the game.
 import {
     GiBiceps, GiSprint, GiBrain, GiBrainstorm, GiSwirlString, GiWaterSplash,
@@ -465,6 +466,7 @@ export function JutsuTrainingHall({
     const [now, setNow] = useState(Date.now());
     const [jutsuAction, setJutsuAction] = useState<string | null>(null);
     const [jutsuNotice, setJutsuNotice] = useState<JutsuHallNotice | null>(null);
+    const [mobileJutsuInfoId, setMobileJutsuInfoId] = useState<string | null>(null);
     const jutsuActionRef = useRef(false);
     // Village war morale, for DISPLAY only. The server applies it itself as a
     // separate duration multiplier (api/_war-morale.ts → api/training/jutsu-ryo.ts),
@@ -684,6 +686,39 @@ export function JutsuTrainingHall({
         ? Math.max(0, Math.min(100, ((now - activeJutsuTraining.startedAt) / activeDuration) * 100))
         : 0;
     const tagLensDiscipline = playerLensDiscipline(character);
+    const mobileInfoJutsu = availableJutsus.find((jutsu) => jutsu.id === mobileJutsuInfoId) ?? null;
+    const mobileInfoMastery = mobileInfoJutsu ? getJutsuMastery(character, mobileInfoJutsu.id) : null;
+    const mobileInfoCost = mobileInfoMastery ? jutsuTrainingCost(mobileInfoMastery.level) : 0;
+    const mobileInfoAtCap = !!mobileInfoMastery && mobileInfoMastery.level >= ryoTrainCap;
+    const mobileInfoInsufficientRyo = !!mobileInfoMastery && mobileInfoMastery.level > 0 && character.ryo < mobileInfoCost;
+
+    function renderJutsuDetails(jutsu: Jutsu) {
+        const mastery = getJutsuMastery(character, jutsu.id);
+        const scaled = scaleJutsuByLevel(jutsu, mastery.level);
+        const cost = jutsuTrainingCost(mastery.level);
+        const duration = jutsuTrainingDuration(mastery.level);
+        const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
+        const targeting = jutsuTargetingLabel(jutsu);
+        return (
+            <div className="jutsu-detail-stack">
+                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span></div>
+                <p className="jutsu-detail-description">{jutsu.description || jutsu.battleDescription}</p>
+                <div className="jutsu-detail-metrics">
+                    <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
+                    <span><small>Action points</small><strong>{jutsu.ap}</strong></span>
+                    <span><small>Range</small><strong>{jutsu.range}</strong></span>
+                    <span><small>Effect power</small><strong>{scaled.scaledEffectPower}</strong></span>
+                </div>
+                <p><strong>Targeting · {targeting.short}</strong><br />{targeting.detail}</p>
+                <p><strong>Resource cost</strong><br />{jutsuResourceDisplay(jutsu, "chakra", character.level, character.specialty, mastery.level)} chakra · {jutsuResourceDisplay(jutsu, "stamina", character.level, character.specialty, mastery.level)} stamina</p>
+                <p><strong>Tags</strong><br />{displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
+                <p><strong>Training route</strong><br />{mastery.level === 0 ? "Free, instant level 1 unlock" : mastery.level < ryoTrainCap ? `${cost.toLocaleString()} ryo · ${duration / 60000} min · +1 level` : "Battle-earned mastery"}</p>
+                <p><strong>Effects</strong><br />{describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
+                <JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
+            </div>
+        );
+    }
+
     const showAcademyJutsuHint = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
     const queued = activeJutsuTraining?.next ?? null;
     const moraleName = String(warMorale.morale);
@@ -857,34 +892,54 @@ export function JutsuTrainingHall({
                     label="Jutsu library"
                     emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."}
                     selectedJutsuId={selectedJutsuId}
-                    renderDetails={(jutsu) => {
-                        const mastery = getJutsuMastery(character, jutsu.id);
-                        const scaled = scaleJutsuByLevel(jutsu, mastery.level);
-                        const cost = jutsuTrainingCost(mastery.level);
-                        const duration = jutsuTrainingDuration(mastery.level);
-                        const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
-                        const targeting = jutsuTargetingLabel(jutsu);
-                        return (
-                            <div className="jutsu-detail-stack">
-                                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span></div>
-                                <div className="jutsu-detail-metrics">
-                                    <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
-                                    <span><small>Action points</small><strong>{jutsu.ap}</strong></span>
-                                    <span><small>Range</small><strong>{jutsu.range}</strong></span>
-                                    <span><small>Effect power</small><strong>{scaled.scaledEffectPower}</strong></span>
-                                </div>
-                                <p><strong>Targeting · {targeting.short}</strong><br />{targeting.detail}</p>
-                                <p><strong>Resource cost</strong><br />{jutsuResourceDisplay(jutsu, "chakra", character.level, character.specialty, mastery.level)} chakra · {jutsuResourceDisplay(jutsu, "stamina", character.level, character.specialty, mastery.level)} stamina</p>
-                                <p><strong>Tags</strong><br />{displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                                <p><strong>Training route</strong><br />{mastery.level === 0 ? "Free, instant level 1 unlock" : mastery.level < ryoTrainCap ? `${cost.toLocaleString()} ryo · ${duration / 60000} min · +1 level` : "Battle-earned mastery"}</p>
-                                <p><strong>Effects</strong><br />{describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
-                                <JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
-                            </div>
-                        );
+                    renderDetails={renderJutsuDetails}
+                    onSelectJutsu={(jutsu) => {
+                        setSelectedJutsuId(jutsu.id);
+                        if (typeof window !== "undefined" && window.matchMedia("(max-width: 800px)").matches) {
+                            setMobileJutsuInfoId(jutsu.id);
+                        }
                     }}
-                    onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)}
                 />
             </section>
+
+            <Modal
+                open={mobileInfoJutsu !== null}
+                onClose={() => setMobileJutsuInfoId(null)}
+                title={mobileInfoJutsu?.name ?? "Jutsu information"}
+                size="md"
+                className="jutsu-mobile-info-modal"
+            >
+                {mobileInfoJutsu && mobileInfoMastery && (
+                    <div className="jutsu-mobile-info-content">
+                        <div className="jutsu-mobile-info-hero">
+                            <span>{mobileInfoJutsu.image ? <img src={mobileInfoJutsu.image} alt="" /> : mobileInfoJutsu.type.slice(0, 3).toUpperCase()}</span>
+                            <div><strong>{mobileInfoJutsu.name}</strong><small>{mobileInfoJutsu.type} · {mobileInfoJutsu.element} · Level {mobileInfoMastery.level}</small></div>
+                        </div>
+                        {renderJutsuDetails(mobileInfoJutsu)}
+                        <button
+                            className="jutsu-mobile-train-action"
+                            type="button"
+                            disabled={!!jutsuAction || !!activeJutsuTraining || mobileInfoAtCap || mobileInfoInsufficientRyo}
+                            onClick={() => {
+                                setMobileJutsuInfoId(null);
+                                void startPaidJutsuTraining();
+                            }}
+                        >
+                            {jutsuAction === "start"
+                                ? "Saving lesson…"
+                                : activeJutsuTraining
+                                    ? "Another lesson is active"
+                                    : mobileInfoAtCap
+                                        ? "Battle training required"
+                                        : mobileInfoInsufficientRyo
+                                            ? `Need ${(mobileInfoCost - character.ryo).toLocaleString()} more ryo`
+                                            : mobileInfoMastery.level === 0
+                                                ? "Unlock level 1 · free"
+                                                : `Train · ${mobileInfoCost.toLocaleString()} ryo`}
+                        </button>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

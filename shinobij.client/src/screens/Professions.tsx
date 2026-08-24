@@ -6,7 +6,7 @@
  *     all three paths (Healer / Vanguard / Pet Tamer) so the player can read up
  *     before the Elder's choice. The initial choice happens in the forced
  *     ProfessionPicker overlay (fires at Level 13); this screen also owns the
- *     account's one-time free path-change control after a choice is made.
+ *     approval-gated path-change control after a choice is made.
  *   • Profession chosen → the matching hub (HealerHub / VanguardHub /
  *     PetTamerHub), which the menu button also relabels to.
  *
@@ -26,6 +26,12 @@ import { PetTamerHub } from "./professions/PetTamerHub";
 import type { Character, PlayerRecord, Profession, Screen } from "../App";
 import type { VersionedCharacterCommit } from "../types/character";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import { countItem } from "../lib/inventory";
+import {
+    PROFESSION_CHANGE_APPROVAL_COST,
+    PROFESSION_CHANGE_APPROVAL_ID,
+    PROFESSION_CHANGE_APPROVAL_NAME,
+} from "../../../shared/profession-change";
 
 // Mirrors api/profession/choose.ts PROFESSION_UNLOCK_LEVEL.
 const PROFESSION_UNLOCK_LEVEL = 13;
@@ -45,15 +51,19 @@ const PROFESSION_ICON: Record<Profession, GameIconName> = {
 function ProfessionRespecPanel({
     character,
     onVersionedCharacter,
+    onOpenMarketplace,
 }: {
     character: Character;
     onVersionedCharacter: VersionedCharacterCommit;
+    onOpenMarketplace: () => void;
 }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const current = PROFESSION_INFO.find(info => info.id === character.profession);
     if (!current) return null;
     const currentName = current.name;
+    const approvalCount = countItem(character, PROFESSION_CHANGE_APPROVAL_ID);
+    const hasApproval = approvalCount > 0;
 
     const choices = PROFESSION_INFO.filter(info => info.id !== character.profession);
 
@@ -62,8 +72,8 @@ function ProfessionRespecPanel({
         const nextInfo = PROFESSION_INFO.find(info => info.id === next);
         if (!nextInfo) return;
         const confirmed = await gameConfirm(
-            `Change from ${currentName} to ${nextInfo.name}? This uses your only free profession change and resets profession rank, XP, and mastery allocation to Rank 1.`,
-            { title: "Use Free Profession Change", confirmLabel: `Become ${nextInfo.name}`, danger: true },
+            `Change from ${currentName} to ${nextInfo.name}? This consumes 1 ${PROFESSION_CHANGE_APPROVAL_NAME} and resets profession rank, XP, and mastery allocation to Rank 1.`,
+            { title: "Use Profession Approval", confirmLabel: `Become ${nextInfo.name}`, danger: true },
         );
         if (!confirmed) return;
 
@@ -91,20 +101,23 @@ function ProfessionRespecPanel({
     return (
         <section className="card profession-respec-panel" aria-labelledby="profession-change-heading" style={{ marginTop: "1rem" }}>
             <h3 id="profession-change-heading">Profession Path Change</h3>
-            {character.professionRespecUsed ? (
-                <p className="hint">Your one-time free path change has been used. <strong>{current.name}</strong> is now your permanent profession.</p>
-            ) : (
-                <>
-                    <p className="hint">Every character gets one free profession change. Changing resets profession rank, profession XP, and mastery allocation to Rank 1; your normal character progress and inventory stay intact.</p>
-                    <div className="menu">
-                        {choices.map(info => (
-                            <button key={info.id} type="button" disabled={busy} onClick={() => void changeProfession(info.id)}>
-                                {busy ? "Changing…" : `Change to ${info.name}`}
-                            </button>
-                        ))}
-                    </div>
-                </>
-            )}
+            <div className="profession-approval-summary">
+                <img src="/items/item-territory-control-scroll-v1.webp" alt="A sealed paper profession approval" />
+                <div>
+                    <strong>{PROFESSION_CHANGE_APPROVAL_NAME}</strong>
+                    <span>{hasApproval ? `${approvalCount} ready to use` : "Required to change paths"}</span>
+                    <small>Grand Marketplace · {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards</small>
+                </div>
+            </div>
+            <p className="hint">Each path change consumes one approval and resets profession rank, profession XP, and mastery allocation to Rank 1. Your normal character progress and other inventory stay intact.</p>
+            <div className="menu profession-change-actions">
+                {choices.map(info => (
+                    <button key={info.id} type="button" disabled={busy || !hasApproval} onClick={() => void changeProfession(info.id)}>
+                        {busy ? "Changing…" : `Change to ${info.name}`}
+                    </button>
+                ))}
+                {!hasApproval && <button type="button" onClick={onOpenMarketplace}>Visit Grand Marketplace</button>}
+            </div>
             {error && <p role="alert" style={{ color: "#f87171" }}>{error}</p>}
         </section>
     );
@@ -136,7 +149,7 @@ export function Professions({
         hub = <PetTamerHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} />;
     }
     if (hub) {
-        return <div className={`profession-screen profession-screen-${character.profession}`}>{hub}<ProfessionRespecPanel character={character} onVersionedCharacter={onVersionedCharacter} /></div>;
+        return <div className={`profession-screen profession-screen-${character.profession}`}>{hub}<ProfessionRespecPanel character={character} onVersionedCharacter={onVersionedCharacter} onOpenMarketplace={() => setScreen("grandMarketplace")} /></div>;
     }
 
     // No profession yet → the three-path overview.
@@ -168,7 +181,7 @@ export function Professions({
 
             <p className="hint" style={{ marginTop: 0 }}>
                 At <strong>Level {PROFESSION_UNLOCK_LEVEL}</strong>, the village elder summons you to choose a profession — a
-                path that shapes how you grow. You receive one free path change later; using it resets profession rank, XP, and mastery. Read each one below.
+                path that shapes how you grow. Later changes require a {PROFESSION_CHANGE_APPROVAL_NAME} from the Grand Marketplace and reset profession rank, XP, and mastery. Read each one below.
                 {eligible
                     ? " You're ready: the elder will call on you to choose."
                     : ` You're Level ${character.level} — keep training to unlock the choice.`}
@@ -223,7 +236,7 @@ export function Professions({
             </div>
 
             <p className="hint" style={{ marginTop: "1rem", fontSize: "0.78rem", opacity: 0.75 }}>
-                Your first choice opens that profession's hub. Every character may make one free path change from the hub; the second choice is permanent.
+                Your first choice opens that profession's hub. Future changes each consume a {PROFESSION_CHANGE_APPROVAL_NAME}, sold in the Grand Marketplace for {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards.
             </p>
         </div>
     );

@@ -50,6 +50,7 @@ function pickCombatFields(item) {
     const out = { id: item.id, name: item.name, slot: item.slot, rarity: item.rarity };
     out.cost = Math.max(0, Math.floor(Number(item.cost) || 0));
     if (item.levelReq != null) out.levelReq = Math.max(1, Math.floor(Number(item.levelReq) || 1));
+    if (item.serviceItem === true) out.serviceItem = true;
     if (stackableItemIds.has(item.id)) out.stackable = true;
     if (item.armorQuality != null) out.armorQuality = item.armorQuality;
     if (item.weaponElement != null) out.weaponElement = item.weaponElement;
@@ -131,6 +132,7 @@ export type CatalogItem = {
     rarity: string;
     cost?: number;
     levelReq?: number;
+    serviceItem?: boolean;
     stackable?: boolean;
     armorQuality?: string;
     weaponElement?: string;
